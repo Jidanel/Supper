@@ -1,0 +1,4 @@
+Pass_instalation_postgres: Supper
+
+login : supper_user
+pass_bd: SupperDB2025
