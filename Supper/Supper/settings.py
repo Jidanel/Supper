@@ -63,7 +63,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'common.middleware.AuditMiddleware',              # Journalisation (à activer après création)
+    'common.middleware.AdminAccessMiddleware',  # Nouveau middleware pour contrôler l'admin
+    'common.middleware.AuditMiddleware',        # Journalisation
 ]
 
 # ===================================================================
@@ -126,15 +127,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {
-            'min_length': 8,  # Minimum 8 caractères pour les mots de passe
+            'min_length': 4,  # Minimum 4 caractères pour les mots de passe
         }
     },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+   
 ]
 
 # ===================================================================
@@ -397,19 +393,19 @@ if DEBUG:
     # Autoriser tous les hôtes en développement
     ALLOWED_HOSTS = ['*']
     
-    # Debug Toolbar si installé
-    try:
-        import debug_toolbar
-        INSTALLED_APPS.append('debug_toolbar')
-        MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
-        
-        DEBUG_TOOLBAR_CONFIG = {
-            'SHOW_TOOLBAR_CALLBACK': lambda request: True,
-        }
-        
-    except ImportError:
-        pass
 
+    # Debug Toolbar si installé - COMMENTÉ TEMPORAIREMENT
+    # try:
+    #     import debug_toolbar
+    #     INSTALLED_APPS.append('debug_toolbar')
+    #     MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+    #     
+    #     DEBUG_TOOLBAR_CONFIG = {
+    #         'SHOW_TOOLBAR_CALLBACK': lambda request: True,
+    #     }
+    #     
+    # except ImportError:
+    #     pass
 # ===================================================================
 # TYPE DE CHAMP PRIMAIRE PAR DÉFAUT
 # ===================================================================

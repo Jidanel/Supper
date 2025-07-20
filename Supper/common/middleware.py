@@ -8,6 +8,12 @@ import time
 from django.utils.deprecation import MiddlewareMixin
 from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
+from django.http import HttpResponseForbidden
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.urls import reverse
+from django.utils.deprecation import MiddlewareMixin
+
 
 # Configuration du logger spécifique à SUPPER
 logger = logging.getLogger('supper')
@@ -277,6 +283,67 @@ class AuditMiddleware(MiddlewareMixin):
 
 
 
-
+class AdminAccessMiddleware(MiddlewareMixin):
+    """
+    Middleware pour contrôler l'accès au panel d'administration Django
+    Seuls les administrateurs principaux peuvent y accéder
+    """
+    
+    def process_request(self, request):
+        # Vérifier si la requête concerne le panel admin Django
+        if request.path.startswith('/admin/'):
+            # Permettre l'accès aux fichiers statiques de l'admin
+            if request.path.startswith('/admin/jsi18n/') or \
+               request.path.startswith('/admin/static/'):
+                return None
+            
+            # Vérifier que l'utilisateur est connecté
+            if not request.user.is_authenticated:
+                return None  # Laisser Django gérer la redirection de connexion
+            
+            # Vérifier que l'utilisateur est admin principal
+            if not self._is_admin_principal(request.user):
+                messages.error(
+                    request, 
+                    "Accès interdit. Seuls les administrateurs principaux "
+                    "peuvent accéder au panel d'administration Django. "
+                    "Utilisez l'interface SUPPER dédiée à votre rôle."
+                )
+                
+                # Log de la tentative d'accès
+                from common.utils import log_user_action
+                log_user_action(
+                    request.user,
+                    "ACCÈS REFUSÉ - Panel Admin Django",
+                    f"Tentative d'accès au panel admin par {request.user.habilitation}",
+                    request
+                )
+                
+                # Rediriger vers le dashboard SUPPER approprié
+                return redirect(self._get_user_dashboard_url(request.user))
+        
+        return None
+    
+    def _is_admin_principal(self, user):
+        """Vérifie si l'utilisateur est un administrateur principal"""
+        return (
+            user.is_superuser and 
+            hasattr(user, 'habilitation') and 
+            user.habilitation == 'admin_principal'
+        )
+    
+    def _get_user_dashboard_url(self, user):
+        """Retourne l'URL du dashboard approprié selon le rôle"""
+        if hasattr(user, 'habilitation'):
+            if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']:
+                return '/dashboard/admin/'
+            elif 'chef' in user.habilitation:
+                return '/dashboard/chef/'
+            elif user.habilitation == 'agent_inventaire':
+                return '/dashboard/agent/'
+            else:
+                return '/dashboard/'
+        
+        return '/dashboard/'
 
 
