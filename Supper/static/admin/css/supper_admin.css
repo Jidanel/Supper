@@ -1,0 +1,613 @@
+/* ===================================================================
+   SUPPER Admin  static/admin/css/super_admin.css- Styles personnalisés pour le panel administrateur
+   =================================================================== */
+
+/* Variables CSS pour la cohérence */
+:root {
+    --supper-primary: #007cba;
+    --supper-secondary: #6c757d;
+    --supper-success: #28a745;
+    --supper-warning: #ffc107;
+    --supper-danger: #dc3545;
+    --supper-info: #17a2b8;
+    --supper-light: #f8f9fa;
+    --supper-dark: #343a40;
+    
+    --supper-gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --supper-gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --supper-gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --supper-gradient-4: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    
+    --supper-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    --supper-shadow-hover: 0 4px 8px rgba(0,0,0,0.15);
+    --supper-border-radius: 8px;
+    --supper-transition: all 0.3s ease;
+}
+
+/* ===================================================================
+   PERSONNALISATION DE L'EN-TÊTE ADMIN
+   =================================================================== */
+
+/* Header principal */
+#header {
+    background: var(--supper-gradient-1);
+    border-bottom: none;
+    box-shadow: var(--supper-shadow);
+    padding: 0;
+}
+
+#branding {
+    padding: 15px 20px;
+}
+
+#branding h1 {
+    color: white;
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+#branding h1:before {
+    content: "🚗 ";
+    font-size: 20px;
+    margin-right: 8px;
+}
+
+#branding h2 {
+    color: rgba(255,255,255,0.8);
+    font-size: 14px;
+    font-weight: normal;
+    margin: 5px 0 0 0;
+}
+
+/* Navigation utilisateur */
+#user-tools {
+    background: rgba(255,255,255,0.1);
+    border-radius: 0 0 0 var(--supper-border-radius);
+    padding: 10px 20px;
+    margin: 0;
+}
+
+#user-tools a {
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: var(--supper-transition);
+}
+
+#user-tools a:hover {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+/* ===================================================================
+   SIDEBAR ET NAVIGATION
+   =================================================================== */
+
+/* Sidebar principale */
+#nav-sidebar {
+    background: white;
+    border-right: 1px solid #e9ecef;
+    box-shadow: var(--supper-shadow);
+}
+
+.module {
+    background: white;
+    border: none;
+    border-radius: var(--supper-border-radius);
+    margin: 10px;
+    overflow: hidden;
+    box-shadow: var(--supper-shadow);
+    transition: var(--supper-transition);
+}
+
+.module:hover {
+    box-shadow: var(--supper-shadow-hover);
+    transform: translateY(-1px);
+}
+
+.module caption {
+    background: var(--supper-gradient-1);
+    color: white;
+    padding: 12px 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+}
+
+.module caption:before {
+    content: "📊 ";
+    margin-right: 5px;
+}
+
+.module th {
+    background: var(--supper-light);
+    color: var(--supper-dark);
+    font-weight: 600;
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.module td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.module tr:hover td {
+    background: var(--supper-light);
+}
+
+/* ===================================================================
+   CONTENU PRINCIPAL
+   =================================================================== */
+
+/* Zone de contenu */
+#content {
+    background: #f8f9fa;
+    min-height: calc(100vh - 80px);
+}
+
+/* Titres de pages */
+.content h1 {
+    background: white;
+    color: var(--supper-dark);
+    padding: 20px 30px;
+    margin: 0 0 20px 0;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    font-size: 28px;
+    font-weight: 300;
+}
+
+.content h1:before {
+    content: "🎛️ ";
+    margin-right: 10px;
+}
+
+/* Breadcrumbs */
+.breadcrumbs {
+    background: white;
+    padding: 10px 30px;
+    margin: 0 0 20px 0;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    font-size: 14px;
+}
+
+.breadcrumbs a {
+    color: var(--supper-primary);
+    text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+    text-decoration: underline;
+}
+
+/* ===================================================================
+   FORMULAIRES ET TABLEAUX
+   =================================================================== */
+
+/* Groupes de champs */
+.form-row {
+    background: white;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.form-row .field-box {
+    padding: 20px;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.form-row .field-box:last-child {
+    border-bottom: none;
+}
+
+/* Labels */
+label {
+    font-weight: 600;
+    color: var(--supper-dark);
+    margin-bottom: 5px;
+    display: block;
+}
+
+/* Champs de saisie */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 14px;
+    transition: var(--supper-transition);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--supper-primary);
+    box-shadow: 0 0 0 0.2rem rgba(0, 124, 186, 0.25);
+    outline: none;
+}
+
+/* Boutons */
+.button, input[type="submit"], button {
+    background: var(--supper-primary);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: var(--supper-transition);
+    text-decoration: none;
+    display: inline-block;
+}
+
+.button:hover, input[type="submit"]:hover, button:hover {
+    background: #005a8b;
+    transform: translateY(-1px);
+    box-shadow: var(--supper-shadow);
+}
+
+.button.default, .default {
+    background: var(--supper-success);
+}
+
+.button.default:hover, .default:hover {
+    background: #1e7e34;
+}
+
+/* Boutons secondaires */
+.button[class*="cancel"], .button[class*="delete"] {
+    background: var(--supper-secondary);
+}
+
+.button[class*="cancel"]:hover, .button[class*="delete"]:hover {
+    background: #5a6268;
+}
+
+/* ===================================================================
+   TABLEAUX DE DONNÉES
+   =================================================================== */
+
+/* Tableau principal */
+#changelist table {
+    background: white;
+    border-radius: var(--supper-border-radius);
+    overflow: hidden;
+    box-shadow: var(--supper-shadow);
+    border: none;
+}
+
+#changelist thead th {
+    background: var(--supper-gradient-1);
+    color: white;
+    font-weight: 600;
+    padding: 15px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+    border: none;
+}
+
+#changelist thead th a {
+    color: white;
+    text-decoration: none;
+}
+
+#changelist tbody tr {
+    transition: var(--supper-transition);
+}
+
+#changelist tbody tr:hover {
+    background: var(--supper-light);
+}
+
+#changelist tbody td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #f8f9fa;
+    vertical-align: middle;
+}
+
+/* Actions en lot */
+.actions {
+    background: white;
+    padding: 15px 20px;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    margin-bottom: 20px;
+}
+
+.actions select {
+    margin-right: 10px;
+}
+
+/* ===================================================================
+   MESSAGES ET ALERTES
+   =================================================================== */
+
+.messagelist {
+    margin: 0 0 20px 0;
+    padding: 0;
+    list-style: none;
+}
+
+.messagelist li {
+    background: white;
+    border-left: 4px solid var(--supper-info);
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.messagelist .success {
+    border-left-color: var(--supper-success);
+    background: #d4edda;
+    color: #155724;
+}
+
+.messagelist .warning {
+    border-left-color: var(--supper-warning);
+    background: #fff3cd;
+    color: #856404;
+}
+
+.messagelist .error {
+    border-left-color: var(--supper-danger);
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ===================================================================
+   PAGINATION
+   =================================================================== */
+
+.paginator {
+    background: white;
+    padding: 15px 20px;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    text-align: center;
+    margin-top: 20px;
+}
+
+.paginator a {
+    background: var(--supper-light);
+    color: var(--supper-primary);
+    padding: 8px 12px;
+    margin: 0 2px;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: var(--supper-transition);
+}
+
+.paginator a:hover {
+    background: var(--supper-primary);
+    color: white;
+}
+
+.paginator .this-page {
+    background: var(--supper-primary);
+    color: white;
+    padding: 8px 12px;
+    margin: 0 2px;
+    border-radius: 4px;
+}
+
+/* ===================================================================
+   FILTRES LATÉRAUX
+   =================================================================== */
+
+#changelist-filter {
+    background: white;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    padding: 0;
+}
+
+#changelist-filter h2 {
+    background: var(--supper-gradient-1);
+    color: white;
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#changelist-filter h3 {
+    background: var(--supper-light);
+    color: var(--supper-dark);
+    padding: 10px 20px;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    border-bottom: 1px solid #dee2e6;
+}
+
+#changelist-filter ul {
+    padding: 10px 20px;
+    margin: 0;
+}
+
+#changelist-filter li {
+    padding: 5px 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+#changelist-filter li:last-child {
+    border-bottom: none;
+}
+
+#changelist-filter a {
+    color: var(--supper-primary);
+    text-decoration: none;
+    transition: var(--supper-transition);
+}
+
+#changelist-filter a:hover {
+    color: var(--supper-dark);
+    font-weight: 600;
+}
+
+/* ===================================================================
+   RESPONSIVE DESIGN
+   =================================================================== */
+
+@media (max-width: 1024px) {
+    .dashboard-card {
+        padding: 15px;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    #header {
+        padding: 10px;
+    }
+    
+    #branding h1 {
+        font-size: 20px;
+    }
+    
+    .content h1 {
+        padding: 15px 20px;
+        font-size: 24px;
+    }
+    
+    .form-row .field-box {
+        padding: 15px;
+    }
+    
+    .dashboard-card {
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .stat-number {
+        font-size: 1.8rem;
+    }
+    
+    .action-buttons .btn {
+        margin: 2px;
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
+
+/* ===================================================================
+   ANIMATIONS ET EFFETS
+   =================================================================== */
+
+/* Animation de chargement */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.content > * {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Animation au survol */
+.module, .form-row, #changelist table, .messagelist li {
+    transition: var(--supper-transition);
+}
+
+/* Effet de pulsation pour les alertes */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.messagelist .error {
+    animation: pulse 2s ease-in-out;
+}
+
+/* ===================================================================
+   UTILITAIRES
+   =================================================================== */
+
+/* Classes utilitaires pour les badges */
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    color: white;
+}
+
+.badge-success { background: var(--supper-success); }
+.badge-warning { background: var(--supper-warning); }
+.badge-danger { background: var(--supper-danger); }
+.badge-info { background: var(--supper-info); }
+.badge-secondary { background: var(--supper-secondary); }
+
+/* Classes pour les icônes de statut */
+.status-icon {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.status-icon.success { background: var(--supper-success); }
+.status-icon.warning { background: var(--supper-warning); }
+.status-icon.danger { background: var(--supper-danger); }
+.status-icon.secondary { background: var(--supper-secondary); }
+
+/* Amélioration de la lisibilité */
+.help {
+    font-size: 12px;
+    color: var(--supper-secondary);
+    font-style: italic;
+    margin-top: 5px;
+}
+
+/* Style pour les liens d'action rapide */
+.quick-actions {
+    background: white;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.quick-actions h3 {
+    color: var(--supper-dark);
+    margin-bottom: 15px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.quick-actions .button {
+    margin: 5px 10px 5px 0;
+    font-size: 12px;
+    padding: 8px 15px;
+}

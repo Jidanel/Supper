@@ -671,13 +671,57 @@ class JournalAudit(models.Model):
     def __str__(self):
         return f"{self.timestamp} - {self.utilisateur.username} - {self.action}"
     
-    @property
-    def duree_formatee(self):
-        """Retourne la durée formatée en secondes"""
-        if self.duree_execution:
-            return f"{self.duree_execution.total_seconds():.2f}s"
-        return "N/A"
+   # Ajout à la classe JournalAudit dans accounts/models.py
+# Remplacer la méthode duree_formatee existante
 
+@property
+def duree_formatee(self):
+    """Retourne la durée d'exécution formatée"""
+    if self.duree_execution:
+        total_seconds = self.duree_execution.total_seconds()
+        if total_seconds < 1:
+            return f"{total_seconds*1000:.0f} ms"
+        else:
+            return f"{total_seconds:.2f} s"
+    return "N/A"
+
+def __str__(self):
+    """Représentation string sécurisée"""
+    try:
+        return f"{self.timestamp.strftime('%Y-%m-%d %H:%M')} - {self.utilisateur.username} - {self.action}"
+    except (AttributeError, ValueError):
+        return f"Journal #{self.pk} - {self.action}"
+
+def get_details_safe(self):
+    """Retourne les détails de manière sécurisée pour l'affichage"""
+    if not self.details:
+        return "Aucun détail"
+    
+    # Limiter la taille pour l'affichage en liste
+    if len(self.details) > 100:
+        return self.details[:97] + "..."
+    return self.details
+
+def get_ip_display(self):
+    """Affichage sécurisé de l'IP"""
+    return self.adresse_ip or "Non disponible"
+
+def get_user_agent_short(self):
+    """Version courte du user agent"""
+    if not self.user_agent:
+        return "Non disponible"
+    
+    # Extraire les informations principales du user agent
+    if 'Chrome' in self.user_agent:
+        return "Chrome"
+    elif 'Firefox' in self.user_agent:
+        return "Firefox"
+    elif 'Safari' in self.user_agent:
+        return "Safari"
+    elif 'Edge' in self.user_agent:
+        return "Edge"
+    else:
+        return "Autre navigateur"
 
 # ===================================================================
 # MODÈLE NOTIFICATIONS UTILISATEUR

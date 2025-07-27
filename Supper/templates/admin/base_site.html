@@ -1,0 +1,543 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }} | SUPPER Administration{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <!-- Bootstrap CSS pour le responsive design -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome pour les icônes -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Styles personnalisés SUPPER -->
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/supper_admin.css' %}">
+    
+    <!-- Meta tags pour le responsive -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <!-- Favicon personnalisé -->
+    <link rel="icon" type="image/x-icon" href="{% static 'admin/img/favicon.ico' %}">
+    
+    <style>
+        /* Styles spécifiques au template de base */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+        }
+        
+        /* Header personnalisé avec informations contextuelles */
+        .supper-header-info {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 20px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .supper-header-info i {
+            margin-right: 5px;
+        }
+        
+        /* Footer personnalisé */
+        .supper-footer {
+            background: white;
+            border-top: 1px solid #e9ecef;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 12px;
+            margin-top: 40px;
+        }
+        
+        /* Indicateur de module actuel */
+        .current-module {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 10px;
+        }
+        
+        /* Breadcrumb amélioré */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .breadcrumbs .breadcrumb-item {
+            display: flex;
+            align-items: center;
+            margin-right: 10px;
+        }
+        
+        .breadcrumbs .breadcrumb-item:not(:last-child):after {
+            content: "›";
+            margin-left: 10px;
+            color: #6c757d;
+            font-weight: bold;
+        }
+        
+        /* Indicateur de connexion utilisateur */
+        .user-info {
+            display: flex;
+            align-items: center;
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .user-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        /* Messages système améliorés */
+        .system-messages {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        }
+        
+        /* Loading indicator */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007cba;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+{% endblock %}
+
+{% block extrajs %}
+    {{ block.super }}
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Scripts globaux pour l'administration SUPPER
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialisation des tooltips Bootstrap
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Auto-hide des messages après 5 secondes
+            setTimeout(function() {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    if (alert.classList.contains('alert-success') || alert.classList.contains('alert-info')) {
+                        alert.style.opacity = '0';
+                        setTimeout(function() {
+                            alert.remove();
+                        }, 300);
+                    }
+                });
+            }, 5000);
+            
+            // Ajout d'indicateurs de chargement sur les formulaires
+            const forms = document.querySelectorAll('form');
+            forms.forEach(function(form) {
+                form.addEventListener('submit', function() {
+                    showLoadingOverlay();
+                });
+            });
+            
+            // Amélioration de l'UX avec des animations
+            animatePageLoad();
+        });
+        
+        // Fonction pour afficher l'overlay de chargement
+        function showLoadingOverlay() {
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.style.display = 'flex';
+            }
+        }
+        
+        // Fonction pour masquer l'overlay de chargement
+        function hideLoadingOverlay() {
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+        }
+        
+        // Animation du chargement de page
+        function animatePageLoad() {
+            const content = document.querySelector('#content');
+            if (content) {
+                content.style.opacity = '0';
+                content.style.transform = 'translateY(20px)';
+                
+                setTimeout(function() {
+                    content.style.transition = 'all 0.5s ease';
+                    content.style.opacity = '1';
+                    content.style.transform = 'translateY(0)';
+                }, 100);
+            }
+        }
+        
+        // Fonction utilitaire pour les notifications toast
+        function showToast(message, type = 'info') {
+            const toastContainer = document.querySelector('.system-messages') || createToastContainer();
+            
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} alert-dismissible fade show`;
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            // Auto-remove après 4 secondes
+            setTimeout(function() {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 4000);
+        }
+        
+        // Créer le conteneur de toasts s'il n'existe pas
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.className = 'system-messages';
+            document.body.appendChild(container);
+            return container;
+        }
+        
+        // Fonction pour confirmer les actions dangereuses
+        function confirmDangerousAction(message) {
+            return confirm('⚠️ ' + message + '\n\nCette action ne peut pas être annulée. Êtes-vous sûr ?');
+        }
+        
+        // Amélioration de l'expérience avec les liens externes
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a[href^="http"]');
+            if (link && !link.href.includes(window.location.hostname)) {
+                e.preventDefault();
+                if (confirm('Vous allez quitter l\'administration SUPPER. Continuer ?')) {
+                    window.open(link.href, '_blank');
+                }
+            }
+        });
+    </script>
+{% endblock %}
+
+{% block branding %}
+<div id="branding">
+    <h1 id="site-name">
+        <i class="fas fa-road"></i>
+        SUPPER Administration
+        {% if request.resolver_match.app_name %}
+            <span class="current-module">{{ request.resolver_match.app_name|title }}</span>
+        {% endif %}
+    </h1>
+    <h2>Suivi des Péages et Pesages Routiers</h2>
+    
+    <div class="supper-header-info">
+        <i class="fas fa-calendar"></i>
+        {% now "l d F Y" %}
+        <span style="margin-left: 20px;">
+            <i class="fas fa-clock"></i>
+            <span id="current-time">{% now "H:i" %}</span>
+        </span>
+        {% if user.is_authenticated %}
+        <span style="margin-left: 20px;">
+            <i class="fas fa-map-marker-alt"></i>
+            {% if user.poste_affectation %}
+                {{ user.poste_affectation.nom }}
+            {% else %}
+                Administration Centrale
+            {% endif %}
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block userlinks %}
+{% if user.is_authenticated %}
+<div class="user-info">
+    <div class="user-avatar">
+        {{ user.nom_complet.0|upper }}
+    </div>
+    <div>
+        <strong>{{ user.nom_complet }}</strong>
+        <br>
+        <small>{{ user.get_habilitation_display }}</small>
+    </div>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}
+
+{% block nav-global %}
+{% if user.is_authenticated %}
+<div class="nav-global">
+    <a href="{% url 'admin:dashboard' %}" class="nav-link">
+        <i class="fas fa-tachometer-alt"></i>
+        {% trans 'Dashboard' %}
+    </a>
+    
+    {% if user.is_admin %}
+    <a href="{% url 'admin:accounts_utilisateursupper_changelist' %}" class="nav-link">
+        <i class="fas fa-users"></i>
+        {% trans 'Utilisateurs' %}
+    </a>
+    
+    <a href="{% url 'admin:accounts_poste_changelist' %}" class="nav-link">
+        <i class="fas fa-map-marker-alt"></i>
+        {% trans 'Postes' %}
+    </a>
+    
+    <a href="{% url 'admin:saisie_inventaire' %}" class="nav-link">
+        <i class="fas fa-edit"></i>
+        {% trans 'Saisie Inventaire' %}
+    </a>
+    
+    <a href="{% url 'admin:accounts_journalaudit_changelist' %}" class="nav-link">
+        <i class="fas fa-history"></i>
+        {% trans 'Journal Audit' %}
+    </a>
+    {% endif %}
+</div>
+
+<style>
+.nav-global {
+    background: rgba(255,255,255,0.1);
+    padding: 10px 20px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.nav-link {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.nav-link:hover {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.nav-link.active {
+    background: rgba(255,255,255,0.3);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .nav-global {
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .nav-link {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+}
+</style>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Overlay de chargement -->
+<div class="loading-overlay">
+    <div class="loading-spinner"></div>
+</div>
+
+<!-- Conteneur pour les messages système -->
+<div class="system-messages"></div>
+
+<!-- Breadcrumbs améliorés -->
+{% if request.resolver_match.url_name != 'dashboard' %}
+<div class="breadcrumbs">
+    <div class="breadcrumb-item">
+        <i class="fas fa-home"></i>
+        <a href="{% url 'admin:index' %}">{% trans 'Accueil' %}</a>
+    </div>
+    
+    {% if request.resolver_match.app_name %}
+    <div class="breadcrumb-item">
+        <i class="fas fa-folder"></i>
+        {{ request.resolver_match.app_name|title }}
+    </div>
+    {% endif %}
+    
+    {% if request.resolver_match.url_name %}
+    <div class="breadcrumb-item">
+        <i class="fas fa-file"></i>
+        {{ title|default:request.resolver_match.url_name|title }}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{{ block.super }}
+{% endblock %}
+
+{% block footer %}
+<div class="supper-footer">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-6 text-start">
+                <strong>SUPPER v1.0</strong> - Suivi des Péages et Pesages Routiers
+                <br>
+                <small>© 2025 - République du Cameroun</small>
+            </div>
+            <div class="col-md-6 text-end">
+                <small>
+                    {% if user.is_authenticated %}
+                        <i class="fas fa-user"></i>
+                        Connecté en tant que <strong>{{ user.username }}</strong>
+                        <br>
+                        <i class="fas fa-clock"></i>
+                        Session active depuis {{ user.last_login|timesince }}
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+        
+        {% if DEBUG %}
+        <div class="row mt-2">
+            <div class="col-12 text-center">
+                <small class="text-warning">
+                    <i class="fas fa-bug"></i>
+                    Mode développement activé
+                    <a href="/debug/" class="text-warning ms-2">Infos debug</a>
+                </small>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Mise à jour de l'heure en temps réel
+    function updateTime() {
+        const timeElement = document.getElementById('current-time');
+        if (timeElement) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fr-FR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            timeElement.textContent = timeString;
+        }
+    }
+    
+    // Mettre à jour l'heure chaque minute
+    setInterval(updateTime, 60000);
+    
+    // Mise à jour immédiate
+    updateTime();
+    
+    // Marquer le lien de navigation actuel
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.nav-link');
+        
+        navLinks.forEach(function(link) {
+            if (currentPath.includes(link.getAttribute('href'))) {
+                link.classList.add('active');
+            }
+        });
+    });
+    
+    // Raccourcis clavier pour l'administration
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+Alt+D pour aller au dashboard
+        if (e.ctrlKey && e.altKey && e.key === 'd') {
+            e.preventDefault();
+            window.location.href = '{% url "admin:dashboard" %}';
+        }
+        
+        // Ctrl+Alt+U pour aller aux utilisateurs
+        if (e.ctrlKey && e.altKey && e.key === 'u') {
+            e.preventDefault();
+            window.location.href = '{% url "admin:accounts_utilisateursupper_changelist" %}';
+        }
+        
+        // Ctrl+Alt+I pour la saisie d'inventaire
+        if (e.ctrlKey && e.altKey && e.key === 'i') {
+            e.preventDefault();
+            window.location.href = '{% url "admin:saisie_inventaire" %}';
+        }
+        
+        // Échap pour retourner au dashboard
+        if (e.key === 'Escape' && !document.querySelector('input:focus, textarea:focus, select:focus')) {
+            window.location.href = '{% url "admin:dashboard" %}';
+        }
+    });
+    
+    // Confirmation automatique pour les actions de suppression
+    document.addEventListener('click', function(e) {
+        const deleteButton = e.target.closest('input[value*="Supprimer"], .delete-link, [name="_delete"]');
+        if (deleteButton) {
+            if (!confirmDangerousAction('Voulez-vous vraiment supprimer cet élément ?')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+    
+    // Sauvegarde automatique des brouillons (pour les formulaires longs)
+    let autoSaveTimeout;
+    document.addEventListener('input', function(e) {
+        if (e.target.matches('textarea, input[type="text"]')) {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(function() {
+                // Logique de sauvegarde automatique (à implémenter si nécessaire)
+                console.log('Auto-save triggered');
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

@@ -61,27 +61,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    
-    # ===================================================================
-    # MIDDLEWARES SUPPER PERSONNALISÉS - ORDRE IMPORTANT
-    # ===================================================================
-    
-    # 1. Contexte utilisateur (doit être après AuthenticationMiddleware)
-    'common.middleware.UserContextMiddleware',
-    
-    # 2. Redirection automatique selon rôles (doit être après UserContextMiddleware)
-    'common.middleware.AdminRedirectMiddleware',
-    
-    # 3. Journalisation des actions (après redirection)
-    'common.middleware.AuditMiddleware',
-    
-    # 4. Sécurité avancée
-    'common.middleware.SecurityMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'common.middleware.AdminAccessMiddleware',  # Nouveau middleware pour contrôler l'admin
-    'common.middleware.AuditMiddleware',        # Journalisation
+    'common.middleware.AuditMiddleware',              # Journalisation activée
 ]
 
 # ===================================================================
@@ -144,10 +126,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {
-            'min_length': 4,  # Minimum 4 caractères pour les mots de passe
+            'min_length': 4,  # Mot de passe simplifié pour SUPPER
         }
     },
-   
+    # Commenté pour simplifier les mots de passe
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    # },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    # },
 ]
 
 # ===================================================================
@@ -192,56 +180,20 @@ MEDIA_ROOT = BASE_DIR / 'media'
 AUTH_USER_MODEL = 'accounts.UtilisateurSUPPER'
 
 # URLs de redirection après connexion/déconnexion
-# URLs de redirection après connexion/déconnexion
-LOGIN_URL = '/accounts/login/'
-LOGOUT_URL = '/accounts/logout/'
+LOGIN_URL = '/admin/login/'  # Redirection vers le panel admin
+LOGIN_REDIRECT_URL = '/admin/'
+LOGOUT_REDIRECT_URL = '/admin/login/'
 
-# Redirection par défaut après connexion (sera override par le middleware)
-LOGIN_REDIRECT_URL = '/'  # Le middleware gèrera la redirection réelle
-# Redirection après déconnexion
-LOGOUT_REDIRECT_URL = '/accounts/login/'
 # ===================================================================
 # CONFIGURATION DES SESSIONS
 # ===================================================================
-# Site admin par défaut
-ADMIN_SITE_HEADER = "Administration SUPPER"
-ADMIN_SITE_TITLE = "SUPPER Admin"
-ADMIN_INDEX_TITLE = "Tableau de Bord Administrateur"
 
-
-# Configuration des sessions Django
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-SESSION_COOKIE_AGE = 3600 * 8  # 8 heures
+SESSION_COOKIE_AGE = 3600  # 1 heure d'inactivité
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  # Nécessaire pour la journalisation
 SESSION_COOKIE_NAME = 'supper_sessionid'
 SESSION_COOKIE_SECURE = not DEBUG  # HTTPS en production
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
-
-# Cache par défaut (en mémoire pour développement)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'supper-cache',
-        'TIMEOUT': 300,  # 5 minutes
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,
-        }
-    }
-}
-
-# En production, utiliser Redis :
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-#         'LOCATION': 'redis://127.0.0.1:6379/1',
-#         'OPTIONS': {
-#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-#         }
-#     }
-# }
-
 
 # ===================================================================
 # CONFIGURATION DE LA JOURNALISATION COMPLÈTE
@@ -260,89 +212,81 @@ LOGGING = {
             'style': '{',
         },
         'simple': {
-            'format': '{levelname} {message}',
+            'format': '{levelname} {asctime} {message}',
             'style': '{',
         },
-        'supper_format': {
-            'format': '[{asctime}] {levelname} {name}: {message}',
+        'audit': {
+            'format': '{asctime} | {name} | {levelname} | {message}',
             'style': '{',
-            'datefmt': '%Y-%m-%d %H:%M:%S',
-        },
-    },
-    'filters': {
-        'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
-        },
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse',
         },
     },
     'handlers': {
-        'console': {
-            'level': 'INFO',
-            'filters': ['require_debug_true'],
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple'
-        },
-        'file_supper': {
+        # Fichier principal de l'application
+        'file_app': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'supper_app.log',
-            'maxBytes': 1024*1024*15,  # 15 MB
-            'backupCount': 10,
-            'formatter': 'supper_format',
+            'filename': LOGS_DIR / 'supper_app.log',
+            'maxBytes': 5*1024*1024,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
+        # Fichier spécifique pour l'audit utilisateur
         'file_audit': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'supper_audit.log',
-            'maxBytes': 1024*1024*15,  # 15 MB
+            'filename': LOGS_DIR / 'supper_audit.log',
+            'maxBytes': 10*1024*1024,  # 10 MB
             'backupCount': 10,
-            'formatter': 'supper_format',
+            'formatter': 'audit',
+            'encoding': 'utf-8',
         },
-        'file_security': {
-            'level': 'WARNING',
+        # Fichier pour les erreurs
+        'file_error': {
+            'level': 'ERROR',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'supper_security.log',
-            'maxBytes': 1024*1024*5,  # 5 MB
-            'backupCount': 5,
-            'formatter': 'supper_format',
+            'filename': LOGS_DIR / 'supper_errors.log',
+            'maxBytes': 5*1024*1024,  # 5 MB
+            'backupCount': 3,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
         },
-        'file_redirect': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'supper_redirect.log',
-            'maxBytes': 1024*1024*5,  # 5 MB
-            'backupCount': 5,
-            'formatter': 'supper_format',
+        # Console pour le développement
+        'console': {
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
         },
     },
     'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
+        # Logger principal de SUPPER
         'supper': {
-            'handlers': ['console', 'file_supper'],
+            'handlers': ['file_app', 'file_audit', 'console'],
             'level': 'INFO',
             'propagate': False,
         },
-        'accounts': {
-            'handlers': ['console', 'file_audit'],
+        # Logger Django
+        'django': {
+            'handlers': ['file_error', 'console'],
             'level': 'INFO',
             'propagate': False,
         },
-        'common.middleware': {
-            'handlers': ['console', 'file_redirect'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'security': {
-            'handlers': ['file_security'],
+        # Logger base de données (limité pour éviter trop de logs)
+        'django.db.backends': {
+            'handlers': ['file_app'],
             'level': 'WARNING',
             'propagate': False,
         },
+        # Logger requêtes HTTP
+        'django.request': {
+            'handlers': ['file_error', 'console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
     },
 }
 
@@ -355,7 +299,7 @@ MESSAGE_TAGS = {
     messages.INFO: 'info',
     messages.SUCCESS: 'success',
     messages.WARNING: 'warning',
-     messages.ERROR: 'danger',
+    messages.ERROR: 'error',
 }
 
 # ===================================================================
@@ -381,19 +325,25 @@ SUPPER_CONFIG = {
 # CONFIGURATION EMAIL
 # ===================================================================
 
-if DEBUG:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-else:
-    # Configuration SMTP pour production
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = 'localhost'  # À configurer selon l'environnement
-    EMAIL_PORT = 587
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = ''  # À configurer
-    EMAIL_HOST_PASSWORD = ''  # À configurer
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@supper.cm')
 
-DEFAULT_FROM_EMAIL = 'noreply@supper.cm'
-ADMIN_EMAIL = 'admin@supper.cm'
+# ===================================================================
+# CONFIGURATION CACHE
+# ===================================================================
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'supper-cache',
+        'TIMEOUT': 300,  # 5 minutes
+    }
+}
 
 # ===================================================================
 # CONFIGURATION PAGINATION
@@ -406,8 +356,6 @@ PAGINATION_CONFIG = {
     'RECETTES_PER_PAGE': 30,
 }
 
-# Pagination par défaut
-PAGINATE_BY = 25
 # ===================================================================
 # CONFIGURATION DE SÉCURITÉ
 # ===================================================================
@@ -428,23 +376,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 ]
-# Protection CSRF
-CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_USE_SESSIONS = False  # Utiliser les cookies pour CSRF
 
-# En-têtes de sécurité (gérés aussi par le middleware)
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_BROWSER_XSS_FILTER = True
-X_FRAME_OPTIONS = 'DENY'
-
-# En production uniquement
-if not DEBUG:
-    SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000  # 1 an
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
 # ===================================================================
 # PARAMÈTRES DE DÉVELOPPEMENT
 # ===================================================================
@@ -453,116 +385,28 @@ if DEBUG:
     # Autoriser tous les hôtes en développement
     ALLOWED_HOSTS = ['*']
     
-
-    # Debug Toolbar si installé - COMMENTÉ TEMPORAIREMENT
+    # Debug Toolbar si installé
     # try:
     #     import debug_toolbar
     #     INSTALLED_APPS.append('debug_toolbar')
     #     MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
-    #     
+        
     #     DEBUG_TOOLBAR_CONFIG = {
     #         'SHOW_TOOLBAR_CALLBACK': lambda request: True,
     #     }
-    #     
+        
     # except ImportError:
     #     pass
+
 # ===================================================================
 # TYPE DE CHAMP PRIMAIRE PAR DÉFAUT
 # ===================================================================
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-#Compression des réponses
-USE_GZIP = True
-
 # ===================================================================
-# CONFIGURATION DÉVELOPPEMENT VS PRODUCTION
+# CONFIGURATION ADMIN SITE PERSONNALISÉ
 # ===================================================================
 
-if DEBUG:
-    # Paramètres de développement
-    INTERNAL_IPS = ['127.0.0.1', 'localhost']
-    
-    # Debug toolbar si installé
-    try:
-        import debug_toolbar
-        INSTALLED_APPS += ['debug_toolbar']
-        MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
-    except ImportError:
-        pass
-
-else:
-    # Paramètres de production
-    ALLOWED_HOSTS = ['*']  # À restreindre en production
-    
-    # Désactiver les informations sensibles
-    ADMINS = [('Admin SUPPER', ADMIN_EMAIL)]
-    MANAGERS = ADMINS
-    
-    # Logging plus verbeux en production
-    LOGGING['handlers']['file_supper']['level'] = 'WARNING'
-
-# ===================================================================
-# VARIABLES SPÉCIFIQUES SUPPER
-# ===================================================================
-
-# Configuration métier SUPPER
-SUPPER_CONFIG = {
-    'VERSION': '1.0.0',
-    'ORGANIZATION': 'Programme de Sécurisation des Recettes Routières',
-    'COUNTRY': 'Cameroun',
-    'DEFAULT_TIMEZONE': 'Africa/Douala',
-    'SUPPORTED_LANGUAGES': ['fr', 'en'],
-    'MAX_UPLOAD_SIZE': 10 * 1024 * 1024,  # 10 MB
-    'SESSION_TIMEOUT_MINUTES': 480,  # 8 heures
-    'BACKUP_RETENTION_DAYS': 30,
-    'LOG_RETENTION_DAYS': 90,
-}
-
-# Paramètres de calcul métier
-CALCUL_CONFIG = {
-    'TAUX_VEHICULES_LOURDS': 0.75,  # 75% de véhicules lourds
-    'TARIF_MOYEN_FCFA': 500,        # 500 FCFA par véhicule
-    'HEURES_FONCTIONNEMENT': 24,    # 24h/24
-    'SEUILS_DEPERDITION': {
-        'BON': -10,      # > -10%
-        'ATTENTION': -30, # -10% à -30%
-        'CRITIQUE': -30   # < -30%
-    }
-}
-
-# ===================================================================
-# IMPORTS CONDITIONNELS POUR ENVIRONNEMENTS
-# ===================================================================
-
-# Importer les paramètres locaux s'ils existent
-import importlib.util
-
-local_settings_path = Path(__file__).parent / 'local_settings.py'
-if local_settings_path.exists():
-    spec = importlib.util.spec_from_file_location("local_settings", str(local_settings_path))
-    local_settings = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(local_settings)
-    for setting in dir(local_settings):
-        if setting.isupper():
-            globals()[setting] = getattr(local_settings, setting)
-    print("✅ Paramètres locaux chargés")
-else:
-    print("ℹ️ Aucun paramètre local trouvé")
-
-# Importer les paramètres de production s'ils existent
-if not DEBUG:
-    production_settings_path = Path(__file__).parent / 'production_settings.py'
-    if production_settings_path.exists():
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("production_settings", str(production_settings_path))
-        production_settings = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(production_settings)
-        for setting in dir(production_settings):
-            if setting.isupper():
-                globals()[setting] = getattr(production_settings, setting)
-        print("✅ Paramètres de production chargés")
-    else:
-        print("⚠️ Aucun paramètre de production trouvé")
-
-print(f"🚀 SUPPER v{SUPPER_CONFIG['VERSION']} - Mode {'Développement' if DEBUG else 'Production'}")
+# Utilisation du site admin personnalisé
+ADMIN_SITE_CLASS = 'accounts.admin.SupperAdminSite'
