@@ -1,957 +1,413 @@
 # ===================================================================
-# Fichier : Supper/inventaire/admin.py
-# Interface admin Django pour gestion complète des inventaires
-# Accessible aux administrateurs et services autorisés
+# inventaire/admin.py - Interface admin pour les inventaires
 # ===================================================================
+# 🔄 REMPLACE le contenu existant du fichier inventaire/admin.py
 
 from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
-from django.db.models import Count, Avg, Sum
-from django.contrib.admin import SimpleListFilter
 from django.urls import reverse
-from django.shortcuts import redirect
-from django.contrib import messages
-import datetime
-import csv
+from django.utils import timezone
 from django.http import HttpResponse
-
+from accounts.admin import admin_site
 from .models import (
     ConfigurationJour, InventaireJournalier, DetailInventairePeriode,
     RecetteJournaliere, StatistiquesPeriodiques
 )
+import csv
 
 
-# ===================================================================
-# FILTRES PERSONNALISÉS POUR INVENTAIRES
-# ===================================================================
-
-class PeriodeFilter(SimpleListFilter):
-    """Filtre par période pour inventaires"""
-    title = _('Période')
-    parameter_name = 'periode'
-
-    def lookups(self, request, model_admin):
-        return [
-            ('today', _('Aujourd\'hui')),
-            ('week', _('Cette semaine')),
-            ('month', _('Ce mois')),
-            ('quarter', _('Ce trimestre')),
-        ]
-
-    def queryset(self, request, queryset):
-        now = datetime.datetime.now()
-        
-        if self.value() == 'today':
-            return queryset.filter(date=now.date())
-        elif self.value() == 'week':
-            start_week = now.date() - datetime.timedelta(days=now.weekday())
-            return queryset.filter(date__gte=start_week)
-        elif self.value() == 'month':
-            return queryset.filter(date__year=now.year, date__month=now.month)
-        elif self.value() == 'quarter':
-            # Calcul du trimestre actuel
-            quarter_start_month = ((now.month - 1) // 3) * 3 + 1
-            quarter_start = datetime.date(now.year, quarter_start_month, 1)
-            return queryset.filter(date__gte=quarter_start)
-        return queryset
-
-
-class PosteRegionFilter(SimpleListFilter):
-    """Filtre par région des postes"""
-    title = _('Région du poste')
-    parameter_name = 'poste_region'
-
-    def lookups(self, request, model_admin):
-        from accounts.models import Poste
-        regions = Poste.objects.values_list('region', flat=True).distinct()
-        return [(region, region) for region in regions if region]
-
-    def queryset(self, request, queryset):
-        if self.value():
-            return queryset.filter(poste__region=self.value())
-        return queryset
-
-
-class TauxDeperditionFilter(SimpleListFilter):
-    """Filtre par niveau de taux de déperdition"""
-    title = _('Niveau de déperdition')
-    parameter_name = 'taux_deperdition'
-
-    def lookups(self, request, model_admin):
-        return [
-            ('bon', _('Bon (0 à -10%)')),
-            ('attention', _('Attention (-10% à -30%)')),
-            ('critique', _('Critique (< -30%)')),
-        ]
-
-    def queryset(self, request, queryset):
-        if self.value() == 'bon':
-            return queryset.filter(taux_deperdition__gt=-10)
-        elif self.value() == 'attention':
-            return queryset.filter(taux_deperdition__lte=-10, taux_deperdition__gte=-30)
-        elif self.value() == 'critique':
-            return queryset.filter(taux_deperdition__lt=-30)
-        return queryset
-
-
-# ===================================================================
-# ACTIONS PERSONNALISÉES
-# ===================================================================
-
-def ouvrir_jours_selection(modeladmin, request, queryset):
-    """Ouvre les jours sélectionnés pour saisie"""
-    updated = queryset.update(statut='ouvert')
-    messages.success(request, f'{updated} jour(s) ouvert(s) pour saisie.')
-
-def fermer_jours_selection(modeladmin, request, queryset):
-    """Ferme les jours sélectionnés"""
-    updated = queryset.update(statut='ferme')
-    messages.warning(request, f'{updated} jour(s) fermé(s) pour saisie.')
-
-def verrouiller_inventaires(modeladmin, request, queryset):
-    """Verrouille les inventaires sélectionnés"""
-    updated = queryset.update(verrouille=True)
-    messages.info(request, f'{updated} inventaire(s) verrouillé(s).')
-
-def exporter_inventaires_csv(modeladmin, request, queryset):
-    """Exporte les inventaires en CSV"""
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="inventaires_supper.csv"'
+class DetailInventairePeriodeInline(admin.TabularInline):
+    """Inline pour les détails d'inventaire par période"""
+    model = DetailInventairePeriode
+    extra = 0
+    readonly_fields = ('heure_saisie', 'modifie_le')
     
-    writer = csv.writer(response)
-    writer.writerow([
-        'Date', 'Poste', 'Agent', 'Total Véhicules', 'Périodes Saisies',
-        'Moyenne Horaire', 'Estimation 24h', 'Recette Potentielle', 'Verrouillé'
-    ])
-    
-    for inv in queryset:
-        writer.writerow([
-            inv.date.strftime('%d/%m/%Y'),
-            inv.poste.nom,
-            inv.agent_saisie.nom_complet if inv.agent_saisie else 'N/A',
-            inv.total_vehicules,
-            inv.nombre_periodes_saisies,
-            inv.calculer_moyenne_horaire(),
-            inv.estimer_total_24h(),
-            inv.calculer_recette_potentielle(),
-            'Oui' if inv.verrouille else 'Non'
-        ])
-    
-    return response
-
-# Configuration des actions
-ouvrir_jours_selection.short_description = "🔓 Ouvrir jours sélectionnés"
-fermer_jours_selection.short_description = "🔒 Fermer jours sélectionnés"
-verrouiller_inventaires.short_description = "🔐 Verrouiller inventaires"
-exporter_inventaires_csv.short_description = "📊 Exporter en CSV"
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('periode')
 
 
-# ===================================================================
-# ADMIN CONFIGURATION JOUR
-# ===================================================================
-
-@admin.register(ConfigurationJour)
+@admin.register(ConfigurationJour, site=admin_site)
 class ConfigurationJourAdmin(admin.ModelAdmin):
-    """
-    Gestion des jours ouverts/fermés pour saisie
-    Fonction critique pour contrôler les périodes de saisie
-    """
+    """Administration des configurations de jours"""
     
-    list_display = (
-        'date',
-        'get_jour_semaine',
-        'get_statut_badge',
-        'get_inventaires_count',
-        'get_recettes_count',
-        'cree_par',
-        'get_actions_rapides'
-    )
-    
-    list_filter = (
-        'statut',  # Changé de 'ouvert' vers 'statut'
-        PeriodeFilter,
-        'cree_par__habilitation',
-    )
-    
-    search_fields = (
-        'date',
-        'commentaire',  # Changé de 'description' vers 'commentaire'
-        'cree_par__nom_complet',
-    )
-    
-    date_hierarchy = 'date'
+    list_display = ('date', 'statut_badge', 'cree_par', 'date_creation')
+    list_filter = ('statut', 'date_creation')
+    search_fields = ('commentaire',)
     ordering = ('-date',)
-    list_per_page = 30
-    
-    actions = [ouvrir_jours_selection, fermer_jours_selection]
+    date_hierarchy = 'date'
     
     fieldsets = (
-        (_('Configuration du Jour'), {
-            'fields': (
-                'date',
-                'statut',  # Changé de 'ouvert' vers 'statut'
-                'commentaire',  # Changé de 'description' vers 'commentaire'
-            )
+        ('Configuration', {
+            'fields': ('date', 'statut', 'commentaire'),
+            'classes': ('wide',),
         }),
-        (_('Informations Système'), {
+        ('Métadonnées', {
+            'fields': ('cree_par', 'date_creation'),
             'classes': ('collapse',),
-            'fields': (
-                'cree_par',
-                'date_creation',
-            )
         }),
     )
     
-    readonly_fields = ('cree_par', 'date_creation')
+    readonly_fields = ('date_creation',)
     
-    def get_jour_semaine(self, obj):
-        """Affiche le jour de la semaine"""
-        jours = {
-            0: 'Lundi', 1: 'Mardi', 2: 'Mercredi', 3: 'Jeudi',
-            4: 'Vendredi', 5: 'Samedi', 6: 'Dimanche'
+    def statut_badge(self, obj):
+        """Badge coloré pour le statut"""
+        colors = {
+            'ouvert': 'success',
+            'ferme': 'danger',
+            'impertinent': 'warning',
         }
-        return jours.get(obj.date.weekday(), '')
-    
-    get_jour_semaine.short_description = _('Jour')
-    
-    def get_statut_badge(self, obj):
-        """Badge statut ouvert/fermé"""
-        if obj.statut == 'ouvert':
-            return format_html(
-                '<span style="background-color: #28a745; color: white; padding: 4px 10px; '
-                'border-radius: 12px; font-size: 11px; font-weight: bold;">'
-                '<i class="fas fa-unlock"></i> Ouvert</span>'
-            )
-        elif obj.statut == 'ferme':
-            return format_html(
-                '<span style="background-color: #dc3545; color: white; padding: 4px 10px; '
-                'border-radius: 12px; font-size: 11px; font-weight: bold;">'
-                '<i class="fas fa-lock"></i> Fermé</span>'
-            )
-        else:  # impertinent
-            return format_html(
-                '<span style="background-color: #ffc107; color: #000; padding: 4px 10px; '
-                'border-radius: 12px; font-size: 11px; font-weight: bold;">'
-                '<i class="fas fa-exclamation-triangle"></i> Impertinent</span>'
-            )
-    
-    get_statut_badge.short_description = _('Statut')
-    get_statut_badge.admin_order_field = 'statut'
-    
-    def get_inventaires_count(self, obj):
-        """Nombre d'inventaires pour ce jour"""
-        count = InventaireJournalier.objects.filter(date=obj.date).count()
-        color = '#198754' if count > 0 else '#6c757d'
+        color = colors.get(obj.statut, 'secondary')
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, count
+            '<span class="badge bg-{}">{}</span>',
+            color, obj.get_statut_display()
         )
-    
-    get_inventaires_count.short_description = _('Inventaires')
-    
-    def get_recettes_count(self, obj):
-        """Nombre de recettes pour ce jour"""
-        count = RecetteJournaliere.objects.filter(date=obj.date).count()
-        color = '#0d6efd' if count > 0 else '#6c757d'
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, count
-        )
-    
-    get_recettes_count.short_description = _('Recettes')
-    
-    def get_actions_rapides(self, obj):
-        """Actions rapides sur configuration jour"""
-        actions = []
-        
-        # Bouton voir inventaires du jour
-        inv_count = InventaireJournalier.objects.filter(date=obj.date).count()
-        if inv_count > 0:
-            actions.append(
-                f'<a href="/admin/inventaire/inventairejournalier/?date__exact={obj.date}" '
-                f'class="btn btn-sm btn-outline-success" title="Voir inventaires ({inv_count})">'
-                f'<i class="fas fa-list"></i></a>'
-            )
-        
-        # Bouton voir recettes du jour
-        rec_count = RecetteJournaliere.objects.filter(date=obj.date).count()
-        if rec_count > 0:
-            actions.append(
-                f'<a href="/admin/inventaire/recettejournaliere/?date__exact={obj.date}" '
-                f'class="btn btn-sm btn-outline-primary" title="Voir recettes ({rec_count})">'
-                f'<i class="fas fa-money-bill"></i></a>'
-            )
-        
-        return format_html(' '.join(actions))
-    
-    get_actions_rapides.short_description = _('Actions')
+    statut_badge.short_description = 'Statut'
     
     def save_model(self, request, obj, form, change):
-        """Sauvegarde avec assignation du créateur"""
-        if not change:
+        """Logique personnalisée de sauvegarde"""
+        if not change:  # Création
             obj.cree_par = request.user
         super().save_model(request, obj, form, change)
+    
+    actions = ['ouvrir_jours', 'fermer_jours', 'marquer_impertinents']
+    
+    def ouvrir_jours(self, request, queryset):
+        """Action pour ouvrir des jours"""
+        count = queryset.update(statut='ouvert')
+        self.message_user(request, f'{count} jours ouverts pour la saisie.')
+    ouvrir_jours.short_description = 'Ouvrir pour saisie'
+    
+    def fermer_jours(self, request, queryset):
+        """Action pour fermer des jours"""
+        count = queryset.update(statut='ferme')
+        self.message_user(request, f'{count} jours fermés pour la saisie.')
+    fermer_jours.short_description = 'Fermer pour saisie'
+    
+    def marquer_impertinents(self, request, queryset):
+        """Action pour marquer des jours comme impertinents"""
+        count = queryset.update(statut='impertinent')
+        self.message_user(request, f'{count} jours marqués comme impertinents.')
+    marquer_impertinents.short_description = 'Marquer impertinents'
 
 
-# ===================================================================
-# ADMIN INVENTAIRE JOURNALIER
-# ===================================================================
-
-@admin.register(InventaireJournalier)
+@admin.register(InventaireJournalier, site=admin_site)
 class InventaireJournalierAdmin(admin.ModelAdmin):
-    """
-    Gestion complète des inventaires journaliers
-    Interface principale pour les administrateurs
-    """
+    """Administration des inventaires journaliers"""
     
-    list_display = (
-        'date',
-        'poste',
-        'get_agent_saisie',  # Changé de 'agent' vers méthode personnalisée
-        'get_total_vehicules',
-        'get_periodes_badge',
-        'get_recette_potentielle',
-        'get_verrouille_badge',
-        'get_actions_rapides'
-    )
-    
-    list_display_links = ('date', 'poste')
-    
-    list_filter = (
-        PeriodeFilter,
-        PosteRegionFilter,
-        'poste__type',  # Supposé exister dans le modèle Poste
-        'verrouille',
-        'agent_saisie__habilitation',  # Changé de 'agent__habilitation'
-    )
-    
-    search_fields = (
-        'poste__nom',
-        'poste__code',
-        'agent_saisie__nom_complet',  # Changé de 'agent__nom_complet'
-        'agent_saisie__username',     # Changé de 'agent__username'
-        'observations',               # Changé de 'observations_generales'
-    )
-    
-    date_hierarchy = 'date'
+    list_display = ('__str__', 'agent_saisie', 'total_vehicules', 'nombre_periodes_saisies',
+                   'verrouille_badge', 'valide_badge', 'date_creation')
+    list_filter = ('verrouille', 'valide', 'poste__type', 'poste__region', 'date')
+    search_fields = ('poste__nom', 'poste__code', 'agent_saisie__username', 'agent_saisie__nom_complet')
     ordering = ('-date', 'poste__nom')
-    list_per_page = 25
-    
-    actions = [verrouiller_inventaires, exporter_inventaires_csv]
-    
-    fieldsets = (
-        (_('Informations Principales'), {
-            'fields': (
-                'date',
-                'poste',
-                'agent_saisie',  # Changé de 'agent'
-            )
-        }),
-        (_('Calculs Automatiques'), {
-            'classes': ('collapse',),
-            'fields': (
-                ('total_vehicules', 'nombre_periodes_saisies'),  # Changé de 'periodes_saisies'
-                ('get_moyenne_horaire', 'get_estimation_24h'),   # Méthodes du modèle
-                'get_recette_potentielle_value',                # Méthode du modèle
-            )
-        }),
-        (_('Statut et Observations'), {
-            'fields': (
-                'verrouille',
-                'valide',
-                'valide_par',
-                'date_validation',
-                'observations',  # Changé de 'observations_generales'
-            )
-        }),
-        (_('Informations Système'), {
-            'classes': ('collapse',),
-            'fields': (
-                'date_creation',
-                'date_modification',
-            )
-        }),
-    )
-    
-    readonly_fields = (
-        'total_vehicules',
-        'nombre_periodes_saisies',  # Changé de 'periodes_saisies'
-        'get_moyenne_horaire',      # Méthodes du modèle
-        'get_estimation_24h',
-        'get_recette_potentielle_value',
-        'date_creation',
-        'date_modification',
-    )
-    
-    # Inlines pour détails par période
-    class DetailInventairePeriodeInline(admin.TabularInline):
-        """Inline pour saisie des détails par période"""
-        model = DetailInventairePeriode
-        extra = 0
-        max_num = 10  # 10 créneaux horaires maximum
-        
-        fields = (
-            'periode',            # Changé de 'periode_debut' et 'periode_fin'
-            'nombre_vehicules',
-            'observations_periode', # Changé de 'observations'
-        )
-        
-        readonly_fields = ()  # Pas de readonly car 'periode' remplace les deux champs
-        
-        def get_readonly_fields(self, request, obj=None):
-            """Lecture seule si inventaire verrouillé"""
-            if obj and obj.verrouille:
-                return self.fields
-            return self.readonly_fields
+    date_hierarchy = 'date'
     
     inlines = [DetailInventairePeriodeInline]
     
-    def get_agent_saisie(self, obj):
-        """Affichage de l'agent de saisie"""
-        if obj.agent_saisie:
-            return obj.agent_saisie.nom_complet
-        return "Non assigné"
+    fieldsets = (
+        ('Informations générales', {
+            'fields': ('poste', 'date', 'agent_saisie'),
+            'classes': ('wide',),
+        }),
+        ('Totaux calculés', {
+            'fields': ('total_vehicules', 'nombre_periodes_saisies'),
+            'classes': ('wide',),
+        }),
+        ('Statut', {
+            'fields': ('verrouille', 'valide', 'valide_par', 'date_validation'),
+            'classes': ('wide',),
+        }),
+        ('Observations', {
+            'fields': ('observations',),
+            'classes': ('collapse',),
+        }),
+        ('Métadonnées', {
+            'fields': ('date_creation', 'date_modification'),
+            'classes': ('collapse',),
+        }),
+    )
     
-    get_agent_saisie.short_description = _('Agent')
-    get_agent_saisie.admin_order_field = 'agent_saisie'
+    readonly_fields = ('date_creation', 'date_modification', 'total_vehicules', 'nombre_periodes_saisies')
     
-    def get_moyenne_horaire(self, obj):
-        """Affichage de la moyenne horaire"""
-        return f"{obj.calculer_moyenne_horaire():.1f}"
-    
-    get_moyenne_horaire.short_description = _('Moyenne Horaire')
-    
-    def get_estimation_24h(self, obj):
-        """Affichage de l'estimation 24h"""
-        return f"{obj.estimer_total_24h():.0f}"
-    
-    get_estimation_24h.short_description = _('Estimation 24h')
-    
-    def get_recette_potentielle_value(self, obj):
-        """Affichage de la recette potentielle"""
-        return f"{obj.calculer_recette_potentielle():.0f} FCFA"
-    
-    get_recette_potentielle_value.short_description = _('Recette Potentielle')
-    
-    def get_total_vehicules(self, obj):
-        """Affichage coloré du total véhicules"""
-        total = obj.total_vehicules or 0
-        color = '#198754' if total > 0 else '#6c757d'
-        return format_html(
-            '<span style="color: {}; font-weight: bold; font-size: 14px;">{}</span>',
-            color, total
-        )
-    
-    get_total_vehicules.short_description = _('Total Véhicules')
-    get_total_vehicules.admin_order_field = 'total_vehicules'
-    
-    def get_periodes_badge(self, obj):
-        """Badge du nombre de périodes saisies"""
-        periodes = obj.nombre_periodes_saisies or 0
-        # Couleur selon la complétude
-        if periodes == 10:
-            color = '#28a745'  # Vert - complet
-        elif periodes >= 5:
-            color = '#ffc107'  # Jaune - partiel
-        else:
-            color = '#dc3545'  # Rouge - insuffisant
-        
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 8px; '
-            'border-radius: 10px; font-size: 11px; font-weight: bold;">{}/10</span>',
-            color, periodes
-        )
-    
-    get_periodes_badge.short_description = _('Périodes')
-    get_periodes_badge.admin_order_field = 'nombre_periodes_saisies'
-    
-    def get_recette_potentielle(self, obj):
-        """Affichage formaté de la recette potentielle (si autorisé)"""
-        recette = obj.calculer_recette_potentielle()
-        if recette:
-            return format_html(
-                '<span style="color: #0d6efd; font-weight: bold;">{:,.0f} FCFA</span>',
-                recette
-            )
-        return format_html('<span style="color: #6c757d;">N/A</span>')
-    
-    get_recette_potentielle.short_description = _('Recette Potentielle')
-    
-    def get_verrouille_badge(self, obj):
-        """Badge statut verrouillé/modifiable"""
+    def verrouille_badge(self, obj):
+        """Badge pour le statut verrouillé"""
         if obj.verrouille:
-            return format_html(
-                '<span style="background-color: #dc3545; color: white; padding: 3px 8px; '
-                'border-radius: 8px; font-size: 11px;"><i class="fas fa-lock"></i> Verrouillé</span>'
-            )
-        else:
-            return format_html(
-                '<span style="background-color: #28a745; color: white; padding: 3px 8px; '
-                'border-radius: 8px; font-size: 11px;"><i class="fas fa-unlock"></i> Modifiable</span>'
-            )
+            return format_html('<span class="badge bg-warning">Verrouillé</span>')
+        return format_html('<span class="badge bg-success">Modifiable</span>')
+    verrouille_badge.short_description = 'Verrouillage'
     
-    get_verrouille_badge.short_description = _('Statut')
-    get_verrouille_badge.admin_order_field = 'verrouille'
-    
-    def get_actions_rapides(self, obj):
-        """Actions rapides sur inventaires"""
-        actions = []
-        
-        # Bouton voir détails par période
-        if obj.details_periodes.exists():
-            actions.append(
-                f'<a href="/admin/inventaire/detailinventaireperiode/?inventaire__id__exact={obj.pk}" '
-                f'class="btn btn-sm btn-outline-info" title="Voir détails périodes">'
-                f'<i class="fas fa-clock"></i></a>'
-            )
-        
-        # Bouton voir recette associée
-        try:
-            recette = RecetteJournaliere.objects.get(date=obj.date, poste=obj.poste)
-            actions.append(
-                f'<a href="/admin/inventaire/recettejournaliere/{recette.pk}/change/" '
-                f'class="btn btn-sm btn-outline-success" title="Voir recette">'
-                f'<i class="fas fa-money-bill"></i></a>'
-            )
-        except RecetteJournaliere.DoesNotExist:
-            actions.append(
-                f'<span class="btn btn-sm btn-outline-secondary" title="Pas de recette">'
-                f'<i class="fas fa-minus"></i></span>'
-            )
-        
-        return format_html(' '.join(actions))
-    
-    get_actions_rapides.short_description = _('Actions')
-    
-    def get_readonly_fields(self, request, obj=None):
-        """Champs lecture seule selon statut et permissions utilisateur"""
-        readonly = list(self.readonly_fields)
-        
-        # Si inventaire verrouillé, tout en lecture seule sauf pour admin principal
-        if obj and obj.verrouille and not request.user.habilitation == 'admin_principal':
-            readonly.extend(['date', 'poste', 'agent_saisie', 'observations'])
-        
-        return readonly
-    
-    def has_delete_permission(self, request, obj=None):
-        """Seuls les admins principaux peuvent supprimer"""
-        return request.user.habilitation == 'admin_principal'
-
-
-# ===================================================================
-# ADMIN DÉTAIL INVENTAIRE PÉRIODE
-# ===================================================================
-
-@admin.register(DetailInventairePeriode)
-class DetailInventairePeriodeAdmin(admin.ModelAdmin):
-    """
-    Gestion des détails par période horaire
-    Vue détaillée pour analyse fine
-    """
-    
-    list_display = (
-        'inventaire',
-        'get_periode_complete',
-        'nombre_vehicules',
-        'get_observations_preview',
-        'get_pourcentage_jour'
-    )
-    
-    list_filter = (
-        'periode',  # Changé de 'periode_debut'
-        'inventaire__date',
-        'inventaire__poste__region',
-        'inventaire__poste__type',
-    )
-    
-    search_fields = (
-        'inventaire__poste__nom',
-        'inventaire__agent_saisie__nom_complet',  # Changé de 'agent__nom_complet'
-        'observations_periode',  # Changé de 'observations'
-    )
-    
-    ordering = ('inventaire__date', 'periode')  # Changé de 'periode_debut'
-    list_per_page = 50
-    
-    fieldsets = (
-        (_('Inventaire et Période'), {
-            'fields': (
-                'inventaire',
-                'periode',  # Un seul champ au lieu de deux
-            )
-        }),
-        (_('Données Collectées'), {
-            'fields': (
-                'nombre_vehicules',
-                'observations_periode',  # Changé de 'observations'
-            )
-        }),
-    )
-    
-    def get_periode_complete(self, obj):
-        """Affichage formaté de la période"""
-        return obj.get_periode_display()  # Utilise le display du choix
-    
-    get_periode_complete.short_description = _('Période')
-    get_periode_complete.admin_order_field = 'periode'
-    
-    def get_observations_preview(self, obj):
-        """Aperçu des observations"""
-        if obj.observations_periode:
-            preview = obj.observations_periode[:50]
-            if len(obj.observations_periode) > 50:
-                preview += "..."
-            return format_html('<span title="{}">{}</span>', obj.observations_periode, preview)
-        return "-"
-    
-    get_observations_preview.short_description = _('Observations')
-    
-    def get_pourcentage_jour(self, obj):
-        """Pourcentage par rapport au total de la journée"""
-        if obj.inventaire.total_vehicules and obj.inventaire.total_vehicules > 0:
-            pourcentage = (obj.nombre_vehicules / obj.inventaire.total_vehicules) * 100
-            return format_html(
-                '<span style="font-weight: bold; color: #0d6efd;">{:.1f}%</span>',
-                pourcentage
-            )
-        return "0%"
-    
-    get_pourcentage_jour.short_description = _('% du jour')
-
-
-# ===================================================================
-# ADMIN RECETTE JOURNALIÈRE
-# ===================================================================
-
-@admin.register(RecetteJournaliere)
-class RecetteJournaliereAdmin(admin.ModelAdmin):
-    """
-    Gestion des recettes journalières avec calculs de déperdition
-    Interface critique pour les chefs de poste et administrateurs
-    """
-    
-    list_display = (
-        'date',
-        'poste',
-        'get_chef_poste',  # Changé de 'chef_saisie'
-        'get_montant_formate',
-        'get_taux_deperdition',
-        'get_validation_badge',  # Changé de 'journee_badge'
-        'get_actions_rapides'
-    )
-    
-    list_display_links = ('date', 'poste')
-    
-    list_filter = (
-        PeriodeFilter,
-        PosteRegionFilter,
-        TauxDeperditionFilter,
-        'valide',  # Changé de 'journee_impertinente'
-        'chef_poste__habilitation',  # Changé de 'chef_saisie__habilitation'
-    )
-    
-    search_fields = (
-        'poste__nom',
-        'poste__code',
-        'chef_poste__nom_complet',  # Changé de 'chef_saisie__nom_complet'
-        'observations',
-    )
-    
-    date_hierarchy = 'date'
-    ordering = ('-date', 'poste__nom')
-    list_per_page = 25
-    
-    fieldsets = (
-        (_('Informations Principales'), {
-            'fields': (
-                'date',
-                'poste',
-                'chef_poste',        # Changé de 'chef_saisie'
-                'montant_declare',   # Changé de 'montant'
-            )
-        }),
-        (_('Calculs de Déperdition'), {
-            'classes': ('collapse',),
-            'fields': (
-                ('recette_potentielle', 'ecart'),  # Changé de 'ecart_montant'
-                'taux_deperdition',
-                'inventaire_associe',  # Ajouté car c'est un champ du modèle
-            )
-        }),
-        (_('Statut et Observations'), {
-            'fields': (
-                'verrouille',
-                'valide',
-                'observations',
-            )
-        }),
-        (_('Informations Système'), {
-            'classes': ('collapse',),
-            'fields': (
-                'date_saisie',      # Changé de 'date_creation'
-                'date_modification',
-            )
-        }),
-    )
-    
-    readonly_fields = (
-        'recette_potentielle',
-        'ecart',           # Changé de 'ecart_montant'
-        'taux_deperdition',
-        'date_saisie',     # Changé de 'date_creation'
-        'date_modification',
-    )
-    
-    def get_chef_poste(self, obj):
-        """Affichage du chef de poste"""
-        if obj.chef_poste:
-            return obj.chef_poste.nom_complet
-        return "Non assigné"
-    
-    get_chef_poste.short_description = _('Chef de Poste')
-    get_chef_poste.admin_order_field = 'chef_poste'
-    
-    def get_montant_formate(self, obj):
-        """Affichage formaté du montant"""
-        return format_html(
-            '<span style="color: #198754; font-weight: bold; font-size: 14px;">{:,.0f} FCFA</span>',
-            obj.montant_declare
-        )
-    
-    get_montant_formate.short_description = _('Montant Déclaré')
-    get_montant_formate.admin_order_field = 'montant_declare'
-    
-    def get_taux_deperdition(self, obj):
-        """Affichage coloré du taux de déperdition"""
-        if obj.taux_deperdition is not None:
-            # Couleur selon le niveau
-            if obj.taux_deperdition >= 0 or obj.taux_deperdition > -10:
-                color = '#28a745'  # Vert - bon
-            elif obj.taux_deperdition <= -10 and obj.taux_deperdition >= -30:
-                color = '#fd7e14'  # Orange - attention
-            else:
-                color = '#dc3545'  # Rouge - critique
-            
-            return format_html(
-                '<span style="color: {}; font-weight: bold; font-size: 14px;">{:.1f}%</span>',
-                color, obj.taux_deperdition
-            )
-        return format_html('<span style="color: #6c757d;">N/A</span>')
-    
-    get_taux_deperdition.short_description = _('Taux Déperdition')
-    get_taux_deperdition.admin_order_field = 'taux_deperdition'
-    
-    def get_validation_badge(self, obj):
-        """Badge pour statut de validation"""
+    def valide_badge(self, obj):
+        """Badge pour le statut validé"""
         if obj.valide:
-            return format_html(
-                '<span style="background-color: #28a745; color: white; padding: 3px 8px; '
-                'border-radius: 8px; font-size: 11px; font-weight: bold;">'
-                '<i class="fas fa-check"></i> Validé</span>'
-            )
-        elif obj.verrouille:
-            return format_html(
-                '<span style="background-color: #6c757d; color: white; padding: 3px 8px; '
-                'border-radius: 8px; font-size: 11px;">'
-                '<i class="fas fa-lock"></i> Verrouillé</span>'
-            )
-        else:
-            return format_html(
-                '<span style="background-color: #ffc107; color: #000; padding: 3px 8px; '
-                'border-radius: 8px; font-size: 11px;">'
-                '<i class="fas fa-edit"></i> En cours</span>'
-            )
+            return format_html('<span class="badge bg-success">Validé</span>')
+        return format_html('<span class="badge bg-secondary">En attente</span>')
+    valide_badge.short_description = 'Validation'
     
-    get_validation_badge.short_description = _('Statut')
-    get_validation_badge.admin_order_field = 'valide'
+    def get_queryset(self, request):
+        """Optimiser les requêtes"""
+        return super().get_queryset(request).select_related(
+            'poste', 'agent_saisie', 'valide_par'
+        ).prefetch_related('details_periodes')
     
-    def get_actions_rapides(self, obj):
-        """Actions rapides sur recettes"""
-        actions = []
-        
-        # Bouton voir inventaire associé
-        if obj.inventaire_associe:
-            actions.append(
-                f'<a href="/admin/inventaire/inventairejournalier/{obj.inventaire_associe.pk}/change/" '
-                f'class="btn btn-sm btn-outline-primary" title="Voir inventaire">'
-                f'<i class="fas fa-list"></i></a>'
-            )
-        else:
-            # Chercher un inventaire pour la même date et poste
-            try:
-                inventaire = InventaireJournalier.objects.get(date=obj.date, poste=obj.poste)
-                actions.append(
-                    f'<a href="/admin/inventaire/inventairejournalier/{inventaire.pk}/change/" '
-                    f'class="btn btn-sm btn-outline-primary" title="Voir inventaire">'
-                    f'<i class="fas fa-list"></i></a>'
-                )
-            except InventaireJournalier.DoesNotExist:
-                actions.append(
-                    f'<span class="btn btn-sm btn-outline-secondary" title="Pas d\'inventaire">'
-                    f'<i class="fas fa-minus"></i></span>'
-                )
-        
-        # Indicateur niveau déperdition
-        if obj.taux_deperdition is not None:
-            if obj.taux_deperdition < -30:
-                actions.append(
-                    f'<span class="btn btn-sm btn-outline-danger" title="Déperdition critique">'
-                    f'<i class="fas fa-exclamation-triangle"></i></span>'
-                )
-        
-        return format_html(' '.join(actions))
+    actions = ['verrouiller_inventaires', 'valider_inventaires', 'export_inventaires']
     
-    get_actions_rapides.short_description = _('Actions')
+    def verrouiller_inventaires(self, request, queryset):
+        """Action pour verrouiller des inventaires"""
+        count = 0
+        for inventaire in queryset.filter(verrouille=False):
+            inventaire.verrouiller(request.user)
+            count += 1
+        self.message_user(request, f'{count} inventaires verrouillés.')
+    verrouiller_inventaires.short_description = 'Verrouiller les inventaires'
+    
+    def valider_inventaires(self, request, queryset):
+        """Action pour valider des inventaires"""
+        count = queryset.filter(valide=False).update(
+            valide=True,
+            valide_par=request.user,
+            date_validation=timezone.now()
+        )
+        self.message_user(request, f'{count} inventaires validés.')
+    valider_inventaires.short_description = 'Valider les inventaires'
+    
+    def export_inventaires(self, request, queryset):
+        """Export CSV des inventaires"""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="inventaires_supper.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Date', 'Poste', 'Agent', 'Total Véhicules', 'Périodes Saisies', 
+                        'Verrouillé', 'Validé', 'Recette Potentielle'])
+        
+        for inventaire in queryset:
+            recette_potentielle = inventaire.calculer_recette_potentielle()
+            writer.writerow([
+                inventaire.date.strftime('%d/%m/%Y'),
+                inventaire.poste.nom,
+                inventaire.agent_saisie.nom_complet if inventaire.agent_saisie else '',
+                inventaire.total_vehicules,
+                inventaire.nombre_periodes_saisies,
+                'Oui' if inventaire.verrouille else 'Non',
+                'Oui' if inventaire.valide else 'Non',
+                f"{recette_potentielle} FCFA"
+            ])
+        
+        return response
+    export_inventaires.short_description = 'Exporter en CSV'
 
 
-# ===================================================================
-# ADMIN STATISTIQUES PÉRIODIQUES
-# ===================================================================
-
-@admin.register(StatistiquesPeriodiques)
-class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
-    """
-    Consultation des statistiques consolidées
-    Interface pour analyses et rapports
-    """
+@admin.register(RecetteJournaliere, site=admin_site)
+class RecetteJournaliereAdmin(admin.ModelAdmin):
+    """Administration des recettes journalières"""
     
-    list_display = (
-        'date_debut',
-        'date_fin',
-        'get_type_badge',
-        'poste',
-        'get_total_recettes',
-        'get_taux_moyen',
-        'get_jours_actifs'
-    )
-    
-    list_filter = (
-        'type_periode',
-        'poste__region',
-        'poste__type',
-        'date_debut',
-    )
-    
-    search_fields = (
-        'poste__nom',
-        'poste__code',
-    )
-    
-    ordering = ('-date_debut', 'poste__nom')  # Changé de 'periode_debut'
-    list_per_page = 30
-    
-    # Interface en lecture seule
-    def has_add_permission(self, request):
-        return False
-    
-    def has_change_permission(self, request, obj=None):
-        return False
-    
-    def has_delete_permission(self, request, obj=None):
-        return request.user.habilitation == 'admin_principal'
+    list_display = ('__str__', 'chef_poste', 'recette_potentielle_formatted', 
+                   'ecart_formatted', 'taux_deperdition_badge', 'verrouille_badge')
+    list_filter = ('verrouille', 'valide', 'poste__type', 'poste__region', 'date')
+    search_fields = ('poste__nom', 'chef_poste__username', 'chef_poste__nom_complet')
+    ordering = ('-date', 'poste__nom')
+    date_hierarchy = 'date'
     
     fieldsets = (
-        (_('Période et Poste'), {
-            'fields': (
-                ('date_debut', 'date_fin'),  # Changé de 'periode_debut' et 'periode_fin'
-                'type_periode',
-                'poste',
-            )
+        ('Informations générales', {
+            'fields': ('poste', 'date', 'chef_poste'),
+            'classes': ('wide',),
         }),
-        (_('Statistiques Financières'), {
-            'fields': (
-                ('total_recettes_declarees', 'total_recettes_potentielles'),
-                'taux_deperdition_moyen',  # Retiré 'ecart_total' car pas dans le modèle
-            )
+        ('Recettes', {
+            'fields': ('montant_declare', 'inventaire_associe'),
+            'classes': ('wide',),
         }),
-        (_('Statistiques d\'Activité'), {
-            'fields': (
-                'nombre_jours_actifs',     # Changé de 'jours_avec_donnees'
-                'nombre_jours_impertinents',  # Nouveau champ ajouté
-            )
+        ('Calculs automatiques', {
+            'fields': ('recette_potentielle', 'ecart', 'taux_deperdition'),
+            'classes': ('wide',),
         }),
-        (_('Informations Système'), {
+        ('Statut', {
+            'fields': ('verrouille', 'valide'),
+            'classes': ('wide',),
+        }),
+        ('Observations', {
+            'fields': ('observations',),
             'classes': ('collapse',),
-            'fields': (
-                'date_calcul',
-            )
+        }),
+        ('Métadonnées', {
+            'fields': ('date_saisie', 'date_modification'),
+            'classes': ('collapse',),
         }),
     )
     
-    readonly_fields = (
-        'date_debut', 'date_fin', 'type_periode', 'poste',
-        'total_recettes_declarees', 'total_recettes_potentielles',
-        'taux_deperdition_moyen', 'nombre_jours_actifs',
-        'nombre_jours_impertinents', 'date_calcul'
+    readonly_fields = ('date_saisie', 'date_modification', 'recette_potentielle', 'ecart', 'taux_deperdition')
+    
+    def recette_potentielle_formatted(self, obj):
+        """Recette potentielle formatée"""
+        if obj.recette_potentielle:
+            return f"{obj.recette_potentielle:,.0f} FCFA"
+        return "Non calculée"
+    recette_potentielle_formatted.short_description = 'Recette potentielle'
+    
+    def ecart_formatted(self, obj):
+        """Écart formaté avec couleur"""
+        if obj.ecart is not None:
+            if obj.ecart >= 0:
+                return format_html('<span class="text-success">+{:,.0f} FCFA</span>', obj.ecart)
+            else:
+                return format_html('<span class="text-danger">{:,.0f} FCFA</span>', obj.ecart)
+        return "Non calculé"
+    ecart_formatted.short_description = 'Écart'
+    
+    def taux_deperdition_badge(self, obj):
+        """Badge pour le taux de déperdition"""
+        if obj.taux_deperdition is not None:
+            couleur = obj.get_couleur_alerte()
+            colors = {
+                'success': 'success',
+                'warning': 'warning',
+                'danger': 'danger',
+                'secondary': 'secondary',
+            }
+            color_class = colors.get(couleur, 'secondary')
+            return format_html(
+                '<span class="badge bg-{}">{:.2f}%</span>',
+                color_class, obj.taux_deperdition
+            )
+        return format_html('<span class="badge bg-secondary">N/A</span>')
+    taux_deperdition_badge.short_description = 'Taux déperdition'
+    
+    def verrouille_badge(self, obj):
+        """Badge pour le statut verrouillé"""
+        if obj.verrouille:
+            return format_html('<span class="badge bg-warning">Verrouillé</span>')
+        return format_html('<span class="badge bg-success">Modifiable</span>')
+    verrouille_badge.short_description = 'Statut'
+    
+    def get_queryset(self, request):
+        """Optimiser les requêtes"""
+        return super().get_queryset(request).select_related(
+            'poste', 'chef_poste', 'inventaire_associe'
+        )
+    
+    actions = ['recalculer_indicateurs', 'verrouiller_recettes', 'export_recettes']
+    
+    def recalculer_indicateurs(self, request, queryset):
+        """Action pour recalculer les indicateurs"""
+        count = 0
+        for recette in queryset:
+            recette.calculer_indicateurs()
+            recette.save()
+            count += 1
+        self.message_user(request, f'{count} recettes recalculées.')
+    recalculer_indicateurs.short_description = 'Recalculer les indicateurs'
+    
+    def verrouiller_recettes(self, request, queryset):
+        """Action pour verrouiller des recettes"""
+        count = queryset.filter(verrouille=False).update(verrouille=True)
+        self.message_user(request, f'{count} recettes verrouillées.')
+    verrouiller_recettes.short_description = 'Verrouiller les recettes'
+    
+    def export_recettes(self, request, queryset):
+        """Export CSV des recettes"""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="recettes_supper.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Date', 'Poste', 'Chef', 'Montant Déclaré', 'Recette Potentielle',
+                        'Écart', 'Taux Déperdition', 'Couleur Alerte'])
+        
+        for recette in queryset:
+            writer.writerow([
+                recette.date.strftime('%d/%m/%Y'),
+                recette.poste.nom,
+                recette.chef_poste.nom_complet if recette.chef_poste else '',
+                f"{recette.montant_declare} FCFA",
+                f"{recette.recette_potentielle} FCFA" if recette.recette_potentielle else 'N/A',
+                f"{recette.ecart} FCFA" if recette.ecart else 'N/A',
+                f"{recette.taux_deperdition}%" if recette.taux_deperdition else 'N/A',
+                recette.get_couleur_alerte() if recette.taux_deperdition else 'N/A'
+            ])
+        
+        return response
+    export_recettes.short_description = 'Exporter en CSV'
+
+
+@admin.register(StatistiquesPeriodiques, site=admin_site)
+class StatistiquesPeriodiqueAdmin(admin.ModelAdmin):
+    """Administration des statistiques périodiques"""
+    
+    list_display = ('__str__', 'nombre_jours_actifs', 'total_recettes_declarees_formatted',
+                   'taux_deperdition_moyen_badge', 'nombre_jours_impertinents')
+    list_filter = ('type_periode', 'poste__type', 'poste__region', 'date_debut')
+    search_fields = ('poste__nom',)
+    ordering = ('-date_debut', 'poste__nom')
+    date_hierarchy = 'date_debut'
+    
+    fieldsets = (
+        ('Période', {
+            'fields': ('poste', 'type_periode', 'date_debut', 'date_fin'),
+            'classes': ('wide',),
+        }),
+        ('Données consolidées', {
+            'fields': ('nombre_jours_actifs', 'total_recettes_declarees', 
+                      'total_recettes_potentielles', 'taux_deperdition_moyen'),
+            'classes': ('wide',),
+        }),
+        ('Anomalies', {
+            'fields': ('nombre_jours_impertinents',),
+            'classes': ('wide',),
+        }),
+        ('Métadonnées', {
+            'fields': ('date_calcul',),
+            'classes': ('collapse',),
+        }),
     )
     
-    def get_type_badge(self, obj):
-        """Badge coloré pour le type de période"""
-        color_map = {
-            'hebdomadaire': '#17a2b8',
-            'mensuelle': '#6f42c1',
-            'trimestrielle': '#fd7e14',
-            'annuelle': '#dc3545',
-        }
-        
-        color = color_map.get(obj.type_periode, '#6c757d')
-        
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 8px; '
-            'border-radius: 8px; font-size: 11px; font-weight: bold;">{}</span>',
-            color,
-            obj.get_type_periode_display()
-        )
+    readonly_fields = ('date_calcul',)
     
-    get_type_badge.short_description = _('Type')
-    get_type_badge.admin_order_field = 'type_periode'
+    def total_recettes_declarees_formatted(self, obj):
+        """Total recettes formaté"""
+        return f"{obj.total_recettes_declarees:,.0f} FCFA"
+    total_recettes_declarees_formatted.short_description = 'Total déclaré'
     
-    def get_total_recettes(self, obj):
-        """Affichage formaté du total des recettes"""
-        return format_html(
-            '<span style="color: #198754; font-weight: bold;">{:,.0f} FCFA</span>',
-            obj.total_recettes_declarees or 0
-        )
-    
-    get_total_recettes.short_description = _('Total Recettes')
-    get_total_recettes.admin_order_field = 'total_recettes_declarees'
-    
-    def get_taux_moyen(self, obj):
-        """Affichage coloré du taux moyen"""
+    def taux_deperdition_moyen_badge(self, obj):
+        """Badge pour le taux moyen"""
         if obj.taux_deperdition_moyen is not None:
-            # Couleur selon le niveau
-            if obj.taux_deperdition_moyen >= -10:
-                color = '#28a745'
+            if obj.taux_deperdition_moyen > -10:
+                color = 'success'
             elif obj.taux_deperdition_moyen >= -30:
-                color = '#fd7e14'
+                color = 'warning'
             else:
-                color = '#dc3545'
+                color = 'danger'
             
             return format_html(
-                '<span style="color: {}; font-weight: bold;">{:.1f}%</span>',
+                '<span class="badge bg-{}">{:.2f}%</span>',
                 color, obj.taux_deperdition_moyen
             )
-        return "N/A"
+        return format_html('<span class="badge bg-secondary">N/A</span>')
+    taux_deperdition_moyen_badge.short_description = 'Taux moyen'
     
-    get_taux_moyen.short_description = _('Taux Moyen')
-    get_taux_moyen.admin_order_field = 'taux_deperdition_moyen'
+    def get_queryset(self, request):
+        """Optimiser les requêtes"""
+        return super().get_queryset(request).select_related('poste')
     
-    def get_jours_actifs(self, obj):
-        """Nombre de jours avec données"""
-        return format_html(
-            '<span style="color: #0d6efd; font-weight: bold;">{}</span>',
-            obj.nombre_jours_actifs or 0
-        )
+    actions = ['export_statistiques']
     
-    get_jours_actifs.short_description = _('Jours Actifs')
-    get_jours_actifs.admin_order_field = 'nombre_jours_actifs'
-
-
-# ===================================================================
-# PERSONNALISATION INTERFACE ADMIN INVENTAIRE
-# ===================================================================
-
-# Messages personnalisés
-admin.site.site_header = "Administration SUPPER - Module Inventaire"
-admin.site.index_title = "Gestion des Inventaires et Recettes"
+    def export_statistiques(self, request, queryset):
+        """Export CSV des statistiques"""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="statistiques_supper.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Poste', 'Type Période', 'Début', 'Fin', 'Jours Actifs',
+                        'Total Déclaré', 'Total Potentiel', 'Taux Moyen', 'Jours Impertinents'])
+        
+        for stat in queryset:
+            writer.writerow([
+                stat.poste.nom,
+                stat.get_type_periode_display(),
+                stat.date_debut.strftime('%d/%m/%Y'),
+                stat.date_fin.strftime('%d/%m/%Y'),
+                stat.nombre_jours_actifs,
+                f"{stat.total_recettes_declarees} FCFA",
+                f"{stat.total_recettes_potentielles} FCFA",
+                f"{stat.taux_deperdition_moyen}%" if stat.taux_deperdition_moyen else 'N/A',
+                stat.nombre_jours_impertinents
+            ])
+        
+        return response
+    export_statistiques.short_description = 'Exporter en CSV'

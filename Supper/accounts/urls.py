@@ -1,74 +1,46 @@
 # ===================================================================
-# Fichier : accounts/urls.py - URLs gestion utilisateurs COMPLET
-# Chemin : Supper/accounts/urls.py
-# Routes authentification et gestion des utilisateurs
+# accounts/urls.py - URLs pour l'authentification et admin SUPPER
 # ===================================================================
+# 🔄 REMPLACE le contenu existant du fichier accounts/urls.py
 
-from django.urls import path
+from django.urls import path, include
 from django.contrib.auth import views as auth_views
+from .admin import admin_site
 from . import views
 
-# Nom de l'application pour les namespaces URL
 app_name = 'accounts'
 
 urlpatterns = [
-    # ===================================================================
-    # AUTHENTIFICATION DE BASE
-    # ===================================================================
+    # URLs d'authentification
+    path('login/', auth_views.LoginView.as_view(
+        template_name='registration/login.html',
+        redirect_authenticated_user=True
+    ), name='login'),
     
-    # Connexion personnalisée avec formulaire par matricule
-    path('login/', views.CustomLoginView.as_view(), name='login'),
-    
-    # Déconnexion standard Django
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     
-    # ===================================================================
-    # GESTION DES MOTS DE PASSE
-    # ===================================================================
+    path('password_change/', auth_views.PasswordChangeView.as_view(
+        template_name='registration/password_change_form.html',
+        success_url='/accounts/password_change/done/'
+    ), name='password_change'),
     
-    # Changement de mot de passe par l'utilisateur connecté
-    path('password/change/', views.PasswordChangeView.as_view(), name='password_change'),
+    path('password_change/done/', auth_views.PasswordChangeDoneView.as_view(
+        template_name='registration/password_change_done.html'
+    ), name='password_change_done'),
     
-    # Réinitialisation de mot de passe par un admin (pour un autre utilisateur)
-    path('password/reset/<int:pk>/', views.PasswordResetView.as_view(), name='password_reset'),
+    # Site admin personnalisé
+    path('admin/', admin_site.urls),
     
-    # ===================================================================
-    # PROFIL UTILISATEUR
-    # ===================================================================
+    # Dashboard intelligent selon rôle
+    path('dashboard/', views.dashboard_redirect, name='dashboard'),
     
-    # Profil personnel de l'utilisateur connecté
-    path('profile/', views.ProfileView.as_view(), name='profile'),
+    # Tableaux de bord spécialisés
+    path('dashboard/admin/', views.AdminDashboardView.as_view(), name='admin_dashboard'),
+    path('dashboard/chef/', views.ChefPosteDashboardView.as_view(), name='chef_dashboard'),
+    path('dashboard/agent/', views.AgentInventaireDashboardView.as_view(), name='agent_dashboard'),
+    path('dashboard/general/', views.GeneralDashboardView.as_view(), name='general_dashboard'),
     
-    # Modification du profil personnel
-    path('profile/edit/', views.ProfileEditView.as_view(), name='profile_edit'),
-    
-    # ===================================================================
-    # GESTION DES UTILISATEURS (ADMIN UNIQUEMENT)
-    # ===================================================================
-    
-    # Liste de tous les utilisateurs avec filtres et recherche
-    path('users/', views.UserListView.as_view(), name='user_list'),
-    
-    # Création d'un nouvel utilisateur
-    path('users/create/', views.UserCreateView.as_view(), name='user_create'),
-    
-    
-    # Création en masse d'utilisateurs
-    path('users/bulk-create/', views.UserBulkCreateView.as_view(), name='user_bulk_create'),
-    
-    # Détail d'un utilisateur spécifique
-    path('users/<int:pk>/', views.UserDetailView.as_view(), name='user_detail'),
-    
-    # Modification des informations d'un utilisateur
-    path('users/<int:pk>/edit/', views.UserUpdateView.as_view(), name='user_edit'),
-    
-    # ===================================================================
-    # API ENDPOINTS POUR AJAX
-    # ===================================================================
-    
-    # API pour validation en temps réel des formulaires
-    path('api/validate-username/', views.ValidateUsernameAPIView.as_view(), name='api_validate_username'),
-    
-    # API pour suggestions d'utilisateurs (autocomplete)
-    path('api/users/search/', views.UserSearchAPIView.as_view(), name='api_user_search'),
+    # API endpoints
+   # path('api/postes/', views.PostesAPIView.as_view(), name='api_postes'),
+    #path('api/stats/', views.StatsAPIView.as_view(), name='api_stats'),
 ]

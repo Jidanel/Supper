@@ -592,3 +592,173 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context['page_title'] = _("Modifier mon profil")
         return context
+# ===================================================================
+# accounts/views.py - AJOUT SIMPLE au fichier existant
+# ===================================================================
+# 📝 AJOUTER ces lignes À LA FIN de votre fichier accounts/views.py existant
+
+# Ajout des imports manquants au début du fichier
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import JsonResponse, HttpResponseForbidden
+from django.views.generic import TemplateView
+from django.utils.decorators import method_decorator
+from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import datetime, timedelta
+from django.conf import settings
+
+from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur
+from .forms import ProfileEditForm, CustomLoginForm, PasswordChangeForm
+
+
+# ===================================================================
+# REDIRECTION INTELLIGENTE SELON RÔLE
+# ===================================================================
+
+@login_required
+def dashboard_redirect(request):
+    """Redirection intelligente vers le bon dashboard selon le rôle"""
+    user = request.user
+    
+    if user.is_admin():
+        return redirect('/accounts/admin/')
+    elif user.is_chef_poste():
+        return redirect('accounts:chef_dashboard')
+    elif user.habilitation == 'agent_inventaire':
+        return redirect('accounts:agent_dashboard')
+    else:
+        return redirect('accounts:general_dashboard')
+
+
+# ===================================================================
+# DASHBOARDS SPÉCIALISÉS
+# ===================================================================
+
+@method_decorator(login_required, name='dispatch')
+class AdminDashboardView(TemplateView):
+    """Dashboard pour les administrateurs"""
+    template_name = 'admin/dashboard.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_admin():
+            return HttpResponseForbidden("Accès réservé aux administrateurs")
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stats'] = self._get_admin_stats()
+        context['recent_actions'] = JournalAudit.objects.select_related('utilisateur').order_by('-timestamp')[:10]
+        return context
+    
+    def _get_admin_stats(self):
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        
+        return {
+            'users_total': UtilisateurSUPPER.objects.count(),
+            'users_active': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+            'users_this_week': UtilisateurSUPPER.objects.filter(date_creation__gte=week_ago).count(),
+            'postes_total': Poste.objects.count(),
+            'postes_active': Poste.objects.filter(actif=True).count(),
+            'actions_today': JournalAudit.objects.filter(timestamp__date=today).count(),
+            'actions_week': JournalAudit.objects.filter(timestamp__gte=week_ago).count(),
+        }
+
+
+@method_decorator(login_required, name='dispatch')
+class ChefPosteDashboardView(TemplateView):
+    """Dashboard pour les chefs de poste"""
+    template_name = 'accounts/chef_dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['poste'] = self.request.user.poste_affectation
+        return context
+
+
+@method_decorator(login_required, name='dispatch')
+class AgentInventaireDashboardView(TemplateView):
+    """Dashboard pour les agents d'inventaire"""
+    template_name = 'accounts/agent_dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['poste'] = self.request.user.poste_affectation
+        return context
+
+
+@method_decorator(login_required, name='dispatch')
+class GeneralDashboardView(TemplateView):
+    """Dashboard général pour les autres rôles"""
+    template_name = 'accounts/general_dashboard.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user_role'] = self.request.user.get_habilitation_display()
+        return context
+
+
+# ===================================================================
+# API ENDPOINTS
+# ===================================================================
+
+@login_required
+def postes_api(request):
+    """API pour récupérer la liste des postes"""
+    postes = Poste.objects.filter(actif=True).values(
+        'id', 'nom', 'code', 'type_poste', 'region'
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'postes': list(postes)
+    })
+
+
+@login_required
+def stats_api(request):
+    """API pour les statistiques en temps réel"""
+    if not request.user.is_admin():
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    today = timezone.now().date()
+    
+    stats = {
+        'users_online': UtilisateurSUPPER.objects.filter(
+            last_login__gte=timezone.now() - timedelta(minutes=30)
+        ).count(),
+        'actions_today': JournalAudit.objects.filter(timestamp__date=today).count(),
+        'timestamp': timezone.now().isoformat(),
+    }
+    
+    return JsonResponse(stats)
+
+
+# ===================================================================
+# GESTIONNAIRES D'ERREURS PERSONNALISÉS
+# ===================================================================
+
+def custom_404(request, exception=None):
+    """Page 404 personnalisée"""
+    return render(request, 'errors/404.html', {
+        'title': 'Page non trouvée',
+        'message': 'La page que vous cherchez n\'existe pas.',
+    }, status=404)
+
+
+def custom_500(request):
+    """Page 500 personnalisée"""
+    return render(request, 'errors/500.html', {
+        'title': 'Erreur serveur',
+        'message': 'Une erreur interne s\'est produite.',
+    }, status=500)
+
+
+def custom_403(request, exception=None):
+    """Page 403 personnalisée"""
+    return render(request, 'errors/403.html', {
+        'title': 'Accès interdit',
+        'message': 'Vous n\'avez pas les permissions nécessaires.',
+    }, status=403)

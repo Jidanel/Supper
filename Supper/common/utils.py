@@ -368,3 +368,141 @@ def nettoyer_donnees_anciennes(model_class, champ_date, jours_retention):
         logger.info(f"Nettoyage {model_class.__name__}: {count} objets supprimés")
     
     return count
+
+# ===================================================================
+# common/utils.py - AJOUT de la fonction log_user_action manquante
+# ===================================================================
+# 📝 AJOUTER cette fonction DANS le fichier common/utils.py existant
+
+def log_user_action(user, action, details="", request=None):
+    """
+    Fonction pour journaliser manuellement une action utilisateur
+    
+    Args:
+        user: Instance UtilisateurSUPPER ou None
+        action: Description de l'action (str)
+        details: Détails supplémentaires (str)
+        request: Objet request Django (optionnel)
+    
+    Usage:
+        log_user_action(request.user, "Calcul taux déperdition", "Poste: XYZ", request)
+    """
+    try:
+        from accounts.models import JournalAudit
+        
+        ip = None
+        session = None
+        user_agent = ""
+        url = ""
+        
+        if request:
+            ip = request.META.get('REMOTE_ADDR')
+            session = request.session.session_key
+            user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+            url = request.path
+        
+        # Si pas d'utilisateur (tentative de connexion échouée), ne pas journaliser
+        if user is None:
+            return
+        
+        JournalAudit.objects.create(
+            utilisateur=user,
+            action=action,
+            details=details,
+            adresse_ip=ip,
+            user_agent=user_agent,
+            session_key=session,
+            url_acces=url,
+            succes=True
+        )
+        
+        import logging
+        logger = logging.getLogger('supper')
+        logger.info(f"Action manuelle: {action} | Utilisateur: {user.username}")
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger('supper')
+        logger.error(f"Erreur journalisation manuelle: {str(e)}")
+
+
+# ===================================================================
+# Si le fichier common/utils.py n'existe pas, créer ce contenu complet
+# ===================================================================
+
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.utils.decorators import method_decorator
+from django.http import HttpResponseForbidden
+from functools import wraps
+import logging
+
+logger = logging.getLogger('supper')
+
+
+def is_admin_user(user):
+    """Fonction de test pour vérifier si l'utilisateur est administrateur"""
+    return user.is_authenticated and user.is_admin()
+
+
+def is_chef_poste(user):
+    """Fonction de test pour vérifier si l'utilisateur est chef de poste"""
+    return user.is_authenticated and user.is_chef_poste()
+
+
+def require_permission(permission_field):
+    """
+    Décorateur pour vérifier les permissions SUPPER
+    
+    Usage:
+    @require_permission('peut_gerer_inventaire')
+    def ma_vue(request):
+        ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapper(request, *args, **kwargs):
+            if not hasattr(request.user, permission_field):
+                return HttpResponseForbidden("Permission insuffisante")
+            
+            if not getattr(request.user, permission_field):
+                return HttpResponseForbidden("Permission insuffisante")
+            
+            return view_func(request, *args, **kwargs)
+        
+        return wrapper
+    return decorator
+
+
+class AuditMixin:
+    """
+    Mixin pour les vues basées sur les classes
+    Ajoute automatiquement la journalisation
+    """
+    audit_action = None
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Journaliser l'action si spécifiée
+        if self.audit_action and request.user.is_authenticated:
+            log_user_action(
+                request.user,
+                self.audit_action,
+                f"Vue: {self.__class__.__name__}",
+                request
+            )
+        
+        return super().dispatch(request, *args, **kwargs)
+
+
+def format_montant_fcfa(montant):
+    """
+    Formate un montant en FCFA avec séparateurs de milliers
+    """
+    if montant is None:
+        return "0 FCFA"
+    
+    try:
+        montant_int = int(montant)
+        return f"{montant_int:,} FCFA".replace(',', ' ')
+    except (ValueError, TypeError):
+        return "0 FCFA"
