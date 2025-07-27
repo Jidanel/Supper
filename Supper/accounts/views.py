@@ -17,6 +17,7 @@ from django.utils.translation import gettext_lazy as _  # Support bilingue FR/EN
 from django.contrib.auth import login, authenticate
 from django.core.exceptions import ValidationError
 from django.utils import timezone  # Ajout import manquant
+from .forms import ProfileEditForm  # Ajouter cet import
 
 # Import des modèles SUPPER
 from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur
@@ -62,10 +63,10 @@ class CustomLoginView(BilingualMixin, LoginView):
         )
         
         # Redirection intelligente selon le rôle de l'utilisateur
-        if user.is_admin():
+        if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']:
             # Administrateurs → Dashboard admin avec toutes les fonctionnalités
             return redirect('common:dashboard_admin')
-        elif user.is_chef_poste():
+        elif user.habilitation in ['chef_peage', 'chef_pesage']:
             # Chefs de poste → Dashboard spécialisé gestion de poste
             return redirect('common:dashboard_chef')
         elif user.habilitation == 'agent_inventaire':
@@ -480,4 +481,114 @@ class ProfileView(LoginRequiredMixin, BilingualMixin, AuditMixin, TemplateView):
             }
         })
         
+        return context
+# ===================================================================
+# À AJOUTER À LA FIN DE accounts/views.py
+# Vues API pour les fonctionnalités AJAX
+# ===================================================================
+
+from django.http import JsonResponse
+from django.views import View
+import json
+
+
+class ValidateUsernameAPIView(LoginRequiredMixin, AdminRequiredMixin, View):
+    """
+    API pour valider l'unicité d'un nom d'utilisateur en temps réel
+    Utilisée pour la validation AJAX des formulaires
+    """
+    
+    def get(self, request):
+        """Valide si un matricule est disponible"""
+        username = request.GET.get('username', '').strip().upper()
+        
+        if not username:
+            return JsonResponse({
+                'valid': False,
+                'message': 'Matricule requis'
+            })
+        
+        # Vérifier le format
+        import re
+        if not re.match(r'^[A-Z0-9]{6,20}$', username):
+            return JsonResponse({
+                'valid': False,
+                'message': 'Format invalide (6-20 caractères alphanumériques)'
+            })
+        
+        # Vérifier l'unicité
+        exists = UtilisateurSUPPER.objects.filter(username=username).exists()
+        
+        return JsonResponse({
+            'valid': not exists,
+            'message': 'Matricule déjà utilisé' if exists else 'Matricule disponible'
+        })
+
+
+class UserSearchAPIView(LoginRequiredMixin, AdminRequiredMixin, View):
+    """
+    API pour la recherche d'utilisateurs (autocomplete)
+    Utilisée pour les champs de sélection avec suggestions
+    """
+    
+    def get(self, request):
+        """Recherche des utilisateurs selon un terme"""
+        query = request.GET.get('q', '').strip()
+        
+        if len(query) < 2:
+            return JsonResponse({'results': []})
+        
+        # Rechercher dans username et nom_complet
+        users = UtilisateurSUPPER.objects.filter(
+            Q(username__icontains=query) |
+            Q(nom_complet__icontains=query)
+        ).filter(is_active=True)[:10]
+        
+        results = []
+        for user in users:
+            results.append({
+                'id': user.id,
+                'username': user.username,
+                'nom_complet': user.nom_complet,
+                'habilitation': user.get_habilitation_display(),
+                'poste': user.poste_affectation.nom if user.poste_affectation else None
+            })
+        
+        return JsonResponse({'results': results})
+class ProfileEditView(LoginRequiredMixin, UpdateView):
+    """
+    Vue pour permettre à un utilisateur de modifier son profil
+    Seuls certains champs sont modifiables par l'utilisateur lui-même
+    """
+    model = UtilisateurSUPPER
+    form_class = ProfileEditForm
+    template_name = 'accounts/profile_edit.html'
+    success_url = reverse_lazy('accounts:profile')
+    
+    def get_object(self):
+        """Retourne l'utilisateur connecté"""
+        return self.request.user
+    
+    def form_valid(self, form):
+        """Traitement après validation du formulaire"""
+        messages.success(
+            self.request, 
+            _("Votre profil a été mis à jour avec succès.")
+        )
+        
+        # Journaliser la modification
+        from .models import JournalAudit
+        JournalAudit.objects.create(
+            utilisateur=self.request.user,
+            action="Modification profil",
+            details=f"Profil mis à jour: {self.request.user.username}",
+            succes=True
+        )
+        
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        """Ajouter des données au contexte"""
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = _("Modifier mon profil")
         return context

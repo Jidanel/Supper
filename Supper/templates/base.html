@@ -1,0 +1,423 @@
+<!-- 
+===================================================================
+Fichier : templates/base.html
+Template de base pour l'application SUPPER
+Navigation responsive, support bilingue FR/EN, thème moderne
+===================================================================
+-->
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="{{ current_language|default:'fr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% trans 'SUPPER - Système de Suivi des Péages et Pesages Routiers du Cameroun' %}">
+    <meta name="author" content="SUPPER Team">
+    
+    <!-- Titre dynamique selon la page -->
+    <title>
+        {% block title %}SUPPER{% endblock %} | 
+        {% trans "Suivi des Péages et Pesages Routiers" %}
+    </title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+    
+    <!-- Bootstrap CSS 5.3 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome pour les icônes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS personnalisé SUPPER -->
+    <link rel="stylesheet" href="{% static 'css/supper.css' %}">
+    
+    <!-- CSS spécifique à la page -->
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="bg-light">
+    <!-- Barre de navigation principale -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container-fluid">
+            <!-- Logo et nom de l'application -->
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'common:dashboard_general' %}">
+                <i class="fas fa-road me-2"></i>
+                <span class="fw-bold">SUPPER</span>
+            </a>
+            
+            <!-- Bouton toggle pour mobile -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Menu de navigation -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- Menu principal (côté gauche) -->
+                <ul class="navbar-nav me-auto">
+                    <!-- Dashboard selon le rôle -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_general' %}active{% endif %}" 
+                           href="{% url 'common:dashboard_general' %}">
+                            <i class="fas fa-tachometer-alt me-1"></i>
+                            {% trans "Tableau de bord" %}
+                        </a>
+                    </li>
+                    
+                    <!-- Menu Inventaire (si autorisé) -->
+                    {% if user.peut_gerer_inventaire %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-clipboard-list me-1"></i>
+                            {% trans "Inventaire" %}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-plus me-2"></i>
+                                    {% trans "Nouveau" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-list me-2"></i>
+                                    {% trans "Mes inventaires" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Menu Recettes (si chef de poste) -->
+                    {% if user.peut_saisir_peage or user.peut_saisir_pesage %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-coins me-1"></i>
+                            {% trans "Recettes" %}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-plus me-2"></i>
+                                    {% trans "Saisir recette" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-chart-line me-2"></i>
+                                    {% trans "Statistiques" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Menu Administration (si admin) -->
+                    {% if user.is_admin %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cogs me-1"></i>
+                            {% trans "Administration" %}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'accounts:user_list' %}">
+                                    <i class="fas fa-users me-2"></i>
+                                    {% trans "Utilisateurs" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'common:jour_list' %}">
+                                    <i class="fas fa-calendar-alt me-2"></i>
+                                    {% trans "Gestion des jours" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'common:audit_log' %}">
+                                    <i class="fas fa-history me-2"></i>
+                                    {% trans "Journal d'audit" %}
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'common:system_health' %}">
+                                    <i class="fas fa-heartbeat me-2"></i>
+                                    {% trans "Santé système" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <!-- Menu utilisateur (côté droit) -->
+                <ul class="navbar-nav">
+                    <!-- Notifications -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-bell"></i>
+                            <!-- Badge de notifications non lues -->
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                                  id="notificationsBadge" style="display: none;">
+                                0
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" style="width: 300px;">
+                            <li class="dropdown-header">
+                                <i class="fas fa-bell me-2"></i>
+                                {% trans "Notifications" %}
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <div class="px-3 py-2" id="notificationsContainer">
+                                    <div class="text-muted text-center">
+                                        <i class="fas fa-inbox me-2"></i>
+                                        {% trans "Aucune notification" %}
+                                    </div>
+                                </div>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-center" href="#">
+                                    {% trans "Voir toutes les notifications" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Changement de langue -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            {% if current_language == 'fr' %}
+                                <i class="fas fa-flag me-1"></i> FR
+                            {% else %}
+                                <i class="fas fa-flag me-1"></i> EN
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item {% if current_language == 'fr' %}active{% endif %}" 
+                                   href="#">
+                                    <i class="fas fa-flag me-2"></i>
+                                    Français
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if current_language == 'en' %}active{% endif %}" 
+                                   href="#">
+                                    <i class="fas fa-flag me-2"></i>
+                                    English
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Menu profil utilisateur -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" 
+                           href="#" role="button" data-bs-toggle="dropdown">
+                            <!-- Photo de profil ou avatar par défaut -->
+                            {% if user.photo_profil %}
+                                <img src="{{ user.photo_profil.url }}" 
+                                     alt="{% trans 'Photo de profil' %}" 
+                                     class="rounded-circle me-2" 
+                                     width="24" height="24">
+                            {% else %}
+                                <i class="fas fa-user-circle me-2"></i>
+                            {% endif %}
+                            
+                            <!-- Nom de l'utilisateur -->
+                            <span class="d-none d-md-inline">{{ user.nom_complet }}</span>
+                        </a>
+                        
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <!-- Informations utilisateur -->
+                            <li class="dropdown-header">
+                                <div class="fw-bold">{{ user.nom_complet }}</div>
+                                <small class="text-muted">{{ user.get_habilitation_display }}</small>
+                                {% if user.poste_affectation %}
+                                    <br><small class="text-muted">{{ user.poste_affectation.nom }}</small>
+                                {% endif %}
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <!-- Liens du profil -->
+                            <li>
+                                <a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                    <i class="fas fa-user me-2"></i>
+                                    {% trans "Mon profil" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'accounts:password_change' %}">
+                                    <i class="fas fa-key me-2"></i>
+                                    {% trans "Changer mot de passe" %}
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <!-- Aide et déconnexion -->
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-question-circle me-2"></i>
+                                    {% trans "Aide" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}">
+                                    <i class="fas fa-sign-out-alt me-2"></i>
+                                    {% trans "Déconnexion" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Messages système -->
+    {% if messages %}
+        <div class="container-fluid mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <!-- Icône selon le type de message -->
+                    {% if message.tags == 'success' %}
+                        <i class="fas fa-check-circle me-2"></i>
+                    {% elif message.tags == 'error' %}
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                    {% else %}
+                        <i class="fas fa-info-circle me-2"></i>
+                    {% endif %}
+                    
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <!-- Fil d'Ariane (breadcrumb) -->
+    {% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="bg-white border-bottom">
+        <div class="container-fluid">
+            <ol class="breadcrumb py-3 mb-0">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'common:dashboard_general' %}">
+                        <i class="fas fa-home"></i>
+                        {% trans "Accueil" %}
+                    </a>
+                </li>
+                {% block breadcrumb_items %}{% endblock %}
+            </ol>
+        </div>
+    </nav>
+    {% endblock %}
+    
+    <!-- Contenu principal de la page -->
+    <main class="container-fluid py-4">
+        {% block content %}
+        <!-- Le contenu spécifique de chaque page sera inséré ici -->
+        {% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container-fluid">
+            <div class="row">
+                <!-- Informations application -->
+                <div class="col-md-6">
+                    <h6 class="fw-bold">
+                        <i class="fas fa-road me-2"></i>
+                        SUPPER
+                    </h6>
+                    <p class="small mb-2">
+                        {% trans "Système de Suivi des Péages et Pesages Routiers" %}
+                    </p>
+                    <p class="small text-muted mb-0">
+                        {% trans "Ministère des Travaux Publics/Ministère des Finances - République du Cameroun" %}
+                    </p>
+                </div>
+                
+                <!-- Informations techniques -->
+                <div class="col-md-6 text-md-end">
+                    <p class="small mb-1">
+                        {% trans "Version" %} 1.0 | 
+                        {% trans "Utilisateur" %}: {{ user.username }}
+                    </p>
+                    <p class="small text-muted mb-0">
+                        {% now "Y" %} - {% trans "Tous droits réservés" %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Scripts JavaScript -->
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JavaScript personnalisé SUPPER -->
+    <script src="{% static 'js/supper.js' %}"></script>
+    
+    <!-- Scripts spécifiques à la page -->
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Script pour les notifications en temps réel -->
+    <script>
+        // Charger les notifications au démarrage de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotifications();
+            
+            // Actualiser les notifications toutes les 30 secondes
+            setInterval(loadNotifications, 30000);
+        });
+        
+        // Fonction pour charger les notifications via AJAX
+        function loadNotifications() {
+            fetch('')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.getElementById('notificationsBadge');
+                    const container = document.getElementById('notificationsContainer');
+                    
+                    if (data.notifications && data.notifications.length > 0) {
+                        // Afficher le badge avec le nombre
+                        badge.textContent = data.notifications.length;
+                        badge.style.display = 'block';
+                        
+                        // Construire la liste des notifications
+                        let html = '';
+                        data.notifications.forEach(notif => {
+                            html += `
+                                <div class="border-bottom pb-2 mb-2">
+                                    <div class="fw-bold small">${notif.titre}</div>
+                                    <div class="text-muted small">${notif.message}</div>
+                                    <div class="text-muted x-small">${notif.date}</div>
+                                </div>
+                            `;
+                        });
+                        container.innerHTML = html;
+                    } else {
+                        // Masquer le badge
+                        badge.style.display = 'none';
+                        
+                        // Afficher message vide
+                        container.innerHTML = `
+                            <div class="text-muted text-center">
+                                <i class="fas fa-inbox me-2"></i>
+                                {% trans "Aucune notification" %}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur chargement notifications:', error);
+                });
+        }
+    </script>
+</body>
+</html>

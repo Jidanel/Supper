@@ -1,5 +1,7 @@
 # ===================================================================
-# accounts/models.py - Modèles pour la gestion des utilisateurs SUPPER
+# Fichier : Supper/accounts/models.py
+# Modèles pour la gestion des utilisateurs SUPPER - VERSION COMPLÈTE
+# Inclut toutes les corrections selon les clarifications
 # ===================================================================
 
 from django.contrib.auth.models import AbstractUser
@@ -7,7 +9,16 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
 from django.urls import reverse
+from django.utils import timezone
+import logging
 
+# Configuration du logger pour l'application
+logger = logging.getLogger('supper')
+
+
+# ===================================================================
+# CHOIX ET CONSTANTES
+# ===================================================================
 
 class TypePoste(models.TextChoices):
     """Types de postes d'affectation dans le réseau routier"""
@@ -35,123 +46,103 @@ class Habilitation(models.TextChoices):
     IMPRIMERIE_NATIONALE = 'imprimerie', _('Imprimerie Nationale')
 
 
-class RegionCameroun(models.TextChoices):
-    """Régions administratives du Cameroun"""
-    ADAMAOUA = 'adamaoua', _('Adamaoua')
-    CENTRE = 'centre', _('Centre')
-    EST = 'est', _('Est')
-    EXTREME_NORD = 'extreme_nord', _('Extrême-Nord')
-    LITTORAL = 'littoral', _('Littoral')
-    NORD = 'nord', _('Nord')
-    NORD_OUEST = 'nord_ouest', _('Nord-Ouest')
-    OUEST = 'ouest', _('Ouest')
-    SUD = 'sud', _('Sud')
-    SUD_OUEST = 'sud_ouest', _('Sud-Ouest')
+class TypeNotification(models.TextChoices):
+    """Types de notifications dans le système"""
+    INFO = 'info', _('Information')
+    SUCCES = 'succes', _('Succès')
+    AVERTISSEMENT = 'avertissement', _('Avertissement')
+    ERREUR = 'erreur', _('Erreur')
 
+
+# ===================================================================
+# MODÈLE POSTE
+# ===================================================================
 
 class Poste(models.Model):
     """
-    Modèle représentant un poste de péage ou de pesage dans le réseau routier
+    Modèle représentant un poste de péage ou de pesage
+    67 postes de péage + ~40 postes de pesage au Cameroun
     """
+    
+    # Identification unique du poste
+    code = models.CharField(
+        max_length=10,
+        unique=True,
+        verbose_name=_("Code du poste"),
+        help_text=_("Code unique d'identification (ex: PG001, PS001)")
+    )
     
     nom = models.CharField(
         max_length=100,
         verbose_name=_("Nom du poste"),
-        help_text=_("Nom complet du poste (ex: Péage de Yaoundé-Nord)")
+        help_text=_("Nom complet du poste (ex: Péage de Douala-Nord)")
     )
     
-    code = models.CharField(
-        max_length=15,
-        unique=True,
-        verbose_name=_("Code du poste"),
-        help_text=_("Code unique du poste (ex: YDE-N-01)"),
-        validators=[
-            RegexValidator(
-                regex=r'^[A-Z0-9-]{3,15}$',
-                message=_("Le code doit contenir 3-15 caractères alphanumériques et tirets")
-            )
-        ]
-    )
-    
-    type_poste = models.CharField(
+    type = models.CharField(
         max_length=10,
         choices=TypePoste.choices,
+        default=TypePoste.PEAGE,
         verbose_name=_("Type de poste")
     )
     
-    localisation = models.CharField(
-        max_length=200,
-        verbose_name=_("Localisation"),
-        help_text=_("Adresse ou description précise de la localisation")
-    )
-    
+    # Localisation géographique
     region = models.CharField(
-        max_length=20,
-        choices=RegionCameroun.choices,
-        verbose_name=_("Région administrative")
+        max_length=50,
+        verbose_name=_("Région"),
+        help_text=_("Région administrative du Cameroun")
     )
     
     departement = models.CharField(
-        max_length=100,
-        verbose_name=_("Département"),
-        help_text=_("Département dans la région")
+        max_length=50,
+        blank=True,
+        verbose_name=_("Département")
     )
     
-    arrondissement = models.CharField(
+    # CHANGEMENT : arrondissement → axe_routier
+    axe_routier = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name=_("Arrondissement"),
-        help_text=_("Arrondissement (optionnel)")
+        verbose_name=_("Axe routier"),
+        help_text=_("Axe routier où se situe le poste (ex: Yaoundé-Douala, Douala-Bafoussam)")
     )
     
-    # Coordonnées GPS (optionnelles)
-    latitude = models.DecimalField(
-        max_digits=10,
-        decimal_places=7,
+    # Coordonnées GPS optionnelles
+    latitude = models.FloatField(
         null=True,
         blank=True,
         verbose_name=_("Latitude"),
         help_text=_("Coordonnée GPS latitude")
     )
     
-    longitude = models.DecimalField(
-        max_digits=10,
-        decimal_places=7,
+    longitude = models.FloatField(
         null=True,
         blank=True,
         verbose_name=_("Longitude"),
         help_text=_("Coordonnée GPS longitude")
     )
     
-    # Informations administratives
-    actif = models.BooleanField(
-        default=True,
-        verbose_name=_("Poste actif"),
-        help_text=_("Indique si le poste est en service")
-    )
-    
-    date_ouverture = models.DateField(
-        null=True,
+    # Informations complémentaires
+    description = models.TextField(
         blank=True,
-        verbose_name=_("Date d'ouverture"),
-        help_text=_("Date de mise en service du poste")
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée du poste et de sa situation")
     )
     
+    # Statut
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif"),
+        help_text=_("Le poste est-il en service ?")
+    )
+    
+    # Métadonnées
     date_creation = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_("Date de création dans le système")
+        verbose_name=_("Date de création")
     )
-    
     date_modification = models.DateTimeField(
-        auto_now=True,
-        verbose_name=_("Dernière modification")
-    )
-    
-    # Informations complémentaires
-    observations = models.TextField(
-        blank=True,
-        verbose_name=_("Observations"),
-        help_text=_("Notes ou observations particulières sur le poste")
+        auto_now=True,  # CORRIGÉ : auto_now au lieu de auto_now_add
+        verbose_name=_("Date de modification")
     )
     
     class Meta:
@@ -160,59 +151,70 @@ class Poste(models.Model):
         ordering = ['region', 'nom']
         indexes = [
             models.Index(fields=['code']),
-            models.Index(fields=['region', 'type_poste']),
-            models.Index(fields=['actif']),
+            models.Index(fields=['region', 'type']),
+            models.Index(fields=['is_active']),
         ]
     
     def __str__(self):
-        return f"{self.nom} ({self.get_type_poste_display()})"
+        return f"{self.code} - {self.nom}"
     
     def get_absolute_url(self):
-        return reverse('poste_detail', kwargs={'pk': self.pk})
+        return reverse('accounts:poste_detail', kwargs={'pk': self.pk})
     
     @property
-    def localisation_complete(self):
-        """Retourne la localisation complète du poste"""
-        localisation = [self.localisation]
-        if self.arrondissement:
-            localisation.append(self.arrondissement)
-        localisation.extend([self.departement, self.get_region_display()])
-        return ', '.join(localisation)
+    def nom_complet(self):
+        """Retourne le nom complet avec type et région"""
+        return f"{self.get_type_display()} {self.nom} ({self.region})"
+    
+    @property
+    def coordonnees_gps(self):
+        """Retourne les coordonnées GPS formatées"""
+        if self.latitude and self.longitude:
+            return f"{self.latitude:.6f}, {self.longitude:.6f}"
+        return None
 
+
+# ===================================================================
+# MODÈLE UTILISATEUR SUPPER - VERSION COMPLÈTE
+# ===================================================================
 
 class UtilisateurSUPPER(AbstractUser):
     """
-    Modèle utilisateur personnalisé pour l'application SUPPER
-    Étend AbstractUser avec les champs spécifiques au projet
+    Utilisateur personnalisé pour le système SUPPER
+    Étend AbstractUser avec champs spécifiques métier
     """
     
-    # Redéfinition du champ username pour utiliser le matricule
+    # Redéfinir les champs de base
     username = models.CharField(
         max_length=20,
         unique=True,
         verbose_name=_("Matricule"),
-        help_text=_("Matricule unique de l'agent (identifiant de connexion)"),
+        help_text=_("Matricule unique de l'agent (ex: INV001, ADM001)"),
         validators=[
             RegexValidator(
-                regex=r'^[A-Z0-9]{6,20}$',
-                message=_("Le matricule doit contenir 6-20 caractères alphanumériques majuscules")
+                regex=r'^[A-Z]{2,4}[0-9]{3,4}$',
+                message=_("Format: 2-4 lettres + 3-4 chiffres (ex: INV001)")
             )
         ]
     )
     
-    # Informations personnelles obligatoires
+    first_name = None  # Supprimer first_name
+    last_name = None   # Supprimer last_name
+    
+    # Informations personnelles
     nom_complet = models.CharField(
-        max_length=150,
+        max_length=100,
         verbose_name=_("Nom complet"),
-        help_text=_("Nom et prénom(s) complets de l'agent")
+        help_text=_("Nom et prénom(s) de l'agent")
     )
     
     telephone = models.CharField(
-        max_length=20,
+        max_length=15,
         verbose_name=_("Numéro de téléphone"),
+        help_text=_("Numéro de téléphone camerounais"),
         validators=[
             RegexValidator(
-                regex=r'^\+?237?[0-9]{8,9}$',
+                regex=r'^(\+237)?[0-9]{8,9}$',
                 message=_("Format: +237XXXXXXXXX ou XXXXXXXXX (Cameroun)")
             )
         ]
@@ -246,7 +248,10 @@ class UtilisateurSUPPER(AbstractUser):
         help_text=_("Rôle de l'utilisateur dans le système SUPPER")
     )
     
-    # Permissions d'accès aux données
+    # ===============================================================
+    # PERMISSIONS D'ACCÈS AUX DONNÉES
+    # ===============================================================
+    
     peut_saisir_peage = models.BooleanField(
         default=False,
         verbose_name=_("Peut saisir données péage"),
@@ -265,7 +270,38 @@ class UtilisateurSUPPER(AbstractUser):
         help_text=_("Si False, accès limité au poste d'affectation uniquement")
     )
     
-    # Permissions sur les modules fonctionnels
+    # ===============================================================
+    # NOUVEAUX CHAMPS - CONTRÔLE D'AFFICHAGE PRÉCIS
+    # ===============================================================
+    
+    voir_recettes_potentielles = models.BooleanField(
+        default=True,
+        verbose_name=_("Peut voir recettes potentielles"),
+        help_text=_("Autorisation de voir les calculs de recettes potentielles")
+    )
+    
+    voir_taux_deperdition = models.BooleanField(
+        default=True,
+        verbose_name=_("Peut voir taux déperdition"),
+        help_text=_("Autorisation de voir les calculs de taux de déperdition")
+    )
+    
+    voir_statistiques_globales = models.BooleanField(
+        default=False,
+        verbose_name=_("Peut voir statistiques globales"),
+        help_text=_("Autorisation de voir stats tous postes (admin/service émission)")
+    )
+    
+    peut_saisir_pour_autres_postes = models.BooleanField(
+        default=False,
+        verbose_name=_("Peut saisir pour autres postes"),
+        help_text=_("Admin peut saisir inventaires/recettes sur tous postes")
+    )
+    
+    # ===============================================================
+    # PERMISSIONS SUR LES MODULES FONCTIONNELS
+    # ===============================================================
+    
     peut_gerer_peage = models.BooleanField(
         default=False, 
         verbose_name=_("Gérer le péage")
@@ -283,7 +319,7 @@ class UtilisateurSUPPER(AbstractUser):
         verbose_name=_("Gérer le budget")
     )
     peut_gerer_inventaire = models.BooleanField(
-        default=True, 
+        default=False, 
         verbose_name=_("Gérer l'inventaire")
     )
     peut_gerer_archives = models.BooleanField(
@@ -299,40 +335,28 @@ class UtilisateurSUPPER(AbstractUser):
         verbose_name=_("Gérer le stock informatique")
     )
     
-    # Informations de suivi
-    date_creation = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Date de création du compte")
-    )
-    
-    date_modification = models.DateTimeField(
-        auto_now=True,
-        verbose_name=_("Dernière modification")
-    )
+    # ===============================================================
+    # MÉTADONNÉES ET TRAÇABILITÉ
+    # ===============================================================
     
     cree_par = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='comptes_crees',
+        related_name='utilisateurs_crees',
         verbose_name=_("Créé par"),
         help_text=_("Administrateur qui a créé ce compte")
     )
     
-    # Informations supplémentaires
-    photo_profil = models.ImageField(
-        upload_to='photos_profil/',
-        null=True,
-        blank=True,
-        verbose_name=_("Photo de profil"),
-        help_text=_("Photo optionnelle pour le profil utilisateur")
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
     )
     
-    commentaires = models.TextField(
-        blank=True,
-        verbose_name=_("Commentaires"),
-        help_text=_("Notes ou commentaires sur cet utilisateur")
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Date de modification")
     )
     
     class Meta:
@@ -347,154 +371,151 @@ class UtilisateurSUPPER(AbstractUser):
         ]
     
     def __str__(self):
-        return f"{self.nom_complet} ({self.username})"
-    
-    def get_absolute_url(self):
-        return reverse('user_detail', kwargs={'pk': self.pk})
-    
-    def get_permissions_list(self):
-        """Retourne la liste des permissions accordées à l'utilisateur"""
-        permissions = []
-        if self.peut_saisir_peage:
-            permissions.append(_("Saisie péage"))
-        if self.peut_saisir_pesage:
-            permissions.append(_("Saisie pesage"))
-        if self.peut_gerer_personnel:
-            permissions.append(_("Gestion personnel"))
-        if self.peut_gerer_inventaire:
-            permissions.append(_("Gestion inventaire"))
-        if self.peut_gerer_budget:
-            permissions.append(_("Gestion budget"))
-        if self.peut_gerer_archives:
-            permissions.append(_("Gestion archives"))
-        if self.peut_gerer_stocks_psrr:
-            permissions.append(_("Gestion stocks PSRR"))
-        if self.peut_gerer_stock_info:
-            permissions.append(_("Gestion stock informatique"))
-        return permissions
-    
-    def is_admin(self):
-        """Vérifie si l'utilisateur a des privilèges administrateur"""
-        return self.habilitation in [
-            Habilitation.ADMIN_PRINCIPAL,
-            Habilitation.COORDONNATEUR_PSRR,
-            Habilitation.SERVICE_INFORMATIQUE,
-            Habilitation.SERVICE_EMISSION
-        ]
-    
-    def is_chef_poste(self):
-        """Vérifie si l'utilisateur est chef de poste"""
-        return self.habilitation in [
-            Habilitation.CHEF_POSTE_PEAGE,
-            Habilitation.CHEF_POSTE_PESAGE
-        ]
-    
-    def peut_acceder_poste(self, poste):
-        """
-        Vérifie si l'utilisateur peut accéder aux données d'un poste donné
-        """
-        if self.acces_tous_postes or self.is_admin():
-            return True
-        return self.poste_affectation == poste
-    
-    def get_postes_accessibles(self):
-        """
-        Retourne la liste des postes auxquels l'utilisateur a accès
-        """
-        if self.acces_tous_postes or self.is_admin():
-            return Poste.objects.filter(actif=True)
-        elif self.poste_affectation:
-            return Poste.objects.filter(id=self.poste_affectation.id)
-        else:
-            return Poste.objects.none()
+        return f"{self.username} - {self.nom_complet}"
     
     def save(self, *args, **kwargs):
-        """
-        Surcharge de la méthode save pour des validations et configurations automatiques
-        """
-        # Conversion du matricule en majuscules
-        self.username = self.username.upper()
+        """Sauvegarde avec attribution automatique des permissions"""
+        # Attribuer automatiquement les permissions selon l'habilitation
+        self.attribuer_permissions_automatiques()
         
-        # Attribution automatique de permissions selon l'habilitation
-        self._configure_permissions_by_role()
-        
+        # Sauvegarder l'objet
         super().save(*args, **kwargs)
+        
+        # Logger la création/modification
+        if hasattr(self, '_state') and self._state.adding:
+            logger.info(f"Nouvel utilisateur créé: {self.username} ({self.nom_complet})")
+        else:
+            logger.info(f"Utilisateur modifié: {self.username}")
     
-    def _configure_permissions_by_role(self):
+    def get_absolute_url(self):
+        return reverse('accounts:user_detail', kwargs={'pk': self.pk})
+    
+    # ===============================================================
+    # MÉTHODES POUR ATTRIBUTION AUTOMATIQUE DES PERMISSIONS
+    # ===============================================================
+    
+    def attribuer_permissions_automatiques(self):
         """
-        Configure automatiquement les permissions selon le rôle
+        Attribue automatiquement les permissions selon l'habilitation
+        MISE À JOUR selon les nouvelles spécifications :
+        - Agent inventaire : accès très restreint, pas de recettes potentielles
+        - Chef péage : taux déperdition seulement (pas recettes potentielles)
+        - Admin : accès complet à tout
         """
         # Réinitialiser toutes les permissions
         permission_fields = [
-            'peut_saisir_peage', 'peut_saisir_pesage', 'peut_gerer_peage',
-            'peut_gerer_pesage', 'peut_gerer_personnel', 'peut_gerer_budget',
-            'peut_gerer_inventaire', 'peut_gerer_archives', 'peut_gerer_stocks_psrr',
-            'peut_gerer_stock_info'
+            'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
+            'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
+            'peut_gerer_stocks_psrr', 'peut_gerer_stock_info'
         ]
         
-        # Configuration selon le rôle
+        for field in permission_fields:
+            setattr(self, field, False)
+        
+        # Attribution selon le rôle avec nouvelles restrictions
         if self.habilitation == Habilitation.ADMIN_PRINCIPAL:
-            # Administrateur principal : tous les droits
+            # Admin principal : ACCÈS COMPLET À TOUT
             self.is_staff = True
             self.is_superuser = True
             self.acces_tous_postes = True
+            self.peut_saisir_peage = True
+            self.peut_saisir_pesage = True
+            # PEUT TOUT VOIR
+            self.voir_recettes_potentielles = True
+            self.voir_taux_deperdition = True
+            self.voir_statistiques_globales = True
+            self.peut_saisir_pour_autres_postes = True
+            # Tous les modules
             for field in permission_fields:
                 setattr(self, field, True)
         
         elif self.habilitation == Habilitation.COORDONNATEUR_PSRR:
-            # Coordonnateur PSRR : droits étendus
-            self.is_staff = True
+            # Coordonnateur : accès global mais pas superuser
             self.acces_tous_postes = True
-            self.peut_gerer_personnel = True
-            self.peut_gerer_peage = True
-            self.peut_gerer_pesage = True
-            self.peut_gerer_inventaire = True
-            self.peut_gerer_stocks_psrr = True
+            self.is_staff = True
             self.peut_saisir_peage = True
             self.peut_saisir_pesage = True
+            # PEUT TOUT VOIR
+            self.voir_recettes_potentielles = True
+            self.voir_taux_deperdition = True
+            self.voir_statistiques_globales = True
+            self.peut_saisir_pour_autres_postes = True
+            # Tous les modules
+            for field in permission_fields:
+                setattr(self, field, True)
         
         elif self.habilitation == Habilitation.SERVICE_INFORMATIQUE:
-            # Service informatique : maintenance et suivi
+            # Service informatique : maintenance et suivi complet
+            self.is_staff = True
             self.is_staff = True
             self.acces_tous_postes = True
-            self.peut_gerer_stock_info = True
-            self.peut_gerer_inventaire = True
+            self.peut_saisir_peage = True
+            self.peut_saisir_pesage = True
+            # PEUT TOUT VOIR
+            self.voir_recettes_potentielles = True
+            self.voir_taux_deperdition = True
+            self.voir_statistiques_globales = True
+            self.peut_saisir_pour_autres_postes = True
+            # Tous les modules
             for field in permission_fields:
                 setattr(self, field, True)
         
         elif self.habilitation == Habilitation.SERVICE_EMISSION:
-            # Service émission et recouvrement
+            # Service émission : PEUT VOIR les recettes potentielles + graphiques
             self.acces_tous_postes = True
+            self.is_staff = True
             self.peut_gerer_peage = True
             self.peut_gerer_stocks_psrr = True
             self.peut_saisir_peage = True
+            # PEUT VOIR recettes potentielles (spécifié dans clarifications)
+            self.voir_recettes_potentielles = True
+            self.voir_taux_deperdition = True
+            self.voir_statistiques_globales = True
         
         elif self.habilitation == Habilitation.CHEF_POSTE_PEAGE:
-            # Chef de poste péage
+            # Chef péage : SEULEMENT taux déperdition (PAS recettes potentielles)
             self.peut_gerer_peage = True
             self.peut_saisir_peage = True
             self.peut_gerer_inventaire = True
+            # RESTRICTIONS IMPORTANTES
+            self.voir_recettes_potentielles = False  # PAS les recettes potentielles
+            self.voir_taux_deperdition = True        # SEULEMENT le taux
+            self.voir_statistiques_globales = False
+            self.acces_tous_postes = False           # Son poste seulement
         
         elif self.habilitation == Habilitation.CHEF_POSTE_PESAGE:
-            # Chef de poste pesage
+            # Chef pesage : similaire chef péage
             self.peut_gerer_pesage = True
             self.peut_saisir_pesage = True
             self.peut_gerer_inventaire = True
+            # RESTRICTIONS IMPORTANTES
+            self.voir_recettes_potentielles = False  # PAS les recettes potentielles
+            self.voir_taux_deperdition = True        # SEULEMENT le taux
+            self.voir_statistiques_globales = False
+            self.acces_tous_postes = False           # Son poste seulement
         
         elif self.habilitation == Habilitation.AGENT_INVENTAIRE:
-            # Agent inventaire : droits limités à l'inventaire
+            # Agent inventaire : DROITS TRÈS LIMITÉS
             self.peut_gerer_inventaire = True
-            # Autres permissions restent False
+            # RESTRICTIONS MAXIMALES
+            self.voir_recettes_potentielles = False  # NE VOIT PAS les recettes potentielles
+            self.voir_taux_deperdition = False       # NE VOIT PAS les taux de déperdition
+            self.voir_statistiques_globales = False
+            self.acces_tous_postes = False           # Son poste seulement
+            self.peut_saisir_peage = False
+            self.peut_saisir_pesage = False
         
         elif self.habilitation == Habilitation.CHEF_AFFAIRES_GENERALES:
             # Chef affaires générales : gestion personnel
             self.peut_gerer_personnel = True
             self.acces_tous_postes = True
+            self.voir_statistiques_globales = True
         
         elif self.habilitation == Habilitation.REGISSEUR:
             # Régisseur : gestion budget
             self.peut_gerer_budget = True
             self.acces_tous_postes = True
+            self.voir_statistiques_globales = True
         
         elif self.habilitation == Habilitation.COMPTABLE_MATIERES:
             # Comptable matières : archives
@@ -514,7 +535,40 @@ class UtilisateurSUPPER(AbstractUser):
             self.peut_gerer_stocks_psrr = True
         
         # Les autres rôles gardent leurs permissions par défaut
+    
+    def peut_voir_poste(self, poste):
+        """Vérifie si l'utilisateur peut voir les données d'un poste"""
+        if self.acces_tous_postes:
+            return True
+        return self.poste_affectation == poste
+    
+    def peut_modifier_poste(self, poste):
+        """Vérifie si l'utilisateur peut modifier les données d'un poste"""
+        if self.peut_saisir_pour_autres_postes:
+            return True
+        return self.peut_voir_poste(poste)
+    
+    @property
+    def nom_role(self):
+        """Retourne le nom du rôle en français"""
+        return self.get_habilitation_display()
+    
+    @property
+    def niveau_acces(self):
+        """Retourne le niveau d'accès de l'utilisateur"""
+        if self.habilitation in ['admin_principal', 'coord_psrr', 'serv_info'] or self.is_superuser:
+            return 'COMPLET'
+        elif self.habilitation in ['chef_peage', 'chef_pesage']:
+            return 'RESTREINT'
+        elif self.habilitation == 'agent_inventaire':
+            return 'LIMITÉ'
+        else:
+            return 'STANDARD'
 
+
+# ===================================================================
+# MODÈLE JOURNAL AUDIT
+# ===================================================================
 
 class JournalAudit(models.Model):
     """
@@ -599,55 +653,39 @@ class JournalAudit(models.Model):
     
     succes = models.BooleanField(
         default=True,
-        verbose_name=_("Action réussie"),
-        help_text=_("Indique si l'action s'est déroulée avec succès")
+        verbose_name=_("Succès"),
+        help_text=_("L'action s'est-elle déroulée avec succès ?")
     )
     
     class Meta:
-        verbose_name = _("Entrée journal d'audit")
+        verbose_name = _("Journal d'audit")
         verbose_name_plural = _("Journal d'audit")
         ordering = ['-timestamp']
         indexes = [
-            models.Index(fields=['utilisateur', '-timestamp']),
+            models.Index(fields=['utilisateur', 'timestamp']),
             models.Index(fields=['action']),
-            models.Index(fields=['-timestamp']),
             models.Index(fields=['succes']),
+            models.Index(fields=['-timestamp']),
         ]
     
     def __str__(self):
-        return f"{self.timestamp.strftime('%Y-%m-%d %H:%M')} - {self.utilisateur.username} - {self.action}"
-    
-    def get_absolute_url(self):
-        return reverse('journal_detail', kwargs={'pk': self.pk})
+        return f"{self.timestamp} - {self.utilisateur.username} - {self.action}"
     
     @property
     def duree_formatee(self):
-        """Retourne la durée d'exécution formatée"""
+        """Retourne la durée formatée en secondes"""
         if self.duree_execution:
-            total_seconds = self.duree_execution.total_seconds()
-            if total_seconds < 1:
-                return f"{total_seconds*1000:.0f} ms"
-            else:
-                return f"{total_seconds:.2f} s"
+            return f"{self.duree_execution.total_seconds():.2f}s"
         return "N/A"
-    
-    @classmethod
-    def nettoyer_anciens_logs(cls, jours_retention=180):
-        """
-        Supprime les logs plus anciens que le nombre de jours spécifié
-        """
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        date_limite = timezone.now() - timedelta(days=jours_retention)
-        logs_supprimes = cls.objects.filter(timestamp__lt=date_limite).delete()
-        
-        return logs_supprimes[0]  # Nombre d'objets supprimés
 
+
+# ===================================================================
+# MODÈLE NOTIFICATIONS UTILISATEUR
+# ===================================================================
 
 class NotificationUtilisateur(models.Model):
     """
-    Modèle pour le système de notifications internes
+    Système de notifications internes pour les utilisateurs SUPPER
     """
     
     destinataire = models.ForeignKey(
@@ -657,45 +695,38 @@ class NotificationUtilisateur(models.Model):
         verbose_name=_("Destinataire")
     )
     
-    expediteur = models.ForeignKey(
+    cree_par = models.ForeignKey(
         UtilisateurSUPPER,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='notifications_envoyees',
-        verbose_name=_("Expéditeur")
+        related_name='notifications_creees',
+        verbose_name=_("Créé par")
     )
     
     titre = models.CharField(
         max_length=200,
-        verbose_name=_("Titre de la notification")
+        verbose_name=_("Titre"),
+        help_text=_("Titre court de la notification")
     )
     
     message = models.TextField(
-        verbose_name=_("Message")
+        verbose_name=_("Message"),
+        help_text=_("Contenu détaillé de la notification")
     )
     
     type_notification = models.CharField(
         max_length=20,
-        choices=[
-            ('info', _('Information')),
-            ('warning', _('Avertissement')),
-            ('error', _('Erreur')),
-            ('success', _('Succès')),
-            ('system', _('Système')),
-        ],
-        default='info',
+        choices=TypeNotification.choices,
+        default=TypeNotification.INFO,
         verbose_name=_("Type de notification")
     )
     
-    lue = models.BooleanField(
+    # Statut de lecture
+    lu = models.BooleanField(
         default=False,
-        verbose_name=_("Notification lue")
-    )
-    
-    date_creation = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Date de création")
+        verbose_name=_("Lu"),
+        help_text=_("La notification a-t-elle été lue ?")
     )
     
     date_lecture = models.DateTimeField(
@@ -704,22 +735,43 @@ class NotificationUtilisateur(models.Model):
         verbose_name=_("Date de lecture")
     )
     
+    # Métadonnées
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+    
     class Meta:
         verbose_name = _("Notification")
         verbose_name_plural = _("Notifications")
         ordering = ['-date_creation']
         indexes = [
-            models.Index(fields=['destinataire', '-date_creation']),
-            models.Index(fields=['lue']),
+            models.Index(fields=['destinataire', 'lu']),
+            models.Index(fields=['type_notification']),
+            models.Index(fields=['-date_creation']),
         ]
     
     def __str__(self):
-        return f"{self.titre} - {self.destinataire.username}"
+        statut = "✓" if self.lu else "●"
+        return f"{statut} {self.titre} → {self.destinataire.nom_complet}"
     
     def marquer_comme_lue(self):
         """Marque la notification comme lue"""
-        if not self.lue:
-            from django.utils import timezone
-            self.lue = True
+        if not self.lu:
+            self.lu = True
             self.date_lecture = timezone.now()
-            self.save(update_fields=['lue', 'date_lecture'])
+            self.save(update_fields=['lu', 'date_lecture'])
+    
+    @property
+    def age_formatee(self):
+        """Retourne l'âge de la notification formatée"""
+        delta = timezone.now() - self.date_creation
+        
+        if delta.days > 0:
+            return f"il y a {delta.days} jour(s)"
+        elif delta.seconds > 3600:
+            heures = delta.seconds // 3600
+            return f"il y a {heures}h"
+        elif delta.seconds > 60:
+            minutes = delta.seconds // 60
+            return f"il y a {minutes} minute(s)"

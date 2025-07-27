@@ -83,6 +83,41 @@
             border-color: #667eea;
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
+        
+        /* Styles pour le toggle password */
+        .password-container {
+            position: relative;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: color 0.3s, background-color 0.3s;
+            z-index: 10;
+        }
+        
+        .password-toggle:hover {
+            color: #4f46e5;
+            background-color: rgba(79, 70, 229, 0.1);
+        }
+        
+        .password-toggle:focus {
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+        }
+        
+        /* Ajustement du padding pour faire place au bouton */
+        .password-container .form-control {
+            padding-right: 45px;
+        }
     </style>
 </head>
 <body>
@@ -137,8 +172,8 @@
                     {% endif %}
                 </div>
 
-                <!-- Champ Mot de passe -->
-                <div class="form-floating mb-4">
+                <!-- Champ Mot de passe avec toggle show/hide -->
+                <div class="form-floating mb-4 password-container">
                     <input 
                         type="password" 
                         class="form-control" 
@@ -151,6 +186,18 @@
                     <label for="id_password">
                         <i class="fas fa-lock me-2"></i>Mot de passe
                     </label>
+                    
+                    <!-- Bouton toggle pour afficher/masquer le mot de passe -->
+                    <button 
+                        type="button" 
+                        class="password-toggle" 
+                        id="togglePassword"
+                        title="Afficher/Masquer le mot de passe"
+                        aria-label="Basculer la visibilité du mot de passe"
+                    >
+                        <i class="fas fa-eye" id="toggleIcon"></i>
+                    </button>
+                    
                     {% if form.password.errors %}
                         <div class="invalid-feedback d-block">
                             {{ form.password.errors.0 }}
@@ -215,6 +262,41 @@
                 usernameField.focus();
             });
         })();
+
+        // Fonctionnalité Show/Hide Password
+        document.addEventListener('DOMContentLoaded', function() {
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordField = document.getElementById('id_password');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            togglePassword.addEventListener('click', function() {
+                // Basculer le type du champ
+                const type = passwordField.type === 'password' ? 'text' : 'password';
+                passwordField.type = type;
+                
+                // Changer l'icône et le titre
+                if (type === 'password') {
+                    toggleIcon.className = 'fas fa-eye';
+                    togglePassword.title = 'Afficher le mot de passe';
+                    togglePassword.setAttribute('aria-label', 'Afficher le mot de passe');
+                } else {
+                    toggleIcon.className = 'fas fa-eye-slash';
+                    togglePassword.title = 'Masquer le mot de passe';
+                    togglePassword.setAttribute('aria-label', 'Masquer le mot de passe');
+                }
+                
+                // Maintenir le focus sur le champ de mot de passe
+                passwordField.focus();
+            });
+            
+            // Support du clavier pour le bouton toggle
+            togglePassword.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
 
         // Animation de chargement lors de la soumission
         document.querySelector('form').addEventListener('submit', function() {

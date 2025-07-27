@@ -1,0 +1,509 @@
+<!-- ===================================================================
+     Fichier : Supper/templates/common/dashboard_chef.html
+     Dashboard pour chefs de poste (accès restreint)
+     Le chef VOIT : taux déperdition, saisie recettes, stats de son poste
+     Le chef NE VOIT PAS : recettes potentielles détaillées
+     ================================================================== -->
+
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+{% load supper_filters %}
+
+{% block title %}{% trans "Tableau de bord - Chef de Poste" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/dashboard.css' %}">
+<style>
+/* Styles spécifiques chef de poste */
+.chef-header {
+    background: linear-gradient(135deg, #0d6efd 0%, #6f42c1 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.taux-deperdition-card {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.taux-gauge {
+    text-align: center;
+    padding: 2rem;
+}
+
+.taux-value {
+    font-size: 3rem;
+    font-weight: bold;
+    margin: 1rem 0;
+}
+
+.taux-vert { color: #28a745; }
+.taux-orange { color: #fd7e14; }
+.taux-rouge { color: #dc3545; }
+
+.recette-section {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.metric-small {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    margin: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête Chef de Poste -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="chef-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2>
+                            <i class="fas fa-user-tie me-2"></i>
+                            {% trans "Tableau de Bord" %} - {{ user.nom_complet }}
+                        </h2>
+                        <p class="mb-0">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            {% trans "Poste" %} : {{ user.poste_affectation.nom }}
+                        </p>
+                        <p class="mb-0">
+                            <small>
+                                {% trans "Chef de Poste" %} {{ user.poste_affectation.get_type_display }} |
+                                {% trans "Région" %} : {{ user.poste_affectation.region }}
+                            </small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="text-white-50">
+                            <div class="fs-5">{% now "d/m/Y" %}</div>
+                            <div id="current-time">{% now "H:i" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taux de Déperdition Actuel (SANS recettes potentielles) -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="taux-deperdition-card">
+                <h4 class="text-center mb-3">
+                    <i class="fas fa-chart-line me-2"></i>
+                    {% trans "Taux de Déperdition Actuel" %}
+                </h4>
+                
+                {% if taux_actuel %}
+                    <div class="taux-gauge">
+                        <div class="taux-value 
+                            {% if taux_actuel.taux_deperdition >= 0 or taux_actuel.taux_deperdition > -10 %}taux-vert
+                            {% elif taux_actuel.taux_deperdition <= -10 and taux_actuel.taux_deperdition >= -30 %}taux-orange
+                            {% else %}taux-rouge{% endif %}">
+                            {{ taux_actuel.taux_deperdition|floatformat:1 }}%
+                        </div>
+                        
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="metric-small">
+                                    <strong>{{ taux_actuel.recette_declaree|currency }}</strong>
+                                    <br><small class="text-muted">{% trans "Recette déclarée" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="metric-small">
+                                    <strong>{{ taux_actuel.total_vehicules }}</strong>
+                                    <br><small class="text-muted">{% trans "Véhicules comptés" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="metric-small">
+                                    <strong>{{ taux_actuel.date|date:"d/m" }}</strong>
+                                    <br><small class="text-muted">{% trans "Dernière mesure" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Légende des couleurs -->
+                        <div class="mt-3 text-center">
+                            <small class="text-muted">
+                                <span class="badge bg-success me-2">{% trans "Bon" %} (0 à -10%)</span>
+                                <span class="badge bg-warning me-2">{% trans "Attention" %} (-10% à -30%)</span>
+                                <span class="badge bg-danger">{% trans "Critique" %} (< -30%)</span>
+                            </small>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">{% trans "Aucune donnée disponible" %}</h6>
+                        <p class="text-muted small">
+                            {% trans "Saisissez votre recette journalière pour voir le taux" %}
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Saisie Recette du Jour -->
+        <div class="col-lg-6">
+            <div class="recette-section">
+                <h4>
+                    <i class="fas fa-money-bill-wave text-success me-2"></i>
+                    {% trans "Saisie Recette du Jour" %}
+                </h4>
+                
+                {% if jour_ouvert %}
+                    {% if recette_du_jour %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>{% trans "Recette déjà saisie" %}</strong>
+                            <br>{{ recette_du_jour.montant|currency }} 
+                            {% trans "pour le" %} {{ recette_du_jour.date|date:"d/m/Y" }}
+                        </div>
+                        
+                        <button class="btn btn-outline-primary" onclick="modifierRecette()">
+                            <i class="fas fa-edit me-2"></i>
+                            {% trans "Modifier la Recette" %}
+                        </button>
+                    {% else %}
+                        <form method="post" action="{% url 'inventaire:saisir_recette' %}" id="recette-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="date" value="{{ jour_ouvert.date|date:'Y-m-d' }}">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    {% trans "Montant de la recette" %} ({{ jour_ouvert.date|date:"d/m/Y" }})
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control form-control-lg" 
+                                           name="montant" id="montant-recette" 
+                                           placeholder="0" min="0" step="50" required>
+                                    <span class="input-group-text">FCFA</span>
+                                </div>
+                                <small class="text-muted">
+                                    {% trans "Saisissez le montant total collecté aujourd'hui" %}
+                                </small>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-save me-2"></i>
+                                {% trans "Enregistrer Recette" %}
+                            </button>
+                        </form>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-lock me-2"></i>
+                        {% trans "Aucun jour ouvert pour la saisie. Contactez l'administrateur." %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques Rapides du Poste -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        {% trans "Statistiques de votre Poste" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="metric-small">
+                                <h4 class="text-primary">{{ stats.recettes_ce_mois|currency_short }}</h4>
+                                <small class="text-muted">{% trans "Recettes ce mois" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-small">
+                                <h4 class="text-success">{{ stats.jours_avec_recette }}</h4>
+                                <small class="text-muted">{% trans "Jours actifs" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-small">
+                                <h4 class="text-info">{{ stats.moyenne_journaliere|currency_short }}</h4>
+                                <small class="text-muted">{% trans "Moyenne/jour" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-small">
+                                <h4 class="{% if stats.taux_moyen >= -10 %}text-success{% elif stats.taux_moyen >= -30 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ stats.taux_moyen|floatformat:1 }}%
+                                </h4>
+                                <small class="text-muted">{% trans "Taux moyen" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Évolution du Taux (7 derniers jours) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-line-chart me-2"></i>
+                        {% trans "Évolution - 7 Derniers Jours" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="evolution-chart" width="400" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historique des Recettes (SANS détails de calcul) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        {% trans "Historique des Recettes" %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if historique_recettes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{% trans "Date" %}</th>
+                                        <th>{% trans "Recette Déclarée" %}</th>
+                                        <th>{% trans "Véhicules Comptés" %}</th>
+                                        <th>{% trans "Taux Déperdition" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for recette in historique_recettes %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ recette.date|date:"d/m/Y" }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ recette.date|date:"l" }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-primary">
+                                                {{ recette.montant|currency }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {{ recette.inventaire.total_vehicules|default:"N/A" }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if recette.taux_deperdition != None %}
+                                                <span class="fw-bold 
+                                                    {% if recette.taux_deperdition >= 0 or recette.taux_deperdition > -10 %}text-success
+                                                    {% elif recette.taux_deperdition <= -10 and recette.taux_deperdition >= -30 %}text-warning
+                                                    {% else %}text-danger{% endif %}">
+                                                    {{ recette.taux_deperdition|floatformat:1 }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">{% trans "N/A" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if recette.journee_impertinente %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                    {% trans "Impertinente" %}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check me-1"></i>
+                                                    {% trans "Normale" %}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="card-footer bg-light">
+                            <a href="{% url 'inventaire:historique_recettes' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-history me-2"></i>
+                                {% trans "Voir Historique Complet" %}
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-money-bill-wave fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">{% trans "Aucune recette enregistrée" %}</h5>
+                            <p class="text-muted">
+                                {% trans "Commencez par saisir votre première recette !" %}
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modification Recette -->
+<div class="modal fade" id="modifierRecetteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Modifier la Recette" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'inventaire:modifier_recette' %}">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <input type="hidden" name="recette_id" value="{{ recette_du_jour.id }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Nouveau montant" %}</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="nouveau_montant" 
+                                   value="{{ recette_du_jour.montant|default:'' }}" 
+                                   min="0" step="50" required>
+                            <span class="input-group-text">FCFA</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Motif de modification" %}</label>
+                        <textarea class="form-control" name="motif" rows="3" 
+                                  placeholder="{% trans 'Expliquez pourquoi vous modifiez cette recette...' %}" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-save me-2"></i>
+                        {% trans "Modifier" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Horloge temps réel
+function updateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    document.getElementById('current-time').textContent = timeString;
+}
+setInterval(updateTime, 60000);
+updateTime();
+
+// Fonction pour ouvrir modal modification
+function modifierRecette() {
+    var modal = new bootstrap.Modal(document.getElementById('modifierRecetteModal'));
+    modal.show();
+}
+
+// Graphique évolution taux déperdition
+    
+    const dates = JSON.parse(document.getElementById('evolution-dates').textContent);
+    const taux = JSON.parse(document.getElementById('evolution-taux').textContent);
+
+    const ctx = document.getElementById('evolution-chart').getContext('2d');
+    const evolutionChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: "Taux de Déperdition %",
+                data: taux,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: function(context) {
+                    const value = context.raw;
+                    if (value >= -10) return '#28a745';
+                    if (value >= -30) return '#fd7e14';
+                    return '#dc3545';
+                },
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(0,0,0,0.1)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            elements: {
+                point: {
+                    hoverRadius: 8
+                }
+            }
+        }
+    });
+    
+
+    // Formatage automatique du montant
+    document.getElementById('montant-recette')?.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value) {
+            e.target.value = parseInt(value);
+        }
+    });
+</script>
+
+{% endblock %}

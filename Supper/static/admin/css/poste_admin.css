@@ -1,0 +1,841 @@
+/* 
+===================================================================
+Fichier : static/admin/css/poste_admin.css
+CSS personnalisé pour le panel admin SUPPER enrichi
+===================================================================
+*/
+
+/* ===================================================================
+   VARIABLES CSS POUR COHÉRENCE
+   ================================================================= */
+
+:root {
+    --supper-primary: #0d6efd;
+    --supper-secondary: #6c757d;
+    --supper-success: #198754;
+    --supper-danger: #dc3545;
+    --supper-warning: #fd7e14;
+    --supper-info: #0dcaf0;
+    --supper-light: #f8f9fa;
+    --supper-dark: #212529;
+    
+    --border-radius: 8px;
+    --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --transition: all 0.3s ease;
+}
+
+/* ===================================================================
+   AMÉLIORATIONS GÉNÉRALES ADMIN
+   ================================================================= */
+
+/* Header admin personnalisé */
+#header {
+    background: linear-gradient(135deg, var(--supper-primary), #0056b3);
+    border-bottom: 3px solid var(--supper-secondary);
+}
+
+#branding h1 {
+    color: white;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+#user-tools {
+    color: rgba(255,255,255,0.9);
+}
+
+#user-tools a {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+#user-tools a:hover {
+    color: white;
+    text-decoration: underline;
+}
+
+/* Navigation améliorée */
+.breadcrumbs {
+    background: var(--supper-light);
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 12px 20px;
+    margin-bottom: 20px;
+}
+
+.breadcrumbs a {
+    color: var(--supper-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.breadcrumbs a:hover {
+    text-decoration: underline;
+}
+
+/* ===================================================================
+   CARTES ET CONTENEURS
+   ================================================================= */
+
+.module {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    transition: var(--transition);
+    overflow: hidden;
+}
+
+.module:hover {
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.module h2 {
+    background: linear-gradient(135deg, var(--supper-primary), #0056b3);
+    color: white;
+    margin: 0;
+    padding: 15px 20px;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.module h2 a {
+    color: white;
+    text-decoration: none;
+}
+
+.module h2 a:hover {
+    text-decoration: underline;
+}
+
+/* ===================================================================
+   FORMULAIRES AMÉLIORÉS
+   ================================================================= */
+
+.form-row {
+    margin-bottom: 15px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.form-row:last-child {
+    border-bottom: none;
+}
+
+.form-row label {
+    font-weight: 600;
+    color: var(--supper-dark);
+    margin-bottom: 5px;
+    display: block;
+}
+
+.form-row input[type="text"],
+.form-row input[type="email"], 
+.form-row input[type="tel"],
+.form-row input[type="number"],
+.form-row input[type="password"],
+.form-row select,
+.form-row textarea {
+    border: 2px solid #e9ecef;
+    border-radius: var(--border-radius);
+    padding: 10px 15px;
+    font-size: 14px;
+    transition: var(--transition);
+    width: 100%;
+    max-width: 500px;
+}
+
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus {
+    border-color: var(--supper-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.form-row .help {
+    font-size: 12px;
+    color: var(--supper-secondary);
+    margin-top: 5px;
+    font-style: italic;
+}
+
+/* ===================================================================
+   FIELDSETS AMÉLIORÉS
+   ================================================================= */
+
+fieldset {
+    border: 2px solid #e9ecef;
+    border-radius: var(--border-radius);
+    margin-bottom: 25px;
+    padding: 0;
+    background: white;
+    box-shadow: var(--box-shadow);
+}
+
+fieldset.collapse {
+    border-color: #dee2e6;
+}
+
+fieldset h2 {
+    background: linear-gradient(135deg, var(--supper-secondary), #5a6268);
+    color: white;
+    margin: 0;
+    padding: 12px 20px;
+    font-size: 1em;
+    font-weight: 600;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    border: none;
+}
+
+fieldset .form-row {
+    padding: 15px 20px 10px 20px;
+}
+
+/* Fieldsets spéciaux avec couleurs */
+fieldset h2:has-text("Identification") {
+    background: linear-gradient(135deg, var(--supper-primary), #0056b3);
+}
+
+fieldset h2:has-text("Localisation") {
+    background: linear-gradient(135deg, var(--supper-success), #146c43);
+}
+
+fieldset h2:has-text("GPS") {
+    background: linear-gradient(135deg, var(--supper-warning), #e5930f);
+}
+
+fieldset h2:has-text("Statut") {
+    background: linear-gradient(135deg, var(--supper-info), #0baccc);
+}
+
+/* ===================================================================
+   SÉLECTION RÉGION/DÉPARTEMENT DYNAMIQUE
+   ================================================================= */
+
+#id_region, #id_departement {
+    position: relative;
+}
+
+#id_region:focus, #id_departement:focus {
+    border-color: var(--supper-success);
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.1);
+}
+
+#id_departement:disabled {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Animation pour le changement de département */
+#id_departement.updating {
+    background: linear-gradient(90deg, #e8f5e8, #ffffff, #e8f5e8);
+    background-size: 200% 200%;
+    animation: shimmer 1s ease-in-out;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Suggestions axe routier */
+#id_axe_routier {
+    border-color: var(--supper-warning);
+}
+
+#id_axe_routier:focus {
+    border-color: var(--supper-warning);
+    box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.1);
+}
+
+/* ===================================================================
+   TABLEAUX ADMIN AMÉLIORÉS
+   ================================================================= */
+
+.results {
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+}
+
+.results thead th {
+    background: linear-gradient(135deg, var(--supper-dark), #495057);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
+    padding: 15px 10px;
+    border: none;
+}
+
+.results thead th a {
+    color: white;
+    text-decoration: none;
+}
+
+.results thead th a:hover {
+    text-decoration: underline;
+}
+
+.results tbody tr {
+    transition: var(--transition);
+}
+
+.results tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.results tbody tr:hover {
+    background-color: #e3f2fd;
+    transform: scale(1.01);
+}
+
+.results tbody td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+/* ===================================================================
+   BOUTONS ET ACTIONS
+   ================================================================= */
+
+.button, input[type="submit"], .submit-row input {
+    background: linear-gradient(135deg, var(--supper-primary), #0056b3);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+    display: inline-block;
+    font-size: 14px;
+}
+
+.button:hover, input[type="submit"]:hover {
+    background: linear-gradient(135deg, #0056b3, #004494);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    color: white;
+    text-decoration: none;
+}
+
+.button.deletelink {
+    background: linear-gradient(135deg, var(--supper-danger), #bb2d3b);
+}
+
+.button.deletelink:hover {
+    background: linear-gradient(135deg, #bb2d3b, #a02834);
+}
+
+/* Boutons d'actions dans les tableaux */
+.button.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    margin: 2px;
+}
+
+/* ===================================================================
+   STATUTS ET BADGES
+   ================================================================= */
+
+.status-active {
+    color: var(--supper-success);
+    font-weight: bold;
+}
+
+.status-inactive {
+    color: var(--supper-danger);
+    font-weight: bold;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-success {
+    background-color: var(--supper-success);
+    color: white;
+}
+
+.badge-danger {
+    background-color: var(--supper-danger);
+    color: white;
+}
+
+.badge-warning {
+    background-color: var(--supper-warning);
+    color: white;
+}
+
+.badge-info {
+    background-color: var(--supper-info);
+    color: white;
+}
+
+/* ===================================================================
+   FILTRES ET RECHERCHE
+   ================================================================= */
+
+#changelist-filter {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 0;
+}
+
+#changelist-filter h2 {
+    background: linear-gradient(135deg, var(--supper-secondary), #5a6268);
+    color: white;
+    margin: 0;
+    padding: 12px 15px;
+    font-size: 1em;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+#changelist-filter h3 {
+    background: var(--supper-light);
+    margin: 0;
+    padding: 10px 15px;
+    font-size: 0.9em;
+    color: var(--supper-dark);
+    border-bottom: 1px solid #dee2e6;
+}
+
+#changelist-filter ul {
+    padding: 10px 0;
+    margin: 0;
+}
+
+#changelist-filter li {
+    padding: 5px 15px;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+#changelist-filter li:last-child {
+    border-bottom: none;
+}
+
+#changelist-filter a {
+    color: var(--supper-primary);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+#changelist-filter a:hover {
+    color: var(--supper-dark);
+    text-decoration: underline;
+}
+
+#changelist-filter a.selected {
+    font-weight: bold;
+    color: var(--supper-success);
+}
+
+/* Barre de recherche */
+#toolbar {
+    background: linear-gradient(135deg, var(--supper-light), #e9ecef);
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+#searchbar {
+    border: 2px solid #ced4da;
+    border-radius: var(--border-radius);
+    padding: 10px 15px;
+    font-size: 14px;
+    width: 300px;
+    transition: var(--transition);
+}
+
+#searchbar:focus {
+    border-color: var(--supper-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+/* ===================================================================
+   QUICK SEARCH PERSONNALISÉE
+   ================================================================= */
+
+.quick-search-container {
+    margin-bottom: 15px;
+}
+
+.quick-search-container .input-group {
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+}
+
+.quick-search-container .input-group-text {
+    background: var(--supper-primary);
+    color: white;
+    border: none;
+    font-weight: bold;
+}
+
+.quick-search-container .form-control {
+    border: none;
+    padding: 10px 15px;
+}
+
+.quick-search-container .form-control:focus {
+    box-shadow: none;
+    border-color: transparent;
+}
+
+/* ===================================================================
+   STATISTIQUES ET DASHBOARD
+   ================================================================= */
+
+.stats-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin: 10px;
+    box-shadow: var(--box-shadow);
+    text-align: center;
+    transition: var(--transition);
+}
+
+.stats-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.stats-card h3 {
+    color: var(--supper-dark);
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+.stats-card .number {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: var(--supper-primary);
+    margin-bottom: 5px;
+}
+
+.stats-card .label {
+    color: var(--supper-secondary);
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
+}
+
+/* ===================================================================
+   MESSAGES ET NOTIFICATIONS
+   ================================================================= */
+
+.messagelist {
+    margin: 0 0 20px 0;
+    padding: 0;
+}
+
+.messagelist li {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    box-shadow: var(--box-shadow);
+    list-style: none;
+    position: relative;
+    padding-left: 50px;
+}
+
+.messagelist .success {
+    border-left: 4px solid var(--supper-success);
+    background: #f8fff8;
+}
+
+.messagelist .success::before {
+    content: "✅";
+    position: absolute;
+    left: 15px;
+    font-size: 1.2em;
+}
+
+.messagelist .error {
+    border-left: 4px solid var(--supper-danger);
+    background: #fff8f8;
+}
+
+.messagelist .error::before {
+    content: "❌";
+    position: absolute;
+    left: 15px;
+    font-size: 1.2em;
+}
+
+.messagelist .warning {
+    border-left: 4px solid var(--supper-warning);
+    background: #fffcf8;
+}
+
+.messagelist .warning::before {
+    content: "⚠️";
+    position: absolute;
+    left: 15px;
+    font-size: 1.2em;
+}
+
+.messagelist .info {
+    border-left: 4px solid var(--supper-info);
+    background: #f8fcff;
+}
+
+.messagelist .info::before {
+    content: "ℹ️";
+    position: absolute;
+    left: 15px;
+    font-size: 1.2em;
+}
+
+/* ===================================================================
+   ACTIONS EN MASSE
+   ================================================================= */
+
+.actions {
+    background: var(--supper-light);
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.actions select {
+    border: 1px solid #ced4da;
+    border-radius: var(--border-radius);
+    padding: 8px 12px;
+    margin-right: 10px;
+}
+
+.actions button {
+    background: var(--supper-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.actions button:hover {
+    background: #0056b3;
+}
+
+/* ===================================================================
+   RESPONSIVE DESIGN
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+        max-width: 100%;
+    }
+    
+    .stats-card {
+        margin: 5px;
+    }
+    
+    .stats-card .number {
+        font-size: 2em;
+    }
+    
+    #searchbar {
+        width: 100%;
+        max-width: 250px;
+    }
+    
+    .button {
+        display: block;
+        width: 100%;
+        margin: 5px 0;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .module h2 {
+        padding: 10px 15px;
+        font-size: 1em;
+    }
+    
+    fieldset .form-row {
+        padding: 10px 15px;
+    }
+    
+    .results tbody td {
+        padding: 8px 5px;
+        font-size: 12px;
+    }
+    
+    .button.btn-sm {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+}
+
+/* ===================================================================
+   ANIMATIONS ET TRANSITIONS
+   ================================================================= */
+
+/* Animation d'apparition pour les éléments */
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Animation de pulsation pour les éléments importants */
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Animation pour les boutons */
+.button-animate {
+    position: relative;
+    overflow: hidden;
+}
+
+.button-animate::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.button-animate:hover::before {
+    left: 100%;
+}
+
+/* ===================================================================
+   THÈME SOMBRE (optionnel)
+   ================================================================= */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --supper-light: #343a40;
+        --supper-dark: #f8f9fa;
+    }
+    
+    body {
+        background-color: #1a1a1a;
+        color: #f8f9fa;
+    }
+    
+    .module {
+        background: #2d2d2d;
+        border-color: #444;
+    }
+    
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+        background: #2d2d2d;
+        border-color: #444;
+        color: #f8f9fa;
+    }
+    
+    .results tbody tr:nth-child(even) {
+        background-color: #2a2a2a;
+    }
+    
+    .results tbody tr:hover {
+        background-color: #3a3a3a;
+    }
+}
+
+/* ===================================================================
+   CLASSES UTILITAIRES
+   ================================================================= */
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 1rem; }
+.mb-4 { margin-bottom: 1.5rem; }
+.mb-5 { margin-bottom: 3rem; }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 1rem; }
+.mt-4 { margin-top: 1.5rem; }
+.mt-5 { margin-top: 3rem; }
+
+.p-0 { padding: 0; }
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 1rem; }
+.p-4 { padding: 1.5rem; }
+.p-5 { padding: 3rem; }
+
+.text-primary { color: var(--supper-primary); }
+.text-secondary { color: var(--supper-secondary); }
+.text-success { color: var(--supper-success); }
+.text-danger { color: var(--supper-danger); }
+.text-warning { color: var(--supper-warning); }
+.text-info { color: var(--supper-info); }
+
+.bg-primary { background-color: var(--supper-primary); }
+.bg-secondary { background-color: var(--supper-secondary); }
+.bg-success { background-color: var(--supper-success); }
+.bg-danger { background-color: var(--supper-danger); }
+.bg-warning { background-color: var(--supper-warning); }
+.bg-info { background-color: var(--supper-info); }
+
+.d-none { display: none; }
+.d-block { display: block; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-flex { display: flex; }
+
+.font-weight-bold { font-weight: bold; }
+.font-weight-normal { font-weight: normal; }
+
+.cursor-pointer { cursor: pointer; }
+.cursor-not-allowed { cursor: not-allowed; }

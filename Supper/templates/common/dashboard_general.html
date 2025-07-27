@@ -1,0 +1,21 @@
+<!-- 
+===================================================================
+Fichier : templates/common/dashboard_general.html
+Dashboard administrateur avec statistiques complètes
+Vue d'ensemble du système SUPPER, gestion des alertes
+===================================================================
+-->
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- À ajouter temporairement dans votre template de dashboard -->
+<div style="background: yellow; padding: 10px; margin: 10px;">
+    <strong>DEBUG INFO:</strong><br>
+    Username: {{ user.username }}<br>
+    Is superuser: {{ user.is_superuser }}<br>
+    Is staff: {{ user.is_staff }}<br>
+    Habilitation: {{ user.habilitation }}<br>
+    dashboard General
+</div>
+{% endblock %}
+

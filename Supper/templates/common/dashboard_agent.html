@@ -1,0 +1,305 @@
+<!-- ===================================================================
+     Fichier : Supper/templates/common/dashboard_agent.html
+     Dashboard simplifié pour agents d'inventaire (accès restreint)
+     L'agent NE VOIT PAS : recettes potentielles, taux déperdition
+     L'agent VOIT : ses inventaires, saisie par créneaux, historique
+     ================================================================== -->
+
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+{% load supper_filters %}
+
+{% block title %}{% trans "Tableau de bord - Agent Inventaire" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/dashboard.css' %}">
+<style>
+/* Styles spécifiques agent inventaire - interface simplifiée */
+.agent-card {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.saisie-section {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.periode-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    transition: all 0.3s ease;
+}
+
+.periode-card:hover {
+    border-color: #28a745;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+}
+
+.periode-card.completed {
+    border-color: #28a745;
+    background: #d4edda;
+}
+
+.btn-saisir {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border: none;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-saisir:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.historique-table {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* Pas de barre de progression pour agent */
+.progress-hidden {
+    display: none !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête Agent -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="agent-card">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2>
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            {% trans "Bonjour" %}, {{ user.nom_complet }}
+                        </h2>
+                        <p class="mb-0">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            {% trans "Poste" %} : {{ user.poste_affectation.nom|default:"Non affecté" }}
+                        </p>
+                        <p class="mb-0">
+                            <small>
+                                {% trans "Rôle" %} : {% trans "Agent Inventaire" %} | 
+                                {% trans "Dernière connexion" %} : {{ user.last_login|date:"d/m/Y H:i" }}
+                            </small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="d-flex flex-column align-items-end">
+                            <span class="badge bg-light text-dark fs-6 mb-2">
+                                {% now "d/m/Y" %}
+                            </span>
+                            <span id="current-time" class="text-white-50">
+                                {% now "H:i" %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions Rapides -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="saisie-section">
+                <h4>
+                    <i class="fas fa-plus-circle text-success me-2"></i>
+                    {% trans "Saisie Inventaire du Jour" %}
+                </h4>
+                
+                {% if jour_ouvert %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-calendar-check me-2"></i>
+                        {% trans "Jour ouvert pour saisie" %} : {{ jour_ouvert.date|date:"d/m/Y" }}
+                    </div>
+                    
+                    {% if inventaire_existant %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% trans "Inventaire déjà commencé. Vous pouvez continuer la saisie." %}
+                        </div>
+                        
+                        <a href="{% url 'inventaire:saisie' jour_ouvert.date %}" 
+                           class="btn btn-saisir btn-lg">
+                            <i class="fas fa-edit me-2"></i>
+                            {% trans "Continuer la Saisie" %}
+                        </a>
+                    {% else %}
+                        <p class="text-muted mb-3">
+                            {% trans "Créer un nouvel inventaire pour votre poste aujourd'hui" %}
+                        </p>
+                        
+                        <a href="{% url 'inventaire:nouveau' jour_ouvert.date %}" 
+                           class="btn btn-saisir btn-lg">
+                            <i class="fas fa-plus me-2"></i>
+                            {% trans "Commencer Inventaire" %}
+                        </a>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-lock me-2"></i>
+                        {% trans "Aucun jour ouvert pour la saisie. Contactez l'administrateur." %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="saisie-section">
+                <h4>
+                    <i class="fas fa-chart-line text-primary me-2"></i>
+                    {% trans "Résumé de mes Inventaires" %}
+                </h4>
+                
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h3 class="text-success">{{ stats.inventaires_ce_mois }}</h3>
+                            <small class="text-muted">{% trans "Ce mois" %}</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h3 class="text-info">{{ stats.jours_avec_saisie }}</h3>
+                            <small class="text-muted">{% trans "Jours actifs" %}</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <a href="#" 
+                   class="btn btn-outline-primary btn-sm mt-3">
+                    <i class="fas fa-history me-2"></i>
+                    {% trans "Voir Historique Complet" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historique des Derniers Inventaires (SANS recettes potentielles) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card historique-table">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        {% trans "Mes 5 Derniers Inventaires" %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if derniers_inventaires %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{% trans "Date" %}</th>
+                                        <th>{% trans "Poste" %}</th>
+                                        <th>{% trans "Périodes Saisies" %}</th>
+                                        <th>{% trans "Total Véhicules" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for inventaire in derniers_inventaires %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ inventaire.date|date:"d/m/Y" }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ inventaire.date|date:"l" }}</small>
+                                        </td>
+                                        <td>{{ inventaire.poste.nom }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {{ inventaire.periodes_saisies }}/10
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-primary">
+                                                {{ inventaire.total_vehicules|default:"0" }}
+                                            </span>
+                                            {% trans "véhicules" %}
+                                        </td>
+                                        <td>
+                                            {% if inventaire.verrouille %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-lock me-1"></i>
+                                                    {% trans "Validé" %}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-edit me-1"></i>
+                                                    {% trans "En cours" %}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'inventaire:detail' inventaire.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye me-1"></i>
+                                                {% trans "Voir" %}
+                                            </a>
+                                            {% if not inventaire.verrouille %}
+                                                <a href="{% url 'inventaire:saisie' inventaire.date %}" 
+                                                   class="btn btn-sm btn-outline-success ms-1">
+                                                    <i class="fas fa-edit me-1"></i>
+                                                    {% trans "Modifier" %}
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">{% trans "Aucun inventaire trouvé" %}</h5>
+                            <p class="text-muted">
+                                {% trans "Commencez votre premier inventaire dès aujourd'hui !" %}
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script pour horloge temps réel -->
+<script>
+function updateTime() {
+    // Mise à jour de l'heure toutes les secondes
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    document.getElementById('current-time').textContent = timeString;
+}
+
+// Démarrer l'horloge
+setInterval(updateTime, 1000);
+updateTime(); // Appel initial
+</script>
+{% endblock %}

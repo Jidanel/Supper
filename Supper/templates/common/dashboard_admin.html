@@ -1,0 +1,743 @@
+<!-- 
+===================================================================
+Fichier : templates/common/dashboard_admin.html
+Dashboard administrateur avec statistiques complètes
+Vue d'ensemble du système SUPPER, gestion des alertes
+===================================================================
+-->
+{% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Dashboard Administrateur" %}{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js pour les graphiques -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- CSS spécifique au dashboard admin -->
+<style>
+    .admin-stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: none;
+    }
+    
+    .admin-stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .activity-item {
+        border-left: 3px solid #6366f1;
+        background: #f8fafc;
+        border-radius: 0 8px 8px 0;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        transition: background-color 0.3s ease;
+    }
+    
+    .activity-item:hover {
+        background: #e2e8f0;
+    }
+    
+    .day-status {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: white;
+        font-size: 0.8rem;
+    }
+    
+    .alert-danger {
+        border-left: 4px solid #ef4444;
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .alert-warning {
+        border-left: 4px solid #f59e0b;
+        background: #fef3c7;
+        color: #92400e;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">
+    <i class="fas fa-tachometer-alt me-1"></i>
+    {% trans "Dashboard Administrateur" %}
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête du dashboard -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-tachometer-alt text-primary me-2"></i>
+                {% trans "Dashboard Administrateur" %}
+            </h1>
+            <p class="text-muted mb-0">
+                {% trans "Vue d'ensemble du système SUPPER" %} - 
+                {% now "l j F Y" %}
+            </p>
+        </div>
+        
+        <!-- Actions rapides -->
+        <div class="btn-group" role="group">
+            <a href="#" class="btn btn-success">
+                <i class="fas fa-calendar-plus me-2"></i>
+                {% trans "Ouvrir jour" %}
+            </a>
+            <a href="#" class="btn btn-primary">
+                <i class="fas fa-user-plus me-2"></i>
+                {% trans "Nouvel utilisateur" %}
+            </a>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" 
+                        data-bs-toggle="dropdown">
+                    <i class="fas fa-download me-2"></i>
+                    {% trans "Exports" %}
+                </button>
+                <ul class="dropdown-menu">
+                    <li>
+                        <a class="dropdown-item" href="#">
+                            <i class="fas fa-file-csv me-2"></i>
+                            {% trans "Journal d'audit" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#">
+                            <i class="fas fa-chart-line me-2"></i>
+                            {% trans "Statistiques" %}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Activité récente et gestion rapide -->
+    <div class="row">
+        <!-- Journal d'activité récente -->
+        <div class="col-xl-8 col-lg-7 mb-3">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history text-info me-2"></i>
+                        {% trans "Activité Récente" %}
+                    </h5>
+                    <a href="#" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt me-1"></i>
+                        {% trans "Journal complet" %}
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{% trans "Heure" %}</th>
+                                        <th>{% trans "Utilisateur" %}</th>
+                                        <th>{% trans "Action" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in recent_logs %}
+                                    <tr class="activity-item">
+                                        <td class="text-nowrap">
+                                            <small class="text-muted">
+                                                {{ log.timestamp|date:"H:i" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-sm bg-primary rounded-circle me-2 d-flex align-items-center justify-content-center">
+                                                    <i class="fas fa-user text-white small"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">{{ log.utilisateur.nom_complet }}</div>
+                                                    <small class="text-muted">{{ log.utilisateur.username }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">{{ log.action }}</div>
+                                            {% if log.details %}
+                                                <small class="text-muted text-truncate d-block" style="max-width: 200px;">
+                                                    {{ log.details|truncatechars:50 }}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if log.succes %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check me-1"></i>
+                                                    {% trans "Succès" %}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-times me-1"></i>
+                                                    {% trans "Échec" %}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <div>{% trans "Aucune activité récente" %}</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions rapides et raccourcis -->
+        <div class="col-xl-4 col-lg-5 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt text-warning me-2"></i>
+                        {% trans "Actions Rapides" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Gestion des jours -->
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-uppercase text-muted mb-2">
+                            {% trans "Gestion des jours" %}
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-success btn-sm" 
+                                    onclick="ouvrirJourAujourdhui()">
+                                <i class="fas fa-calendar-plus me-2"></i>
+                                {% trans "Ouvrir aujourd'hui" %}
+                            </button>
+                            <button type="button" class="btn btn-warning btn-sm" 
+                                    onclick="marquerJourImpertinent()">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                {% trans "Marquer impertinent" %}
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Gestion utilisateurs -->
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-uppercase text-muted mb-2">
+                            {% trans "Utilisateurs" %}
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <a href="#" class="btn btn-primary btn-sm">
+                                <i class="fas fa-user-plus me-2"></i>
+                                {% trans "Nouvel utilisateur" %}
+                            </a>
+                            <a href="#" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-users me-2"></i>
+                                {% trans "Gérer utilisateurs" %}
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Système -->
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-uppercase text-muted mb-2">
+                            {% trans "Système" %}
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <a href="#" class="btn btn-info btn-sm">
+                                <i class="fas fa-heartbeat me-2"></i>
+                                {% trans "Santé système" %}
+                            </a>
+                            <button type="button" class="btn btn-secondary btn-sm" 
+                                    onclick="refreshDashboard()">
+                                <i class="fas fa-sync-alt me-2"></i>
+                                {% trans "Actualiser" %}
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Statistiques rapides -->
+                    <div>
+                        <h6 class="fw-bold text-uppercase text-muted mb-2">
+                            {% trans "Statistiques rapides" %}
+                        </h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="bg-light rounded p-2 text-center">
+                                    <div class="fw-bold text-primary" id="quickStatConnected">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </div>
+                                    <small class="text-muted">{% trans "En ligne" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light rounded p-2 text-center">
+                                    <div class="fw-bold text-success" id="quickStatToday">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </div>
+                                    <small class="text-muted">{% trans "Auj." %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Graphique des taux de déperdition -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar text-danger me-2"></i>
+                        {% trans "Taux de Déperdition - 7 Derniers Jours" %}
+                    </h5>
+                    <div class="d-flex align-items-center">
+                        <!-- Légende des couleurs -->
+                        <div class="me-3">
+                            <span class="badge deperdition-vert me-1">{% trans "Bon" %} (&gt; -10%)</span>
+                            <span class="badge deperdition-orange me-1">{% trans "Attention" %} (-10% à -30%)</span>
+                            <span class="badge deperdition-rouge">{% trans "Critique" %} (&lt; -30%)</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="exportDeperditionChart()">
+                            <i class="fas fa-download me-1"></i>
+                            {% trans "Exporter" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="deperditionChart" 
+                                data-chart-type="bar"
+                                data-chart-data="#"
+                                data-chart-title="{% trans 'Évolution des Taux de Déperdition' %}">
+                        </canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser les fonctionnalités spécifiques au dashboard admin
+    initializeAdminDashboard();
+    
+    // Charger les statistiques en temps réel
+    loadQuickStats();
+    
+    // Actualiser automatiquement toutes les 5 minutes
+    setInterval(refreshDashboard, 300000);
+    
+    // Gérer les changements de période des graphiques
+    setupChartPeriodControls();
+});
+
+// Initialise le dashboard administrateur
+function initializeAdminDashboard() {
+    console.log('🎛️ Initialisation dashboard administrateur...');
+    
+    // Animer les cartes de statistiques au chargement
+    animateStatCards();
+    
+    // Configurer les tooltips pour les éléments d'aide
+    setupAdminTooltips();
+    
+    console.log('✅ Dashboard administrateur initialisé');
+}
+
+// Anime les cartes de statistiques
+function animateStatCards() {
+    const statCards = document.querySelectorAll('.admin-stats-card');
+    
+    statCards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.transform = 'translateY(-5px)';
+            setTimeout(() => {
+                card.style.transform = 'translateY(0)';
+            }, 200);
+        }, index * 100);
+    });
+}
+
+// Configure les tooltips spécifiques à l'admin
+function setupAdminTooltips() {
+    // Ajouter des tooltips aux éléments importants
+    const tooltipElements = [
+        { selector: '[data-tooltip]', placement: 'top' }
+    ];
+    
+    tooltipElements.forEach(config => {
+        const elements = document.querySelectorAll(config.selector);
+        elements.forEach(element => {
+            new bootstrap.Tooltip(element, {
+                placement: config.placement
+            });
+        });
+    });
+}
+
+// Charge les statistiques rapides via AJAX
+function loadQuickStats() {
+    fetch('{% url "common:api_stats" %}?type=quick', {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Mettre à jour les statistiques rapides
+        const connectedElement = document.getElementById('quickStatConnected');
+        const todayElement = document.getElementById('quickStatToday');
+        
+        if (connectedElement && data.connected !== undefined) {
+            connectedElement.innerHTML = data.connected;
+        }
+        
+        if (todayElement && data.today !== undefined) {
+            todayElement.innerHTML = data.today;
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erreur chargement stats rapides:', error);
+        // Afficher des valeurs par défaut en cas d'erreur
+        document.getElementById('quickStatConnected').innerHTML = '--';
+        document.getElementById('quickStatToday').innerHTML = '--';
+    });
+}
+
+// Configure les contrôles de période des graphiques
+function setupChartPeriodControls() {
+    const periodControls = document.querySelectorAll('input[name="chartPeriod"]');
+    
+    periodControls.forEach(control => {
+        control.addEventListener('change', function() {
+            if (this.checked) {
+                updateChartPeriod(this.id.replace('chart', ''));
+            }
+        });
+    });
+}
+
+// Met à jour la période des graphiques
+function updateChartPeriod(period) {
+    const activityChart = document.getElementById('activityChart');
+    
+    if (activityChart) {
+        // Mettre à jour l'URL des données
+        const baseUrl = activityChart.dataset.chartData.split('?')[0];
+        activityChart.dataset.chartData = `${baseUrl}?type=activite&period=${period}`;
+        
+        // Réinitialiser le graphique
+        initializeChart(activityChart);
+        
+        SUPPER.showToast(`Période mise à jour: ${period}`, 'info', 2000);
+    }
+}
+
+// Actualise tout le dashboard
+function refreshDashboard() {
+    SUPPER.showToast('{% trans "Actualisation en cours..." %}', 'info', 2000);
+    
+    // Recharger les statistiques
+    loadQuickStats();
+    
+    // Recharger les notifications
+    SUPPER.loadNotifications();
+    
+    // Recharger les graphiques
+    const charts = document.querySelectorAll('canvas[data-chart-data]');
+    charts.forEach(chart => {
+        initializeChart(chart);
+    });
+    
+    setTimeout(() => {
+        SUPPER.showToast('{% trans "Dashboard actualisé" %}', 'success', 2000);
+    }, 1000);
+}
+
+// Ouvre le jour actuel pour saisie
+function ouvrirJourAujourdhui() {
+    SUPPER.confirmAction(
+        '{% trans "Ouvrir le jour" %}',
+        '{% trans "Voulez-vous ouvrir le jour actuel pour la saisie d\'inventaire ?" %}',
+        function() {
+            // Envoyer la requête AJAX pour ouvrir le jour
+            fetch('{% url "common:ouvrir_jour" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    'date': new Date().toISOString().split('T')[0],
+                    'commentaire': 'Ouvert depuis le dashboard admin'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    SUPPER.showToast('{% trans "Jour ouvert avec succès" %}', 'success');
+                    refreshDashboard();
+                } else {
+                    SUPPER.showToast(data.error || '{% trans "Erreur lors de l\'ouverture" %}', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur ouverture jour:', error);
+                SUPPER.showToast('{% trans "Erreur système" %}', 'error');
+            });
+        }
+    );
+}
+
+// Marque le jour actuel comme impertinent
+function marquerJourImpertinent() {
+    SUPPER.confirmAction(
+        '{% trans "Marquer comme impertinent" %}',
+        '{% trans "Voulez-vous marquer le jour actuel comme impertinent ?" %}',
+        function() {
+            // Logique pour marquer le jour comme impertinent
+            fetch('{% url "common:marquer_impertinent" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    'date': new Date().toISOString().split('T')[0],
+                    'commentaire': 'Marqué depuis le dashboard admin'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    SUPPER.showToast('{% trans "Jour marqué comme impertinent" %}', 'warning');
+                    refreshDashboard();
+                } else {
+                    SUPPER.showToast(data.error || '{% trans "Erreur lors du marquage" %}', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur marquage impertinent:', error);
+                SUPPER.showToast('{% trans "Erreur système" %}', 'error');
+            });
+        }
+    );
+}
+
+// Exporte le graphique de déperdition
+function exportDeperditionChart() {
+    const chart = Chart.getChart('deperditionChart');
+    
+    if (chart) {
+        // Créer un lien de téléchargement
+        const link = document.createElement('a');
+        link.download = `deperdition_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = chart.toBase64Image();
+        link.click();
+        
+        SUPPER.showToast('{% trans "Graphique exporté" %}', 'success', 2000);
+    } else {
+        SUPPER.showToast('{% trans "Impossible d\'exporter le graphique" %}', 'error');
+    }
+}
+
+// Récupère le token CSRF (fonction locale pour ce template)
+function getCSRFToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    return token ? token.value : document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+}
+</script>
+{% endblock %}
+    
+    <!-- Cartes de statistiques principales -->
+    <div class="row mb-4">
+        <!-- Total utilisateurs -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card admin-stats-card">
+                <div class="stat-number" id="totalUsers">{{ total_users|default:0 }}</div>
+                <div class="stat-label">{% trans "Utilisateurs" %}</div>
+                <div class="mt-2">
+                    <small>
+                        <i class="fas fa-user-check me-1"></i>
+                        {{ active_users|default:0 }} {% trans "actifs" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Total postes -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card admin-stats-card">
+                <div class="stat-number" id="totalPostes">{{ total_postes|default:0 }}</div>
+                <div class="stat-label">{% trans "Postes" %}</div>
+                <div class="mt-2">
+                    <small>
+                        <i class="fas fa-road me-1"></i>
+                        {{ active_postes|default:0 }} {% trans "actifs" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Inventaires aujourd'hui -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card admin-stats-card">
+                <div class="stat-number" id="inventairesToday">{{ inventaires_today|default:0 }}</div>
+                <div class="stat-label">{% trans "Inventaires aujourd'hui" %}</div>
+                <div class="mt-2">
+                    <small>
+                        <i class="fas fa-calendar me-1"></i>
+                        {{ inventaires_week|default:0 }} {% trans "cette semaine" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recettes aujourd'hui -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card admin-stats-card">
+                <div class="stat-number" id="recettesToday">{{ recettes_today|default:0 }}</div>
+                <div class="stat-label">{% trans "Recettes aujourd'hui" %}</div>
+                <div class="mt-2">
+                    <small>
+                        <i class="fas fa-coins me-1"></i>
+                        {% trans "Saisies complétées" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Alertes système -->
+    {% if alertes %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    <h5 class="mb-0">{% trans "Alertes Système" %}</h5>
+                    <span class="badge bg-warning ms-auto">{{ alertes|length }}</span>
+                </div>
+                <div class="card-body">
+                    {% for alerte in alertes %}
+                    <div class="alert alert-{{ alerte.type }} d-flex align-items-center" role="alert">
+                        <i class="fas fa-{{ alerte.type == 'danger' and 'exclamation-triangle' or 'info-circle' }} me-2"></i>
+                        <div>{{ alerte.message }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Graphiques et tableaux de bord -->
+    <div class="row mb-4">
+        <!-- Graphique d'activité -->
+        <div class="col-xl-8 col-lg-7 mb-3">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line text-primary me-2"></i>
+                        {% trans "Activité du Système" %}
+                    </h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="chartPeriod" id="chart24h" checked>
+                        <label class="btn btn-outline-primary" for="chart24h">24h</label>
+                        
+                        <input type="radio" class="btn-check" name="chartPeriod" id="chart7d">
+                        <label class="btn btn-outline-primary" for="chart7d">7j</label>
+                        
+                        <input type="radio" class="btn-check" name="chartPeriod" id="chart30d">
+                        <label class="btn btn-outline-primary" for="chart30d">30j</label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="activityChart" 
+                                data-chart-type="line"
+                                data-chart-data="{% url 'common:api_stats' %}?type=activite"
+                                data-chart-title="{% trans 'Activité Horaire' %}">
+                        </canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statut des jours récents -->
+        <div class="col-xl-4 col-lg-5 mb-3">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt text-success me-2"></i>
+                        {% trans "Statut des Jours" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">{% trans "7 derniers jours" %}</span>
+                        <a href="{% url 'common:jour_list' %}" class="btn btn-sm btn-outline-primary">
+                            {% trans "Voir tout" %}
+                        </a>
+                    </div>
+                    
+                    {% for jour in jours_ouverts %}
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="day-status bg-{{ jour.css_class }} me-3">
+                            {{ jour.date.day }}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ jour.date|date:"l j F" }}</div>
+                            <small class="text-muted">{{ jour.status }}</small>
+                        </div>
+                        {% if jour.css_class == 'warning' %}
+                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                        {% elif jour.css_class == 'success' %}
+                            <i class="fas fa-check-circle text-success"></i>
+                        {% else %}
+                            <i class="fas fa-lock text-secondary"></i>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>

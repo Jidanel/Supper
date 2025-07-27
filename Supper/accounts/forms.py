@@ -7,6 +7,7 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm as 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 from .models import UtilisateurSUPPER, Poste, Habilitation
 
 
@@ -186,7 +187,7 @@ class BulkUserCreateForm(forms.Form):
     
     # Données communes
     poste_commun = forms.ModelChoiceField(
-        queryset=Poste.objects.filter(actif=True),
+        queryset=Poste.objects.filter(is_active=True),
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Poste d'affectation commun",
         required=True
@@ -339,3 +340,64 @@ class PasswordResetForm(forms.Form):
                 raise ValidationError("Les mots de passe ne correspondent pas.")
         
         return cleaned_data
+    
+# ===================================================================
+# Formulaire ProfileEditForm à ajouter dans Supper/accounts/forms.py
+# ===================================================================
+
+class ProfileEditForm(forms.ModelForm):
+    """
+    Formulaire pour modification du profil utilisateur
+    Seuls certains champs sont modifiables par l'utilisateur
+    """
+    
+    class Meta:
+        model = UtilisateurSUPPER
+        fields = [
+            'nom_complet',
+            'telephone', 
+            'email'
+        ]
+        widgets = {
+            'nom_complet': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Nom et prénom complets')
+            }),
+            'telephone': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '+237XXXXXXXXX'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'email@exemple.com'
+            }),
+        }
+        labels = {
+            'nom_complet': _('Nom complet'),
+            'telephone': _('Téléphone'),
+            'email': _('Email (optionnel)'),
+        }
+        help_texts = {
+            'telephone': _('Format: +237XXXXXXXXX ou XXXXXXXXX'),
+            'email': _('Email pour récupération de mot de passe'),
+        }
+    
+    def clean_telephone(self):
+        """Validation du numéro de téléphone"""
+        telephone = self.cleaned_data.get('telephone')
+        if telephone:
+            # Supprimer espaces et tirets
+            telephone = telephone.replace(' ', '').replace('-', '')
+            
+            # Ajouter +237 si manquant
+            if not telephone.startswith('+237') and len(telephone) == 9:
+                telephone = '+237' + telephone
+            
+            # Validation format camerounais
+            import re
+            if not re.match(r'^\+237[0-9]{8,9}$', telephone):
+                raise forms.ValidationError(
+                    _("Format invalide. Utilisez: +237XXXXXXXXX")
+                )
+        
+        return telephone
