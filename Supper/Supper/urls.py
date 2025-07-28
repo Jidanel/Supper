@@ -1,78 +1,113 @@
 # ===================================================================
-# Supper/urls.py - URLs principales du projet SUPPER
+# Supper/urls.py - URLs principales CORRIGÉES
 # ===================================================================
-# 🔄 REMPLACE le contenu existant du fichier Supper/urls.py
 
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
-from django.http import HttpResponse
-from django.template.response import TemplateResponse
-from accounts.admin import admin_site
+from accounts.admin import admin_site  # Import du site admin personnalisé
 
-def home_redirect(request):
-    """Redirection intelligente depuis la racine"""
-    if request.user.is_authenticated:
-        # Rediriger vers le dashboard approprié selon le rôle
-        if request.user.is_admin():
-            return redirect('admin:index')
-        else:
-            return redirect('accounts:dashboard')
-    else:
-        return redirect('accounts:login')
-
-def health_check(request):
-    """Point de santé pour monitoring"""
-    return HttpResponse("OK - SUPPER Application Running", content_type="text/plain")
-
-def robots_txt(request):
-    """Fichier robots.txt pour les crawlers"""
-    content = """User-agent: *
-Disallow: /admin/
-Disallow: /accounts/
-Allow: /static/
-"""
-    return HttpResponse(content, content_type="text/plain")
+def redirect_to_admin(request):
+    """Redirection vers l'admin personnalisé"""
+    return redirect('admin:index')
 
 urlpatterns = [
-    # Page d'accueil avec redirection intelligente
-    path('', home_redirect, name='home'),
+    # IMPORTANT: Admin personnalisé en premier
+    path('admin/', admin_site.urls),
     
-    # Administration Django native (pour les super-admins uniquement)
-    path('admin/', admin.site.urls),
+    # Admin Django standard (désactivé en production)
+    path('django-admin/', admin.site.urls) if settings.DEBUG else path('django-admin/', lambda r: redirect('admin:index')),
     
-    # Site admin personnalisé SUPPER
-    path('accounts/admin/', admin_site.urls),
+    # Redirection racine vers admin
+    path('', redirect_to_admin),
     
-    # Application accounts (authentification + dashboards)
-    path('accounts/', include('accounts.urls')),
-    
-    # Applications futures
-    # path('inventaire/', include('inventaire.urls')),  # À activer plus tard
-    # path('api/', include('api.urls')),  # API REST future
-    
-    # Utilitaires système
-    path('health/', health_check, name='health_check'),
-    path('robots.txt', robots_txt, name='robots_txt'),
+    # URLs des applications (à ajouter plus tard)
+    # path('accounts/', include('accounts.urls')),
+    # path('inventaire/', include('inventaire.urls')),
+    # path('api/', include('api.urls')),
 ]
 
-# Configuration pour servir les fichiers média en développement
+# Servir les fichiers média en développement
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    
-    # Debug toolbar si disponible
-    try:
-        import debug_toolbar
-        urlpatterns = [
-            path('__debug__/', include(debug_toolbar.urls)),
-        ] + urlpatterns
-    except ImportError:
-        pass
 
-# Gestionnaire d'erreurs personnalisés
-handler404 = 'accounts.views.custom_404'
-handler500 = 'accounts.views.custom_500'
-handler403 = 'accounts.views.custom_403'
+# ===================================================================
+# accounts/urls.py - URLs de l'application accounts
+# ===================================================================
+
+"""
+# Fichier à créer : accounts/urls.py
+
+from django.urls import path
+from . import views
+
+app_name = 'accounts'
+
+urlpatterns = [
+    # Authentification
+    path('login/', views.LoginView.as_view(), name='login'),
+    path('logout/', views.LogoutView.as_view(), name='logout'),
+    path('profile/', views.ProfileView.as_view(), name='profile'),
+    
+    # Gestion utilisateurs
+    path('users/', views.UserListView.as_view(), name='user_list'),
+    path('users/<int:pk>/', views.UserDetailView.as_view(), name='user_detail'),
+    path('users/<int:pk>/edit/', views.UserUpdateView.as_view(), name='user_edit'),
+    
+    # Gestion postes  
+    path('postes/', views.PosteListView.as_view(), name='poste_list'),
+    path('postes/<int:pk>/', views.PosteDetailView.as_view(), name='poste_detail'),
+    
+    # Journal d'audit
+    path('audit/', views.JournalAuditListView.as_view(), name='audit_list'),
+    path('audit/<int:pk>/', views.JournalAuditDetailView.as_view(), name='journal_detail'),
+    
+    # Notifications
+    path('notifications/', views.NotificationListView.as_view(), name='notification_list'),
+]
+"""
+
+# ===================================================================
+# inventaire/urls.py - URLs de l'application inventaire  
+# ===================================================================
+
+"""
+# Fichier à créer : inventaire/urls.py
+
+from django.urls import path
+from . import views
+
+app_name = 'inventaire'
+
+urlpatterns = [
+    # Inventaires
+    path('', views.InventaireListView.as_view(), name='inventaire_list'),
+    path('inventaires/', views.InventaireListView.as_view(), name='inventaire_list'),
+    path('inventaires/<int:pk>/', views.InventaireDetailView.as_view(), name='inventaire_detail'),
+    path('inventaires/nouveau/', views.InventaireCreateView.as_view(), name='inventaire_create'),
+    path('inventaires/<int:pk>/edit/', views.InventaireUpdateView.as_view(), name='inventaire_edit'),
+    
+    # Saisie agent
+    path('saisie/', views.SaisieInventaireView.as_view(), name='saisie_inventaire'),
+    path('saisie/<int:poste_id>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_poste'),
+    
+    # Recettes
+    path('recettes/', views.RecetteListView.as_view(), name='recette_list'),
+    path('recettes/<int:pk>/', views.RecetteDetailView.as_view(), name='recette_detail'),
+    path('recettes/nouvelle/', views.RecetteCreateView.as_view(), name='recette_create'),
+    
+    # Configuration jours
+    path('config-jours/', views.ConfigurationJourListView.as_view(), name='config_jour_list'),
+    
+    # Statistiques
+    path('statistiques/', views.StatistiquesView.as_view(), name='statistiques'),
+    path('statistiques/<str:periode>/', views.StatistiquesView.as_view(), name='statistiques_periode'),
+    
+    # Exports
+    path('export/inventaires/', views.ExportInventairesView.as_view(), name='export_inventaires'),
+    path('export/recettes/', views.ExportRecettesView.as_view(), name='export_recettes'),
+]
+"""

@@ -1,7 +1,7 @@
 # ===================================================================
-# accounts/admin.py - Interface d'administration complète SUPPER
+# accounts/admin.py - Interface d'administration SUPPER CORRIGÉE
+# CORRESPONDANCE EXACTE avec les modèles définis
 # ===================================================================
-# 🔄 REMPLACE le contenu existant du fichier accounts/admin.py
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
@@ -20,9 +20,10 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 import csv
+import logging
+logger = logging.getLogger('supper')
 
 from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur, Habilitation
-from .forms import UserCreateForm, UserUpdateForm
 
 
 class SupperAdminSite(AdminSite):
@@ -37,23 +38,31 @@ class SupperAdminSite(AdminSite):
         super().__init__(name)
     
     def index(self, request, extra_context=None):
-        """Dashboard principal avec statistiques"""
+        """Dashboard principal avec vraies données - VERSION FINALE"""
         
-        # Vérifier que l'utilisateur est connecté et admin
-        if not request.user.is_authenticated or not request.user.is_admin():
+        # Vérifier authentification
+        if not request.user.is_authenticated:
             return redirect('admin:login')
         
-        # Calculer les statistiques
+        # Vérifier permissions admin
+        if not (request.user.is_superuser or 
+                hasattr(request.user, 'habilitation') and
+                request.user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']):
+            messages.error(request, 'Accès non autorisé au panel d\'administration.')
+            return redirect('admin:login')
+        
+        # Calculer les vraies statistiques
         stats = self._get_dashboard_stats()
         
-        # Activité récente
+        # Activité récente (vraies données)
         recent_actions = JournalAudit.objects.select_related('utilisateur').order_by('-timestamp')[:10]
         
-        # Graphiques data
+        # Données pour graphiques
         chart_data = self._get_chart_data()
         
         context = {
             'title': 'Tableau de Bord SUPPER',
+            'subtitle': 'Administration - Suivi des Péages et Pesages Routiers',
             'stats': stats,
             'recent_actions': recent_actions,
             'chart_data': chart_data,
@@ -64,82 +73,216 @@ class SupperAdminSite(AdminSite):
             context.update(extra_context)
         
         return TemplateResponse(request, 'admin/dashboard.html', context)
+
     
     def _get_dashboard_stats(self):
-        """Calcule les statistiques pour le dashboard"""
+        """Calcule les vraies statistiques pour le dashboard"""
+        from django.db import connection
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
         
-        # Import conditionnel pour éviter les erreurs de dépendance circulaire
+        # Import conditionnel pour éviter les erreurs
         try:
             from inventaire.models import InventaireJournalier, RecetteJournaliere
+            inventaire_model = InventaireJournalier
+            recette_model = RecetteJournaliere
         except ImportError:
-            InventaireJournalier = None
-            RecetteJournaliere = None
+            inventaire_model = None
+            recette_model = None
         
-        stats = {
-            'users_total': UtilisateurSUPPER.objects.count(),
-            'users_active': UtilisateurSUPPER.objects.filter(is_active=True).count(),
-            'users_this_week': UtilisateurSUPPER.objects.filter(date_creation__gte=week_ago).count(),
-            'postes_total': Poste.objects.count(),
-            'postes_active': Poste.objects.filter(actif=True).count(),
-            'postes_peage': Poste.objects.filter(type='peage', actif=True).count(),
-            'postes_pesage': Poste.objects.filter(type='pesage', actif=True).count(),
-        }
+        # Stats utilisateurs
+        users_total = UtilisateurSUPPER.objects.count()
+        users_active = UtilisateurSUPPER.objects.filter(is_active=True).count()
+        users_inactive = users_total - users_active
+        users_this_week = UtilisateurSUPPER.objects.filter(date_creation__gte=week_ago).count()
         
-        if InventaireJournalier:
-            stats.update({
-                'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
-                'inventaires_week': InventaireJournalier.objects.filter(date__gte=week_ago).count(),
-                'inventaires_locked': InventaireJournalier.objects.filter(verrouille=True).count(),
-            })
+        # Utilisateurs en ligne (sessions actives des 30 dernières minutes)
+        from django.contrib.sessions.models import Session
+        from django.utils import timezone
+        active_sessions = Session.objects.filter(
+            expire_date__gte=timezone.now() - timedelta(minutes=30)
+        ).count()
         
-        if RecetteJournaliere:
-            stats.update({
-                'recettes_today': RecetteJournaliere.objects.filter(date=today).count(),
-                'recettes_week': RecetteJournaliere.objects.filter(date__gte=week_ago).count(),
-            })
+        # Stats postes
+        postes_total = Poste.objects.count()
+        postes_active = Poste.objects.filter(is_active=True).count()
+        postes_inactive = postes_total - postes_active
+        postes_peage = Poste.objects.filter(type='peage', is_active=True).count()
+        postes_pesage = Poste.objects.filter(type='pesage', is_active=True).count()
         
-        # Activité système
-        stats['actions_today'] = JournalAudit.objects.filter(timestamp__date=today).count()
-        stats['actions_week'] = JournalAudit.objects.filter(timestamp__gte=week_ago).count()
+        # Stats inventaires
+        inventaires_today = 0
+        inventaires_week = 0
+        inventaires_locked = 0
+        if inventaire_model:
+            try:
+                inventaires_today = inventaire_model.objects.filter(date=today).count()
+                inventaires_week = inventaire_model.objects.filter(date__gte=week_ago).count()
+                inventaires_locked = inventaire_model.objects.filter(verrouille=True, valide=False).count()
+            except Exception:
+                pass
         
-        return stats
-    
-    def _get_chart_data(self):
-        """Prépare les données pour les graphiques"""
-        # Données pour graphique d'activité (7 derniers jours)
-        dates = []
-        actions = []
+        # Stats recettes
+        recettes_today = 0
+        recettes_week = 0
+        if recette_model:
+            try:
+                recettes_today = recette_model.objects.filter(date=today).count()
+                recettes_week = recette_model.objects.filter(date__gte=week_ago).count()
+            except Exception:
+                pass
         
-        for i in range(6, -1, -1):
-            date = timezone.now().date() - timedelta(days=i)
-            count = JournalAudit.objects.filter(timestamp__date=date).count()
-            dates.append(date.strftime('%d/%m'))
-            actions.append(count)
+        # Stats activité/audit
+        actions_today = JournalAudit.objects.filter(timestamp__date=today).count()
+        actions_week = JournalAudit.objects.filter(timestamp__gte=week_ago).count()
+        total_logs = JournalAudit.objects.count()
         
-        # Données utilisateurs par rôle
-        roles_data = []
-        for role_value, role_label in Habilitation.choices:
-            count = UtilisateurSUPPER.objects.filter(habilitation=role_value).count()
-            if count > 0:
-                roles_data.append({'label': role_label, 'value': count})
+        # Stats base de données
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';")
+            db_tables = cursor.fetchone()[0] if cursor.fetchone() else 0
         
         return {
-            'activity_dates': dates,
-            'activity_actions': actions,
-            'roles_data': roles_data,
+            # Utilisateurs
+            'users_total': users_total,
+            'users_active': users_active,
+            'users_inactive': users_inactive,
+            'users_this_week': users_this_week,
+            'users_online': active_sessions,
+            
+            # Postes
+            'postes_total': postes_total,
+            'postes_active': postes_active,
+            'postes_inactive': postes_inactive,
+            'postes_peage': postes_peage,
+            'postes_pesage': postes_pesage,
+            
+            # Inventaires
+            'inventaires_today': inventaires_today,
+            'inventaires_week': inventaires_week,
+            'inventaires_locked': inventaires_locked,
+            
+            # Recettes
+            'recettes_today': recettes_today,
+            'recettes_week': recettes_week,
+            
+            # Activité
+            'actions_today': actions_today,
+            'actions_week': actions_week,
+            'total_logs': total_logs,
+            
+            # Système
+            'db_tables': db_tables,
+        }
+
+    def _get_chart_data(self):
+        """Prépare les vraies données pour les graphiques"""
+        from django.db.models import Count, Q
+        from datetime import date, timedelta
+        
+        # Données d'activité (7 derniers jours)
+        activity_dates = []
+        activity_counts = []
+        
+        for i in range(6, -1, -1):
+            target_date = date.today() - timedelta(days=i)
+            count = JournalAudit.objects.filter(timestamp__date=target_date).count()
+            activity_dates.append(target_date.strftime('%d/%m'))
+            activity_counts.append(count)
+        
+        # Données utilisateurs par rôle
+        users_by_role = UtilisateurSUPPER.objects.values('habilitation').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        users_labels = []
+        users_data = []
+        for item in users_by_role:
+            # Convertir le code en libellé lisible
+            role_display = dict(Habilitation.choices).get(item['habilitation'], item['habilitation'])
+            users_labels.append(role_display)
+            users_data.append(item['count'])
+        
+        # Données de déperdition (derniers postes avec recettes)
+        deperdition_data = []
+        try:
+            from inventaire.models import RecetteJournaliere
+            
+            # Prendre les 5 dernières recettes avec taux de déperdition
+            recent_recettes = RecetteJournaliere.objects.filter(
+                taux_deperdition__isnull=False
+            ).select_related('poste').order_by('-date')[:5]
+            
+            deperdition_labels = []
+            deperdition_values = []
+            deperdition_colors = []
+            
+            for recette in recent_recettes:
+                deperdition_labels.append(recette.poste.nom[:15] + '...' if len(recette.poste.nom) > 15 else recette.poste.nom)
+                deperdition_values.append(float(recette.taux_deperdition))
+                
+                # Couleur selon le taux
+                if recette.taux_deperdition > -10:
+                    deperdition_colors.append('#28a745')  # Vert
+                elif recette.taux_deperdition >= -30:
+                    deperdition_colors.append('#ffc107')  # Orange
+                else:
+                    deperdition_colors.append('#dc3545')  # Rouge
+            
+            deperdition_data = {
+                'labels': deperdition_labels,
+                'data': deperdition_values,
+                'colors': deperdition_colors
+            }
+        except ImportError:
+            deperdition_data = {
+                'labels': ['Aucune donnée'],
+                'data': [0],
+                'colors': ['#6c757d']
+            }
+        
+        return {
+            'activity_data': {
+                'labels': activity_dates,
+                'data': activity_counts
+            },
+            'users_by_role': {
+                'labels': users_labels,
+                'data': users_data
+            },
+            'deperdition_data': deperdition_data
         }
     
     def get_urls(self):
-        """URLs personnalisées pour l'admin"""
+        """URLs complètes avec toutes les API"""
         urls = super().get_urls()
         custom_urls = [
-            path('create-users/', self.admin_view(self.create_users_view), name='create_users'),
-            path('dashboard/stats/', self.admin_view(self.dashboard_stats_api), name='dashboard_stats'),
-            path('saisie-inventaire/', self.admin_view(self.saisie_inventaire_view), name='saisie_inventaire'),
+            # API Dashboard
+            path('api/stats/', self.admin_view(self.api_stats_view), name='api_stats'),
+            path('api/activity/', self.admin_view(self.api_activity_view), name='api_activity'),
+            path('api/deperdition/', self.admin_view(self.api_deperdition_view), name='api_deperdition'),
+            path('api/notifications/count/', self.admin_view(self.notification_count_view), name='notification_count'),
+            
+            # Actions rapides
+            path('actions/open-day/', self.admin_view(self.open_day_view), name='open_day'),
+            path('actions/mark-impertinent/', self.admin_view(self.mark_impertinent_view), name='mark_impertinent'),
+            
+            # Exports
+            path('export/audit/', self.admin_view(self.export_audit_view), name='export_audit'),
+            
+            # Autres vues
+            path('tools/create-users/', self.admin_view(self.create_users_view), name='create_users'),
+            path('tools/saisie-inventaire/', self.admin_view(self.saisie_inventaire_view), name='saisie_inventaire'),
+            
+            # Monitoring
+            path('monitoring/ping/', self.admin_view(self.ping_view), name='ping'),
         ]
         return custom_urls + urls
+    
+    @method_decorator(login_required)
+    def ping_view(self, request):
+        """Vue simple pour vérifier la connexion"""
+        return JsonResponse({'status': 'ok', 'timestamp': timezone.now().isoformat()})
     
     @method_decorator(login_required)
     def create_users_view(self, request):
@@ -182,7 +325,7 @@ class SupperAdminSite(AdminSite):
     
     @method_decorator(login_required)
     def saisie_inventaire_view(self, request):
-        """Interface de saisie d'inventaire pour admin - CORRIGÉE"""
+        """Interface de saisie d'inventaire pour admin"""
         if request.method == 'POST':
             # Logique de traitement de l'inventaire
             try:
@@ -210,7 +353,7 @@ class SupperAdminSite(AdminSite):
                     messages.error(request, 'Cet inventaire est déjà verrouillé.')
                     return redirect('admin:saisie_inventaire')
                 
-                # Sauvegarder les détails par période - NOMS CORRIGÉS
+                # Sauvegarder les détails par période
                 periodes_mapping = {
                     'vehicules_0809': '08h-09h',
                     'vehicules_0910': '09h-10h', 
@@ -273,7 +416,7 @@ class SupperAdminSite(AdminSite):
                 return redirect('admin:saisie_inventaire')
         
         # GET: Afficher le formulaire
-        postes = Poste.objects.filter(actif=True).order_by('nom')
+        postes = Poste.objects.filter(is_active=True).order_by('nom')  # CORRIGÉ: is_active
         
         # Définir les périodes ici pour le template
         periodes = [
@@ -284,29 +427,339 @@ class SupperAdminSite(AdminSite):
         context = {
             'title': 'Saisie d\'Inventaire',
             'postes': postes,
-            'periodes': periodes,  # AJOUT IMPORTANT pour éviter l'erreur
+            'periodes': periodes,
             'has_permission': True,
         }
         return TemplateResponse(request, 'admin/saisie_inventaire.html', context)
 
+    @method_decorator(login_required)
+    def api_stats_view(self, request):
+        """API pour les statistiques temps réel avec vraies données"""
+        stats = self._get_dashboard_stats()
+        return JsonResponse(stats)
 
+    @method_decorator(login_required)
+    def api_activity_view(self, request):
+        """API pour l'activité système avec vraies données"""
+        period = request.GET.get('period', '7d')
+        
+        if period == '24h':
+            # Données par heure des dernières 24h
+            from datetime import datetime, timedelta
+            now = timezone.now()
+            labels = []
+            data = []
+            
+            for i in range(23, -1, -1):
+                hour_start = now - timedelta(hours=i)
+                hour_end = hour_start + timedelta(hours=1)
+                count = JournalAudit.objects.filter(
+                    timestamp__gte=hour_start,
+                    timestamp__lt=hour_end
+                ).count()
+                labels.append(hour_start.strftime('%H:00'))
+                data.append(count)
+            
+            result = {
+                'title': 'Activité 24 heures',
+                'labels': labels,
+                'data': data
+            }
+        
+        elif period == '7d':
+            # Données par jour des 7 derniers jours
+            from datetime import date, timedelta
+            labels = []
+            data = []
+            
+            for i in range(6, -1, -1):
+                target_date = date.today() - timedelta(days=i)
+                count = JournalAudit.objects.filter(timestamp__date=target_date).count()
+                labels.append(target_date.strftime('%d/%m'))
+                data.append(count)
+            
+            result = {
+                'title': 'Activité 7 jours',
+                'labels': labels,
+                'data': data
+            }
+        
+        else:  # 30d
+            # Données par semaine des 4 dernières semaines
+            from datetime import date, timedelta
+            labels = []
+            data = []
+            
+            for i in range(3, -1, -1):
+                week_start = date.today() - timedelta(days=i*7)
+                week_end = week_start + timedelta(days=6)
+                count = JournalAudit.objects.filter(
+                    timestamp__date__gte=week_start,
+                    timestamp__date__lte=week_end
+                ).count()
+                labels.append(f'Sem {4-i}')
+                data.append(count)
+            
+            result = {
+                'title': 'Activité 30 jours',
+                'labels': labels,
+                'data': data
+            }
+        
+        return JsonResponse(result)
+
+    @method_decorator(login_required)
+    def api_deperdition_view(self, request):
+        """API pour les taux de déperdition avec vraies données"""
+        try:
+            from inventaire.models import RecetteJournaliere
+            
+            # Prendre les 8 dernières recettes avec taux calculé
+            recettes = RecetteJournaliere.objects.filter(
+                taux_deperdition__isnull=False
+            ).select_related('poste').order_by('-date')[:8]
+            
+            labels = []
+            data = []
+            colors = []
+            
+            for recette in recettes:
+                # Nom du poste (raccourci si trop long)
+                nom_poste = recette.poste.nom
+                if len(nom_poste) > 12:
+                    nom_poste = nom_poste[:12] + '...'
+                labels.append(nom_poste)
+                
+                # Valeur du taux
+                taux = float(recette.taux_deperdition)
+                data.append(taux)
+                
+                # Couleur selon les seuils SUPPER
+                if taux > -10:
+                    colors.append('#28a745')  # Vert - Bon
+                elif taux >= -30:
+                    colors.append('#ffc107')  # Orange - Attention
+                else:
+                    colors.append('#dc3545')  # Rouge - Critique
+            
+            result = {
+                'labels': labels,
+                'data': data,
+                'colors': colors
+            }
+        
+        except ImportError:
+            # Fallback si le modèle n'existe pas
+            result = {
+                'labels': ['Aucune donnée'],
+                'data': [0],
+                'colors': ['#6c757d']
+            }
+        
+        return JsonResponse(result)
+
+    @method_decorator(login_required)
+    def notification_count_view(self, request):
+        """API pour le compteur de notifications"""
+        if request.user.is_superuser or request.user.habilitation == 'admin_principal':
+            count = NotificationUtilisateur.objects.filter(
+                destinataire=request.user,
+                lu=False
+            ).count()
+        else:
+            count = 0
+        
+        return JsonResponse({'count': count})
+
+    @method_decorator(login_required)
+    def open_day_view(self, request):
+        """Vue pour ouvrir un jour avec vraies données"""
+        if request.method == 'POST':
+            try:
+                from inventaire.models import ConfigurationJour
+                from datetime import date
+                
+                today = date.today()
+                config, created = ConfigurationJour.objects.get_or_create(
+                    date=today,
+                    defaults={
+                        'statut': 'ouvert',
+                        'cree_par': request.user,
+                        'commentaire': f'Ouvert via dashboard par {request.user.nom_complet} le {timezone.now().strftime("%d/%m/%Y à %H:%M")}'
+                    }
+                )
+                
+                if not created:
+                    config.statut = 'ouvert'
+                    config.commentaire = f'Réouvert via dashboard par {request.user.nom_complet} le {timezone.now().strftime("%d/%m/%Y à %H:%M")}'
+                    config.save()
+                
+                # Journaliser l'action
+                JournalAudit.objects.create(
+                    utilisateur=request.user,
+                    action="Ouverture jour saisie",
+                    details=f"Jour {today.strftime('%d/%m/%Y')} ouvert pour la saisie",
+                    adresse_ip=request.META.get('REMOTE_ADDR'),
+                    url_acces=request.path,
+                    methode_http=request.method,
+                    succes=True
+                )
+                
+                messages.success(request, f'✅ Jour {today.strftime("%d/%m/%Y")} ouvert pour la saisie.')
+                
+            except Exception as e:
+                logger.error(f'Erreur ouverture jour: {str(e)}')
+                messages.error(request, f'❌ Erreur lors de l\'ouverture du jour: {str(e)}')
+        
+        return JsonResponse({'success': True})
+
+    @method_decorator(login_required)
+    def mark_impertinent_view(self, request):
+        """Vue pour marquer un jour comme impertinent"""
+        if request.method == 'POST':
+            try:
+                from inventaire.models import ConfigurationJour
+                from datetime import datetime
+                
+                date_str = request.POST.get('date')
+                if not date_str:
+                    return JsonResponse({'error': 'Date requise'}, status=400)
+                
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                
+                config, created = ConfigurationJour.objects.get_or_create(
+                    date=target_date,
+                    defaults={
+                        'statut': 'impertinent',
+                        'cree_par': request.user,
+                        'commentaire': f'Marqué impertinent via dashboard par {request.user.nom_complet} le {timezone.now().strftime("%d/%m/%Y à %H:%M")}'
+                    }
+                )
+                
+                if not created:
+                    config.statut = 'impertinent'
+                    config.commentaire = f'Marqué impertinent via dashboard par {request.user.nom_complet} le {timezone.now().strftime("%d/%m/%Y à %H:%M")}'
+                    config.save()
+                
+                # Journaliser l'action
+                JournalAudit.objects.create(
+                    utilisateur=request.user,
+                    action="Marquage jour impertinent",
+                    details=f"Jour {target_date.strftime('%d/%m/%Y')} marqué comme impertinent",
+                    adresse_ip=request.META.get('REMOTE_ADDR'),
+                    url_acces=request.path,
+                    methode_http=request.method,
+                    succes=True
+                )
+                
+                messages.warning(request, f'⚠️ Jour {target_date.strftime("%d/%m/%Y")} marqué comme impertinent.')
+                
+            except Exception as e:
+                logger.error(f'Erreur marquage impertinent: {str(e)}')
+                return JsonResponse({'error': str(e)}, status=500)
+        
+        return JsonResponse({'success': True})
+
+    @method_decorator(login_required)
+    def export_audit_view(self, request):
+        """Export complet du journal d'audit"""
+        try:
+            from datetime import date, timedelta
+            import csv
+            
+            # Export des 30 derniers jours par défaut
+            days = int(request.GET.get('days', 30))
+            start_date = date.today() - timedelta(days=days)
+            
+            logs = JournalAudit.objects.filter(
+                timestamp__date__gte=start_date
+            ).select_related('utilisateur').order_by('-timestamp')
+            
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            filename = f"audit_supper_{date.today().strftime('%Y%m%d')}_{logs.count()}entries.csv"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # BOM UTF-8 pour Excel
+            response.write('\ufeff')
+            
+            writer = csv.writer(response, delimiter=';')
+            writer.writerow([
+                'Date/Heure', 'Utilisateur', 'Nom Complet', 'Habilitation', 'Poste',
+                'Action', 'Détails', 'IP', 'User Agent', 'URL', 'Méthode',
+                'Statut HTTP', 'Succès', 'Durée', 'Session'
+            ])
+            
+            for log in logs:
+                writer.writerow([
+                    log.timestamp.strftime('%d/%m/%Y %H:%M:%S'),
+                    log.utilisateur.username,
+                    log.utilisateur.nom_complet,
+                    log.utilisateur.get_habilitation_display(),
+                    log.utilisateur.poste_affectation.nom if log.utilisateur.poste_affectation else 'Non affecté',
+                    log.action,
+                    log.details[:200] + '...' if len(log.details or '') > 200 else log.details or '',
+                    log.adresse_ip or '',
+                    log.user_agent[:100] + '...' if len(log.user_agent or '') > 100 else log.user_agent or '',
+                    log.url_acces or '',
+                    log.methode_http or '',
+                    log.statut_reponse or '',
+                    'Oui' if log.succes else 'Non',
+                    log.duree_formatee if hasattr(log, 'duree_formatee') else '',
+                    log.session_key[:10] + '...' if log.session_key else ''
+                ])
+            
+            # Journaliser l'export
+            JournalAudit.objects.create(
+                utilisateur=request.user,
+                action="Export journal audit",
+                details=f"Export de {logs.count()} entrées sur {days} jours",
+                adresse_ip=request.META.get('REMOTE_ADDR'),
+                url_acces=request.path,
+                methode_http=request.method,
+                succes=True
+            )
+            
+            messages.success(request, f'✅ Export généré: {logs.count()} entrées sur {days} jours.')
+            return response
+            
+        except Exception as e:
+            logger.error(f'Erreur export audit: {str(e)}')
+            messages.error(request, f'❌ Erreur lors de l\'export: {str(e)}')
+            return redirect('admin:index')
+
+    @method_decorator(login_required)
+    def ping_view(self, request):
+        """Vue de monitoring pour vérifier la santé du système"""
+        try:
+            # Test basique de la base de données
+            UtilisateurSUPPER.objects.count()
+            
+            return JsonResponse({
+                'status': 'ok',
+                'timestamp': timezone.now().isoformat(),
+                'version': '2.0',
+                'database': 'connected'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'error': str(e),
+                'timestamp': timezone.now().isoformat()
+            }, status=500)
 # Instance du site admin personnalisé
 admin_site = SupperAdminSite()
 
 
-# Configuration des modèles dans l'admin
-
 @admin.register(UtilisateurSUPPER, site=admin_site)
 class UtilisateurSUPPERAdmin(UserAdmin):
-    """Administration des utilisateurs SUPPER"""
+    """Administration des utilisateurs SUPPER - CORRIGÉE"""
     
-    add_form = UserCreateForm
-    form = UserUpdateForm
     model = UtilisateurSUPPER
     
+    # CORRIGÉ: Utilisation des bons noms de champs du modèle
     list_display = ('username', 'nom_complet', 'habilitation_badge', 'poste_affectation', 
                    'is_active_badge', 'date_creation')
-    list_filter = ('habilitation', 'is_active', 'poste_affectation__type', 
+    list_filter = ('habilitation', 'is_active', 'poste_affectation__type',  # CORRIGÉ: type au lieu de __type
                   'poste_affectation__region', 'date_creation')
     search_fields = ('username', 'nom_complet', 'telephone', 'email')
     ordering = ('-date_creation',)
@@ -317,7 +770,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'classes': ('wide',),
         }),
         ('Informations personnelles', {
-            'fields': ('nom_complet', 'telephone', 'email', 'photo_profil'),
+            'fields': ('nom_complet', 'telephone', 'email'),  # RETIRÉ: photo_profil (pas dans le modèle)
             'classes': ('wide',),
         }),
         ('Affectation professionnelle', {
@@ -326,6 +779,11 @@ class UtilisateurSUPPERAdmin(UserAdmin):
         }),
         ('Permissions d\'accès', {
             'fields': ('peut_saisir_peage', 'peut_saisir_pesage', 'acces_tous_postes'),
+            'classes': ('collapse',),
+        }),
+        ('Contrôle d\'affichage', {  # AJOUTÉ: nouveaux champs du modèle
+            'fields': ('voir_recettes_potentielles', 'voir_taux_deperdition', 
+                      'voir_statistiques_globales', 'peut_saisir_pour_autres_postes'),
             'classes': ('collapse',),
         }),
         ('Permissions fonctionnelles', {
@@ -339,7 +797,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'classes': ('collapse',),
         }),
         ('Métadonnées', {
-            'fields': ('cree_par', 'commentaires', 'date_creation', 'date_modification'),
+            'fields': ('cree_par', 'date_creation', 'date_modification'),  # RETIRÉ: commentaires
             'classes': ('collapse',),
         }),
     )
@@ -398,7 +856,6 @@ class UtilisateurSUPPERAdmin(UserAdmin):
     
     def send_notification(self, request, queryset):
         """Action pour envoyer une notification"""
-        # Logique d'envoi de notification
         count = queryset.count()
         self.message_user(request, f'Notification envoyée à {count} utilisateurs.')
     send_notification.short_description = 'Envoyer une notification'
@@ -409,7 +866,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
         response['Content-Disposition'] = 'attachment; filename="utilisateurs_supper.csv"'
         
         writer = csv.writer(response)
-        writer.writerow(['Matricule', 'Nom complet', 'Téléphone', 'Email', 'Habilitation', 'Poste', 'is_active'])
+        writer.writerow(['Matricule', 'Nom complet', 'Téléphone', 'Email', 'Habilitation', 'Poste', 'Actif'])
         
         for user in queryset:
             writer.writerow([
@@ -428,11 +885,12 @@ class UtilisateurSUPPERAdmin(UserAdmin):
 
 @admin.register(Poste, site=admin_site)
 class PosteAdmin(admin.ModelAdmin):
-    """Administration des postes"""
+    """Administration des postes - CORRIGÉE"""
     
-    list_display = ('nom', 'code', 'type_badge', 'region_badge', 'actif_badge', 'date_creation')
-    list_filter = ('type', 'region', 'is_active', 'date_creation')
-    search_fields = ('nom', 'code', 'localisation', 'departement')
+    # CORRIGÉ: Utilisation des bons noms de champs du modèle
+    list_display = ('nom', 'code', 'type_badge', 'region_badge', 'is_active_badge', 'date_creation')
+    list_filter = ('type', 'region', 'is_active', 'date_creation')  # CORRIGÉ: is_active
+    search_fields = ('nom', 'code', 'region', 'departement')  # RETIRÉ: localisation (pas dans le modèle)
     ordering = ('region', 'nom')
     
     fieldsets = (
@@ -441,16 +899,20 @@ class PosteAdmin(admin.ModelAdmin):
             'classes': ('wide',),
         }),
         ('Localisation', {
-            'fields': ('localisation', 'region', 'departement', 'arrondissement'),
+            'fields': ('region', 'departement', 'axe_routier'),  # CORRIGÉ: axe_routier au lieu d'arrondissement
             'classes': ('wide',),
         }),
         ('Coordonnées GPS', {
             'fields': ('latitude', 'longitude'),
             'classes': ('collapse',),
         }),
-        ('Statut et métadonnées', {
-            'fields': ('actif', 'date_ouverture', 'observations'),
+        ('Informations complémentaires', {
+            'fields': ('description', 'is_active'),  # CORRIGÉ: description au lieu d'observations, is_active au lieu d'actif
             'classes': ('wide',),
+        }),
+        ('Métadonnées', {
+            'fields': ('date_creation', 'date_modification'),
+            'classes': ('collapse',),
         }),
     )
     
@@ -469,23 +931,23 @@ class PosteAdmin(admin.ModelAdmin):
         """Badge pour la région"""
         return format_html(
             '<span class="badge bg-secondary">{}</span>',
-            obj.get_region_display()
+            obj.region  # CORRIGÉ: direct au lieu de get_region_display()
         )
     region_badge.short_description = 'Région'
     
-    def actif_badge(self, obj):
-        """Badge pour le statut actif"""
-        if obj.actif:
+    def is_active_badge(self, obj):
+        """Badge pour le statut actif - CORRIGÉ"""
+        if obj.is_active:  # CORRIGÉ: is_active au lieu d'actif
             return format_html('<span class="badge bg-success">Actif</span>')
         return format_html('<span class="badge bg-danger">Inactif</span>')
-    actif_badge.short_description = 'Statut'
+    is_active_badge.short_description = 'Statut'
 
 
 @admin.register(JournalAudit, site=admin_site)
 class JournalAuditAdmin(admin.ModelAdmin):
-    """Administration du journal d'audit"""
+    """Administration du journal d'audit - CORRIGÉE"""
     
-    list_display = ('timestamp', 'utilisateur', 'action', 'succes_badge', 'adresse_ip', 'duree_execution')
+    list_display = ('timestamp', 'utilisateur', 'action', 'succes_badge', 'adresse_ip', 'duree_formatee_display')
     list_filter = ('succes', 'action', 'timestamp', 'utilisateur__habilitation')
     search_fields = ('utilisateur__username', 'utilisateur__nom_complet', 'action', 'details')
     ordering = ('-timestamp',)
@@ -513,13 +975,18 @@ class JournalAuditAdmin(admin.ModelAdmin):
             return format_html('<span class="badge bg-success">Succès</span>')
         return format_html('<span class="badge bg-danger">Échec</span>')
     succes_badge.short_description = 'Statut'
+    
+    def duree_formatee_display(self, obj):
+        """Affichage de la durée formatée"""
+        return obj.duree_formatee  # Utilise la propriété du modèle
+    duree_formatee_display.short_description = 'Durée'
 
 
 @admin.register(NotificationUtilisateur, site=admin_site)
 class NotificationUtilisateurAdmin(admin.ModelAdmin):
-    """Administration des notifications"""
+    """Administration des notifications - CORRIGÉE"""
     
-    list_display = ('titre', 'destinataire', 'type_badge', 'lu', 'date_creation')
+    list_display = ('titre', 'destinataire', 'type_badge', 'lu_badge', 'date_creation')
     list_filter = ('type_notification', 'lu', 'date_creation')
     search_fields = ('titre', 'message', 'destinataire__username')
     ordering = ('-date_creation',)
@@ -528,10 +995,9 @@ class NotificationUtilisateurAdmin(admin.ModelAdmin):
         """Badge pour le type de notification"""
         colors = {
             'info': 'info',
-            'warning': 'warning',
-            'error': 'danger',
-            'success': 'success',
-            'system': 'secondary',
+            'succes': 'success',  # CORRIGÉ: succes au lieu de success
+            'avertissement': 'warning',  # CORRIGÉ: avertissement au lieu de warning
+            'erreur': 'danger',  # CORRIGÉ: erreur au lieu de error
         }
         color = colors.get(obj.type_notification, 'secondary')
         return format_html(
@@ -540,12 +1006,12 @@ class NotificationUtilisateurAdmin(admin.ModelAdmin):
         )
     type_badge.short_description = 'Type'
     
-    def lue_badge(self, obj):
+    def lu_badge(self, obj):
         """Badge pour le statut lu"""
         if obj.lu:
             return format_html('<span class="badge bg-success">Lue</span>')
         return format_html('<span class="badge bg-warning">Non lue</span>')
-    lue_badge.short_description = 'Statut'
+    lu_badge.short_description = 'Statut'
 
 
 # Désinscrire les modèles du site admin par défaut

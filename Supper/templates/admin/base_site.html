@@ -1,732 +1,740 @@
 {% extends "admin/base.html" %}
 {% load i18n static %}
 
-{% block title %}{{ title }} | SUPPER Administration{% endblock %}
-
-{% block extrahead %}
-    {{ block.super }}
-    <!-- Bootstrap CSS pour le responsive design -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome pour les icônes -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Styles personnalisés SUPPER -->
-    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/supper_modern.css' %}">
-    
-    <!-- Meta tags pour le responsive -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    
-    <!-- Favicon personnalisé -->
-    <link rel="icon" type="image/x-icon" href="{% static 'admin/img/favicon.ico' %}">
-    
-    <style>
-        /* Styles spécifiques au template de base admin */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f8f9fa;
-        }
-        
-        /* Header personnalisé avec informations contextuelles */
-        .supper-header-info {
-            background: rgba(255,255,255,0.1);
-            padding: 8px 20px;
-            font-size: 12px;
-            color: rgba(255,255,255,0.8);
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .supper-header-info i {
-            margin-right: 5px;
-        }
-        
-        /* Footer personnalisé */
-        .supper-footer {
-            background: white;
-            border-top: 1px solid #e9ecef;
-            padding: 20px;
-            text-align: center;
-            color: #6c757d;
-            font-size: 12px;
-            margin-top: 40px;
-        }
-        
-        /* Indicateur de module actuel */
-        .current-module {
-            background: rgba(255,255,255,0.1);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-left: 10px;
-        }
-        
-        /* Breadcrumb amélioré */
-        .breadcrumbs {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        
-        .breadcrumbs .breadcrumb-item {
-            display: flex;
-            align-items: center;
-            margin-right: 10px;
-        }
-        
-        .breadcrumbs .breadcrumb-item:not(:last-child):after {
-            content: "›";
-            margin-left: 10px;
-            color: #6c757d;
-            font-weight: bold;
-        }
-        
-        /* Indicateur de connexion utilisateur */
-        .user-info {
-            display: flex;
-            align-items: center;
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .user-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        
-        /* Messages système améliorés */
-        .system-messages {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-        }
-        
-        /* Loading indicator */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255,255,255,0.9);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-        }
-        
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #007cba;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Navigation globale améliorée */
-        .nav-global {
-            background: rgba(255,255,255,0.1);
-            padding: 10px 20px;
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .nav-link {
-            color: rgba(255,255,255,0.9);
-            text-decoration: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-            font-size: 13px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .nav-link:hover {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            transform: translateY(-1px);
-        }
-
-        .nav-link.active {
-            background: rgba(255,255,255,0.3);
-            color: white;
-        }
-
-        @media (max-width: 768px) {
-            .nav-global {
-                padding: 10px;
-                gap: 10px;
-            }
-            
-            .nav-link {
-                padding: 6px 10px;
-                font-size: 12px;
-            }
-        }
-    </style>
-{% endblock %}
-
-{% block extrajs %}
-    {{ block.super }}
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Script pour les fonctionnalités d'administration -->
-    <script src="{% static 'admin/js/region_departement.js' %}"></script>
-    
-    <script>
-        // Scripts globaux pour l'administration SUPPER
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialisation des tooltips Bootstrap
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-            
-            // Auto-hide des messages après 5 secondes
-            setTimeout(function() {
-                const alerts = document.querySelectorAll('.alert');
-                alerts.forEach(function(alert) {
-                    if (alert.classList.contains('alert-success') || alert.classList.contains('alert-info')) {
-                        alert.style.opacity = '0';
-                        setTimeout(function() {
-                            alert.remove();
-                        }, 300);
-                    }
-                });
-            }, 5000);
-            
-            // Ajout d'indicateurs de chargement sur les formulaires
-            const forms = document.querySelectorAll('form');
-            forms.forEach(function(form) {
-                form.addEventListener('submit', function() {
-                    showLoadingOverlay();
-                });
-            });
-            
-            // Amélioration de l'UX avec des animations
-            animatePageLoad();
-        });
-        
-        // Fonction pour afficher l'overlay de chargement
-        function showLoadingOverlay() {
-            const overlay = document.querySelector('.loading-overlay');
-            if (overlay) {
-                overlay.style.display = 'flex';
-            }
-        }
-        
-        // Fonction pour masquer l'overlay de chargement
-        function hideLoadingOverlay() {
-            const overlay = document.querySelector('.loading-overlay');
-            if (overlay) {
-                overlay.style.display = 'none';
-            }
-        }
-        
-        // Animation du chargement de page
-        function animatePageLoad() {
-            const content = document.querySelector('#content');
-            if (content) {
-                content.style.opacity = '0';
-                content.style.transform = 'translateY(20px)';
-                
-                setTimeout(function() {
-                    content.style.transition = 'all 0.5s ease';
-                    content.style.opacity = '1';
-                    content.style.transform = 'translateY(0)';
-                }, 100);
-            }
-        }
-        
-        // Fonction utilitaire pour les notifications toast
-        function showToast(message, type = 'info') {
-            const toastContainer = document.querySelector('.system-messages') || createToastContainer();
-            
-            const toast = document.createElement('div');
-            toast.className = `alert alert-${type} alert-dismissible fade show`;
-            toast.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            toastContainer.appendChild(toast);
-            
-            // Auto-remove après 4 secondes
-            setTimeout(function() {
-                if (toast.parentNode) {
-                    toast.remove();
-                }
-            }, 4000);
-        }
-        
-        // Créer le conteneur de toasts s'il n'existe pas
-        function createToastContainer() {
-            const container = document.createElement('div');
-            container.className = 'system-messages';
-            document.body.appendChild(container);
-            return container;
-        }
-        
-        // Fonction pour confirmer les actions dangereuses
-        function confirmDangerousAction(message) {
-            return confirm('⚠️ ' + message + '\n\nCette action ne peut pas être annulée. Êtes-vous sûr ?');
-        }
-        
-        // Amélioration de l'expérience avec les liens externes
-        document.addEventListener('click', function(e) {
-            const link = e.target.closest('a[href^="http"]');
-            if (link && !link.href.includes(window.location.hostname)) {
-                e.preventDefault();
-                if (confirm('Vous allez quitter l\'administration SUPPER. Continuer ?')) {
-                    window.open(link.href, '_blank');
-                }
-            }
-        });
-        
-        // Mise à jour de l'heure en temps réel
-        function updateTime() {
-            const timeElement = document.getElementById('current-time');
-            if (timeElement) {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('fr-FR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
-                timeElement.textContent = timeString;
-            }
-        }
-        
-        // Mettre à jour l'heure chaque minute
-        setInterval(updateTime, 60000);
-        updateTime();
-        
-        // Marquer le lien de navigation actuel
-        const currentPath = window.location.pathname;
-        const navLinks = document.querySelectorAll('.nav-link');
-        
-        navLinks.forEach(function(link) {
-            if (currentPath.includes(link.getAttribute('href'))) {
-                link.classList.add('active');
-            }
-        });
-        
-        // Raccourcis clavier pour l'administration
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+Alt+D pour aller au dashboard
-            if (e.ctrlKey && e.altKey && e.key === 'd') {
-                e.preventDefault();
-                window.location.href = '/admin/dashboard/';
-            }
-            
-            // Échap pour retourner au dashboard
-            if (e.key === 'Escape' && !document.querySelector('input:focus, textarea:focus, select:focus')) {
-                window.location.href = '/admin/dashboard/';
-            }
-        });
-        
-        // Confirmation automatique pour les actions de suppression
-        document.addEventListener('click', function(e) {
-            const deleteButton = e.target.closest('input[value*="Supprimer"], .delete-link, [name="_delete"]');
-            if (deleteButton) {
-                if (!confirmDangerousAction('Voulez-vous vraiment supprimer cet élément ?')) {
-                    e.preventDefault();
-                    return false;
-                }
-            }
-        });
-    </script>
-{% endblock %}
+{% block title %}{{ title }} | {% trans 'Administration SUPPER' %}{% endblock %}
 
 {% block branding %}
-<div id="branding">
+<div class="supper-branding">
     <h1 id="site-name">
-        <i class="fas fa-road"></i>
-        SUPPER Administration
-        {% if request.resolver_match.app_name %}
-            <span class="current-module">{{ request.resolver_match.app_name|title }}</span>
-        {% endif %}
+        <a href="{% url 'admin:index' %}">
+            <span class="supper-logo">🚗</span>
+            <span class="supper-title">SUPPER</span>
+            <span class="supper-subtitle">Suivi des Péages et Pesages Routiers</span>
+        </a>
     </h1>
-    <h2>Suivi des Péages et Pesages Routiers</h2>
-    
-    <div class="supper-header-info">
-        <i class="fas fa-calendar"></i>
-        {% now "l d F Y" %}
-        <span style="margin-left: 20px;">
-            <i class="fas fa-clock"></i>
-            <span id="current-time">{% now "H:i" %}</span>
-        </span>
-        {% if user.is_authenticated %}
-        <span style="margin-left: 20px;">
-            <i class="fas fa-map-marker-alt"></i>
-            {% if user.poste_affectation %}
-                {{ user.poste_affectation.nom }}
-            {% else %}
-                Administration Centrale
-            {% endif %}
-        </span>
-        {% endif %}
-    </div>
 </div>
-{% endblock %}
-
-{% block userlinks %}
-{% if user.is_authenticated %}
-<div class="user-info">
-    <div class="user-avatar">
-        {{ user.nom_complet.0|upper }}
-    </div>
-    <div>
-        <strong>{{ user.nom_complet }}</strong>
-        <br>
-        <small>{{ user.get_habilitation_display }}</small>
-    </div>
-</div>
-{% endif %}
-{{ block.super }}
 {% endblock %}
 
 {% block nav-global %}
-{% if user.is_authenticated %}
-<div class="nav-global">
-    <a href="/admin/dashboard/" class="nav-link">
-        <i class="fas fa-tachometer-alt"></i>
-        {% trans 'Dashboard' %}
-    </a>
-    
-    {% if user.is_admin %}
-    <a href="/admin/accounts/utilisateursupper/" class="nav-link">
-        <i class="fas fa-users"></i>
-        {% trans 'Utilisateurs' %}
-    </a>
-    
-    <a href="/admin/accounts/poste/" class="nav-link">
-        <i class="fas fa-map-marker-alt"></i>
-        {% trans 'Postes' %}
-    </a>
-    
-    <a href="/admin/saisie-inventaire/" class="nav-link">
-        <i class="fas fa-edit"></i>
-        {% trans 'Saisie Inventaire' %}
-    </a>
-    
-    <a href="/admin/accounts/journalaudit/" class="nav-link">
-        <i class="fas fa-history"></i>
-        {% trans 'Journal Audit' %}
-    </a>
-    
-    <a href="/admin/inventaire/configurationjour/" class="nav-link">
-        <i class="fas fa-calendar-alt"></i>
-        {% trans 'Gestion Jours' %}
-    </a>
-    
-    <a href="/admin/export/audit/" class="nav-link">
-        <i class="fas fa-download"></i>
-        {% trans 'Export' %}
-    </a>
-    {% endif %}
+<div class="supper-nav-global">
+    <nav class="navbar">
+        <div class="nav-container">
+            {% if user.is_authenticated %}
+                <!-- Menu principal selon les permissions -->
+                <ul class="nav-menu">
+                    {% if user.is_superuser or user.habilitation == 'admin_principal' or user.habilitation == 'coord_psrr' or user.habilitation == 'serv_info' %}
+                        <li class="nav-item dropdown">
+                            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                                <i class="fas fa-tachometer-alt"></i> {% trans 'Tableaux de Bord' %}
+                            </a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'admin:index' %}">
+                                    <i class="fas fa-chart-line"></i> {% trans 'Dashboard Principal' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
+                                    <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
+                                </a>
+                                <a class="dropdown-item" href="/django-admin/">
+                                    <i class="fas fa-cogs"></i> {% trans 'Panel Django Avancé' %}
+                                </a>
+                            </div>
+                        </li>
+                    {% endif %}
+
+                    {% if user.peut_gerer_inventaire %}
+                        <li class="nav-item dropdown">
+                            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                                <i class="fas fa-clipboard-list"></i> {% trans 'Inventaires' %}
+                            </a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_changelist' %}">
+                                    <i class="fas fa-list"></i> {% trans 'Tous les Inventaires' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_add' %}">
+                                    <i class="fas fa-plus"></i> {% trans 'Nouveau Inventaire' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
+                                    <i class="fas fa-calendar-alt"></i> {% trans 'Configuration Jours' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:saisie_inventaire' %}">
+                                    <i class="fas fa-edit"></i> {% trans 'Saisie Rapide' %}
+                                </a>
+                            </div>
+                        </li>
+                    {% endif %}
+
+                    {% if user.peut_gerer_peage or user.peut_gerer_pesage %}
+                        <li class="nav-item dropdown">
+                            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                                <i class="fas fa-coins"></i> {% trans 'Recettes' %}
+                            </a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_changelist' %}">
+                                    <i class="fas fa-money-bill-wave"></i> {% trans 'Recettes Journalières' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:inventaire_statistiquesperiodiques_changelist' %}">
+                                    <i class="fas fa-chart-bar"></i> {% trans 'Statistiques Périodiques' %}
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <h6 class="dropdown-header">{% trans 'Analyses' %}</h6>
+                                <a class="dropdown-item" href="#taux-deperdition">
+                                    <i class="fas fa-exclamation-triangle text-warning"></i> {% trans 'Taux Déperdition' %}
+                                </a>
+                            </div>
+                        </li>
+                    {% endif %}
+
+                    {% if user.peut_gerer_personnel %}
+                        <li class="nav-item dropdown">
+                            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                                <i class="fas fa-users"></i> {% trans 'Personnel' %}
+                            </a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
+                                    <i class="fas fa-user-friends"></i> {% trans 'Gestion Utilisateurs' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
+                                    <i class="fas fa-user-plus"></i> {% trans 'Créer Utilisateur' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
+                                    <i class="fas fa-map-marker-alt"></i> {% trans 'Gestion Postes' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:accounts_poste_add' %}">
+                                    <i class="fas fa-plus-circle"></i> {% trans 'Créer Poste' %}
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{% url 'admin:create_users' %}">
+                                    <i class="fas fa-users-cog"></i> {% trans 'Création en Masse' %}
+                                </a>
+                            </div>
+                        </li>
+                    {% endif %}
+
+                    {% if user.is_superuser or user.habilitation == 'admin_principal' %}
+                        <li class="nav-item dropdown">
+                            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
+                                <i class="fas fa-cogs"></i> {% trans 'Administration' %}
+                            </a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
+                                    <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
+                                </a>
+                                <a class="dropdown-item" href="{% url 'admin:accounts_notificationutilisateur_changelist' %}">
+                                    <i class="fas fa-bell"></i> {% trans 'Notifications' %}
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <h6 class="dropdown-header">{% trans 'Maintenance' %}</h6>
+                                <a class="dropdown-item" href="{% url 'admin:export_audit' %}">
+                                    <i class="fas fa-download"></i> {% trans 'Export Audit' %}
+                                </a>
+                                <a class="dropdown-item" href="#backup">
+                                    <i class="fas fa-database"></i> {% trans 'Sauvegarde DB' %}
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="/django-admin/" target="_blank">
+                                    <i class="fas fa-tools"></i> {% trans 'Panel Django Avancé' %}
+                                    <i class="fas fa-external-link-alt ms-1 small"></i>
+                                </a>
+                            </div>
+                        </li>
+                    {% endif %}
+                </ul>
+
+                <!-- Informations utilisateur -->
+                <div class="nav-user">
+                    <div class="user-info">
+                        <span class="user-name">{{ user.nom_complet|default:user.username }}</span>
+                        <span class="user-role">{{ user.get_habilitation_display }}</span>
+                        {% if user.poste_affectation %}
+                            <span class="user-poste">{{ user.poste_affectation.nom }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="user-actions">
+                        <a href="#profile" class="btn btn-sm btn-outline-light" title="{% trans 'Mon Profil' %}">
+                            <i class="fas fa-user"></i>
+                        </a>
+                        
+                        {% if user.is_superuser or user.habilitation == 'admin_principal' %}
+                            <div class="notifications-badge">
+                                <a href="{% url 'admin:accounts_notificationutilisateur_changelist' %}" class="btn btn-sm btn-outline-light" title="{% trans 'Notifications' %}">
+                                    <i class="fas fa-bell"></i>
+                                    <span class="badge badge-danger" id="notification-count">0</span>
+                                </a>
+                            </div>
+                        {% endif %}
+                        
+                        <a href="{% url 'admin:logout' %}" class="btn btn-sm btn-outline-light" title="{% trans 'Déconnexion' %}">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </nav>
 </div>
-{% endif %}
 {% endblock %}
 
-{% block content %}
-<!-- Overlay de chargement -->
-<div class="loading-overlay">
-    <div class="loading-spinner"></div>
-</div>
+{% block usertools %}
+<!-- Remplacé par la navigation personnalisée -->
+{% endblock %}
 
-<!-- Conteneur pour les messages système -->
-<div class="system-messages"></div>
-
-<!-- Breadcrumbs améliorés -->
-{% if request.resolver_match.url_name != 'dashboard' %}
-<div class="breadcrumbs">
-    <div class="breadcrumb-item">
-        <i class="fas fa-home"></i>
-        <a href="/admin/">{% trans 'Accueil' %}</a>
-    </div>
+{% block breadcrumbs %}
+<div class="breadcrumbs-wrapper">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'admin:index' %}">
+                    <i class="fas fa-home"></i> {% trans 'Accueil' %}
+                </a>
+            </li>
+            {% if title and title != "Tableau de Bord SUPPER" %}
+                <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+            {% else %}
+                <li class="breadcrumb-item active" aria-current="page">{% trans 'Tableau de Bord' %}</li>
+            {% endif %}
+        </ol>
+    </nav>
     
-    {% if request.resolver_match.app_name %}
-    <div class="breadcrumb-item">
-        <i class="fas fa-folder"></i>
-        {{ request.resolver_match.app_name|title }}
+    <!-- Indicateurs de statut -->
+    <div class="status-indicators">
+        <span class="indicator" id="connection-status" title="{% trans 'Statut connexion' %}">
+            <i class="fas fa-circle text-success"></i>
+        </span>
+        <span class="indicator" id="autosave-status" title="{% trans 'Sauvegarde automatique' %}">
+            <i class="fas fa-save text-muted"></i>
+        </span>
+        {% if user.is_superuser %}
+            <span class="indicator" title="{% trans 'Mode Administrateur' %}">
+                <i class="fas fa-shield-alt text-warning"></i>
+            </span>
+        {% endif %}
     </div>
-    {% endif %}
-    
-    {% if request.resolver_match.url_name %}
-    <div class="breadcrumb-item">
-        <i class="fas fa-file"></i>
-        {{ title|default:request.resolver_match.url_name|title }}
-    </div>
-    {% endif %}
 </div>
-{% endif %}
-
-{{ block.super }}
 {% endblock %}
 
 {% block footer %}
-<div class="supper-footer">
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-6 text-start">
-                <strong>SUPPER v1.0</strong> - Suivi des Péages et Pesages Routiers
-                <br>
-                <small>© 2025 - République du Cameroun</small>
-            </div>
-            <div class="col-md-6 text-end">
-                <small>
-                    {% if user.is_authenticated %}
-                        <i class="fas fa-user"></i>
-                        Connecté en tant que <strong>{{ user.username }}</strong>
-                        <br>
-                        <i class="fas fa-clock"></i>
-                        Session active depuis {{ user.last_login|timesince }}
-                    {% endif %}
-                </small>
-            </div>
+<footer class="supper-footer">
+    <div class="footer-content">
+        <div class="footer-left">
+            <p>&copy; 2025 PSRR - Programme de Sécurisation des Recettes Routières</p>
+            <p class="small text-muted">Application SUPPER v2.0 - Développé pour le Ministère des Travaux Publics du Cameroun</p>
         </div>
         
-        {% if settings.DEBUG %}
-        <div class="row mt-2">
-            <div class="col-12 text-center">
-                <small class="text-warning">
-                    <i class="fas fa-bug"></i>
-                    Mode développement activé
-                    <a href="/debug/" class="text-warning ms-2">Infos debug</a>
-                </small>
+        <div class="footer-center">
+            {% if user.is_authenticated %}
+                <div class="session-info">
+                    <span class="session-indicator">
+                        <i class="fas fa-clock"></i>
+                        {% trans 'Session:' %} <span id="session-timer">--:--</span>
+                    </span>
+                    <span class="user-level-indicator ms-3">
+                        <i class="fas fa-user-tag"></i>
+                        {% trans 'Niveau:' %} {{ user.niveau_acces|default:"STANDARD" }}
+                    </span>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="footer-right">
+            <div class="system-status">
+                <span class="status-item">
+                    <i class="fas fa-database"></i>
+                    <span class="status-text">{% trans 'DB' %}: <span class="text-success">OK</span></span>
+                </span>
+                <span class="status-item">
+                    <i class="fas fa-server"></i>
+                    <span class="status-text">{% trans 'Système' %}: <span class="text-success">OK</span></span>
+                </span>
+                {% if user.is_superuser %}
+                    <span class="status-item">
+                        <i class="fas fa-tools"></i>
+                        <a href="/django-admin/" class="text-info" target="_blank">
+                            {% trans 'Django Admin' %}
+                        </a>
+                    </span>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
-</div>
+</footer>
 {% endblock %}
-</div>
+
+{% block extrahead %}
+{{ block.super }}
+<!-- Styles personnalisés SUPPER -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+
+<!-- Meta tags -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SUPPER - Système de Suivi des Péages et Pesages Routiers">
+<meta name="keywords" content="PSRR, péage, pesage, routier, Cameroun">
+<meta name="author" content="Ministère des Travaux Publics - PSRR">
 
 <style>
-.nav-global {
-    background: rgba(255,255,255,0.1);
-    padding: 10px 20px;
+/* Styles critiques inline pour éviter les FOUC */
+:root {
+    --primary-color: #2c5aa0;
+    --secondary-color: #1e3c72;
+    --accent-color: #667eea;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --info-color: #17a2b8;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --border-radius: 8px;
+    --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    --transition: all 0.3s ease;
+}
+
+.supper-branding {
+    background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
+    padding: 1rem 2rem;
+    margin: 0;
+    border-bottom: 3px solid var(--accent-color);
+}
+
+.supper-branding h1 a {
     display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-    border-top: 1px solid rgba(255,255,255,0.1);
+    align-items: center;
+    text-decoration: none;
+    color: white !important;
+}
+
+.supper-logo {
+    font-size: 2rem;
+    margin-right: 1rem;
+}
+
+.supper-title {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-right: 1rem;
+    letter-spacing: 2px;
+}
+
+.supper-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    font-style: italic;
+}
+
+.supper-nav-global {
+    background: var(--primary-color);
+    border-bottom: 3px solid var(--secondary-color);
+    box-shadow: var(--box-shadow);
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.nav-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-item {
+    position: relative;
 }
 
 .nav-link {
-    color: rgba(255,255,255,0.9);
+    display: block;
+    padding: 1rem 1.5rem;
+    color: white !important;
     text-decoration: none;
-    padding: 8px 15px;
-    border-radius: 4px;
-    transition: all 0.3s ease;
-    font-size: 13px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    transition: var(--transition);
+    border-radius: var(--border-radius);
+    margin: 0 2px;
 }
 
-.nav-link:hover {
-    background: rgba(255,255,255,0.2);
-    color: white;
+.nav-link:hover, .nav-link:focus {
+    background-color: rgba(255,255,255,0.1);
+    color: white !important;
     transform: translateY(-1px);
 }
 
-.nav-link.active {
-    background: rgba(255,255,255,0.3);
+.dropdown-menu {
+    background: white;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border-radius: var(--border-radius);
+    padding: 0.5rem 0;
+    min-width: 280px;
+    margin-top: 0.5rem;
+}
+
+.dropdown-item {
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--dark-color);
+    transition: var(--transition);
+}
+
+.dropdown-item:hover {
+    background-color: var(--light-color);
+    color: var(--primary-color);
+    transform: translateX(5px);
+}
+
+.dropdown-header {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.dropdown-divider {
+    margin: 0.5rem 0;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     color: white;
 }
 
+.user-info {
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+.user-name {
+    display: block;
+    font-weight: 600;
+}
+
+.user-role, .user-poste {
+    display: block;
+    opacity: 0.8;
+    font-size: 0.8rem;
+}
+
+.user-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.notifications-badge {
+    position: relative;
+}
+
+.badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 0.7rem;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.breadcrumbs-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: var(--light-color);
+    border-bottom: 1px solid #dee2e6;
+}
+
+.breadcrumb {
+    margin: 0;
+    background: none;
+    padding: 0;
+}
+
+.breadcrumb-item a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    color: var(--secondary-color);
+}
+
+.status-indicators {
+    display: flex;
+    gap: 1rem;
+}
+
+.indicator {
+    cursor: help;
+    padding: 0.25rem;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.indicator:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.supper-footer {
+    background: var(--dark-color);
+    color: white;
+    padding: 1.5rem 2rem;
+    margin-top: auto;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.session-info, .system-status {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-item a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.status-item a:hover {
+    color: var(--info-color);
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-    .nav-global {
-        padding: 10px;
-        gap: 10px;
+    .nav-container {
+        flex-direction: column;
+        padding: 1rem;
+        gap: 1rem;
+    }
+    
+    .nav-menu {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .nav-item {
+        width: 100%;
     }
     
     .nav-link {
-        padding: 6px 10px;
-        font-size: 12px;
+        text-align: center;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .breadcrumbs-wrapper {
+        flex-direction: column;
+        gap: 1rem;
     }
 }
+
+/* Animation pour les dropdowns */
+.dropdown-menu {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+.dropdown-menu.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+/* Styles pour les badges de notification */
+.badge.badge-danger {
+    background-color: var(--danger-color) !important;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Amélioration de l'accessibilité */
+.nav-link:focus,
+.dropdown-item:focus {
+    outline: 2px solid var(--warning-color);
+    outline-offset: 2px;
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    margin: auto;
+    border: 2px solid transparent;
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 </style>
+{% endblock %}
 
-
-
-<!-- Overlay de chargement -->
-<div class="loading-overlay">
-    <div class="loading-spinner"></div>
-</div>
-
-<!-- Conteneur pour les messages système -->
-<div class="system-messages"></div>
-
-<!-- Breadcrumbs améliorés -->
-{% if request.resolver_match.url_name != 'dashboard' %}
-<div class="breadcrumbs">
-    <div class="breadcrumb-item">
-        <i class="fas fa-home"></i>
-        <a href="{% url 'admin:index' %}">{% trans 'Accueil' %}</a>
-    </div>
-    
-    {% if request.resolver_match.app_name %}
-    <div class="breadcrumb-item">
-        <i class="fas fa-folder"></i>
-        {{ request.resolver_match.app_name|title }}
-    </div>
-    {% endif %}
-    
-    {% if request.resolver_match.url_name %}
-    <div class="breadcrumb-item">
-        <i class="fas fa-file"></i>
-        {{ title|default:request.resolver_match.url_name|title }}
-    </div>
-    {% endif %}
-</div>
-{% endif %}
-
+{% block extrajs %}
 {{ block.super }}
-
-
-<div class="supper-footer">
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-6 text-start">
-                <strong>SUPPER v1.0</strong> - Suivi des Péages et Pesages Routiers
-                <br>
-                <small>© 2025 - République du Cameroun</small>
-            </div>
-            <div class="col-md-6 text-end">
-                <small>
-                    {% if user.is_authenticated %}
-                        <i class="fas fa-user"></i>
-                        Connecté en tant que <strong>{{ user.username }}</strong>
-                        <br>
-                        <i class="fas fa-clock"></i>
-                        Session active depuis {{ user.last_login|timesince }}
-                    {% endif %}
-                </small>
-            </div>
-        </div>
-        
-        {% if DEBUG %}
-        <div class="row mt-2">
-            <div class="col-12 text-center">
-                <small class="text-warning">
-                    <i class="fas fa-bug"></i>
-                    Mode développement activé
-                    <a href="/debug/" class="text-warning ms-2">Infos debug</a>
-                </small>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
+<!-- Scripts Bootstrap et interactions -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    // Mise à jour de l'heure en temps réel
-    function updateTime() {
-        const timeElement = document.getElementById('current-time');
-        if (timeElement) {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('fr-FR', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion dropdowns avec animation
+    const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+    
+    dropdownToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            const dropdown = this.nextElementSibling;
+            
+            // Fermer tous les autres dropdowns
+            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                if (menu !== dropdown) {
+                    menu.classList.remove('show');
+                }
             });
-            timeElement.textContent = timeString;
-        }
-    }
-    
-    // Mettre à jour l'heure chaque minute
-    setInterval(updateTime, 60000);
-    
-    // Mise à jour immédiate
-    updateTime();
-    
-    // Marquer le lien de navigation actuel
-    document.addEventListener('DOMContentLoaded', function() {
-        const currentPath = window.location.pathname;
-        const navLinks = document.querySelectorAll('.nav-link');
-        
-        navLinks.forEach(function(link) {
-            if (currentPath.includes(link.getAttribute('href'))) {
-                link.classList.add('active');
-            }
+            
+            // Toggle le dropdown actuel
+            dropdown.classList.toggle('show');
         });
     });
-    
-    // Raccourcis clavier pour l'administration
-    document.addEventListener('keydown', function(e) {
-        // Ctrl+Alt+D pour aller au dashboard
-        if (e.ctrlKey && e.altKey && e.key === 'd') {
-            e.preventDefault();
-            window.location.href = '{% url "admin:dashboard" %}';
-        }
-        
-        // Ctrl+Alt+U pour aller aux utilisateurs
-        if (e.ctrlKey && e.altKey && e.key === 'u') {
-            e.preventDefault();
-            window.location.href = '{% url "admin:accounts_utilisateursupper_changelist" %}';
-        }
-        
-        // Ctrl+Alt+I pour la saisie d'inventaire
-        if (e.ctrlKey && e.altKey && e.key === 'i') {
-            e.preventDefault();
-            window.location.href = '{% url "admin:saisie_inventaire" %}';
-        }
-        
-        // Échap pour retourner au dashboard
-        if (e.key === 'Escape' && !document.querySelector('input:focus, textarea:focus, select:focus')) {
-            window.location.href = '{% url "admin:dashboard" %}';
-        }
-    });
-    
-    // Confirmation automatique pour les actions de suppression
+
+    // Fermer dropdowns au clic extérieur
     document.addEventListener('click', function(e) {
-        const deleteButton = e.target.closest('input[value*="Supprimer"], .delete-link, [name="_delete"]');
-        if (deleteButton) {
-            if (!confirmDangerousAction('Voulez-vous vraiment supprimer cet élément ?')) {
-                e.preventDefault();
-                return false;
-            }
+        if (!e.target.closest('.dropdown')) {
+            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                menu.classList.remove('show');
+            });
         }
     });
+
+    // Timer de session
+    let sessionStart = new Date().getTime();
+    const sessionTimer = document.getElementById('session-timer');
     
-    // Sauvegarde automatique des brouillons (pour les formulaires longs)
-    let autoSaveTimeout;
-    document.addEventListener('input', function(e) {
-        if (e.target.matches('textarea, input[type="text"]')) {
-            clearTimeout(autoSaveTimeout);
-            autoSaveTimeout = setTimeout(function() {
-                // Logique de sauvegarde automatique (à implémenter si nécessaire)
-                console.log('Auto-save triggered');
+    if (sessionTimer) {
+        setInterval(function() {
+            const now = new Date().getTime();
+            const elapsed = now - sessionStart;
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            sessionTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }, 1000);
+    }
+
+    // Vérification de connexion périodique
+    const connectionStatus = document.getElementById('connection-status');
+    if (connectionStatus) {
+        setInterval(function() {
+            fetch('{% url "admin:ping" %}', {method: 'HEAD'})
+                .then(response => {
+                    const icon = connectionStatus.querySelector('i');
+                    if (response.ok) {
+                        icon.className = 'fas fa-circle text-success';
+                        connectionStatus.title = '{% trans "Connexion active" %}';
+                    } else {
+                        icon.className = 'fas fa-circle text-warning';
+                        connectionStatus.title = '{% trans "Connexion instable" %}';
+                    }
+                })
+                .catch(() => {
+                    const icon = connectionStatus.querySelector('i');
+                    icon.className = 'fas fa-circle text-danger';
+                    connectionStatus.title = '{% trans "Connexion perdue" %}';
+                });
+        }, 30000);
+    }
+
+    // Compteur de notifications
+    {% if user.is_superuser or user.habilitation == 'admin_principal' %}
+    function updateNotificationCount() {
+        fetch('{% url "admin:notification_count" %}')
+            .then(response => response.json())
+            .then(data => {
+                const badge = document.getElementById('notification-count');
+                if (badge) {
+                    badge.textContent = data.count;
+                    badge.style.display = data.count > 0 ? 'flex' : 'none';
+                }
+            })
+            .catch(console.error);
+    }
+    
+    // Mettre à jour le compteur au chargement et toutes les 2 minutes
+    updateNotificationCount();
+    setInterval(updateNotificationCount, 120000);
+    {% endif %}
+
+    // Messages d'alerte temporaires
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        if (alert.classList.contains('alert-success') || alert.classList.contains('alert-info')) {
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
             }, 5000);
         }
     });
+
+    // Amélioration UX : préchargement des liens importants
+    const importantLinks = document.querySelectorAll('a[href*="changelist"], a[href*="add"]');
+    importantLinks.forEach(link => {
+        link.addEventListener('mouseenter', function() {
+            // Précharger le lien au survol
+            const prefetchLink = document.createElement('link');
+            prefetchLink.rel = 'prefetch';
+            prefetchLink.href = this.href;
+            document.head.appendChild(prefetchLink);
+        });
+    });
+
+    console.log('🚀 SUPPER Navigation Interface Loaded');
+    console.log('👤 Utilisateur:', '{{ user.username }}');
+    console.log('🏢 Poste:', '{{ user.poste_affectation.nom|default:"Non défini" }}');
+    console.log('🔐 Habilitation:', '{{ user.get_habilitation_display }}');
+    console.log('📊 Niveau accès:', '{{ user.niveau_acces|default:"STANDARD" }}');
+});
 </script>
 {% endblock %}
