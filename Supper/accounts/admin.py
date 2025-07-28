@@ -1,8 +1,3 @@
-# ===================================================================
-# accounts/admin.py - Interface d'administration SUPPER CORRIGÉE
-# CORRESPONDANCE EXACTE avec les modèles définis
-# ===================================================================
-
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group
@@ -12,7 +7,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db.models import Q, Count
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from django.http import JsonResponse, HttpResponse
 from django.template.response import TemplateResponse
 from django.contrib.admin import AdminSite
@@ -34,7 +29,7 @@ class SupperAdminSite(AdminSite):
     index_title = 'Tableau de Bord Principal'
     site_url = None  # Désactive le lien "Voir le site"
     
-    def __init__(self, name='supper_admin'):
+    def __init__(self, name='admin'):
         super().__init__(name)
     
     def index(self, request, extra_context=None):
@@ -78,7 +73,9 @@ class SupperAdminSite(AdminSite):
     def _get_dashboard_stats(self):
         """Calcule les vraies statistiques pour le dashboard"""
         from django.db import connection
-        today = timezone.now().date()
+        
+        # CORRIGÉ: Import explicite et utilisation correcte
+        today = date.today()
         week_ago = today - timedelta(days=7)
         
         # Import conditionnel pour éviter les erreurs
@@ -97,11 +94,13 @@ class SupperAdminSite(AdminSite):
         users_this_week = UtilisateurSUPPER.objects.filter(date_creation__gte=week_ago).count()
         
         # Utilisateurs en ligne (sessions actives des 30 dernières minutes)
-        from django.contrib.sessions.models import Session
-        from django.utils import timezone
-        active_sessions = Session.objects.filter(
-            expire_date__gte=timezone.now() - timedelta(minutes=30)
-        ).count()
+        try:
+            from django.contrib.sessions.models import Session
+            active_sessions = Session.objects.filter(
+                expire_date__gte=timezone.now() - timedelta(minutes=30)
+            ).count()
+        except Exception:
+            active_sessions = 0
         
         # Stats postes
         postes_total = Poste.objects.count()
@@ -138,9 +137,15 @@ class SupperAdminSite(AdminSite):
         total_logs = JournalAudit.objects.count()
         
         # Stats base de données
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';")
-            db_tables = cursor.fetchone()[0] if cursor.fetchone() else 0
+        db_tables = 0
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';")
+                result = cursor.fetchone()
+                if result:
+                    db_tables = result[0]
+        except Exception:
+            db_tables = 0
         
         return {
             # Utilisateurs
@@ -178,7 +183,6 @@ class SupperAdminSite(AdminSite):
     def _get_chart_data(self):
         """Prépare les vraies données pour les graphiques"""
         from django.db.models import Count, Q
-        from datetime import date, timedelta
         
         # Données d'activité (7 derniers jours)
         activity_dates = []
@@ -416,7 +420,7 @@ class SupperAdminSite(AdminSite):
                 return redirect('admin:saisie_inventaire')
         
         # GET: Afficher le formulaire
-        postes = Poste.objects.filter(is_active=True).order_by('nom')  # CORRIGÉ: is_active
+        postes = Poste.objects.filter(is_active=True).order_by('nom')
         
         # Définir les périodes ici pour le template
         periodes = [
@@ -445,7 +449,6 @@ class SupperAdminSite(AdminSite):
         
         if period == '24h':
             # Données par heure des dernières 24h
-            from datetime import datetime, timedelta
             now = timezone.now()
             labels = []
             data = []
@@ -468,7 +471,6 @@ class SupperAdminSite(AdminSite):
         
         elif period == '7d':
             # Données par jour des 7 derniers jours
-            from datetime import date, timedelta
             labels = []
             data = []
             
@@ -486,7 +488,6 @@ class SupperAdminSite(AdminSite):
         
         else:  # 30d
             # Données par semaine des 4 dernières semaines
-            from datetime import date, timedelta
             labels = []
             data = []
             
@@ -577,7 +578,6 @@ class SupperAdminSite(AdminSite):
         if request.method == 'POST':
             try:
                 from inventaire.models import ConfigurationJour
-                from datetime import date
                 
                 today = date.today()
                 config, created = ConfigurationJour.objects.get_or_create(
@@ -619,7 +619,6 @@ class SupperAdminSite(AdminSite):
         if request.method == 'POST':
             try:
                 from inventaire.models import ConfigurationJour
-                from datetime import datetime
                 
                 date_str = request.POST.get('date')
                 if not date_str:
@@ -664,7 +663,6 @@ class SupperAdminSite(AdminSite):
     def export_audit_view(self, request):
         """Export complet du journal d'audit"""
         try:
-            from datetime import date, timedelta
             import csv
             
             # Export des 30 derniers jours par défaut
@@ -746,6 +744,8 @@ class SupperAdminSite(AdminSite):
                 'error': str(e),
                 'timestamp': timezone.now().isoformat()
             }, status=500)
+
+
 # Instance du site admin personnalisé
 admin_site = SupperAdminSite()
 
@@ -759,7 +759,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
     # CORRIGÉ: Utilisation des bons noms de champs du modèle
     list_display = ('username', 'nom_complet', 'habilitation_badge', 'poste_affectation', 
                    'is_active_badge', 'date_creation')
-    list_filter = ('habilitation', 'is_active', 'poste_affectation__type',  # CORRIGÉ: type au lieu de __type
+    list_filter = ('habilitation', 'is_active', 'poste_affectation__type',
                   'poste_affectation__region', 'date_creation')
     search_fields = ('username', 'nom_complet', 'telephone', 'email')
     ordering = ('-date_creation',)
@@ -770,7 +770,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'classes': ('wide',),
         }),
         ('Informations personnelles', {
-            'fields': ('nom_complet', 'telephone', 'email'),  # RETIRÉ: photo_profil (pas dans le modèle)
+            'fields': ('nom_complet', 'telephone', 'email'),
             'classes': ('wide',),
         }),
         ('Affectation professionnelle', {
@@ -781,7 +781,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'fields': ('peut_saisir_peage', 'peut_saisir_pesage', 'acces_tous_postes'),
             'classes': ('collapse',),
         }),
-        ('Contrôle d\'affichage', {  # AJOUTÉ: nouveaux champs du modèle
+        ('Contrôle d\'affichage', {
             'fields': ('voir_recettes_potentielles', 'voir_taux_deperdition', 
                       'voir_statistiques_globales', 'peut_saisir_pour_autres_postes'),
             'classes': ('collapse',),
@@ -797,7 +797,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'classes': ('collapse',),
         }),
         ('Métadonnées', {
-            'fields': ('cree_par', 'date_creation', 'date_modification'),  # RETIRÉ: commentaires
+            'fields': ('cree_par', 'date_creation', 'date_modification'),
             'classes': ('collapse',),
         }),
     )
@@ -887,10 +887,9 @@ class UtilisateurSUPPERAdmin(UserAdmin):
 class PosteAdmin(admin.ModelAdmin):
     """Administration des postes - CORRIGÉE"""
     
-    # CORRIGÉ: Utilisation des bons noms de champs du modèle
     list_display = ('nom', 'code', 'type_badge', 'region_badge', 'is_active_badge', 'date_creation')
-    list_filter = ('type', 'region', 'is_active', 'date_creation')  # CORRIGÉ: is_active
-    search_fields = ('nom', 'code', 'region', 'departement')  # RETIRÉ: localisation (pas dans le modèle)
+    list_filter = ('type', 'region', 'is_active', 'date_creation')
+    search_fields = ('nom', 'code', 'region', 'departement')
     ordering = ('region', 'nom')
     
     fieldsets = (
@@ -899,7 +898,7 @@ class PosteAdmin(admin.ModelAdmin):
             'classes': ('wide',),
         }),
         ('Localisation', {
-            'fields': ('region', 'departement', 'axe_routier'),  # CORRIGÉ: axe_routier au lieu d'arrondissement
+            'fields': ('region', 'departement', 'axe_routier'),
             'classes': ('wide',),
         }),
         ('Coordonnées GPS', {
@@ -907,7 +906,7 @@ class PosteAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
         ('Informations complémentaires', {
-            'fields': ('description', 'is_active'),  # CORRIGÉ: description au lieu d'observations, is_active au lieu d'actif
+            'fields': ('description', 'is_active'),
             'classes': ('wide',),
         }),
         ('Métadonnées', {
@@ -931,13 +930,13 @@ class PosteAdmin(admin.ModelAdmin):
         """Badge pour la région"""
         return format_html(
             '<span class="badge bg-secondary">{}</span>',
-            obj.region  # CORRIGÉ: direct au lieu de get_region_display()
+            obj.region
         )
     region_badge.short_description = 'Région'
     
     def is_active_badge(self, obj):
-        """Badge pour le statut actif - CORRIGÉ"""
-        if obj.is_active:  # CORRIGÉ: is_active au lieu d'actif
+        """Badge pour le statut actif"""
+        if obj.is_active:
             return format_html('<span class="badge bg-success">Actif</span>')
         return format_html('<span class="badge bg-danger">Inactif</span>')
     is_active_badge.short_description = 'Statut'
@@ -978,7 +977,7 @@ class JournalAuditAdmin(admin.ModelAdmin):
     
     def duree_formatee_display(self, obj):
         """Affichage de la durée formatée"""
-        return obj.duree_formatee  # Utilise la propriété du modèle
+        return obj.duree_formatee if hasattr(obj, 'duree_formatee') else ''
     duree_formatee_display.short_description = 'Durée'
 
 
@@ -995,9 +994,9 @@ class NotificationUtilisateurAdmin(admin.ModelAdmin):
         """Badge pour le type de notification"""
         colors = {
             'info': 'info',
-            'succes': 'success',  # CORRIGÉ: succes au lieu de success
-            'avertissement': 'warning',  # CORRIGÉ: avertissement au lieu de warning
-            'erreur': 'danger',  # CORRIGÉ: erreur au lieu de error
+            'succes': 'success',
+            'avertissement': 'warning',
+            'erreur': 'danger',
         }
         color = colors.get(obj.type_notification, 'secondary')
         return format_html(

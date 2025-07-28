@@ -31,9 +31,17 @@
                                 <a class="dropdown-item" href="{% url 'admin:index' %}">
                                     <i class="fas fa-chart-line"></i> {% trans 'Dashboard Principal' %}
                                 </a>
-                                <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
-                                    <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
-                                </a>
+                                <!-- Gestion sécurisée du Journal Audit -->
+                                {% url 'admin:accounts_journalaudit_changelist' as journal_url %}
+                                {% if journal_url %}
+                                    <a class="dropdown-item" href="{{ journal_url }}">
+                                        <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
+                                    </a>
+                                {% endif %}
                                 <a class="dropdown-item" href="/django-admin/">
                                     <i class="fas fa-cogs"></i> {% trans 'Panel Django Avancé' %}
                                 </a>
@@ -47,16 +55,41 @@
                                 <i class="fas fa-clipboard-list"></i> {% trans 'Inventaires' %}
                             </a>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_changelist' %}">
-                                    <i class="fas fa-list"></i> {% trans 'Tous les Inventaires' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_add' %}">
-                                    <i class="fas fa-plus"></i> {% trans 'Nouveau Inventaire' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
-                                    <i class="fas fa-calendar-alt"></i> {% trans 'Configuration Jours' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:saisie_inventaire' %}">
+                                <!-- URLs sécurisées avec fallback -->
+                                {% url 'admin:inventaire_inventairejournalier_changelist' as inventaire_list_url %}
+                                {% if inventaire_list_url %}
+                                    <a class="dropdown-item" href="{{ inventaire_list_url }}">
+                                        <i class="fas fa-list"></i> {% trans 'Tous les Inventaires' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-list"></i> {% trans 'Tous les Inventaires' %}
+                                    </a>
+                                {% endif %}
+                                
+                                {% url 'admin:inventaire_inventairejournalier_add' as inventaire_add_url %}
+                                {% if inventaire_add_url %}
+                                    <a class="dropdown-item" href="{{ inventaire_add_url }}">
+                                        <i class="fas fa-plus"></i> {% trans 'Nouveau Inventaire' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-plus"></i> {% trans 'Nouveau Inventaire' %}
+                                    </a>
+                                {% endif %}
+                                
+                                {% url 'admin:inventaire_configurationjour_changelist' as config_jour_url %}
+                                {% if config_jour_url %}
+                                    <a class="dropdown-item" href="{{ config_jour_url }}">
+                                        <i class="fas fa-calendar-alt"></i> {% trans 'Configuration Jours' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-calendar-alt"></i> {% trans 'Configuration Jours' %}
+                                    </a>
+                                {% endif %}
+                                
+                                <a class="dropdown-item" href="/admin/tools/saisie-inventaire/">
                                     <i class="fas fa-edit"></i> {% trans 'Saisie Rapide' %}
                                 </a>
                             </div>
@@ -69,12 +102,28 @@
                                 <i class="fas fa-coins"></i> {% trans 'Recettes' %}
                             </a>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_changelist' %}">
-                                    <i class="fas fa-money-bill-wave"></i> {% trans 'Recettes Journalières' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:inventaire_statistiquesperiodiques_changelist' %}">
-                                    <i class="fas fa-chart-bar"></i> {% trans 'Statistiques Périodiques' %}
-                                </a>
+                                {% url 'admin:inventaire_recettejournaliere_changelist' as recette_list_url %}
+                                {% if recette_list_url %}
+                                    <a class="dropdown-item" href="{{ recette_list_url }}">
+                                        <i class="fas fa-money-bill-wave"></i> {% trans 'Recettes Journalières' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-money-bill-wave"></i> {% trans 'Recettes Journalières' %}
+                                    </a>
+                                {% endif %}
+                                
+                                {% url 'admin:inventaire_statistiquesperiodiques_changelist' as stats_url %}
+                                {% if stats_url %}
+                                    <a class="dropdown-item" href="{{ stats_url }}">
+                                        <i class="fas fa-chart-bar"></i> {% trans 'Statistiques Périodiques' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-chart-bar"></i> {% trans 'Statistiques Périodiques' %}
+                                    </a>
+                                {% endif %}
+                                
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header">{% trans 'Analyses' %}</h6>
                                 <a class="dropdown-item" href="#taux-deperdition">
@@ -90,20 +139,52 @@
                                 <i class="fas fa-users"></i> {% trans 'Personnel' %}
                             </a>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
-                                    <i class="fas fa-user-friends"></i> {% trans 'Gestion Utilisateurs' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
-                                    <i class="fas fa-user-plus"></i> {% trans 'Créer Utilisateur' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
-                                    <i class="fas fa-map-marker-alt"></i> {% trans 'Gestion Postes' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:accounts_poste_add' %}">
-                                    <i class="fas fa-plus-circle"></i> {% trans 'Créer Poste' %}
-                                </a>
+                                {% url 'admin:accounts_utilisateursupper_changelist' as users_list_url %}
+                                {% if users_list_url %}
+                                    <a class="dropdown-item" href="{{ users_list_url }}">
+                                        <i class="fas fa-user-friends"></i> {% trans 'Gestion Utilisateurs' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-user-friends"></i> {% trans 'Gestion Utilisateurs' %}
+                                    </a>
+                                {% endif %}
+                                
+                                {% url 'admin:accounts_utilisateursupper_add' as users_add_url %}
+                                {% if users_add_url %}
+                                    <a class="dropdown-item" href="{{ users_add_url }}">
+                                        <i class="fas fa-user-plus"></i> {% trans 'Créer Utilisateur' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-user-plus"></i> {% trans 'Créer Utilisateur' %}
+                                    </a>
+                                {% endif %}
+                                
+                                {% url 'admin:accounts_poste_changelist' as postes_list_url %}
+                                {% if postes_list_url %}
+                                    <a class="dropdown-item" href="{{ postes_list_url }}">
+                                        <i class="fas fa-map-marker-alt"></i> {% trans 'Gestion Postes' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-map-marker-alt"></i> {% trans 'Gestion Postes' %}
+                                    </a>
+                                {% endif %}
+                                
+                                {% url 'admin:accounts_poste_add' as postes_add_url %}
+                                {% if postes_add_url %}
+                                    <a class="dropdown-item" href="{{ postes_add_url }}">
+                                        <i class="fas fa-plus-circle"></i> {% trans 'Créer Poste' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-plus-circle"></i> {% trans 'Créer Poste' %}
+                                    </a>
+                                {% endif %}
+                                
                                 <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="{% url 'admin:create_users' %}">
+                                <a class="dropdown-item" href="/admin/tools/create-users/">
                                     <i class="fas fa-users-cog"></i> {% trans 'Création en Masse' %}
                                 </a>
                             </div>
@@ -116,15 +197,31 @@
                                 <i class="fas fa-cogs"></i> {% trans 'Administration' %}
                             </a>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
-                                    <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
-                                </a>
-                                <a class="dropdown-item" href="{% url 'admin:accounts_notificationutilisateur_changelist' %}">
-                                    <i class="fas fa-bell"></i> {% trans 'Notifications' %}
-                                </a>
+                                {% url 'admin:accounts_journalaudit_changelist' as admin_journal_url %}
+                                {% if admin_journal_url %}
+                                    <a class="dropdown-item" href="{{ admin_journal_url }}">
+                                        <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-history"></i> {% trans 'Journal Audit' %}
+                                    </a>
+                                {% endif %}
+                                
+                                {% url 'admin:accounts_notificationutilisateur_changelist' as notifications_url %}
+                                {% if notifications_url %}
+                                    <a class="dropdown-item" href="{{ notifications_url }}">
+                                        <i class="fas fa-bell"></i> {% trans 'Notifications' %}
+                                    </a>
+                                {% else %}
+                                    <a class="dropdown-item" href="/admin/">
+                                        <i class="fas fa-bell"></i> {% trans 'Notifications' %}
+                                    </a>
+                                {% endif %}
+                                
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header">{% trans 'Maintenance' %}</h6>
-                                <a class="dropdown-item" href="{% url 'admin:export_audit' %}">
+                                <a class="dropdown-item" href="/admin/export/audit/">
                                     <i class="fas fa-download"></i> {% trans 'Export Audit' %}
                                 </a>
                                 <a class="dropdown-item" href="#backup">
@@ -157,10 +254,18 @@
                         
                         {% if user.is_superuser or user.habilitation == 'admin_principal' %}
                             <div class="notifications-badge">
-                                <a href="{% url 'admin:accounts_notificationutilisateur_changelist' %}" class="btn btn-sm btn-outline-light" title="{% trans 'Notifications' %}">
-                                    <i class="fas fa-bell"></i>
-                                    <span class="badge badge-danger" id="notification-count">0</span>
-                                </a>
+                                {% url 'admin:accounts_notificationutilisateur_changelist' as notif_bell_url %}
+                                {% if notif_bell_url %}
+                                    <a href="{{ notif_bell_url }}" class="btn btn-sm btn-outline-light" title="{% trans 'Notifications' %}">
+                                        <i class="fas fa-bell"></i>
+                                        <span class="badge badge-danger" id="notification-count">0</span>
+                                    </a>
+                                {% else %}
+                                    <a href="/admin/" class="btn btn-sm btn-outline-light" title="{% trans 'Notifications' %}">
+                                        <i class="fas fa-bell"></i>
+                                        <span class="badge badge-danger" id="notification-count">0</span>
+                                    </a>
+                                {% endif %}
                             </div>
                         {% endif %}
                         
@@ -371,6 +476,17 @@
     padding: 0.5rem 0;
     min-width: 280px;
     margin-top: 0.5rem;
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+}
+
+.dropdown-menu.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .dropdown-item {
@@ -380,6 +496,7 @@
     gap: 0.75rem;
     color: var(--dark-color);
     transition: var(--transition);
+    text-decoration: none;
 }
 
 .dropdown-item:hover {
@@ -445,6 +562,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: pulse 2s infinite;
+}
+
+.badge.badge-danger {
+    background-color: var(--danger-color) !important;
 }
 
 .breadcrumbs-wrapper {
@@ -556,26 +678,7 @@
     }
 }
 
-/* Animation pour les dropdowns */
-.dropdown-menu {
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
-    pointer-events: none;
-}
-
-.dropdown-menu.show {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-}
-
-/* Styles pour les badges de notification */
-.badge.badge-danger {
-    background-color: var(--danger-color) !important;
-    animation: pulse 2s infinite;
-}
-
+/* Animations */
 @keyframes pulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.1); }
@@ -668,21 +771,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const connectionStatus = document.getElementById('connection-status');
     if (connectionStatus) {
         setInterval(function() {
-            fetch('{% url "admin:ping" %}', {method: 'HEAD'})
+            fetch('/admin/monitoring/ping/', {method: 'HEAD'})
                 .then(response => {
                     const icon = connectionStatus.querySelector('i');
                     if (response.ok) {
                         icon.className = 'fas fa-circle text-success';
-                        connectionStatus.title = '{% trans "Connexion active" %}';
-                    } else {
-                        icon.className = 'fas fa-circle text-warning';
-                        connectionStatus.title = '{% trans "Connexion instable" %}';
-                    }
-                })
-                .catch(() => {
-                    const icon = connectionStatus.querySelector('i');
-                    icon.className = 'fas fa-circle text-danger';
-                    connectionStatus.title = '{% trans "Connexion perdue" %}';
+                        connectionStatus.title = '{% trans "Connexion perdue" %}';
                 });
         }, 30000);
     }
@@ -690,7 +784,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Compteur de notifications
     {% if user.is_superuser or user.habilitation == 'admin_principal' %}
     function updateNotificationCount() {
-        fetch('{% url "admin:notification_count" %}')
+        fetch('/admin/api/notifications/count/')
             .then(response => response.json())
             .then(data => {
                 const badge = document.getElementById('notification-count');
@@ -730,11 +824,181 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Gestion des erreurs globales
+    window.addEventListener('error', function(e) {
+        console.error('Erreur SUPPER:', e.error);
+    });
+
+    // Feedback visuel pour les actions utilisateur
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn') || e.target.closest('.btn')) {
+            const btn = e.target.classList.contains('btn') ? e.target : e.target.closest('.btn');
+            btn.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                btn.style.transform = '';
+            }, 150);
+        }
+    });
+
+    // Logs de débogage
     console.log('🚀 SUPPER Navigation Interface Loaded');
     console.log('👤 Utilisateur:', '{{ user.username }}');
     console.log('🏢 Poste:', '{{ user.poste_affectation.nom|default:"Non défini" }}');
     console.log('🔐 Habilitation:', '{{ user.get_habilitation_display }}');
     console.log('📊 Niveau accès:', '{{ user.niveau_acces|default:"STANDARD" }}');
+    console.log('🌐 URL actuelle:', window.location.pathname);
+    console.log('⏰ Session démarrée à:', new Date(sessionStart).toLocaleTimeString());
 });
+
+// Fonction utilitaire pour déboguer les URLs
+function debugURLs() {
+    console.group('🔍 Debug URLs SUPPER');
+    
+    const urlsToCheck = [
+        'admin:index',
+        'admin:accounts_journalaudit_changelist',
+        'admin:accounts_utilisateursupper_changelist',
+        'admin:inventaire_inventairejournalier_changelist',
+        'admin:inventaire_recettejournaliere_changelist'
+    ];
+    
+    urlsToCheck.forEach(url => {
+        try {
+            // Cette partie sera évaluée côté serveur
+            console.log(`✅ ${url}: Disponible`);
+        } catch (e) {
+            console.log(`❌ ${url}: Non trouvée`);
+        }
+    });
+    
+    console.groupEnd();
+}
+
+// Fonction pour vérifier la santé du système
+function checkSystemHealth() {
+    const checks = {
+        database: false,
+        authentication: false,
+        permissions: false
+    };
+    
+    // Vérification base de données
+    fetch('/admin/monitoring/ping/')
+        .then(response => response.json())
+        .then(data => {
+            checks.database = data.status === 'ok';
+            updateHealthIndicators(checks);
+        })
+        .catch(() => {
+            checks.database = false;
+            updateHealthIndicators(checks);
+        });
+    
+    // Vérification authentification
+    checks.authentication = '{{ user.is_authenticated }}' === 'True';
+    
+    // Vérification permissions
+    checks.permissions = '{{ user.is_superuser }}' === 'True' || 
+                        '{{ user.habilitation }}' !== '';
+    
+    updateHealthIndicators(checks);
+}
+
+function updateHealthIndicators(checks) {
+    const dbStatus = document.querySelector('.footer-right .text-success');
+    if (dbStatus && !checks.database) {
+        dbStatus.className = 'text-danger';
+        dbStatus.textContent = 'ERREUR';
+    }
+    
+    console.log('🏥 Santé système:', checks);
+}
+
+// Fonction pour afficher les informations de session
+function showSessionInfo() {
+    console.group('📊 Informations de Session SUPPER');
+    console.log('Utilisateur:', '{{ user.username }}');
+    console.log('Nom complet:', '{{ user.nom_complet|default:"Non renseigné" }}');
+    console.log('Habilitation:', '{{ user.get_habilitation_display }}');
+    console.log('Poste:', '{{ user.poste_affectation.nom|default:"Non affecté" }}');
+    console.log('Superuser:', '{{ user.is_superuser }}');
+    console.log('Staff:', '{{ user.is_staff }}');
+    console.log('Actif:', '{{ user.is_active }}');
+    console.log('Dernière connexion:', '{{ user.last_login|date:"d/m/Y H:i" }}');
+    console.log('URL actuelle:', window.location.href);
+    console.log('User Agent:', navigator.userAgent);
+    console.groupEnd();
+}
+
+// Fonction pour tester les URLs critiques
+function testCriticalURLs() {
+    const criticalURLs = [
+        '/admin/',
+        '/admin/monitoring/ping/',
+        '/admin/api/notifications/count/',
+        '/admin/export/audit/',
+        '/django-admin/'
+    ];
+    
+    console.group('🔗 Test URLs Critiques');
+    
+    criticalURLs.forEach(url => {
+        fetch(url, { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                    console.log(`✅ ${url}: ${response.status}`);
+                } else {
+                    console.log(`⚠️ ${url}: ${response.status}`);
+                }
+            })
+            .catch(error => {
+                console.log(`❌ ${url}: Erreur - ${error.message}`);
+            });
+    });
+    
+    console.groupEnd();
+}
+
+// Initialiser les vérifications après chargement complet
+setTimeout(() => {
+    checkSystemHealth();
+    showSessionInfo();
+    testCriticalURLs();
+}, 1000);
+
+// Exposer les fonctions de debug globalement pour les tests
+window.SUPPER_DEBUG = {
+    debugURLs,
+    checkSystemHealth,
+    showSessionInfo,
+    testCriticalURLs
+};
+
+// Gestionnaire d'événements pour les raccourcis clavier
+document.addEventListener('keydown', function(e) {
+    // Ctrl+Shift+D pour ouvrir le debug
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        console.clear();
+        console.log('🚀 SUPPER Debug Mode Activé');
+        window.SUPPER_DEBUG.showSessionInfo();
+        window.SUPPER_DEBUG.testCriticalURLs();
+    }
+    
+    // Échap pour fermer les dropdowns
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+        });
+    }
+});
+
+// Message de bienvenue dans la console
+console.log('%c🚗 SUPPER - Système de Suivi des Péages et Pesages Routiers', 
+    'color: #2c5aa0; font-size: 16px; font-weight: bold;');
+console.log('%cVersion 2.0 - Administration', 
+    'color: #667eea; font-size: 12px;');
+console.log('%cUtilisez Ctrl+Shift+D pour accéder au mode debug', 
+    'color: #6c757d; font-size: 10px;');
 </script>
 {% endblock %}

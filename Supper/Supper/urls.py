@@ -18,7 +18,7 @@ urlpatterns = [
     path('admin/', admin_site.urls),
     
     # Admin Django standard (désactivé en production)
-    path('django-admin/', admin.site.urls) if settings.DEBUG else path('django-admin/', lambda r: redirect('admin:index')),
+    path('django-admin/', admin.site.urls),
     
     # Redirection racine vers admin
     path('', redirect_to_admin),
