@@ -914,7 +914,7 @@ console.log('👤 Utilisateur:', '{{ user.username }}');
 console.log('📈 Statistiques disponibles:', {
     users: {{ stats.users_total|default:0 }},
     postes: {{ stats.postes_total|default:0 }},
-    inventaires: {{ stats.inventaires_today|default:0 }},
+    inventaires: {{ stats.inventaires_today|default:0 }}
     recettes: {{ stats.recettes_today|default:0 }}
 });
 {% endif %}

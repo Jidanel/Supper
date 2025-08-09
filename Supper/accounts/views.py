@@ -14,7 +14,7 @@ from django.db import transaction
 from django.db.models import Q, Count  # Ajout des imports manquants
 from django.http import JsonResponse, HttpResponseRedirect
 from django.utils.translation import gettext_lazy as _  # Support bilingue FR/EN
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
 from django.core.exceptions import ValidationError
 from django.utils import timezone  # Ajout import manquant
 from .forms import ProfileEditForm  # Ajouter cet import
@@ -117,15 +117,35 @@ class CustomLoginView(BilingualMixin, LoginView):
         return super().form_invalid(form)
 
 
-class CustomLogoutView(DjangoLogoutView):
-    """Vue de déconnexion personnalisée"""
-    next_page = reverse_lazy('accounts:login')
+from common.utils import log_user_action
+
+class CustomLogoutView(View):
+    """Vue personnalisée pour la déconnexion avec journalisation"""
     
-    def dispatch(self, request, *args, **kwargs):
+    def get(self, request):
+        return self.logout_user(request)
+    
+    def post(self, request):
+        return self.logout_user(request)
+    
+    def logout_user(self, request):
         if request.user.is_authenticated:
-            messages.success(request, "Vous avez été déconnecté avec succès.")
-        return super().dispatch(request, *args, **kwargs)
-    
+            # Journaliser la déconnexion
+            log_user_action(
+                request.user,
+                "Déconnexion volontaire",
+                f"Utilisateur {request.user.username} s'est déconnecté",
+                request
+            )
+            
+            # Message de confirmation
+            messages.success(request, _("Vous avez été déconnecté avec succès."))
+            
+            # Déconnecter l'utilisateur
+            logout(request)
+        
+        # Rediriger vers la page de connexion
+        return redirect('accounts:login')
 class ChangePasswordView(LoginRequiredMixin, BilingualMixin, AuditMixin, DjangoPasswordChangeView):
     """
     Vue pour permettre aux utilisateurs de changer leur mot de passe

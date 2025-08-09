@@ -1,6 +1,3 @@
-# ===================================================================
-# CORRECTION 1: Supper/urls.py - Supprimer les conflits d'URLs de login
-# ===================================================================
 
 from django.contrib import admin
 from django.urls import path, include
@@ -37,7 +34,7 @@ def accueil_intelligent(request):
 def panel_avance_redirect(request):
     """Redirection pour le Panel Avancé vers l'admin Django natif"""
     if not request.user.is_authenticated:
-        return redirect('/admin/login/?next=/django-admin/')
+        return redirect('/accounts/login/')
     
     # Vérifier les permissions admin
     if request.user.is_superuser or request.user.is_staff:
@@ -61,14 +58,14 @@ urlpatterns = [
     # ================================================================
     path('', accueil_intelligent, name='accueil'),
     
-    # SUPPRIMÉ: Les URLs de login en double qui causaient le conflit CSRF
-    # path('login/', views.CustomLoginView.as_view(), name='login'),
-    # path('logout/', views.CustomLogoutView.as_view(), name='logout'),
-    # path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
-    
     # ================================================================
     # ADMINISTRATION
     # ================================================================
+    
+       # URLs des applications avec vues vérifiées
+    path('accounts/', include('accounts.urls')),
+    path('inventaire/', include('inventaire.urls')),
+    path('common/', include('common.urls')),
     
     # Admin personnalisé SUPPER (principal)
     path('admin/', admin_site.urls if CUSTOM_ADMIN_AVAILABLE else admin.site.urls),
@@ -91,11 +88,7 @@ urlpatterns = [
     # APPLICATIONS SUPPER - HARMONISÉES
     # ================================================================
     
-    # URLs des applications avec vues vérifiées
-    path('accounts/', include('accounts.urls')),
-    path('inventaire/', include('inventaire.urls')),
-    path('common/', include('common.urls')),
-    
+ 
     # ================================================================
     # API ET SERVICES - À DÉVELOPPER
     # ================================================================

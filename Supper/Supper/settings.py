@@ -180,8 +180,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 AUTH_USER_MODEL = 'accounts.UtilisateurSUPPER'
 
 # URLs de redirection après connexion/déconnexion
-LOGIN_URL = '/accounts/login/'  # Redirection vers le panel admin
-LOGIN_REDIRECT_URL = '/admin/'
+LOGIN_URL = '/accounts/login/'           # URL complète pour éviter les conflits
+LOGIN_REDIRECT_URL = '/admin/'           # Redirection après connexion réussie
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # ===================================================================

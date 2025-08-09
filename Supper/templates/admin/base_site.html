@@ -172,9 +172,14 @@
                         <i class="fas fa-key me-2"></i>{% trans "Changer mot de passe" %}
                     </a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:logout' %}">
-                        <i class="fas fa-sign-out-alt me-2"></i>{% trans "Déconnexion" %}
-                    </a></li>
+                    <li>
+                        <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item border-0 bg-transparent text-start w-100">
+                                <i class="fas fa-sign-out-alt me-2"></i>{% trans "Déconnexion" %}
+                            </button>
+                        </form>
+                    </li>
                 </ul>
             </div>
         </div>
