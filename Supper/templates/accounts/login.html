@@ -3,316 +3,643 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SUPPER - Connexion</title>
-    <!-- Bootstrap CSS pour un design moderne -->
+    <title>SUPPER - Connexion Sécurisée</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Icônes Font Awesome -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        /* Styles personnalisés pour SUPPER */
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        :root {
+            --violet-principal: #6B46C1;
+            --violet-fonce: #553C9A;
+            --violet-clair: #8B5CF6;
+            --blanc-pur: #FFFFFF;
+            --gris-clair: #F8FAFC;
+            --gris-moyen: #64748B;
+            --gris-fonce: #334155;
+            --accent-orange: #F59E0B;
+            --ombre-card: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            --ombre-hover: 0 30px 60px -12px rgba(0, 0, 0, 0.35);
         }
-        
-        .login-container {
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #6B46C1 100%);
             min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Background Animation */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(107, 70, 193, 0.2) 0%, transparent 50%);
+            animation: backgroundMove 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes backgroundMove {
+            0% { transform: translateX(-10px) translateY(-10px); }
+            100% { transform: translateX(10px) translateY(10px); }
+        }
+
+        /* Header Violet avec design Atlantique */
+        .header-violet {
+            background: linear-gradient(135deg, var(--violet-principal) 0%, var(--violet-fonce) 100%);
+            padding: 1rem 0;
+            box-shadow: 0 4px 20px rgba(107, 70, 193, 0.3);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header-content {
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
         }
-        
-        .login-card {
-            background: rgba(255, 255, 255, 0.95);
+
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            width: 100%;
-            max-width: 400px;
         }
-        
-        .logo-section {
-            text-align: center;
+
+        .logo-icon i {
+            font-size: 24px;
+            color: var(--blanc-pur);
+        }
+
+        .logo-text h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--blanc-pur);
+            margin: 0;
+            letter-spacing: 1px;
+        }
+
+        .logo-text .subtitle {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 400;
+            margin-top: -2px;
+        }
+
+        /* Main Login Container */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 120px);
+            padding: 2rem;
+            position: relative;
+            z-index: 5;
+        }
+
+        .login-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 4rem;
+            align-items: center;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* Left Side - Professional Info */
+        .login-info {
+            color: var(--blanc-pur);
+            text-align: left;
+        }
+
+        .login-info h2 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+        }
+
+        .login-info p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            opacity: 0.9;
             margin-bottom: 2rem;
         }
-        
-        .logo-title {
-            color: #4f46e5;
-            font-size: 2.5rem;
-            font-weight: bold;
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features-list li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .features-list li i {
+            width: 24px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 12px;
+        }
+
+        /* Right Side - Login Card */
+        .login-card {
+            background: var(--blanc-pur);
+            border-radius: 20px;
+            box-shadow: var(--ombre-card);
+            padding: 3rem;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .login-card:hover {
+            box-shadow: var(--ombre-hover);
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .card-header h3 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--gris-fonce);
             margin-bottom: 0.5rem;
         }
-        
-        .logo-subtitle {
-            color: #6b7280;
-            font-size: 0.9rem;
+
+        .card-header p {
+            color: var(--gris-moyen);
+            font-size: 0.95rem;
         }
-        
-        .form-floating label {
-            color: #6b7280;
-        }
-        
-        .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 12px;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-        
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-        
-        .alert {
-            border-radius: 10px;
-            border: none;
-        }
-        
-        .form-control {
-            border-radius: 10px;
-            border: 2px solid #e5e7eb;
-            transition: border-color 0.3s;
-        }
-        
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-        
-        /* Styles pour le toggle password */
-        .password-container {
+
+        /* Form Styling */
+        .form-group {
+            margin-bottom: 1.5rem;
             position: relative;
         }
-        
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--gris-fonce);
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border: 2px solid #E5E7EB;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--gris-clair);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--violet-principal);
+            box-shadow: 0 0 0 4px rgba(107, 70, 193, 0.1);
+            background: var(--blanc-pur);
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gris-moyen);
+            z-index: 5;
+        }
+
+        .form-control.with-icon {
+            padding-left: 3rem;
+        }
+
         .password-toggle {
             position: absolute;
-            right: 12px;
+            right: 1rem;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: #6b7280;
+            color: var(--gris-moyen);
             cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: color 0.3s, background-color 0.3s;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
             z-index: 10;
         }
-        
+
         .password-toggle:hover {
-            color: #4f46e5;
-            background-color: rgba(79, 70, 229, 0.1);
+            color: var(--violet-principal);
+            background: rgba(107, 70, 193, 0.1);
         }
-        
-        .password-toggle:focus {
-            outline: 2px solid #667eea;
-            outline-offset: 2px;
+
+        /* Button Styling */
+        .btn-login {
+            width: 100%;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--violet-principal), var(--violet-clair));
+            color: var(--blanc-pur);
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
-        
-        /* Ajustement du padding pour faire place au bouton */
-        .password-container .form-control {
-            padding-right: 45px;
+
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-login:hover::before {
+            left: 100%;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(107, 70, 193, 0.4);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        /* Alert Styling */
+        .alert {
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-danger {
+            background: #FEF2F2;
+            color: #B91C1C;
+            border-left: 4px solid #EF4444;
+        }
+
+        .alert-success {
+            background: #ECFDF5;
+            color: #047857;
+            border-left: 4px solid #10B981;
+        }
+
+        /* Footer */
+        .login-footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #E5E7EB;
+        }
+
+        .security-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: var(--gris-moyen);
+            font-size: 0.85rem;
+        }
+
+        .security-info i {
+            color: var(--accent-orange);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 0 1rem;
+            }
+
+            .login-wrapper {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+                text-align: center;
+            }
+
+            .login-info {
+                text-align: center;
+            }
+
+            .login-info h2 {
+                font-size: 2.5rem;
+            }
+
+            .login-card {
+                padding: 2rem;
+            }
+
+            .login-container {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-info h2 {
+                font-size: 2rem;
+            }
+
+            .login-card {
+                padding: 1.5rem;
+            }
+
+            .card-header h3 {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Loading Animation */
+        .btn-loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .btn-loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Input Animation */
+        .form-group {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Card Animation */
+        .login-card {
+            animation: fadeInCard 0.8s ease-out;
+        }
+
+        @keyframes fadeInCard {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Header Violet -->
+    <header class="header-violet">
+        <div class="header-content">
+            <div class="logo-icon">
+                <i class="fas fa-road"></i>
+            </div>
+            <div class="logo-text">
+                <h1>SUPPER</h1>
+                <div class="subtitle">Suivi des Péages et Pesages Routiers</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Login Container -->
     <div class="login-container">
-        <div class="login-card">
-            <!-- Logo et titre de l'application -->
-            <div class="logo-section">
-                <div class="logo-title">
-                    <i class="fas fa-road"></i> SUPPER
-                </div>
-                <div class="logo-subtitle">
-                    Suivi des Péages et Pesages Routiers
-                </div>
+        <div class="login-wrapper">
+            <!-- Left Side - Professional Info -->
+            <div class="login-info">
+                <h2>Système de Gestion Professionnel</h2>
+                <p>
+                    Accédez à votre espace de travail sécurisé pour la gestion 
+                    des péages et pesages routiers du Cameroun.
+                </p>
+                
+                <ul class="features-list">
+                    <li>
+                        <i class="fas fa-shield-alt"></i>
+                        Connexion sécurisée et chiffrée
+                    </li>
+                    <li>
+                        <i class="fas fa-chart-line"></i>
+                        Tableaux de bord en temps réel
+                    </li>
+                    <li>
+                        <i class="fas fa-users-cog"></i>
+                        Gestion multi-utilisateurs
+                    </li>
+                    <li>
+                        <i class="fas fa-file-alt"></i>
+                        Rapports et analyses avancées
+                    </li>
+                </ul>
             </div>
 
-            <!-- Messages d'erreur ou de succès -->
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <!-- Right Side - Login Card -->
+            <div class="login-card">
+                <div class="card-header">
+                    <h3>Connexion Sécurisée</h3>
+                    <p>Veuillez vous identifier pour accéder au système</p>
+                </div>
+
+                <!-- Messages -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Formulaire de connexion -->
+                <form method="post" id="loginForm">
+                    {% csrf_token %}
+                    
+                    <!-- Matricule -->
+                    <div class="form-group">
+                        <label class="form-label" for="id_username">
+                            <i class="fas fa-user me-1"></i>
+                            Matricule
+                        </label>
+                        <div class="position-relative">
+                            <input 
+                                type="text" 
+                                class="form-control with-icon" 
+                                id="id_username" 
+                                name="username" 
+                                placeholder="Entrez votre matricule"
+                                value="{{ form.username.value|default:'' }}"
+                                required
+                                autofocus
+                                maxlength="20"
+                                style="text-transform: uppercase;"
+                            >
+                            <i class="fas fa-user input-icon"></i>
+                        </div>
+                        {% if form.username.errors %}
+                            <div class="text-danger mt-2">
+                                <small>{{ form.username.errors.0 }}</small>
+                            </div>
+                        {% endif %}
                     </div>
-                {% endfor %}
-            {% endif %}
 
-            <!-- Formulaire de connexion -->
-            <form method="post" class="needs-validation" novalidate>
-                {% csrf_token %}
-                
-                <!-- Champ Matricule -->
-                <div class="form-floating mb-3">
-                    <input 
-                        type="text" 
-                        class="form-control" 
-                        id="id_username" 
-                        name="username" 
-                        placeholder="Matricule"
-                        value="{{ form.username.value|default:'' }}"
-                        required
-                        autofocus
-                        maxlength="20"
-                        style="text-transform: uppercase;"
-                    >
-                    <label for="id_username">
-                        <i class="fas fa-user me-2"></i>Matricule
-                    </label>
-                    {% if form.username.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.username.errors.0 }}
+                    <!-- Mot de passe -->
+                    <div class="form-group">
+                        <label class="form-label" for="id_password">
+                            <i class="fas fa-lock me-1"></i>
+                            Mot de passe
+                        </label>
+                        <div class="position-relative">
+                            <input 
+                                type="password" 
+                                class="form-control with-icon" 
+                                id="id_password" 
+                                name="password" 
+                                placeholder="Entrez votre mot de passe"
+                                required
+                                minlength="4"
+                            >
+                            <i class="fas fa-lock input-icon"></i>
+                            <button 
+                                type="button" 
+                                class="password-toggle" 
+                                id="togglePassword"
+                            >
+                                <i class="fas fa-eye"></i>
+                            </button>
                         </div>
-                    {% endif %}
-                </div>
+                        {% if form.password.errors %}
+                            <div class="text-danger mt-2">
+                                <small>{{ form.password.errors.0 }}</small>
+                            </div>
+                        {% endif %}
+                    </div>
 
-                <!-- Champ Mot de passe avec toggle show/hide -->
-                <div class="form-floating mb-4 password-container">
-                    <input 
-                        type="password" 
-                        class="form-control" 
-                        id="id_password" 
-                        name="password" 
-                        placeholder="Mot de passe"
-                        required
-                        minlength="4"
-                    >
-                    <label for="id_password">
-                        <i class="fas fa-lock me-2"></i>Mot de passe
-                    </label>
-                    
-                    <!-- Bouton toggle pour afficher/masquer le mot de passe -->
-                    <button 
-                        type="button" 
-                        class="password-toggle" 
-                        id="togglePassword"
-                        title="Afficher/Masquer le mot de passe"
-                        aria-label="Basculer la visibilité du mot de passe"
-                    >
-                        <i class="fas fa-eye" id="toggleIcon"></i>
+                    <!-- Bouton de connexion -->
+                    <button type="submit" class="btn-login" id="submitBtn">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Se connecter
                     </button>
-                    
-                    {% if form.password.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.password.errors.0 }}
-                        </div>
-                    {% endif %}
+                </form>
+
+                <!-- Footer -->
+                <div class="login-footer">
+                    <div class="security-info">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Connexion sécurisée SSL • Toutes les actions sont journalisées</span>
+                    </div>
                 </div>
-
-                <!-- Bouton de connexion -->
-                <button type="submit" class="btn btn-primary btn-login w-100 mb-3">
-                    <i class="fas fa-sign-in-alt me-2"></i>
-                    Se connecter
-                </button>
-
-                <!-- Informations d'aide -->
-                <div class="text-center">
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Utilisez votre matricule et mot de passe<br>
-                        Minimum 4 caractères pour le mot de passe
-                    </small>
-                </div>
-            </form>
-
-            <!-- Footer avec informations système -->
-            <div class="text-center mt-4 pt-3 border-top">
-                <small class="text-muted">
-                    <i class="fas fa-shield-alt me-1"></i>
-                    Système sécurisé - Toutes les connexions sont journalisées
-                </small>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JavaScript -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Script pour validation et UX -->
     <script>
-        // Validation du formulaire côté client
-        (function() {
-            'use strict';
-            window.addEventListener('load', function() {
-                // Récupérer le formulaire
-                var form = document.querySelector('.needs-validation');
-                
-                // Validation lors de la soumission
-                form.addEventListener('submit', function(event) {
-                    if (form.checkValidity() === false) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }
-                    form.classList.add('was-validated');
-                }, false);
-                
-                // Conversion automatique en majuscules pour le matricule
-                var usernameField = document.getElementById('id_username');
-                usernameField.addEventListener('input', function() {
-                    this.value = this.value.toUpperCase();
-                });
-                
-                // Focus automatique sur le champ matricule
-                usernameField.focus();
-            });
-        })();
-
-        // Fonctionnalité Show/Hide Password
         document.addEventListener('DOMContentLoaded', function() {
+            // Toggle password visibility
             const togglePassword = document.getElementById('togglePassword');
             const passwordField = document.getElementById('id_password');
-            const toggleIcon = document.getElementById('toggleIcon');
+            const toggleIcon = togglePassword.querySelector('i');
             
             togglePassword.addEventListener('click', function() {
-                // Basculer le type du champ
                 const type = passwordField.type === 'password' ? 'text' : 'password';
                 passwordField.type = type;
-                
-                // Changer l'icône et le titre
-                if (type === 'password') {
-                    toggleIcon.className = 'fas fa-eye';
-                    togglePassword.title = 'Afficher le mot de passe';
-                    togglePassword.setAttribute('aria-label', 'Afficher le mot de passe');
-                } else {
-                    toggleIcon.className = 'fas fa-eye-slash';
-                    togglePassword.title = 'Masquer le mot de passe';
-                    togglePassword.setAttribute('aria-label', 'Masquer le mot de passe');
-                }
-                
-                // Maintenir le focus sur le champ de mot de passe
-                passwordField.focus();
+                toggleIcon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
             });
+
+            // Auto-uppercase matricule
+            const usernameField = document.getElementById('id_username');
+            usernameField.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+
+            // Form submission with loading state
+            const form = document.getElementById('loginForm');
+            const submitBtn = document.getElementById('submitBtn');
             
-            // Support du clavier pour le bouton toggle
-            togglePassword.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
+            form.addEventListener('submit', function(e) {
+                if (form.checkValidity()) {
+                    submitBtn.classList.add('btn-loading');
+                    submitBtn.innerHTML = '<i class="fas fa-spinner me-2"></i>Connexion en cours...';
+                    submitBtn.disabled = true;
+                } else {
                     e.preventDefault();
-                    this.click();
+                    form.classList.add('was-validated');
                 }
             });
-        });
 
-        // Animation de chargement lors de la soumission
-        document.querySelector('form').addEventListener('submit', function() {
-            var submitBtn = document.querySelector('.btn-login');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Connexion...';
-            submitBtn.disabled = true;
-        });
+            // Auto-hide alerts
+            setTimeout(function() {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-20px)';
+                    setTimeout(() => alert.remove(), 300);
+                });
+            }, 5000);
 
-        // Masquer automatiquement les alertes après 5 secondes
-        setTimeout(function() {
-            var alerts = document.querySelectorAll('.alert');
-            alerts.forEach(function(alert) {
-                var bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
-        }, 5000);
+            // Focus management
+            usernameField.focus();
+        });
     </script>
 </body>
 </html>

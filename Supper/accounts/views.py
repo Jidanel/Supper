@@ -18,6 +18,9 @@ from django.contrib.auth import login, authenticate
 from django.core.exceptions import ValidationError
 from django.utils import timezone  # Ajout import manquant
 from .forms import ProfileEditForm  # Ajouter cet import
+from django.contrib.auth.views import LogoutView as DjangoLogoutView
+from django.contrib.auth.forms import AuthenticationForm
+
 
 # Import des modèles SUPPER
 from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur
@@ -31,7 +34,7 @@ from common.utils import log_user_action  # Suppression de admin_required probl�
 from common.mixins import AuditMixin, AdminRequiredMixin, BilingualMixin
 
 
-class CustomLoginView(BilingualMixin, LoginView):
+class CustomLoginView(BilingualMixin, LoginView, AuthenticationForm):
     """
     Vue de connexion personnalisée avec journalisation automatique
     Support bilingue et redirection intelligente selon le rôle utilisateur
@@ -114,7 +117,16 @@ class CustomLoginView(BilingualMixin, LoginView):
         return super().form_invalid(form)
 
 
-class PasswordChangeView(LoginRequiredMixin, BilingualMixin, AuditMixin, DjangoPasswordChangeView):
+class CustomLogoutView(DjangoLogoutView):
+    """Vue de déconnexion personnalisée"""
+    next_page = reverse_lazy('accounts:login')
+    
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            messages.success(request, "Vous avez été déconnecté avec succès.")
+        return super().dispatch(request, *args, **kwargs)
+    
+class ChangePasswordView(LoginRequiredMixin, BilingualMixin, AuditMixin, DjangoPasswordChangeView):
     """
     Vue pour permettre aux utilisateurs de changer leur mot de passe
     Validation simplifiée (4 caractères minimum) selon les specs
@@ -279,7 +291,7 @@ class UserListView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, Audit
         return context
 
 
-class UserCreateView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, CreateView):
+class CreateUserView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, CreateView):
     """
     Création d'un nouvel utilisateur - accès administrateur uniquement
     Utilise AdminRequiredMixin au lieu du décorateur @admin_required
@@ -317,7 +329,7 @@ class UserCreateView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, Aud
         return response
 
 
-class UserBulkCreateView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, TemplateView):
+class CreateBulkUsersView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, TemplateView):
     """
     Création en masse d'utilisateurs avec paramètres communs
     Utilise AdminRequiredMixin au lieu du décorateur @admin_required
@@ -555,7 +567,7 @@ class UserSearchAPIView(LoginRequiredMixin, AdminRequiredMixin, View):
             })
         
         return JsonResponse({'results': results})
-class ProfileEditView(LoginRequiredMixin, UpdateView):
+class EditProfileView(LoginRequiredMixin, UpdateView):
     """
     Vue pour permettre à un utilisateur de modifier son profil
     Seuls certains champs sont modifiables par l'utilisateur lui-même
@@ -592,10 +604,6 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context['page_title'] = _("Modifier mon profil")
         return context
-# ===================================================================
-# accounts/views.py - AJOUT SIMPLE au fichier existant
-# ===================================================================
-# 📝 AJOUTER ces lignes À LA FIN de votre fichier accounts/views.py existant
 
 # Ajout des imports manquants au début du fichier
 from django.shortcuts import render, redirect, get_object_or_404

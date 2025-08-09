@@ -156,7 +156,18 @@ class Poste(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.code} - {self.nom}"
+        """Affichage optimisé pour éviter la coupure dans les listes déroulantes"""
+        # Format court pour les listes : Code - Nom (Type)
+        return f"{self.code} - {self.nom[:30]}{'...' if len(self.nom) > 30 else ''} ({self.get_type_display()})"
+
+    def get_nom_complet(self):
+        """Retourne le nom complet du poste pour l'affichage détaillé"""
+        return f"{self.nom} ({self.get_type_display()}) - {self.region}"
+
+    def get_nom_court(self):
+        """Nom court pour l'administration"""
+        return f"{self.code} - {self.nom[:25]}{'...' if len(self.nom) > 25 else ''}"
+    get_nom_court.short_description = "Poste"
     
     def get_absolute_url(self):
         return reverse('accounts:poste_detail', kwargs={'pk': self.pk})

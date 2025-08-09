@@ -383,3 +383,289 @@ class ExportMixin:
         
         # Retourner le fichier d'export
         return exporter_donnees_csv(queryset, fields, filename)
+    
+# ===================================================================
+# À AJOUTER À LA FIN DE common/mixins.py
+# RoleRequiredMixin - Mixin manquant pour la gestion des permissions
+# ===================================================================
+
+class RoleRequiredMixin(UserPassesTestMixin):
+    """
+    Mixin générique pour vérifier les rôles et permissions spécifiques
+    Peut vérifier les habilitations, permissions ou méthodes personnalisées
+    Plus flexible que AdminRequiredMixin pour différents types de permissions
+    """
+    
+    # Attributs à définir dans chaque vue utilisant ce mixin
+    required_permission = None  # Permission requise (ex: 'peut_gerer_inventaire')
+    required_role = None        # Rôle requis (ex: 'admin_principal', 'chef_peage')
+    required_habilitation = None # Alias pour required_role (compatibilité)
+    allow_superuser = True      # Les superusers passent automatiquement
+    
+    def test_func(self):
+        """
+        Test principal de permissions avec logique flexible
+        Returns:
+            bool: True si l'utilisateur a les permissions requises
+        """
+        # Vérifier que l'utilisateur est connecté
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        
+        # Les superusers passent automatiquement (sauf si explicitement désactivé)
+        if self.allow_superuser and user.is_superuser:
+            return True
+        
+        # Vérifier la permission spécifique
+        if self.required_permission:
+            return self._check_permission(user, self.required_permission)
+        
+        # Vérifier le rôle/habilitation
+        role_to_check = self.required_role or self.required_habilitation
+        if role_to_check:
+            return self._check_role(user, role_to_check)
+        
+        # Si aucun critère défini, accès refusé par sécurité
+        return False
+    
+    def _check_permission(self, user, permission):
+        """
+        Vérifie une permission spécifique sur l'utilisateur
+        Args:
+            user: Utilisateur à vérifier
+            permission (str): Nom de la permission à vérifier
+        Returns:
+            bool: True si l'utilisateur a la permission
+        """
+        # Vérifier si c'est un attribut direct de l'utilisateur
+        if hasattr(user, permission):
+            return getattr(user, permission, False)
+        
+        # Vérifier si c'est une méthode de l'utilisateur
+        if hasattr(user, permission) and callable(getattr(user, permission)):
+            try:
+                return getattr(user, permission)()
+            except Exception:
+                return False
+        
+        # Vérifications spéciales pour SUPPER
+        permission_checks = {
+            'peut_gerer_inventaire': lambda u: getattr(u, 'peut_gerer_inventaire', False),
+            'peut_gerer_peage': lambda u: getattr(u, 'peut_gerer_peage', False),
+            'peut_gerer_pesage': lambda u: getattr(u, 'peut_gerer_pesage', False),
+            'peut_gerer_personnel': lambda u: getattr(u, 'peut_gerer_personnel', False),
+            'peut_gerer_budget': lambda u: getattr(u, 'peut_gerer_budget', False),
+            'peut_gerer_archives': lambda u: getattr(u, 'peut_gerer_archives', False),
+            'peut_gerer_stocks_psrr': lambda u: getattr(u, 'peut_gerer_stocks_psrr', False),
+            'peut_gerer_stock_info': lambda u: getattr(u, 'peut_gerer_stock_info', False),
+            'is_admin': lambda u: u.is_admin() if hasattr(u, 'is_admin') else u.is_superuser,
+            'is_chef_poste': lambda u: u.is_chef_poste() if hasattr(u, 'is_chef_poste') else False,
+            'is_agent_inventaire': lambda u: getattr(u, 'habilitation', '') == 'agent_inventaire',
+        }
+        
+        # Appliquer la vérification si elle existe
+        if permission in permission_checks:
+            return permission_checks[permission](user)
+        
+        # Permission inconnue = accès refusé
+        return False
+    
+    def _check_role(self, user, role):
+        """
+        Vérifie si l'utilisateur a le rôle/habilitation requis
+        Args:
+            user: Utilisateur à vérifier
+            role (str ou list): Rôle(s) requis
+        Returns:
+            bool: True si l'utilisateur a le rôle requis
+        """
+        user_habilitation = getattr(user, 'habilitation', '')
+        
+        # Si role est une liste, vérifier si l'utilisateur a l'un des rôles
+        if isinstance(role, (list, tuple)):
+            return user_habilitation in role
+        
+        # Vérification simple du rôle
+        if isinstance(role, str):
+            return user_habilitation == role
+        
+        # Type de rôle non supporté
+        return False
+    
+    def handle_no_permission(self):
+        """
+        Gestion personnalisée du refus d'accès avec messages contextuels
+        Returns:
+            HttpResponse: Redirection appropriée avec message d'erreur
+        """
+        if self.request.user.is_authenticated:
+            # Utilisateur connecté mais sans permissions
+            
+            # Message d'erreur personnalisé selon le type de permission manquante
+            if self.required_permission:
+                error_message = self._get_permission_error_message(self.required_permission)
+            elif self.required_role or self.required_habilitation:
+                role = self.required_role or self.required_habilitation
+                error_message = self._get_role_error_message(role)
+            else:
+                error_message = _("Accès interdit. Permissions insuffisantes.")
+            
+            # Afficher le message d'erreur
+            messages.error(self.request, error_message)
+            
+            # Journaliser la tentative d'accès non autorisée
+            log_user_action(
+                user=self.request.user,
+                action=_("ACCÈS REFUSÉ - Permissions insuffisantes"),
+                details=_("Tentative d'accès à %(view)s - Permission: %(perm)s - Rôle: %(role)s") % {
+                    'view': self.__class__.__name__,
+                    'perm': self.required_permission or 'Non définie',
+                    'role': self.required_role or self.required_habilitation or 'Non défini'
+                },
+                request=self.request
+            )
+            
+            # Redirection intelligente selon le rôle de l'utilisateur
+            return self._get_redirect_for_user(self.request.user)
+        else:
+            # Utilisateur non connecté : rediriger vers la connexion
+            return redirect('accounts:login')
+    
+    def _get_permission_error_message(self, permission):
+        """
+        Génère un message d'erreur contextualisé selon la permission manquante
+        Args:
+            permission (str): Permission manquante
+        Returns:
+            str: Message d'erreur traduit et contextualisé
+        """
+        permission_messages = {
+            'peut_gerer_inventaire': _("Accès interdit. Permission de gestion d'inventaire requise."),
+            'peut_gerer_peage': _("Accès interdit. Permission de gestion des péages requise."),
+            'peut_gerer_pesage': _("Accès interdit. Permission de gestion des pesages requise."),
+            'peut_gerer_personnel': _("Accès interdit. Permission de gestion du personnel requise."),
+            'peut_gerer_budget': _("Accès interdit. Permission de gestion budgétaire requise."),
+            'peut_gerer_archives': _("Accès interdit. Permission de gestion des archives requise."),
+            'peut_gerer_stocks_psrr': _("Accès interdit. Permission de gestion des stocks PSRR requise."),
+            'peut_gerer_stock_info': _("Accès interdit. Permission de gestion des stocks informatiques requise."),
+            'is_admin': _("Accès interdit. Permissions administrateur requises."),
+            'is_chef_poste': _("Accès interdit. Permissions chef de poste requises."),
+            'is_agent_inventaire': _("Accès interdit. Permissions agent d'inventaire requises."),
+        }
+        
+        return permission_messages.get(
+            permission, 
+            _("Accès interdit. Permission %(permission)s requise.") % {'permission': permission}
+        )
+    
+    def _get_role_error_message(self, role):
+        """
+        Génère un message d'erreur contextualisé selon le rôle manquant
+        Args:
+            role (str ou list): Rôle(s) manquant(s)
+        Returns:
+            str: Message d'erreur traduit et contextualisé
+        """
+        role_messages = {
+            'admin_principal': _("Accès interdit. Rôle administrateur principal requis."),
+            'coord_psrr': _("Accès interdit. Rôle coordinateur PSRR requis."),
+            'serv_info': _("Accès interdit. Rôle service informatique requis."),
+            'serv_emission': _("Accès interdit. Rôle service émission requis."),
+            'chef_peage': _("Accès interdit. Rôle chef de péage requis."),
+            'chef_pesage': _("Accès interdit. Rôle chef de pesage requis."),
+            'agent_inventaire': _("Accès interdit. Rôle agent d'inventaire requis."),
+        }
+        
+        if isinstance(role, (list, tuple)):
+            roles_str = ', '.join(role)
+            return _("Accès interdit. L'un de ces rôles est requis : %(roles)s") % {'roles': roles_str}
+        
+        return role_messages.get(
+            role,
+            _("Accès interdit. Rôle %(role)s requis.") % {'role': role}
+        )
+    
+    def _get_redirect_for_user(self, user):
+        """
+        Détermine la redirection appropriée selon le rôle de l'utilisateur
+        Args:
+            user: Utilisateur connecté
+        Returns:
+            HttpResponse: Redirection vers le dashboard approprié
+        """
+        # Redirection intelligente selon l'habilitation
+        if hasattr(user, 'habilitation'):
+            if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']:
+                return redirect('/admin/')  # Dashboard admin
+            elif user.habilitation in ['chef_peage', 'chef_pesage']:
+                return redirect('/admin/')  # Dashboard chef (temporairement admin)
+            elif user.habilitation == 'agent_inventaire':
+                return redirect('/admin/')  # Dashboard agent (temporairement admin)
+        
+        # Redirection par défaut vers le dashboard général
+        try:
+            return redirect('common:dashboard_general')
+        except:
+            # Fallback si les URLs common ne sont pas configurées
+            return redirect('/admin/')
+
+
+# ===================================================================
+# MIXINS SPÉCIALISÉS BASÉS SUR RoleRequiredMixin
+# ===================================================================
+
+class InventaireRequiredMixin(RoleRequiredMixin):
+    """
+    Mixin spécialisé pour les vues de gestion d'inventaire
+    Remplace l'ancienne version pour plus de cohérence
+    """
+    required_permission = 'peut_gerer_inventaire'
+
+
+class PeageRequiredMixin(RoleRequiredMixin):
+    """Mixin pour les vues de gestion des péages"""
+    required_permission = 'peut_gerer_peage'
+
+
+class PesageRequiredMixin(RoleRequiredMixin):
+    """Mixin pour les vues de gestion des pesages"""
+    required_permission = 'peut_gerer_pesage'
+
+
+class PersonnelRequiredMixin(RoleRequiredMixin):
+    """Mixin pour les vues de gestion du personnel"""
+    required_permission = 'peut_gerer_personnel'
+
+
+class BudgetRequiredMixin(RoleRequiredMixin):
+    """Mixin pour les vues de gestion budgétaire"""
+    required_permission = 'peut_gerer_budget'
+
+
+class ArchivesRequiredMixin(RoleRequiredMixin):
+    """Mixin pour les vues de gestion des archives"""
+    required_permission = 'peut_gerer_archives'
+
+
+class StocksPSRRRequiredMixin(RoleRequiredMixin):
+    """Mixin pour les vues de gestion des stocks PSRR"""
+    required_permission = 'peut_gerer_stocks_psrr'
+
+
+class StockInfoRequiredMixin(RoleRequiredMixin):
+    """Mixin pour les vues de gestion des stocks informatiques"""
+    required_permission = 'peut_gerer_stock_info'
+
+
+class ChefPosteOnlyMixin(RoleRequiredMixin):
+    """Mixin strict pour les chefs de poste uniquement"""
+    required_role = ['chef_peage', 'chef_pesage']
+    allow_superuser = False  # Les superusers doivent avoir le rôle approprié
+
+
+class AgentInventaireOnlyMixin(RoleRequiredMixin):
+    """Mixin strict pour les agents d'inventaire uniquement"""
+    required_role = 'agent_inventaire'
+    allow_superuser = False  # Les superusers doivent avoir le rôle approprié

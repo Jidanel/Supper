@@ -1,3 +1,5 @@
+# Fichier : Supper/accounts/admin.py
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group
@@ -69,7 +71,10 @@ class SupperAdminSite(AdminSite):
         
         return TemplateResponse(request, 'admin/dashboard.html', context)
 
-    
+    def dashboard_view(self, request):
+        """Vue du tableau de bord principal"""
+        return redirect('http://127.0.0.1:8000/')
+        
     def _get_dashboard_stats(self):
         """Calcule les vraies statistiques pour le dashboard"""
         from django.db import connection
@@ -102,7 +107,7 @@ class SupperAdminSite(AdminSite):
         except Exception:
             active_sessions = 0
         
-        # Stats postes
+        # Stats postes - GARDÉ: is_active et type
         postes_total = Poste.objects.count()
         postes_active = Poste.objects.filter(is_active=True).count()
         postes_inactive = postes_total - postes_active
@@ -261,6 +266,8 @@ class SupperAdminSite(AdminSite):
         """URLs complètes avec toutes les API"""
         urls = super().get_urls()
         custom_urls = [
+
+            path('dashboard/', self.admin_view(self.dashboard_view), name='dashboard'),
             # API Dashboard
             path('api/stats/', self.admin_view(self.api_stats_view), name='api_stats'),
             path('api/activity/', self.admin_view(self.api_activity_view), name='api_activity'),
@@ -327,114 +334,10 @@ class SupperAdminSite(AdminSite):
         stats = self._get_dashboard_stats()
         return JsonResponse(stats)
     
-    @method_decorator(login_required)
     def saisie_inventaire_view(self, request):
-        """Interface de saisie d'inventaire pour admin"""
-        if request.method == 'POST':
-            # Logique de traitement de l'inventaire
-            try:
-                from inventaire.models import InventaireJournalier, DetailInventairePeriode, ConfigurationJour
-                
-                poste_id = request.POST.get('poste')
-                date_inventaire = request.POST.get('date')
-                
-                if not poste_id or not date_inventaire:
-                    messages.error(request, 'Poste et date sont obligatoires.')
-                    return redirect('admin:saisie_inventaire')
-                
-                poste = Poste.objects.get(id=poste_id)
-                
-                # Créer ou récupérer l'inventaire
-                inventaire, created = InventaireJournalier.objects.get_or_create(
-                    poste=poste,
-                    date=date_inventaire,
-                    defaults={
-                        'agent_saisie': request.user,
-                    }
-                )
-                
-                if inventaire.verrouille:
-                    messages.error(request, 'Cet inventaire est déjà verrouillé.')
-                    return redirect('admin:saisie_inventaire')
-                
-                # Sauvegarder les détails par période
-                periodes_mapping = {
-                    'vehicules_0809': '08h-09h',
-                    'vehicules_0910': '09h-10h', 
-                    'vehicules_1011': '10h-11h',
-                    'vehicules_1112': '11h-12h',
-                    'vehicules_1213': '12h-13h',
-                    'vehicules_1314': '13h-14h',
-                    'vehicules_1415': '14h-15h',
-                    'vehicules_1516': '15h-16h',
-                    'vehicules_1617': '16h-17h',
-                    'vehicules_1718': '17h-18h'
-                }
-                
-                total_vehicules = 0
-                periodes_saisies = 0
-                
-                for field_name, periode_label in periodes_mapping.items():
-                    vehicules = request.POST.get(field_name)
-                    if vehicules and vehicules.strip():
-                        try:
-                            nb_vehicules = int(vehicules)
-                            if 0 <= nb_vehicules <= 1000:
-                                detail, detail_created = DetailInventairePeriode.objects.get_or_create(
-                                    inventaire=inventaire,
-                                    periode=periode_label,
-                                    defaults={'nombre_vehicules': nb_vehicules}
-                                )
-                                if not detail_created:
-                                    detail.nombre_vehicules = nb_vehicules
-                                    detail.save()
-                                
-                                total_vehicules += nb_vehicules
-                                periodes_saisies += 1
-                        except ValueError:
-                            messages.warning(request, f'Valeur invalide pour la période {periode_label}')
-                
-                # Mettre à jour les totaux
-                inventaire.total_vehicules = total_vehicules
-                inventaire.nombre_periodes_saisies = periodes_saisies
-                
-                # Ajouter les observations si présentes
-                observations = request.POST.get('observations', '').strip()
-                if observations:
-                    inventaire.observations = observations
-                
-                inventaire.save()
-                
-                # Verrouiller si demandé
-                if request.POST.get('verrouiller'):
-                    inventaire.verrouille = True
-                    inventaire.save()
-                    messages.success(request, f'✅ Inventaire sauvegardé et verrouillé pour {poste.nom} du {date_inventaire}.')
-                else:
-                    messages.success(request, f'✅ Inventaire sauvegardé pour {poste.nom} du {date_inventaire}.')
-                
-                return redirect('admin:saisie_inventaire')
-                
-            except Exception as e:
-                messages.error(request, f'❌ Erreur lors de la sauvegarde: {str(e)}')
-                return redirect('admin:saisie_inventaire')
-        
-        # GET: Afficher le formulaire
-        postes = Poste.objects.filter(is_active=True).order_by('nom')
-        
-        # Définir les périodes ici pour le template
-        periodes = [
-            '08h-09h', '09h-10h', '10h-11h', '11h-12h', '12h-13h',
-            '13h-14h', '14h-15h', '15h-16h', '16h-17h', '17h-18h'
-        ]
-        
-        context = {
-            'title': 'Saisie d\'Inventaire',
-            'postes': postes,
-            'periodes': periodes,
-            'has_permission': True,
-        }
-        return TemplateResponse(request, 'admin/saisie_inventaire.html', context)
+        """Vue de saisie d'inventaire"""
+        from inventaire.views import SaisieInventaireView
+        return SaisieInventaireView.as_view()(request)
 
     @method_decorator(login_required)
     def api_stats_view(self, request):
@@ -746,8 +649,8 @@ class SupperAdminSite(AdminSite):
             }, status=500)
 
 
-# Instance du site admin personnalisé
-admin_site = SupperAdminSite()
+# Création de l'instance du site admin personnalisé
+admin_site = SupperAdminSite(name='supper_admin')
 
 
 @admin.register(UtilisateurSUPPER, site=admin_site)
@@ -885,7 +788,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
 
 @admin.register(Poste, site=admin_site)
 class PosteAdmin(admin.ModelAdmin):
-    """Administration des postes - CORRIGÉE"""
+    """Administration des postes - GARDÉ is_active et type"""
     
     list_display = ('nom', 'code', 'type_badge', 'region_badge', 'is_active_badge', 'date_creation')
     list_filter = ('type', 'region', 'is_active', 'date_creation')
@@ -1013,5 +916,16 @@ class NotificationUtilisateurAdmin(admin.ModelAdmin):
     lu_badge.short_description = 'Statut'
 
 
-# Désinscrire les modèles du site admin par défaut
-admin.site.unregister(Group)  # On n'utilise pas les groupes Django
+# CORRECTION FINALE: Gestion sécurisée de la désinscription du modèle Group
+try:
+    # Essayer de désinscrire Group seulement s'il est enregistré
+    admin.site.unregister(Group)
+except admin.sites.NotRegistered:
+    # Si Group n'est pas enregistré, ignorer l'erreur
+    pass
+
+# Utiliser notre site admin personnalisé comme site par défaut
+admin.site = admin_site
+
+# AJOUT: Export pour l'import depuis d'autres fichiers
+__all__ = ['admin_site', 'SupperAdminSite']

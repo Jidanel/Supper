@@ -1,730 +1,706 @@
-<!-- ===================================================================
-     CORRECTION du fichier templates/admin/saisie_inventaire.html
-     📄 REMPLACE le contenu existant - ERREURS CORRIGÉES
-     ================================================================= -->
-
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load i18n static %}
 
-{% block title %}Saisie d'Inventaire - SUPPER{% endblock %}
+{% comment %}
+===================================================================
+Template saisie_inventaire.html - Interface de saisie d'inventaire
+Corrigé pour gérer les erreurs et améliorer l'UX
+===================================================================
+{% endcomment %}
+
+{% block title %}{% trans "Saisie d'Inventaire" %} | {{ block.super }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% endblock %}
 
 {% block extrastyle %}
-{{ block.super }}
-<style>
-/* Variables CSS modernes */
-:root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
-    --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    --shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.15);
-    --border-radius: 16px;
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-body {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    min-height: 100vh;
-}
-
-/* Page Header avec design technologique */
-.page-header-tech {
-    background: var(--primary-gradient);
-    color: white;
-    padding: 2rem 0;
-    margin: -20px -20px 30px -20px;
-    border-radius: 0 0 var(--border-radius) var(--border-radius);
-    position: relative;
-    overflow: hidden;
-}
-
-.page-header-tech::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="2" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
-    opacity: 0.3;
-}
-
-.page-header-tech .container {
-    position: relative;
-    z-index: 1;
-}
-
-/* Cartes modernes avec glassmorphism */
-.modern-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    padding: 2rem;
-    margin-bottom: 2rem;
-    transition: var(--transition);
-}
-
-.modern-card:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-hover);
-}
-
-/* Inputs de période avec animation */
-.periode-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    margin: 2rem 0;
-}
-
-.periode-input-modern {
-    background: linear-gradient(145deg, #ffffff, #f0f4f8);
-    border: 2px solid transparent;
-    border-radius: 12px;
-    padding: 1.5rem;
-    transition: var(--transition);
-    position: relative;
-    overflow: hidden;
-}
-
-.periode-input-modern::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 2px;
-    background: var(--primary-gradient);
-    transition: left 0.5s ease;
-}
-
-.periode-input-modern:hover::before,
-.periode-input-modern:focus-within::before {
-    left: 0;
-}
-
-.periode-input-modern:focus-within {
-    border-color: #667eea;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
-}
-
-.periode-label-modern {
-    display: flex;
-    align-items: center;
-    font-weight: 600;
-    color: #4a5568;
-    margin-bottom: 1rem;
-    font-size: 0.95rem;
-}
-
-.periode-input-field {
-    width: 100%;
-    border: none;
-    background: transparent;
-    font-size: 1.5rem;
-    font-weight: 700;
-    text-align: center;
-    color: #2d3748;
-    padding: 0.5rem;
-    border-radius: 8px;
-    transition: var(--transition);
-}
-
-.periode-input-field:focus {
-    outline: none;
-    background: rgba(102, 126, 234, 0.1);
-}
-
-/* Panneau de totaux avec design futuriste */
-.totaux-panel {
-    background: var(--primary-gradient);
-    color: white;
-    border-radius: var(--border-radius);
-    padding: 2rem;
-    position: sticky;
-    top: 100px;
-    box-shadow: var(--shadow);
-}
-
-.stat-item {
-    text-align: center;
-    padding: 1rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.stat-item:last-child {
-    border-bottom: none;
-}
-
-.stat-number {
-    font-size: 2.5rem;
-    font-weight: 800;
-    margin-bottom: 0.5rem;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.stat-label {
-    font-size: 0.9rem;
-    opacity: 0.9;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-/* Boutons avec effets modernes */
-.btn-modern {
-    background: var(--success-gradient);
-    border: none;
-    border-radius: 50px;
-    padding: 1rem 2rem;
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: white;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: var(--transition);
-    position: relative;
-    overflow: hidden;
-}
-
-.btn-modern::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.5s;
-}
-
-.btn-modern:hover::before {
-    left: 100%;
-}
-
-.btn-modern:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(86, 171, 47, 0.4);
-    color: white;
-}
-
-.btn-secondary-modern {
-    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-}
-
-.btn-secondary-modern:hover {
-    box-shadow: 0 10px 30px rgba(108, 117, 125, 0.4);
-}
-
-/* Sélecteurs avec style moderne */
-.select-modern {
-    background: rgba(255, 255, 255, 0.9);
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1rem 1.5rem;
-    font-size: 1.1rem;
-    font-weight: 500;
-    transition: var(--transition);
-}
-
-.select-modern:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    transform: translateY(-1px);
-}
-
-/* Alerts avec design moderne */
-.alert-modern {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
-    border: none;
-    border-left: 4px solid #667eea;
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-}
-
-/* Animations */
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-.animate-pulse {
-    animation: pulse 0.6s ease-in-out;
-}
-
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.slide-in-up {
-    animation: slideInUp 0.6s ease-out;
-}
-
-/* Progress bar moderne */
-.progress-modern {
-    height: 8px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-    overflow: hidden;
-    margin: 1rem 0;
-}
-
-.progress-bar-modern {
-    height: 100%;
-    background: linear-gradient(90deg, #56ab2f, #a8e6cf);
-    border-radius: 4px;
-    transition: width 0.5s ease;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .periode-container {
-        grid-template-columns: 1fr;
-    }
-    
-    .totaux-panel {
-        position: static;
-        margin-top: 2rem;
-    }
-    
-    .page-header-tech {
-        margin: -15px -15px 20px -15px;
-        padding: 1.5rem 0;
-    }
-    
-    .modern-card {
-        padding: 1.5rem;
-    }
-}
-</style>
+    {{ block.super }}
+    <style>
+        /* Styles spécifiques pour la saisie d'inventaire */
+        .inventory-form-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .form-section {
+            background: var(--blanc-pur);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--ombre-legere);
+            border: 1px solid var(--gris-clair);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--violet-principal);
+        }
+        
+        .section-title {
+            color: var(--violet-principal);
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: var(--gris-fonce);
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gris-clair);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--blanc-pur);
+            color: var(--gris-fonce);
+            transition: var(--transition-normale);
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--violet-principal);
+            box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+        }
+        
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 24px 0;
+        }
+        
+        .time-slot-card {
+            background: var(--blanc-pur);
+            border: 2px solid var(--gris-clair);
+            border-radius: 12px;
+            padding: 20px;
+            transition: var(--transition-normale);
+            position: relative;
+        }
+        
+        .time-slot-card:hover {
+            border-color: var(--violet-principal);
+            box-shadow: var(--ombre-legere);
+            transform: translateY(-2px);
+        }
+        
+        .time-slot-card.has-value {
+            border-color: var(--violet-principal);
+            background: linear-gradient(135deg, var(--blanc-pur), #F8F4FF);
+        }
+        
+        .time-label {
+            display: block;
+            font-weight: 600;
+            color: var(--violet-principal);
+            margin-bottom: 12px;
+            font-size: 16px;
+            text-align: center;
+        }
+        
+        .time-input {
+            width: 100%;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            border: 1px solid var(--gris-clair);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--blanc-pur);
+            color: var(--violet-principal);
+        }
+        
+        .time-input:focus {
+            border-color: var(--violet-principal);
+            box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+        }
+        
+        .observations-input {
+            margin-top: 8px;
+            font-size: 12px;
+            padding: 6px 8px;
+            border-radius: 4px;
+        }
+        
+        .auto-calc-panel {
+            background: linear-gradient(135deg, var(--violet-principal), var(--violet-clair));
+            color: var(--blanc-pur);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            box-shadow: var(--ombre-moyenne);
+            position: sticky;
+            top: 20px;
+        }
+        
+        .calc-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .calc-title {
+            margin: 0 0 8px 0;
+            color: var(--blanc-pur);
+            font-size: 18px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .calc-subtitle {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+        }
+        
+        .calc-item {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .calc-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 4px 0;
+            display: block;
+        }
+        
+        .calc-label {
+            font-size: 11px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            line-height: 1.2;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            align-items: center;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--gris-clair);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--violet-principal), var(--violet-clair));
+            color: var(--blanc-pur);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-normale);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--violet-fonce), var(--violet-principal));
+            transform: translateY(-1px);
+            box-shadow: var(--ombre-moyenne);
+        }
+        
+        .btn-secondary {
+            background: var(--gris-clair);
+            color: var(--gris-fonce);
+            border: 1px solid var(--gris-moyen);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-normale);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-secondary:hover {
+            background: var(--gris-moyen);
+            color: var(--blanc-pur);
+        }
+        
+        .loading-state {
+            display: none;
+            text-align: center;
+            color: var(--gris-moyen);
+            font-style: italic;
+        }
+        
+        .error-message {
+            background: #FEF2F2;
+            border: 1px solid var(--rouge-erreur);
+            color: #DC2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .success-message {
+            background: #F0FDF4;
+            border: 1px solid var(--vert-succes);
+            color: #15803D;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .inventory-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .calc-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
-<div class="inventaire-saisie-container">
-    <!-- En-tête moderne -->
-    <div class="page-header-tech">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="display-5 fw-bold mb-2">
-                        <i class="fas fa-clipboard-list me-3"></i>
-                        Saisie d'Inventaire Journalier
-                    </h1>
-                    <p class="lead mb-0 opacity-75">
-                        Interface de saisie par créneaux horaires avec calculs automatiques
-                    </p>
-                </div>
-                <div class="col-md-4 text-md-end">
-                    <a href="{% url 'admin:index' %}" class="btn btn-light btn-lg">
-                        <i class="fas fa-arrow-left me-2"></i>
-                        Dashboard
-                    </a>
-                </div>
-            </div>
-        </div>
+<div class="inventory-form-container">
+    <div class="breadcrumbs">
+        <a href="{% url 'common:dashboard' %}">{% trans "Tableau de bord" %}</a>
+        <span>&rsaquo;</span>
+        <a href="{% url 'inventaire:inventaire_list' %}">{% trans "Inventaires" %}</a>
+        <span>&rsaquo;</span>
+        {% trans "Saisie d'inventaire" %}
     </div>
 
-    <!-- Messages -->
+    <!-- Messages Django -->
     {% if messages %}
         {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show alert-modern mb-4">
-            <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+            <div class="{% if message.tags == 'error' %}error-message{% elif message.tags == 'success' %}success-message{% else %}info-message{% endif %}">
+                <i class="fas {% if message.tags == 'error' %}fa-exclamation-triangle{% elif message.tags == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %}"></i>
+                {{ message }}
+            </div>
         {% endfor %}
     {% endif %}
 
-    <!-- Instructions -->
-    <div class="alert-modern mb-4">
-        <h6 class="fw-bold mb-2">
-            <i class="fas fa-lightbulb text-warning me-2"></i>
-            Instructions de saisie
-        </h6>
-        <ul class="mb-0 small">
-            <li>Sélectionnez le poste et la date d'inventaire</li>
-            <li>Saisissez le nombre de véhicules par période (0 à 1000)</li>
-            <li>Les totaux se calculent en temps réel</li>
-            <li>Utilisez le bouton "Sauvegarder" pour enregistrer</li>
-        </ul>
-    </div>
-
-    <form method="post" id="inventaireForm" class="slide-in-up">
+    <form method="post" id="inventaire-form" novalidate>
         {% csrf_token %}
         
-        <!-- Sélection Poste et Date -->
-        <div class="modern-card">
-            <h4 class="fw-bold mb-4">
-                <i class="fas fa-map-marker-alt text-primary me-2"></i>
-                Configuration de l'Inventaire
-            </h4>
+        <!-- Configuration de l'inventaire -->
+        <div class="form-section">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <i class="fas fa-cog"></i>
+                    {% trans "Configuration de l'Inventaire" %}
+                </h2>
+            </div>
             
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="poste" class="form-label fw-semibold">
-                        <i class="fas fa-building me-2"></i>
-                        Sélectionner le Poste
+            <div class="config-grid">
+                <div class="form-group">
+                    <label class="form-label" for="poste-select">
+                        <i class="fas fa-map-marker-alt"></i>
+                        {% trans "Sélectionner le Poste" %}
                     </label>
-                    <select name="poste" id="poste" class="form-select select-modern" required>
-                        <option value="">Choisir un poste...</option>
-                        {% for poste in postes %}
-                            <option value="{{ poste.id }}">
-                                {{ poste.nom }} - {{ poste.get_type_poste_display }}
+                    <select name="poste_id" id="poste-select" class="form-control" required>
+                        {% for poste_option in postes_accessibles %}
+                            <option value="{{ poste_option.id }}" {% if poste_option.id == poste.id %}selected{% endif %}>
+                                {{ poste_option.nom }} ({{ poste_option.get_type_poste_display }})
                             </option>
                         {% endfor %}
                     </select>
                 </div>
                 
-                <div class="col-md-6 mb-3">
-                    <label for="date" class="form-label fw-semibold">
-                        <i class="fas fa-calendar-alt me-2"></i>
-                        Date de l'Inventaire
+                <div class="form-group">
+                    <label class="form-label" for="date-input">
+                        <i class="fas fa-calendar-alt"></i>
+                        {% trans "Date de l'Inventaire" %}
                     </label>
-                    <input type="date" name="date" id="date" class="form-control select-modern" 
-                           value="{% now 'Y-m-d' %}" required>
+                    <input type="date" name="date" id="date-input" class="form-control" value="{{ date|date:'Y-m-d' }}" required>
                 </div>
             </div>
         </div>
 
-        <div class="row">
-            <!-- Saisie par périodes -->
-            <div class="col-lg-8">
-                <div class="modern-card">
-                    <h4 class="fw-bold mb-4">
-                        <i class="fas fa-clock text-success me-2"></i>
-                        Saisie par Créneaux Horaires
-                    </h4>
-                    
-                    <div class="periode-container">
-                        <!-- Périodes codées en dur pour éviter l'erreur -->
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>08h-09h</span>
-                            </div>
-                            <input type="number" name="vehicules_0809" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="08h-09h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>09h-10h</span>
-                            </div>
-                            <input type="number" name="vehicules_0910" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="09h-10h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>10h-11h</span>
-                            </div>
-                            <input type="number" name="vehicules_1011" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="10h-11h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>11h-12h</span>
-                            </div>
-                            <input type="number" name="vehicules_1112" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="11h-12h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>12h-13h</span>
-                            </div>
-                            <input type="number" name="vehicules_1213" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="12h-13h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>13h-14h</span>
-                            </div>
-                            <input type="number" name="vehicules_1314" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="13h-14h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>14h-15h</span>
-                            </div>
-                            <input type="number" name="vehicules_1415" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="14h-15h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>15h-16h</span>
-                            </div>
-                            <input type="number" name="vehicules_1516" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="15h-16h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>16h-17h</span>
-                            </div>
-                            <input type="number" name="vehicules_1617" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="16h-17h">
-                        </div>
-                        
-                        <div class="periode-input-modern">
-                            <div class="periode-label-modern">
-                                <i class="fas fa-clock me-2 text-primary"></i>
-                                <span>17h-18h</span>
-                            </div>
-                            <input type="number" name="vehicules_1718" class="periode-input-field" 
-                                   placeholder="0" min="0" max="1000" data-periode="17h-18h">
-                        </div>
-                    </div>
-                </div>
+        <!-- Instructions -->
+        <div class="form-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="fas fa-info-circle"></i>
+                    {% trans "Instructions de saisie" %}
+                </h3>
             </div>
+            
+            <ul class="instructions-list">
+                <li>{% trans "Sélectionnez le poste et la date d'inventaire" %}</li>
+                <li>{% trans "Saisissez le nombre de véhicules par période (0 à 1000)" %}</li>
+                <li>{% trans "Les totaux se calculent en temps réel" %}</li>
+                <li>{% trans "Utilisez le bouton 'Sauvegarder' pour enregistrer" %}</li>
+                <li>{% trans "Utilisez 'Enregistrer et Verrouiller' pour finaliser l'inventaire" %}</li>
+            </ul>
+        </div>
 
-            <!-- Panneau des totaux -->
-            <div class="col-lg-4">
-                <div class="totaux-panel">
-                    <h5 class="fw-bold mb-3 text-center">
-                        <i class="fas fa-calculator me-2"></i>
-                        Calculs Automatiques
-                    </h5>
-                    
-                    <div class="stat-item">
-                        <div class="stat-number" id="totalVehicules">0</div>
-                        <div class="stat-label">Total Véhicules</div>
-                    </div>
-                    
-                    <div class="stat-item">
-                        <div class="stat-number" id="periodesSaisies">0</div>
-                        <div class="stat-label">Périodes Saisies</div>
-                    </div>
-                    
-                    <div class="stat-item">
-                        <div class="stat-number" id="moyenneHoraire">0</div>
-                        <div class="stat-label">Moyenne/Heure</div>
-                    </div>
-                    
-                    <div class="stat-item">
-                        <div class="stat-number" id="estimation24h">0</div>
-                        <div class="stat-label">Estimation 24H</div>
-                    </div>
-                    
-                    <div class="progress-modern">
-                        <div class="progress-bar-modern" id="progressBar" style="width: 0%"></div>
-                    </div>
-                    
-                    <div class="d-grid gap-2 mt-4">
-                        <button type="submit" name="sauvegarder" class="btn btn-modern">
-                            <i class="fas fa-save me-2"></i>
-                            Sauvegarder
-                        </button>
+        <!-- Saisie par créneaux horaires -->
+        <div class="form-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="fas fa-clock"></i>
+                    {% trans "Saisie par Créneaux Horaires" %}
+                </h3>
+            </div>
+            
+            <div class="inventory-grid">
+                {% for periode in periodes %}
+                    <div class="time-slot-card" data-periode="{{ periode }}">
+                        <label class="time-label" for="periode_{{ periode }}">
+                            <i class="fas fa-clock"></i>
+                            {{ periode }}
+                        </label>
                         
-                        <button type="submit" name="verrouiller" class="btn btn-modern" 
-                                onclick="return confirm('Attention ! Une fois verrouillé, l\'inventaire ne pourra plus être modifié. Continuer ?')">
-                            <i class="fas fa-lock me-2"></i>
-                            Sauvegarder et Verrouiller
-                        </button>
+                        <input 
+                            type="number" 
+                            name="periode_{{ periode }}" 
+                            id="periode_{{ periode }}"
+                            class="time-input"
+                            min="0" 
+                            max="1000"
+                            placeholder="0"
+                            value="{% if details_existants|get_item:periode %}{{ details_existants|get_item:periode.nombre_vehicules }}{% endif %}"
+                            {% if not can_edit %}disabled{% endif %}
+                        >
                         
-                        <button type="button" class="btn btn-secondary-modern" onclick="resetForm()">
-                            <i class="fas fa-undo me-2"></i>
-                            Réinitialiser
-                        </button>
+                        <input 
+                            type="text" 
+                            name="observations_{{ periode }}" 
+                            placeholder="{% trans 'Observations (optionnel)' %}"
+                            class="observations-input form-control"
+                            value="{% if details_existants|get_item:periode %}{{ details_existants|get_item:periode.observations_periode }}{% endif %}"
+                            {% if not can_edit %}disabled{% endif %}
+                        >
                     </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Panneau de calculs automatiques -->
+        <div class="auto-calc-panel">
+            <div class="calc-header">
+                <h3 class="calc-title">
+                    <i class="fas fa-calculator"></i>
+                    {% trans "Calculs Automatiques" %}
+                </h3>
+                <p class="calc-subtitle">{% trans "Mise à jour en temps réel" %}</p>
+            </div>
+            
+            <div class="calc-grid">
+                <div class="calc-item">
+                    <span id="total-vehicules" class="calc-number">0</span>
+                    <span class="calc-label">{% trans "Total véhicules" %}</span>
+                </div>
+                
+                <div class="calc-item">
+                    <span id="nombre-periodes" class="calc-number">0</span>
+                    <span class="calc-label">{% trans "Périodes saisies" %}</span>
+                </div>
+                
+                <div class="calc-item">
+                    <span id="moyenne-horaire" class="calc-number">0</span>
+                    <span class="calc-label">{% trans "Moyenne/heure" %}</span>
+                </div>
+                
+                <div class="calc-item">
+                    <span id="estimation-24h" class="calc-number">0</span>
+                    <span class="calc-label">{% trans "Estimation 24h" %}</span>
+                </div>
+                
+                <div class="calc-item">
+                    <span id="recette-potentielle" class="calc-number">0</span>
+                    <span class="calc-label">{% trans "Recette potentielle (FCFA)" %}</span>
                 </div>
             </div>
         </div>
 
-        <!-- Observations -->
-        <div class="modern-card">
-            <h5 class="fw-bold mb-3">
-                <i class="fas fa-sticky-note text-warning me-2"></i>
-                Observations (Optionnel)
-            </h5>
-            <textarea name="observations" class="form-control select-modern" rows="3" 
-                      placeholder="Notes particulières sur cet inventaire..."></textarea>
+        <!-- Actions du formulaire -->
+        {% if can_edit %}
+        <div class="form-actions">
+            <button type="submit" name="action" value="sauvegarder" class="btn-primary">
+                <i class="fas fa-save"></i>
+                {% trans "Sauvegarder" %}
+            </button>
+            
+            <button type="submit" name="action" value="verrouiller" class="btn-primary" onclick="return confirm('{% trans "Êtes-vous sûr de vouloir verrouiller cet inventaire ? Cette action est irréversible." %}')">
+                <i class="fas fa-lock"></i>
+                {% trans "Enregistrer et Verrouiller" %}
+            </button>
+            
+            <a href="{% url 'inventaire:inventaire_list' %}" class="btn-secondary">
+                <i class="fas fa-times"></i>
+                {% trans "Annuler" %}
+            </a>
+        </div>
+        {% else %}
+        <div class="form-actions">
+            <div class="error-message">
+                <i class="fas fa-lock"></i>
+                {% trans "Cet inventaire est verrouillé et ne peut plus être modifié." %}
+            </div>
+            
+            <a href="{% url 'inventaire:inventaire_list' %}" class="btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                {% trans "Retour à la liste" %}
+            </a>
+            
+            {% if inventaire %}
+            <a href="{% url 'inventaire:inventaire_detail' pk=inventaire.pk %}" class="btn-primary">
+                <i class="fas fa-eye"></i>
+                {% trans "Voir les détails" %}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- État de chargement -->
+        <div class="loading-state" id="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            {% trans "Traitement en cours..." %}
         </div>
     </form>
 </div>
+{% endblock %}
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Interface de saisie initialisée');
-    
-    // Éléments DOM
-    const inputs = document.querySelectorAll('.periode-input-field');
-    const totalElement = document.getElementById('totalVehicules');
-    const periodesElement = document.getElementById('periodesSaisies');
-    const moyenneElement = document.getElementById('moyenneHoraire');
-    const estimation24hElement = document.getElementById('estimation24h');
-    const progressBar = document.getElementById('progressBar');
-    
-    // Variables de calcul
-    let totalVehicules = 0;
-    let periodesSaisies = 0;
-    const totalPeriodes = 10; // 10 périodes de 8h à 18h
-    
-    // Écouteurs d'événements
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            updateCalculations();
-            this.closest('.periode-input-modern').classList.add('animate-pulse');
-            setTimeout(() => {
-                this.closest('.periode-input-modern').classList.remove('animate-pulse');
-            }, 600);
+{% block extrajs %}
+    {{ block.super }}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('inventaire-form');
+        const timeInputs = document.querySelectorAll('.time-input');
+        const loadingState = document.getElementById('loading-state');
+        
+        // Fonction pour calculer les totaux en temps réel
+        function calculerTotaux() {
+            const periodes = {};
+            let hasData = false;
+            
+            timeInputs.forEach(function(input) {
+                const value = input.value.trim();
+                if (value && !isNaN(value) && parseInt(value) >= 0) {
+                    const periode = input.name.replace('periode_', '');
+                    periodes[periode] = parseInt(value);
+                    hasData = true;
+                    
+                    // Ajouter la classe visual pour indiquer qu'il y a une valeur
+                    input.closest('.time-slot-card').classList.add('has-value');
+                } else {
+                    input.closest('.time-slot-card').classList.remove('has-value');
+                }
+            });
+            
+            if (!hasData) {
+                // Réinitialiser tous les calculs
+                document.getElementById('total-vehicules').textContent = '0';
+                document.getElementById('nombre-periodes').textContent = '0';
+                document.getElementById('moyenne-horaire').textContent = '0';
+                document.getElementById('estimation-24h').textContent = '0';
+                document.getElementById('recette-potentielle').textContent = '0';
+                return;
+            }
+            
+            // Appel AJAX pour les calculs
+            fetch('{% url "inventaire:api_calcul_automatique" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    periodes: periodes
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('total-vehicules').textContent = data.total_vehicules;
+                    document.getElementById('nombre-periodes').textContent = data.nombre_periodes;
+                    document.getElementById('moyenne-horaire').textContent = data.moyenne_horaire.toFixed(1);
+                    document.getElementById('estimation-24h').textContent = data.estimation_24h.toFixed(0);
+                    document.getElementById('recette-potentielle').textContent = 
+                        new Intl.NumberFormat('fr-FR').format(Math.round(data.recette_potentielle));
+                } else {
+                    console.error('Erreur de calcul:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur réseau:', error);
+            });
+        }
+        
+        // Écouter les changements sur tous les inputs
+        timeInputs.forEach(function(input) {
+            input.addEventListener('input', function() {
+                // Validation en temps réel
+                const value = parseInt(this.value);
+                if (this.value && (isNaN(value) || value < 0 || value > 1000)) {
+                    this.style.borderColor = '#EF4444';
+                    this.style.color = '#EF4444';
+                } else {
+                    this.style.borderColor = '';
+                    this.style.color = '';
+                }
+                
+                // Recalculer les totaux
+                calculerTotaux();
+            });
+            
+            // Formater automatiquement la valeur à la perte de focus
+            input.addEventListener('blur', function() {
+                if (this.value && !isNaN(this.value)) {
+                    this.value = Math.max(0, Math.min(1000, parseInt(this.value) || 0));
+                }
+            });
         });
         
-        input.addEventListener('focus', function() {
-            this.select();
-        });
-    });
-    
-    // Fonction de calcul principal
-    function updateCalculations() {
-        totalVehicules = 0;
-        periodesSaisies = 0;
-        
-        inputs.forEach(input => {
-            const value = parseInt(input.value) || 0;
-            if (value > 0) {
-                totalVehicules += value;
-                periodesSaisies++;
+        // Changement de poste ou date
+        document.getElementById('poste-select').addEventListener('change', function() {
+            const posteId = this.value;
+            const date = document.getElementById('date-input').value;
+            if (posteId && date) {
+                window.location.href = `{% url 'inventaire:saisie_inventaire' %}${posteId}/${date}/`;
             }
         });
         
-        // Calculs
-        const moyenne = periodesSaisies > 0 ? totalVehicules / periodesSaisies : 0;
-        const estimation24h = moyenne * 24;
-        const progress = (periodesSaisies / totalPeriodes) * 100;
-        
-        // Mise à jour affichage avec animation
-        animateValue(totalElement, totalVehicules);
-        animateValue(periodesElement, periodesSaisies);
-        animateValue(moyenneElement, moyenne.toFixed(1));
-        animateValue(estimation24hElement, Math.round(estimation24h));
-        
-        // Barre de progression
-        progressBar.style.width = progress + '%';
-        
-        console.log('📊 Calculs mis à jour:', {
-            total: totalVehicules,
-            periodes: periodesSaisies,
-            moyenne: moyenne.toFixed(1),
-            estimation: Math.round(estimation24h)
+        document.getElementById('date-input').addEventListener('change', function() {
+            const date = this.value;
+            const posteId = document.getElementById('poste-select').value;
+            
+            if (!date) return;
+            
+            // Vérifier si le jour est ouvert
+            fetch(`{% url 'inventaire:api_verification_jour' %}?date=${date}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && !data.ouvert) {
+                    alert('{% trans "Ce jour n\'est pas ouvert pour la saisie." %}');
+                    return;
+                }
+                
+                if (posteId && date) {
+                    window.location.href = `{% url 'inventaire:saisie_inventaire' %}${posteId}/${date}/`;
+                }
+            })
+            .catch(error => {
+                console.error('Erreur vérification jour:', error);
+            });
         });
-    }
-    
-    // Animation des valeurs
-    function animateValue(element, newValue) {
-        element.style.transform = 'scale(1.1)';
-        element.style.color = '#ffd700';
-        element.textContent = newValue;
         
-        setTimeout(() => {
-            element.style.transform = 'scale(1)';
-            element.style.color = 'white';
-        }, 300);
-    }
-    
-    // Validation du formulaire
-    document.getElementById('inventaireForm').addEventListener('submit', function(e) {
-        const poste = document.getElementById('poste').value;
-        const date = document.getElementById('date').value;
-        
-        if (!poste || !date) {
-            e.preventDefault();
-            alert('⚠️ Veuillez sélectionner un poste et une date.');
-            return false;
-        }
-        
-        if (totalVehicules === 0) {
-            if (!confirm('⚠️ Aucun véhicule saisi. Voulez-vous continuer ?')) {
+        // Gestion du formulaire
+        form.addEventListener('submit', function(e) {
+            // Validation avant soumission
+            let hasError = false;
+            
+            timeInputs.forEach(function(input) {
+                if (input.value) {
+                    const value = parseInt(input.value);
+                    if (isNaN(value) || value < 0 || value > 1000) {
+                        hasError = true;
+                        input.style.borderColor = '#EF4444';
+                    }
+                }
+            });
+            
+            if (hasError) {
                 e.preventDefault();
-                return false;
+                alert('{% trans "Veuillez corriger les erreurs dans le formulaire." %}');
+                return;
             }
-        }
-        
-        // Animation de soumission
-        const submitBtn = e.submitter || this.querySelector('button[type="submit"]');
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enregistrement...';
-        submitBtn.disabled = true;
-        
-        console.log('✅ Formulaire soumis:', {
-            poste: poste,
-            date: date,
-            total: totalVehicules,
-            periodes: periodesSaisies
+            
+            // Afficher l'état de chargement
+            loadingState.style.display = 'block';
+            
+            // Désactiver les boutons pour éviter la double soumission
+            const buttons = form.querySelectorAll('button[type="submit"]');
+            buttons.forEach(function(button) {
+                button.disabled = true;
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {% trans "Traitement..." %}';
+            });
         });
-    });
-    
-    // Fonction de réinitialisation
-    window.resetForm = function() {
-        if (confirm('🔄 Êtes-vous sûr de vouloir réinitialiser le formulaire ?')) {
-            document.getElementById('inventaireForm').reset();
-            updateCalculations();
-            document.getElementById('poste').focus();
-        }
-    };
-    
-    // Raccourcis clavier
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.key === 's') {
-            e.preventDefault();
-            document.getElementById('inventaireForm').dispatchEvent(new Event('submit'));
-        }
-    });
-    
-    // Navigation avec les flèches
-    inputs.forEach((input, index) => {
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === 'ArrowDown') {
+        
+        // Calculer les totaux au chargement de la page
+        calculerTotaux();
+        
+        // Raccourcis clavier
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + S = Sauvegarder
+            if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
-                const nextInput = inputs[index + 1];
-                if (nextInput) nextInput.focus();
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                const prevInput = inputs[index - 1];
-                if (prevInput) prevInput.focus();
+                const saveBtn = document.querySelector('button[value="sauvegarder"]');
+                if (saveBtn && !saveBtn.disabled) {
+                    saveBtn.click();
+                }
             }
         });
+        
+        // Auto-save toutes les 30 secondes si il y a des données
+        setInterval(function() {
+            let hasData = false;
+            timeInputs.forEach(function(input) {
+                if (input.value && input.value.trim() !== '') {
+                    hasData = true;
+                }
+            });
+            
+            if (hasData && document.querySelector('button[value="sauvegarder"]')) {
+                // Auto-save silencieux (optionnel)
+                console.log('Auto-save disponible');
+            }
+        }, 30000);
     });
-    
-    // Initialisation
-    updateCalculations();
-    
-    // Animation d'entrée
-    setTimeout(() => {
-        document.querySelectorAll('.periode-input-modern').forEach((el, i) => {
-            setTimeout(() => {
-                el.style.opacity = '0';
-                el.style.transform = 'translateY(20px)';
-                el.style.transition = 'all 0.5s ease';
-                el.style.opacity = '1';
-                el.style.transform = 'translateY(0)';
-            }, i * 100);
-        });
-    }, 200);
-});
-</script>
+    </script>
 {% endblock %}

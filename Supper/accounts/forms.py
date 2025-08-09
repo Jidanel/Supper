@@ -1,12 +1,90 @@
 # ===================================================================
-# accounts/forms.py - Formulaires pour l'application accounts
+# accounts/forms.py - Formulaires pour l'application accounts SUPPER
+# Version harmonisée finale - Correction des erreurs et optimisations
 # ===================================================================
-# 🔄 REMPLACE le contenu existant du fichier accounts/forms.py OU CRÉER si inexistant
 
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm, PasswordChangeForm as DjangoPasswordChangeForm
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import authenticate
 from .models import UtilisateurSUPPER, Poste
+import re
+
+
+class CustomLoginForm(AuthenticationForm):
+    """
+    Formulaire de connexion personnalisé pour SUPPER
+    CORRIGÉ : Hérite d'AuthenticationForm pour compatibilité avec LoginView
+    """
+    
+    username = forms.CharField(
+        label=_("Matricule"),
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': _('Votre matricule'),
+            'autofocus': True,
+            'autocomplete': 'username',
+            'style': 'text-transform: uppercase;'
+        }),
+        help_text=_("Saisissez votre matricule (ex: ADM001)")
+    )
+    
+    password = forms.CharField(
+        label=_("Mot de passe"),
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': _('Votre mot de passe'),
+            'autocomplete': 'current-password',
+        })
+    )
+    
+    remember_me = forms.BooleanField(
+        label=_("Se souvenir de moi"),
+        required=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input',
+        })
+    )
+    
+    class Meta:
+        model = UtilisateurSUPPER
+        fields = ['username', 'password', 'remember_me']
+    
+    def __init__(self, request=None, *args, **kwargs):
+        """
+        CORRECTION : Accepter le paramètre request de LoginView
+        """
+        super().__init__(request, *args, **kwargs)
+    
+    def clean_username(self):
+        """Nettoyer et valider le matricule"""
+        username = self.cleaned_data.get('username')
+        if username:
+            # Convertir en majuscules
+            username = username.upper().strip()
+            
+            # Valider le format
+            if not re.match(r'^[A-Z0-9]{3,20}$', username):
+                raise ValidationError(
+                    _("Le matricule doit contenir entre 3 et 20 caractères alphanumériques.")
+                )
+        
+        return username
+    
+    def confirm_login_allowed(self, user):
+        """
+        Vérifications supplémentaires après authentification
+        """
+        super().confirm_login_allowed(user)
+        
+        # Vérifier que l'utilisateur est actif dans SUPPER
+        if not user.is_active:
+            raise ValidationError(
+                _("Ce compte a été désactivé. Contactez votre administrateur."),
+                code='inactive',
+            )
 
 
 class UtilisateurCreationForm(UserCreationForm):
@@ -53,7 +131,8 @@ class UtilisateurCreationForm(UserCreationForm):
         widgets = {
             'username': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Matricule (ex: AGENT001)'
+                'placeholder': 'Matricule (ex: AGENT001)',
+                'style': 'text-transform: uppercase;'
             }),
             'habilitation': forms.Select(attrs={'class': 'form-select'}),
         }
@@ -86,7 +165,169 @@ class UtilisateurChangeForm(UserChangeForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
+
+class PasswordChangeForm(DjangoPasswordChangeForm):
+    """
+    Formulaire de changement de mot de passe personnalisé
+    Validation simplifiée selon les specs SUPPER
+    """
     
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)
+        
+        # Personnaliser les widgets
+        for field_name, field in self.fields.items():
+            field.widget.attrs.update({
+                'class': 'form-control',
+                'autocomplete': 'off' if 'new' in field_name else 'current-password'
+            })
+    
+    def clean_new_password1(self):
+        """
+        Validation simplifiée du mot de passe selon specs SUPPER
+        Minimum 4 caractères au lieu des validations Django standard
+        """
+        password = self.cleaned_data.get('new_password1')
+        
+        if password and len(password) < 4:
+            raise ValidationError(
+                _("Le mot de passe doit contenir au moins 4 caractères."),
+                code='password_too_short',
+            )
+        
+        return password
+
+
+class UserCreateForm(forms.ModelForm):
+    """
+    Formulaire de création d'utilisateur pour les administrateurs
+    """
+    
+    password1 = forms.CharField(
+        label=_("Mot de passe"),
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text=_("Minimum 4 caractères")
+    )
+    
+    password2 = forms.CharField(
+        label=_("Confirmation du mot de passe"),
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+    
+    class Meta:
+        model = UtilisateurSUPPER
+        fields = [
+            'username', 'nom_complet', 'telephone', 'email',
+            'poste_affectation', 'habilitation'
+        ]
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'form-control',
+                'style': 'text-transform: uppercase;',
+                'placeholder': 'Ex: ADM001'
+            }),
+            'nom_complet': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nom et prénom complets'
+            }),
+            'telephone': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '+237XXXXXXXXX'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'email@example.com'
+            }),
+            'poste_affectation': forms.Select(attrs={'class': 'form-select'}),
+            'habilitation': forms.Select(attrs={'class': 'form-select'}),
+        }
+    
+    def clean_username(self):
+        """Valider et formater le matricule"""
+        username = self.cleaned_data.get('username')
+        if username:
+            username = username.upper().strip()
+            
+            if not re.match(r'^[A-Z0-9]{6,20}$', username):
+                raise ValidationError(
+                    _("Le matricule doit contenir entre 6 et 20 caractères alphanumériques.")
+                )
+            
+            # Vérifier l'unicité
+            if UtilisateurSUPPER.objects.filter(username=username).exists():
+                raise ValidationError(_("Ce matricule est déjà utilisé."))
+        
+        return username
+    
+    def clean_password2(self):
+        """Vérifier que les mots de passe correspondent"""
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        
+        if password1 and password2 and password1 != password2:
+            raise ValidationError(_("Les mots de passe ne correspondent pas."))
+        
+        if password1 and len(password1) < 4:
+            raise ValidationError(_("Le mot de passe doit contenir au moins 4 caractères."))
+        
+        return password2
+    
+    def save(self, commit=True):
+        """Sauvegarder avec mot de passe crypté"""
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password1'])
+        
+        if commit:
+            user.save()
+        
+        return user
+
+
+class UserUpdateForm(forms.ModelForm):
+    """
+    Formulaire de modification d'utilisateur
+    """
+    
+    class Meta:
+        model = UtilisateurSUPPER
+        fields = [
+            'nom_complet', 'telephone', 'email',
+            'poste_affectation', 'habilitation', 'is_active'
+        ]
+        widgets = {
+            'nom_complet': forms.TextInput(attrs={'class': 'form-control'}),
+            'telephone': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'poste_affectation': forms.Select(attrs={'class': 'form-select'}),
+            'habilitation': forms.Select(attrs={'class': 'form-select'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class ProfileEditForm(forms.ModelForm):
+    """
+    Formulaire pour permettre aux utilisateurs de modifier leur profil
+    """
+    
+    class Meta:
+        model = UtilisateurSUPPER
+        fields = ['nom_complet', 'telephone', 'email']
+        widgets = {
+            'nom_complet': forms.TextInput(attrs={
+                'class': 'form-control',
+                'readonly': True  # Nom complet ne peut pas être modifié par l'utilisateur
+            }),
+            'telephone': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '+237XXXXXXXXX'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'email@example.com'
+            }),
+        }
+
+
 class PosteForm(forms.ModelForm):
     """Formulaire pour les postes"""
     
@@ -154,6 +395,170 @@ class PosteForm(forms.ModelForm):
                 if Poste.objects.filter(code=code).exists():
                     raise ValidationError('Ce code de poste existe déjà.')
         return code
+
+
+class BulkUserCreateForm(forms.Form):
+    """
+    Formulaire pour la création en masse d'utilisateurs - Version améliorée
+    """
+    
+    poste_commun = forms.ModelChoiceField(
+        queryset=Poste.objects.filter(is_active=True),
+        label=_("Poste d'affectation commun"),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        required=True
+    )
+    
+    habilitation_commune = forms.ChoiceField(
+        label=_("Habilitation commune"),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        initial='agent_inventaire'
+    )
+    
+    mot_de_passe_commun = forms.CharField(
+        label=_("Mot de passe commun"),
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text=_("Minimum 4 caractères - sera attribué à tous les utilisateurs créés")
+    )
+    
+    utilisateurs_data = forms.CharField(
+        label=_("Données des utilisateurs"),
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 10,
+            'placeholder': 'Matricule;Nom Complet;Téléphone;Email\nAGT001;Agent Un;+237600000001;agent1@supper.cm\nAGT002;Agent Deux;+237600000002;agent2@supper.cm'
+        }),
+        help_text=_("Format: Matricule;Nom Complet;Téléphone;Email (un par ligne)")
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Charger les choix d'habilitation depuis le modèle
+        try:
+            from .models import Habilitation
+            self.fields['habilitation_commune'].choices = Habilitation.choices
+        except:
+            # Fallback si le modèle n'est pas disponible
+            self.fields['habilitation_commune'].choices = [
+                ('agent_inventaire', 'Agent Inventaire'),
+                ('chef_poste', 'Chef de Poste'),
+                ('superviseur', 'Superviseur'),
+            ]
+    
+    def clean_utilisateurs_data(self):
+        """Valider et parser les données des utilisateurs"""
+        data = self.cleaned_data.get('utilisateurs_data')
+        
+        if not data:
+            raise ValidationError(_("Les données des utilisateurs sont requises."))
+        
+        lignes = [ligne.strip() for ligne in data.split('\n') if ligne.strip()]
+        
+        if not lignes:
+            raise ValidationError(_("Aucune donnée utilisateur valide trouvée."))
+        
+        utilisateurs_parsed = []
+        matricules_vus = set()
+        
+        for i, ligne in enumerate(lignes, 1):
+            parts = [part.strip() for part in ligne.split(';')]
+            
+            if len(parts) != 4:
+                raise ValidationError(
+                    _("Ligne %(num)d: Format invalide. Attendu: Matricule;Nom;Téléphone;Email") % {'num': i}
+                )
+            
+            matricule, nom, telephone, email = parts
+            
+            # Valider matricule
+            matricule = matricule.upper()
+            if not re.match(r'^[A-Z0-9]{6,20}$', matricule):
+                raise ValidationError(
+                    _("Ligne %(num)d: Matricule '%(matricule)s' invalide") % {'num': i, 'matricule': matricule}
+                )
+            
+            if matricule in matricules_vus:
+                raise ValidationError(
+                    _("Ligne %(num)d: Matricule '%(matricule)s' en double") % {'num': i, 'matricule': matricule}
+                )
+            
+            if UtilisateurSUPPER.objects.filter(username=matricule).exists():
+                raise ValidationError(
+                    _("Ligne %(num)d: Matricule '%(matricule)s' déjà existant") % {'num': i, 'matricule': matricule}
+                )
+            
+            matricules_vus.add(matricule)
+            
+            # Valider téléphone
+            if not re.match(r'^\+?237?[0-9]{8,9}$', telephone):
+                raise ValidationError(
+                    _("Ligne %(num)d: Numéro de téléphone '%(tel)s' invalide") % {'num': i, 'tel': telephone}
+                )
+            
+            utilisateurs_parsed.append({
+                'matricule': matricule,
+                'nom_complet': nom,
+                'telephone': telephone,
+                'email': email if email else None
+            })
+        
+        return utilisateurs_parsed
+    
+    def create_users(self, created_by=None):
+        """Créer les utilisateurs en masse"""
+        utilisateurs_data = self.cleaned_data['utilisateurs_data']
+        poste = self.cleaned_data['poste_commun']
+        habilitation = self.cleaned_data['habilitation_commune']
+        password = self.cleaned_data['mot_de_passe_commun']
+        
+        users_created = []
+        
+        for user_data in utilisateurs_data:
+            user = UtilisateurSUPPER.objects.create_user(
+                username=user_data['matricule'],
+                nom_complet=user_data['nom_complet'],
+                telephone=user_data['telephone'],
+                email=user_data['email'],
+                password=password,
+                poste_affectation=poste,
+                habilitation=habilitation,
+                cree_par=created_by
+            )
+            users_created.append(user)
+        
+        return users_created
+
+
+class PasswordResetForm(forms.Form):
+    """
+    Formulaire pour la réinitialisation de mot de passe par un admin
+    """
+    
+    nouveau_mot_de_passe = forms.CharField(
+        label=_("Nouveau mot de passe"),
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text=_("Minimum 4 caractères")
+    )
+    
+    confirmer_mot_de_passe = forms.CharField(
+        label=_("Confirmer le mot de passe"),
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+    
+    def clean(self):
+        """Vérifier que les mots de passe correspondent"""
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('nouveau_mot_de_passe')
+        password2 = cleaned_data.get('confirmer_mot_de_passe')
+        
+        if password1 and password2:
+            if password1 != password2:
+                raise ValidationError(_("Les mots de passe ne correspondent pas."))
+            
+            if len(password1) < 4:
+                raise ValidationError(_("Le mot de passe doit contenir au moins 4 caractères."))
+        
+        return cleaned_data
 
 
 class InventaireForm(forms.Form):
@@ -229,377 +634,8 @@ class InventaireForm(forms.Form):
         
         return cleaned_data
 
-from django import forms
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from django.core.exceptions import ValidationError
-from django.contrib.auth import authenticate
-from .models import UtilisateurSUPPER, Poste
 
-
-class UtilisateurCreationForm(UserCreationForm):
-    """Formulaire de création d'utilisateur SUPPER"""
-    
-    nom_complet = forms.CharField(
-        max_length=150,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Nom et prénom(s) complets'
-        }),
-        label='Nom complet'
-    )
-    
-    telephone = forms.CharField(
-        max_length=20,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': '+237XXXXXXXXX'
-        }),
-        label='Numéro de téléphone'
-    )
-    
-    email = forms.EmailField(
-        required=False,
-        widget=forms.EmailInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'email@exemple.com'
-        }),
-        label='Email (optionnel)'
-    )
-    
-    poste_affectation = forms.ModelChoiceField(
-        queryset=Poste.objects.filter(is_active=True),
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Poste d\'affectation'
-    )
-    
-    class Meta:
-        model = UtilisateurSUPPER
-        fields = ('username', 'nom_complet', 'telephone', 'email', 
-                 'habilitation', 'poste_affectation', 'password1', 'password2')
-        widgets = {
-            'username': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Matricule (ex: AGENT001)'
-            }),
-            'habilitation': forms.Select(attrs={'class': 'form-select'}),
-        }
-    
-    def clean_username(self):
-        username = self.cleaned_data.get('username')
-        if username:
-            username = username.upper()
-            if UtilisateurSUPPER.objects.filter(username=username).exists():
-                raise ValidationError('Ce matricule existe déjà.')
-        return username
-
-
-class UtilisateurChangeForm(UserChangeForm):
-    """Formulaire de modification d'utilisateur SUPPER"""
-    
-    password = None  # Masquer le champ mot de passe
-    
-    class Meta:
-        model = UtilisateurSUPPER
-        fields = ('username', 'nom_complet', 'telephone', 'email', 
-                 'habilitation', 'poste_affectation', 'is_active')
-        widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control', 'readonly': True}),
-            'nom_complet': forms.TextInput(attrs={'class': 'form-control'}),
-            'telephone': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'habilitation': forms.Select(attrs={'class': 'form-select'}),
-            'poste_affectation': forms.Select(attrs={'class': 'form-select'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
-
-
-class CustomLoginForm(forms.Form):
-    """Formulaire de connexion personnalisé avec matricule"""
-    
-    username = forms.CharField(
-        max_length=20,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Votre matricule',
-            'autofocus': True
-        }),
-        label='Matricule'
-    )
-    
-    password = forms.CharField(
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Votre mot de passe'
-        }),
-        label='Mot de passe'
-    )
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        username = cleaned_data.get('username')
-        password = cleaned_data.get('password')
-        
-        if username and password:
-            username = username.upper()
-            user = authenticate(username=username, password=password)
-            if user is None:
-                raise ValidationError('Matricule ou mot de passe incorrect.')
-            if not user.is_active:
-                raise ValidationError('Ce compte est désactivé.')
-        
-        return cleaned_data
-
-
-class ProfileEditForm(forms.ModelForm):
-    """Formulaire pour que l'utilisateur modifie son profil"""
-    
-    class Meta:
-        model = UtilisateurSUPPER
-        fields = ('telephone', 'email')
-        widgets = {
-            'telephone': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': '+237XXXXXXXXX'
-            }),
-            'email': forms.EmailInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'email@exemple.com'
-            }),
-        }
-
-
-class PasswordChangeForm(forms.Form):
-    """Formulaire de changement de mot de passe"""
-    
-    current_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Mot de passe actuel'
-        }),
-        label='Mot de passe actuel'
-    )
-    
-    new_password = forms.CharField(
-        min_length=4,
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Nouveau mot de passe (min. 4 caractères)'
-        }),
-        label='Nouveau mot de passe'
-    )
-    
-    confirm_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Confirmer le nouveau mot de passe'
-        }),
-        label='Confirmer le mot de passe'
-    )
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        new_password = cleaned_data.get('new_password')
-        confirm_password = cleaned_data.get('confirm_password')
-        
-        if new_password and confirm_password:
-            if new_password != confirm_password:
-                raise ValidationError('Les mots de passe ne correspondent pas.')
-        
-        return cleaned_data
-
-
-class UserCreateForm(forms.ModelForm):
-    """Formulaire de création d'utilisateur par admin"""
-    
-    password1 = forms.CharField(
-        label='Mot de passe',
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
-    )
-    password2 = forms.CharField(
-        label='Confirmer mot de passe',
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
-    )
-    
-    class Meta:
-        model = UtilisateurSUPPER
-        fields = ('username', 'nom_complet', 'telephone', 'email', 
-                 'habilitation', 'poste_affectation')
-        widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
-            'nom_complet': forms.TextInput(attrs={'class': 'form-control'}),
-            'telephone': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'habilitation': forms.Select(attrs={'class': 'form-select'}),
-            'poste_affectation': forms.Select(attrs={'class': 'form-select'}),
-        }
-    
-    def clean_password2(self):
-        password1 = self.cleaned_data.get('password1')
-        password2 = self.cleaned_data.get('password2')
-        if password1 and password2 and password1 != password2:
-            raise ValidationError('Les mots de passe ne correspondent pas.')
-        return password2
-    
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.set_password(self.cleaned_data['password1'])
-        if commit:
-            user.save()
-        return user
-
-
-class UserUpdateForm(forms.ModelForm):
-    """Formulaire de modification d'utilisateur par admin"""
-    
-    class Meta:
-        model = UtilisateurSUPPER
-        fields = ('nom_complet', 'telephone', 'email', 'habilitation', 
-                 'poste_affectation', 'is_active')
-        widgets = {
-            'nom_complet': forms.TextInput(attrs={'class': 'form-control'}),
-            'telephone': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'habilitation': forms.Select(attrs={'class': 'form-select'}),
-            'poste_affectation': forms.Select(attrs={'class': 'form-select'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
-
-
-class BulkUserCreateForm(forms.Form):
-    """Formulaire pour création en masse d'utilisateurs"""
-    
-    base_username = forms.CharField(
-        max_length=10,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'AGENT'
-        }),
-        label='Préfixe des matricules'
-    )
-    
-    count = forms.IntegerField(
-        min_value=1,
-        max_value=50,
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'min': 1,
-            'max': 50
-        }),
-        label='Nombre d\'utilisateurs'
-    )
-    
-    default_password = forms.CharField(
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'value': 'supper2025'
-        }),
-        label='Mot de passe par défaut'
-    )
-    
-    habilitation = forms.ChoiceField(
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Habilitation par défaut'
-    )
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from .models import Habilitation
-        self.fields['habilitation'].choices = Habilitation.choices
-    
-    def create_users(self, created_by=None):
-        """Crée les utilisateurs en masse"""
-        users_created = []
-        base = self.cleaned_data['base_username']
-        count = self.cleaned_data['count']
-        password = self.cleaned_data['default_password']
-        habilitation = self.cleaned_data['habilitation']
-        
-        for i in range(1, count + 1):
-            username = f"{base}{i:03d}"
-            if not UtilisateurSUPPER.objects.filter(username=username).exists():
-                user = UtilisateurSUPPER.objects.create_user(
-                    username=username,
-                    nom_complet=f"Utilisateur {username}",
-                    telephone=f"+237600{i:06d}",
-                    habilitation=habilitation,
-                    password=password,
-                    cree_par=created_by
-                )
-                users_created.append(user)
-        
-        return users_created
-
-
-class PasswordResetForm(forms.Form):
-    """Formulaire de réinitialisation de mot de passe par admin"""
-    
-    nouveau_mot_de_passe = forms.CharField(
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'value': 'supper2025'
-        }),
-        label='Nouveau mot de passe'
-    )
-    
-    confirmation = forms.BooleanField(
-        required=True,
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        label='Je confirme vouloir réinitialiser ce mot de passe'
-    )
-class CreationMasseForm(forms.Form):
-    """Formulaire pour la création d'utilisateurs en masse"""
-    
-    base_username = forms.CharField(
-        max_length=10,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'AGENT',
-            'pattern': r'^[A-Z]{3,10}'
-        }),
-        label='Préfixe des matricules',
-        help_text='Ex: AGENT générera AGENT001, AGENT002, etc.'
-    )
-    
-    count = forms.IntegerField(
-        min_value=1,
-        max_value=50,
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'min': 1,
-            'max': 50
-        }),
-        label='Nombre d\'utilisateurs à créer'
-    )
-    
-    default_password = forms.CharField(
-        max_length=20,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'value': 'supper2025'
-        }),
-        label='Mot de passe par défaut'
-    )
-    
-    habilitation = forms.ChoiceField(
-        choices=[],  # Sera rempli dans __init__
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Habilitation par défaut'
-    )
-    
-    poste_affectation = forms.ModelChoiceField(
-        queryset=Poste.objects.filter(is_active=True),
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Poste d\'affectation (optionnel)'
-    )
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from .models import Habilitation
-        self.fields['habilitation'].choices = Habilitation.choices
-
-
+# Formulaires supplémentaires conservés du fichier original
 class RechercheUtilisateurForm(forms.Form):
     """Formulaire de recherche d'utilisateurs"""
     
@@ -640,103 +676,12 @@ class RechercheUtilisateurForm(forms.Form):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from .models import Habilitation
-        choices = [('', 'Toutes les habilitations')] + list(Habilitation.choices)
-        self.fields['habilitation'].choices = choices
-
-
-class ConfigurationJourForm(forms.Form):
-    """Formulaire pour configurer les jours de saisie"""
-    
-    date_debut = forms.DateField(
-        widget=forms.DateInput(attrs={
-            'class': 'form-control',
-            'type': 'date'
-        }),
-        label='Date de début'
-    )
-    
-    date_fin = forms.DateField(
-        widget=forms.DateInput(attrs={
-            'class': 'form-control',
-            'type': 'date'
-        }),
-        label='Date de fin'
-    )
-    
-    statut = forms.ChoiceField(
-        choices=[
-            ('ouvert', 'Ouvrir pour saisie'),
-            ('ferme', 'Fermer pour saisie'),
-            ('impertinent', 'Marquer comme impertinent')
-        ],
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Action à effectuer'
-    )
-    
-    commentaire = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 2,
-            'placeholder': 'Raison de cette configuration...'
-        }),
-        label='Commentaire'
-    )
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        date_debut = cleaned_data.get('date_debut')
-        date_fin = cleaned_data.get('date_fin')
-        
-        if date_debut and date_fin:
-            if date_debut > date_fin:
-                raise ValidationError('La date de début doit être antérieure à la date de fin.')
-            
-            # Limiter à 31 jours maximum
-            if (date_fin - date_debut).days > 31:
-                raise ValidationError('La période ne peut pas dépasser 31 jours.')
-        
-        return cleaned_data
-
-
-class NotificationForm(forms.Form):
-    """Formulaire pour envoyer des notifications"""
-    
-    destinataires = forms.ModelMultipleChoiceField(
-        queryset=UtilisateurSUPPER.objects.filter(is_active=True),
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
-        label='Destinataires'
-    )
-    
-    titre = forms.CharField(
-        max_length=200,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Titre de la notification'
-        }),
-        label='Titre'
-    )
-    
-    message = forms.CharField(
-        widget=forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 5,
-            'placeholder': 'Contenu du message...'
-        }),
-        label='Message'
-    )
-    
-    type_notification = forms.ChoiceField(
-        choices=[
-            ('info', 'Information'),
-            ('warning', 'Avertissement'),
-            ('success', 'Succès'),
-            ('system', 'Système')
-        ],
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Type de notification'
-    )
+        try:
+            from .models import Habilitation
+            choices = [('', 'Toutes les habilitations')] + list(Habilitation.choices)
+            self.fields['habilitation'].choices = choices
+        except:
+            pass
 
 
 class ExportForm(forms.Form):
@@ -791,29 +736,4 @@ class ExportForm(forms.Form):
         required=False,
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
         label='Postes spécifiques (optionnel)'
-    )
-
-
-class ResetPasswordForm(forms.Form):
-    """Formulaire pour réinitialiser le mot de passe"""
-    
-    utilisateurs = forms.ModelMultipleChoiceField(
-        queryset=UtilisateurSUPPER.objects.filter(is_active=True),
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
-        label='Utilisateurs concernés'
-    )
-    
-    nouveau_mot_de_passe = forms.CharField(
-        max_length=20,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'value': 'supper2025'
-        }),
-        label='Nouveau mot de passe'
-    )
-    
-    confirmation = forms.BooleanField(
-        required=True,
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        label='Je confirme vouloir réinitialiser les mots de passe'
     )

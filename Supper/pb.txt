@@ -1,0 +1,968 @@
+il y a 2 dashboard voilà l'autre fichier : {% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .stat-card {
+            text-align: center;
+            color: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--start-color), var(--end-color));
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+        }
+        
+        .stat-card.users { 
+            --start-color: #667eea; 
+            --end-color: #764ba2; 
+        }
+        .stat-card.postes { 
+            --start-color: #f093fb; 
+            --end-color: #f5576c; 
+        }
+        .stat-card.inventaires { 
+            --start-color: #4facfe; 
+            --end-color: #00f2fe; 
+        }
+        .stat-card.recettes { 
+            --start-color: #43e97b; 
+            --end-color: #38f9d7; 
+        }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .stat-label {
+            font-size: 1rem;
+            opacity: 0.95;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .stat-change {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .alert-item {
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .alert-item.warning {
+            border-left-color: #ffc107;
+            background: linear-gradient(90deg, #fff3cd 0%, white 10%);
+            color: #856404;
+        }
+        .alert-item.danger {
+            border-left-color: #dc3545;
+            background: linear-gradient(90deg, #f8d7da 0%, white 10%);
+            color: #721c24;
+        }
+        .alert-item.info {
+            border-left-color: #17a2b8;
+            background: linear-gradient(90deg, #d1ecf1 0%, white 10%);
+            color: #0c5460;
+        }
+        .alert-item.success {
+            border-left-color: #28a745;
+            background: linear-gradient(90deg, #d4edda 0%, white 10%);
+            color: #155724;
+        }
+        
+        .activity-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        .activity-item:hover {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            margin: 0 -12px;
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        .activity-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .activity-content {
+            flex: 1;
+        }
+        .activity-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .activity-status {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-left: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.7rem;
+        }
+        .activity-status.success {
+            background: #28a745;
+        }
+        .activity-status.error {
+            background: #dc3545;
+        }
+        
+        .quick-action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+            border: none;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        
+        .quick-action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            transform: translate(50px, -50px);
+        }
+        
+        .advanced-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);
+        }
+        
+        .advanced-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
+            color: white;
+        }
+        
+        .system-health {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        
+        .health-item {
+            text-align: center;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .health-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .health-status.ok { background: #28a745; }
+        .health-status.warning { background: #ffc107; }
+        .health-status.error { background: #dc3545; }
+        
+        @media (max-width: 768px) {
+            .stat-number { font-size: 2.5rem; }
+            .dashboard-card { padding: 16px; }
+            .page-header { padding: 24px; }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div style="position: relative; z-index: 2;">
+            <h1 class="mb-2">
+                <i class="fas fa-tachometer-alt me-3"></i>
+                Tableau de Bord SUPPER
+            </h1>
+            <p class="mb-0">Administration - Suivi des Péages et Pesages Routiers</p>
+            <small class="opacity-75">
+                <i class="fas fa-user me-1"></i>{{ user.nom_complet }} - {{ user.get_habilitation_display }}
+                {% if user.poste_affectation %} | {{ user.poste_affectation.nom }}{% endif %}
+            </small>
+        </div>
+        <div style="position: relative; z-index: 2;">
+            <button class="btn btn-light me-2" onclick="refreshDashboard()" id="refresh-btn">
+                <i class="fas fa-sync-alt"></i> Actualiser
+            </button>
+            <button class="btn btn-success me-2" onclick="openDay()">
+                <i class="fas fa-calendar-plus"></i> Ouvrir Jour
+            </button>
+            <a href="{% url 'admin:saisie_inventaire' %}" class="btn btn-info me-2">
+                <i class="fas fa-edit"></i> Saisir Inventaire
+            </a>
+            <a href="/django-admin/" class="advanced-btn" target="_blank">
+                <i class="fas fa-tools"></i> Panel Avancé
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Alertes Système avec vraies données -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="dashboard-card">
+            <h5><i class="fas fa-bell text-warning me-2"></i> Alertes Système</h5>
+            <div id="system-alerts">
+                <div class="alert-item success">
+                    <strong><i class="fas fa-check-circle me-2"></i>Système opérationnel</strong> - 
+                    Toutes les fonctionnalités sont disponibles
+                </div>
+                {% if stats.inventaires_locked > 0 %}
+                <div class="alert-item warning">
+                    <strong><i class="fas fa-lock me-2"></i>{{ stats.inventaires_locked }} inventaire(s) verrouillé(s)</strong> - 
+                    Nécessite validation
+                </div>
+                {% endif %}
+                {% if stats.users_inactive > 0 %}
+                <div class="alert-item info">
+                    <strong><i class="fas fa-user-slash me-2"></i>{{ stats.users_inactive }} utilisateur(s) inactif(s)</strong> - 
+                    <a href="{% url 'admin:accounts_utilisateursupper_changelist' %}?is_active__exact=0" class="btn btn-sm btn-outline-primary ms-2">
+                        Gérer
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cartes Statistiques avec vraies données -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card users">
+            <div class="stat-number" id="total-users">{{ stats.users_total }}</div>
+            <div class="stat-label">Utilisateurs Total</div>
+            <div class="stat-change">
+                <i class="fas fa-users me-1"></i> 
+                {{ stats.users_active }} actifs | {{ stats.users_this_week }} cette semaine
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card postes">
+            <div class="stat-number" id="total-postes">{{ stats.postes_total }}</div>
+            <div class="stat-label">Postes Réseau</div>
+            <div class="stat-change">
+                <i class="fas fa-road me-1"></i>
+                {{ stats.postes_peage }} Péages + {{ stats.postes_pesage }} Pesages
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card inventaires">
+            <div class="stat-number" id="inventaires-today">{{ stats.inventaires_today }}</div>
+            <div class="stat-label">Inventaires Aujourd'hui</div>
+            <div class="stat-change">
+                <i class="fas fa-clipboard-list me-1"></i>
+                {{ stats.inventaires_week }} cette semaine | {{ stats.inventaires_locked }} verrouillés
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card recettes">
+            <div class="stat-number" id="recettes-today">{{ stats.recettes_today }}</div>
+            <div class="stat-label">Recettes Aujourd'hui</div>
+            <div class="stat-change">
+                <i class="fas fa-coins me-1"></i>
+                {{ stats.recettes_week }} cette semaine
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Santé Système -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="dashboard-card">
+            <h5><i class="fas fa-heartbeat text-success me-2"></i> Santé du Système</h5>
+            <div class="system-health">
+                <div class="health-item">
+                    <span class="health-status ok"></span>
+                    <strong>Base de Données</strong>
+                    <div class="small text-muted">{{ stats.db_tables }} tables</div>
+                </div>
+                <div class="health-item">
+                    <span class="health-status ok"></span>
+                    <strong>Utilisateurs</strong>
+                    <div class="small text-muted">{{ stats.users_online }} en ligne</div>
+                </div>
+                <div class="health-item">
+                    <span class="health-status ok"></span>
+                    <strong>Audit</strong>
+                    <div class="small text-muted">{{ stats.actions_today }} actions/jour</div>
+                </div>
+                <div class="health-item">
+                    <span class="health-status {% if stats.postes_inactive > 0 %}warning{% else %}ok{% endif %}"></span>
+                    <strong>Postes</strong>
+                    <div class="small text-muted">
+                        {% if stats.postes_inactive > 0 %}
+                            {{ stats.postes_inactive }} inactifs
+                        {% else %}
+                            Tous actifs
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="dashboard-card">
+            <h5><i class="fas fa-chart-pie me-2"></i> Répartition Utilisateurs</h5>
+            <div class="chart-container" style="height: 200px;">
+                <canvas id="usersChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques avec vraies données -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="dashboard-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5><i class="fas fa-chart-line me-2"></i> Activité Système (7 derniers jours)</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadActivity('24h')">24h</button>
+                    <button class="btn btn-sm btn-primary" onclick="loadActivity('7d')">7j</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadActivity('30d')">30j</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="dashboard-card">
+            <h5><i class="fas fa-exclamation-triangle me-2"></i> Taux Déperdition</h5>
+            <div class="chart-container">
+                <canvas id="deperditionChart"></canvas>
+            </div>
+            <div class="mt-2">
+                <small class="text-muted">
+                    <span class="text-success">■</span> Bon (>-10%) 
+                    <span class="text-warning">■</span> Attention (-10% à -30%)
+                    <span class="text-danger">■</span> Critique (<-30%)
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activité Récente avec vraies données et Actions Rapides -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="dashboard-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5><i class="fas fa-history me-2"></i> Activité Récente</h5>
+                <a href="{% url 'admin:accounts_journalaudit_changelist' %}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-list me-1"></i> Voir tout ({{ stats.total_logs }})
+                </a>
+            </div>
+            <div id="recent-activity">
+                {% for activity in recent_actions %}
+                <div class="activity-item">
+                    <div class="activity-avatar">
+                        {{ activity.utilisateur.nom_complet.0|upper|default:"?" }}
+                    </div>
+                    <div class="activity-content">
+                        <strong>{{ activity.utilisateur.nom_complet|default:"Utilisateur inconnu" }}</strong>
+                        <div class="text-muted">{{ activity.action }}</div>
+                        <div class="activity-time">
+                            <i class="fas fa-clock me-1"></i>
+                            {{ activity.timestamp|timesince }} ago
+                            {% if activity.adresse_ip %}
+                                | <i class="fas fa-map-marker-alt me-1"></i>{{ activity.adresse_ip }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="activity-status {% if activity.succes %}success{% else %}error{% endif %}">
+                        <i class="fas fa-{% if activity.succes %}check{% else %}times{% endif %}"></i>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-inbox fa-2x mb-2"></i>
+                    <p>Aucune activité récente</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="dashboard-card">
+            <h5><i class="fas fa-bolt me-2"></i> Actions Rapides</h5>
+            <div class="d-grid gap-2">
+                <a href="{% url 'admin:accounts_utilisateursupper_add' %}" class="quick-action-btn btn btn-primary">
+                    <i class="fas fa-user-plus"></i> Créer Utilisateur
+                </a>
+                <a href="{% url 'admin:accounts_poste_changelist' %}" class="quick-action-btn btn btn-info">
+                    <i class="fas fa-map-marker-alt"></i> Gérer Postes
+                </a>
+                <a href="{% url 'admin:inventaire_inventairejournalier_changelist' %}" class="quick-action-btn btn btn-success">
+                    <i class="fas fa-clipboard-list"></i> Voir Inventaires
+                </a>
+                <a href="{% url 'admin:inventaire_recettejournaliere_changelist' %}" class="quick-action-btn btn btn-warning">
+                    <i class="fas fa-coins"></i> Voir Recettes
+                </a>
+                <button class="quick-action-btn btn btn-secondary" onclick="exportAudit()">
+                    <i class="fas fa-download"></i> Export Audit
+                </button>
+            </div>
+        </div>
+        
+        <div class="dashboard-card">
+            <h5><i class="fas fa-cog me-2"></i> Configuration Rapide</h5>
+            <div class="d-grid gap-2">
+                <button type="button" class="btn btn-success btn-sm" onclick="openDay()">
+                    <i class="fas fa-calendar-check"></i> Ouvrir Jour Actuel
+                </button>
+                <a href="{% url 'admin:create_users' %}" class="btn btn-info btn-sm">
+                    <i class="fas fa-users-cog"></i> Création en Masse
+                </a>
+            </div>
+            
+            <hr>
+            
+            <div class="mb-2">
+                <label for="impertinent-date" class="form-label">Marquer jour impertinent:</label>
+                <input type="date" class="form-control form-control-sm" id="impertinent-date" name="date" required>
+            </div>
+            <button type="button" class="btn btn-warning btn-sm w-100" onclick="markImpertinent()">
+                <i class="fas fa-exclamation-triangle"></i> Marquer Impertinent
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts avec intégration API -->
+<script>
+// Variables globales
+let activityChart = null;
+let deperditionChart = null;
+let usersChart = null;
+let refreshInterval = null;
+
+// Données initiales du serveur
+const dashboardData = {
+    activity: {{ chart_data.activity_data|safe }},
+    deperdition: {{ chart_data.deperdition_data|safe }},
+    users: {{ chart_data.users_by_role|safe }}
+};
+
+// Initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 SUPPER Dashboard loaded with real data');
+    initCharts();
+    startAutoRefresh();
+    loadRealData();
+});
+
+// Initialisation des graphiques avec vraies données
+function initCharts() {
+    // Graphique d'activité
+    const activityCtx = document.getElementById('activityChart').getContext('2d');
+    activityChart = new Chart(activityCtx, {
+        type: 'line',
+        data: {
+            labels: dashboardData.activity.labels || [],
+            datasets: [{
+                label: 'Actions',
+                data: dashboardData.activity.data || [],
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#667eea',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 },
+                    grid: { color: 'rgba(0,0,0,0.1)' }
+                },
+                x: {
+                    grid: { color: 'rgba(0,0,0,0.1)' }
+                }
+            }
+        }
+    });
+
+    // Graphique de déperdition avec vraies données
+    const deperditionCtx = document.getElementById('deperditionChart').getContext('2d');
+    deperditionChart = new Chart(deperditionCtx, {
+        type: 'bar',
+        data: {
+            labels: dashboardData.deperdition.labels || [],
+            datasets: [{
+                label: 'Taux (%)',
+                data: dashboardData.deperdition.data || [],
+                backgroundColor: dashboardData.deperdition.colors || []
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.parsed.y.toFixed(1)}%`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Graphique utilisateurs par rôle
+    const usersCtx = document.getElementById('usersChart').getContext('2d');
+    usersChart = new Chart(usersCtx, {
+        type: 'doughnut',
+        data: {
+            labels: dashboardData.users.labels || [],
+            datasets: [{
+                data: dashboardData.users.data || [],
+                backgroundColor: [
+                    '#667eea', '#f093fb', '#4facfe', '#43e97b',
+                    '#ffc107', '#17a2b8', '#dc3545', '#6c757d'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { usePointStyle: true }
+                }
+            }
+        }
+    });
+}
+
+// Charger l'activité selon la période
+function loadActivity(period) {
+    fetch(`{% url 'admin:api_activity' %}?period=${period}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Erreur API:', data.error);
+            return;
+        }
+        
+        activityChart.data.labels = data.labels;
+        activityChart.data.datasets[0].data = data.data;
+        activityChart.update('active');
+        
+        // Mettre à jour les boutons
+        document.querySelectorAll('button[onclick^="loadActivity"]').forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+        event.target.classList.remove('btn-outline-primary');
+        event.target.classList.add('btn-primary');
+    })
+    .catch(error => {
+        console.error('Erreur lors du chargement de l\'activité:', error);
+        showToast('Erreur lors du chargement des données', 'error');
+    });
+}
+
+// Charger les vraies données
+function loadRealData() {
+    // Les données sont déjà injectées depuis le serveur
+    console.log('📊 Données réelles chargées:', dashboardData);
+}
+
+// Actualiser les statistiques avec vraies données
+function refreshStats() {
+    fetch(`{% url 'admin:api_stats' %}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Mettre à jour les cartes de stats avec animation
+        updateStatCard('total-users', data.users_total);
+        updateStatCard('total-postes', data.postes_total);
+        updateStatCard('inventaires-today', data.inventaires_today);
+        updateStatCard('recettes-today', data.recettes_today);
+        
+        console.log('📈 Stats mises à jour:', data);
+    })
+    .catch(error => {
+        console.error('Erreur lors de l\'actualisation des stats:', error);
+        showToast('Erreur lors de l\'actualisation', 'error');
+    });
+}
+
+// Mettre à jour une carte de statistique avec animation
+function updateStatCard(elementId, newValue) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        const currentValue = parseInt(element.textContent);
+        if (currentValue !== newValue) {
+            element.style.transform = 'scale(1.1)';
+            element.style.color = '#28a745';
+            
+            setTimeout(() => {
+                element.textContent = newValue;
+                element.style.transform = 'scale(1)';
+                element.style.color = '';
+            }, 200);
+        }
+    }
+}
+
+// Actualisation complète du dashboard
+function refreshDashboard() {
+    const btn = document.getElementById('refresh-btn');
+    const originalHtml = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualisation...';
+    btn.disabled = true;
+    
+    Promise.all([
+        refreshStats(),
+        loadActivity('7d')
+    ]).finally(() => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        showToast('Dashboard actualisé avec succès', 'success');
+    });
+}
+
+// Ouvrir un jour
+function openDay() {
+    if (confirm('Ouvrir le jour actuel pour la saisie ?')) {
+        fetch('{% url "admin:open_day" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                showToast('Jour ouvert pour la saisie', 'success');
+                refreshStats();
+            } else {
+                showToast('Erreur lors de l\'ouverture du jour', 'error');
+            }
+        });
+    }
+}
+
+// Marquer jour impertinent
+function markImpertinent() {
+    const date = document.getElementById('impertinent-date').value;
+    if (!date) {
+        alert('Veuillez sélectionner une date');
+        return;
+    }
+    
+    if (confirm(`Marquer le ${date} comme jour impertinent ?`)) {
+        fetch('{% url "admin:mark_impertinent" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `date=${date}`
+        })
+        .then(response => {
+            if (response.ok) {
+                showToast('Jour marqué comme impertinent', 'warning');
+                document.getElementById('impertinent-date').value = '';
+            } else {
+                showToast('Erreur lors du marquage', 'error');
+            }
+        });
+    }
+}
+
+// Export audit
+function exportAudit() {
+    if (confirm('Exporter le journal d\'audit des 30 derniers jours ?')) {
+        window.location.href = '{% url "admin:export_audit" %}';
+        showToast('Export en cours...', 'info');
+    }
+}
+
+// Démarrer l'actualisation automatique
+function startAutoRefresh() {
+    refreshInterval = setInterval(() => {
+        refreshStats();
+    }, 5 * 60 * 1000); // 5 minutes
+}
+
+// Notification toast améliorée
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+    
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} toast-item`;
+    toast.style.cssText = `
+        margin-bottom: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    const icons = {
+        success: 'check-circle',
+        error: 'exclamation-circle',
+        warning: 'exclamation-triangle',
+        info: 'info-circle'
+    };
+    
+    toast.innerHTML = `
+        <i class="fas fa-${icons[type] || 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close ms-auto" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
+}
+
+// Créer le conteneur de toast
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        max-width: 400px;
+    `;
+    document.body.appendChild(container);
+    return container;
+}
+
+// Fonction utilitaire pour récupérer le cookie CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Ajouter les animations CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .toast-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+    }
+    
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        opacity: 0.5;
+        cursor: pointer;
+    }
+    
+    .btn-close:hover {
+        opacity: 1;
+    }
+`;
+document.head.appendChild(style);
+
+// Nettoyage à la fermeture de la page
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+
+// Log de diagnostic
+console.log('📊 SUPPER Dashboard chargé avec données réelles');
+console.log('👤 Utilisateur:', '{{ user.username }}');
+console.log('📈 Stats:', {
+    users: {{ stats.users_total }},
+    postes: {{ stats.postes_total }},
+    inventaires: {{ stats.inventaires_today }},
+    recettes: {{ stats.recettes_today }}
+});
+</script>
+{% endblock %} lequel gerer?

@@ -29,7 +29,7 @@ logger = logging.getLogger('supper')
 class DashboardAdminView(LoginRequiredMixin, TemplateView):
     """
     Dashboard complet pour administrateurs
-    CORRIGÉ - Vérification des permissions admin
+    CORRIGÉ - Vérification des permissions admin + Redirection panel avancé
     """
     template_name = 'common/dashboard_admin.html'
     
@@ -62,14 +62,55 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
         logger.info(f"ACCÈS AUTORISÉ DASHBOARD ADMIN - {user.username}")
         return super().dispatch(request, *args, **kwargs)
     
+    def get(self, request, *args, **kwargs):
+        """
+        NOUVELLE MÉTHODE AJOUTÉE - Gestion des requêtes GET avec redirection admin si nécessaire
+        """
+        
+        # Si l'utilisateur clique sur "Panel Avancé", rediriger vers l'admin Django
+        if request.GET.get('action') == 'admin_panel':
+            # Vérifier que l'utilisateur a bien les droits admin (double vérification)
+            user = request.user
+            has_admin_access = (
+                user.is_superuser or 
+                user.is_staff or 
+                user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']
+            )
+            
+            if has_admin_access:
+                # Log de l'action de redirection
+                logger.info(
+                    f"REDIRECTION PANEL DJANGO ADMIN - "
+                    f"Utilisateur: {user.username} | "
+                    f"Depuis: Dashboard Admin"
+                )
+                
+                # Ajouter un message de succès
+                messages.success(
+                    request,
+                    _("Redirection vers le panel d'administration Django.")
+                )
+                
+                # Redirection vers l'admin Django
+                return redirect('/admin/')
+            else:
+                messages.error(
+                    request,
+                    _("Accès non autorisé au panel d'administration avancé.")
+                )
+                return redirect('common:dashboard_admin')
+        
+        # Comportement normal du dashboard
+        return super().get(request, *args, **kwargs)
+    
     def get_context_data(self, **kwargs):
-        """Ajouter toutes les données nécessaires au dashboard admin"""
+        """Ajouter toutes les données nécessaires au dashboard admin - CONSERVER TEL QUEL"""
         context = super().get_context_data(**kwargs)
         
         user = self.request.user
         
         # ================================================================
-        # STATISTIQUES GÉNÉRALES
+        # STATISTIQUES GÉNÉRALES - CONSERVER TOUT LE CODE EXISTANT
         # ================================================================
         
         try:

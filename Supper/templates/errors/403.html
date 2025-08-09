@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ error_code }} - {{ error_title }} | SUPPER</title>
+    <style>
+        :root {
+            --violet-principal: #6B46C1;
+            --violet-clair: #8B5CF6;
+            --blanc-pur: #FFFFFF;
+            --gris-clair: #F8FAFC;
+            --gris-fonce: #334155;
+            --orange-warning: #F59E0B;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--gris-clair) 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gris-fonce);
+        }
+        
+        .error-container {
+            background: var(--blanc-pur);
+            border-radius: 16px;
+            padding: 3rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+        
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--orange-warning), #D97706);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            color: var(--blanc-pur);
+            font-size: 2rem;
+        }
+        
+        .error-code {
+            font-size: 4rem;
+            font-weight: 700;
+            color: var(--orange-warning);
+            margin-bottom: 1rem;
+        }
+        
+        .error-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--gris-fonce);
+        }
+        
+        .error-message {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: #64748B;
+            line-height: 1.6;
+        }
+        
+        .suggestions-list {
+            text-align: left;
+            background: #FEF3C7;
+            border: 1px solid var(--orange-warning);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .suggestions-list h4 {
+            margin-bottom: 1rem;
+            color: #92400E;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .suggestions-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .suggestions-list li {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #92400E;
+        }
+        
+        .suggestions-list li::before {
+            content: '💡';
+            font-size: 1rem;
+        }
+        
+        .permissions-info {
+            background: #EFF6FF;
+            border: 1px solid #3B82F6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        .permissions-info h5 {
+            color: #1E40AF;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--violet-principal), var(--violet-clair));
+            color: var(--blanc-pur);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(107, 70, 193, 0.3);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--violet-principal);
+            border: 2px solid var(--violet-principal);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--violet-principal);
+            color: var(--blanc-pur);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, var(--orange-warning), #D97706);
+            color: var(--blanc-pur);
+            border: none;
+        }
+        
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+        }
+        
+        .contact-info {
+            background: #F0FDF4;
+            border: 1px solid #10B981;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        .contact-info h5 {
+            color: #047857;
+            margin-bottom: 0.5rem;
+        }
+        
+        @media (max-width: 480px) {
+            .error-container {
+                padding: 2rem;
+            }
+            
+            .error-code {
+                font-size: 3rem;
+            }
+            
+            .error-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">
+            🚫
+        </div>
+        
+        <div class="error-code">{{ error_code }}</div>
+        <h1 class="error-title">{{ error_title }}</h1>
+        <p class="error-message">{{ error_message }}</p>
+        
+        {% if suggestions %}
+        <div class="suggestions-list">
+            <h4>💡 Suggestions d'actions :</h4>
+            <ul>
+                {% for suggestion in suggestions %}
+                <li>{{ suggestion }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <div class="permissions-info">
+            <h5>🔐 Information sur les permissions</h5>
+            <p>
+                Cette page nécessite des permissions spéciales que votre compte n'a pas actuellement. 
+                Si vous pensez avoir besoin d'accéder à cette ressource, contactez votre administrateur 
+                système pour obtenir les autorisations appropriées.
+            </p>
+        </div>
+        
+        <div class="error-actions">
+            {% if show_home_link %}
+            <a href="{{ dashboard_url|default:'/' }}" class="btn btn-primary">
+                🏠 Mon tableau de bord
+            </a>
+            {% endif %}
+            
+            {% if show_login_link %}
+            <a href="/admin/login/" class="btn btn-warning">
+                🔐 Se connecter
+            </a>
+            {% endif %}
+            
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                ⬅️ Page précédente
+            </a>
+        </div>
+        
+        {% if support_email %}
+        <div class="contact-info">
+            <h5>📞 Contacter l'administrateur</h5>
+            <p>
+                <strong>Email :</strong> 
+                <a href="mailto:{{ support_email }}?subject=Demande d'accès - Erreur 403&body=Bonjour,%0A%0AJe rencontre un problème d'accès (Erreur 403) sur la page : {{ request.build_absolute_uri }}%0A%0AMerci de m'aider.%0A%0ACordialement">
+                    {{ support_email }}
+                </a>
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
