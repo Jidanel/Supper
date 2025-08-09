@@ -4,6 +4,7 @@
 # ===================================================================
 
 from django import forms
+from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm, PasswordChangeForm as DjangoPasswordChangeForm
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -12,7 +13,7 @@ from .models import UtilisateurSUPPER, Poste
 import re
 
 
-class CustomLoginForm(AuthenticationForm):
+class CustomLoginForm(LoginView):
     """
     Formulaire de connexion personnalisé pour SUPPER
     CORRIGÉ : Hérite d'AuthenticationForm pour compatibilité avec LoginView

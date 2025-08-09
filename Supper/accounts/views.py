@@ -24,10 +24,7 @@ from django.contrib.auth.forms import AuthenticationForm
 
 # Import des modèles SUPPER
 from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur
-from .forms import (
-    CustomLoginForm, PasswordChangeForm, UserCreateForm, 
-    UserUpdateForm, BulkUserCreateForm, PasswordResetForm
-)
+from .forms import *
 
 # Import des utilitaires communs avec journalisation
 from common.utils import log_user_action  # Suppression de admin_required problématique
@@ -40,7 +37,7 @@ class CustomLoginView(BilingualMixin, LoginView):
     Support bilingue et redirection intelligente selon le rôle utilisateur
     """
     
-    template_name = 'accounts/login.html'  # Template de connexion personnalisé
+    template_name = 'registration/login.html'  # Template de connexion personnalisé
    # form_class = CustomLoginForm  # Formulaire personnalisé avec matricule
     redirect_authenticated_user = True  # Rediriger si déjà connecté
     

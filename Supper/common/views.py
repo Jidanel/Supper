@@ -92,7 +92,7 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
                 )
                 
                 # Redirection vers l'admin Django
-                return redirect('/admin/')
+                return redirect('/django-admin/')
             else:
                 messages.error(
                     request,

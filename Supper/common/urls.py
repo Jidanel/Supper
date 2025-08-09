@@ -12,7 +12,7 @@ app_name = 'common'
 def accueil_intelligent(request):
     """Redirection intelligente selon l'état de connexion"""
     if not request.user.is_authenticated:
-        return redirect('/admin/login/')
+        return redirect('/accounts/login/')
     
     # Utilisateur connecté → Dashboard admin pour tous (temporaire)
     return redirect('/admin/')

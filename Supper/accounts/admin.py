@@ -39,14 +39,14 @@ class SupperAdminSite(AdminSite):
         
         # Vérifier authentification
         if not request.user.is_authenticated:
-            return redirect('admin:login')
+            return redirect('/accounts/login/')
         
         # Vérifier permissions admin
         if not (request.user.is_superuser or 
                 hasattr(request.user, 'habilitation') and
                 request.user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']):
             messages.error(request, 'Accès non autorisé au panel d\'administration.')
-            return redirect('admin:login')
+            return redirect('/accounts/login/')
         
         # Calculer les vraies statistiques
         stats = self._get_dashboard_stats()

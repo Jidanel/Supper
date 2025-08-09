@@ -92,7 +92,7 @@ class HomeView(View):
         else:
             # Utilisateur non connecté : rediriger vers la page de connexion admin
             logger.info("REDIRECTION LOGIN - Utilisateur non connecté")
-            return redirect('/admin/login/')
+            return redirect('accounts/login')
 
 
 class StatusView(View):
@@ -282,7 +282,7 @@ class Error403View(TemplateView):
             # Tous les utilisateurs connectés vont vers /admin/ pour le moment
             return '/admin/'
         else:
-            return '/admin/login/'
+            return '/accounts/admin/'
 
 
 class Error404View(TemplateView):
