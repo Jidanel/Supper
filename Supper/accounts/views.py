@@ -34,14 +34,14 @@ from common.utils import log_user_action  # Suppression de admin_required probl�
 from common.mixins import AuditMixin, AdminRequiredMixin, BilingualMixin
 
 
-class CustomLoginView(BilingualMixin, LoginView, AuthenticationForm):
+class CustomLoginView(BilingualMixin, LoginView):
     """
     Vue de connexion personnalisée avec journalisation automatique
     Support bilingue et redirection intelligente selon le rôle utilisateur
     """
     
     template_name = 'accounts/login.html'  # Template de connexion personnalisé
-    form_class = CustomLoginForm  # Formulaire personnalisé avec matricule
+   # form_class = CustomLoginForm  # Formulaire personnalisé avec matricule
     redirect_authenticated_user = True  # Rediriger si déjà connecté
     
     def form_valid(self, form):
@@ -68,16 +68,16 @@ class CustomLoginView(BilingualMixin, LoginView, AuthenticationForm):
         # Redirection intelligente selon le rôle de l'utilisateur
         if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']:
             # Administrateurs → Dashboard admin avec toutes les fonctionnalités
-            return redirect('common:dashboard_admin')
+            return redirect('common:admin_dashboard')  # CORRECTION: était dashboard_admin
         elif user.habilitation in ['chef_peage', 'chef_pesage']:
             # Chefs de poste → Dashboard spécialisé gestion de poste
-            return redirect('common:dashboard_chef')
+            return redirect('common:chef_dashboard')   # CORRECTION: était dashboard_chef
         elif user.habilitation == 'agent_inventaire':
             # Agents inventaire → Interface simplifiée de saisie
-            return redirect('common:dashboard_agent')
+            return redirect('common:agent_dashboard')  # CORRECTION: était dashboard_agent
         else:
             # Autres rôles → Dashboard général avec permissions limitées
-            return redirect('common:dashboard_general')
+            return redirect('common:dashboard_general') 
     
     def form_invalid(self, form):
         """

@@ -5,6 +5,9 @@
 
 from django.urls import path
 from . import views
+from django.contrib.auth import views as auth_views
+from .forms import CustomLoginForm
+
 
 app_name = 'accounts'
 
@@ -12,9 +15,22 @@ urlpatterns = [
     # ================================================================
     # AUTHENTIFICATION - Vues existantes vérifiées
     # ================================================================
-    path('login/', views.CustomLoginView.as_view(), name='login'),
-    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
-    path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
+     path('login/', auth_views.LoginView.as_view(
+        template_name='registration/login.html',  # Template Django par défaut
+        redirect_authenticated_user=True,
+        extra_context={'title': 'Connexion'}
+    ), name='login'),
+    
+    # Vue de déconnexion Django standard
+    path('logout/', auth_views.LogoutView.as_view(
+        next_page='/accounts/login/',
+        extra_context={'title': 'Déconnexion'}
+    ), name='logout'),
+    path('password/change/', auth_views.PasswordChangeView.as_view(
+        template_name='accounts/password_change.html',
+        success_url='/accounts/profile/',
+        extra_context={'title': 'Changer le mot de passe'}
+    ), name='password_change'),
     
     # ================================================================
     # GESTION DU PROFIL - Vues existantes vérifiées
@@ -67,3 +83,5 @@ urlpatterns = [
     # path('notifications/<int:pk>/mark-read/', views.MarkNotificationReadView.as_view(), name='mark_notification_read'),
     # path('notifications/mark-all-read/', views.MarkAllNotificationsReadView.as_view(), name='mark_all_notifications_read'),
 ]
+
+

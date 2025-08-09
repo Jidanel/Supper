@@ -4,7 +4,7 @@
 # Inclut toutes les corrections selon les clarifications
 # ===================================================================
 
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
@@ -189,6 +189,39 @@ class Poste(models.Model):
 # MODÈLE UTILISATEUR SUPPER - VERSION COMPLÈTE
 # ===================================================================
 
+class UtilisateurSupperManager(BaseUserManager):
+    """Manager personnalisé pour UtilisateurSUPPER"""
+    
+    def create_user(self, username, password=None, **extra_fields):
+        """Créer un utilisateur normal"""
+        if not username:
+            raise ValueError('Le matricule est obligatoire')
+        
+        # Nettoyer le username (matricule)
+        username = username.upper().strip()
+        
+        user = self.model(username=username, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+    
+    def create_superuser(self, username, password=None, **extra_fields):
+        """Créer un superutilisateur"""
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+        
+        # Valeurs par défaut pour les champs obligatoires
+        extra_fields.setdefault('nom_complet', f'Admin {username}')
+        extra_fields.setdefault('telephone', '+237600000000')
+        extra_fields.setdefault('habilitation', 'admin_principal')
+        
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+        
+        return self.create_user(username, password, **extra_fields)
 class UtilisateurSUPPER(AbstractUser):
     """
     Utilisateur personnalisé pour le système SUPPER
@@ -196,6 +229,7 @@ class UtilisateurSUPPER(AbstractUser):
     """
     
     # Redéfinir les champs de base
+    objects = UtilisateurSupperManager()
     username = models.CharField(
         max_length=20,
         unique=True,

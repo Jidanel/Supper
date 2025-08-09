@@ -180,9 +180,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 AUTH_USER_MODEL = 'accounts.UtilisateurSUPPER'
 
 # URLs de redirection après connexion/déconnexion
-LOGIN_URL = 'accounts/login/'  # Redirection vers le panel admin
+LOGIN_URL = '/accounts/login/'  # Redirection vers le panel admin
 LOGIN_REDIRECT_URL = '/admin/'
-LOGOUT_REDIRECT_URL = 'accounts/login/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # ===================================================================
 # CONFIGURATION DES SESSIONS
@@ -410,3 +410,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Utilisation du site admin personnalisé
 ADMIN_SITE_CLASS = 'accounts.admin.SupperAdminSite'
+
+# ===================================================================
+# CORRECTION 3: Settings.py - Vérifier la configuration CSRF
+# ===================================================================
+
+# À ajouter dans settings.py si pas déjà présent :
+
+# Protection CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://localhost:8000',
+    'https://127.0.0.1:8000',
+]
+
+# Configuration des cookies
+CSRF_COOKIE_SECURE = not DEBUG  # False en développement
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'

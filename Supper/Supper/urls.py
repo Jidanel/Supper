@@ -1,6 +1,5 @@
 # ===================================================================
-# Supper/urls.py - Configuration corrigée sans importation circulaire
-# PROBLÈME RÉSOLU : Suppression de l'importation de views qui causait l'erreur
+# CORRECTION 1: Supper/urls.py - Supprimer les conflits d'URLs de login
 # ===================================================================
 
 from django.contrib import admin
@@ -9,7 +8,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from django.shortcuts import redirect
-from accounts import views
 
 # Configuration des pages d'erreur personnalisées
 handler404 = 'Supper.views.handler404'
@@ -31,7 +29,7 @@ except ImportError:
 def accueil_intelligent(request):
     """Redirection intelligente selon l'état de connexion"""
     if not request.user.is_authenticated:
-        return redirect('/admin/login/')
+        return redirect('/accounts/login/')  # CORRECTION: Rediriger vers accounts/login/
     
     # Utilisateur connecté → Dashboard admin pour tous (temporaire)
     return redirect('/admin/')
@@ -62,9 +60,11 @@ urlpatterns = [
     # PAGE D'ACCUEIL AVEC REDIRECTION INTELLIGENTE
     # ================================================================
     path('', accueil_intelligent, name='accueil'),
-    path('login/', views.CustomLoginView.as_view(), name='login'),
-    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
-    path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
+    
+    # SUPPRIMÉ: Les URLs de login en double qui causaient le conflit CSRF
+    # path('login/', views.CustomLoginView.as_view(), name='login'),
+    # path('logout/', views.CustomLogoutView.as_view(), name='logout'),
+    # path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
     
     # ================================================================
     # ADMINISTRATION
@@ -86,8 +86,6 @@ urlpatterns = [
     # Redirection dashboard vers accueil (routage intelligent)
     path('dashboard/', accueil_intelligent, name='dashboard'),
     path('tableau-de-bord/', accueil_intelligent, name='tableau_de_bord'),
-    
-  
     
     # ================================================================
     # APPLICATIONS SUPPER - HARMONISÉES
@@ -148,3 +146,4 @@ logger.info("  /accounts/ → Module accounts (harmonisé)")
 logger.info("  /inventaire/ → Module inventaire (placeholder)")
 logger.info("  /common/ → Module common (harmonisé)")
 logger.info("=" * 60)
+
