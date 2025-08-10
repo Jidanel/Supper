@@ -1,7 +1,8 @@
 # ===================================================================
-# Fichier : Supper/common/views.py (mise à jour)
+# Fichier : Supper/common/views.py - MISE À JOUR AVEC REDIRECTIONS ADMIN DJANGO
 # Vues avec gestion des permissions selon les clarifications
 # Agent : pas de recettes potentielles, Chef : seulement taux, Admin : tout
+# AJOUT: Redirections vers panel admin Django natif
 # ===================================================================
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -13,6 +14,7 @@ from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Count, Sum, Avg, Q, Min, Max
 from django.utils import timezone
+from django.urls import reverse
 from datetime import datetime, timedelta
 import json
 
@@ -23,13 +25,13 @@ import logging
 logger = logging.getLogger('supper')
 
 # ===================================================================
-# DASHBOARD ADMINISTRATEUR - ACCÈS COMPLET
+# DASHBOARD ADMINISTRATEUR - ACCÈS COMPLET AVEC REDIRECTIONS ADMIN
 # ===================================================================
 
 class DashboardAdminView(LoginRequiredMixin, TemplateView):
     """
-    Dashboard complet pour administrateurs
-    CORRIGÉ - Vérification des permissions admin + Redirection panel avancé
+    Dashboard complet pour administrateurs avec redirections vers admin Django
+    MISE À JOUR - Intégration complète avec le panel administrateur Django
     """
     template_name = 'common/dashboard_admin.html'
     
@@ -64,47 +66,99 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
     
     def get(self, request, *args, **kwargs):
         """
-        NOUVELLE MÉTHODE AJOUTÉE - Gestion des requêtes GET avec redirection admin si nécessaire
+        MISE À JOUR - Gestion des requêtes GET avec redirection admin si nécessaire
         """
         
-        # Si l'utilisateur clique sur "Panel Avancé", rediriger vers l'admin Django
-        if request.GET.get('action') == 'admin_panel':
-            # Vérifier que l'utilisateur a bien les droits admin (double vérification)
+        # NOUVEAU: Gestion des redirections vers admin Django
+        action = request.GET.get('action')
+        
+        if action:
             user = request.user
+            
+            # Vérifier que l'utilisateur a bien les droits admin (double vérification)
             has_admin_access = (
                 user.is_superuser or 
                 user.is_staff or 
                 user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']
             )
             
-            if has_admin_access:
-                # Log de l'action de redirection
-                logger.info(
-                    f"REDIRECTION PANEL DJANGO ADMIN - "
-                    f"Utilisateur: {user.username} | "
-                    f"Depuis: Dashboard Admin"
-                )
-                
-                # Ajouter un message de succès
+            if not has_admin_access:
+                messages.error(request, _("Accès non autorisé au panel d'administration."))
+                return redirect('common:dashboard_admin')
+            
+            # Journaliser l'action de redirection
+            self._log_admin_redirect(request, action)
+            
+            # Définir les redirections selon l'action
+            redirections = {
+                'admin_panel': '/django-admin/',
+                'manage_users': reverse('admin:accounts_utilisateursupper_changelist'),
+                'manage_postes': reverse('admin:accounts_poste_changelist'),
+                'manage_inventaires': '/django-admin/inventaire/inventairejournalier/',
+                'manage_recettes': '/django-admin/inventaire/recettejournaliere/',
+                'view_journal': reverse('admin:accounts_journalaudit_changelist'),
+                'add_user': reverse('admin:accounts_utilisateursupper_add'),
+                'add_poste': reverse('admin:accounts_poste_add'),
+                'export_data': '/django-admin/export/',
+                'system_config': '/django-admin/admin/',
+            }
+            
+            redirect_url = redirections.get(action)
+            
+            if redirect_url:
                 messages.success(
                     request,
-                    _("Redirection vers le panel d'administration Django.")
+                    _(f"Redirection vers {action.replace('_', ' ').title()}.")
                 )
-                
-                # Redirection vers l'admin Django
-                return redirect('/django-admin/')
+                return redirect(redirect_url)
             else:
-                messages.error(
+                messages.warning(
                     request,
-                    _("Accès non autorisé au panel d'administration avancé.")
+                    _(f"Action '{action}' non reconnue.")
                 )
-                return redirect('common:dashboard_admin')
         
         # Comportement normal du dashboard
         return super().get(request, *args, **kwargs)
     
+    def _log_admin_redirect(self, request, action):
+        """Journaliser les redirections vers l'admin Django"""
+        action_labels = {
+            'admin_panel': 'Panel administrateur Django',
+            'manage_users': 'Gestion utilisateurs',
+            'manage_postes': 'Gestion postes',
+            'manage_inventaires': 'Gestion inventaires',
+            'manage_recettes': 'Gestion recettes',
+            'view_journal': 'Journal d\'audit',
+            'add_user': 'Ajout utilisateur',
+            'add_poste': 'Ajout poste',
+            'export_data': 'Export données',
+            'system_config': 'Configuration système',
+        }
+        
+        action_label = action_labels.get(action, action)
+        
+        JournalAudit.objects.create(
+            utilisateur=request.user,
+            action=f"Redirection admin Django - {action_label}",
+            details=f"Redirection depuis dashboard SUPPER vers {action_label}",
+            adresse_ip=request.META.get('REMOTE_ADDR'),
+            url_acces=request.path,
+            methode_http=request.method,
+            succes=True
+        )
+        
+        logger.info(
+            f"REDIRECTION ADMIN DJANGO - "
+            f"Utilisateur: {request.user.username} | "
+            f"Action: {action_label} | "
+            f"Depuis: Dashboard Admin"
+        )
+    
     def get_context_data(self, **kwargs):
-        """Ajouter toutes les données nécessaires au dashboard admin - CONSERVER TEL QUEL"""
+        """
+        Ajouter toutes les données nécessaires au dashboard admin + URLs admin Django
+        MISE À JOUR avec nouvelles URLs de redirection
+        """
         context = super().get_context_data(**kwargs)
         
         user = self.request.user
@@ -123,18 +177,39 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
             
             # Statistiques postes
             total_postes = Poste.objects.count()
-            postes_peage = Poste.objects.filter(type='peage').count()
-            postes_pesage = Poste.objects.filter(type='pesage').count()
+            postes_peage = Poste.objects.filter(type_poste='peage').count()
+            postes_pesage = Poste.objects.filter(type_poste='pesage').count()
             
             # Statistiques récentes (7 derniers jours)
             depuis_7_jours = timezone.now() - timedelta(days=7)
             inventaires_recents = InventaireJournalier.objects.filter(
-                date_inventaire__gte=depuis_7_jours
+                date__gte=depuis_7_jours
             ).count()
             
             recettes_recentes = RecetteJournaliere.objects.filter(
-                date_recette__gte=depuis_7_jours
+                date__gte=depuis_7_jours
             ).count()
+            
+            # NOUVEAU: URLs pour le dashboard admin avec redirections
+            admin_urls = {
+                # URLs de redirection principales
+                'panel_advanced': f"{self.request.path}?action=admin_panel",
+                'manage_users': f"{self.request.path}?action=manage_users",
+                'manage_postes': f"{self.request.path}?action=manage_postes",
+                'manage_inventaires': f"{self.request.path}?action=manage_inventaires",
+                'manage_recettes': f"{self.request.path}?action=manage_recettes",
+                'view_journal': f"{self.request.path}?action=view_journal",
+                'add_user': f"{self.request.path}?action=add_user",
+                'add_poste': f"{self.request.path}?action=add_poste",
+                'export_data': f"{self.request.path}?action=export_data",
+                'system_config': f"{self.request.path}?action=system_config",
+                
+                # URLs directes pour l'admin Django (backup)
+                'direct_admin': '/django-admin/',
+                'direct_users': reverse('admin:accounts_utilisateursupper_changelist'),
+                'direct_postes': reverse('admin:accounts_poste_changelist'),
+                'direct_journal': reverse('admin:accounts_journalaudit_changelist'),
+            }
             
             context.update({
                 'stats_generales': {
@@ -148,18 +223,173 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
                 },
                 'can_manage_users': True,  # Tous les admins peuvent gérer les utilisateurs
                 'can_view_all_data': True,  # Tous les admins voient toutes les données
-                'user_dashboard_title': 'Administration SUPPER - Dashboard Principal'
+                'user_dashboard_title': 'Administration SUPPER - Dashboard Principal',
+                # NOUVEAU: URLs pour redirection vers admin Django
+                'admin_urls': admin_urls,
+                # NOUVEAU: Indicateurs de permissions
+                'user_permissions': {
+                    'is_superuser': user.is_superuser,
+                    'is_staff': user.is_staff,
+                    'habilitation': user.habilitation,
+                    'can_access_django_admin': True,  # Tous les utilisateurs de ce dashboard peuvent accéder à l'admin
+                }
             })
             
         except Exception as e:
             logger.error(f"Erreur chargement données dashboard admin: {str(e)}")
             messages.error(self.request, _("Erreur lors du chargement des données."))
             context['stats_generales'] = {}
+            context['admin_urls'] = {}
         
         return context
 
 # ===================================================================
-# DASHBOARD CHEF DE POSTE - TAUX SEULEMENT
+# NOUVELLES VUES DE REDIRECTION DIRECTE VERS ADMIN DJANGO
+# ===================================================================
+
+@login_required
+def redirect_to_django_admin(request):
+    """
+    Vue de redirection générale vers l'admin Django
+    Vérification des permissions et journalisation
+    """
+    user = request.user
+    
+    # Vérifier permissions admin
+    has_admin_access = (
+        user.is_superuser or 
+        user.is_staff or 
+        user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']
+    )
+    
+    if not has_admin_access:
+        messages.error(request, _("Accès non autorisé au panel d'administration Django."))
+        logger.warning(f"ACCÈS REFUSÉ ADMIN DJANGO - {user.username}")
+        return redirect('common:dashboard_general')
+    
+    # Journaliser l'accès
+    JournalAudit.objects.create(
+        utilisateur=user,
+        action="Accès admin Django direct",
+        details="Accès direct au panel d'administration Django",
+        adresse_ip=request.META.get('REMOTE_ADDR'),
+        url_acces=request.path,
+        methode_http=request.method,
+        succes=True
+    )
+    
+    logger.info(f"ACCÈS ADMIN DJANGO DIRECT - {user.username}")
+    
+    messages.success(request, _("Accès autorisé au panel d'administration Django."))
+    return redirect('/django-admin/')
+
+
+@login_required
+def redirect_to_users_admin(request):
+    """Redirection vers la gestion des utilisateurs dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard_general')
+    
+    _log_admin_access(request, "Gestion utilisateurs")
+    return redirect(reverse('admin:accounts_utilisateursupper_changelist'))
+
+
+@login_required
+def redirect_to_postes_admin(request):
+    """Redirection vers la gestion des postes dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard_general')
+    
+    _log_admin_access(request, "Gestion postes")
+    return redirect(reverse('admin:accounts_poste_changelist'))
+
+
+@login_required
+def redirect_to_inventaires_admin(request):
+    """Redirection vers la gestion des inventaires dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard_general')
+    
+    _log_admin_access(request, "Gestion inventaires")
+    return redirect('/django-admin/inventaire/inventairejournalier/')
+
+
+@login_required
+def redirect_to_recettes_admin(request):
+    """Redirection vers la gestion des recettes dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard_general')
+    
+    _log_admin_access(request, "Gestion recettes")
+    return redirect('/django-admin/inventaire/recettejournaliere/')
+
+
+@login_required
+def redirect_to_journal_admin(request):
+    """Redirection vers le journal d'audit dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard_general')
+    
+    _log_admin_access(request, "Journal audit")
+    return redirect(reverse('admin:accounts_journalaudit_changelist'))
+
+
+@login_required
+def redirect_to_add_user_admin(request):
+    """Redirection vers l'ajout d'utilisateur dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard_general')
+    
+    _log_admin_access(request, "Ajout utilisateur")
+    return redirect(reverse('admin:accounts_utilisateursupper_add'))
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES POUR LES REDIRECTIONS
+# ===================================================================
+
+def _check_admin_permission(user):
+    """Vérifier les permissions administrateur"""
+    return (user.is_superuser or 
+            user.is_staff or 
+            user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'])
+
+
+def _log_admin_access(request, action):
+    """Journaliser l'accès aux sections admin"""
+    JournalAudit.objects.create(
+        utilisateur=request.user,
+        action=f"Accès admin Django - {action}",
+        details=f"Redirection depuis SUPPER vers {action}",
+        adresse_ip=request.META.get('REMOTE_ADDR'),
+        url_acces=request.path,
+        methode_http=request.method,
+        succes=True
+    )
+    
+    logger.info(f"REDIRECTION ADMIN DJANGO - {request.user.username} -> {action}")
+
+
+# ===================================================================
+# DASHBOARD CHEF DE POSTE - TAUX SEULEMENT (TEMPORAIREMENT DÉSACTIVÉ)
 # ===================================================================
 
 class DashboardChefView(LoginRequiredMixin, TemplateView):
@@ -175,6 +405,7 @@ class DashboardChefView(LoginRequiredMixin, TemplateView):
         )
         return redirect('common:dashboard_general')
 
+
 class DashboardAgentView(LoginRequiredMixin, TemplateView):
     """Dashboard agent inventaire - TEMPORAIREMENT DÉSACTIVÉ"""
     template_name = 'common/dashboard_agent.html'
@@ -186,6 +417,8 @@ class DashboardAgentView(LoginRequiredMixin, TemplateView):
             _("L'interface agent inventaire est en cours de développement. "
               "Vous êtes redirigé vers le dashboard général.")
         )
+        return redirect('common:dashboard_general')
+
 
 # ===================================================================
 # DASHBOARD GÉNÉRAL - POUR AUTRES RÔLES
@@ -201,17 +434,25 @@ class DashboardGeneralView(LoginRequiredMixin, TemplateView):
         
         user = self.request.user
         
+        # NOUVEAU: Lien vers admin Django si l'utilisateur a les permissions
+        has_admin_access = _check_admin_permission(user)
+        
         context.update({
             'user_dashboard_title': f'SUPPER - Espace {user.get_habilitation_display()}',
             'message_developpement': _(
                 "Cette interface est en cours de développement. "
                 "Les fonctionnalités spécialisées seront disponibles prochainement."
-            )
+            ),
+            # NOUVEAU: Accès admin si autorisé
+            'has_admin_access': has_admin_access,
+            'admin_url': '/admin/dashboard/?action=admin_panel' if has_admin_access else None,
         })
         
         return context
+
+
 # ===================================================================
-# API ENDPOINTS AVEC PERMISSIONS
+# API ENDPOINTS AVEC PERMISSIONS (CONSERVÉES)
 # ===================================================================
 
 @login_required
@@ -230,22 +471,27 @@ def api_stats_dashboard(request):
     # Stats selon le rôle
     if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'] or user.is_superuser:
         # Admin : toutes les stats
-        data['stats'] = {
-            'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
-            'recettes_today': RecetteJournaliere.objects.filter(date=today).count(),
-            'taux_moyen_today': RecetteJournaliere.objects.filter(
-                date=today
-            ).aggregate(Avg('taux_deperdition'))['taux_deperdition__avg'] or 0,
-            'postes_actifs': Poste.objects.filter(is_active=True).count(),
-        }
-        
-        # Admin peut voir alertes déperdition
-        data['alertes'] = {
-            'deperdition_critique': RecetteJournaliere.objects.filter(
-                date__gte=today - timedelta(days=7),
-                taux_deperdition__lt=-30
-            ).count()
-        }
+        try:
+            data['stats'] = {
+                'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
+                'recettes_today': RecetteJournaliere.objects.filter(date=today).count(),
+                'taux_moyen_today': RecetteJournaliere.objects.filter(
+                    date=today
+                ).aggregate(Avg('taux_deperdition'))['taux_deperdition__avg'] or 0,
+                'postes_actifs': Poste.objects.filter(actif=True).count(),
+            }
+            
+            # Admin peut voir alertes déperdition
+            data['alertes'] = {
+                'deperdition_critique': RecetteJournaliere.objects.filter(
+                    date__gte=today - timedelta(days=7),
+                    taux_deperdition__lt=-30
+                ).count()
+            }
+        except Exception as e:
+            logger.error(f"Erreur API stats admin: {str(e)}")
+            data['stats'] = {}
+            data['alertes'] = {}
     
     elif user.habilitation in ['chef_peage', 'chef_pesage']:
         # Chef : stats de son poste seulement, sans recettes potentielles
@@ -256,7 +502,7 @@ def api_stats_dashboard(request):
                     date=today
                 )
                 data['stats'] = {
-                    'recette_today': float(recette_today.montant),
+                    'recette_today': float(recette_today.montant_declare),
                     'taux_today': float(recette_today.taux_deperdition or 0),
                     # Pas de recette_potentielle
                 }
@@ -268,16 +514,20 @@ def api_stats_dashboard(request):
     
     elif user.habilitation == 'agent_inventaire':
         # Agent : seulement ses inventaires, pas de données financières
-        data['stats'] = {
-            'mes_inventaires_mois': InventaireJournalier.objects.filter(
-                agent=user,
-                date__gte=today.replace(day=1)
-            ).count(),
-            'inventaire_today_exists': InventaireJournalier.objects.filter(
-                agent_saisie=user,
-                date=today
-            ).exists(),
-        }
+        try:
+            data['stats'] = {
+                'mes_inventaires_mois': InventaireJournalier.objects.filter(
+                    agent_saisie=user,
+                    date__gte=today.replace(day=1)
+                ).count(),
+                'inventaire_today_exists': InventaireJournalier.objects.filter(
+                    agent_saisie=user,
+                    date=today
+                ).exists(),
+            }
+        except Exception as e:
+            logger.error(f"Erreur API stats agent: {str(e)}")
+            data['stats'] = {}
     
     else:
         # Autres rôles : stats limitées
@@ -309,59 +559,64 @@ def api_graphique_evolution(request):
     # Période : 7 derniers jours
     semaine = [today - timedelta(days=i) for i in range(6, -1, -1)]
     
-    if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']:
-        # Admin : vue globale
-        evolution_taux = []
-        evolution_recettes = []
-        
-        for jour in semaine:
-            stats_jour = RecetteJournaliere.objects.filter(date=jour).aggregate(
-                taux_moyen=Avg('taux_deperdition'),
-                recettes_total=Sum('montant')
-            )
-            evolution_taux.append(round(stats_jour['taux_moyen'] or 0, 1))
-            evolution_recettes.append(float(stats_jour['recettes_total'] or 0))
-        
-        data = {
-            'dates': [jour.strftime('%d/%m') for jour in semaine],
-            'taux_deperdition': evolution_taux,
-            'recettes': evolution_recettes,
-            'scope': 'global'
-        }
-    
-    elif user.habilitation in ['chef_peage', 'chef_pesage'] and user.poste_affectation:
-        # Chef : son poste seulement
-        evolution_taux = []
-        evolution_recettes = []
-        
-        for jour in semaine:
-            try:
-                recette = RecetteJournaliere.objects.get(
-                    poste=user.poste_affectation,
-                    date=jour
+    try:
+        if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']:
+            # Admin : vue globale
+            evolution_taux = []
+            evolution_recettes = []
+            
+            for jour in semaine:
+                stats_jour = RecetteJournaliere.objects.filter(date=jour).aggregate(
+                    taux_moyen=Avg('taux_deperdition'),
+                    recettes_total=Sum('montant_declare')
                 )
-                evolution_taux.append(round(recette.taux_deperdition or 0, 1))
-                evolution_recettes.append(float(recette.montant))
-            except RecetteJournaliere.DoesNotExist:
-                evolution_taux.append(None)
-                evolution_recettes.append(0)
+                evolution_taux.append(round(stats_jour['taux_moyen'] or 0, 1))
+                evolution_recettes.append(float(stats_jour['recettes_total'] or 0))
+            
+            data = {
+                'dates': [jour.strftime('%d/%m') for jour in semaine],
+                'taux_deperdition': evolution_taux,
+                'recettes': evolution_recettes,
+                'scope': 'global'
+            }
         
-        data = {
-            'dates': [jour.strftime('%d/%m') for jour in semaine],
-            'taux_deperdition': evolution_taux,
-            'recettes': evolution_recettes,
-            'scope': 'poste',
-            'poste': user.poste_affectation.nom
-        }
+        elif user.habilitation in ['chef_peage', 'chef_pesage'] and user.poste_affectation:
+            # Chef : son poste seulement
+            evolution_taux = []
+            evolution_recettes = []
+            
+            for jour in semaine:
+                try:
+                    recette = RecetteJournaliere.objects.get(
+                        poste=user.poste_affectation,
+                        date=jour
+                    )
+                    evolution_taux.append(round(recette.taux_deperdition or 0, 1))
+                    evolution_recettes.append(float(recette.montant_declare))
+                except RecetteJournaliere.DoesNotExist:
+                    evolution_taux.append(None)
+                    evolution_recettes.append(0)
+            
+            data = {
+                'dates': [jour.strftime('%d/%m') for jour in semaine],
+                'taux_deperdition': evolution_taux,
+                'recettes': evolution_recettes,
+                'scope': 'poste',
+                'poste': user.poste_affectation.nom
+            }
+        
+        else:
+            return JsonResponse({'error': 'Données non disponibles'}, status=404)
     
-    else:
-        return JsonResponse({'error': 'Données non disponibles'}, status=404)
+    except Exception as e:
+        logger.error(f"Erreur API graphique évolution: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
     
     return JsonResponse(data)
 
 
 # ===================================================================
-# ACTIONS RAPIDES POUR ADMINISTRATEURS
+# ACTIONS RAPIDES POUR ADMINISTRATEURS (CONSERVÉES)
 # ===================================================================
 
 @login_required
@@ -370,7 +625,7 @@ def ouvrir_jour_saisie(request):
     Action rapide pour ouvrir un jour pour saisie
     Réservée aux administrateurs
     """
-    if request.user.habilitation not in ['admin_principal', 'coord_psrr', 'serv_info']:
+    if not _check_admin_permission(request.user):
         messages.error(request, _("Action non autorisée."))
         return redirect('common:dashboard_general')
     
@@ -383,9 +638,9 @@ def ouvrir_jour_saisie(request):
                 config_jour, created = ConfigurationJour.objects.get_or_create(
                     date=date_obj,
                     defaults={
-                        'status': "ouvert",
+                        'statut': "ouvert",
                         'cree_par': request.user,
-                        'description': f'Ouvert par {request.user.nom_complet}'
+                        'commentaire': f'Ouvert par {request.user.nom_complet}'
                     }
                 )
                 
@@ -411,9 +666,9 @@ def ouvrir_jour_saisie(request):
             config_jour, created = ConfigurationJour.objects.get_or_create(
                 date=today,
                 defaults={
-                    'status': "ouvert",
+                    'statut': "ouvert",
                     'cree_par': request.user,
-                    'description': f'Ouvert par {request.user.nom_complet}'
+                    'commentaire': f'Ouvert par {request.user.nom_complet}'
                 }
             )
             
@@ -432,9 +687,7 @@ def generer_rapport_hebdomadaire(request):
     Génération de rapport hebdomadaire
     Réservée aux administrateurs et service émission
     """
-    if request.user.habilitation not in [
-        'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'
-    ] or request.user.is_staff or request.user.is_superuser:
+    if not _check_admin_permission(request.user):
         messages.error(request, _("Action non autorisée."))
         return redirect('common:dashboard_general')
     
@@ -444,22 +697,10 @@ def generer_rapport_hebdomadaire(request):
     messages.info(request, _("Génération de rapport en cours..."))
     return redirect('common:dashboard_admin')
 
+
 # ===================================================================
-# Fichier : Supper/common/views.py (ajout)
-# Vues pour graphiques statistiques administrateurs
-# Graphiques hebdomadaires/mensuels avec classements
+# API GRAPHIQUES ADMINISTRATEURS (CONSERVÉES INTÉGRALEMENT)
 # ===================================================================
-
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.db.models import Avg, Sum, Count, Q
-from datetime import datetime, timedelta
-import json
-
-from accounts.models import UtilisateurSUPPER, Poste
-from inventaire.models import RecetteJournaliere, InventaireJournalier
-
 
 @login_required
 def api_graphique_hebdomadaire(request):
@@ -468,7 +709,7 @@ def api_graphique_hebdomadaire(request):
     Accessible uniquement aux administrateurs
     """
     # Vérifier permissions admin
-    if request.user.habilitation not in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'] or request.user.is_staff or request.user.is_superuser:
+    if not _check_admin_permission(request.user):
         return JsonResponse({'error': 'Non autorisé'}, status=403)
     
     # Calculer la semaine (lundi à dimanche)
@@ -476,71 +717,76 @@ def api_graphique_hebdomadaire(request):
     debut_semaine = today - timedelta(days=today.weekday())  # Lundi
     fin_semaine = debut_semaine + timedelta(days=6)  # Dimanche
     
-    # Données par jour de la semaine
-    jours_semaine = []
-    taux_moyens = []
-    recettes_totales = []
-    postes_actifs = []
-    
-    for i in range(7):
-        jour = debut_semaine + timedelta(days=i)
+    try:
+        # Données par jour de la semaine
+        jours_semaine = []
+        taux_moyens = []
+        recettes_totales = []
+        postes_actifs = []
         
-        # Statistiques du jour
-        stats_jour = RecetteJournaliere.objects.filter(date=jour).aggregate(
+        for i in range(7):
+            jour = debut_semaine + timedelta(days=i)
+            
+            # Statistiques du jour
+            stats_jour = RecetteJournaliere.objects.filter(date=jour).aggregate(
+                taux_moyen=Avg('taux_deperdition'),
+                recettes_total=Sum('montant_declare'),
+                nb_postes=Count('poste', distinct=True)
+            )
+            
+            jours_semaine.append(jour.strftime('%A %d/%m'))  # "Lundi 15/01"
+            taux_moyens.append(round(stats_jour['taux_moyen'] or 0, 1))
+            recettes_totales.append(float(stats_jour['recettes_total'] or 0))
+            postes_actifs.append(stats_jour['nb_postes'] or 0)
+        
+        # Classement des postes par taux de déperdition (semaine)
+        classement_postes = RecetteJournaliere.objects.filter(
+            date__gte=debut_semaine,
+            date__lte=fin_semaine
+        ).values(
+            'poste__nom',
+            'poste__region'
+        ).annotate(
             taux_moyen=Avg('taux_deperdition'),
-            recettes_total=Sum('montant'),
-            nb_postes=Count('poste', distinct=True)
-        )
+            recettes_total=Sum('montant_declare'),
+            nb_jours=Count('date', distinct=True)
+        ).order_by('taux_moyen')[:20]  # 20 meilleurs/pires postes
         
-        jours_semaine.append(jour.strftime('%A %d/%m'))  # "Lundi 15/01"
-        taux_moyens.append(round(stats_jour['taux_moyen'] or 0, 1))
-        recettes_totales.append(float(stats_jour['recettes_total'] or 0))
-        postes_actifs.append(stats_jour['nb_postes'] or 0)
-    
-    # Classement des postes par taux de déperdition (semaine)
-    classement_postes = RecetteJournaliere.objects.filter(
-        date__gte=debut_semaine,
-        date__lte=fin_semaine
-    ).values(
-        'poste__nom',
-        'poste__region'
-    ).annotate(
-        taux_moyen=Avg('taux_deperdition'),
-        recettes_total=Sum('montant'),
-        nb_jours=Count('date', distinct=True)
-    ).order_by('taux_moyen')[:20]  # 20 meilleurs/pires postes
-    
-    data = {
-        'periode': f"Semaine du {debut_semaine.strftime('%d/%m/%Y')} au {fin_semaine.strftime('%d/%m/%Y')}",
-        'graphique_journalier': {
-            'jours': jours_semaine,
-            'taux_moyens': taux_moyens,
-            'recettes_totales': recettes_totales,
-            'postes_actifs': postes_actifs
-        },
-        'classement_postes': [
-            {
-                'rang': idx + 1,
-                'poste': item['poste__nom'],
-                'region': item['poste__region'],
-                'taux_moyen': round(item['taux_moyen'] or 0, 1),
-                'recettes_total': float(item['recettes_total'] or 0),
-                'nb_jours_actifs': item['nb_jours'],
-                'performance': 'Excellent' if (item['taux_moyen'] or 0) >= -5 
-                              else 'Bon' if (item['taux_moyen'] or 0) >= -15
-                              else 'Moyen' if (item['taux_moyen'] or 0) >= -25
-                              else 'Critique'
+        data = {
+            'periode': f"Semaine du {debut_semaine.strftime('%d/%m/%Y')} au {fin_semaine.strftime('%d/%m/%Y')}",
+            'graphique_journalier': {
+                'jours': jours_semaine,
+                'taux_moyens': taux_moyens,
+                'recettes_totales': recettes_totales,
+                'postes_actifs': postes_actifs
+            },
+            'classement_postes': [
+                {
+                    'rang': idx + 1,
+                    'poste': item['poste__nom'],
+                    'region': item['poste__region'],
+                    'taux_moyen': round(item['taux_moyen'] or 0, 1),
+                    'recettes_total': float(item['recettes_total'] or 0),
+                    'nb_jours_actifs': item['nb_jours'],
+                    'performance': 'Excellent' if (item['taux_moyen'] or 0) >= -5 
+                                  else 'Bon' if (item['taux_moyen'] or 0) >= -15
+                                  else 'Moyen' if (item['taux_moyen'] or 0) >= -25
+                                  else 'Critique'
+                }
+                for idx, item in enumerate(classement_postes)
+            ],
+            'resume_semaine': {
+                'taux_global': round(sum(taux_moyens) / len([t for t in taux_moyens if t != 0]) if any(taux_moyens) else 0, 1),
+                'recettes_totales': sum(recettes_totales),
+                'postes_actifs_total': len(set(item['poste__nom'] for item in classement_postes)),
+                'meilleur_jour': jours_semaine[taux_moyens.index(max(taux_moyens))] if taux_moyens else None,
+                'pire_jour': jours_semaine[taux_moyens.index(min(taux_moyens))] if taux_moyens else None
             }
-            for idx, item in enumerate(classement_postes)
-        ],
-        'resume_semaine': {
-            'taux_global': round(sum(taux_moyens) / len([t for t in taux_moyens if t != 0]) if any(taux_moyens) else 0, 1),
-            'recettes_totales': sum(recettes_totales),
-            'postes_actifs_total': len(set(item['poste__nom'] for item in classement_postes)),
-            'meilleur_jour': jours_semaine[taux_moyens.index(max(taux_moyens))] if taux_moyens else None,
-            'pire_jour': jours_semaine[taux_moyens.index(min(taux_moyens))] if taux_moyens else None
         }
-    }
+    
+    except Exception as e:
+        logger.error(f"Erreur API graphique hebdomadaire: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
     
     return JsonResponse(data)
 
@@ -552,7 +798,7 @@ def api_graphique_mensuel(request):
     Accessible uniquement aux administrateurs
     """
     # Vérifier permissions admin
-    if request.user.habilitation not in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'] or request.user.is_staff or request.user.is_superuser:
+    if not _check_admin_permission(request.user):
         return JsonResponse({'error': 'Non autorisé'}, status=403)
     
     # Mois courant
@@ -565,184 +811,187 @@ def api_graphique_mensuel(request):
     else:
         fin_mois = debut_mois.replace(month=debut_mois.month + 1) - timedelta(days=1)
     
-    # Données par semaine du mois
-    semaines = []
-    taux_semaines = []
-    recettes_semaines = []
-    
-    date_courante = debut_mois
-    semaine_num = 1
-    
-    while date_courante <= fin_mois:
-        # Calculer fin de semaine (dimanche ou fin du mois)
-        fin_semaine = date_courante + timedelta(days=6 - date_courante.weekday())
-        if fin_semaine > fin_mois:
-            fin_semaine = fin_mois
+    try:
+        # Données par semaine du mois
+        semaines = []
+        taux_semaines = []
+        recettes_semaines = []
         
-        # Statistiques de la semaine
-        stats_semaine = RecetteJournaliere.objects.filter(
-            date__gte=date_courante,
-            date__lte=fin_semaine
+        date_courante = debut_mois
+        semaine_num = 1
+        
+        while date_courante <= fin_mois:
+            # Calculer fin de semaine (dimanche ou fin du mois)
+            fin_semaine = date_courante + timedelta(days=6 - date_courante.weekday())
+            if fin_semaine > fin_mois:
+                fin_semaine = fin_mois
+            
+            # Statistiques de la semaine
+            stats_semaine = RecetteJournaliere.objects.filter(
+                date__gte=date_courante,
+                date__lte=fin_semaine
+            ).aggregate(
+                taux_moyen=Avg('taux_deperdition'),
+                recettes_total=Sum('montant_declare')
+            )
+            
+            semaines.append(f"S{semaine_num} ({date_courante.strftime('%d/%m')} - {fin_semaine.strftime('%d/%m')})")
+            taux_semaines.append(round(stats_semaine['taux_moyen'] or 0, 1))
+            recettes_semaines.append(float(stats_semaine['recettes_total'] or 0))
+            
+            # Passer à la semaine suivante (lundi)
+            date_courante = fin_semaine + timedelta(days=1)
+            if date_courante.weekday() != 0:  # Si pas lundi
+                date_courante += timedelta(days=7 - date_courante.weekday())
+            semaine_num += 1
+        
+        # Classement mensuel des postes avec évolution
+        classement_mensuel = RecetteJournaliere.objects.filter(
+            date__gte=debut_mois,
+            date__lte=fin_mois
+        ).values(
+            'poste__nom',
+            'poste__region',
+            'poste__type_poste'
+        ).annotate(
+            taux_moyen=Avg('taux_deperdition'),
+            recettes_total=Sum('montant_declare'),
+            nb_jours=Count('date', distinct=True),
+        ).order_by('taux_moyen')
+        
+        # Top 10 meilleurs et pires postes
+        meilleurs_postes = list(classement_mensuel.filter(taux_moyen__gte=-10)[:10])
+        pires_postes = list(classement_mensuel.filter(taux_moyen__lt=-30).order_by('taux_moyen')[:10])
+        
+        # Évolution hebdomadaire par région
+        evolution_regions = {}
+        regions = Poste.objects.values_list('region', flat=True).distinct()
+        
+        for region in regions:
+            if not region:
+                continue
+                
+            taux_region = []
+            for i, semaine in enumerate(semaines):
+                # Retrouver les dates de cette semaine
+                date_debut_sem = debut_mois + timedelta(weeks=i)
+                date_fin_sem = min(date_debut_sem + timedelta(days=6), fin_mois)
+                
+                taux_sem = RecetteJournaliere.objects.filter(
+                    date__gte=date_debut_sem,
+                    date__lte=date_fin_sem,
+                    poste__region=region
+                ).aggregate(Avg('taux_deperdition'))['taux_deperdition__avg']
+                
+                taux_region.append(round(taux_sem or 0, 1))
+            
+            evolution_regions[region] = taux_region
+        
+        # Statistiques comparatives avec mois précédent
+        mois_precedent_debut = (debut_mois - timedelta(days=1)).replace(day=1)
+        mois_precedent_fin = debut_mois - timedelta(days=1)
+        
+        stats_mois_precedent = RecetteJournaliere.objects.filter(
+            date__gte=mois_precedent_debut,
+            date__lte=mois_precedent_fin
         ).aggregate(
             taux_moyen=Avg('taux_deperdition'),
-            recettes_total=Sum('montant')
+            recettes_total=Sum('montant_declare')
         )
         
-        semaines.append(f"S{semaine_num} ({date_courante.strftime('%d/%m')} - {fin_semaine.strftime('%d/%m')})")
-        taux_semaines.append(round(stats_semaine['taux_moyen'] or 0, 1))
-        recettes_semaines.append(float(stats_semaine['recettes_total'] or 0))
+        stats_mois_actuel = RecetteJournaliere.objects.filter(
+            date__gte=debut_mois,
+            date__lte=today
+        ).aggregate(
+            taux_moyen=Avg('taux_deperdition'),
+            recettes_total=Sum('montant_declare')
+        )
         
-        # Passer à la semaine suivante (lundi)
-        date_courante = fin_semaine + timedelta(days=1)
-        if date_courante.weekday() != 0:  # Si pas lundi
-            date_courante += timedelta(days=7 - date_courante.weekday())
-        semaine_num += 1
-    
-    # Classement mensuel des postes avec évolution
-    classement_mensuel = RecetteJournaliere.objects.filter(
-        date__gte=debut_mois,
-        date__lte=fin_mois
-    ).values(
-        'poste__nom',
-        'poste__region',
-        'poste__type'
-    ).annotate(
-        taux_moyen=Avg('taux_deperdition'),
-        recettes_total=Sum('montant'),
-        nb_jours=Count('date', distinct=True),
-        nb_vehicules=Sum('inventaire__total_vehicules')
-    ).order_by('taux_moyen')
-    
-    # Top 10 meilleurs et pires postes
-    meilleurs_postes = list(classement_mensuel.filter(taux_moyen__gte=-10)[:10])
-    pires_postes = list(classement_mensuel.filter(taux_moyen__lt=-30).order_by('taux_moyen')[:10])
-    
-    # Évolution hebdomadaire par région
-    evolution_regions = {}
-    regions = Poste.objects.values_list('region', flat=True).distinct()
-    
-    for region in regions:
-        if not region:
-            continue
-            
-        taux_region = []
-        for i, semaine in enumerate(semaines):
-            # Retrouver les dates de cette semaine
-            date_debut_sem = debut_mois + timedelta(weeks=i)
-            date_fin_sem = min(date_debut_sem + timedelta(days=6), fin_mois)
-            
-            taux_sem = RecetteJournaliere.objects.filter(
-                date__gte=date_debut_sem,
-                date__lte=date_fin_sem,
-                poste__region=region
-            ).aggregate(Avg('taux_deperdition'))['taux_deperdition__avg']
-            
-            taux_region.append(round(taux_sem or 0, 1))
+        # Calcul évolution
+        evolution_taux = 0
+        evolution_recettes = 0
         
-        evolution_regions[region] = taux_region
-    
-    # Statistiques comparatives avec mois précédent
-    mois_precedent_debut = (debut_mois - timedelta(days=1)).replace(day=1)
-    mois_precedent_fin = debut_mois - timedelta(days=1)
-    
-    stats_mois_precedent = RecetteJournaliere.objects.filter(
-        date__gte=mois_precedent_debut,
-        date__lte=mois_precedent_fin
-    ).aggregate(
-        taux_moyen=Avg('taux_deperdition'),
-        recettes_total=Sum('montant')
-    )
-    
-    stats_mois_actuel = RecetteJournaliere.objects.filter(
-        date__gte=debut_mois,
-        date__lte=today
-    ).aggregate(
-        taux_moyen=Avg('taux_deperdition'),
-        recettes_total=Sum('montant')
-    )
-    
-    # Calcul évolution
-    evolution_taux = 0
-    evolution_recettes = 0
-    
-    if stats_mois_precedent['taux_moyen'] and stats_mois_actuel['taux_moyen']:
-        evolution_taux = stats_mois_actuel['taux_moyen'] - stats_mois_precedent['taux_moyen']
-    
-    if stats_mois_precedent['recettes_total'] and stats_mois_actuel['recettes_total']:
-        evolution_recettes = ((stats_mois_actuel['recettes_total'] - stats_mois_precedent['recettes_total']) / stats_mois_precedent['recettes_total']) * 100
-    
-    data = {
-        'periode': f"Mois de {debut_mois.strftime('%B %Y')}",
-        'graphique_hebdomadaire': {
-            'semaines': semaines,
-            'taux_moyens': taux_semaines,
-            'recettes_totales': recettes_semaines
-        },
-        'evolution_regions': evolution_regions,
-        'classement_complet': [
-            {
-                'rang': idx + 1,
-                'poste': item['poste__nom'],
-                'region': item['poste__region'],
-                'type': item['poste__type'],
-                'taux_moyen': round(item['taux_moyen'] or 0, 1),
-                'recettes_total': float(item['recettes_total'] or 0),
-                'nb_jours_actifs': item['nb_jours'],
-                'total_vehicules': item['nb_vehicules'] or 0,
-                'performance_color': (
-                    '#28a745' if (item['taux_moyen'] or 0) >= -10 else
-                    '#ffc107' if (item['taux_moyen'] or 0) >= -25 else
-                    '#dc3545'
-                )
-            }
-            for idx, item in enumerate(classement_mensuel)
-        ],
-        'top_performers': {
-            'meilleurs': [
+        if stats_mois_precedent['taux_moyen'] and stats_mois_actuel['taux_moyen']:
+            evolution_taux = stats_mois_actuel['taux_moyen'] - stats_mois_precedent['taux_moyen']
+        
+        if stats_mois_precedent['recettes_total'] and stats_mois_actuel['recettes_total']:
+            evolution_recettes = ((stats_mois_actuel['recettes_total'] - stats_mois_precedent['recettes_total']) / stats_mois_precedent['recettes_total']) * 100
+        
+        data = {
+            'periode': f"Mois de {debut_mois.strftime('%B %Y')}",
+            'graphique_hebdomadaire': {
+                'semaines': semaines,
+                'taux_moyens': taux_semaines,
+                'recettes_totales': recettes_semaines
+            },
+            'evolution_regions': evolution_regions,
+            'classement_complet': [
                 {
                     'rang': idx + 1,
                     'poste': item['poste__nom'],
                     'region': item['poste__region'],
-                    'taux': round(item['taux_moyen'], 1),
-                    'recettes': float(item['recettes_total'])
+                    'type': item['poste__type_poste'],
+                    'taux_moyen': round(item['taux_moyen'] or 0, 1),
+                    'recettes_total': float(item['recettes_total'] or 0),
+                    'nb_jours_actifs': item['nb_jours'],
+                    'performance_color': (
+                        '#28a745' if (item['taux_moyen'] or 0) >= -10 else
+                        '#ffc107' if (item['taux_moyen'] or 0) >= -25 else
+                        '#dc3545'
+                    )
                 }
-                for idx, item in enumerate(meilleurs_postes)
+                for idx, item in enumerate(classement_mensuel)
             ],
-            'a_ameliorer': [
-                {
-                    'rang': idx + 1,
-                    'poste': item['poste__nom'],
-                    'region': item['poste__region'],
-                    'taux': round(item['taux_moyen'], 1),
-                    'recettes': float(item['recettes_total'])
+            'top_performers': {
+                'meilleurs': [
+                    {
+                        'rang': idx + 1,
+                        'poste': item['poste__nom'],
+                        'region': item['poste__region'],
+                        'taux': round(item['taux_moyen'], 1),
+                        'recettes': float(item['recettes_total'])
+                    }
+                    for idx, item in enumerate(meilleurs_postes)
+                ],
+                'a_ameliorer': [
+                    {
+                        'rang': idx + 1,
+                        'poste': item['poste__nom'],
+                        'region': item['poste__region'],
+                        'taux': round(item['taux_moyen'], 1),
+                        'recettes': float(item['recettes_total'])
+                    }
+                    for idx, item in enumerate(pires_postes)
+                ]
+            },
+            'comparaison_mensuelle': {
+                'mois_actuel': {
+                    'taux_moyen': round(stats_mois_actuel['taux_moyen'] or 0, 1),
+                    'recettes_total': float(stats_mois_actuel['recettes_total'] or 0)
+                },
+                'mois_precedent': {
+                    'taux_moyen': round(stats_mois_precedent['taux_moyen'] or 0, 1),
+                    'recettes_total': float(stats_mois_precedent['recettes_total'] or 0)
+                },
+                'evolution': {
+                    'taux': round(evolution_taux, 1),
+                    'recettes_pourcent': round(evolution_recettes, 1),
+                    'tendance_taux': 'amélioration' if evolution_taux > 0 else 'dégradation' if evolution_taux < 0 else 'stable',
+                    'tendance_recettes': 'hausse' if evolution_recettes > 0 else 'baisse' if evolution_recettes < 0 else 'stable'
                 }
-                for idx, item in enumerate(pires_postes)
-            ]
-        },
-        'comparaison_mensuelle': {
-            'mois_actuel': {
-                'taux_moyen': round(stats_mois_actuel['taux_moyen'] or 0, 1),
-                'recettes_total': float(stats_mois_actuel['recettes_total'] or 0)
             },
-            'mois_precedent': {
-                'taux_moyen': round(stats_mois_precedent['taux_moyen'] or 0, 1),
-                'recettes_total': float(stats_mois_precedent['recettes_total'] or 0)
-            },
-            'evolution': {
-                'taux': round(evolution_taux, 1),
-                'recettes_pourcent': round(evolution_recettes, 1),
-                'tendance_taux': 'amélioration' if evolution_taux > 0 else 'dégradation' if evolution_taux < 0 else 'stable',
-                'tendance_recettes': 'hausse' if evolution_recettes > 0 else 'baisse' if evolution_recettes < 0 else 'stable'
+            'resume_mensuel': {
+                'nb_postes_total': len(classement_mensuel),
+                'nb_postes_bons': len([p for p in classement_mensuel if (p['taux_moyen'] or 0) >= -10]),
+                'nb_postes_critiques': len([p for p in classement_mensuel if (p['taux_moyen'] or 0) < -30]),
+                'recettes_totales': sum(recettes_semaines),
+                'taux_global': round(sum(taux_semaines) / len([t for t in taux_semaines if t != 0]) if any(taux_semaines) else 0, 1)
             }
-        },
-        'resume_mensuel': {
-            'nb_postes_total': len(classement_mensuel),
-            'nb_postes_bons': len([p for p in classement_mensuel if (p['taux_moyen'] or 0) >= -10]),
-            'nb_postes_critiques': len([p for p in classement_mensuel if (p['taux_moyen'] or 0) < -30]),
-            'recettes_totales': sum(recettes_semaines),
-            'taux_global': round(sum(taux_semaines) / len([t for t in taux_semaines if t != 0]) if any(taux_semaines) else 0, 1)
         }
-    }
+    
+    except Exception as e:
+        logger.error(f"Erreur API graphique mensuel: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
     
     return JsonResponse(data)
 
@@ -754,7 +1003,7 @@ def api_statistiques_postes_ordonnes(request):
     Permet tri par différents critères
     """
     # Vérifier permissions admin
-    if request.user.habilitation not in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']:
+    if not _check_admin_permission(request.user):
         return JsonResponse({'error': 'Non autorisé'}, status=403)
     
     # Paramètres de filtrage
@@ -763,157 +1012,151 @@ def api_statistiques_postes_ordonnes(request):
     ordre = request.GET.get('ordre', 'asc')      # asc, desc
     region = request.GET.get('region', '')       # filtrage par région
     
-    # Définir la période
-    today = datetime.now().date()
-    
-    if periode == 'semaine':
-        debut_periode = today - timedelta(days=today.weekday())
-        fin_periode = debut_periode + timedelta(days=6)
-    elif periode == 'trimestre':
-        # Trimestre actuel
-        trimestre = ((today.month - 1) // 3) + 1
-        debut_periode = datetime(today.year, (trimestre - 1) * 3 + 1, 1).date()
-        if trimestre == 4:
-            fin_periode = datetime(today.year, 12, 31).date()
-        else:
-            fin_periode = datetime(today.year, trimestre * 3 + 1, 1).date() - timedelta(days=1)
-    else:  # mois par défaut
-        debut_periode = today.replace(day=1)
-        fin_periode = today
-    
-    # Requête de base
-    queryset = RecetteJournaliere.objects.filter(
-        date__gte=debut_periode,
-        date__lte=fin_periode
-    )
-    
-    # Filtrage par région si spécifié
-    if region:
-        queryset = queryset.filter(poste__region=region)
-    
-    # Agrégation par poste
-    stats_postes = queryset.values(
-        'poste__id',
-        'poste__nom',
-        'poste__code',
-        'poste__region',
-        'poste__type'
-    ).annotate(
-        taux_moyen=Avg('taux_deperdition'),
-        taux_min=Min('taux_deperdition'),
-        taux_max=Max('taux_deperdition'),
-        recettes_total=Sum('montant'),
-        recettes_moyenne=Avg('montant'),
-        nb_jours=Count('date', distinct=True),
-        total_vehicules=Sum('inventaire__total_vehicules'),
-        nb_journees_impertinentes=Count('id', filter=Q(journee_impertinente=True))
-    )
-    
-    # Tri selon critère
-    if tri_par == 'recettes':
-        field_tri = 'recettes_total'
-    elif tri_par == 'vehicules':
-        field_tri = 'total_vehicules'
-    else:  # taux par défaut
-        field_tri = 'taux_moyen'
-    
-    if ordre == 'desc':
-        field_tri = f'-{field_tri}'
-    
-    stats_postes = stats_postes.order_by(field_tri)
-    
-    # Formater les données pour le frontend
-    postes_ordonnes = []
-    
-    for idx, poste in enumerate(stats_postes):
-        # Calcul du score de performance global (0-100)
-        taux = poste['taux_moyen'] or 0
-        if taux >= -5:
-            score = 100
-        elif taux >= -10:
-            score = 80
-        elif taux >= -20:
-            score = 60
-        elif taux >= -30:
-            score = 40
-        else:
-            score = 20
+    try:
+        # Définir la période
+        today = datetime.now().date()
         
-        # Ajustement selon régularité
-        if poste['nb_jours'] >= 20:  # Très régulier
-            score += 10
-        elif poste['nb_jours'] >= 10:  # Régulier
-            score += 5
+        if periode == 'semaine':
+            debut_periode = today - timedelta(days=today.weekday())
+            fin_periode = debut_periode + timedelta(days=6)
+        elif periode == 'trimestre':
+            # Trimestre actuel
+            trimestre = ((today.month - 1) // 3) + 1
+            debut_periode = datetime(today.year, (trimestre - 1) * 3 + 1, 1).date()
+            if trimestre == 4:
+                fin_periode = datetime(today.year, 12, 31).date()
+            else:
+                fin_periode = datetime(today.year, trimestre * 3 + 1, 1).date() - timedelta(days=1)
+        else:  # mois par défaut
+            debut_periode = today.replace(day=1)
+            fin_periode = today
         
-        # Pénalité journées impertinentes
-        if poste['nb_journees_impertinentes'] > 0:
-            score -= (poste['nb_journees_impertinentes'] * 5)
+        # Requête de base
+        queryset = RecetteJournaliere.objects.filter(
+            date__gte=debut_periode,
+            date__lte=fin_periode
+        )
         
-        score = max(0, min(100, score))  # Limiter entre 0 et 100
+        # Filtrage par région si spécifié
+        if region:
+            queryset = queryset.filter(poste__region=region)
         
-        postes_ordonnes.append({
-            'rang': idx + 1,
-            'poste_id': poste['poste__id'],
-            'nom': poste['poste__nom'],
-            'code': poste['poste__code'],
-            'region': poste['poste__region'],
-            'type': poste['poste__type'],
-            'statistiques': {
-                'taux_moyen': round(taux, 1),
-                'taux_min': round(poste['taux_min'] or 0, 1),
-                'taux_max': round(poste['taux_max'] or 0, 1),
-                'recettes_total': float(poste['recettes_total'] or 0),
-                'recettes_moyenne': round(float(poste['recettes_moyenne'] or 0), 0),
-                'total_vehicules': poste['total_vehicules'] or 0,
-                'nb_jours_actifs': poste['nb_jours'],
-                'nb_journees_impertinentes': poste['nb_journees_impertinentes']
-            },
-            'performance': {
-                'score': score,
-                'niveau': (
-                    'Excellent' if score >= 80 else
-                    'Bon' if score >= 60 else
-                    'Moyen' if score >= 40 else
-                    'Critique'
-                ),
-                'couleur': (
-                    '#28a745' if score >= 80 else
-                    '#20c997' if score >= 60 else
-                    '#ffc107' if score >= 40 else
-                    '#dc3545'
-                )
+        # Agrégation par poste
+        stats_postes = queryset.values(
+            'poste__id',
+            'poste__nom',
+            'poste__code',
+            'poste__region',
+            'poste__type_poste'
+        ).annotate(
+            taux_moyen=Avg('taux_deperdition'),
+            taux_min=Min('taux_deperdition'),
+            taux_max=Max('taux_deperdition'),
+            recettes_total=Sum('montant_declare'),
+            recettes_moyenne=Avg('montant_declare'),
+            nb_jours=Count('date', distinct=True),
+        )
+        
+        # Tri selon critère
+        if tri_par == 'recettes':
+            field_tri = 'recettes_total'
+        elif tri_par == 'jours':
+            field_tri = 'nb_jours'
+        else:  # taux par défaut
+            field_tri = 'taux_moyen'
+        
+        if ordre == 'desc':
+            field_tri = f'-{field_tri}'
+        
+        stats_postes = stats_postes.order_by(field_tri)
+        
+        # Formater les données pour le frontend
+        postes_ordonnes = []
+        
+        for idx, poste in enumerate(stats_postes):
+            # Calcul du score de performance global (0-100)
+            taux = poste['taux_moyen'] or 0
+            if taux >= -5:
+                score = 100
+            elif taux >= -10:
+                score = 80
+            elif taux >= -20:
+                score = 60
+            elif taux >= -30:
+                score = 40
+            else:
+                score = 20
+            
+            # Ajustement selon régularité
+            if poste['nb_jours'] >= 20:  # Très régulier
+                score += 10
+            elif poste['nb_jours'] >= 10:  # Régulier
+                score += 5
+            
+            score = max(0, min(100, score))  # Limiter entre 0 et 100
+            
+            postes_ordonnes.append({
+                'rang': idx + 1,
+                'poste_id': poste['poste__id'],
+                'nom': poste['poste__nom'],
+                'code': poste['poste__code'],
+                'region': poste['poste__region'],
+                'type': poste['poste__type_poste'],
+                'statistiques': {
+                    'taux_moyen': round(taux, 1),
+                    'taux_min': round(poste['taux_min'] or 0, 1),
+                    'taux_max': round(poste['taux_max'] or 0, 1),
+                    'recettes_total': float(poste['recettes_total'] or 0),
+                    'recettes_moyenne': round(float(poste['recettes_moyenne'] or 0), 0),
+                    'nb_jours_actifs': poste['nb_jours'],
+                },
+                'performance': {
+                    'score': score,
+                    'niveau': (
+                        'Excellent' if score >= 80 else
+                        'Bon' if score >= 60 else
+                        'Moyen' if score >= 40 else
+                        'Critique'
+                    ),
+                    'couleur': (
+                        '#28a745' if score >= 80 else
+                        '#20c997' if score >= 60 else
+                        '#ffc107' if score >= 40 else
+                        '#dc3545'
+                    )
+                }
+            })
+        
+        # Statistiques globales de la période
+        stats_globales = {
+            'periode': f"{debut_periode.strftime('%d/%m/%Y')} - {fin_periode.strftime('%d/%m/%Y')}",
+            'nb_postes_total': len(postes_ordonnes),
+            'taux_global': round(
+                sum([p['statistiques']['taux_moyen'] for p in postes_ordonnes]) / len(postes_ordonnes)
+                if postes_ordonnes else 0, 1
+            ),
+            'recettes_globales': sum([p['statistiques']['recettes_total'] for p in postes_ordonnes]),
+            'repartition_niveaux': {
+                'excellent': len([p for p in postes_ordonnes if p['performance']['score'] >= 80]),
+                'bon': len([p for p in postes_ordonnes if 60 <= p['performance']['score'] < 80]),
+                'moyen': len([p for p in postes_ordonnes if 40 <= p['performance']['score'] < 60]),
+                'critique': len([p for p in postes_ordonnes if p['performance']['score'] < 40])
             }
-        })
-    
-    # Statistiques globales de la période
-    stats_globales = {
-        'periode': f"{debut_periode.strftime('%d/%m/%Y')} - {fin_periode.strftime('%d/%m/%Y')}",
-        'nb_postes_total': len(postes_ordonnes),
-        'taux_global': round(
-            sum([p['statistiques']['taux_moyen'] for p in postes_ordonnes]) / len(postes_ordonnes)
-            if postes_ordonnes else 0, 1
-        ),
-        'recettes_globales': sum([p['statistiques']['recettes_total'] for p in postes_ordonnes]),
-        'vehicules_globaux': sum([p['statistiques']['total_vehicules'] for p in postes_ordonnes]),
-        'repartition_niveaux': {
-            'excellent': len([p for p in postes_ordonnes if p['performance']['score'] >= 80]),
-            'bon': len([p for p in postes_ordonnes if 60 <= p['performance']['score'] < 80]),
-            'moyen': len([p for p in postes_ordonnes if 40 <= p['performance']['score'] < 60]),
-            'critique': len([p for p in postes_ordonnes if p['performance']['score'] < 40])
         }
-    }
-    
-    data = {
-        'postes_ordonnes': postes_ordonnes,
-        'statistiques_globales': stats_globales,
-        'parametres': {
-            'periode': periode,
-            'tri_par': tri_par,
-            'ordre': ordre,
-            'region': region
+        
+        data = {
+            'postes_ordonnes': postes_ordonnes,
+            'statistiques_globales': stats_globales,
+            'parametres': {
+                'periode': periode,
+                'tri_par': tri_par,
+                'ordre': ordre,
+                'region': region
+            }
         }
-    }
+    
+    except Exception as e:
+        logger.error(f"Erreur API statistiques postes: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
     
     return JsonResponse(data)
-
-

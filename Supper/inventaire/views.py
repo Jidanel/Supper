@@ -1,415 +1,570 @@
 # ===================================================================
-# inventaire/views.py - Vues corrigées pour la gestion des inventaires
+# inventaire/views.py - AJOUT DES VUES DE REDIRECTION POUR INVENTAIRES
+# À ajouter au fichier inventaire/views.py existant
 # ===================================================================
 
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.views.generic import View, ListView, DetailView, CreateView, UpdateView
-from django.http import JsonResponse, HttpResponseForbidden
-from django.urls import reverse_lazy, reverse
-from django.utils import timezone
-from django.db import transaction, IntegrityError
-from django.core.exceptions import ValidationError
-from decimal import Decimal, InvalidOperation
-import json
+from django.http import JsonResponse
+from django.utils.translation import gettext_lazy as _
+from django.views.decorators.http import require_http_methods
 import logging
-
-from .models import (
-    InventaireJournalier, DetailInventairePeriode, RecetteJournaliere,
-    ConfigurationJour, StatistiquesPeriodiques
-)
-from accounts.models import Poste
-from common.mixins import RoleRequiredMixin
-from common.utils import log_user_action
 
 logger = logging.getLogger('supper')
 
+# Import des modèles
+from .models import InventaireJournalier, RecetteJournaliere, ConfigurationJour, StatistiquesPeriodiques
+from accounts.models import UtilisateurSUPPER, JournalAudit
 
-class SaisieInventaireView(LoginRequiredMixin, RoleRequiredMixin, View):
-    """Vue pour la saisie d'inventaire par les agents"""
-    required_permission = 'peut_gerer_inventaire'
-    template_name = 'admin/saisie_inventaire.html'
+# ===================================================================
+# FONCTIONS UTILITAIRES POUR LES REDIRECTIONS INVENTAIRE
+# ===================================================================
+
+def _check_admin_permission(user):
+    """Vérifier les permissions administrateur"""
+    return (user.is_superuser or 
+            user.is_staff or 
+            user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'])
+
+
+def _log_inventaire_admin_access(request, action):
+    """Journaliser l'accès aux sections admin inventaire"""
+    try:
+        JournalAudit.objects.create(
+            utilisateur=request.user,
+            action=f"Accès admin Django Inventaire - {action}",
+            details=f"Redirection depuis SUPPER vers {action}",
+            adresse_ip=request.META.get('REMOTE_ADDR'),
+            url_acces=request.path,
+            methode_http=request.method,
+            succes=True
+        )
+        
+        logger.info(f"REDIRECTION ADMIN INVENTAIRE - {request.user.username} -> {action}")
+        
+    except Exception as e:
+        logger.error(f"Erreur journalisation inventaire admin access: {str(e)}")
+
+
+# ===================================================================
+# VUES DE REDIRECTION VERS ADMIN DJANGO - MODULE INVENTAIRE
+# ===================================================================
+
+@login_required
+def redirect_to_inventaires_admin(request):
+    """Redirection vers la gestion des inventaires dans l'admin Django"""
+    user = request.user
     
-    def get(self, request, poste_id=None, date=None):
-        """Affichage du formulaire de saisie"""
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à la gestion des inventaires."))
+        return redirect('inventaire:inventaire_list')
+    
+    _log_inventaire_admin_access(request, "Gestion inventaires")
+    messages.info(request, _("Redirection vers la gestion des inventaires."))
+    
+    return redirect('/django-admin/inventaire/inventairejournalier/')
+
+
+@login_required
+def redirect_to_recettes_admin(request):
+    """Redirection vers la gestion des recettes dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à la gestion des recettes."))
+        return redirect('inventaire:inventaire_list')
+    
+    _log_inventaire_admin_access(request, "Gestion recettes")
+    messages.info(request, _("Redirection vers la gestion des recettes."))
+    
+    return redirect('/django-admin/inventaire/recettejournaliere/')
+
+
+@login_required
+def redirect_to_config_jours_admin(request):
+    """Redirection vers la configuration des jours dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à la configuration des jours."))
+        return redirect('inventaire:config_jour_list')
+    
+    _log_inventaire_admin_access(request, "Configuration jours")
+    messages.info(request, _("Redirection vers la configuration des jours."))
+    
+    return redirect('/django-admin/inventaire/configurationjour/')
+
+
+@login_required
+def redirect_to_statistiques_admin(request):
+    """Redirection vers les statistiques dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé aux statistiques."))
+        return redirect('inventaire:inventaire_list')
+    
+    _log_inventaire_admin_access(request, "Statistiques")
+    messages.info(request, _("Redirection vers les statistiques."))
+    
+    return redirect('/django-admin/inventaire/statistiquesperiodiques/')
+
+
+# ===================================================================
+# REDIRECTIONS SPÉCIFIQUES AVEC PARAMÈTRES
+# ===================================================================
+
+@login_required
+def redirect_to_edit_inventaire_admin(request, inventaire_id):
+    """Redirection vers l'édition d'un inventaire spécifique dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à l'édition des inventaires."))
+        return redirect('inventaire:inventaire_list')
+    
+    # Vérifier que l'inventaire existe
+    try:
+        inventaire = InventaireJournalier.objects.get(id=inventaire_id)
+        _log_inventaire_admin_access(request, f"Édition inventaire {inventaire.poste.nom} du {inventaire.date}")
+        messages.info(request, _(f"Redirection vers l'édition de l'inventaire {inventaire.poste.nom} du {inventaire.date}."))
+        
+        return redirect(f'/django-admin/inventaire/inventairejournalier/{inventaire_id}/change/')
+        
+    except InventaireJournalier.DoesNotExist:
+        messages.error(request, _("Inventaire non trouvé."))
+        return redirect('/django-admin/inventaire/inventairejournalier/')
+
+
+@login_required
+def redirect_to_edit_recette_admin(request, recette_id):
+    """Redirection vers l'édition d'une recette spécifique dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à l'édition des recettes."))
+        return redirect('inventaire:inventaire_list')
+    
+    # Vérifier que la recette existe
+    try:
+        recette = RecetteJournaliere.objects.get(id=recette_id)
+        _log_inventaire_admin_access(request, f"Édition recette {recette.poste.nom} du {recette.date}")
+        messages.info(request, _(f"Redirection vers l'édition de la recette {recette.poste.nom} du {recette.date}."))
+        
+        return redirect(f'/django-admin/inventaire/recettejournaliere/{recette_id}/change/')
+        
+    except RecetteJournaliere.DoesNotExist:
+        messages.error(request, _("Recette non trouvée."))
+        return redirect('/django-admin/inventaire/recettejournaliere/')
+
+
+# ===================================================================
+# REDIRECTIONS POUR CRÉATION
+# ===================================================================
+
+@login_required
+def redirect_to_add_inventaire_admin(request):
+    """Redirection vers l'ajout d'inventaire dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à la création d'inventaires."))
+        return redirect('inventaire:inventaire_list')
+    
+    _log_inventaire_admin_access(request, "Ajout inventaire")
+    messages.info(request, _("Redirection vers l'ajout d'inventaire."))
+    
+    return redirect('/django-admin/inventaire/inventairejournalier/add/')
+
+
+@login_required
+def redirect_to_add_recette_admin(request):
+    """Redirection vers l'ajout de recette dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à la création de recettes."))
+        return redirect('inventaire:inventaire_list')
+    
+    _log_inventaire_admin_access(request, "Ajout recette")
+    messages.info(request, _("Redirection vers l'ajout de recette."))
+    
+    return redirect('/django-admin/inventaire/recettejournaliere/add/')
+
+
+@login_required
+def redirect_to_add_config_jour_admin(request):
+    """Redirection vers l'ajout de configuration de jour dans l'admin Django"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé à la configuration des jours."))
+        return redirect('inventaire:config_jour_list')
+    
+    _log_inventaire_admin_access(request, "Ajout configuration jour")
+    messages.info(request, _("Redirection vers l'ajout de configuration de jour."))
+    
+    return redirect('/django-admin/inventaire/configurationjour/add/')
+
+
+# ===================================================================
+# API POUR INTÉGRATION AVEC ADMIN DJANGO
+# ===================================================================
+
+@login_required
+@require_http_methods(["GET"])
+def inventaire_stats_api(request):
+    """API pour statistiques des inventaires"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        
+        stats = {
+            'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
+            'inventaires_week': InventaireJournalier.objects.filter(date__gte=week_ago).count(),
+            'inventaires_locked': InventaireJournalier.objects.filter(verrouille=True).count(),
+            'inventaires_validated': InventaireJournalier.objects.filter(valide=True).count(),
+            'total_inventaires': InventaireJournalier.objects.count(),
+        }
+        
+        return JsonResponse(stats)
+        
+    except Exception as e:
+        logger.error(f"Erreur API inventaire stats: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def recette_stats_api(request):
+    """API pour statistiques des recettes"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.db.models import Sum, Avg
+        
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        
+        stats = {
+            'recettes_today': RecetteJournaliere.objects.filter(date=today).count(),
+            'recettes_week': RecetteJournaliere.objects.filter(date__gte=week_ago).count(),
+            'total_recettes': RecetteJournaliere.objects.count(),
+            'montant_total_week': RecetteJournaliere.objects.filter(
+                date__gte=week_ago
+            ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or 0,
+            'taux_moyen_week': RecetteJournaliere.objects.filter(
+                date__gte=week_ago,
+                taux_deperdition__isnull=False
+            ).aggregate(Avg('taux_deperdition'))['taux_deperdition__avg'] or 0,
+        }
+        
+        return JsonResponse(stats)
+        
+    except Exception as e:
+        logger.error(f"Erreur API recette stats: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def check_day_status_api(request):
+    """API pour vérifier le statut d'un jour"""
+    user = request.user
+    
+    date_str = request.GET.get('date')
+    if not date_str:
+        return JsonResponse({'error': 'Date requise'}, status=400)
+    
+    try:
+        from datetime import datetime
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
         try:
-            # Récupérer les postes accessibles à l'utilisateur
-            postes_accessibles = request.user.get_postes_accessibles()
+            config = ConfigurationJour.objects.get(date=target_date)
+            status = {
+                'date': target_date.isoformat(),
+                'statut': config.statut,
+                'statut_display': config.get_statut_display(),
+                'configured': True,
+                'cree_par': config.cree_par.nom_complet if config.cree_par else None,
+                'commentaire': config.commentaire,
+            }
+        except ConfigurationJour.DoesNotExist:
+            status = {
+                'date': target_date.isoformat(),
+                'statut': 'ferme',  # Par défaut fermé si pas configuré
+                'statut_display': 'Fermé - saisie verrouillée',
+                'configured': False,
+                'cree_par': None,
+                'commentaire': 'Jour non configuré - fermé par défaut',
+            }
+        
+        # Ajouter des informations sur les inventaires/recettes du jour
+        inventaires_count = InventaireJournalier.objects.filter(date=target_date).count()
+        recettes_count = RecetteJournaliere.objects.filter(date=target_date).count()
+        
+        status.update({
+            'inventaires_count': inventaires_count,
+            'recettes_count': recettes_count,
+            'has_data': inventaires_count > 0 or recettes_count > 0
+        })
+        
+        return JsonResponse(status)
+        
+    except ValueError:
+        return JsonResponse({'error': 'Format de date invalide'}, status=400)
+    except Exception as e:
+        logger.error(f"Erreur API check day status: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES POUR LES TEMPLATES
+# ===================================================================
+
+def get_inventaire_admin_context(user):
+    """Retourne le contexte d'administration pour les templates inventaire"""
+    
+    if not _check_admin_permission(user):
+        return {}
+    
+    return {
+        'inventaire_admin_nav': {
+            'inventaires': {
+                'url': '/django-admin/inventaire/inventairejournalier/',
+                'title': 'Gérer Inventaires',
+                'icon': 'fas fa-clipboard-list',
+                'description': 'Gestion complète des inventaires journaliers'
+            },
+            'recettes': {
+                'url': '/django-admin/inventaire/recettejournaliere/',
+                'title': 'Gérer Recettes',
+                'icon': 'fas fa-euro-sign',
+                'description': 'Gestion des recettes journalières'
+            },
+            'config_jours': {
+                'url': '/django-admin/inventaire/configurationjour/',
+                'title': 'Configuration Jours',
+                'icon': 'fas fa-calendar-alt',
+                'description': 'Configuration des jours ouverts/fermés'
+            },
+            'statistiques': {
+                'url': '/django-admin/inventaire/statistiquesperiodiques/',
+                'title': 'Statistiques',
+                'icon': 'fas fa-chart-bar',
+                'description': 'Statistiques périodiques et rapports'
+            },
+            'add_inventaire': {
+                'url': '/django-admin/inventaire/inventairejournalier/add/',
+                'title': 'Nouvel Inventaire',
+                'icon': 'fas fa-plus-circle',
+                'description': 'Créer un nouvel inventaire'
+            },
+            'add_recette': {
+                'url': '/django-admin/inventaire/recettejournaliere/add/',
+                'title': 'Nouvelle Recette',
+                'icon': 'fas fa-plus-square',
+                'description': 'Créer une nouvelle recette'
+            }
+        }
+    }
+
+
+# ===================================================================
+# VUES D'AIDE ET DOCUMENTATION INVENTAIRE
+# ===================================================================
+
+@login_required
+def inventaire_admin_help_view(request):
+    """Vue d'aide pour l'utilisation de l'admin Django - module inventaire"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('inventaire:inventaire_list')
+    
+    context = {
+        'title': 'Aide - Administration Inventaires',
+        'user_permissions': {
+            'can_manage_inventaires': True,
+            'can_manage_recettes': True,
+            'can_config_jours': True,
+            'can_view_statistics': True,
+        },
+        'admin_urls': get_inventaire_admin_context(user)['inventaire_admin_nav'],
+        'help_sections': [
+            {
+                'title': 'Gestion des Inventaires',
+                'description': 'Créer, modifier et valider les inventaires journaliers',
+                'url': '/django-admin/inventaire/inventairejournalier/',
+                'features': [
+                    'Saisie par période horaire',
+                    'Calculs automatiques',
+                    'Verrouillage et validation',
+                    'Export des données'
+                ]
+            },
+            {
+                'title': 'Gestion des Recettes',
+                'description': 'Suivi des recettes déclarées et calcul des taux de déperdition',
+                'url': '/django-admin/inventaire/recettejournaliere/',
+                'features': [
+                    'Saisie des montants déclarés',
+                    'Calcul automatique des taux',
+                    'Alertes visuelles',
+                    'Rapports consolidés'
+                ]
+            },
+            {
+                'title': 'Configuration des Jours',
+                'description': 'Gérer les jours ouverts/fermés pour la saisie',
+                'url': '/django-admin/inventaire/configurationjour/',
+                'features': [
+                    'Ouverture/fermeture jours',
+                    'Marquage jours impertinents',
+                    'Commentaires et historique',
+                    'Contrôle des accès'
+                ]
+            }
+        ]
+    }
+    
+    return render(request, 'inventaire/admin_help.html', context)
+
+
+# ===================================================================
+# GESTION DES ERREURS DE REDIRECTION INVENTAIRE
+# ===================================================================
+
+@login_required
+def inventaire_redirect_error_handler(request, error_type='permission'):
+    """Gestionnaire d'erreurs pour les redirections inventaire"""
+    user = request.user
+    
+    if error_type == 'permission':
+        messages.error(request, _(
+            "Vous n'avez pas les permissions nécessaires pour accéder à cette section inventaire. "
+            "Contactez un administrateur si vous pensez que c'est une erreur."
+        ))
+        
+        # Journaliser la tentative d'accès non autorisée
+        try:
+            JournalAudit.objects.create(
+                utilisateur=user,
+                action="ACCÈS REFUSÉ - Redirection admin inventaire",
+                details=f"Tentative d'accès non autorisée depuis {request.META.get('HTTP_REFERER', 'URL inconnue')}",
+                adresse_ip=request.META.get('REMOTE_ADDR'),
+                url_acces=request.path,
+                methode_http=request.method,
+                succes=False
+            )
+        except Exception as e:
+            logger.error(f"Erreur journalisation tentative accès inventaire: {str(e)}")
+    
+    elif error_type == 'not_found':
+        messages.error(request, _("L'inventaire ou la recette demandée n'a pas été trouvée."))
+    
+    else:
+        messages.error(request, _("Une erreur est survenue lors de la redirection."))
+    
+    # Rediriger vers la liste des inventaires
+    return redirect('inventaire:inventaire_list')
+
+
+# ===================================================================
+# API SUPPLÉMENTAIRE POUR LE DASHBOARD
+# ===================================================================
+
+@login_required
+@require_http_methods(["POST"])
+def quick_action_api(request):
+    """API pour les actions rapides depuis le dashboard"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    action = request.POST.get('action')
+    
+    try:
+        if action == 'open_today':
+            # Ouvrir le jour actuel
+            from django.utils import timezone
+            today = timezone.now().date()
             
-            # Si un poste spécifique est demandé, vérifier l'accès
-            if poste_id:
-                poste = get_object_or_404(Poste, id=poste_id)
-                if not request.user.peut_acceder_poste(poste):
-                    messages.error(request, "Vous n'avez pas accès à ce poste.")
-                    return redirect('inventaire:saisie_inventaire')
-            else:
-                # Prendre le poste d'affectation par défaut
-                poste = request.user.poste_affectation
-                if not poste:
-                    if postes_accessibles.exists():
-                        poste = postes_accessibles.first()
-                    else:
-                        messages.error(request, "Aucun poste accessible trouvé.")
-                        return redirect('common:dashboard')
-            
-            # Date par défaut = aujourd'hui
-            if not date:
-                date = timezone.now().date()
-            else:
-                from datetime import datetime
-                try:
-                    date = datetime.strptime(date, '%Y-%m-%d').date()
-                except ValueError:
-                    messages.error(request, "Format de date invalide.")
-                    return redirect('inventaire:saisie_inventaire')
-            
-            # Vérifier si le jour est ouvert pour la saisie
-            if not ConfigurationJour.est_jour_ouvert(date):
-                messages.warning(request, f"Le jour {date.strftime('%d/%m/%Y')} n'est pas ouvert pour la saisie.")
-                return redirect('inventaire:saisie_inventaire')
-            
-            # Récupérer ou créer l'inventaire
-            inventaire, created = InventaireJournalier.objects.get_or_create(
-                poste=poste,
-                date=date,
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=today,
                 defaults={
-                    'agent_saisie': request.user,
+                    'statut': 'ouvert',
+                    'cree_par': user,
+                    'commentaire': f'Ouvert via API par {user.nom_complet}'
                 }
             )
             
-            # Vérifier si l'inventaire peut être modifié
-            if not inventaire.peut_etre_modifie():
-                messages.error(request, "Cet inventaire est verrouillé et ne peut plus être modifié.")
-                return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
+            if not created and config.statut != 'ouvert':
+                config.statut = 'ouvert'
+                config.commentaire = f'Réouvert via API par {user.nom_complet}'
+                config.save()
             
-            # Récupérer les détails existants
-            details_existants = {
-                detail.periode: detail for detail in inventaire.details_periodes.all()
-            }
-            
-            # Périodes horaires disponibles
-            from django.conf import settings
-            periodes = getattr(settings, 'SUPPER_CONFIG', {}).get('PERIODES_INVENTAIRE', [
-                '08h-09h', '09h-10h', '10h-11h', '11h-12h',
-                '12h-13h', '13h-14h', '14h-15h', '15h-16h',
-                '16h-17h', '17h-18h'
-            ])
-            
-            context = {
-                'inventaire': inventaire,
-                'poste': poste,
-                'date': date,
-                'postes_accessibles': postes_accessibles,
-                'periodes': periodes,
-                'details_existants': details_existants,
-                'created': created,
-                'can_edit': inventaire.peut_etre_modifie(),
-            }
-            
-            return render(request, self.template_name, context)
-            
-        except Exception as e:
-            logger.error(f"Erreur lors de l'affichage saisie inventaire: {str(e)}")
-            messages.error(request, "Une erreur est survenue lors du chargement de la page.")
-            return redirect('common:dashboard')
-    
-    def post(self, request, poste_id=None, date=None):
-        """Traitement de la sauvegarde de l'inventaire"""
-        try:
-            with transaction.atomic():
-                # Récupérer les données du formulaire
-                poste_id = request.POST.get('poste_id')
-                date_str = request.POST.get('date')
-                action = request.POST.get('action', 'sauvegarder')
-                
-                # Validation des données de base
-                if not poste_id or not date_str:
-                    messages.error(request, "Données manquantes dans le formulaire.")
-                    return redirect('inventaire:saisie_inventaire')
-                
-                # Récupérer le poste et vérifier l'accès
-                poste = get_object_or_404(Poste, id=poste_id)
-                if not request.user.peut_acceder_poste(poste):
-                    messages.error(request, "Vous n'avez pas accès à ce poste.")
-                    return redirect('inventaire:saisie_inventaire')
-                
-                # Parser la date
-                from datetime import datetime
-                try:
-                    date = datetime.strptime(date_str, '%Y-%m-%d').date()
-                except ValueError:
-                    messages.error(request, "Format de date invalide.")
-                    return redirect('inventaire:saisie_inventaire')
-                
-                # Vérifier si le jour est ouvert
-                if not ConfigurationJour.est_jour_ouvert(date):
-                    messages.error(request, "Ce jour n'est pas ouvert pour la saisie.")
-                    return redirect('inventaire:saisie_inventaire')
-                
-                # Récupérer l'inventaire existant
-                try:
-                    inventaire = InventaireJournalier.objects.get(poste=poste, date=date)
-                except InventaireJournalier.DoesNotExist:
-                    messages.error(request, "Inventaire introuvable.")
-                    return redirect('inventaire:saisie_inventaire')
-                
-                # Vérifier si l'inventaire peut être modifié
-                if not inventaire.peut_etre_modifie():
-                    messages.error(request, "Cet inventaire est verrouillé et ne peut plus être modifié.")
-                    return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
-                
-                # Traitement des données par période
-                periodes_sauvegardees = 0
-                erreurs_validation = []
-                
-                # Récupérer toutes les périodes du formulaire
-                for key, value in request.POST.items():
-                    if key.startswith('periode_'):
-                        periode = key.replace('periode_', '')
-                        
-                        # Validation de la valeur
-                        if value.strip():
-                            try:
-                                nombre_vehicules = int(value.strip())
-                                if nombre_vehicules < 0:
-                                    erreurs_validation.append(f"Période {periode}: le nombre ne peut pas être négatif")
-                                    continue
-                                if nombre_vehicules > 1000:
-                                    erreurs_validation.append(f"Période {periode}: le nombre ne peut pas dépasser 1000")
-                                    continue
-                            except ValueError:
-                                erreurs_validation.append(f"Période {periode}: valeur invalide '{value}'")
-                                continue
-                        else:
-                            # Supprimer le détail s'il existe et que la valeur est vide
-                            DetailInventairePeriode.objects.filter(
-                                inventaire=inventaire,
-                                periode=periode
-                            ).delete()
-                            continue
-                        
-                        # Récupérer les observations pour cette période
-                        observations = request.POST.get(f'observations_{periode}', '').strip()
-                        
-                        # Créer ou mettre à jour le détail
-                        try:
-                            detail, created = DetailInventairePeriode.objects.update_or_create(
-                                inventaire=inventaire,
-                                periode=periode,
-                                defaults={
-                                    'nombre_vehicules': nombre_vehicules,
-                                    'observations_periode': observations
-                                }
-                            )
-                            periodes_sauvegardees += 1
-                            
-                        except IntegrityError as e:
-                            erreurs_validation.append(f"Période {periode}: erreur de sauvegarde")
-                            logger.error(f"Erreur IntegrityError pour période {periode}: {str(e)}")
-                
-                # Vérifier s'il y a des erreurs de validation
-                if erreurs_validation:
-                    for erreur in erreurs_validation:
-                        messages.error(request, erreur)
-                    return redirect('inventaire:saisie_inventaire', poste_id=poste.id, date=date_str)
-                
-                # Recalculer les totaux de l'inventaire
-                inventaire.recalculer_totaux()
-                
-                # Traitement selon l'action demandée
-                if action == 'verrouiller' and periodes_sauvegardees > 0:
-                    # Verrouiller l'inventaire
-                    inventaire.verrouiller(request.user)
-                    
-                    # Log de l'action
-                    log_user_action(
-                        request.user,
-                        "Verrouillage inventaire",
-                        f"Poste: {poste.nom}, Date: {date}, Périodes: {periodes_sauvegardees}",
-                        request
-                    )
-                    
-                    messages.success(request, f"Inventaire verrouillé avec succès ({periodes_sauvegardees} périodes sauvegardées).")
-                    return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
-                
-                elif action == 'sauvegarder':
-                    # Simple sauvegarde
-                    log_user_action(
-                        request.user,
-                        "Sauvegarde inventaire",
-                        f"Poste: {poste.nom}, Date: {date}, Périodes: {periodes_sauvegardees}",
-                        request
-                    )
-                    
-                    if periodes_sauvegardees > 0:
-                        messages.success(request, f"Inventaire sauvegardé avec succès ({periodes_sauvegardees} périodes).")
-                    else:
-                        messages.info(request, "Aucune donnée à sauvegarder.")
-                    
-                    return redirect('inventaire:saisie_inventaire', poste_id=poste.id, date=date_str)
-                
-                else:
-                    messages.error(request, "Action non reconnue.")
-                    return redirect('inventaire:saisie_inventaire', poste_id=poste.id, date=date_str)
-                    
-        except Exception as e:
-            logger.error(f"Erreur lors de la sauvegarde inventaire: {str(e)}")
-            messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
-            return redirect('inventaire:saisie_inventaire')
-
-
-class CalculAutomatiqueAPIView(LoginRequiredMixin, View):
-    """API pour les calculs automatiques en temps réel"""
-    
-    def post(self, request):
-        """Calcule les totaux et estimations en temps réel"""
-        try:
-            data = json.loads(request.body)
-            periodes_data = data.get('periodes', {})
-            
-            # Calculer les totaux
-            total_vehicules = 0
-            nombre_periodes = 0
-            
-            for periode, nombre in periodes_data.items():
-                if nombre and str(nombre).strip():
-                    try:
-                        nb = int(nombre)
-                        if nb >= 0:
-                            total_vehicules += nb
-                            nombre_periodes += 1
-                    except (ValueError, TypeError):
-                        continue
-            
-            # Calculs selon la formule SUPPER
-            moyenne_horaire = total_vehicules / nombre_periodes if nombre_periodes > 0 else 0
-            estimation_24h = moyenne_horaire * 24
-            
-            # Configuration SUPPER
-            from django.conf import settings
-            config = getattr(settings, 'SUPPER_CONFIG', {})
-            tarif = config.get('TARIF_VEHICULE_LEGER', 500)
-            pourcentage_legers = config.get('POURCENTAGE_VEHICULES_LEGERS', 75)
-            
-            # Recette potentielle
-            recette_potentielle = (estimation_24h * pourcentage_legers * tarif) / 100
+            _log_inventaire_admin_access(request, f"Ouverture jour {today}")
             
             return JsonResponse({
                 'success': True,
-                'total_vehicules': total_vehicules,
-                'nombre_periodes': nombre_periodes,
-                'moyenne_horaire': round(moyenne_horaire, 2),
-                'estimation_24h': round(estimation_24h, 2),
-                'recette_potentielle': round(recette_potentielle, 2)
+                'message': f'Jour {today.strftime("%d/%m/%Y")} ouvert pour la saisie.',
+                'date': today.isoformat(),
+                'statut': config.statut
             })
-            
-        except Exception as e:
-            logger.error(f"Erreur calcul automatique: {str(e)}")
-            return JsonResponse({
-                'success': False,
-                'error': 'Erreur lors du calcul'
-            })
-
-
-class VerificationJourAPIView(LoginRequiredMixin, View):
-    """API pour vérifier si un jour est ouvert pour la saisie"""
-    
-    def get(self, request):
-        """Vérifie si une date est ouverte pour la saisie"""
-        try:
-            date_str = request.GET.get('date')
+        
+        elif action == 'mark_impertinent':
+            # Marquer un jour comme impertinent
+            date_str = request.POST.get('date')
             if not date_str:
-                return JsonResponse({'success': False, 'error': 'Date manquante'})
+                return JsonResponse({'error': 'Date requise'}, status=400)
             
             from datetime import datetime
-            try:
-                date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            except ValueError:
-                return JsonResponse({'success': False, 'error': 'Format de date invalide'})
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             
-            est_ouvert = ConfigurationJour.est_jour_ouvert(date)
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=target_date,
+                defaults={
+                    'statut': 'impertinent',
+                    'cree_par': user,
+                    'commentaire': f'Marqué impertinent via API par {user.nom_complet}'
+                }
+            )
+            
+            if not created:
+                config.statut = 'impertinent'
+                config.commentaire = f'Marqué impertinent via API par {user.nom_complet}'
+                config.save()
+            
+            _log_inventaire_admin_access(request, f"Marquage impertinent {target_date}")
             
             return JsonResponse({
                 'success': True,
-                'ouvert': est_ouvert,
-                'date': date_str
+                'message': f'Jour {target_date.strftime("%d/%m/%Y")} marqué comme impertinent.',
+                'date': target_date.isoformat(),
+                'statut': config.statut
             })
-            
-        except Exception as e:
-            logger.error(f"Erreur vérification jour: {str(e)}")
-            return JsonResponse({
-                'success': False,
-                'error': 'Erreur lors de la vérification'
-            })
-
-
-# Vues basiques pour les autres fonctionnalités
-class InventaireListView(LoginRequiredMixin, ListView):
-    """Liste des inventaires"""
-    model = InventaireJournalier
-    template_name = 'inventaire/inventaire_list.html'
-    context_object_name = 'inventaires'
-    paginate_by = 25
-    
-    def get_queryset(self):
-        queryset = InventaireJournalier.objects.select_related(
-            'poste', 'agent_saisie', 'valide_par'
-        ).order_by('-date', 'poste__nom')
         
-        # Filtrer selon les postes accessibles
-        if not self.request.user.acces_tous_postes:
-            postes_accessibles = self.request.user.get_postes_accessibles()
-            queryset = queryset.filter(poste__in=postes_accessibles)
-        
-        return queryset
-
-
-class InventaireDetailView(LoginRequiredMixin, DetailView):
-    """Détail d'un inventaire"""
-    model = InventaireJournalier
-    template_name = 'inventaire/inventaire_detail.html'
-    context_object_name = 'inventaire'
+        else:
+            return JsonResponse({'error': 'Action non reconnue'}, status=400)
     
-    def get_queryset(self):
-        queryset = InventaireJournalier.objects.select_related(
-            'poste', 'agent_saisie', 'valide_par'
-        ).prefetch_related('details_periodes')
-        
-        # Filtrer selon les postes accessibles
-        if not self.request.user.acces_tous_postes:
-            postes_accessibles = self.request.user.get_postes_accessibles()
-            queryset = queryset.filter(poste__in=postes_accessibles)
-        
-        return queryset
-
-
-# Autres vues de base (à développer selon les besoins)
-class RecetteListView(LoginRequiredMixin, ListView):
-    model = RecetteJournaliere
-    template_name = 'inventaire/recette_list.html'
-    paginate_by = 25
-
-
-class SaisieRecetteView(LoginRequiredMixin, View):
-    template_name = 'inventaire/saisie_recette.html'
-    
-    def get(self, request):
-        return render(request, self.template_name)
-    
-    def post(self, request):
-        # À implémenter selon les besoins
-        pass
-
-
-class StatistiquesView(LoginRequiredMixin, View):
-    template_name = 'inventaire/statistiques.html'
-    
-    def get(self, request):
-        return render(request, self.template_name)
-
-
-class ConfigurationJourListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
-    model = ConfigurationJour
-    template_name = 'inventaire/config_jour_list.html'
-    required_permission = 'is_admin'  # Seuls les admins peuvent gérer les jours
+    except Exception as e:
+        logger.error(f"Erreur API quick action: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)

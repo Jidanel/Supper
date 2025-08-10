@@ -1,6 +1,6 @@
 # ===================================================================
-# accounts/urls.py - URLs harmonisées avec les vues existantes
-# VÉRIFIÉ : Toutes les URLs correspondent aux vues dans views.py
+# accounts/urls.py - URLs harmonisées avec redirections admin Django
+# MISE À JOUR : Ajout des redirections vers l'admin Django natif
 # ===================================================================
 
 from django.urls import path
@@ -15,19 +15,13 @@ urlpatterns = [
     # ================================================================
     # AUTHENTIFICATION - Vues existantes vérifiées
     # ================================================================
-     path('login/', auth_views.LoginView.as_view(
+    path('login/', auth_views.LoginView.as_view(
         template_name='registration/login.html',  
         redirect_authenticated_user=True,
         extra_context={'title': 'Connexion'}
     ), name='login'),
     
-    # Vue de déconnexion Django standard
-    # LOGOUT AVEC REDIRECTION EXPLICITE
-    # path('logout/', auth_views.LogoutView.as_view(
-    #     template_name='registration/logout.html',  
-    #   #  next_page='/accounts/login/',                   
-    #     extra_context={'title': 'Déconnexion'}
-    # ), name='logout'),
+    # Vue de déconnexion personnalisée
     path('logout/', views.CustomLogoutView.as_view(), name='logout'),
     
     path('password/change/', auth_views.PasswordChangeView.as_view(
@@ -66,12 +60,31 @@ urlpatterns = [
     path('general/', views.GeneralDashboardView.as_view(), name='general_dashboard'),
     
     # ================================================================
+    # NOUVEAU: REDIRECTIONS VERS ADMIN DJANGO
+    # ================================================================
+    # Redirections directes vers l'admin Django avec vérifications de permissions
+    path('redirect/django-admin/', views.redirect_to_django_admin, name='redirect_django_admin'),
+    path('redirect/users-admin/', views.redirect_to_users_admin, name='redirect_users_admin'),
+    path('redirect/postes-admin/', views.redirect_to_postes_admin, name='redirect_postes_admin'),
+    path('redirect/inventaires-admin/', views.redirect_to_inventaires_admin, name='redirect_inventaires_admin'),
+    path('redirect/recettes-admin/', views.redirect_to_recettes_admin, name='redirect_recettes_admin'),
+    path('redirect/journal-admin/', views.redirect_to_journal_admin, name='redirect_journal_admin'),
+    path('redirect/add-user-admin/', views.redirect_to_add_user_admin, name='redirect_add_user_admin'),
+    
+    # Redirections avec paramètres
+    path('redirect/edit-user-admin/<int:user_id>/', views.redirect_to_edit_user_admin, name='redirect_edit_user_admin'),
+    path('redirect/edit-poste-admin/<int:poste_id>/', views.redirect_to_edit_poste_admin, name='redirect_edit_poste_admin'),
+    
+    # ================================================================
     # API ENDPOINTS - Vues existantes vérifiées
     # ================================================================
     path('api/validate-username/', views.ValidateUsernameAPIView.as_view(), name='validate_username_api'),
     path('api/user-search/', views.UserSearchAPIView.as_view(), name='user_search_api'),
     path('api/postes/', views.postes_api, name='postes_api'),
     path('api/stats/', views.stats_api, name='stats_api'),
+    
+    # NOUVEAU: API pour vérifier les permissions admin
+    path('api/check-admin-permission/', views.check_admin_permission_api, name='check_admin_permission_api'),
     
     # ================================================================
     # URLS COMMENTÉES - Vues non encore créées
@@ -87,5 +100,3 @@ urlpatterns = [
     # path('notifications/<int:pk>/mark-read/', views.MarkNotificationReadView.as_view(), name='mark_notification_read'),
     # path('notifications/mark-all-read/', views.MarkAllNotificationsReadView.as_view(), name='mark_all_notifications_read'),
 ]
-
-

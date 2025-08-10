@@ -1,4 +1,4 @@
-# Fichier : Supper/accounts/admin.py
+# Fichier : Supper/accounts/admin.py - MISE À JOUR POUR REDIRECTION DJANGO ADMIN
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
@@ -64,6 +64,18 @@ class SupperAdminSite(AdminSite):
             'recent_actions': recent_actions,
             'chart_data': chart_data,
             'has_permission': True,
+            # NOUVEAU: URLs pour redirection vers l'admin Django
+            'admin_urls': {
+                'users': reverse('admin:accounts_utilisateursupper_changelist'),
+                'postes': reverse('admin:accounts_poste_changelist'),
+                'inventaires': '/django-admin/inventaire/inventairejournalier/',
+                'recettes': '/django-admin/inventaire/recettejournaliere/',
+                'journal': reverse('admin:accounts_journalaudit_changelist'),
+                'notifications': reverse('admin:accounts_notificationutilisateur_changelist'),
+                'add_user': reverse('admin:accounts_utilisateursupper_add'),
+                'add_poste': reverse('admin:accounts_poste_add'),
+                'admin_index': '/django-admin/',
+            }
         }
         
         if extra_context:
@@ -72,7 +84,32 @@ class SupperAdminSite(AdminSite):
         return TemplateResponse(request, 'admin/dashboard.html', context)
 
     def dashboard_view(self, request):
-        """Vue du tableau de bord principal"""
+        """Vue du tableau de bord principal - MISE À JOUR pour redirection intelligente"""
+        
+        # Si utilisateur vient du dashboard admin et demande accès panel avancé
+        if request.GET.get('panel') == 'advanced':
+            # Vérifier permissions
+            if (request.user.is_superuser or 
+                request.user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']):
+                
+                # Journaliser l'accès au panel avancé
+                JournalAudit.objects.create(
+                    utilisateur=request.user,
+                    action="Accès panel Django admin",
+                    details="Redirection depuis dashboard vers admin Django",
+                    adresse_ip=request.META.get('REMOTE_ADDR'),
+                    url_acces=request.path,
+                    methode_http=request.method,
+                    succes=True
+                )
+                
+                messages.success(request, 'Redirection vers le panel d\'administration Django.')
+                return redirect('/django-admin/')
+            else:
+                messages.error(request, 'Accès non autorisé au panel avancé.')
+                return redirect('common:dashboard_general')
+        
+        # Redirection normale vers accueil
         return redirect('http://127.0.0.1:8000/')
         
     def _get_dashboard_stats(self):
@@ -107,7 +144,7 @@ class SupperAdminSite(AdminSite):
         except Exception:
             active_sessions = 0
         
-        # Stats postes - GARDÉ: is_active et type
+        # Stats postes - GARDÉ: actif et type_poste
         postes_total = Poste.objects.count()
         postes_active = Poste.objects.filter(is_active=True).count()
         postes_inactive = postes_total - postes_active
@@ -263,33 +300,135 @@ class SupperAdminSite(AdminSite):
         }
     
     def get_urls(self):
-        """URLs complètes avec toutes les API"""
+        """URLs complètes avec toutes les API + nouvelles redirections"""
         urls = super().get_urls()
         custom_urls = [
-
+            # Dashboard principal
             path('dashboard/', self.admin_view(self.dashboard_view), name='dashboard'),
-            # API Dashboard
+            
+            # NOUVEAU: Redirections directes vers admin Django
+            path('goto/users/', self.admin_view(self.goto_users_view), name='goto_users'),
+            path('goto/postes/', self.admin_view(self.goto_postes_view), name='goto_postes'),
+            path('goto/inventaires/', self.admin_view(self.goto_inventaires_view), name='goto_inventaires'),
+            path('goto/recettes/', self.admin_view(self.goto_recettes_view), name='goto_recettes'),
+            path('goto/journal/', self.admin_view(self.goto_journal_view), name='goto_journal'),
+            path('goto/add-user/', self.admin_view(self.goto_add_user_view), name='goto_add_user'),
+            path('goto/panel-advanced/', self.admin_view(self.goto_panel_advanced_view), name='goto_panel_advanced'),
+            
+            # API Dashboard (existantes)
             path('api/stats/', self.admin_view(self.api_stats_view), name='api_stats'),
             path('api/activity/', self.admin_view(self.api_activity_view), name='api_activity'),
             path('api/deperdition/', self.admin_view(self.api_deperdition_view), name='api_deperdition'),
             path('api/notifications/count/', self.admin_view(self.notification_count_view), name='notification_count'),
             
-            # Actions rapides
+            # Actions rapides (existantes)
             path('actions/open-day/', self.admin_view(self.open_day_view), name='open_day'),
             path('actions/mark-impertinent/', self.admin_view(self.mark_impertinent_view), name='mark_impertinent'),
             
-            # Exports
+            # Exports (existants)
             path('export/audit/', self.admin_view(self.export_audit_view), name='export_audit'),
             
-            # Autres vues
+            # Autres vues (existantes)
             path('tools/create-users/', self.admin_view(self.create_users_view), name='create_users'),
             path('tools/saisie-inventaire/', self.admin_view(self.saisie_inventaire_view), name='saisie_inventaire'),
             
-            # Monitoring
+            # Monitoring (existant)
             path('monitoring/ping/', self.admin_view(self.ping_view), name='ping'),
         ]
         return custom_urls + urls
     
+    # NOUVELLES VUES DE REDIRECTION VERS ADMIN DJANGO
+    @method_decorator(login_required)
+    def goto_users_view(self, request):
+        """Redirection vers la gestion des utilisateurs dans l'admin Django"""
+        if self._check_admin_permission(request.user):
+            self._log_admin_access(request, "Gestion utilisateurs")
+            return redirect(reverse('admin:accounts_utilisateursupper_changelist'))
+        else:
+            messages.error(request, 'Accès non autorisé.')
+            return redirect('common:dashboard_general')
+    
+    @method_decorator(login_required)
+    def goto_postes_view(self, request):
+        """Redirection vers la gestion des postes dans l'admin Django"""
+        if self._check_admin_permission(request.user):
+            self._log_admin_access(request, "Gestion postes")
+            return redirect(reverse('admin:accounts_poste_changelist'))
+        else:
+            messages.error(request, 'Accès non autorisé.')
+            return redirect('common:dashboard_general')
+    
+    @method_decorator(login_required)
+    def goto_inventaires_view(self, request):
+        """Redirection vers la gestion des inventaires dans l'admin Django"""
+        if self._check_admin_permission(request.user):
+            self._log_admin_access(request, "Gestion inventaires")
+            return redirect('/django-admin/inventaire/inventairejournalier/')
+        else:
+            messages.error(request, 'Accès non autorisé.')
+            return redirect('common:dashboard_general')
+    
+    @method_decorator(login_required)
+    def goto_recettes_view(self, request):
+        """Redirection vers la gestion des recettes dans l'admin Django"""
+        if self._check_admin_permission(request.user):
+            self._log_admin_access(request, "Gestion recettes")
+            return redirect('/django-admin/inventaire/recettejournaliere/')
+        else:
+            messages.error(request, 'Accès non autorisé.')
+            return redirect('common:dashboard_general')
+    
+    @method_decorator(login_required)
+    def goto_journal_view(self, request):
+        """Redirection vers le journal d'audit dans l'admin Django"""
+        if self._check_admin_permission(request.user):
+            self._log_admin_access(request, "Journal audit")
+            return redirect(reverse('admin:accounts_journalaudit_changelist'))
+        else:
+            messages.error(request, 'Accès non autorisé.')
+            return redirect('common:dashboard_general')
+    
+    @method_decorator(login_required)
+    def goto_add_user_view(self, request):
+        """Redirection vers l'ajout d'utilisateur dans l'admin Django"""
+        if self._check_admin_permission(request.user):
+            self._log_admin_access(request, "Ajout utilisateur")
+            return redirect(reverse('admin:accounts_utilisateursupper_add'))
+        else:
+            messages.error(request, 'Accès non autorisé.')
+            return redirect('common:dashboard_general')
+    
+    @method_decorator(login_required)
+    def goto_panel_advanced_view(self, request):
+        """Redirection vers le panel avancé (admin Django principal)"""
+        if self._check_admin_permission(request.user):
+            self._log_admin_access(request, "Panel administrateur avancé")
+            messages.success(request, 'Accès au panel d\'administration avancé.')
+            return redirect('/django-admin/')
+        else:
+            messages.error(request, 'Accès non autorisé au panel avancé.')
+            return redirect('common:dashboard_general')
+    
+    # FONCTIONS UTILITAIRES POUR LES REDIRECTIONS
+    def _check_admin_permission(self, user):
+        """Vérifier les permissions administrateur"""
+        return (user.is_superuser or 
+                user.is_staff or 
+                user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'])
+    
+    def _log_admin_access(self, request, action):
+        """Journaliser l'accès aux sections admin"""
+        JournalAudit.objects.create(
+            utilisateur=request.user,
+            action=f"Accès admin Django - {action}",
+            details=f"Redirection depuis dashboard SUPPER vers {action}",
+            adresse_ip=request.META.get('REMOTE_ADDR'),
+            url_acces=request.path,
+            methode_http=request.method,
+            succes=True
+        )
+    
+    # CONSERVER TOUTES LES AUTRES MÉTHODES EXISTANTES
     @method_decorator(login_required)
     def ping_view(self, request):
         """Vue simple pour vérifier la connexion"""
@@ -684,11 +823,6 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'fields': ('peut_saisir_peage', 'peut_saisir_pesage', 'acces_tous_postes'),
             'classes': ('collapse',),
         }),
-        ('Contrôle d\'affichage', {
-            'fields': ('voir_recettes_potentielles', 'voir_taux_deperdition', 
-                      'voir_statistiques_globales', 'peut_saisir_pour_autres_postes'),
-            'classes': ('collapse',),
-        }),
         ('Permissions fonctionnelles', {
             'fields': ('peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
                       'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
@@ -788,9 +922,9 @@ class UtilisateurSUPPERAdmin(UserAdmin):
 
 @admin.register(Poste, site=admin_site)
 class PosteAdmin(admin.ModelAdmin):
-    """Administration des postes - GARDÉ is_active et type"""
+    """Administration des postes - CORRIGÉ avec bons noms de champs"""
     
-    list_display = ('nom', 'code', 'type_badge', 'region_badge', 'is_active_badge', 'date_creation')
+    list_display = ('nom', 'code', 'type_badge', 'region_badge', 'actif_badge', 'date_creation')
     list_filter = ('type', 'region', 'is_active', 'date_creation')
     search_fields = ('nom', 'code', 'region', 'departement')
     ordering = ('region', 'nom')
@@ -801,7 +935,7 @@ class PosteAdmin(admin.ModelAdmin):
             'classes': ('wide',),
         }),
         ('Localisation', {
-            'fields': ('region', 'departement', 'axe_routier'),
+            'fields': ('region', 'departement', 'arrondissement', 'localisation'),
             'classes': ('wide',),
         }),
         ('Coordonnées GPS', {
@@ -809,8 +943,12 @@ class PosteAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
         ('Informations complémentaires', {
-            'fields': ('description', 'is_active'),
+            'fields': ('is_active', 'date_ouverture'),
             'classes': ('wide',),
+        }),
+        ('Observations', {
+            'fields': ('observations',),
+            'classes': ('collapse',),
         }),
         ('Métadonnées', {
             'fields': ('date_creation', 'date_modification'),
@@ -833,16 +971,16 @@ class PosteAdmin(admin.ModelAdmin):
         """Badge pour la région"""
         return format_html(
             '<span class="badge bg-secondary">{}</span>',
-            obj.region
+            obj.get_region_display()
         )
     region_badge.short_description = 'Région'
     
-    def is_active_badge(self, obj):
+    def actif_badge(self, obj):
         """Badge pour le statut actif"""
         if obj.is_active:
             return format_html('<span class="badge bg-success">Actif</span>')
         return format_html('<span class="badge bg-danger">Inactif</span>')
-    is_active_badge.short_description = 'Statut'
+    actif_badge.short_description = 'Statut'
 
 
 @admin.register(JournalAudit, site=admin_site)
@@ -897,9 +1035,10 @@ class NotificationUtilisateurAdmin(admin.ModelAdmin):
         """Badge pour le type de notification"""
         colors = {
             'info': 'info',
-            'succes': 'success',
-            'avertissement': 'warning',
-            'erreur': 'danger',
+            'success': 'success',
+            'warning': 'warning',
+            'error': 'danger',
+            'system': 'secondary',
         }
         color = colors.get(obj.type_notification, 'secondary')
         return format_html(
