@@ -791,7 +791,7 @@ class ValidateUsernameAPIView(LoginRequiredMixin, AdminRequiredMixin, View):
         
         # Vérifier le format
         import re
-        if not re.match(r'^[A-Z0-9]{6,20}, username):
+        if not re.match(r'^[A-Z0-9]{6,20}$', username):
             return JsonResponse({
                 'valid': False,
                 'message': 'Format invalide (6-20 caractères alphanumériques)'
