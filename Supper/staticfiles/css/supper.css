@@ -1,0 +1,711 @@
+/* 
+===================================================================
+Fichier : static/css/supper.css
+Styles CSS personnalisés pour l'application SUPPER
+Thème moderne, responsive, accessible
+===================================================================
+*/
+
+/* ===================================================================
+   VARIABLES CSS PERSONNALISÉES
+   ================================================================ */
+:root {
+    /* Couleurs principales SUPPER */
+    --supper-primary: #4f46e5;
+    --supper-secondary: #6366f1; 
+    --supper-success: #10b981;
+    --supper-warning: #f59e0b;
+    --supper-danger: #ef4444;
+    --supper-info: #3b82f6;
+    
+    /* Couleurs de fond */
+    --supper-bg-light: #f8fafc;
+    --supper-bg-white: #ffffff;
+    --supper-bg-dark: #1e293b;
+    
+    /* Couleurs de texte */
+    --supper-text-primary: #1e293b;
+    --supper-text-secondary: #64748b;
+    --supper-text-muted: #94a3b8;
+    
+    /* Espacements */
+    --supper-spacing-xs: 0.25rem;
+    --supper-spacing-sm: 0.5rem;
+    --supper-spacing-md: 1rem;
+    --supper-spacing-lg: 1.5rem;
+    --supper-spacing-xl: 3rem;
+    
+    /* Bordures et ombres */
+    --supper-border-radius: 0.5rem;
+    --supper-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --supper-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --supper-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* ===================================================================
+   STYLES GÉNÉRAUX
+   ================================================================ */
+
+/* Corps de la page */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--supper-bg-light);
+    color: var(--supper-text-primary);
+    line-height: 1.6;
+}
+
+/* Liens */
+a {
+    color: var(--supper-primary);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: var(--supper-secondary);
+    text-decoration: underline;
+}
+
+/* Titres */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--supper-text-primary);
+    font-weight: 600;
+    margin-bottom: var(--supper-spacing-md);
+}
+
+/* ===================================================================
+   NAVIGATION
+   ================================================================ */
+
+/* Barre de navigation principale */
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.navbar-nav .nav-link {
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    transition: background-color 0.3s ease;
+    border-radius: var(--supper-border-radius);
+    margin: 0 0.25rem;
+}
+
+.navbar-nav .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.navbar-nav .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+}
+
+/* Menu déroulant */
+.dropdown-menu {
+    border: none;
+    box-shadow: var(--supper-shadow-lg);
+    border-radius: var(--supper-border-radius);
+    padding: 0.5rem 0;
+}
+
+.dropdown-item {
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+}
+
+.dropdown-item:hover {
+    background-color: var(--supper-bg-light);
+    color: var(--supper-primary);
+}
+
+.dropdown-item.active {
+    background-color: var(--supper-primary);
+    color: white;
+}
+
+.dropdown-header {
+    color: var(--supper-text-secondary);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===================================================================
+   CARTES ET CONTENEURS
+   ================================================================ */
+
+/* Cartes personnalisées */
+.card {
+    border: none;
+    border-radius: var(--supper-border-radius);
+    box-shadow: var(--supper-shadow-sm);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: var(--supper-shadow-md);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    background-color: var(--supper-bg-white);
+    border-bottom: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    font-weight: 600;
+    color: var(--supper-text-primary);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Cartes de statistiques */
+.stat-card {
+    background: linear-gradient(135deg, var(--supper-primary) 0%, var(--supper-secondary) 100%);
+    color: white;
+    border-radius: var(--supper-border-radius);
+    padding: 1.5rem;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: scale(1.05);
+}
+
+.stat-card .stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card .stat-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===================================================================
+   FORMULAIRES
+   ================================================================ */
+
+/* Champs de formulaire */
+.form-control {
+    border: 2px solid #e5e7eb;
+    border-radius: var(--supper-border-radius);
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: var(--supper-primary);
+    box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+}
+
+.form-select {
+    border: 2px solid #e5e7eb;
+    border-radius: var(--supper-border-radius);
+    padding: 0.75rem 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-select:focus {
+    border-color: var(--supper-primary);
+    box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+}
+
+/* Labels flottants */
+.form-floating > label {
+    color: var(--supper-text-secondary);
+    font-weight: 500;
+}
+
+.form-floating > .form-control:focus ~ label {
+    color: var(--supper-primary);
+}
+
+/* ===================================================================
+   BOUTONS
+   ================================================================ */
+
+/* Boutons personnalisés */
+.btn {
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--supper-border-radius);
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--supper-primary) 0%, var(--supper-secondary) 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--supper-secondary) 0%, var(--supper-primary) 100%);
+    transform: translateY(-2px);
+    box-shadow: var(--supper-shadow-md);
+}
+
+.btn-success {
+    background-color: var(--supper-success);
+    color: white;
+}
+
+.btn-warning {
+    background-color: var(--supper-warning);
+    color: white;
+}
+
+.btn-danger {
+    background-color: var(--supper-danger);
+    color: white;
+}
+
+/* Boutons avec icônes */
+.btn i {
+    margin-right: 0.5rem;
+}
+
+/* ===================================================================
+   TABLEAUX
+   ================================================================ */
+
+/* Tableaux responsives */
+.table {
+    background-color: var(--supper-bg-white);
+    border-radius: var(--supper-border-radius);
+    overflow: hidden;
+    box-shadow: var(--supper-shadow-sm);
+}
+
+.table thead th {
+    background-color: var(--supper-bg-light);
+    border-bottom: 2px solid #e5e7eb;
+    font-weight: 600;
+    color: var(--supper-text-primary);
+    padding: 1rem;
+}
+
+.table tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.table tbody tr:hover {
+    background-color: var(--supper-bg-light);
+}
+
+/* Badges de statut dans les tableaux */
+.badge {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 50px;
+}
+
+/* ===================================================================
+   ALERTES ET NOTIFICATIONS
+   ================================================================ */
+
+/* Alertes personnalisées */
+.alert {
+    border: none;
+    border-radius: var(--supper-border-radius);
+    padding: 1rem 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+.alert-success {
+    background-color: #dcfce7;
+    color: #166534;
+    border-left: 4px solid var(--supper-success);
+}
+
+.alert-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+    border-left: 4px solid var(--supper-warning);
+}
+
+.alert-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-left: 4px solid var(--supper-danger);
+}
+
+.alert-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border-left: 4px solid var(--supper-info);
+}
+
+/* ===================================================================
+   INDICATEURS DE DÉPERDITION
+   ================================================================ */
+
+/* Classes pour les taux de déperdition */
+.deperdition-vert {
+    background-color: var(--supper-success);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.deperdition-orange {
+    background-color: var(--supper-warning);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.deperdition-rouge {
+    background-color: var(--supper-danger);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* ===================================================================
+   DASHBOARD ET WIDGETS
+   ================================================================ */
+
+/* Widget de statistiques */
+.widget {
+    background-color: var(--supper-bg-white);
+    border-radius: var(--supper-border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--supper-shadow-sm);
+    transition: box-shadow 0.3s ease;
+}
+
+.widget:hover {
+    box-shadow: var(--supper-shadow-md);
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.widget-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--supper-text-primary);
+    margin: 0;
+}
+
+.widget-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: white;
+}
+
+.widget-content {
+    color: var(--supper-text-secondary);
+}
+
+/* Graphiques et charts */
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin: 1rem 0;
+}
+
+/* ===================================================================
+   PAGINATION
+   ================================================================ */
+
+/* Pagination personnalisée */
+.pagination {
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.page-link {
+    color: var(--supper-primary);
+    border: 1px solid #e5e7eb;
+    padding: 0.75rem 1rem;
+    margin: 0 0.125rem;
+    border-radius: var(--supper-border-radius);
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.page-link:hover {
+    background-color: var(--supper-primary);
+    color: white;
+    border-color: var(--supper-primary);
+}
+
+.page-item.active .page-link {
+    background-color: var(--supper-primary);
+    border-color: var(--supper-primary);
+}
+
+/* ===================================================================
+   SAISIE D'INVENTAIRE
+   ================================================================ */
+
+/* Grille de saisie par périodes */
+.periode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.periode-card {
+    background-color: var(--supper-bg-white);
+    border-radius: var(--supper-border-radius);
+    padding: 1.5rem;
+    border: 2px solid #e5e7eb;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.periode-card:hover {
+    border-color: var(--supper-primary);
+    box-shadow: var(--supper-shadow-md);
+}
+
+.periode-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.periode-time {
+    background-color: var(--supper-primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-right: 1rem;
+}
+
+.periode-input {
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-align: center;
+    border: 2px solid #e5e7eb;
+    border-radius: var(--supper-border-radius);
+    padding: 1rem;
+    width: 100%;
+}
+
+.periode-input:focus {
+    border-color: var(--supper-primary);
+    box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+}
+
+/* ===================================================================
+   STATUT ET BADGES
+   ================================================================ */
+
+/* Badge de statut de jour */
+.jour-ouvert {
+    background-color: var(--supper-success);
+    color: white;
+}
+
+.jour-ferme {
+    background-color: var(--supper-text-secondary);
+    color: white;
+}
+
+.jour-impertinent {
+    background-color: var(--supper-warning);
+    color: white;
+}
+
+/* Badge de statut utilisateur */
+.statut-actif {
+    background-color: var(--supper-success);
+    color: white;
+}
+
+.statut-inactif {
+    background-color: var(--supper-text-secondary);
+    color: white;
+}
+
+/* ===================================================================
+   RESPONSIVE
+   ================================================================ */
+
+/* Ajustements mobile */
+@media (max-width: 768px) {
+    /* Navigation mobile */
+    .navbar-nav {
+        padding: 1rem 0;
+    }
+    
+    .navbar-nav .nav-link {
+        padding: 0.75rem 1rem;
+        margin: 0.25rem 0;
+    }
+    
+    /* Cartes sur mobile */
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .stat-card .stat-number {
+        font-size: 2rem;
+    }
+    
+    /* Grille de périodes sur mobile */
+    .periode-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Tableaux responsives */
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    /* Boutons sur mobile */
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn:last-child {
+        margin-bottom: 0;
+    }
+}
+
+/* Ajustements tablette */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .periode-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ===================================================================
+   ANIMATIONS ET TRANSITIONS
+   ================================================================ */
+
+/* Animation de fondu pour les pages */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Animation de chargement */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+/* Animation de pulsation pour les notifications */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* ===================================================================
+   ACCESSIBILITÉ
+   ================================================================ */
+
+/* Focus visible pour l'accessibilité */
+*:focus {
+    outline: 2px solid var(--supper-primary);
+    outline-offset: 2px;
+}
+
+/* Texte pour lecteurs d'écran */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Mode sombre (préparation future) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --supper-bg-light: #1e293b;
+        --supper-bg-white: #334155;
+        --supper-text-primary: #f8fafc;
+        --supper-text-secondary: #cbd5e1;
+    }
+}
+
+/* ===================================================================
+   UTILITAIRES
+   ================================================================ */
+
+/* Marges et espacements utilitaires */
+.mt-safe { margin-top: env(safe-area-inset-top); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+.ml-safe { margin-left: env(safe-area-inset-left); }
+.mr-safe { margin-right: env(safe-area-inset-right); }
+
+/* Classes d'aide pour le debug */
+.debug-border { border: 2px solid red !important; }
+.debug-bg { background-color: rgba(255, 0, 0, 0.1) !important; }
+
+/* Classe pour masquer les éléments */
+.hidden { display: none !important; }
+
+/* Classe pour le texte en ellipse */
+.text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

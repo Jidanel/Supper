@@ -1,0 +1,372 @@
+/* 
+===================================================================
+Fichier : static/admin/css/custom_admin.css
+CSS personnalisé pour les titres dynamiques dans le panel admin
+===================================================================
+*/
+
+/* ===================================================================
+   TITRES DYNAMIQUES SELON LE MODULE
+   ================================================================= */
+
+/* Titre principal du site admin */
+#site-name {
+    font-weight: bold;
+    font-size: 1.8em;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+/* Titre de la page selon le module */
+.admin-title-dynamic {
+    background: linear-gradient(135deg, #3498db, #2c3e50);
+    color: white;
+    padding: 15px 20px;
+    margin: -20px -20px 20px -20px;
+    border-radius: 8px 8px 0 0;
+    font-size: 1.4em;
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* Icônes pour chaque module */
+.admin-title-dynamic::before {
+    margin-right: 10px;
+    font-size: 1.2em;
+}
+
+/* Module Gestion des Comptes Utilisateurs */
+.module-users .admin-title-dynamic::before {
+    content: "👥";
+}
+
+/* Module Gestion des Postes */
+.module-postes .admin-title-dynamic::before {
+    content: "🏢";
+}
+
+/* Module Journal d'Audit */
+.module-audit .admin-title-dynamic::before {
+    content: "📋";
+}
+
+/* Module Gestion des Notifications */
+.module-notifications .admin-title-dynamic::before {
+    content: "📧";
+}
+
+/* Module Inventaire */
+.module-inventaire .admin-title-dynamic::before {
+    content: "📊";
+}
+
+/* ===================================================================
+   NAVIGATION ET BREADCRUMBS
+   ================================================================= */
+
+/* Navigation breadcrumb personnalisée */
+.breadcrumbs {
+    background: #ecf0f1;
+    padding: 12px 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #3498db;
+}
+
+.breadcrumbs a {
+    color: #2c3e50;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.breadcrumbs a:hover {
+    color: #3498db;
+    text-decoration: underline;
+}
+
+/* ===================================================================
+   TABLEAUX ADMIN AMÉLIORÉS
+   ================================================================= */
+
+/* En-têtes de tableau */
+#result_list thead th {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
+    padding: 12px 8px;
+}
+
+/* Lignes alternées */
+#result_list tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+#result_list tbody tr:hover {
+    background-color: #e3f2fd;
+    transition: background-color 0.2s ease;
+}
+
+/* ===================================================================
+   BOUTONS ET ACTIONS PERSONNALISÉS
+   ================================================================= */
+
+/* Boutons d'action */
+.button, input[type="submit"], .submit-row input {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.button:hover, input[type="submit"]:hover {
+    background: linear-gradient(135deg, #2980b9, #21618c);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Boutons de danger */
+.button.deletelink {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.button.deletelink:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+}
+
+/* ===================================================================
+   FORMULAIRES AMÉLIORÉS
+   ================================================================= */
+
+/* Fieldsets avec style moderne */
+.module fieldset {
+    border: 2px solid #ecf0f1;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.module fieldset h2 {
+    background: linear-gradient(135deg, #3498db, #2c3e50);
+    color: white;
+    margin: -20px -20px 15px -20px;
+    padding: 12px 20px;
+    border-radius: 6px 6px 0 0;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+/* Champs de formulaire */
+.form-row input[type="text"],
+.form-row input[type="email"],
+.form-row input[type="tel"],
+.form-row select,
+.form-row textarea {
+    border: 2px solid #ecf0f1;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+    width: 100%;
+    max-width: 400px;
+}
+
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* ===================================================================
+   MESSAGES D'ADMINISTRATION
+   ================================================================= */
+
+/* Messages de succès */
+.messagelist .success {
+    background: linear-gradient(135deg, #27ae60, #229954);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    margin-bottom: 15px;
+}
+
+/* Messages d'erreur */
+.messagelist .error {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    margin-bottom: 15px;
+}
+
+/* Messages d'information */
+.messagelist .info {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    margin-bottom: 15px;
+}
+
+/* ===================================================================
+   FILTRES ET RECHERCHE
+   ================================================================= */
+
+/* Panneau de filtres */
+#changelist-filter {
+    background: #f8f9fa;
+    border: 2px solid #ecf0f1;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+#changelist-filter h2 {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: white;
+    margin: -15px -15px 15px -15px;
+    padding: 10px 15px;
+    border-radius: 6px 6px 0 0;
+    font-size: 1em;
+}
+
+/* Barre de recherche */
+#toolbar {
+    background: linear-gradient(135deg, #ecf0f1, #d5dbdb);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+#searchbar {
+    border: 2px solid #bdc3c7;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 14px;
+    width: 300px;
+}
+
+#searchbar:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+/* ===================================================================
+   STATISTIQUES ET INDICATEURS
+   ================================================================= */
+
+/* Cartes de statistiques */
+.stats-card {
+    background: white;
+    border: 2px solid #ecf0f1;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    min-width: 200px;
+}
+
+.stats-card h3 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+.stats-card .number {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #3498db;
+    margin-bottom: 5px;
+}
+
+.stats-card .label {
+    color: #7f8c8d;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
+}
+
+/* ===================================================================
+   RESPONSIVE DESIGN
+   ================================================================= */
+
+@media (max-width: 768px) {
+    .admin-title-dynamic {
+        font-size: 1.2em;
+        padding: 10px 15px;
+        margin: -15px -15px 15px -15px;
+    }
+    
+    .stats-card {
+        margin: 5px;
+        min-width: 150px;
+    }
+    
+    .stats-card .number {
+        font-size: 2em;
+    }
+    
+    #searchbar {
+        width: 100%;
+        max-width: 250px;
+    }
+}
+
+/* ===================================================================
+   ANIMATIONS ET TRANSITIONS
+   ================================================================= */
+
+/* Animation d'apparition */
+.admin-content {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Transition hover pour les liens */
+a {
+    transition: color 0.3s ease;
+}
+
+/* ===================================================================
+   CLASSES UTILITAIRES
+   ================================================================= */
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+
+.mb-10 { margin-bottom: 10px; }
+.mb-20 { margin-bottom: 20px; }
+.mt-10 { margin-top: 10px; }
+.mt-20 { margin-top: 20px; }
+
+.p-10 { padding: 10px; }
+.p-20 { padding: 20px; }
+
+.text-success { color: #27ae60; }
+.text-error { color: #e74c3c; }
+.text-warning { color: #f39c12; }
+.text-info { color: #3498db; }

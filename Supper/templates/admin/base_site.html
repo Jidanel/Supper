@@ -1,223 +1,181 @@
 <!-- ===================================================================
-     templates/admin/base_site.html - INTERFACE ADMIN MODERNISÉE
-     Design professionnel inspiré d'Atlantique Pesage avec palette violette
-     MISE À JOUR : Amélioration complète de l'interface admin Django
-     =================================================================== -->
-{% extends "admin/base.html" %}
+     templates/admin/base_site.html - NOUVEAU TEMPLATE avec design violet
+     ================================================================== -->
 {% load static %}
 {% load i18n %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('SUPPER Administration') }}{% endblock %}
+<!DOCTYPE html>
+<html lang="{% get_current_language as LANGUAGE_CODE %}{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SUPPER - {{ title|default:"Administration" }}{% endblock %}</title>
+    
+    <!-- CSS Bootstrap et personnalisé -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/supper_admin.css' %}">
+    
+    <!-- CSS spécifique à la page -->
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Meta tags pour mobile et SEO -->
+    <meta name="description" content="SUPPER - Système de Suivi des Péages et Pesages Routiers">
+    <meta name="robots" content="noindex, nofollow">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'admin/img/favicon.ico' %}">
+</head>
 
-{% block branding %}
-<div class="supper-branding">
-    <div class="logo-container">
-        <div class="logo-icon">
-            <i class="fas fa-road"></i>
-        </div>
-        <div class="logo-text">
-            <h1>SUPPER</h1>
-            <span class="subtitle">{% trans "Administration" %}</span>
-        </div>
-    </div>
-</div>
-{% endblock %}
+<body class="{% block body_class %}{% endblock %}">
 
-{% block nav-global %}
-<nav class="supper-nav-global">
-    <div class="nav-container">
+<!-- HEADER PRINCIPAL avec bande violette -->
+<header id="header" class="header-violet">
+    <div class="header-container">
+        <!-- Logo et titre SUPPER -->
+        <div class="logo-section">
+            <div class="logo-icon">
+                <i class="fas fa-road text-white fs-2"></i>
+            </div>
+            <div class="logo-text">
+                <h1 class="mb-0">SUPPER</h1>
+                <div class="subtitle">
+                    {% trans "Suivi des Péages et Pesages Routiers" %}
+                </div>
+            </div>
+        </div>
+
         <!-- Navigation principale -->
-        <ul class="nav-menu">
-            <li class="nav-item">
-                <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>{% trans "Tableau de Bord" %}</span>
-                </a>
-            </li>
-            
-            {% if perms.accounts %}
-            <li class="nav-item dropdown">
-                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-users"></i>
-                    <span>{% trans "Personnel" %}</span>
-                    <i class="fas fa-chevron-down dropdown-icon"></i>
-                </a>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
-                        <i class="fas fa-users-cog"></i>{% trans "Gérer Utilisateurs" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
-                        <i class="fas fa-user-plus"></i>{% trans "Nouvel Utilisateur" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
-                        <i class="fas fa-map-marker-alt"></i>{% trans "Gérer Postes" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_add' %}">
-                        <i class="fas fa-plus-circle"></i>{% trans "Nouveau Poste" %}
-                    </a></li>
-                </ul>
-            </li>
-            {% endif %}
-            
-            {% if perms.inventaire %}
-            <li class="nav-item dropdown">
-                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>{% trans "Inventaires" %}</span>
-                    <i class="fas fa-chevron-down dropdown-icon"></i>
-                </a>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_changelist' %}">
-                        <i class="fas fa-list"></i>{% trans "Liste Inventaires" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_add' %}">
-                        <i class="fas fa-plus"></i>{% trans "Nouvel Inventaire" %}
-                    </a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_detailinventaireperiode_changelist' %}">
-                        <i class="fas fa-clock"></i>{% trans "Détails par Période" %}
-                    </a></li>
-                </ul>
-            </li>
-            {% endif %}
-            
-            {% if perms.inventaire %}
-            <li class="nav-item dropdown">
-                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-euro-sign"></i>
-                    <span>{% trans "Recettes" %}</span>
-                    <i class="fas fa-chevron-down dropdown-icon"></i>
-                </a>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_changelist' %}">
-                        <i class="fas fa-chart-line"></i>{% trans "Liste Recettes" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_add' %}">
-                        <i class="fas fa-plus-square"></i>{% trans "Nouvelle Recette" %}
-                    </a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_statistiquesperiodiques_changelist' %}">
-                        <i class="fas fa-chart-bar"></i>{% trans "Statistiques" %}
-                    </a></li>
-                </ul>
-            </li>
-            {% endif %}
-            
-            {% if perms.inventaire %}
-            <li class="nav-item dropdown">
-                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>{% trans "Configuration" %}</span>
-                    <i class="fas fa-chevron-down dropdown-icon"></i>
-                </a>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
-                        <i class="fas fa-calendar-check"></i>{% trans "Configuration Jours" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_add' %}">
-                        <i class="fas fa-calendar-plus"></i>{% trans "Ajouter Configuration" %}
-                    </a></li>
-                </ul>
-            </li>
-            {% endif %}
-            
-            {% if user.is_superuser %}
-            <li class="nav-item dropdown">
-                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-cogs"></i>
-                    <span>{% trans "Administration" %}</span>
-                    <i class="fas fa-chevron-down dropdown-icon"></i>
-                </a>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
-                        <i class="fas fa-history"></i>{% trans "Journal d'Audit" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:accounts_notificationutilisateur_changelist' %}">
-                        <i class="fas fa-bell"></i>{% trans "Notifications" %}
-                    </a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:index' %}">
-                        <i class="fas fa-tools"></i>{% trans "Panel Admin" %}
-                    </a></li>
-                </ul>
-            </li>
-            {% endif %}
-        </ul>
-        
+        <nav class="main-navigation">
+            <ul class="nav-links">
+                <li>
+                    <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                        <i class="fas fa-tachometer-alt me-1"></i>
+                        {% trans "Tableau de Bord" %}
+                    </a>
+                </li>
+                
+                {% if user.peut_gerer_inventaire %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-clipboard-list me-1"></i>
+                        {% trans "Inventaires" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_add' %}">
+                            <i class="fas fa-plus me-2"></i>{% trans "Nouvel Inventaire" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_changelist' %}">
+                            <i class="fas fa-list me-2"></i>{% trans "Liste Inventaires" %}
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin/tools/saisie-inventaire/">
+                            <i class="fas fa-keyboard me-2"></i>{% trans "Saisie Rapide" %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+
+                {% if user.peut_gerer_peage or user.peut_gerer_pesage %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-money-bill-wave me-1"></i>
+                        {% trans "Recettes" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_add' %}">
+                            <i class="fas fa-plus me-2"></i>{% trans "Nouvelle Recette" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_changelist' %}">
+                            <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+
+                {% if user.peut_gerer_personnel %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-users me-1"></i>
+                        {% trans "Personnel" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
+                            <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
+                            <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
+                            <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+
+                {% if user.is_superuser %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-cogs me-1"></i>
+                        {% trans "Administration" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
+                            <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
+                            <i class="fas fa-calendar-alt me-2"></i>{% trans "Configuration Jours" %}
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin/">
+                            <i class="fas fa-tools me-2"></i>{% trans "Admin Django" %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+
         <!-- Section utilisateur -->
         <div class="user-section">
             <!-- Notifications -->
-            <div class="notification-wrapper">
-                <button class="notification-btn" data-toggle="dropdown">
-                    <i class="fas fa-bell"></i>
-                    <span class="notification-badge">{{ unread_notifications_count|default:0 }}</span>
+            <div class="notification-btn me-3">
+                <button class="btn btn-link text-white p-2" data-bs-toggle="dropdown">
+                    <i class="fas fa-bell fs-5"></i>
+                    <span class="notification-badge">3</span>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end notification-dropdown">
-                    <li class="dropdown-header">
-                        <i class="fas fa-bell me-2"></i>{% trans "Notifications" %}
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    {% if recent_notifications %}
-                        {% for notification in recent_notifications %}
-                        <li><a class="dropdown-item notification-item {% if not notification.lue %}unread{% endif %}" href="#">
-                            <div class="notification-content">
-                                <div class="notification-title">{{ notification.titre }}</div>
-                                <div class="notification-text">{{ notification.message|truncatechars:50 }}</div>
-                                <div class="notification-time">{{ notification.date_creation|timesince }}</div>
-                            </div>
-                        </a></li>
-                        {% endfor %}
-                    {% else %}
-                        <li><span class="dropdown-item-text text-muted">{% trans "Aucune notification" %}</span></li>
-                    {% endif %}
-                    {% if total_notifications_count > 5 %}
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-center" href="#">{% trans "Voir toutes" %}</a></li>
-                    {% endif %}
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">{% trans "Notifications" %}</h6></li>
+                    <li><a class="dropdown-item" href="#">
+                        <small class="text-muted">{% trans "Aucune nouvelle notification" %}</small>
+                    </a></li>
                 </ul>
             </div>
-            
+
             <!-- Informations utilisateur -->
             <div class="user-info">
                 <div class="user-name">{{ user.nom_complet|default:user.username }}</div>
                 <div class="user-role">{{ user.get_habilitation_display }}</div>
-                {% if user.poste_affectation %}
-                <div class="user-poste">{{ user.poste_affectation.nom }}</div>
-                {% endif %}
             </div>
-            
+
             <!-- Menu utilisateur -->
-            <div class="user-menu dropdown">
-                <button class="user-avatar" data-toggle="dropdown">
-                    {% if user.photo_profil %}
-                        <img src="{{ user.photo_profil.url }}" alt="{{ user.nom_complet }}">
-                    {% else %}
-                        <i class="fas fa-user-circle"></i>
-                    {% endif %}
+            <div class="dropdown">
+                <button class="btn btn-link text-white p-2" data-bs-toggle="dropdown">
+                    <i class="fas fa-user-circle fs-4"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li class="dropdown-header">
-                        <div class="user-card">
-                            <div class="user-card-name">{{ user.nom_complet|default:user.username }}</div>
-                            <div class="user-card-matricule">{{ user.username }}</div>
-                            <div class="user-card-role">{{ user.get_habilitation_display }}</div>
-                        </div>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_change' user.id %}">
+                    <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
+                    <li><a class="dropdown-item" href="#">
                         <i class="fas fa-user me-2"></i>{% trans "Mon Profil" %}
                     </a></li>
                     <li><a class="dropdown-item" href="#">
                         <i class="fas fa-key me-2"></i>{% trans "Changer mot de passe" %}
                     </a></li>
-                    <li><a class="dropdown-item" href="#">
-                        <i class="fas fa-cog me-2"></i>{% trans "Préférences" %}
-                    </a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li>
-                        <form method="post" action="{% url 'accounts:logout' %}" class="d-inline w-100">
+                        <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="dropdown-item text-danger">
+                            <button type="submit" class="dropdown-item border-0 bg-transparent text-start w-100">
                                 <i class="fas fa-sign-out-alt me-2"></i>{% trans "Déconnexion" %}
                             </button>
                         </form>
@@ -226,309 +184,111 @@
             </div>
         </div>
     </div>
-</nav>
-{% endblock %}
+</header>
 
-{% block usertools %}
-<!-- Remplacé par la nouvelle section utilisateur dans nav-global -->
-{% endblock %}
-
-{% block nav-sidebar %}
-<!-- Sidebar personnalisée pour actions rapides -->
-<nav class="supper-sidebar">
-    <div class="sidebar-content">
-        <div class="sidebar-section">
-            <h3 class="sidebar-title">
-                <i class="fas fa-bolt"></i>
-                {% trans "Actions Rapides" %}
-            </h3>
-            <ul class="sidebar-menu">
-                <li><a href="{% url 'admin:inventaire_inventairejournalier_add' %}" class="sidebar-link">
-                    <i class="fas fa-plus-circle"></i>{% trans "Nouvel Inventaire" %}
-                </a></li>
-                <li><a href="{% url 'admin:inventaire_recettejournaliere_add' %}" class="sidebar-link">
-                    <i class="fas fa-euro-sign"></i>{% trans "Nouvelle Recette" %}
-                </a></li>
-                <li><a href="{% url 'admin:accounts_utilisateursupper_add' %}" class="sidebar-link">
-                    <i class="fas fa-user-plus"></i>{% trans "Nouvel Utilisateur" %}
-                </a></li>
-                <li><a href="{% url 'admin:inventaire_configurationjour_add' %}" class="sidebar-link">
-                    <i class="fas fa-calendar-plus"></i>{% trans "Configurer Jour" %}
-                </a></li>
-            </ul>
-        </div>
+<!-- CONTENU PRINCIPAL -->
+<main id="content" class="main-content">
+    <div class="content-wrapper">
         
-        <div class="sidebar-section">
-            <h3 class="sidebar-title">
-                <i class="fas fa-chart-line"></i>
-                {% trans "Statistiques Rapides" %}
-            </h3>
-            <div class="quick-stats">
-                <div class="quick-stat-item">
-                    <div class="quick-stat-number" id="quickStatUsers">{{ users_count|default:"--" }}</div>
-                    <div class="quick-stat-label">{% trans "Utilisateurs" %}</div>
-                </div>
-                <div class="quick-stat-item">
-                    <div class="quick-stat-number" id="quickStatInventaires">{{ inventaires_today|default:"--" }}</div>
-                    <div class="quick-stat-label">{% trans "Inventaires Aujourd'hui" %}</div>
-                </div>
-                <div class="quick-stat-item">
-                    <div class="quick-stat-number" id="quickStatRecettes">{{ recettes_today|default:"--" }}</div>
-                    <div class="quick-stat-label">{% trans "Recettes Aujourd'hui" %}</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="sidebar-section">
-            <h3 class="sidebar-title">
-                <i class="fas fa-heartbeat"></i>
-                {% trans "État Système" %}
-            </h3>
-            <div class="system-status">
-                <div class="status-item">
-                    <div class="status-indicator status-online"></div>
-                    <span>{% trans "Système en ligne" %}</span>
-                </div>
-                <div class="status-item">
-                    <div class="status-indicator status-db"></div>
-                    <span>{% trans "Base de données" %}</span>
-                </div>
-                <div class="status-item">
-                    <div class="status-indicator status-cache"></div>
-                    <span>{% trans "Cache actif" %}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-</nav>
-{% endblock %}
+        <!-- Breadcrumbs -->
+        {% block breadcrumbs %}
+        <nav class="breadcrumbs mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'admin:index' %}">
+                        <i class="fas fa-home me-1"></i>{% trans "Accueil" %}
+                    </a>
+                </li>
+                {% if title %}
+                <li class="breadcrumb-item active">{{ title }}</li>
+                {% endif %}
+            </ol>
+        </nav>
+        {% endblock %}
 
-{% block content %}
-<div class="supper-content-wrapper">
-    <!-- Barre de recherche globale -->
-    <div class="global-search-bar">
-        <form method="get" action="{% url 'admin:index' %}" class="search-form">
-            <div class="search-input-group">
-                <input type="search" name="q" placeholder="{% trans 'Rechercher dans SUPPER...' %}" 
-                       class="search-input" value="{{ request.GET.q }}">
-                <button type="submit" class="search-btn">
-                    <i class="fas fa-search"></i>
-                </button>
+        <!-- Messages Django -->
+        {% if messages %}
+        <div class="messages-container mb-4">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {% if message.tags == 'error' %}
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                {% elif message.tags == 'warning' %}
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                {% elif message.tags == 'success' %}
+                    <i class="fas fa-check-circle me-2"></i>
+                {% else %}
+                    <i class="fas fa-info-circle me-2"></i>
+                {% endif %}
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-        </form>
-    </div>
-    
-    <!-- Fil d'Ariane amélioré -->
-    <nav class="supper-breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item">
-                <a href="{% url 'admin:index' %}">
-                    <i class="fas fa-home"></i>
-                    {% trans "Accueil" %}
-                </a>
-            </li>
-            {% block breadcrumbs %}{% endblock %}
-        </ol>
-    </nav>
-    
-    <!-- Messages améliorés -->
-    {% if messages %}
-    <div class="messages-container">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show modern-alert" role="alert">
-            {% if message.tags == 'error' %}
-                <i class="fas fa-exclamation-triangle"></i>
-            {% elif message.tags == 'warning' %}
-                <i class="fas fa-exclamation-circle"></i>
-            {% elif message.tags == 'success' %}
-                <i class="fas fa-check-circle"></i>
-            {% else %}
-                <i class="fas fa-info-circle"></i>
-            {% endif %}
-            <div class="alert-content">
-                <div class="alert-message">{{ message }}</div>
-            </div>
-            <button type="button" class="btn-close" data-dismiss="alert">
-                <i class="fas fa-times"></i>
-            </button>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    
-    <!-- Contenu principal -->
-    <main class="main-content">
-        {{ block.super }}
-    </main>
-</div>
-{% endblock %}
+        {% endif %}
 
-{% block footer %}
-<footer class="supper-footer">
-    <div class="footer-content">
-        <div class="footer-left">
-            <span class="footer-text">
-                © {% now "Y" %} SUPPER - {% trans "Système de Suivi des Péages et Pesages Routiers" %}
-            </span>
+        <!-- Contenu spécifique à chaque page -->
+        {% block content %}
+        <div class="dashboard-welcome">
+            <div class="row">
+                <div class="col-12">
+                    <div class="welcome-card">
+                        <h2>{% trans "Bienvenue dans SUPPER" %}</h2>
+                        <p class="text-muted">{% trans "Système de Suivi des Péages et Pesages Routiers" %}</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="footer-center">
-            <span class="footer-version">{% trans "Version" %} 1.0.0</span>
-        </div>
-        <div class="footer-right">
-            <span class="footer-user">
-                {% trans "Connecté en tant que" %}: <strong>{{ user.nom_complet|default:user.username }}</strong>
-            </span>
+        {% endblock %}
+    </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="main-footer bg-light py-3 mt-5">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-6">
+                <small class="text-muted">
+                    © {% now "Y" %} SUPPER - {% trans "Système de Suivi des Péages et Pesages Routiers" %}
+                </small>
+            </div>
+            <div class="col-md-6 text-end">
+                <small class="text-muted">
+                    {% trans "Version" %} 1.0 | {% trans "Connecté en tant que" %}: <strong>{{ user.username }}</strong>
+                </small>
+            </div>
         </div>
     </div>
 </footer>
-{% endblock %}
 
-{% block extrahead %}
-{{ block.super }}
-<!-- Fonts Google -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- CSS SUPPER personnalisé -->
-<link rel="stylesheet" type="text/css" href="{% static 'admin/css/supper_admin.css' %}">
-
-<!-- Meta tags pour l'interface moderne -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="SUPPER - Administration du Système de Suivi des Péages et Pesages Routiers">
-<meta name="author" content="Équipe SUPPER">
-
-<!-- Variables CSS pour la cohérence -->
-<style>
-:root {
-    --supper-primary: #6B46C1;
-    --supper-primary-dark: #553C9A;
-    --supper-primary-light: #8B5CF6;
-    --supper-accent: #F59E0B;
-    --supper-success: #10B981;
-    --supper-warning: #F59E0B;
-    --supper-danger: #EF4444;
-    --supper-info: #3B82F6;
-    --supper-light: #F8FAFC;
-    --supper-dark: #334155;
-    --supper-gray: #64748B;
-}
-</style>
-{% endblock %}
-
-{% block extrastyle %}
-{{ block.super }}
-<!-- CSS spécifique aux pages admin -->
-{% endblock %}
-
-{% block extrajs %}
-{{ block.super }}
-<!-- Bootstrap JS -->
+<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- JavaScript personnalisé SUPPER -->
+<!-- JavaScript personnalisé -->
 <script>
+// Initialisation des tooltips Bootstrap
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialisation de l'interface moderne
-    initSupperAdmin();
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
     
-    // Auto-refresh des statistiques rapides
-    refreshQuickStats();
-    setInterval(refreshQuickStats, 60000); // Chaque minute
-    
-    // Gestion des dropdowns
-    initDropdowns();
-    
-    // Gestion des notifications
-    initNotifications();
+    // Animation fade-in pour le contenu
+    document.querySelector('.content-wrapper').classList.add('fade-in');
 });
 
-function initSupperAdmin() {
-    console.log('🚀 SUPPER Admin Interface - Chargée');
-    
-    // Animation d'entrée
-    document.body.classList.add('supper-loaded');
-    
-    // Gestion responsive du menu
-    handleResponsiveMenu();
+// Fonction pour les notifications temps réel (à implémenter)
+function checkNotifications() {
+    // TODO: Implémentation AJAX pour vérifier les nouvelles notifications
 }
 
-function refreshQuickStats() {
-    // Actualiser les statistiques dans la sidebar
-    const statsElements = {
-        'quickStatUsers': '{% url "admin:accounts_utilisateursupper_changelist" %}',
-        'quickStatInventaires': '{% url "admin:inventaire_inventairejournalier_changelist" %}',
-        'quickStatRecettes': '{% url "admin:inventaire_recettejournaliere_changelist" %}'
-    };
-    
-    // TODO: Implémenter les appels AJAX pour les stats
-}
-
-function initDropdowns() {
-    // Initialiser les dropdowns personnalisés
-    const dropdowns = document.querySelectorAll('.dropdown-toggle');
-    dropdowns.forEach(dropdown => {
-        dropdown.addEventListener('click', function(e) {
-            e.preventDefault();
-            const menu = this.nextElementSibling;
-            if (menu && menu.classList.contains('dropdown-menu')) {
-                menu.classList.toggle('show');
-            }
-        });
-    });
-    
-    // Fermer les dropdowns en cliquant ailleurs
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.dropdown')) {
-            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                menu.classList.remove('show');
-            });
-        }
-    });
-}
-
-function initNotifications() {
-    // Marquer les notifications comme lues au clic
-    const notificationItems = document.querySelectorAll('.notification-item');
-    notificationItems.forEach(item => {
-        item.addEventListener('click', function() {
-            this.classList.remove('unread');
-            // TODO: Appel AJAX pour marquer comme lue
-        });
-    });
-}
-
-function handleResponsiveMenu() {
-    // Gestion du menu responsive
-    const navMenu = document.querySelector('.nav-menu');
-    const userSection = document.querySelector('.user-section');
-    
-    function checkWidth() {
-        if (window.innerWidth < 768) {
-            navMenu?.classList.add('mobile-menu');
-            userSection?.classList.add('mobile-user');
-        } else {
-            navMenu?.classList.remove('mobile-menu');
-            userSection?.classList.remove('mobile-user');
-        }
-    }
-    
-    checkWidth();
-    window.addEventListener('resize', checkWidth);
-}
-
-// Utilitaires globaux
-window.SUPPER = {
-    showToast: function(message, type = 'info', duration = 5000) {
-        // Implémenter un système de toast moderne
-        console.log(`Toast ${type}: ${message}`);
-    },
-    
-    confirmAction: function(title, message, callback) {
-        // Modal de confirmation moderne
-        if (confirm(`${title}\n\n${message}`)) {
-            callback();
-        }
-    }
-};
+// Vérifier les notifications toutes les 30 secondes
+setInterval(checkNotifications, 30000);
 </script>
-{% endblock %}
+
+<!-- JavaScript spécifique à la page -->
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

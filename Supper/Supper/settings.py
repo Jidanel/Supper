@@ -412,6 +412,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Utilisation du site admin personnalisé
 ADMIN_SITE_CLASS = 'accounts.admin.SupperAdminSite'
+ADMIN_SITE_HEADER = 'SUPPER Administration'
+ADMIN_SITE_TITLE = 'SUPPER'
+ADMIN_INDEX_TITLE = 'Tableau de Bord SUPPER'
 
 # ===================================================================
 # CORRECTION 3: Settings.py - Vérifier la configuration CSRF
