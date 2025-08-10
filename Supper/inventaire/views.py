@@ -1,25 +1,64 @@
 # ===================================================================
-# inventaire/views.py - AJOUT DES VUES DE REDIRECTION POUR INVENTAIRES
-# À ajouter au fichier inventaire/views.py existant
+# inventaire/views.py - VUES COMPLÈTES POUR LE MODULE INVENTAIRE
+# Application SUPPER - Suivi des Péages et Pesages Routiers
 # ===================================================================
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.views import View
+from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.core.paginator import Paginator
+from django.db.models import Q, Sum, Avg, Count
+from django.utils import timezone
+from datetime import datetime, date, timedelta
+import json
 import logging
 
 logger = logging.getLogger('supper')
 
 # Import des modèles
-from .models import InventaireJournalier, RecetteJournaliere, ConfigurationJour, StatistiquesPeriodiques
-from accounts.models import UtilisateurSUPPER, JournalAudit
+from .models import (
+    InventaireJournalier, DetailInventairePeriode, RecetteJournaliere, 
+    ConfigurationJour, StatistiquesPeriodiques, PeriodeHoraire
+)
+from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
+from common.utils import log_user_action, require_permission, require_poste_access
 
 # ===================================================================
-# FONCTIONS UTILITAIRES POUR LES REDIRECTIONS INVENTAIRE
+# MIXINS ET FONCTIONS UTILITAIRES
 # ===================================================================
+
+class InventaireMixin(LoginRequiredMixin):
+    """Mixin de base pour les vues inventaire avec permissions"""
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not hasattr(request.user, 'peut_gerer_inventaire') or not request.user.peut_gerer_inventaire:
+            messages.error(request, _("Vous n'avez pas les permissions pour accéder aux inventaires."))
+            return redirect('common:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class AdminRequiredMixin(UserPassesTestMixin):
+    """Mixin pour les vues nécessitant des droits admin"""
+    
+    def test_func(self):
+        return (self.request.user.is_superuser or 
+                self.request.user.is_staff or 
+                self.request.user.habilitation in [
+                    'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'
+                ])
+    
+    def handle_no_permission(self):
+        messages.error(self.request, _("Accès non autorisé à cette fonctionnalité."))
+        return redirect('common:dashboard')
+
 
 def _check_admin_permission(user):
     """Vérifier les permissions administrateur"""
@@ -28,27 +67,630 @@ def _check_admin_permission(user):
             user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'])
 
 
-def _log_inventaire_admin_access(request, action):
-    """Journaliser l'accès aux sections admin inventaire"""
+def _log_inventaire_action(request, action, details=""):
+    """Journaliser une action inventaire"""
     try:
         JournalAudit.objects.create(
             utilisateur=request.user,
-            action=f"Accès admin Django Inventaire - {action}",
-            details=f"Redirection depuis SUPPER vers {action}",
+            action=action,
+            details=details,
             adresse_ip=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+            session_key=request.session.session_key,
             url_acces=request.path,
             methode_http=request.method,
             succes=True
         )
-        
-        logger.info(f"REDIRECTION ADMIN INVENTAIRE - {request.user.username} -> {action}")
-        
+        logger.info(f"INVENTAIRE - {request.user.username} - {action}")
     except Exception as e:
-        logger.error(f"Erreur journalisation inventaire admin access: {str(e)}")
+        logger.error(f"Erreur journalisation inventaire: {str(e)}")
 
 
 # ===================================================================
-# VUES DE REDIRECTION VERS ADMIN DJANGO - MODULE INVENTAIRE
+# VUES PRINCIPALES D'INVENTAIRE
+# ===================================================================
+
+class InventaireListView(InventaireMixin, ListView):
+    """Liste des inventaires avec filtres et recherche"""
+    model = InventaireJournalier
+    template_name = 'inventaire/inventaire_list.html'
+    context_object_name = 'inventaires'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        queryset = InventaireJournalier.objects.select_related(
+            'poste', 'agent_saisie', 'valide_par'
+        ).prefetch_related('details_periodes')
+        
+        # Filtrer selon les postes accessibles à l'utilisateur
+        if not self.request.user.acces_tous_postes and not _check_admin_permission(self.request.user):
+            if self.request.user.poste_affectation:
+                queryset = queryset.filter(poste=self.request.user.poste_affectation)
+            else:
+                queryset = queryset.none()
+        
+        # Filtres de recherche
+        search = self.request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(poste__nom__icontains=search) |
+                Q(poste__code__icontains=search) |
+                Q(agent_saisie__nom_complet__icontains=search)
+            )
+        
+        # Filtre par poste
+        poste_id = self.request.GET.get('poste')
+        if poste_id:
+            queryset = queryset.filter(poste_id=poste_id)
+        
+        # Filtre par date
+        date_debut = self.request.GET.get('date_debut')
+        date_fin = self.request.GET.get('date_fin')
+        
+        if date_debut:
+            try:
+                date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
+                queryset = queryset.filter(date__gte=date_debut)
+            except ValueError:
+                pass
+        
+        if date_fin:
+            try:
+                date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
+                queryset = queryset.filter(date__lte=date_fin)
+            except ValueError:
+                pass
+        
+        # Filtre par statut
+        statut = self.request.GET.get('statut')
+        if statut == 'verrouille':
+            queryset = queryset.filter(verrouille=True)
+        elif statut == 'valide':
+            queryset = queryset.filter(valide=True)
+        elif statut == 'en_cours':
+            queryset = queryset.filter(verrouille=False, valide=False)
+        
+        return queryset.order_by('-date', 'poste__nom')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Postes accessibles pour le filtre
+        if self.request.user.acces_tous_postes or _check_admin_permission(self.request.user):
+            postes = Poste.objects.filter(actif=True).order_by('nom')
+        else:
+            postes = Poste.objects.filter(
+                id=self.request.user.poste_affectation.id
+            ) if self.request.user.poste_affectation else Poste.objects.none()
+        
+        # Statistiques rapides
+        total_inventaires = self.get_queryset().count()
+        inventaires_today = self.get_queryset().filter(date=timezone.now().date()).count()
+        inventaires_verrouilles = self.get_queryset().filter(verrouille=True).count()
+        
+        context.update({
+            'postes': postes,
+            'total_inventaires': total_inventaires,
+            'inventaires_today': inventaires_today,
+            'inventaires_verrouilles': inventaires_verrouilles,
+            'can_admin': _check_admin_permission(self.request.user),
+            'current_filters': {
+                'search': self.request.GET.get('search', ''),
+                'poste': self.request.GET.get('poste', ''),
+                'date_debut': self.request.GET.get('date_debut', ''),
+                'date_fin': self.request.GET.get('date_fin', ''),
+                'statut': self.request.GET.get('statut', ''),
+            }
+        })
+        
+        return context
+
+
+class InventaireDetailView(InventaireMixin, DetailView):
+    """Détail d'un inventaire avec calculs et historique"""
+    model = InventaireJournalier
+    template_name = 'inventaire/inventaire_detail.html'
+    context_object_name = 'inventaire'
+    
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        
+        # Vérifier l'accès au poste
+        if not self.request.user.peut_acceder_poste(obj.poste):
+            raise PermissionError(_("Accès non autorisé à ce poste."))
+        
+        return obj
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        inventaire = self.get_object()
+        
+        # Détails par période
+        details_periodes = inventaire.details_periodes.all().order_by('periode')
+        
+        # Recette associée
+        try:
+            recette = RecetteJournaliere.objects.get(
+                poste=inventaire.poste,
+                date=inventaire.date
+            )
+        except RecetteJournaliere.DoesNotExist:
+            recette = None
+        
+        # Calculs
+        total_vehicules = sum(d.nombre_vehicules for d in details_periodes)
+        moyenne_horaire = total_vehicules / len(details_periodes) if details_periodes else 0
+        estimation_24h = moyenne_horaire * 24
+        recette_potentielle = inventaire.calculer_recette_potentielle()
+        
+        # Données pour graphique par période
+        graph_data = {
+            'periodes': [d.get_periode_display() for d in details_periodes],
+            'vehicules': [d.nombre_vehicules for d in details_periodes],
+        }
+        
+        context.update({
+            'details_periodes': details_periodes,
+            'recette': recette,
+            'total_vehicules': total_vehicules,
+            'moyenne_horaire': round(moyenne_horaire, 2),
+            'estimation_24h': round(estimation_24h, 2),
+            'recette_potentielle': recette_potentielle,
+            'graph_data': json.dumps(graph_data),
+            'can_edit': not inventaire.verrouille and self.request.user.peut_gerer_inventaire,
+            'can_lock': not inventaire.verrouille and _check_admin_permission(self.request.user),
+            'can_validate': inventaire.verrouille and not inventaire.valide and _check_admin_permission(self.request.user),
+        })
+        
+        return context
+
+
+class SaisieInventaireView(InventaireMixin, View):
+    """Vue pour la saisie d'inventaire par les agents"""
+    template_name = 'inventaire/saisie_inventaire.html'
+    
+    def get(self, request, poste_id=None, date=None):
+        """Affichage du formulaire de saisie"""
+        
+        # Déterminer le poste
+        if poste_id:
+            poste = get_object_or_404(Poste, id=poste_id)
+            if not request.user.peut_acceder_poste(poste):
+                messages.error(request, _("Accès non autorisé à ce poste."))
+                return redirect('inventaire:inventaire_list')
+        else:
+            poste = request.user.poste_affectation
+            if not poste:
+                messages.error(request, _("Aucun poste d'affectation configuré."))
+                return redirect('common:dashboard')
+        
+        # Déterminer la date
+        if date:
+            try:
+                target_date = datetime.strptime(date, '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, _("Format de date invalide."))
+                return redirect('inventaire:saisie_inventaire')
+        else:
+            target_date = timezone.now().date()
+        
+        # Vérifier si le jour est ouvert
+        if not ConfigurationJour.est_jour_ouvert(target_date):
+            messages.warning(request, _(f"Le jour {target_date.strftime('%d/%m/%Y')} n'est pas ouvert pour la saisie."))
+            return redirect('inventaire:inventaire_list')
+        
+        # Récupérer ou créer l'inventaire
+        inventaire, created = InventaireJournalier.objects.get_or_create(
+            poste=poste,
+            date=target_date,
+            defaults={
+                'agent_saisie': request.user,
+            }
+        )
+        
+        # Vérifier si l'inventaire peut être modifié
+        if inventaire.verrouille:
+            messages.warning(request, _("Cet inventaire est verrouillé et ne peut plus être modifié."))
+            return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
+        
+        # Récupérer les détails existants
+        details_existants = {
+            d.periode: d for d in inventaire.details_periodes.all()
+        }
+        
+        # Préparer les données pour le template
+        periodes_data = []
+        for periode_choice in PeriodeHoraire.choices:
+            periode_code, periode_display = periode_choice
+            detail = details_existants.get(periode_code)
+            periodes_data.append({
+                'code': periode_code,
+                'display': periode_display,
+                'nombre_vehicules': detail.nombre_vehicules if detail else 0,
+                'observations': detail.observations_periode if detail else '',
+                'has_data': detail is not None,
+            })
+        
+        context = {
+            'inventaire': inventaire,
+            'poste': poste,
+            'target_date': target_date,
+            'periodes_data': periodes_data,
+            'is_new': created,
+            'can_save': not inventaire.verrouille,
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def post(self, request, poste_id=None, date=None):
+        """Traitement de la saisie d'inventaire"""
+        
+        # Récupérer les paramètres
+        if poste_id:
+            poste = get_object_or_404(Poste, id=poste_id)
+        else:
+            poste = request.user.poste_affectation
+        
+        if date:
+            target_date = datetime.strptime(date, '%Y-%m-%d').date()
+        else:
+            target_date = timezone.now().date()
+        
+        # Vérifications de sécurité
+        if not request.user.peut_acceder_poste(poste):
+            return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+        
+        if not ConfigurationJour.est_jour_ouvert(target_date):
+            return JsonResponse({'error': 'Jour fermé pour la saisie'}, status=400)
+        
+        try:
+            # Récupérer l'inventaire
+            inventaire = InventaireJournalier.objects.get(
+                poste=poste,
+                date=target_date
+            )
+            
+            if inventaire.verrouille:
+                return JsonResponse({'error': 'Inventaire verrouillé'}, status=400)
+            
+            # Traiter les données des périodes
+            details_saved = 0
+            total_vehicules = 0
+            
+            for periode_choice in PeriodeHoraire.choices:
+                periode_code, _ = periode_choice
+                
+                # Récupérer les données du formulaire
+                nombre_vehicules = request.POST.get(f'periode_{periode_code}', '').strip()
+                observations = request.POST.get(f'observations_{periode_code}', '').strip()
+                
+                if nombre_vehicules:
+                    try:
+                        nombre_vehicules = int(nombre_vehicules)
+                        if nombre_vehicules < 0 or nombre_vehicules > 1000:
+                            return JsonResponse({
+                                'error': f'Nombre de véhicules invalide pour {periode_code}'
+                            }, status=400)
+                        
+                        # Créer ou mettre à jour le détail
+                        detail, created = DetailInventairePeriode.objects.update_or_create(
+                            inventaire=inventaire,
+                            periode=periode_code,
+                            defaults={
+                                'nombre_vehicules': nombre_vehicules,
+                                'observations_periode': observations,
+                            }
+                        )
+                        
+                        details_saved += 1
+                        total_vehicules += nombre_vehicules
+                        
+                    except ValueError:
+                        return JsonResponse({
+                            'error': f'Nombre de véhicules invalide pour {periode_code}'
+                        }, status=400)
+            
+            # Mettre à jour l'inventaire
+            inventaire.total_vehicules = total_vehicules
+            inventaire.nombre_periodes_saisies = details_saved
+            inventaire.agent_saisie = request.user
+            inventaire.save()
+            
+            # Journaliser l'action
+            _log_inventaire_action(
+                request,
+                "Saisie inventaire",
+                f"Poste: {poste.nom}, Date: {target_date}, Véhicules: {total_vehicules}"
+            )
+            
+            # Réponse selon le type de requête
+            if request.headers.get('Content-Type') == 'application/json':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Inventaire sauvegardé avec succès',
+                    'total_vehicules': total_vehicules,
+                    'details_saved': details_saved,
+                    'inventaire_id': inventaire.id,
+                })
+            else:
+                messages.success(request, _("Inventaire sauvegardé avec succès."))
+                return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
+        
+        except Exception as e:
+            logger.error(f"Erreur saisie inventaire: {str(e)}")
+            
+            if request.headers.get('Content-Type') == 'application/json':
+                return JsonResponse({'error': 'Erreur lors de la sauvegarde'}, status=500)
+            else:
+                messages.error(request, _("Erreur lors de la sauvegarde de l'inventaire."))
+                return redirect('inventaire:saisie_inventaire')
+
+
+class ConfigurationJourListView(AdminRequiredMixin, ListView):
+    """Liste des configurations de jours"""
+    model = ConfigurationJour
+    template_name = 'inventaire/config_jour_list.html'
+    context_object_name = 'configurations'
+    paginate_by = 31  # Un mois par page
+    
+    def get_queryset(self):
+        queryset = ConfigurationJour.objects.select_related('cree_par')
+        
+        # Filtre par mois/année
+        mois = self.request.GET.get('mois')
+        annee = self.request.GET.get('annee')
+        
+        if mois and annee:
+            try:
+                mois = int(mois)
+                annee = int(annee)
+                queryset = queryset.filter(date__month=mois, date__year=annee)
+            except ValueError:
+                pass
+        
+        return queryset.order_by('-date')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Dates pour le filtre
+        now = timezone.now()
+        context.update({
+            'current_month': now.month,
+            'current_year': now.year,
+            'months': [
+                (1, 'Janvier'), (2, 'Février'), (3, 'Mars'), (4, 'Avril'),
+                (5, 'Mai'), (6, 'Juin'), (7, 'Juillet'), (8, 'Août'),
+                (9, 'Septembre'), (10, 'Octobre'), (11, 'Novembre'), (12, 'Décembre')
+            ],
+            'years': range(now.year - 2, now.year + 2),
+        })
+        
+        return context
+
+
+class InventaireVerrouillerView(InventaireMixin, View):
+    """Vue pour verrouiller un inventaire"""
+    
+    @method_decorator(require_http_methods(["POST"]))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+    
+    def post(self, request, pk):
+        """Verrouiller un inventaire"""
+        if not _check_admin_permission(request.user):
+            return JsonResponse({'error': 'Permission refusée'}, status=403)
+        
+        try:
+            inventaire = get_object_or_404(InventaireJournalier, pk=pk)
+            
+            if not request.user.peut_acceder_poste(inventaire.poste):
+                return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
+            
+            if inventaire.verrouille:
+                return JsonResponse({'error': 'Inventaire déjà verrouillé'}, status=400)
+            
+            # Vérifier que l'inventaire est complet
+            if inventaire.nombre_periodes_saisies < 1:
+                return JsonResponse({'error': 'Inventaire incomplet'}, status=400)
+            
+            inventaire.verrouille = True
+            inventaire.date_verrouillage = timezone.now()
+            inventaire.verrouille_par = request.user
+            inventaire.save()
+            
+            _log_inventaire_action(
+                request, 
+                "Verrouillage inventaire",
+                f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Inventaire verrouillé avec succès'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur verrouillage inventaire: {str(e)}")
+            return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
+
+class InventaireValiderView(InventaireMixin, View):
+    """Vue pour valider un inventaire"""
+    
+    @method_decorator(require_http_methods(["POST"]))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+    
+    def post(self, request, pk):
+        """Valider un inventaire"""
+        if not _check_admin_permission(request.user):
+            return JsonResponse({'error': 'Permission refusée'}, status=403)
+        
+        try:
+            inventaire = get_object_or_404(InventaireJournalier, pk=pk)
+            
+            if not request.user.peut_acceder_poste(inventaire.poste):
+                return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
+            
+            if not inventaire.verrouille:
+                return JsonResponse({'error': 'Inventaire non verrouillé'}, status=400)
+            
+            if inventaire.valide:
+                return JsonResponse({'error': 'Inventaire déjà validé'}, status=400)
+            
+            inventaire.valide = True
+            inventaire.date_validation = timezone.now()
+            inventaire.valide_par = request.user
+            inventaire.save()
+            
+            _log_inventaire_action(
+                request, 
+                "Validation inventaire",
+                f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Inventaire validé avec succès'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur validation inventaire: {str(e)}")
+            return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
+
+# ===================================================================
+# API VIEWS POUR LES CALCULS EN TEMPS RÉEL
+# ===================================================================
+
+class CalculAutomatiqueAPIView(InventaireMixin, View):
+    """API pour les calculs automatiques d'inventaire"""
+    
+    @method_decorator(require_http_methods(["POST"]))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+    
+    def post(self, request):
+        """Calcul automatique basé sur les données saisies"""
+        try:
+            # Récupérer les données
+            data = json.loads(request.body)
+            periodes_data = data.get('periodes', {})
+            
+            # Calculer les totaux
+            total_vehicules = 0
+            nombre_periodes = 0
+            
+            for periode_code, nombre_str in periodes_data.items():
+                if nombre_str and nombre_str.strip():
+                    try:
+                        nombre = int(nombre_str)
+                        total_vehicules += nombre
+                        nombre_periodes += 1
+                    except ValueError:
+                        continue
+            
+            # Calculs métier
+            moyenne_horaire = total_vehicules / nombre_periodes if nombre_periodes > 0 else 0
+            estimation_24h = moyenne_horaire * 24
+            
+            # Calcul recette potentielle (formule SUPPER)
+            from django.conf import settings
+            config = getattr(settings, 'SUPPER_CONFIG', {})
+            tarif = config.get('TARIF_VEHICULE_LEGER', 500)
+            pourcentage_legers = config.get('POURCENTAGE_VEHICULES_LEGERS', 75)
+            
+            recette_potentielle = (estimation_24h * pourcentage_legers * tarif) / 100
+            
+            return JsonResponse({
+                'success': True,
+                'total_vehicules': total_vehicules,
+                'nombre_periodes': nombre_periodes,
+                'moyenne_horaire': round(moyenne_horaire, 2),
+                'estimation_24h': round(estimation_24h, 2),
+                'recette_potentielle': round(recette_potentielle, 2),
+            })
+        
+        except Exception as e:
+            logger.error(f"Erreur calcul automatique: {str(e)}")
+            return JsonResponse({'error': 'Erreur de calcul'}, status=500)
+
+
+class VerificationJourAPIView(InventaireMixin, View):
+    """API pour vérifier le statut d'un jour"""
+    
+    @method_decorator(require_http_methods(["GET"]))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+    
+    def get(self, request):
+        """Vérifier si un jour est ouvert pour la saisie"""
+        date_str = request.GET.get('date')
+        
+        if not date_str:
+            return JsonResponse({'error': 'Date requise'}, status=400)
+        
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            # Vérifier la configuration
+            is_open = ConfigurationJour.est_jour_ouvert(target_date)
+            
+            # Informations supplémentaires
+            try:
+                config = ConfigurationJour.objects.get(date=target_date)
+                config_info = {
+                    'statut': config.statut,
+                    'statut_display': config.get_statut_display(),
+                    'commentaire': config.commentaire,
+                    'cree_par': config.cree_par.nom_complet if config.cree_par else None,
+                }
+            except ConfigurationJour.DoesNotExist:
+                config_info = {
+                    'statut': 'ferme',
+                    'statut_display': 'Fermé par défaut',
+                    'commentaire': 'Jour non configuré',
+                    'cree_par': None,
+                }
+            
+            # Vérifier s'il y a déjà des données
+            poste = request.user.poste_affectation
+            has_inventaire = False
+            inventaire_id = None
+            
+            if poste:
+                try:
+                    inventaire = InventaireJournalier.objects.get(
+                        poste=poste,
+                        date=target_date
+                    )
+                    has_inventaire = True
+                    inventaire_id = inventaire.id
+                except InventaireJournalier.DoesNotExist:
+                    pass
+            
+            return JsonResponse({
+                'success': True,
+                'date': target_date.isoformat(),
+                'is_open': is_open,
+                'config': config_info,
+                'has_inventaire': has_inventaire,
+                'inventaire_id': inventaire_id,
+                'can_edit': is_open and not (has_inventaire and InventaireJournalier.objects.filter(
+                    id=inventaire_id, verrouille=True
+                ).exists()) if has_inventaire else is_open,
+            })
+        
+        except ValueError:
+            return JsonResponse({'error': 'Format de date invalide'}, status=400)
+        except Exception as e:
+            logger.error(f"Erreur vérification jour: {str(e)}")
+            return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
+
+# ===================================================================
+# REDIRECTIONS VERS L'ADMIN DJANGO
 # ===================================================================
 
 @login_required
@@ -60,10 +702,10 @@ def redirect_to_inventaires_admin(request):
         messages.error(request, _("Accès non autorisé à la gestion des inventaires."))
         return redirect('inventaire:inventaire_list')
     
-    _log_inventaire_admin_access(request, "Gestion inventaires")
+    _log_inventaire_action(request, "Accès admin inventaires")
     messages.info(request, _("Redirection vers la gestion des inventaires."))
     
-    return redirect('/django-admin/inventaire/inventairejournalier/')
+    return redirect('/admin/inventaire/inventairejournalier/')
 
 
 @login_required
@@ -75,10 +717,10 @@ def redirect_to_recettes_admin(request):
         messages.error(request, _("Accès non autorisé à la gestion des recettes."))
         return redirect('inventaire:inventaire_list')
     
-    _log_inventaire_admin_access(request, "Gestion recettes")
+    _log_inventaire_action(request, "Accès admin recettes")
     messages.info(request, _("Redirection vers la gestion des recettes."))
     
-    return redirect('/django-admin/inventaire/recettejournaliere/')
+    return redirect('/admin/inventaire/recettejournaliere/')
 
 
 @login_required
@@ -90,10 +732,10 @@ def redirect_to_config_jours_admin(request):
         messages.error(request, _("Accès non autorisé à la configuration des jours."))
         return redirect('inventaire:config_jour_list')
     
-    _log_inventaire_admin_access(request, "Configuration jours")
+    _log_inventaire_action(request, "Accès admin configuration jours")
     messages.info(request, _("Redirection vers la configuration des jours."))
     
-    return redirect('/django-admin/inventaire/configurationjour/')
+    return redirect('/admin/inventaire/configurationjour/')
 
 
 @login_required
@@ -105,15 +747,11 @@ def redirect_to_statistiques_admin(request):
         messages.error(request, _("Accès non autorisé aux statistiques."))
         return redirect('inventaire:inventaire_list')
     
-    _log_inventaire_admin_access(request, "Statistiques")
+    _log_inventaire_action(request, "Accès admin statistiques")
     messages.info(request, _("Redirection vers les statistiques."))
     
-    return redirect('/django-admin/inventaire/statistiquesperiodiques/')
+    return redirect('/admin/inventaire/statistiquesperiodiques/')
 
-
-# ===================================================================
-# REDIRECTIONS SPÉCIFIQUES AVEC PARAMÈTRES
-# ===================================================================
 
 @login_required
 def redirect_to_edit_inventaire_admin(request, inventaire_id):
@@ -124,17 +762,22 @@ def redirect_to_edit_inventaire_admin(request, inventaire_id):
         messages.error(request, _("Accès non autorisé à l'édition des inventaires."))
         return redirect('inventaire:inventaire_list')
     
-    # Vérifier que l'inventaire existe
     try:
         inventaire = InventaireJournalier.objects.get(id=inventaire_id)
-        _log_inventaire_admin_access(request, f"Édition inventaire {inventaire.poste.nom} du {inventaire.date}")
-        messages.info(request, _(f"Redirection vers l'édition de l'inventaire {inventaire.poste.nom} du {inventaire.date}."))
+        _log_inventaire_action(
+            request, 
+            "Édition inventaire admin", 
+            f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
+        )
+        messages.info(request, _(
+            f"Redirection vers l'édition de l'inventaire {inventaire.poste.nom} du {inventaire.date}."
+        ))
         
-        return redirect(f'/django-admin/inventaire/inventairejournalier/{inventaire_id}/change/')
+        return redirect(f'/admin/inventaire/inventairejournalier/{inventaire_id}/change/')
         
     except InventaireJournalier.DoesNotExist:
         messages.error(request, _("Inventaire non trouvé."))
-        return redirect('/django-admin/inventaire/inventairejournalier/')
+        return redirect('/admin/inventaire/inventairejournalier/')
 
 
 @login_required
@@ -146,22 +789,23 @@ def redirect_to_edit_recette_admin(request, recette_id):
         messages.error(request, _("Accès non autorisé à l'édition des recettes."))
         return redirect('inventaire:inventaire_list')
     
-    # Vérifier que la recette existe
     try:
         recette = RecetteJournaliere.objects.get(id=recette_id)
-        _log_inventaire_admin_access(request, f"Édition recette {recette.poste.nom} du {recette.date}")
-        messages.info(request, _(f"Redirection vers l'édition de la recette {recette.poste.nom} du {recette.date}."))
+        _log_inventaire_action(
+            request, 
+            "Édition recette admin", 
+            f"Recette {recette.poste.nom} du {recette.date}"
+        )
+        messages.info(request, _(
+            f"Redirection vers l'édition de la recette {recette.poste.nom} du {recette.date}."
+        ))
         
-        return redirect(f'/django-admin/inventaire/recettejournaliere/{recette_id}/change/')
+        return redirect(f'/admin/inventaire/recettejournaliere/{recette_id}/change/')
         
     except RecetteJournaliere.DoesNotExist:
         messages.error(request, _("Recette non trouvée."))
-        return redirect('/django-admin/inventaire/recettejournaliere/')
+        return redirect('/admin/inventaire/recettejournaliere/')
 
-
-# ===================================================================
-# REDIRECTIONS POUR CRÉATION
-# ===================================================================
 
 @login_required
 def redirect_to_add_inventaire_admin(request):
@@ -172,10 +816,10 @@ def redirect_to_add_inventaire_admin(request):
         messages.error(request, _("Accès non autorisé à la création d'inventaires."))
         return redirect('inventaire:inventaire_list')
     
-    _log_inventaire_admin_access(request, "Ajout inventaire")
+    _log_inventaire_action(request, "Ajout inventaire admin")
     messages.info(request, _("Redirection vers l'ajout d'inventaire."))
     
-    return redirect('/django-admin/inventaire/inventairejournalier/add/')
+    return redirect('/admin/inventaire/inventairejournalier/add/')
 
 
 @login_required
@@ -187,10 +831,10 @@ def redirect_to_add_recette_admin(request):
         messages.error(request, _("Accès non autorisé à la création de recettes."))
         return redirect('inventaire:inventaire_list')
     
-    _log_inventaire_admin_access(request, "Ajout recette")
+    _log_inventaire_action(request, "Ajout recette admin")
     messages.info(request, _("Redirection vers l'ajout de recette."))
     
-    return redirect('/django-admin/inventaire/recettejournaliere/add/')
+    return redirect('/admin/inventaire/recettejournaliere/add/')
 
 
 @login_required
@@ -202,14 +846,14 @@ def redirect_to_add_config_jour_admin(request):
         messages.error(request, _("Accès non autorisé à la configuration des jours."))
         return redirect('inventaire:config_jour_list')
     
-    _log_inventaire_admin_access(request, "Ajout configuration jour")
+    _log_inventaire_action(request, "Ajout configuration jour admin")
     messages.info(request, _("Redirection vers l'ajout de configuration de jour."))
     
-    return redirect('/django-admin/inventaire/configurationjour/add/')
+    return redirect('/admin/inventaire/configurationjour/add/')
 
 
 # ===================================================================
-# API POUR INTÉGRATION AVEC ADMIN DJANGO
+# API POUR INTÉGRATION AVEC ADMIN DJANGO ET DASHBOARD
 # ===================================================================
 
 @login_required
@@ -227,14 +871,32 @@ def inventaire_stats_api(request):
         
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
         
         stats = {
             'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
             'inventaires_week': InventaireJournalier.objects.filter(date__gte=week_ago).count(),
+            'inventaires_month': InventaireJournalier.objects.filter(date__gte=month_ago).count(),
             'inventaires_locked': InventaireJournalier.objects.filter(verrouille=True).count(),
             'inventaires_validated': InventaireJournalier.objects.filter(valide=True).count(),
             'total_inventaires': InventaireJournalier.objects.count(),
+            'postes_actifs': InventaireJournalier.objects.filter(
+                date__gte=week_ago
+            ).values('poste').distinct().count(),
         }
+        
+        # Graphique activité par jour (7 derniers jours)
+        daily_activity = []
+        for i in range(7):
+            day = today - timedelta(days=i)
+            count = InventaireJournalier.objects.filter(date=day).count()
+            daily_activity.append({
+                'date': day.isoformat(),
+                'date_display': day.strftime('%d/%m'),
+                'count': count
+            })
+        
+        stats['daily_activity'] = list(reversed(daily_activity))
         
         return JsonResponse(stats)
         
@@ -255,23 +917,57 @@ def recette_stats_api(request):
     try:
         from django.utils import timezone
         from datetime import timedelta
-        from django.db.models import Sum, Avg
+        from django.db.models import Sum, Avg, Count
         
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
         
+        # Statistiques de base
         stats = {
             'recettes_today': RecetteJournaliere.objects.filter(date=today).count(),
             'recettes_week': RecetteJournaliere.objects.filter(date__gte=week_ago).count(),
+            'recettes_month': RecetteJournaliere.objects.filter(date__gte=month_ago).count(),
             'total_recettes': RecetteJournaliere.objects.count(),
-            'montant_total_week': RecetteJournaliere.objects.filter(
-                date__gte=week_ago
-            ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or 0,
-            'taux_moyen_week': RecetteJournaliere.objects.filter(
-                date__gte=week_ago,
-                taux_deperdition__isnull=False
-            ).aggregate(Avg('taux_deperdition'))['taux_deperdition__avg'] or 0,
         }
+        
+        # Montants et taux
+        week_data = RecetteJournaliere.objects.filter(date__gte=week_ago).aggregate(
+            montant_total=Sum('montant_declare'),
+            montant_potentiel=Sum('recette_potentielle'),
+            taux_moyen=Avg('taux_deperdition'),
+            nombre_jours_impertinents=Count('id', filter=Q(taux_deperdition__gte=0))
+        )
+        
+        stats.update({
+            'montant_total_week': float(week_data['montant_total'] or 0),
+            'montant_potentiel_week': float(week_data['montant_potentiel'] or 0),
+            'taux_moyen_week': float(week_data['taux_moyen'] or 0),
+            'jours_impertinents_week': week_data['nombre_jours_impertinents'],
+        })
+        
+        # Calcul écart
+        if stats['montant_potentiel_week'] > 0:
+            stats['ecart_week'] = stats['montant_total_week'] - stats['montant_potentiel_week']
+            stats['pourcentage_ecart_week'] = (stats['ecart_week'] / stats['montant_potentiel_week']) * 100
+        else:
+            stats['ecart_week'] = 0
+            stats['pourcentage_ecart_week'] = 0
+        
+        # Distribution par couleur d'alerte
+        alerts_distribution = {
+            'success': RecetteJournaliere.objects.filter(
+                date__gte=week_ago, taux_deperdition__gt=-10
+            ).count(),
+            'warning': RecetteJournaliere.objects.filter(
+                date__gte=week_ago, taux_deperdition__gte=-30, taux_deperdition__lte=-10
+            ).count(),
+            'danger': RecetteJournaliere.objects.filter(
+                date__gte=week_ago, taux_deperdition__lt=-30
+            ).count(),
+        }
+        
+        stats['alerts_distribution'] = alerts_distribution
         
         return JsonResponse(stats)
         
@@ -284,8 +980,6 @@ def recette_stats_api(request):
 @require_http_methods(["GET"])
 def check_day_status_api(request):
     """API pour vérifier le statut d'un jour"""
-    user = request.user
-    
     date_str = request.GET.get('date')
     if not date_str:
         return JsonResponse({'error': 'Date requise'}, status=400)
@@ -303,6 +997,7 @@ def check_day_status_api(request):
                 'configured': True,
                 'cree_par': config.cree_par.nom_complet if config.cree_par else None,
                 'commentaire': config.commentaire,
+                'date_creation': config.date_creation.isoformat() if config.date_creation else None,
             }
         except ConfigurationJour.DoesNotExist:
             status = {
@@ -312,16 +1007,57 @@ def check_day_status_api(request):
                 'configured': False,
                 'cree_par': None,
                 'commentaire': 'Jour non configuré - fermé par défaut',
+                'date_creation': None,
             }
         
         # Ajouter des informations sur les inventaires/recettes du jour
         inventaires_count = InventaireJournalier.objects.filter(date=target_date).count()
         recettes_count = RecetteJournaliere.objects.filter(date=target_date).count()
         
+        # Détails par poste si demandé
+        include_details = request.GET.get('include_details', '').lower() == 'true'
+        details = {}
+        
+        if include_details:
+            inventaires = InventaireJournalier.objects.filter(
+                date=target_date
+            ).select_related('poste', 'agent_saisie')
+            
+            details['inventaires'] = [
+                {
+                    'id': inv.id,
+                    'poste_nom': inv.poste.nom,
+                    'poste_code': inv.poste.code,
+                    'total_vehicules': inv.total_vehicules,
+                    'verrouille': inv.verrouille,
+                    'valide': inv.valide,
+                    'agent_saisie': inv.agent_saisie.nom_complet if inv.agent_saisie else None,
+                }
+                for inv in inventaires
+            ]
+            
+            recettes = RecetteJournaliere.objects.filter(
+                date=target_date
+            ).select_related('poste', 'chef_poste')
+            
+            details['recettes'] = [
+                {
+                    'id': rec.id,
+                    'poste_nom': rec.poste.nom,
+                    'poste_code': rec.poste.code,
+                    'montant_declare': float(rec.montant_declare),
+                    'taux_deperdition': float(rec.taux_deperdition) if rec.taux_deperdition else None,
+                    'couleur_alerte': rec.get_couleur_alerte(),
+                    'chef_poste': rec.chef_poste.nom_complet if rec.chef_poste else None,
+                }
+                for rec in recettes
+            ]
+        
         status.update({
             'inventaires_count': inventaires_count,
             'recettes_count': recettes_count,
-            'has_data': inventaires_count > 0 or recettes_count > 0
+            'has_data': inventaires_count > 0 or recettes_count > 0,
+            'details': details if include_details else None,
         })
         
         return JsonResponse(status)
@@ -334,55 +1070,553 @@ def check_day_status_api(request):
 
 
 # ===================================================================
-# FONCTIONS UTILITAIRES POUR LES TEMPLATES
+# API ACTIONS RAPIDES POUR LE DASHBOARD
 # ===================================================================
 
-def get_inventaire_admin_context(user):
-    """Retourne le contexte d'administration pour les templates inventaire"""
+@login_required
+@require_http_methods(["POST"])
+def quick_action_api(request):
+    """API pour les actions rapides depuis le dashboard"""
+    user = request.user
     
     if not _check_admin_permission(user):
-        return {}
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
     
-    return {
-        'inventaire_admin_nav': {
-            'inventaires': {
-                'url': '/django-admin/inventaire/inventairejournalier/',
-                'title': 'Gérer Inventaires',
-                'icon': 'fas fa-clipboard-list',
-                'description': 'Gestion complète des inventaires journaliers'
-            },
-            'recettes': {
-                'url': '/django-admin/inventaire/recettejournaliere/',
-                'title': 'Gérer Recettes',
-                'icon': 'fas fa-euro-sign',
-                'description': 'Gestion des recettes journalières'
-            },
-            'config_jours': {
-                'url': '/django-admin/inventaire/configurationjour/',
-                'title': 'Configuration Jours',
-                'icon': 'fas fa-calendar-alt',
-                'description': 'Configuration des jours ouverts/fermés'
-            },
-            'statistiques': {
-                'url': '/django-admin/inventaire/statistiquesperiodiques/',
-                'title': 'Statistiques',
-                'icon': 'fas fa-chart-bar',
-                'description': 'Statistiques périodiques et rapports'
-            },
-            'add_inventaire': {
-                'url': '/django-admin/inventaire/inventairejournalier/add/',
-                'title': 'Nouvel Inventaire',
-                'icon': 'fas fa-plus-circle',
-                'description': 'Créer un nouvel inventaire'
-            },
-            'add_recette': {
-                'url': '/django-admin/inventaire/recettejournaliere/add/',
-                'title': 'Nouvelle Recette',
-                'icon': 'fas fa-plus-square',
-                'description': 'Créer une nouvelle recette'
-            }
+    try:
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+            action = data.get('action')
+            date_str = data.get('date')
+            commentaire = data.get('commentaire', '')
+        else:
+            action = request.POST.get('action')
+            date_str = request.POST.get('date')
+            commentaire = request.POST.get('commentaire', '')
+        
+        if action == 'open_today':
+            # Ouvrir le jour actuel
+            from django.utils import timezone
+            today = timezone.now().date()
+            
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=today,
+                defaults={
+                    'statut': 'ouvert',
+                    'cree_par': user,
+                    'commentaire': commentaire or f'Ouvert via API par {user.nom_complet}'
+                }
+            )
+            
+            if not created and config.statut != 'ouvert':
+                config.statut = 'ouvert'
+                config.commentaire = commentaire or f'Réouvert via API par {user.nom_complet}'
+                config.save()
+            
+            _log_inventaire_action(request, f"Ouverture jour {today}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Jour {today.strftime("%d/%m/%Y")} ouvert pour la saisie.',
+                'date': today.isoformat(),
+                'statut': config.statut
+            })
+        
+        elif action == 'open_date':
+            # Ouvrir une date spécifique
+            if not date_str:
+                return JsonResponse({'error': 'Date requise'}, status=400)
+            
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=target_date,
+                defaults={
+                    'statut': 'ouvert',
+                    'cree_par': user,
+                    'commentaire': commentaire or f'Ouvert via API par {user.nom_complet}'
+                }
+            )
+            
+            if not created:
+                config.statut = 'ouvert'
+                config.commentaire = commentaire or f'Réouvert via API par {user.nom_complet}'
+                config.save()
+            
+            _log_inventaire_action(request, f"Ouverture jour {target_date}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Jour {target_date.strftime("%d/%m/%Y")} ouvert pour la saisie.',
+                'date': target_date.isoformat(),
+                'statut': config.statut
+            })
+        
+        elif action == 'close_date':
+            # Fermer une date spécifique
+            if not date_str:
+                return JsonResponse({'error': 'Date requise'}, status=400)
+            
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=target_date,
+                defaults={
+                    'statut': 'ferme',
+                    'cree_par': user,
+                    'commentaire': commentaire or f'Fermé via API par {user.nom_complet}'
+                }
+            )
+            
+            if not created:
+                config.statut = 'ferme'
+                config.commentaire = commentaire or f'Fermé via API par {user.nom_complet}'
+                config.save()
+            
+            _log_inventaire_action(request, f"Fermeture jour {target_date}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Jour {target_date.strftime("%d/%m/%Y")} fermé pour la saisie.',
+                'date': target_date.isoformat(),
+                'statut': config.statut
+            })
+        
+        elif action == 'mark_impertinent':
+            # Marquer un jour comme impertinent
+            if not date_str:
+                return JsonResponse({'error': 'Date requise'}, status=400)
+            
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=target_date,
+                defaults={
+                    'statut': 'impertinent',
+                    'cree_par': user,
+                    'commentaire': commentaire or f'Marqué impertinent via API par {user.nom_complet}'
+                }
+            )
+            
+            if not created:
+                config.statut = 'impertinent'
+                config.commentaire = commentaire or f'Marqué impertinent via API par {user.nom_complet}'
+                config.save()
+            
+            _log_inventaire_action(request, f"Marquage impertinent {target_date}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Jour {target_date.strftime("%d/%m/%Y")} marqué comme impertinent.',
+                'date': target_date.isoformat(),
+                'statut': config.statut
+            })
+        
+        elif action == 'lock_inventaire':
+            # Verrouiller un inventaire spécifique
+            inventaire_id = data.get('inventaire_id') if request.content_type == 'application/json' else request.POST.get('inventaire_id')
+            
+            if not inventaire_id:
+                return JsonResponse({'error': 'ID inventaire requis'}, status=400)
+            
+            try:
+                inventaire = InventaireJournalier.objects.get(id=inventaire_id)
+                
+                if not user.peut_acceder_poste(inventaire.poste):
+                    return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
+                
+                if inventaire.verrouille:
+                    return JsonResponse({'error': 'Inventaire déjà verrouillé'}, status=400)
+                
+                inventaire.verrouille = True
+                inventaire.date_verrouillage = timezone.now()
+                inventaire.verrouille_par = user
+                inventaire.save()
+                
+                _log_inventaire_action(
+                    request, 
+                    "Verrouillage inventaire",
+                    f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
+                )
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Inventaire {inventaire.poste.nom} du {inventaire.date.strftime("%d/%m/%Y")} verrouillé.',
+                    'inventaire_id': inventaire.id,
+                })
+                
+            except InventaireJournalier.DoesNotExist:
+                return JsonResponse({'error': 'Inventaire non trouvé'}, status=404)
+        
+        else:
+            return JsonResponse({'error': 'Action non reconnue'}, status=400)
+    
+    except ValueError as e:
+        return JsonResponse({'error': f'Erreur de format: {str(e)}'}, status=400)
+    except Exception as e:
+        logger.error(f"Erreur API quick action: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
+
+# ===================================================================
+# VUES POUR RAPPORTS ET EXPORT
+# ===================================================================
+
+class RapportInventaireView(AdminRequiredMixin, View):
+    """Vue pour générer des rapports d'inventaire"""
+    
+    def get(self, request):
+        """Afficher la page de génération de rapports"""
+        context = {
+            'title': 'Génération de Rapports',
+            'postes': Poste.objects.filter(actif=True).order_by('nom'),
+            'current_year': timezone.now().year,
+            'years': range(timezone.now().year - 5, timezone.now().year + 1),
         }
-    }
+        return render(request, 'inventaire/rapport_generation.html', context)
+    
+    def post(self, request):
+        """Générer et télécharger un rapport"""
+        try:
+            # Récupération des paramètres
+            type_rapport = request.POST.get('type_rapport')
+            format_export = request.POST.get('format_export', 'excel')
+            date_debut = request.POST.get('date_debut')
+            date_fin = request.POST.get('date_fin')
+            poste_ids = request.POST.getlist('postes')
+            
+            # Validation des dates
+            if not date_debut or not date_fin:
+                messages.error(request, _("Les dates de début et fin sont obligatoires."))
+                return redirect('inventaire:rapport_generation')
+            
+            date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            
+            if date_debut > date_fin:
+                messages.error(request, _("La date de début ne peut pas être postérieure à la date de fin."))
+                return redirect('inventaire:rapport_generation')
+            
+            # Construction de la requête base
+            queryset = InventaireJournalier.objects.filter(
+                date__gte=date_debut,
+                date__lte=date_fin
+            ).select_related('poste', 'agent_saisie')
+            
+            if poste_ids:
+                queryset = queryset.filter(poste_id__in=poste_ids)
+            
+            # Génération selon le type de rapport
+            if type_rapport == 'inventaires_detailles':
+                return self._generer_rapport_inventaires_detailles(queryset, format_export)
+            elif type_rapport == 'synthese_postes':
+                return self._generer_rapport_synthese_postes(queryset, format_export)
+            elif type_rapport == 'evolution_trafic':
+                return self._generer_rapport_evolution_trafic(queryset, format_export)
+            else:
+                messages.error(request, _("Type de rapport non reconnu."))
+                return redirect('inventaire:rapport_generation')
+        
+        except Exception as e:
+            logger.error(f"Erreur génération rapport: {str(e)}")
+            messages.error(request, _("Erreur lors de la génération du rapport."))
+            return redirect('inventaire:rapport_generation')
+    
+    def _generer_rapport_inventaires_detailles(self, queryset, format_export):
+        """Générer un rapport détaillé des inventaires"""
+        import io
+        from django.http import HttpResponse
+        
+        if format_export == 'excel':
+            try:
+                import openpyxl
+                from openpyxl.styles import Font, Alignment, PatternFill
+                
+                # Créer le workbook
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Inventaires Détaillés"
+                
+                # En-têtes
+                headers = [
+                    'Date', 'Poste', 'Code Poste', 'Agent Saisie', 
+                    'Total Véhicules', 'Périodes Saisies', 'Verrouillé', 
+                    'Validé', 'Date Création'
+                ]
+                
+                for col, header in enumerate(headers, 1):
+                    cell = ws.cell(row=1, column=col, value=header)
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
+                
+                # Données
+                for row, inventaire in enumerate(queryset.order_by('date', 'poste__nom'), 2):
+                    ws.cell(row=row, column=1, value=inventaire.date.strftime('%d/%m/%Y'))
+                    ws.cell(row=row, column=2, value=inventaire.poste.nom)
+                    ws.cell(row=row, column=3, value=inventaire.poste.code)
+                    ws.cell(row=row, column=4, value=inventaire.agent_saisie.nom_complet if inventaire.agent_saisie else '')
+                    ws.cell(row=row, column=5, value=inventaire.total_vehicules)
+                    ws.cell(row=row, column=6, value=inventaire.nombre_periodes_saisies)
+                    ws.cell(row=row, column=7, value='Oui' if inventaire.verrouille else 'Non')
+                    ws.cell(row=row, column=8, value='Oui' if inventaire.valide else 'Non')
+                    ws.cell(row=row, column=9, value=inventaire.date_creation.strftime('%d/%m/%Y %H:%M'))
+                
+                # Ajuster la largeur des colonnes
+                for column in ws.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    ws.column_dimensions[column_letter].width = adjusted_width
+                
+                # Générer la réponse
+                output = io.BytesIO()
+                wb.save(output)
+                output.seek(0)
+                
+                response = HttpResponse(
+                    output.getvalue(),
+                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+                response['Content-Disposition'] = 'attachment; filename="rapport_inventaires_detailles.xlsx"'
+                return response
+                
+            except ImportError:
+                # Fallback vers CSV si openpyxl n'est pas disponible
+                format_export = 'csv'
+        
+        if format_export == 'csv':
+            import csv
+            
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="rapport_inventaires_detailles.csv"'
+            
+            writer = csv.writer(response)
+            writer.writerow([
+                'Date', 'Poste', 'Code Poste', 'Agent Saisie', 
+                'Total Véhicules', 'Périodes Saisies', 'Verrouillé', 
+                'Validé', 'Date Création'
+            ])
+            
+            for inventaire in queryset.order_by('date', 'poste__nom'):
+                writer.writerow([
+                    inventaire.date.strftime('%d/%m/%Y'),
+                    inventaire.poste.nom,
+                    inventaire.poste.code,
+                    inventaire.agent_saisie.nom_complet if inventaire.agent_saisie else '',
+                    inventaire.total_vehicules,
+                    inventaire.nombre_periodes_saisies,
+                    'Oui' if inventaire.verrouille else 'Non',
+                    'Oui' if inventaire.valide else 'Non',
+                    inventaire.date_creation.strftime('%d/%m/%Y %H:%M')
+                ])
+            
+            return response
+    
+    def _generer_rapport_synthese_postes(self, queryset, format_export):
+        """Générer un rapport de synthèse par poste"""
+        from django.db.models import Sum, Avg, Count
+        
+        # Agrégation des données par poste
+        synthese = queryset.values('poste__nom', 'poste__code').annotate(
+            total_vehicules=Sum('total_vehicules'),
+            nombre_inventaires=Count('id'),
+            moyenne_vehicules=Avg('total_vehicules'),
+            inventaires_verrouilles=Count('id', filter=Q(verrouille=True)),
+            inventaires_valides=Count('id', filter=Q(valide=True))
+        ).order_by('poste__nom')
+        
+        if format_export == 'excel':
+            try:
+                import openpyxl
+                from openpyxl.styles import Font, Alignment, PatternFill
+                import io
+                
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Synthèse par Poste"
+                
+                # En-têtes
+                headers = [
+                    'Poste', 'Code', 'Total Véhicules', 'Nb Inventaires',
+                    'Moyenne Véhicules/Jour', 'Inventaires Verrouillés',
+                    'Inventaires Validés', 'Taux Validation (%)'
+                ]
+                
+                for col, header in enumerate(headers, 1):
+                    cell = ws.cell(row=1, column=col, value=header)
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
+                
+                # Données
+                for row, data in enumerate(synthese, 2):
+                    taux_validation = (data['inventaires_valides'] / data['nombre_inventaires'] * 100) if data['nombre_inventaires'] > 0 else 0
+                    
+                    ws.cell(row=row, column=1, value=data['poste__nom'])
+                    ws.cell(row=row, column=2, value=data['poste__code'])
+                    ws.cell(row=row, column=3, value=data['total_vehicules'] or 0)
+                    ws.cell(row=row, column=4, value=data['nombre_inventaires'])
+                    ws.cell(row=row, column=5, value=round(data['moyenne_vehicules'] or 0, 2))
+                    ws.cell(row=row, column=6, value=data['inventaires_verrouilles'])
+                    ws.cell(row=row, column=7, value=data['inventaires_valides'])
+                    ws.cell(row=row, column=8, value=round(taux_validation, 2))
+                
+                # Ajuster les colonnes
+                for column in ws.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    ws.column_dimensions[column_letter].width = adjusted_width
+                
+                output = io.BytesIO()
+                wb.save(output)
+                output.seek(0)
+                
+                response = HttpResponse(
+                    output.getvalue(),
+                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+                response['Content-Disposition'] = 'attachment; filename="rapport_synthese_postes.xlsx"'
+                return response
+                
+            except ImportError:
+                format_export = 'csv'
+        
+        if format_export == 'csv':
+            import csv
+            
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="rapport_synthese_postes.csv"'
+            
+            writer = csv.writer(response)
+            writer.writerow([
+                'Poste', 'Code', 'Total Véhicules', 'Nb Inventaires',
+                'Moyenne Véhicules/Jour', 'Inventaires Verrouillés',
+                'Inventaires Validés', 'Taux Validation (%)'
+            ])
+            
+            for data in synthese:
+                taux_validation = (data['inventaires_valides'] / data['nombre_inventaires'] * 100) if data['nombre_inventaires'] > 0 else 0
+                writer.writerow([
+                    data['poste__nom'],
+                    data['poste__code'],
+                    data['total_vehicules'] or 0,
+                    data['nombre_inventaires'],
+                    round(data['moyenne_vehicules'] or 0, 2),
+                    data['inventaires_verrouilles'],
+                    data['inventaires_valides'],
+                    round(taux_validation, 2)
+                ])
+            
+            return response
+    
+    def _generer_rapport_evolution_trafic(self, queryset, format_export):
+        """Générer un rapport d'évolution du trafic"""
+        from django.db.models import Sum
+        from collections import defaultdict
+        
+        # Agrégation par date
+        evolution = queryset.values('date').annotate(
+            total_vehicules=Sum('total_vehicules'),
+            nombre_postes=Count('poste', distinct=True)
+        ).order_by('date')
+        
+        if format_export == 'excel':
+            try:
+                import openpyxl
+                from openpyxl.styles import Font, PatternFill
+                from openpyxl.chart import LineChart, Reference
+                import io
+                
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Evolution du Trafic"
+                
+                # En-têtes
+                headers = ['Date', 'Total Véhicules', 'Nombre Postes', 'Moyenne par Poste']
+                
+                for col, header in enumerate(headers, 1):
+                    cell = ws.cell(row=1, column=col, value=header)
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
+                
+                # Données
+                for row, data in enumerate(evolution, 2):
+                    moyenne_poste = (data['total_vehicules'] / data['nombre_postes']) if data['nombre_postes'] > 0 else 0
+                    
+                    ws.cell(row=row, column=1, value=data['date'].strftime('%d/%m/%Y'))
+                    ws.cell(row=row, column=2, value=data['total_vehicules'] or 0)
+                    ws.cell(row=row, column=3, value=data['nombre_postes'])
+                    ws.cell(row=row, column=4, value=round(moyenne_poste, 2))
+                
+                # Ajouter un graphique si possible
+                if len(evolution) > 1:
+                    chart = LineChart()
+                    chart.title = "Evolution du trafic"
+                    chart.y_axis.title = 'Nombre de véhicules'
+                    chart.x_axis.title = 'Date'
+                    
+                    data_ref = Reference(ws, min_col=2, min_row=1, max_col=2, max_row=len(evolution) + 1)
+                    chart.add_data(data_ref, titles_from_data=True)
+                    
+                    ws.add_chart(chart, "F5")
+                
+                # Ajuster les colonnes
+                for column in ws.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    ws.column_dimensions[column_letter].width = adjusted_width
+                
+                output = io.BytesIO()
+                wb.save(output)
+                output.seek(0)
+                
+                response = HttpResponse(
+                    output.getvalue(),
+                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+                response['Content-Disposition'] = 'attachment; filename="rapport_evolution_trafic.xlsx"'
+                return response
+                
+            except ImportError:
+                format_export = 'csv'
+        
+        if format_export == 'csv':
+            import csv
+            
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="rapport_evolution_trafic.csv"'
+            
+            writer = csv.writer(response)
+            writer.writerow(['Date', 'Total Véhicules', 'Nombre Postes', 'Moyenne par Poste'])
+            
+            for data in evolution:
+                moyenne_poste = (data['total_vehicules'] / data['nombre_postes']) if data['nombre_postes'] > 0 else 0
+                writer.writerow([
+                    data['date'].strftime('%d/%m/%Y'),
+                    data['total_vehicules'] or 0,
+                    data['nombre_postes'],
+                    round(moyenne_poste, 2)
+                ])
+            
+            return response
 
 
 # ===================================================================
@@ -406,45 +1640,172 @@ def inventaire_admin_help_view(request):
             'can_config_jours': True,
             'can_view_statistics': True,
         },
-        'admin_urls': get_inventaire_admin_context(user)['inventaire_admin_nav'],
         'help_sections': [
             {
                 'title': 'Gestion des Inventaires',
                 'description': 'Créer, modifier et valider les inventaires journaliers',
-                'url': '/django-admin/inventaire/inventairejournalier/',
+                'url': '/admin/inventaire/inventairejournalier/',
                 'features': [
-                    'Saisie par période horaire',
-                    'Calculs automatiques',
-                    'Verrouillage et validation',
-                    'Export des données'
+                    'Saisie par période horaire (8h-18h)',
+                    'Calculs automatiques des totaux',
+                    'Verrouillage et validation par responsable',
+                    'Export des données en CSV/Excel',
+                    'Historique complet des modifications'
                 ]
             },
             {
                 'title': 'Gestion des Recettes',
                 'description': 'Suivi des recettes déclarées et calcul des taux de déperdition',
-                'url': '/django-admin/inventaire/recettejournaliere/',
+                'url': '/admin/inventaire/recettejournaliere/',
                 'features': [
-                    'Saisie des montants déclarés',
-                    'Calcul automatique des taux',
-                    'Alertes visuelles',
-                    'Rapports consolidés'
+                    'Saisie des montants déclarés par les chefs de poste',
+                    'Calcul automatique des taux de déperdition',
+                    'Alertes visuelles par code couleur',
+                    'Détection automatique des journées impertinentes',
+                    'Rapports consolidés par période'
                 ]
             },
             {
                 'title': 'Configuration des Jours',
                 'description': 'Gérer les jours ouverts/fermés pour la saisie',
-                'url': '/django-admin/inventaire/configurationjour/',
+                'url': '/admin/inventaire/configurationjour/',
                 'features': [
-                    'Ouverture/fermeture jours',
-                    'Marquage jours impertinents',
-                    'Commentaires et historique',
-                    'Contrôle des accès'
+                    'Ouverture/fermeture des jours de saisie',
+                    'Marquage des jours impertinents',
+                    'Commentaires et historique des modifications',
+                    'Contrôle granulaire des accès',
+                    'Planification avancée des périodes'
                 ]
+            },
+            {
+                'title': 'Statistiques et Rapports',
+                'description': 'Consultation des statistiques consolidées',
+                'url': '/admin/inventaire/statistiquesperiodiques/',
+                'features': [
+                    'Statistiques hebdomadaires, mensuelles, trimestrielles',
+                    'Graphiques de tendances et évolutions',
+                    'Comparaisons inter-postes',
+                    'Export de rapports détaillés',
+                    'Tableaux de bord personnalisés'
+                ]
+            }
+        ],
+        'quick_actions': [
+            {
+                'title': 'Ouvrir Jour Actuel',
+                'description': 'Ouvrir le jour actuel pour la saisie',
+                'action': 'open_today',
+                'icon': 'fas fa-calendar-plus',
+                'class': 'btn-success'
+            },
+            {
+                'title': 'Consulter Inventaires',
+                'description': 'Voir tous les inventaires récents',
+                'url': '/admin/inventaire/inventairejournalier/',
+                'icon': 'fas fa-list',
+                'class': 'btn-primary'
+            },
+            {
+                'title': 'Gérer Recettes',
+                'description': 'Consulter et modifier les recettes',
+                'url': '/admin/inventaire/recettejournaliere/',
+                'icon': 'fas fa-euro-sign',
+                'class': 'btn-warning'
             }
         ]
     }
     
     return render(request, 'inventaire/admin_help.html', context)
+
+
+# ===================================================================
+# DASHBOARD ET WIDGETS INVENTAIRE
+# ===================================================================
+
+@login_required
+def inventaire_dashboard_widget(request):
+    """Widget dashboard pour les inventaires"""
+    if not request.user.peut_gerer_inventaire:
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    try:
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        
+        # Statistiques rapides
+        stats = {
+            'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
+            'inventaires_week': InventaireJournalier.objects.filter(date__gte=week_ago).count(),
+            'inventaires_en_attente': InventaireJournalier.objects.filter(
+                verrouille=False, date__lte=today
+            ).count(),
+            'postes_actifs_today': InventaireJournalier.objects.filter(
+                date=today
+            ).values('poste').distinct().count(),
+        }
+        
+        # Derniers inventaires pour l'utilisateur
+        if request.user.acces_tous_postes or _check_admin_permission(request.user):
+            derniers_inventaires = InventaireJournalier.objects.select_related(
+                'poste', 'agent_saisie'
+            ).order_by('-date_creation')[:5]
+        else:
+            derniers_inventaires = InventaireJournalier.objects.filter(
+                poste=request.user.poste_affectation
+            ).select_related('poste', 'agent_saisie').order_by('-date_creation')[:5]
+        
+        inventaires_data = []
+        for inv in derniers_inventaires:
+            inventaires_data.append({
+                'id': inv.id,
+                'date': inv.date.strftime('%d/%m/%Y'),
+                'poste': inv.poste.nom,
+                'total_vehicules': inv.total_vehicules,
+                'verrouille': inv.verrouille,
+                'valide': inv.valide,
+                'agent': inv.agent_saisie.nom_complet if inv.agent_saisie else 'Non défini',
+                'url': f'/inventaire/{inv.id}/'
+            })
+        
+        # Actions rapides disponibles
+        actions_rapides = []
+        
+        if _check_admin_permission(request.user):
+            actions_rapides.extend([
+                {
+                    'title': 'Ouvrir Aujourd\'hui',
+                    'action': 'open_today',
+                    'icon': 'fas fa-calendar-plus',
+                    'class': 'btn-success btn-sm'
+                },
+                {
+                    'title': 'Admin Inventaires',
+                    'url': '/admin/inventaire/inventairejournalier/',
+                    'icon': 'fas fa-cogs',
+                    'class': 'btn-primary btn-sm'
+                }
+            ])
+        
+        if request.user.poste_affectation:
+            actions_rapides.append({
+                'title': 'Nouvelle Saisie',
+                'url': f'/inventaire/saisie/{request.user.poste_affectation.id}/',
+                'icon': 'fas fa-plus',
+                'class': 'btn-info btn-sm'
+            })
+        
+        response_data = {
+            'stats': stats,
+            'derniers_inventaires': inventaires_data,
+            'actions_rapides': actions_rapides,
+            'can_admin': _check_admin_permission(request.user),
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        logger.error(f"Erreur widget dashboard inventaire: {str(e)}")
+        return JsonResponse({'error': 'Erreur serveur'}, status=500)
 
 
 # ===================================================================
@@ -479,6 +1840,12 @@ def inventaire_redirect_error_handler(request, error_type='permission'):
     elif error_type == 'not_found':
         messages.error(request, _("L'inventaire ou la recette demandée n'a pas été trouvée."))
     
+    elif error_type == 'locked':
+        messages.warning(request, _("Cette ressource est verrouillée et ne peut plus être modifiée."))
+    
+    elif error_type == 'closed_day':
+        messages.warning(request, _("Ce jour est fermé pour la saisie."))
+    
     else:
         messages.error(request, _("Une erreur est survenue lors de la redirection."))
     
@@ -487,84 +1854,242 @@ def inventaire_redirect_error_handler(request, error_type='permission'):
 
 
 # ===================================================================
-# API SUPPLÉMENTAIRE POUR LE DASHBOARD
+# VUES POUR LA SAUVEGARDE ET RESTAURATION
 # ===================================================================
 
 @login_required
 @require_http_methods(["POST"])
-def quick_action_api(request):
-    """API pour les actions rapides depuis le dashboard"""
+def backup_inventaires_api(request):
+    """API pour sauvegarder les données d'inventaire"""
     user = request.user
     
     if not _check_admin_permission(user):
         return JsonResponse({'error': 'Permission refusée'}, status=403)
     
-    action = request.POST.get('action')
+    try:
+        import json
+        from django.core import serializers
+        from datetime import datetime
+        
+        # Récupération des paramètres
+        data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+        date_debut = data.get('date_debut')
+        date_fin = data.get('date_fin')
+        
+        if not date_debut or not date_fin:
+            return JsonResponse({'error': 'Dates requises'}, status=400)
+        
+        date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
+        date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
+        
+        # Collecte des données
+        inventaires = InventaireJournalier.objects.filter(
+            date__gte=date_debut, date__lte=date_fin
+        ).prefetch_related('details_periodes')
+        
+        recettes = RecetteJournaliere.objects.filter(
+            date__gte=date_debut, date__lte=date_fin
+        )
+        
+        configs = ConfigurationJour.objects.filter(
+            date__gte=date_debut, date__lte=date_fin
+        )
+        
+        # Sérialisation
+        backup_data = {
+            'metadata': {
+                'date_creation': timezone.now().isoformat(),
+                'cree_par': user.username,
+                'date_debut': date_debut.isoformat(),
+                'date_fin': date_fin.isoformat(),
+                'version': '1.0'
+            },
+            'inventaires': json.loads(serializers.serialize('json', inventaires)),
+            'details_periodes': [],
+            'recettes': json.loads(serializers.serialize('json', recettes)),
+            'configurations': json.loads(serializers.serialize('json', configs))
+        }
+        
+        # Ajouter les détails des périodes
+        for inventaire in inventaires:
+            details = DetailInventairePeriode.objects.filter(inventaire=inventaire)
+            backup_data['details_periodes'].extend(
+                json.loads(serializers.serialize('json', details))
+            )
+        
+        # Journaliser l'action
+        _log_inventaire_action(
+            request,
+            "Sauvegarde données inventaire",
+            f"Période: {date_debut} à {date_fin}, {len(inventaires)} inventaires"
+        )
+        
+        # Retourner les données
+        response = HttpResponse(
+            json.dumps(backup_data, indent=2, ensure_ascii=False),
+            content_type='application/json'
+        )
+        response['Content-Disposition'] = f'attachment; filename="backup_inventaires_{date_debut}_{date_fin}.json"'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Erreur sauvegarde inventaires: {str(e)}")
+        return JsonResponse({'error': 'Erreur lors de la sauvegarde'}, status=500)
+
+
+# ===================================================================
+# VUES DE MAINTENANCE ET DIAGNOSTIC
+# ===================================================================
+
+@login_required
+def diagnostic_inventaires_view(request):
+    """Vue de diagnostic pour les inventaires"""
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        messages.error(request, _("Accès non autorisé au diagnostic."))
+        return redirect('inventaire:inventaire_list')
     
     try:
-        if action == 'open_today':
-            # Ouvrir le jour actuel
-            from django.utils import timezone
-            today = timezone.now().date()
-            
-            config, created = ConfigurationJour.objects.get_or_create(
-                date=today,
-                defaults={
-                    'statut': 'ouvert',
-                    'cree_par': user,
-                    'commentaire': f'Ouvert via API par {user.nom_complet}'
-                }
-            )
-            
-            if not created and config.statut != 'ouvert':
-                config.statut = 'ouvert'
-                config.commentaire = f'Réouvert via API par {user.nom_complet}'
-                config.save()
-            
-            _log_inventaire_admin_access(request, f"Ouverture jour {today}")
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Jour {today.strftime("%d/%m/%Y")} ouvert pour la saisie.',
-                'date': today.isoformat(),
-                'statut': config.statut
+        # Statistiques de santé
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
+        
+        # Détection des anomalies
+        anomalies = []
+        
+        # Inventaires sans détails
+        inventaires_vides = InventaireJournalier.objects.filter(
+            details_periodes__isnull=True
+        ).count()
+        if inventaires_vides > 0:
+            anomalies.append({
+                'type': 'warning',
+                'message': f'{inventaires_vides} inventaires sans détails de périodes',
+                'action': 'Vérifier les inventaires incomplets'
             })
         
-        elif action == 'mark_impertinent':
-            # Marquer un jour comme impertinent
-            date_str = request.POST.get('date')
-            if not date_str:
-                return JsonResponse({'error': 'Date requise'}, status=400)
-            
-            from datetime import datetime
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            
-            config, created = ConfigurationJour.objects.get_or_create(
-                date=target_date,
-                defaults={
-                    'statut': 'impertinent',
-                    'cree_par': user,
-                    'commentaire': f'Marqué impertinent via API par {user.nom_complet}'
-                }
-            )
-            
-            if not created:
-                config.statut = 'impertinent'
-                config.commentaire = f'Marqué impertinent via API par {user.nom_complet}'
-                config.save()
-            
-            _log_inventaire_admin_access(request, f"Marquage impertinent {target_date}")
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Jour {target_date.strftime("%d/%m/%Y")} marqué comme impertinent.',
-                'date': target_date.isoformat(),
-                'statut': config.statut
+        # Inventaires non verrouillés anciens
+        inventaires_anciens = InventaireJournalier.objects.filter(
+            date__lt=week_ago, verrouille=False
+        ).count()
+        if inventaires_anciens > 0:
+            anomalies.append({
+                'type': 'info',
+                'message': f'{inventaires_anciens} inventaires de plus de 7 jours non verrouillés',
+                'action': 'Vérifier les inventaires en attente'
             })
         
-        else:
-            return JsonResponse({'error': 'Action non reconnue'}, status=400)
-    
+        # Recettes sans inventaire associé
+        recettes_orphelines = RecetteJournaliere.objects.exclude(
+            poste__in=InventaireJournalier.objects.filter(
+                date=models.OuterRef('date')
+            ).values('poste')
+        ).count()
+        if recettes_orphelines > 0:
+            anomalies.append({
+                'type': 'error',
+                'message': f'{recettes_orphelines} recettes sans inventaire associé',
+                'action': 'Créer les inventaires manquants'
+            })
+        
+        # Jours sans configuration
+        jours_non_configures = 0
+        for i in range(7):
+            day = today - timedelta(days=i)
+            if not ConfigurationJour.objects.filter(date=day).exists():
+                jours_non_configures += 1
+        
+        if jours_non_configures > 0:
+            anomalies.append({
+                'type': 'warning',
+                'message': f'{jours_non_configures} jours récents sans configuration',
+                'action': 'Configurer les jours manquants'
+            })
+        
+        # Statistiques de performance
+        stats_performance = {
+            'inventaires_total': InventaireJournalier.objects.count(),
+            'inventaires_month': InventaireJournalier.objects.filter(date__gte=month_ago).count(),
+            'taux_verrouillage': 0,
+            'taux_validation': 0,
+            'postes_actifs': Poste.objects.filter(actif=True).count(),
+            'derniere_saisie': None
+        }
+        
+        # Calculs des taux
+        inventaires_month = InventaireJournalier.objects.filter(date__gte=month_ago)
+        if inventaires_month.exists():
+            total_month = inventaires_month.count()
+            verrouilles_month = inventaires_month.filter(verrouille=True).count()
+            valides_month = inventaires_month.filter(valide=True).count()
+            
+            stats_performance['taux_verrouillage'] = round((verrouilles_month / total_month) * 100, 2)
+            stats_performance['taux_validation'] = round((valides_month / total_month) * 100, 2)
+        
+        # Dernière saisie
+        derniere_saisie = InventaireJournalier.objects.order_by('-date_creation').first()
+        if derniere_saisie:
+            stats_performance['derniere_saisie'] = {
+                'date': derniere_saisie.date_creation.strftime('%d/%m/%Y %H:%M'),
+                'poste': derniere_saisie.poste.nom,
+                'agent': derniere_saisie.agent_saisie.nom_complet if derniere_saisie.agent_saisie else 'Non défini'
+            }
+        
+        context = {
+            'title': 'Diagnostic Inventaires',
+            'anomalies': anomalies,
+            'stats_performance': stats_performance,
+            'diagnostic_date': timezone.now().strftime('%d/%m/%Y %H:%M'),
+        }
+        
+        return render(request, 'inventaire/diagnostic.html', context)
+        
     except Exception as e:
-        logger.error(f"Erreur API quick action: {str(e)}")
-        return JsonResponse({'error': 'Erreur serveur'}, status=500)
+        logger.error(f"Erreur diagnostic inventaires: {str(e)}")
+        messages.error(request, _("Erreur lors du diagnostic."))
+        return redirect('inventaire:inventaire_list')
+
+
+# # ===================================================================
+# # VUES FINALES ET UTILS
+# # ===================================================================
+
+# @login_required
+# def inventaire_health_check_api(request):
+#     """API de vérification de santé du module inventaire"""
+#     if not _check_admin_permission(request.user):
+#         return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+#     try:
+#         health_status = {
+#             'status': 'ok',
+#             'timestamp': timezone.now().isoformat(),
+#             'checks': {}
+#         }
+        
+#         # Vérification base de données
+#         try:
+#             InventaireJournalier.objects.count()
+#             health_status['checks']['database'] = 'ok'
+#         except Exception as e:
+#             health_status['checks']['database'] = f'error: {str(e)}'
+#             health_status['status'] = 'error'
+        
+#         # Vérification des permissions
+#         try:
+#             request.user.peut_gerer_inventaire
+#             health_status['checks']['permissions'] = 'ok'
+#         except Exception as e:
+#             health_status['checks']['permissions'] = f'error: {str(e)}'
+#             health_status['status'] = 'warning'
+        
+#         # Vérification des modèles
+#         try:
+#             from .models import PeriodeHoraire
+#             health_status['checks']['models'] = 'ok'
+#         except Exception as e:
+#             health_status['checks']['models'] = f'error: {str(e)}'
+#             health_status['status'] = 'error'

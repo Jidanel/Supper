@@ -971,7 +971,7 @@ class PosteAdmin(admin.ModelAdmin):
         """Badge pour la région"""
         return format_html(
             '<span class="badge bg-secondary">{}</span>',
-            obj.get_region_display()
+            obj.region
         )
     region_badge.short_description = 'Région'
     

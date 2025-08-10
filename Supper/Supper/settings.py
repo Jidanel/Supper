@@ -86,6 +86,8 @@ TEMPLATES = [
                 'django.template.context_processors.i18n',  # Internationalisation
                 'django.template.context_processors.media', # Fichiers média
                 'django.template.context_processors.static', # Fichiers statiques
+                'common.context_processors.admin_context',
+                'common.context_processors.supper_globals',
             ],
         },
     },

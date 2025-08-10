@@ -201,7 +201,7 @@ class AuditMixin:
 
 def is_admin_user(user):
     """Fonction de test pour vérifier si l'utilisateur est administrateur"""
-    return user.is_authenticated and user.is_admin()
+    return user.is_authenticated and user.is_admin
 
 
 def is_chef_poste(user):
@@ -441,7 +441,7 @@ logger = logging.getLogger('supper')
 
 def is_admin_user(user):
     """Fonction de test pour vérifier si l'utilisateur est administrateur"""
-    return user.is_authenticated and user.is_admin()
+    return user.is_authenticated and user.is_admin
 
 
 def is_chef_poste(user):
