@@ -935,7 +935,7 @@ class PosteAdmin(admin.ModelAdmin):
             'classes': ('wide',),
         }),
         ('Localisation', {
-            'fields': ('region', 'departement', 'arrondissement', 'localisation'),
+            'fields': ('region', 'departement', 'axe_routier'),
             'classes': ('wide',),
         }),
         ('Coordonnées GPS', {
@@ -943,11 +943,11 @@ class PosteAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
         ('Informations complémentaires', {
-            'fields': ('is_active', 'date_ouverture'),
+            'fields': ('is_active',),
             'classes': ('wide',),
         }),
         ('Observations', {
-            'fields': ('observations',),
+            'fields': ('description',),
             'classes': ('collapse',),
         }),
         ('Métadonnées', {

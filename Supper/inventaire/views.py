@@ -157,7 +157,7 @@ class InventaireListView(InventaireMixin, ListView):
         
         # Postes accessibles pour le filtre
         if self.request.user.acces_tous_postes or _check_admin_permission(self.request.user):
-            postes = Poste.objects.filter(actif=True).order_by('nom')
+            postes = Poste.objects.filter(is_active=True).order_by('nom')
         else:
             postes = Poste.objects.filter(
                 id=self.request.user.poste_affectation.id
@@ -1268,7 +1268,7 @@ class RapportInventaireView(AdminRequiredMixin, View):
         """Afficher la page de génération de rapports"""
         context = {
             'title': 'Génération de Rapports',
-            'postes': Poste.objects.filter(actif=True).order_by('nom'),
+            'postes': Poste.objects.filter(is_active=True).order_by('nom'),
             'current_year': timezone.now().year,
             'years': range(timezone.now().year - 5, timezone.now().year + 1),
         }
@@ -2015,7 +2015,7 @@ def diagnostic_inventaires_view(request):
             'inventaires_month': InventaireJournalier.objects.filter(date__gte=month_ago).count(),
             'taux_verrouillage': 0,
             'taux_validation': 0,
-            'postes_actifs': Poste.objects.filter(actif=True).count(),
+            'postes_actifs': Poste.objects.filter(is_active=True).count(),
             'derniere_saisie': None
         }
         

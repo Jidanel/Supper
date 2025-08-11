@@ -43,7 +43,7 @@ Navigation responsive, support bilingue FR/EN, thème moderne
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container-fluid">
             <!-- Logo et nom de l'application -->
-            <a class="navbar-brand d-flex align-items-center" href="{% url 'common:dashboard_general' %}">
+            <a class="navbar-brand d-flex align-items-center" href="#">
                 <i class="fas fa-road me-2"></i>
                 <span class="fw-bold">SUPPER</span>
             </a>
@@ -60,7 +60,7 @@ Navigation responsive, support bilingue FR/EN, thème moderne
                     <!-- Dashboard selon le rôle -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_general' %}active{% endif %}" 
-                           href="{% url 'common:dashboard_general' %}">
+                           href="#">
                             <i class="fas fa-tachometer-alt me-1"></i>
                             {% trans "Tableau de bord" %}
                         </a>
@@ -307,7 +307,7 @@ Navigation responsive, support bilingue FR/EN, thème moderne
         <div class="container-fluid">
             <ol class="breadcrumb py-3 mb-0">
                 <li class="breadcrumb-item">
-                    <a href="{% url 'common:dashboard_general' %}">
+                    <a href="#">
                         <i class="fas fa-home"></i>
                         {% trans "Accueil" %}
                     </a>

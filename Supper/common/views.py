@@ -8,6 +8,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from .mixins import AdminRequiredMixin
 from django.views.generic import TemplateView
 from django.http import JsonResponse
 from django.contrib import messages
@@ -1160,3 +1161,331 @@ def api_statistiques_postes_ordonnes(request):
         return JsonResponse({'error': 'Erreur serveur'}, status=500)
     
     return JsonResponse(data)
+
+# ===================================================================
+# AJOUT aux vues manquantes dans common/views.py
+# Correction des erreurs NoReverseMatch - Ajouter à la fin du fichier
+# ===================================================================
+
+from django.views.generic import ListView
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.http import JsonResponse, HttpResponse
+from django.template.response import TemplateResponse
+
+# ===================================================================
+# VUES MANQUANTES POUR ÉVITER NoReverseMatch
+# ===================================================================
+
+class GeneralDashboardView(LoginRequiredMixin, TemplateView):
+    """
+    Dashboard général - CORRECTION pour éviter NoReverseMatch
+    Interface temporaire en attendant le développement complet
+    """
+    template_name = 'common/dashboard_general.html'
+    
+    def get_context_data(self, **kwargs):
+        """Contexte minimal pour éviter les erreurs de template"""
+        context = super().get_context_data(**kwargs)
+        
+        user = self.request.user
+        
+        # Lien vers admin Django si l'utilisateur a les permissions
+        has_admin_access = _check_admin_permission(user)
+        
+        context.update({
+            'user_dashboard_title': f'SUPPER - Espace {user.get_habilitation_display()}',
+            'message_developpement': _(
+                "Cette interface est en cours de développement. "
+                "Les fonctionnalités spécialisées seront disponibles prochainement."
+            ),
+            'has_admin_access': has_admin_access,
+            'admin_url': '/admin/' if has_admin_access else None,
+            'current_user': user,
+            'page_title': 'Dashboard Général',
+        })
+        
+        return context
+
+
+class JourListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+    """
+    Liste des jours configurés - CORRECTION pour éviter NoReverseMatch
+    Accessible uniquement aux administrateurs
+    """
+    template_name = 'common/jour_list.html'
+    context_object_name = 'jours'
+    paginate_by = 30
+    
+    def get_queryset(self):
+        """Récupérer les configurations de jours"""
+        try:
+            from inventaire.models import ConfigurationJour
+            return ConfigurationJour.objects.all().order_by('-date')
+        except ImportError:
+            # Si le modèle n'existe pas encore, retourner queryset vide
+            from django.db.models import QuerySet
+            return QuerySet().none()
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'page_title': 'Gestion des Jours',
+            'can_add': True,
+            'can_modify': True,
+        })
+        return context
+
+
+class AuditLogView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+    """
+    Journal d'audit - CORRECTION pour éviter NoReverseMatch
+    Affichage des logs système pour les administrateurs
+    """
+    model = JournalAudit
+    template_name = 'common/audit_log.html'
+    context_object_name = 'logs'
+    paginate_by = 50
+    ordering = ['-timestamp']
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'page_title': 'Journal d\'Audit',
+            'total_logs': JournalAudit.objects.count(),
+        })
+        return context
+
+
+class SystemHealthView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
+    """
+    Santé du système - CORRECTION pour éviter NoReverseMatch
+    Monitoring et diagnostic système pour les administrateurs
+    """
+    template_name = 'common/system_health.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Statistiques système de base
+        try:
+            system_stats = {
+                'database_status': 'Connectée',
+                'total_users': UtilisateurSUPPER.objects.count(),
+                'active_users': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+                'total_postes': Poste.objects.count(),
+                'logs_count': JournalAudit.objects.count(),
+                'server_time': timezone.now(),
+            }
+        except Exception as e:
+            system_stats = {
+                'database_status': f'Erreur: {str(e)}',
+                'error': True,
+            }
+        
+        context.update({
+            'page_title': 'Santé du Système',
+            'system_stats': system_stats,
+        })
+        return context
+
+
+# ===================================================================
+# VUES D'ERREUR PERSONNALISÉES (pour éviter les erreurs 500)
+# ===================================================================
+
+@login_required
+def error_403_view(request, exception=None):
+    """Page 403 personnalisée"""
+    return TemplateResponse(request, 'errors/403.html', {
+        'title': 'Accès interdit',
+        'message': 'Vous n\'avez pas les permissions nécessaires.',
+    }, status=403)
+
+
+@login_required  
+def error_404_view(request, exception=None):
+    """Page 404 personnalisée"""
+    return TemplateResponse(request, 'errors/404.html', {
+        'title': 'Page non trouvée',
+        'message': 'La page que vous cherchez n\'existe pas.',
+    }, status=404)
+
+
+def error_500_view(request):
+    """Page 500 personnalisée"""
+    return TemplateResponse(request, 'errors/500.html', {
+        'title': 'Erreur serveur',
+        'message': 'Une erreur interne s\'est produite.',
+    }, status=500)
+
+
+# ===================================================================
+# VUES TEMPORAIRES DE DÉVELOPPEMENT (éviter les erreurs 404)
+# ===================================================================
+
+@login_required
+def placeholder_view(request, feature_name="cette fonctionnalité"):
+    """
+    Vue placeholder pour les fonctionnalités en développement
+    Évite les erreurs 404 pendant le développement
+    """
+    messages.info(
+        request, 
+        f"{feature_name.title()} est en cours de développement et sera disponible prochainement."
+    )
+    
+    # Redirection vers le dashboard approprié
+    user = request.user
+    if _check_admin_permission(user):
+        return redirect('/admin/')
+    else:
+        return redirect('common:dashboard_general')
+
+
+@login_required
+def coming_soon_view(request):
+    """Vue générique 'Bientôt disponible'"""
+    return TemplateResponse(request, 'common/coming_soon.html', {
+        'title': 'Fonctionnalité en développement',
+        'message': 'Cette section sera disponible dans une prochaine version.',
+        'user': request.user,
+    })
+
+
+# ===================================================================
+# API DE MONITORING (pour diagnostiquer les problèmes)
+# ===================================================================
+
+@login_required
+def api_system_status(request):
+    """API pour vérifier le statut du système"""
+    if not _check_admin_permission(request.user):
+        return JsonResponse({'error': 'Non autorisé'}, status=403)
+    
+    try:
+        # Tests de base
+        users_count = UtilisateurSUPPER.objects.count()
+        postes_count = Poste.objects.count()
+        logs_count = JournalAudit.objects.count()
+        
+        # Test de la base de données
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            db_test = cursor.fetchone()[0] == 1
+        
+        status = {
+            'status': 'OK',
+            'timestamp': timezone.now().isoformat(),
+            'database': 'Connected' if db_test else 'Error',
+            'counts': {
+                'users': users_count,
+                'postes': postes_count,
+                'logs': logs_count,
+            },
+            'version': '1.0',
+        }
+        
+    except Exception as e:
+        status = {
+            'status': 'ERROR',
+            'error': str(e),
+            'timestamp': timezone.now().isoformat(),
+        }
+    
+    return JsonResponse(status)
+
+
+@login_required 
+def api_check_urls(request):
+    """API pour vérifier les URLs disponibles (debug)"""
+    if not _check_admin_permission(request.user):
+        return JsonResponse({'error': 'Non autorisé'}, status=403)
+    
+    from django.urls import get_resolver
+    from django.conf import settings
+    
+    try:
+        # Récupérer toutes les URLs configurées
+        resolver = get_resolver()
+        
+        available_urls = []
+        for pattern in resolver.url_patterns:
+            if hasattr(pattern, 'name') and pattern.name:
+                available_urls.append({
+                    'name': pattern.name,
+                    'pattern': str(pattern.pattern),
+                })
+        
+        # URLs spécifiques à common
+        common_urls = [url for url in available_urls if 'common:' in str(url)]
+        
+        return JsonResponse({
+            'status': 'OK',
+            'total_urls': len(available_urls),
+            'common_urls': common_urls,
+            'debug_mode': settings.DEBUG,
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'ERROR',
+            'error': str(e),
+        })
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES POUR ÉVITER LES ERREURS
+# ===================================================================
+
+def safe_reverse(url_name, args=None, kwargs=None):
+    """
+    Fonction sécurisée pour résoudre les URLs
+    Retourne une URL par défaut si la résolution échoue
+    """
+    try:
+        from django.urls import reverse
+        return reverse(url_name, args=args, kwargs=kwargs)
+    except Exception:
+        # Fallback vers admin Django
+        return '/admin/'
+
+
+def get_user_dashboard_url(user):
+    """
+    Retourne l'URL de dashboard appropriée pour un utilisateur
+    Gère les erreurs de résolution d'URL
+    """
+    try:
+        if _check_admin_permission(user):
+            return safe_reverse('common:admin_dashboard')
+        elif user.habilitation in ['chef_peage', 'chef_pesage']:
+            return safe_reverse('common:chef_dashboard')
+        elif user.habilitation == 'agent_inventaire':
+            return safe_reverse('common:agent_dashboard')
+        else:
+            return safe_reverse('common:dashboard_general')
+    except Exception:
+        # Fallback ultime
+        return '/admin/'
+
+
+# ===================================================================
+# GESTIONNAIRE D'ERREURS GLOBAL (si nécessaire)
+# ===================================================================
+
+def handle_url_error(request, exception=None):
+    """
+    Gestionnaire global pour les erreurs d'URL
+    Évite les crashes lors de NoReverseMatch
+    """
+    logger.warning(f"Erreur URL: {exception} pour l'utilisateur {request.user.username}")
+    
+    messages.warning(
+        request,
+        "Une erreur de navigation s'est produite. Vous avez été redirigé vers la page principale."
+    )
+    
+    # Redirection sécurisée
+    return redirect('/admin/')

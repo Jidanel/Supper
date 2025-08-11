@@ -25,7 +25,7 @@ urlpatterns = [
     path('dashboard/admin/', views.DashboardAdminView.as_view(), name='admin_dashboard'),
     path('dashboard/chef/', views.DashboardChefView.as_view(), name='chef_dashboard'),
     path('dashboard/agent/', views.DashboardAgentView.as_view(), name='agent_dashboard'),
-    # path('dashboard/general/', views.GeneralDashboardView.as_view(), name='general_dashboard'),
+    path('dashboard/general/', views.GeneralDashboardView.as_view(), name='general_dashboard'),
     
     # API pour données dashboard
     # path('api/stats-generales/', views.StatsGeneralesAPIView.as_view(), name='api_stats_generales'),

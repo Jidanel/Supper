@@ -622,18 +622,10 @@
             <h2>{% trans "Actions Administratives" %}</h2>
         </div>
         
-        <div class="redirect-info">
-            <i class="fas fa-info-circle"></i>
-            <div>
-                <strong>{% trans "Panel Administrateur" %} :</strong> 
-                {% trans "Accédez aux fonctions avancées de gestion via l'interface Django Admin native." %}
-                {% trans "Toutes les actions ci-dessous vous redirigeront vers les sections correspondantes de l'administration Django." %}
-            </div>
-        </div>
         
         <div class="admin-actions-grid">
             <!-- Panel Avancé Principal -->
-            <a href="/django-admin/" class="admin-action-btn advanced-panel-btn" onclick="return confirmAdvancedPanel()">
+            <a href="#" class="admin-action-btn advanced-panel-btn" onclick="return confirmAdvancedPanel()">
                 <i class="fas fa-crown"></i>
                 {% trans "Panel Administrateur Avancé" %}
             </a>

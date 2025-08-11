@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Inventaires" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --violet-principal: #6B46C1;
+    --violet-fonce: #553C9A;
+    --gris-clair: #F8FAFC;
+    --gris-moyen: #64748B;
+    --gris-fonce: #334155;
+    --accent-orange: #F59E0B;
+}
+
+.supper-header {
+    background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.inventaire-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-left: 4px solid var(--violet-principal);
+}
+
+.inventaire-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.badge-custom {
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.badge-verrouille {
+    background: linear-gradient(45deg, #F59E0B, #F97316);
+    color: white;
+}
+
+.badge-valide {
+    background: linear-gradient(45deg, #10B981, #059669);
+    color: white;
+}
+
+.badge-en-cours {
+    background: linear-gradient(45deg, #3B82F6, #2563EB);
+    color: white;
+}
+
+.btn-violet {
+    background: linear-gradient(45deg, var(--violet-principal), var(--violet-fonce));
+    border: none;
+    color: white;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-violet:hover {
+    background: linear-gradient(45deg, var(--violet-fonce), #4C1D95);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.filter-card {
+    background: var(--gris-clair);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stats-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--violet-principal);
+}
+
+.table-custom {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.table-custom thead {
+    background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
+    color: white;
+}
+
+.pagination-custom .page-link {
+    color: var(--violet-principal);
+    border: 1px solid #E5E7EB;
+    margin: 0 2px;
+    border-radius: 6px;
+}
+
+.pagination-custom .page-link:hover {
+    background: var(--violet-principal);
+    color: white;
+}
+
+.pagination-custom .page-item.active .page-link {
+    background: var(--violet-principal);
+    border-color: var(--violet-principal);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="supper-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="fas fa-clipboard-list me-3"></i>
+                    {% trans "Gestion des Inventaires" %}
+                </h1>
+                <p class="mb-0 opacity-75">{% trans "Suivi et gestion des inventaires journaliers" %}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if user.peut_gerer_inventaire %}
+                <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-light btn-lg">
+                    <i class="fas fa-plus me-2"></i>
+                    {% trans "Nouvelle Saisie" %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Statistiques rapides -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ total_inventaires }}</div>
+                <div class="text-muted">{% trans "Total Inventaires" %}</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number text-success">{{ inventaires_today }}</div>
+                <div class="text-muted">{% trans "Aujourd'hui" %}</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number text-warning">{{ inventaires_verrouilles }}</div>
+                <div class="text-muted">{% trans "Verrouillés" %}</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number text-info">{{ postes|length }}</div>
+                <div class="text-muted">{% trans "Postes Actifs" %}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="row">
+        <div class="col-12">
+            <div class="filter-card">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">{% trans "Recherche" %}</label>
+                        <input type="text" class="form-control" name="search" 
+                               value="{{ current_filters.search }}" 
+                               placeholder="{% trans 'Nom du poste, agent...' %}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{% trans "Poste" %}</label>
+                        <select class="form-select" name="poste">
+                            <option value="">{% trans "Tous les postes" %}</option>
+                            {% for poste in postes %}
+                            <option value="{{ poste.id }}" 
+                                    {% if current_filters.poste == poste.id|stringformat:"s" %}selected{% endif %}>
+                                {{ poste.nom }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{% trans "Date début" %}</label>
+                        <input type="date" class="form-control" name="date_debut" 
+                               value="{{ current_filters.date_debut }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{% trans "Date fin" %}</label>
+                        <input type="date" class="form-control" name="date_fin" 
+                               value="{{ current_filters.date_fin }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{% trans "Statut" %}</label>
+                        <select class="form-select" name="statut">
+                            <option value="">{% trans "Tous" %}</option>
+                            <option value="en_cours" 
+                                    {% if current_filters.statut == "en_cours" %}selected{% endif %}>
+                                {% trans "En cours" %}
+                            </option>
+                            <option value="verrouille" 
+                                    {% if current_filters.statut == "verrouille" %}selected{% endif %}>
+                                {% trans "Verrouillé" %}
+                            </option>
+                            <option value="valide" 
+                                    {% if current_filters.statut == "valide" %}selected{% endif %}>
+                                {% trans "Validé" %}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-violet w-100">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des inventaires -->
+    <div class="row">
+        <div class="col-12">
+            <div class="table-custom">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Date" %}</th>
+                            <th>{% trans "Poste" %}</th>
+                            <th>{% trans "Agent Saisie" %}</th>
+                            <th>{% trans "Total Véhicules" %}</th>
+                            <th>{% trans "Périodes" %}</th>
+                            <th>{% trans "Statut" %}</th>
+                            <th>{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inventaire in inventaires %}
+                        <tr>
+                            <td>
+                                <strong>{{ inventaire.date|date:"d/m/Y" }}</strong>
+                                <br><small class="text-muted">{{ inventaire.date_creation|date:"H:i" }}</small>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ inventaire.poste.nom }}</strong>
+                                    <br><small class="text-muted">{{ inventaire.poste.code }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if inventaire.agent_saisie %}
+                                    {{ inventaire.agent_saisie.nom_complet }}
+                                    <br><small class="text-muted">{{ inventaire.agent_saisie.username }}</small>
+                                {% else %}
+                                    <span class="text-muted">{% trans "Non défini" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary fs-6">{{ inventaire.total_vehicules }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ inventaire.nombre_periodes_saisies }}/10</span>
+                            </td>
+                            <td>
+                                {% if inventaire.valide %}
+                                    <span class="badge badge-custom badge-valide">
+                                        <i class="fas fa-check-circle me-1"></i>{% trans "Validé" %}
+                                    </span>
+                                {% elif inventaire.verrouille %}
+                                    <span class="badge badge-custom badge-verrouille">
+                                        <i class="fas fa-lock me-1"></i>{% trans "Verrouillé" %}
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-custom badge-en-cours">
+                                        <i class="fas fa-edit me-1"></i>{% trans "En cours" %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" 
+                                       class="btn btn-outline-primary btn-sm" title="{% trans 'Voir détails' %}">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if not inventaire.verrouille and user.peut_gerer_inventaire %}
+                                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}" 
+                                       class="btn btn-outline-success btn-sm" title="{% trans 'Modifier' %}">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if can_admin %}
+                                    <a href="/django-admin/inventaire/inventairejournalier/{{ inventaire.id }}/change/" 
+                                       class="btn btn-outline-warning btn-sm" title="{% trans 'Admin' %}">
+                                        <i class="fas fa-cogs"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <p>{% trans "Aucun inventaire trouvé avec ces critères." %}</p>
+                                    {% if user.peut_gerer_inventaire %}
+                                    <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-violet">
+                                        <i class="fas fa-plus me-2"></i>{% trans "Créer un inventaire" %}
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="{% trans 'Navigation pagination' %}" class="mt-4">
+                <ul class="pagination pagination-custom justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if can_admin %}
+<!-- Actions rapides pour admin -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
+    <div class="btn-group-vertical" role="group">
+        <a href="/django-admin/inventaire/inventairejournalier/" 
+           class="btn btn-dark btn-sm mb-2" title="{% trans 'Panel Admin Inventaires' %}">
+            <i class="fas fa-cogs"></i>
+        </a>
+        <button type="button" class="btn btn-success btn-sm mb-2" 
+                onclick="ouvrirJourActuel()" title="{% trans 'Ouvrir jour actuel' %}">
+            <i class="fas fa-calendar-plus"></i>
+        </button>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Actions rapides admin
+function ouvrirJourActuel() {
+    if (confirm("{% trans 'Ouvrir le jour actuel pour la saisie ?' %}")) {
+        fetch('/admin/actions/open-day/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+    }
+}
+
+// Auto-refresh des stats toutes les 30 secondes
+setInterval(() => {
+    fetch('/inventaire/api/inventaire-stats/')
+        .then(response => response.json())
+        .then(data => {
+            // Mettre à jour les statistiques si nécessaire
+        })
+        .catch(error => console.error('Erreur refresh:', error));
+}, 30000);
+</script>
+{% endblock %}
