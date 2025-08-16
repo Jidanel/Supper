@@ -14,6 +14,8 @@ from .models import (
     RecetteJournaliere, StatistiquesPeriodiques
 )
 import csv
+from .forms import InventaireJournalierForm
+from zoneinfo import ZoneInfo
 
 
 class DetailInventairePeriodeInline(admin.TabularInline):
@@ -28,26 +30,10 @@ class DetailInventairePeriodeInline(admin.TabularInline):
 
 @admin.register(ConfigurationJour, site=admin_site)
 class ConfigurationJourAdmin(admin.ModelAdmin):
-    """Administration des configurations de jours"""
-    
-    list_display = ('date', 'statut_badge', 'cree_par', 'date_creation')
-    list_filter = ('statut', 'date_creation')
-    search_fields = ('commentaire',)
-    ordering = ('-date',)
+    list_display = ['date', 'statut', 'cree_par', 'date_creation']
+    list_filter = ['statut', 'date_creation']
+    search_fields = ['commentaire']
     date_hierarchy = 'date'
-    
-    fieldsets = (
-        ('Configuration', {
-            'fields': ('date', 'statut', 'commentaire'),
-            'classes': ('wide',),
-        }),
-        ('Métadonnées', {
-            'fields': ('cree_par', 'date_creation'),
-            'classes': ('collapse',),
-        }),
-    )
-    
-    readonly_fields = ('date_creation',)
     
     def statut_badge(self, obj):
         """Badge coloré pour le statut"""
@@ -92,41 +78,51 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
 
 @admin.register(InventaireJournalier, site=admin_site)
 class InventaireJournalierAdmin(admin.ModelAdmin):
-    """Administration des inventaires journaliers"""
+    form = InventaireJournalierForm
     
-    list_display = ('__str__', 'agent_saisie', 'total_vehicules', 'nombre_periodes_saisies',
-                   'verrouille_badge', 'valide_badge', 'date_creation')
-    list_filter = ('verrouille', 'valide', 'poste__type', 'poste__region', 'date')
-    search_fields = ('poste__nom', 'poste__code', 'agent_saisie__username', 'agent_saisie__nom_complet')
-    ordering = ('-date', 'poste__nom')
+    list_display = [
+        'poste', 'date', 'agent_saisie', 
+        'total_vehicules', 'verrouille', 'valide'
+    ]
+    list_filter = ['date', 'verrouille', 'valide', 'poste__region']
+    search_fields = ['poste__nom', 'agent_saisie__nom_complet']
     date_hierarchy = 'date'
-    
-    inlines = [DetailInventairePeriodeInline]
     
     fieldsets = (
         ('Informations générales', {
-            'fields': ('poste', 'date', 'agent_saisie'),
-            'classes': ('wide',),
+            'fields': ('poste', 'date', 'agent_saisie')
         }),
-        ('Totaux calculés', {
-            'fields': ('total_vehicules', 'nombre_periodes_saisies'),
-            'classes': ('wide',),
+        ('État', {
+            'fields': ('verrouille', 'valide', 'valide_par', 'date_validation')
         }),
-        ('Statut', {
-            'fields': ('verrouille', 'valide', 'valide_par', 'date_validation'),
-            'classes': ('wide',),
-        }),
-        ('Observations', {
-            'fields': ('observations',),
-            'classes': ('collapse',),
-        }),
-        ('Métadonnées', {
-            'fields': ('date_creation', 'date_modification'),
-            'classes': ('collapse',),
+        ('Données', {
+            'fields': ('total_vehicules', 'nombre_periodes_saisies', 'observations')
         }),
     )
     
-    readonly_fields = ('date_creation', 'date_modification', 'total_vehicules', 'nombre_periodes_saisies')
+    readonly_fields = ['total_vehicules', 'nombre_periodes_saisies']
+    
+    def get_form(self, request, obj=None, **kwargs):
+        Form = super().get_form(request, obj, **kwargs)
+        
+        class RequestForm(Form):
+            def __new__(cls, *args, **kwargs):
+                kwargs['request'] = request
+                return Form(*args, **kwargs)
+        
+        return RequestForm
+    
+    def save_model(self, request, obj, form, change):
+        # Si validation, définir automatiquement les champs
+        if obj.valide and not obj.valide_par:
+            obj.valide_par = request.user
+            
+        if obj.valide and not obj.date_validation:
+            cameroon_tz = ZoneInfo('Africa/Douala')
+            obj.date_validation = timezone.now().astimezone(cameroon_tz)
+            
+        super().save_model(request, obj, form, change)
+
     
     def verrouille_badge(self, obj):
         """Badge pour le statut verrouillé"""
@@ -212,43 +208,20 @@ class InventaireJournalierAdmin(admin.ModelAdmin):
 
 @admin.register(RecetteJournaliere, site=admin_site)
 class RecetteJournaliereAdmin(admin.ModelAdmin):
-    """Administration des recettes journalières"""
-    
-    list_display = ('__str__', 'chef_poste', 'recette_potentielle_formatted', 
-                   'ecart_formatted', 'taux_deperdition_badge', 'verrouille_badge')
-    list_filter = ('verrouille', 'valide', 'poste__type', 'poste__region', 'date')
-    search_fields = ('poste__nom', 'chef_poste__username', 'chef_poste__nom_complet')
-    ordering = ('-date', 'poste__nom')
+    list_display = [
+        'poste', 'date', 'montant_declare', 
+        'recette_potentielle', 'taux_deperdition', 'get_couleur_alerte'
+    ]
+    list_filter = ['date', 'poste__region', 'verrouille']
+    search_fields = ['poste__nom', 'chef_poste__nom_complet']
     date_hierarchy = 'date'
     
-    fieldsets = (
-        ('Informations générales', {
-            'fields': ('poste', 'date', 'chef_poste'),
-            'classes': ('wide',),
-        }),
-        ('Recettes', {
-            'fields': ('montant_declare', 'inventaire_associe'),
-            'classes': ('wide',),
-        }),
-        ('Calculs automatiques', {
-            'fields': ('recette_potentielle', 'ecart', 'taux_deperdition'),
-            'classes': ('wide',),
-        }),
-        ('Statut', {
-            'fields': ('verrouille', 'valide'),
-            'classes': ('wide',),
-        }),
-        ('Observations', {
-            'fields': ('observations',),
-            'classes': ('collapse',),
-        }),
-        ('Métadonnées', {
-            'fields': ('date_saisie', 'date_modification'),
-            'classes': ('collapse',),
-        }),
-    )
-    
-    readonly_fields = ('date_saisie', 'date_modification', 'recette_potentielle', 'ecart', 'taux_deperdition')
+    readonly_fields = [
+        'recette_potentielle', 'ecart', 
+        'taux_deperdition', 'get_couleur_alerte'
+    ]
+
+
     
     def recette_potentielle_formatted(self, obj):
         """Recette potentielle formatée"""
@@ -347,37 +320,19 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
 
 
 @admin.register(StatistiquesPeriodiques, site=admin_site)
-class StatistiquesPeriodiqueAdmin(admin.ModelAdmin):
-    """Administration des statistiques périodiques"""
-    
-    list_display = ('__str__', 'nombre_jours_actifs', 'total_recettes_declarees_formatted',
-                   'taux_deperdition_moyen_badge', 'nombre_jours_impertinents', 'date_calcul')
-    list_filter = ('type_periode', 'poste__type', 'poste__region', 'date_debut')
-    search_fields = ('poste__nom',)
-    ordering = ('-date_debut', 'poste__nom')
+class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
+    list_display = [
+        'poste', 'type_periode', 'date_debut', 
+        'date_fin', 'taux_deperdition_moyen'
+    ]
+    list_filter = ['type_periode', 'poste__region']
+    search_fields = ['poste__nom']
     date_hierarchy = 'date_debut'
     
-    fieldsets = (
-        ('Période', {
-            'fields': ('poste', 'type_periode', 'date_debut', 'date_fin'),
-            'classes': ('wide',),
-        }),
-        ('Données consolidées', {
-            'fields': ('nombre_jours_actifs', 'total_recettes_declarees', 
-                      'total_recettes_potentielles', 'taux_deperdition_moyen'),
-            'classes': ('wide',),
-        }),
-        ('Anomalies', {
-            'fields': ('nombre_jours_impertinents',),
-            'classes': ('wide',),
-        }),
-        ('Métadonnées', {
-            'fields': ('date_calcul',),
-            'classes': ('collapse',),
-        }),
-    )
-    
-    readonly_fields = ('date_calcul',)
+    readonly_fields = [
+        'total_recettes_declarees', 'total_recettes_potentielles',
+        'taux_deperdition_moyen', 'nombre_jours_impertinents'
+    ]
     
     def total_recettes_declarees_formatted(self, obj):
         """Total recettes formaté"""
@@ -455,29 +410,9 @@ class StatistiquesPeriodiqueAdmin(admin.ModelAdmin):
 # AJOUT : Admin pour DetailInventairePeriode (pour gestion directe si nécessaire)
 @admin.register(DetailInventairePeriode, site=admin_site)
 class DetailInventairePeriodeAdmin(admin.ModelAdmin):
-    """Administration des détails d'inventaire par période"""
-    
-    list_display = ('inventaire', 'periode', 'nombre_vehicules', 'heure_saisie', 'observations_periode')
-    list_filter = ('periode', 'inventaire__date', 'inventaire__poste')
-    search_fields = ('inventaire__poste__nom', 'observations_periode')
-    ordering = ('-inventaire__date', 'inventaire__poste__nom', 'periode')
-    
-    fieldsets = (
-        ('Inventaire', {
-            'fields': ('inventaire', 'periode'),
-            'classes': ('wide',),
-        }),
-        ('Données', {
-            'fields': ('nombre_vehicules', 'observations_periode'),
-            'classes': ('wide',),
-        }),
-        ('Métadonnées', {
-            'fields': ('heure_saisie', 'modifie_le'),
-            'classes': ('collapse',),
-        }),
-    )
-    
-    readonly_fields = ('heure_saisie', 'modifie_le')
+    list_display = ['inventaire', 'periode', 'nombre_vehicules', 'heure_saisie']
+    list_filter = ['periode', 'inventaire__date']
+    search_fields = ['inventaire__poste__nom']
     
     def get_queryset(self, request):
         """Optimiser les requêtes"""
