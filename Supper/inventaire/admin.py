@@ -15,10 +15,16 @@ from django.shortcuts import  redirect
 from .models import *
 import csv
 from django.urls import path
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from .widgets import InventaireMensuelForm
 import json
 from .widgets import CalendrierJoursWidget
 from .forms import RecetteJournaliereAdminForm, ConfigurationJourForm
+import logging
+from django.contrib import messages
+
+logger = logging.getLogger('supper')
 
 # ===================================================================
 # FORMULAIRES PERSONNALISÉS
@@ -155,6 +161,12 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
         })
     ]
 
+    class Media:
+        css = {
+            'all': ('css/calendrier-widget.css',)
+        }
+        js = ('js/calendrier-widget.js',)
+    
     def poste_display(self, obj):
         """Affichage amélioré du poste"""
         if obj.poste:
@@ -173,15 +185,17 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
     
     
     def get_form(self, request, obj=None, **kwargs):
-        """Personnalise le formulaire"""
+        """Personnaliser le formulaire"""
         form = super().get_form(request, obj, **kwargs)
         
-        # 🔧 CORRECTION : Méthode plus simple pour passer l'utilisateur
-        def form_wrapper(*args, **form_kwargs):
-            form_kwargs['user'] = request.user
-            return form(*args, **form_kwargs)
+        # Ajouter des attributs HTML personnalisés
+        if 'date' in form.base_fields:
+            form.base_fields['date'].widget.attrs.update({
+                'class': 'supper-date-input',
+                'placeholder': 'Sélectionnez une date',
+            })
         
-        return form_wrapper
+        return form
     
     # Actions en lot améliorées
     actions = [
@@ -306,12 +320,66 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
     statut_colored.short_description = 'Statut'
     
     def save_model(self, request, obj, form, change):
-        if not change:  # Nouveau objet
-            obj.cree_par = request.user
-        super().save_model(request, obj, form, change)
+        """Sauvegarder avec gestion d'erreurs améliorée"""
+        try:
+            # Assigner l'utilisateur créateur si nouveau
+            if not change:
+                obj.cree_par = request.user
+            
+            # Sauvegarder (déclenche clean() grâce à notre amélioration du modèle)
+            super().save_model(request, obj, form, change)
+            
+            # Message de succès personnalisé
+            action = "modifiée" if change else "créée"
+            messages.success(
+                request, 
+                f'Configuration du {obj.date.strftime("%d/%m/%Y")} {action} avec succès. '
+                f'Statut: {obj.get_statut_display()}'
+            )
+            
+            # Journaliser l'action
+            from common.utils import log_user_action
+            action_log = "Modification configuration jour" if change else "Création configuration jour"
+            details = f"Date: {obj.date.strftime('%d/%m/%Y')} - Statut: {obj.get_statut_display()}"
+            if obj.commentaire:
+                details += f" - Commentaire: {obj.commentaire[:100]}"
+            
+            log_user_action(request.user, action_log, details, request)
+            
+        except ValidationError as e:
+            # Gestion des erreurs de validation
+            if hasattr(e, 'error_dict'):
+                for field, errors in e.error_dict.items():
+                    for error in errors:
+                        messages.error(request, f'{field}: {error.message}')
+            else:
+                messages.error(request, str(e))
+            raise
+        
+        except IntegrityError as e:
+            # Gestion des erreurs de contrainte de base de données
+            if 'unique_date_configuration' in str(e):
+                messages.error(
+                    request, 
+                    f'Une configuration existe déjà pour le {obj.date.strftime("%d/%m/%Y")}. '
+                    'Veuillez modifier la configuration existante.'
+                )
+            else:
+                messages.error(request, 'Erreur lors de la sauvegarde. Vérifiez les données saisies.')
+            raise
+            
+        except Exception as e:
+            # Gestion des autres erreurs
+            messages.error(request, f'Erreur inattendue: {str(e)}')
+            logger.error(f"Erreur sauvegarde ConfigurationJour: {str(e)}")
+            raise
     
     
-    
+    def date_formatee(self, obj):
+        """Affichage formaté de la date"""
+        return obj.date.strftime('%A %d/%m/%Y')
+    date_formatee.short_description = 'Date'
+    date_formatee.admin_order_field = 'date'
     
     def marquer_impertinents(self, request, queryset):
         """Action pour marquer des jours comme impertinents"""
@@ -319,6 +387,28 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
         self.message_user(request, f'{count} jour(s) marqué(s) comme impertinent(s).')
     marquer_impertinents.short_description = 'Marquer impertinents'
 
+    def statut_badge(self, obj):
+        """Affichage du statut avec badge coloré"""
+        colors = {
+            'ouvert': 'success',
+            'ferme': 'warning', 
+            'impertinent': 'danger'
+        }
+        color = colors.get(obj.statut, 'secondary')
+        return format_html(
+            '<span class="badge badge-{}">{}</span>',
+            color,
+            obj.get_statut_display()
+        )
+    statut_badge.short_description = 'Statut'
+    statut_badge.admin_order_field = 'statut'
+    
+    def commentaire_court(self, obj):
+        """Commentaire tronqué pour la liste"""
+        if obj.commentaire:
+            return obj.commentaire[:50] + '...' if len(obj.commentaire) > 50 else obj.commentaire
+        return '-'
+    commentaire_court.short_description = 'Commentaire'
 
 @admin.register(InventaireJournalier)
 class InventaireJournalierAdmin(admin.ModelAdmin):
@@ -815,32 +905,54 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
         return form
     
     def save_model(self, request, obj, form, change):
-        """Sauvegarde personnalisée avec gestion d'erreurs"""
+        """Sauvegarde avec journalisation et gestion sécurisée des valeurs None"""
+        
+        # Sauvegarder d'abord l'objet pour déclencher les calculs automatiques
+        super().save_model(request, obj, form, change)
+        
+        # Construire le message de journalisation avec gestion des valeurs None
         try:
-            if not change:  # Nouvel objet
-                if not obj.chef_poste:
-                    obj.chef_poste = request.user
+            if change:
+                action = "Modification recette"
+                details_parts = [
+                    f"Recette modifiée: {obj.montant_declare} FCFA pour {obj.poste.nom} - {obj.date}"
+                ]
+            else:
+                action = "Saisie recette"
+                details_parts = [
+                    f"Recette saisie: {obj.montant_declare} FCFA pour {obj.poste.nom} - {obj.date}"
+                ]
             
-            # Calculer automatiquement les indicateurs
-            obj.save()
-            obj.calculer_indicateurs()
-            obj.save()
+            # Ajouter les indicateurs calculés seulement s'ils existent
+            if obj.taux_deperdition is not None:
+                details_parts.append(f"Taux de déperdition: {obj.taux_deperdition:.2f}%")
+                details_parts.append(f"Couleur alerte: {obj.get_couleur_alerte()}")
+            else:
+                details_parts.append("Taux de déperdition: Non calculé (inventaire manquant)")
             
-            # Message de succès avec détails
-            self.message_user(
-                request,
-                f'Recette sauvegardée avec succès. '
-                f'Taux de déperdition: {obj.taux_deperdition:.2f}% '
-                f'({obj.get_couleur_alerte().title()})'
-            )
+            if obj.recette_potentielle is not None:
+                details_parts.append(f"Recette potentielle: {obj.recette_potentielle} FCFA")
+            
+            if obj.ecart is not None:
+                details_parts.append(f"Écart: {obj.ecart} FCFA")
+            
+            details = " | ".join(details_parts)
+            
+            # Journaliser l'action
+            from common.utils import log_user_action
+            log_user_action(request.user, action, details, request)
             
         except Exception as e:
-            self.message_user(
-                request,
-                f'Erreur lors de la sauvegarde: {str(e)}',
-                level='ERROR'
+            # En cas d'erreur de journalisation, ne pas bloquer la sauvegarde
+            logger.error(f"Erreur lors de la journalisation de recette: {str(e)}")
+            # Journalisation minimale de fallback
+            from common.utils import log_user_action
+            log_user_action(
+                request.user, 
+                "Saisie recette" if not change else "Modification recette",
+                f"Montant: {obj.montant_declare} FCFA - Poste: {obj.poste.nom}",
+                request
             )
-            raise
 
 
 

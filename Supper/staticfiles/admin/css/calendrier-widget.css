@@ -1,0 +1,143 @@
+/* ===================================================================
+   static/css/calendrier-widget.css
+   Styles pour le widget calendrier personnalisé
+   =================================================================== */
+
+/* Widget calendrier principal */
+.calendrier-widget {
+    position: relative;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    color: #334155;
+}
+
+/* Icône du calendrier */
+.calendrier-widget::-webkit-calendar-picker-indicator {
+    color: rgba(0, 0, 0, 0);
+    opacity: 1;
+    display: block;
+    background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTYgMlY2TTE0IDJWNk02IDEwSDE0TTQgNkg4VjEwSDRWNlpNMTIgNkgxNlYxMEgxMlY2WiIgc3Ryb2tlPSIjNkI0NkMxIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=') no-repeat;
+    width: 24px;
+    height: 24px;
+    border-width: thin;
+    cursor: pointer;
+    margin-left: 8px;
+}
+
+/* États du widget */
+.calendrier-widget:focus {
+    border-color: #6B46C1;
+    box-shadow: 0 0 0 0.2rem rgba(107, 70, 193, 0.25);
+    outline: none;
+}
+
+.calendrier-widget:hover {
+    border-color: #6B46C1;
+    transform: translateY(-1px);
+}
+
+.calendrier-widget.is-valid {
+    border-color: #28a745;
+}
+
+.calendrier-widget.is-invalid {
+    border-color: #dc3545;
+}
+
+/* Animation de changement */
+.calendrier-widget.changed {
+    background-color: #e7f3ff !important;
+    border-color: #6B46C1 !important;
+}
+
+/* Conteneur du champ de date */
+.field-date {
+    position: relative;
+}
+
+.field-date .help {
+    font-size: 12px;
+    color: #64748B;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+/* Indicateur de statut du jour */
+.status-jour {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-jour.ouvert {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.status-jour.ferme {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.status-jour.impertinent {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .calendrier-widget {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+/* Dark mode support (si nécessaire) */
+@media (prefers-color-scheme: dark) {
+    .calendrier-widget {
+        background: #1f2937;
+        border-color: #374151;
+        color: #f9fafb;
+    }
+    
+    .calendrier-widget::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+    }
+}
+
+/* Styles pour les messages d'erreur */
+.errorlist {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 0 0;
+}
+
+.errorlist li {
+    color: #dc3545;
+    font-size: 12px;
+    padding: 2px 0;
+}
+
+.errorlist li:before {
+    content: "⚠ ";
+    margin-right: 4px;
+}
+
+/* Style pour les champs requis */
+.required label:after {
+    content: " *";
+    color: #dc3545;
+    font-weight: bold;
+}

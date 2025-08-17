@@ -17,6 +17,7 @@ from django.utils.decorators import method_decorator
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Avg, Count
 from django.utils import timezone
+from django.db import models
 from datetime import datetime, date, timedelta
 import json
 import logging

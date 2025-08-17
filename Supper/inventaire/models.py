@@ -350,12 +350,13 @@ class ConfigurationJour(models.Model):
         verbose_name = _("Configuration de jour")
         verbose_name_plural = _("Configurations de jours")
         ordering = ['-date']
-        # 🔧 NOUVEAU : Contrainte unique sur date + poste (pour éviter les doublons)
-        unique_together = [['date', 'poste']]
         indexes = [
             models.Index(fields=['date']),
             models.Index(fields=['statut']),
-            models.Index(fields=['poste', 'date']),
+        ]
+        # AMÉLIORATION : Contrainte de base de données plus claire
+        constraints = [
+            models.UniqueConstraint(fields=['date'], name='unique_date_configuration')
         ]
     
     def __str__(self):
@@ -519,6 +520,41 @@ class ConfigurationJour(models.Model):
         poste_str = f" pour {self.poste.nom}" if self.poste else " (Global)"
         
         return f"{self.get_statut_display()}{poste_str} - {types_str}"
+    
+    def clean(self):
+        """Validation personnalisée du modèle"""
+        from django.core.exceptions import ValidationError
+        from django.utils import timezone
+        from datetime import date, timedelta
+        
+        # Validation de la date
+        if not self.date:
+            raise ValidationError({'date': 'La date est obligatoire.'})
+        
+        # Empêcher la configuration de dates trop anciennes (plus de 2 ans)
+        limite_passee = date.today() - timedelta(days=730)  # 2 ans
+        if self.date < limite_passee:
+            raise ValidationError({
+                'date': f'Impossible de configurer une date antérieure au {limite_passee.strftime("%d/%m/%Y")}.'
+            })
+        
+        # Empêcher la configuration de dates trop futures (plus de 1 an)
+        limite_future = date.today() + timedelta(days=365)  # 1 an
+        if self.date > limite_future:
+            raise ValidationError({
+                'date': f'Impossible de configurer une date postérieure au {limite_future.strftime("%d/%m/%Y")}.'
+            })
+        
+        # Vérifier l'unicité manuellement pour donner un message plus clair
+        if self.__class__.objects.filter(date=self.date).exclude(pk=self.pk).exists():
+            raise ValidationError({
+                'date': f'Une configuration existe déjà pour le {self.date.strftime("%d/%m/%Y")}. '
+                        'Modifiez la configuration existante au lieu d\'en créer une nouvelle.'
+            })
+    def save(self, *args, **kwargs):
+        """Surcharge pour validation avant sauvegarde"""
+        self.full_clean()  # Déclenche clean() avant la sauvegarde
+        super().save(*args, **kwargs)
 
 
 # ===================================================================
