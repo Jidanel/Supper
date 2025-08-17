@@ -28,6 +28,11 @@ class MoisChoices(models.TextChoices):
     DECEMBRE = '12', _('Décembre')
 
 
+# ===================================================================
+# CORRECTION DANS inventaire/models.py
+# Remplacer la classe InventaireMensuel
+# ===================================================================
+
 class InventaireMensuel(models.Model):
     """
     Modèle pour organiser les inventaires par mois
@@ -57,12 +62,15 @@ class InventaireMensuel(models.Model):
         help_text=_("Description détaillée de cet inventaire mensuel")
     )
     
-    # Champs pour gérer l'activation des jours
+    # 🔧 CORRECTION : JSONField simplifié
     jours_actifs = models.JSONField(
         default=list,
+        blank=True,
         verbose_name=_("Jours actifs"),
-        help_text=_("Liste des jours du mois où la saisie est autorisée")
+        help_text=_("Liste des jours du mois où la saisie est autorisée"),
+        encoder= None
     )
+    
     # Métadonnées
     cree_par = models.ForeignKey(
         'accounts.UtilisateurSUPPER',
@@ -82,15 +90,62 @@ class InventaireMensuel(models.Model):
         verbose_name=_("Dernière modification")
     )
     
-    # État de l'inventaire mensuel
     actif = models.BooleanField(
         default=True,
         verbose_name=_("Inventaire actif"),
         help_text=_("Indique si cet inventaire mensuel est en cours")
     )
+    
+    def get_jours_actifs_display(self):
+        """Retourne une représentation textuelle des jours actifs"""
+        if not self.jours_actifs:
+            return "Aucun jour sélectionné"
+        
+        if isinstance(self.jours_actifs, list):
+            if len(self.jours_actifs) == 0:
+                return "Aucun jour sélectionné"
+            elif len(self.jours_actifs) <= 5:
+                return f"Jours: {', '.join(map(str, sorted(self.jours_actifs)))}"
+            else:
+                return f"{len(self.jours_actifs)} jours sélectionnés"
+        
+        return str(self.jours_actifs)
+    
+    def clean(self):
+        """Validation du modèle"""
+        from django.core.exceptions import ValidationError
+        import json
+        
+        # Validation et nettoyage des jours_actifs
+        if self.jours_actifs is not None:
+            if not isinstance(self.jours_actifs, list):
+                if isinstance(self.jours_actifs, str):
+                    try:
+                        self.jours_actifs = json.loads(self.jours_actifs)
+                    except (json.JSONDecodeError, ValueError):
+                        self.jours_actifs = []
+                else:
+                    self.jours_actifs = []
+            
+            # Valider que tous les éléments sont des entiers valides
+            jours_valides = []
+            for jour in self.jours_actifs:
+                try:
+                    jour_int = int(jour)
+                    if 1 <= jour_int <= 31:
+                        jours_valides.append(jour_int)
+                except (ValueError, TypeError):
+                    continue
+            
+            self.jours_actifs = sorted(list(set(jours_valides)))  # Supprimer les doublons
+    
+    def save(self, *args, **kwargs):
+        """Surcharge pour validation automatique"""
+        self.clean()
+        super().save(*args, **kwargs)
+    
     def get_mois_display(self):
         """Retourne le nom du mois en français"""
-        # 🔧 CORRECTION : Gérer le format string des choix
         if isinstance(self.mois, str):
             mois_num = int(self.mois)
         else:
@@ -111,25 +166,31 @@ class InventaireMensuel(models.Model):
     def get_calendrier_mois(self):
         """Génère le calendrier du mois sous forme de grille"""
         import calendar
-        # 🔧 CORRECTION : Convertir le mois string en int
         mois_int = int(self.mois)
         cal = calendar.monthcalendar(int(self.annee), mois_int)
         return cal
+    
     def est_jour_actif(self, jour):
         """Vérifie si un jour donné est actif pour la saisie"""
-        return jour in (self.jours_actifs or [])
+        if not self.jours_actifs or not isinstance(self.jours_actifs, list):
+            return False
+        return jour in self.jours_actifs
     
     def activer_jour(self, jour):
         """Active un jour pour la saisie"""
         if not self.jours_actifs:
             self.jours_actifs = []
-        if jour not in self.jours_actifs:
+        elif not isinstance(self.jours_actifs, list):
+            self.jours_actifs = []
+            
+        if jour not in self.jours_actifs and 1 <= jour <= 31:
             self.jours_actifs.append(jour)
+            self.jours_actifs = sorted(self.jours_actifs)
             self.save()
     
     def desactiver_jour(self, jour):
         """Désactive un jour pour la saisie"""
-        if self.jours_actifs and jour in self.jours_actifs:
+        if self.jours_actifs and isinstance(self.jours_actifs, list) and jour in self.jours_actifs:
             self.jours_actifs.remove(jour)
             self.save()
     
@@ -137,36 +198,39 @@ class InventaireMensuel(models.Model):
         """Active automatiquement tous les jours ouvrés (lundi à vendredi)"""
         import calendar
         
-        # 🔧 CORRECTION : Convertir le mois string en int
         mois_int = int(self.mois)
         cal = calendar.monthcalendar(int(self.annee), mois_int)
         jours_ouvres = []
         
         for semaine in cal:
             for i, jour in enumerate(semaine):
-                # i=0 est lundi, i=4 est vendredi
-                if jour != 0 and i < 6:  # Jours ouvrés uniquement
+                if jour != 0 and i < 5:  # Lundi à vendredi
                     jours_ouvres.append(jour)
         
-        self.jours_actifs = jours_ouvres
+        self.jours_actifs = sorted(jours_ouvres)
         self.save()
         
     def generer_configurations_jours(self):
         """Génère automatiquement les ConfigurationJour pour tous les jours actifs"""
         from datetime import date
         
+        if not self.jours_actifs or not isinstance(self.jours_actifs, list):
+            return []
+        
         configurations_creees = []
         
-        for jour in (self.jours_actifs or []):
+        for jour in self.jours_actifs:
             try:
-                # 🔧 CORRECTION : Convertir le mois string en int
                 mois_int = int(self.mois)
                 date_jour = date(int(self.annee), mois_int, jour)
                 
-                config, created = ConfigurationJour.objects.get_or_create(
+                # 🔧 CORRECTION : Import local pour éviter circular import
+                from . import models as inv_models
+                
+                config, created = inv_models.ConfigurationJour.objects.get_or_create(
                     date=date_jour,
                     defaults={
-                        'statut': StatutJour.OUVERT,
+                        'statut': inv_models.StatutJour.OUVERT,
                         'cree_par': self.cree_par,
                         'commentaire': f'Généré automatiquement depuis {self.titre}'
                     }
@@ -181,6 +245,7 @@ class InventaireMensuel(models.Model):
         
         return configurations_creees
     
+    # 🔧 CORRECTION : Une seule classe Meta
     class Meta:
         verbose_name = _("Inventaire mensuel")
         verbose_name_plural = _("Inventaires mensuels")

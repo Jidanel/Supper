@@ -16,6 +16,8 @@ from .models import *
 import csv
 from django.urls import path
 from .widgets import InventaireMensuelForm
+import json
+from .widgets import CalendrierJoursWidget
 
 # ===================================================================
 # FORMULAIRES PERSONNALISÉS
@@ -611,14 +613,15 @@ class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
         return response
     export_statistiques.short_description = 'Exporter en CSV'
 
+
 @admin.register(InventaireMensuel)
 class InventaireMensuelAdmin(admin.ModelAdmin):
     """
     Administration des inventaires mensuels avec widget calendrier
     """
     
-    # 🆕 UTILISER LE FORM PERSONNALISÉ
-    form = InventaireMensuelForm
+    # 🔧 CORRECTION : Pas de form personnalisé pour éviter les conflits
+    # form = InventaireMensuelForm  # COMMENTÉ TEMPORAIREMENT
     
     list_display = [
         'titre', 'mois_annee', 'nombre_jours_actifs', 
@@ -626,10 +629,8 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
     ]
     
     list_filter = ['actif', 'annee', 'mois', 'date_creation']
-    
     search_fields = ['titre', 'description']
-    
-    readonly_fields = ['date_creation', 'date_modification']
+    readonly_fields = ['date_creation', 'date_modification', 'cree_par']
     
     fieldsets = (
         ('Informations principales', {
@@ -648,15 +649,9 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
         }),
     )
     
-    def get_form(self, request, obj=None, **kwargs):
-        """Personnaliser le formulaire"""
-        form = super().get_form(request, obj, **kwargs)
-        
-        # Définir le modèle pour le form
-        if hasattr(form, '_meta'):
-            form._meta.model = InventaireMensuel
-        
-        return form
+    # 🔧 CORRECTION : Supprimer get_form pour utiliser le form par défaut
+    # def get_form(self, request, obj=None, **kwargs):
+    #     return super().get_form(request, obj, **kwargs)
     
     def mois_annee(self, obj):
         """Affiche mois et année formatés"""
@@ -669,7 +664,11 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
     def nombre_jours_actifs(self, obj):
         """Affiche le nombre de jours actifs avec style"""
         try:
-            count = len(obj.jours_actifs) if obj.jours_actifs else 0
+            if obj.jours_actifs and isinstance(obj.jours_actifs, list):
+                count = len(obj.jours_actifs)
+            else:
+                count = 0
+                
             if count > 0:
                 return format_html(
                     '<span style="color: green; font-weight: bold; background: #d4edda; '
@@ -681,7 +680,11 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
                 'padding: 3px 8px; border-radius: 12px;">Aucun jour</span>'
             )
         except Exception as e:
-            return f"Erreur: {str(e)}"
+            return format_html(
+                '<span style="color: orange; background: #fff3cd; '
+                'padding: 3px 8px; border-radius: 12px;">Erreur: {}</span>',
+                str(e)
+            )
     nombre_jours_actifs.short_description = "Jours actifs"
     
     def actions_admin(self, obj):
@@ -697,41 +700,48 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
                 reverse('admin:inventaire_inventairemensuel_generer_config', args=[obj.pk])
             ))
             
-            # Bouton voir calendrier (futur)
-            buttons.append(format_html(
-                '<span class="button" style="background: #6B46C1; color: white; '
-                'padding: 5px 10px; border-radius: 3px;">'
-                '📅 Gérer Jours (bientôt)</span>'
-            ))
-            
             return format_html(''.join(buttons))
         return "Sauvegardez d'abord"
     actions_admin.short_description = "Actions"
     
     def save_model(self, request, obj, form, change):
-        """Surcharge avec gestion d'erreurs détaillée"""
+        """Surcharge avec gestion d'erreurs simplifiée"""
         try:
             if not change:  # Création
                 obj.cree_par = request.user
             
-            # Validation de l'unicité
-            if not change:
-                existing = InventaireMensuel.objects.filter(
-                    mois=obj.mois, 
-                    annee=obj.annee
-                ).exclude(pk=obj.pk)
+            # 🔧 CORRECTION : Validation simple des jours_actifs
+            if hasattr(obj, 'jours_actifs') and obj.jours_actifs:
+                if isinstance(obj.jours_actifs, str):
+                    try:
+                        import json
+                        obj.jours_actifs = json.loads(obj.jours_actifs)
+                    except (json.JSONDecodeError, ValueError):
+                        obj.jours_actifs = []
                 
-                if existing.exists():
-                    self.message_user(
-                        request,
-                        f"Un inventaire existe déjà pour {obj.get_mois_display()} {obj.annee}",
-                        level='ERROR'
-                    )
-                    return
+                # S'assurer que c'est une liste
+                if not isinstance(obj.jours_actifs, list):
+                    obj.jours_actifs = []
+            else:
+                obj.jours_actifs = []
+            
+            # Validation de l'unicité
+            existing = InventaireMensuel.objects.filter(
+                mois=obj.mois, 
+                annee=obj.annee
+            ).exclude(pk=obj.pk if obj.pk else 0)
+            
+            if existing.exists():
+                self.message_user(
+                    request,
+                    f"Un inventaire existe déjà pour {obj.get_mois_display()} {obj.annee}",
+                    level='ERROR'
+                )
+                return
             
             super().save_model(request, obj, form, change)
             
-            # Message de succès avec détails
+            # Message de succès
             jours_count = len(obj.jours_actifs) if obj.jours_actifs else 0
             self.message_user(
                 request,
@@ -746,6 +756,9 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
                 f"Erreur lors de la sauvegarde: {str(e)}",
                 level='ERROR'
             )
+            # Déboguer l'erreur
+            import traceback
+            print(f"ERREUR SAUVEGARDE: {traceback.format_exc()}")
     
     def get_urls(self):
         """Ajouter des URLs personnalisées"""
@@ -779,6 +792,8 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
         
         return redirect('admin:inventaire_inventairemensuel_change', object_id)
     
-    def gerer_jours_view(self, request, object_id):
-        """Redirection vers la vue de gestion des jours"""
-        return redirect('gerer_jours', inventaire_id=object_id)
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        """Personnaliser les widgets des champs"""
+        if db_field.name == 'jours_actifs':
+            kwargs['widget'] = CalendrierJoursWidget()
+        return super().formfield_for_dbfield(db_field, request, **kwargs)

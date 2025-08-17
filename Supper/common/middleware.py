@@ -272,14 +272,14 @@ class AuditMiddleware(MiddlewareMixin):
         return f"{method} {path}"
     
     def _build_action_details(self, request, response):
-        """Construit les détails de l'action pour le journal - MÉTHODE MANQUANTE AJOUTÉE"""
+        """Construit les détails de l'action pour le journal"""
         
-        details = {
-            'url': request.path,
-            'method': request.method,
-            'status_code': response.status_code,
-            'timestamp': timezone.now().isoformat(),
-        }
+        details_list = [
+            f"URL: {request.path}",
+            f"Méthode: {request.method}",
+            f"Statut: {response.status_code}",
+            f"Timestamp: {timezone.now().isoformat()}"
+        ]
         
         # Ajouter les paramètres GET si pertinents
         if request.GET:
@@ -290,7 +290,7 @@ class AuditMiddleware(MiddlewareMixin):
                 get_params.pop(param, None)
             
             if get_params:
-                details['parametres_get'] = get_params
+                details_list.append(f"Paramètres GET: {get_params}")
         
         # Ajouter les données POST si pertinentes (sans mots de passe)
         if request.method == 'POST' and hasattr(request, 'POST'):
@@ -304,27 +304,26 @@ class AuditMiddleware(MiddlewareMixin):
                 post_data.pop(field, None)
             
             if post_data:
-                details['donnees_post'] = post_data
+                details_list.append(f"Données POST: {post_data}")
         
         # Informations sur les erreurs
         if response.status_code >= 400:
-            details['erreur'] = f"Code d'erreur HTTP {response.status_code}"
+            details_list.append(f"Erreur HTTP {response.status_code}")
             
             if response.status_code == 403:
-                details['erreur_details'] = "Accès interdit - permissions insuffisantes"
+                details_list.append("Accès interdit - permissions insuffisantes")
             elif response.status_code == 404:
-                details['erreur_details'] = "Ressource non trouvée"
+                details_list.append("Ressource non trouvée")
             elif response.status_code == 500:
-                details['erreur_details'] = "Erreur interne du serveur"
+                details_list.append("Erreur interne du serveur")
         
         # Informations de session
-        if hasattr(request, 'session'):
-            details['session_info'] = {
-                'session_key': request.session.session_key,
-                'session_age': request.session.get_expiry_age(),
-            }
+        if hasattr(request, 'session') and request.session.session_key:
+            details_list.append(f"Session: {request.session.session_key}")
+            details_list.append(f"Session Age: {request.session.get_expiry_age()}")
         
-        return json.dumps(details, ensure_ascii=False, default=str)
+        # Retourner une chaîne formatée lisible
+        return " | ".join(details_list)
     
     def _get_client_ip(self, request):
         """Récupère l'adresse IP réelle du client"""
