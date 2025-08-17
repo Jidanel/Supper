@@ -25,6 +25,10 @@
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'admin/img/favicon.ico' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/calendrier-widget.css' %}">
+
+<!-- 🔧 AJOUTER avant la fermeture </body> : -->
+<script src="{% static 'js/calendrier-widget.js' %}"></script>
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
@@ -162,6 +166,13 @@
                 <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
                     <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
                 </a></li>
+                <li>
+            <a class="dropdown-item" href="{% url 'accounts:user_list' %}">
+                <i class="fas fa-list me-2"></i>
+                {% trans "Voir tous les utilisateurs" %}
+            </a>
+        </li>
+       
                 <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
                     <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
                 </a></li>

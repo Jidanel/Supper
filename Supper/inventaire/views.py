@@ -275,7 +275,7 @@ class SaisieInventaireView(InventaireMixin, View):
             target_date = timezone.now().date()
         
         # Vérifier si le jour est ouvert
-        if not ConfigurationJour.est_jour_ouvert(target_date):
+        if not ConfigurationJour.est_jour_ouvert_pour_inventaire(target_date):
             messages.warning(request, _(f"Le jour {target_date.strftime('%d/%m/%Y')} n'est pas ouvert pour la saisie."))
             return redirect('inventaire:inventaire_list')
         

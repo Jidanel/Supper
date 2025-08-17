@@ -1,0 +1,587 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extrahead %}
+<style>
+    .form-container {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e0e0e0;
+    }
+    
+    .header-section {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #F59E0B;
+        box-shadow: 0 0 0 0.2rem rgba(245, 158, 11, 0.25);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+    
+    .btn-secondary {
+        background: #64748B;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+        background: #475569;
+        transform: translateY(-2px);
+    }
+    
+    .section-title {
+        color: #F59E0B;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #64748B;
+        margin-top: 0.25rem;
+    }
+    
+    .required {
+        color: #dc3545;
+    }
+    
+    .warning-box {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-check {
+        margin-bottom: 1rem;
+    }
+    
+    .form-check-input:checked {
+        background-color: #F59E0B;
+        border-color: #F59E0B;
+    }
+    
+    .form-check-input:focus {
+        box-shadow: 0 0 0 0.25rem rgba(245, 158, 11, 0.25);
+    }
+    
+    .permissions-section {
+        background: #F8FAFC;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .readonly-field {
+        background: #f8f9fa;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="header-section">
+        <div class="d-flex align-items-center">
+            <div class="flex-grow-1">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-user-edit me-2"></i>
+                    {{ title }}
+                </h1>
+                <p class="mb-0 mt-2 opacity-75">
+                    {% trans "Modification du compte utilisateur" %} {{ user_edit.nom_complet }}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'accounts:detail_utilisateur' user_edit.id %}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    {% trans "Retour au profil" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-8 col-lg-10">
+            <div class="form-container">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Messages d'erreur -->
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <!-- Avertissement -->
+                    <div class="warning-box">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                            <div>
+                                <strong>{% trans "Attention :" %}</strong>
+                                {% trans "La modification des permissions peut affecter l'accès de l'utilisateur au système." %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations de base -->
+                    <div class="section-title">
+                        <i class="fas fa-user me-2"></i>
+                        {% trans "Informations de base" %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="username" class="form-label">
+                                    {% trans "Matricule" %}
+                                </label>
+                                <input type="text" class="form-control readonly-field" id="username" 
+                                       value="{{ user_edit.username }}" readonly>
+                                <div class="help-text">
+                                    {% trans "Le matricule ne peut pas être modifié" %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="nom_complet" class="form-label">
+                                    {% trans "Nom complet" %} <span class="required">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="nom_complet" name="nom_complet"
+                                       required value="{{ user_edit.nom_complet }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="telephone" class="form-label">
+                                    {% trans "Téléphone" %} <span class="required">*</span>
+                                </label>
+                                <input type="tel" class="form-control" id="telephone" name="telephone"
+                                       required value="{{ user_edit.telephone }}">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="email" class="form-label">
+                                    {% trans "Email" %}
+                                </label>
+                                <input type="email" class="form-control" id="email" name="email"
+                                       value="{{ user_edit.email|default:'' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Affectation et statut -->
+                    <div class="section-title">
+                        <i class="fas fa-briefcase me-2"></i>
+                        {% trans "Affectation et statut" %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="habilitation" class="form-label">
+                                    {% trans "Habilitation" %} <span class="required">*</span>
+                                </label>
+                                <select class="form-select" id="habilitation" name="habilitation" required>
+                                    {% for value, label in habilitations %}
+                                    <option value="{{ value }}" {% if value == user_edit.habilitation %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="poste_affectation" class="form-label">
+                                    {% trans "Poste d'affectation" %}
+                                </label>
+                                <select class="form-select" id="poste_affectation" name="poste_affectation">
+                                    <option value="">{% trans "Aucun poste spécifique" %}</option>
+                                    {% for poste in postes %}
+                                    <option value="{{ poste.id }}" 
+                                            {% if user_edit.poste_affectation.id == poste.id %}selected{% endif %}>
+                                        {{ poste.nom }} ({{ poste.get_type_poste_display }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                       {% if user_edit.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">
+                                    {% trans "Compte actif" %}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Permissions automatiques -->
+                    <div class="permissions-section">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% trans "Permissions (configurées automatiquement selon l'habilitation)" %}
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="small text-muted mb-2">
+                                    <strong>{% trans "Saisie de données :" %}</strong>
+                                </div>
+                                <div class="small" id="permissions-saisie">
+                                    <!-- Rempli par JavaScript -->
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="small text-muted mb-2">
+                                    <strong>{% trans "Gestion modules :" %}</strong>
+                                </div>
+                                <div class="small" id="permissions-gestion">
+                                    <!-- Rempli par JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations système -->
+                    <div class="section-title">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "Informations système" %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">{% trans "Créé le" %}</label>
+                                <input type="text" class="form-control readonly-field" 
+                                       value="{{ user_edit.date_creation|date:'d/m/Y H:i' }}" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">{% trans "Modifié le" %}</label>
+                                <input type="text" class="form-control readonly-field" 
+                                       value="{{ user_edit.date_modification|date:'d/m/Y H:i' }}" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">{% trans "Créé par" %}</label>
+                                <input type="text" class="form-control readonly-field" 
+                                       value="{% if user_edit.cree_par %}{{ user_edit.cree_par.nom_complet }}{% else %}{% trans 'Système' %}{% endif %}" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions rapides -->
+                    <div class="section-title">
+                        <i class="fas fa-tools me-2"></i>
+                        {% trans "Actions rapides" %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-warning">
+                                    <i class="fas fa-key me-2"></i>
+                                    {% trans "Réinitialiser le mot de passe" %}
+                                </h6>
+                                <p class="small text-muted mb-2">
+                                    {% trans "Remet le mot de passe à 'supper2025'" %}
+                                </p>
+                                <button type="button" class="btn btn-warning btn-sm" 
+                                        onclick="resetPassword('{{ user_edit.id }}')">
+                                    <i class="fas fa-redo me-1"></i>
+                                    {% trans "Réinitialiser" %}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-info">
+                                    <i class="fas fa-envelope me-2"></i>
+                                    {% trans "Envoyer notification" %}
+                                </h6>
+                                <p class="small text-muted mb-2">
+                                    {% trans "Notifier l'utilisateur des modifications" %}
+                                </p>
+                                <button type="button" class="btn btn-info btn-sm" 
+                                        onclick="sendNotification('{{ user_edit.id }}')">
+                                    <i class="fas fa-paper-plane me-1"></i>
+                                    {% trans "Notifier" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Boutons d'action -->
+                    <div class="d-flex justify-content-between pt-3">
+                        <a href="{% url 'accounts:detail_utilisateur' user_edit.id %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>
+                            {% trans "Annuler" %}
+                        </a>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            {% trans "Enregistrer les modifications" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation reset password -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Confirmer la réinitialisation" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Êtes-vous sûr de vouloir réinitialiser le mot de passe ?" %}</p>
+                <div class="alert alert-warning">
+                    <small>{% trans "Le nouveau mot de passe sera 'supper2025'" %}</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-warning" onclick="confirmResetPassword()">
+                    {% trans "Confirmer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal notification -->
+<div class="modal fade" id="notificationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Envoyer une notification" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="notificationTitle" class="form-label">{% trans "Titre" %}</label>
+                    <input type="text" class="form-control" id="notificationTitle" 
+                           value="{% trans 'Modification de votre compte' %}">
+                </div>
+                <div class="form-group">
+                    <label for="notificationMessage" class="form-label">{% trans "Message" %}</label>
+                    <textarea class="form-control" id="notificationMessage" rows="4">{% trans "Votre compte utilisateur a été modifié par un administrateur. Veuillez vous reconnecter pour appliquer les changements." %}</textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-info" onclick="confirmSendNotification()">
+                    {% trans "Envoyer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentUserId = null;
+
+// Configuration des permissions par rôle
+const permissionsParRole = {
+    'admin_principal': {
+        saisie: ['Toutes les données péage et pesage'],
+        gestion: ['Tous les modules', 'Personnel', 'Archives', 'Stocks']
+    },
+    'chef_peage': {
+        saisie: ['Données péage'],
+        gestion: ['Péage', 'Inventaire']
+    },
+    'chef_pesage': {
+        saisie: ['Données pesage'],
+        gestion: ['Pesage', 'Inventaire']
+    },
+    'agent_inventaire': {
+        saisie: ['Aucune saisie directe'],
+        gestion: ['Inventaire uniquement']
+    },
+    'coord_psrr': {
+        saisie: ['Péage et pesage'],
+        gestion: ['Personnel', 'Péage', 'Pesage', 'Inventaire', 'Stocks PSRR']
+    },
+    // Ajouter d'autres rôles selon les besoins
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Mettre à jour les permissions affichées
+    updatePermissionsDisplay();
+    
+    // Écouter les changements d'habilitation
+    document.getElementById('habilitation').addEventListener('change', updatePermissionsDisplay);
+});
+
+function updatePermissionsDisplay() {
+    const habilitationSelect = document.getElementById('habilitation');
+    const selectedRole = habilitationSelect.value;
+    
+    const saisieDiv = document.getElementById('permissions-saisie');
+    const gestionDiv = document.getElementById('permissions-gestion');
+    
+    if (permissionsParRole[selectedRole]) {
+        const permissions = permissionsParRole[selectedRole];
+        
+        saisieDiv.innerHTML = permissions.saisie.map(p => 
+            `<span class="badge bg-success me-1 mb-1">${p}</span>`
+        ).join('');
+        
+        gestionDiv.innerHTML = permissions.gestion.map(p => 
+            `<span class="badge bg-primary me-1 mb-1">${p}</span>`
+        ).join('');
+    } else {
+        saisieDiv.innerHTML = '<span class="text-muted">{% trans "Permissions par défaut" %}</span>';
+        gestionDiv.innerHTML = '<span class="text-muted">{% trans "Selon configuration" %}</span>';
+    }
+}
+
+function resetPassword(userId) {
+    currentUserId = userId;
+    new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
+}
+
+function confirmResetPassword() {
+    if (currentUserId) {
+        // Redirection vers l'action de reset
+        window.location.href = `/accounts/admin/reset-password/${currentUserId}/`;
+    }
+}
+
+function sendNotification(userId) {
+    currentUserId = userId;
+    new bootstrap.Modal(document.getElementById('notificationModal')).show();
+}
+
+function confirmSendNotification() {
+    const title = document.getElementById('notificationTitle').value;
+    const message = document.getElementById('notificationMessage').value;
+    
+    if (currentUserId && title && message) {
+        // Ici, vous pouvez faire un appel AJAX pour envoyer la notification
+        fetch('/accounts/admin/send-notification/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                user_id: currentUserId,
+                title: title,
+                message: message
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('notificationModal')).hide();
+                // Afficher un message de succès
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                alertDiv.innerHTML = `
+                    {% trans "Notification envoyée avec succès !" %}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.header-section'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
+    }
+}
+
+// Validation téléphone en temps réel
+document.getElementById('telephone').addEventListener('input', function(e) {
+    const value = e.target.value;
+    const pattern = /^(\+?237?)?[0-9]{0,9}$/;
+    
+    if (!pattern.test(value) && value !== '') {
+        e.target.setCustomValidity('{% trans "Format de téléphone invalide" %}');
+    } else {
+        e.target.setCustomValidity('');
+    }
+});
+</script>
+{% endblock %}

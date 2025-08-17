@@ -285,16 +285,17 @@ class PeriodeHoraire(models.TextChoices):
 
 class ConfigurationJour(models.Model):
     """
-    Configuration des jours ouverts/fermés pour la saisie d'inventaire
+    Configuration des jours ouverts/fermés pour la saisie d'inventaire ET de recettes
     Permet aux administrateurs de contrôler quels jours sont disponibles pour la saisie
+    AMÉLIORATION : Support des configurations par poste ou globales
     """
     
     date = models.DateField(
-        unique=True,
         verbose_name=_("Date"),
         help_text=_("Date concernée par cette configuration")
     )
     
+    # 🔧 NOUVEAU : Poste optionnel pour configuration spécifique
     poste = models.ForeignKey(
         'accounts.Poste',
         on_delete=models.CASCADE,
@@ -310,6 +311,19 @@ class ConfigurationJour(models.Model):
         choices=StatutJour.choices,
         default=StatutJour.OUVERT,
         verbose_name=_("Statut du jour")
+    )
+    
+    # 🔧 NOUVEAU : Types de saisie concernés
+    permet_saisie_inventaire = models.BooleanField(
+        default=True,
+        verbose_name=_("Permet saisie inventaire"),
+        help_text=_("Autorise la saisie d'inventaires pour cette date")
+    )
+    
+    permet_saisie_recette = models.BooleanField(
+        default=True,
+        verbose_name=_("Permet saisie recette"),
+        help_text=_("Autorise la saisie de recettes pour cette date")
     )
     
     # Métadonnées de gestion
@@ -336,43 +350,225 @@ class ConfigurationJour(models.Model):
         verbose_name = _("Configuration de jour")
         verbose_name_plural = _("Configurations de jours")
         ordering = ['-date']
+        # 🔧 NOUVEAU : Contrainte unique sur date + poste (pour éviter les doublons)
+        unique_together = [['date', 'poste']]
         indexes = [
             models.Index(fields=['date']),
             models.Index(fields=['statut']),
+            models.Index(fields=['poste', 'date']),
         ]
     
     def __str__(self):
-        return f"{self.date.strftime('%d/%m/%Y')} - {self.get_statut_display()}"
+        poste_str = f" - {self.poste.nom}" if self.poste else " (Global)"
+        return f"{self.date.strftime('%d/%m/%Y')}{poste_str} - {self.get_statut_display()}"
+    
+    # 🔧 NOUVELLES MÉTHODES pour la gestion des recettes
     
     @classmethod
-    def est_jour_ouvert(cls, date):
-        """Vérifie si un jour donné est ouvert pour la saisie"""
+    def est_jour_ouvert_pour_inventaire(cls, date, poste=None):
+        """Vérifie si un jour donné est ouvert pour la saisie d'inventaire"""
         try:
-            config = cls.objects.get(date=date)
-            return config.statut == StatutJour.OUVERT
+            # Chercher d'abord une configuration spécifique au poste
+            if poste:
+                config = cls.objects.filter(date=date, poste=poste).first()
+                if config:
+                    return config.statut == StatutJour.OUVERT and config.permet_saisie_inventaire
+            
+            # Chercher une configuration globale
+            config = cls.objects.filter(date=date, poste__isnull=True).first()
+            if config:
+                return config.statut == StatutJour.OUVERT and config.permet_saisie_inventaire
+            
+            # Par défaut, fermé si pas de configuration
+            return False
+            
         except cls.DoesNotExist:
-            # Par défaut, les jours non configurés sont fermés
             return False
     
     @classmethod
-    def marquer_impertinent(cls, date, admin_user, commentaire=""):
+    def est_jour_ouvert_pour_recette(cls, date, poste=None):
+        """Vérifie si un jour donné est ouvert pour la saisie de recette"""
+        try:
+            # Chercher d'abord une configuration spécifique au poste
+            if poste:
+                config = cls.objects.filter(date=date, poste=poste).first()
+                if config:
+                    return config.statut == StatutJour.OUVERT and config.permet_saisie_recette
+            
+            # Chercher une configuration globale
+            config = cls.objects.filter(date=date, poste__isnull=True).first()
+            if config:
+                return config.statut == StatutJour.OUVERT and config.permet_saisie_recette
+            
+            # Par défaut, fermé si pas de configuration
+            return False
+            
+        except cls.DoesNotExist:
+            return False
+    
+    @classmethod
+    def ouvrir_jour_global(cls, date, admin_user, commentaire="", permet_inventaire=True, permet_recette=True):
+        """Ouvre un jour pour tous les postes"""
+        config, created = cls.objects.get_or_create(
+            date=date,
+            poste=None,  # Configuration globale
+            defaults={
+                'statut': StatutJour.OUVERT,
+                'permet_saisie_inventaire': permet_inventaire,
+                'permet_saisie_recette': permet_recette,
+                'cree_par': admin_user,
+                'commentaire': commentaire or f'Jour ouvert globalement le {date}'
+            }
+        )
+        
+        if not created:
+            config.statut = StatutJour.OUVERT
+            config.permet_saisie_inventaire = permet_inventaire
+            config.permet_saisie_recette = permet_recette
+            config.commentaire = commentaire or config.commentaire
+            config.save()
+        
+        return config
+    
+    @classmethod
+    def ouvrir_jour_pour_poste(cls, date, poste, admin_user, commentaire="", permet_inventaire=True, permet_recette=True):
+        """Ouvre un jour pour un poste spécifique"""
+        config, created = cls.objects.get_or_create(
+            date=date,
+            poste=poste,
+            defaults={
+                'statut': StatutJour.OUVERT,
+                'permet_saisie_inventaire': permet_inventaire,
+                'permet_saisie_recette': permet_recette,
+                'cree_par': admin_user,
+                'commentaire': commentaire or f'Jour ouvert pour {poste.nom} le {date}'
+            }
+        )
+        
+        if not created:
+            config.statut = StatutJour.OUVERT
+            config.permet_saisie_inventaire = permet_inventaire
+            config.permet_saisie_recette = permet_recette
+            config.commentaire = commentaire or config.commentaire
+            config.save()
+        
+        return config
+    
+    @classmethod
+    def fermer_jour(cls, date, admin_user, poste=None, commentaire=""):
+        """Ferme un jour (global ou pour un poste spécifique)"""
+        try:
+            if poste:
+                config = cls.objects.get(date=date, poste=poste)
+            else:
+                config = cls.objects.get(date=date, poste__isnull=True)
+            
+            config.statut = StatutJour.FERME
+            config.permet_saisie_inventaire = False
+            config.permet_saisie_recette = False
+            config.commentaire = commentaire or f'Jour fermé le {timezone.now()}'
+            config.save()
+            
+            return config
+            
+        except cls.DoesNotExist:
+            # Créer une configuration fermée si elle n'existe pas
+            return cls.objects.create(
+                date=date,
+                poste=poste,
+                statut=StatutJour.FERME,
+                permet_saisie_inventaire=False,
+                permet_saisie_recette=False,
+                cree_par=admin_user,
+                commentaire=commentaire or f'Jour fermé le {timezone.now()}'
+            )
+    
+    @classmethod
+    def marquer_impertinent(cls, date, admin_user, poste=None, commentaire=""):
         """Marque un jour comme impertinent"""
         config, created = cls.objects.get_or_create(
             date=date,
+            poste=poste,
             defaults={
                 'statut': StatutJour.IMPERTINENT,
+                'permet_saisie_inventaire': False,
+                'permet_saisie_recette': False,
                 'cree_par': admin_user,
-                'commentaire': commentaire
+                'commentaire': commentaire or 'Journée marquée impertinente automatiquement'
             }
         )
         
         if not created and config.statut != StatutJour.IMPERTINENT:
             config.statut = StatutJour.IMPERTINENT
-            config.commentaire = commentaire
+            config.permet_saisie_inventaire = False
+            config.permet_saisie_recette = False
+            config.commentaire = commentaire or config.commentaire
             config.save()
         
         return config
+    
+    def get_config_summary(self):
+        """Retourne un résumé de la configuration"""
+        types = []
+        if self.permet_saisie_inventaire:
+            types.append("Inventaire")
+        if self.permet_saisie_recette:
+            types.append("Recette")
+        
+        types_str = " + ".join(types) if types else "Aucune saisie"
+        poste_str = f" pour {self.poste.nom}" if self.poste else " (Global)"
+        
+        return f"{self.get_statut_display()}{poste_str} - {types_str}"
 
+
+# ===================================================================
+# UTILISATION DANS LES VUES
+# ===================================================================
+
+# 🔧 EXEMPLE d'utilisation dans une vue de saisie de recette :
+
+"""
+from inventaire.models import ConfigurationJour
+
+def saisie_recette_view(request, poste_id, date):
+    poste = get_object_or_404(Poste, id=poste_id)
+    date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    
+    # Vérifier si le jour est ouvert pour les recettes
+    if not ConfigurationJour.est_jour_ouvert_pour_recette(date_obj, poste):
+        messages.error(request, f"La saisie de recettes n'est pas autorisée pour le {date_obj} au poste {poste.nom}")
+        return redirect('some_redirect_url')
+    
+    # Continuer avec la logique de saisie...
+"""
+
+# 🔧 EXEMPLE d'utilisation pour ouvrir/fermer des jours :
+
+"""
+# Ouvrir un jour pour tous les postes (inventaire + recettes)
+ConfigurationJour.ouvrir_jour_global(
+    date=date.today(),
+    admin_user=request.user,
+    commentaire="Ouverture exceptionnelle",
+    permet_inventaire=True,
+    permet_recette=True
+)
+
+# Ouvrir seulement pour un poste spécifique
+ConfigurationJour.ouvrir_jour_pour_poste(
+    date=date.today(),
+    poste=mon_poste,
+    admin_user=request.user,
+    commentaire="Ouverture pour rattrapage"
+)
+
+# Fermer un jour
+ConfigurationJour.fermer_jour(
+    date=date.today(),
+    admin_user=request.user,
+    commentaire="Jour férié"
+)
+"""
 
 class InventaireJournalier(models.Model):
     """

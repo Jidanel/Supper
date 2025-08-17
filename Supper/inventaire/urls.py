@@ -28,6 +28,7 @@ urlpatterns = [
     
     # URL : /admin/tools/saisie-inventaire/ (référencé dans base_site.html ligne 98)
     path('tools/saisie-inventaire/', views.SaisieInventaireView.as_view(), name='tools_saisie'),
+
     
     # ================================================================
     # URLS RÉFÉRENCÉES DANS BASE_SITE.HTML - MENU RECETTES

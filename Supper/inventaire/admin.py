@@ -18,6 +18,7 @@ from django.urls import path
 from .widgets import InventaireMensuelForm
 import json
 from .widgets import CalendrierJoursWidget
+from .forms import RecetteJournaliereAdminForm, ConfigurationJourForm
 
 # ===================================================================
 # FORMULAIRES PERSONNALISÉS
@@ -122,22 +123,173 @@ class DetailInventairePeriodeInline(admin.TabularInline):
 
 @admin.register(ConfigurationJour)
 class ConfigurationJourAdmin(admin.ModelAdmin):
-    list_display = ['date', 'statut_colored', 'cree_par', 'date_creation']
-    list_filter = ['statut', 'date_creation']
-    search_fields = ['commentaire']
+    # 🔧 AJOUTER le formulaire personnalisé
+    form = ConfigurationJourForm
+    
+    list_display = [
+        'date', 'poste_display', 'statut', 'permet_saisie_inventaire', 
+        'permet_saisie_recette', 'get_config_summary', 'cree_par'
+    ]
+    
+    list_filter = [
+        'statut', 'permet_saisie_inventaire', 'permet_saisie_recette', 
+        'poste__region', 'poste__type', 'date'
+    ]
+    
+    search_fields = ['date', 'poste__nom', 'poste__code', 'commentaire']
     date_hierarchy = 'date'
     
-    fieldsets = (
-        ('Informations principales', {
-            'fields': ('date', 'statut')
+    fieldsets = [
+        ('Configuration de base', {
+            'fields': ['date', 'poste', 'statut'],
+            'description': 'Configuration principale du jour. Laisser le poste vide pour une configuration globale.'
         }),
-        ('Détails', {
-            'fields': ('commentaire', 'cree_par', 'date_creation'),
-            'classes': ('collapse',)
+        ('Permissions de saisie', {
+            'fields': ['permet_saisie_inventaire', 'permet_saisie_recette'],
+            'description': 'Contrôle quels types de saisie sont autorisés pour ce jour.'
         }),
-    )
+        ('Informations complémentaires', {
+            'fields': ['commentaire', 'cree_par'],
+            'classes': ['collapse'],
+            'description': 'Informations additionnelles et traçabilité.'
+        })
+    ]
+
+    def poste_display(self, obj):
+        """Affichage amélioré du poste"""
+        if obj.poste:
+            return format_html(
+                '<strong>{}</strong><br><small style="color: #666;">{}</small>',
+                obj.poste.nom,
+                obj.poste.get_type_display()
+            )
+        return format_html('<em style="color: #007cba;">Configuration globale</em>')
+    poste_display.short_description = 'Poste'
     
-    readonly_fields = ('cree_par', 'date_creation')
+    def get_config_summary(self, obj):
+        """Résumé de la configuration"""
+        return obj.get_config_summary()
+    get_config_summary.short_description = 'Résumé configuration'
+    
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """Personnalise le formulaire"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # 🔧 CORRECTION : Méthode plus simple pour passer l'utilisateur
+        def form_wrapper(*args, **form_kwargs):
+            form_kwargs['user'] = request.user
+            return form(*args, **form_kwargs)
+        
+        return form_wrapper
+    
+    # Actions en lot améliorées
+    actions = [
+        'ouvrir_jours_selectionnes', 'fermer_jours_selectionnes', 
+        'dupliquer_configuration', 'ouvrir_semaine_complete'
+    ]
+    
+    def ouvrir_jours_selectionnes(self, request, queryset):
+        """Ouvre les jours sélectionnés pour toutes les saisies"""
+        updated = queryset.update(
+            statut='ouvert',
+            permet_saisie_inventaire=True,
+            permet_saisie_recette=True
+        )
+        self.message_user(
+            request, 
+            f'{updated} jour(s) ouvert(s) avec succès pour inventaires et recettes.'
+        )
+    ouvrir_jours_selectionnes.short_description = "Ouvrir pour toutes les saisies"
+    
+    def fermer_jours_selectionnes(self, request, queryset):
+        """Ferme les jours sélectionnés"""
+        updated = queryset.update(
+            statut='ferme',
+            permet_saisie_inventaire=False,
+            permet_saisie_recette=False
+        )
+        self.message_user(
+            request,
+            f'{updated} jour(s) fermé(s) avec succès.'
+        )
+    fermer_jours_selectionnes.short_description = "Fermer les jours sélectionnés"
+    
+    def dupliquer_configuration(self, request, queryset):
+        """Duplique la configuration pour d'autres postes"""
+        if queryset.count() != 1:
+            self.message_user(
+                request,
+                "Sélectionnez exactement une configuration à dupliquer.",
+                level='ERROR'
+            )
+            return
+        
+        config_originale = queryset.first()
+        
+        # Dupliquer pour tous les postes (configuration globale -> spécifique)
+        if not config_originale.poste:
+            from accounts.models import Poste
+            postes = Poste.objects.filter(actif=True)
+            created = 0
+            
+            for poste in postes:
+                if not ConfigurationJour.objects.filter(
+                    date=config_originale.date, poste=poste
+                ).exists():
+                    ConfigurationJour.objects.create(
+                        date=config_originale.date,
+                        poste=poste,
+                        statut=config_originale.statut,
+                        permet_saisie_inventaire=config_originale.permet_saisie_inventaire,
+                        permet_saisie_recette=config_originale.permet_saisie_recette,
+                        cree_par=request.user,
+                        commentaire=f"Dupliqué depuis configuration globale"
+                    )
+                    created += 1
+            
+            self.message_user(
+                request,
+                f'Configuration dupliquée pour {created} poste(s).'
+            )
+    dupliquer_configuration.short_description = "Dupliquer la configuration"
+    
+    def ouvrir_semaine_complete(self, request, queryset):
+        """Ouvre une semaine complète basée sur les jours sélectionnés"""
+        from datetime import timedelta
+        
+        dates_selectionnees = queryset.values_list('date', flat=True)
+        if not dates_selectionnees:
+            return
+        
+        created = 0
+        for date_base in dates_selectionnees:
+            # Ouvrir 7 jours à partir de cette date
+            for i in range(7):
+                date_semaine = date_base + timedelta(days=i)
+                
+                config, created_config = ConfigurationJour.objects.get_or_create(
+                    date=date_semaine,
+                    poste=None,  # Configuration globale
+                    defaults={
+                        'statut': 'ouvert',
+                        'permet_saisie_inventaire': True,
+                        'permet_saisie_recette': True,
+                        'cree_par': request.user,
+                        'commentaire': f'Semaine ouverte automatiquement'
+                    }
+                )
+                
+                if created_config:
+                    created += 1
+        
+        self.message_user(
+            request,
+            f'{created} jour(s) supplémentaire(s) ouvert(s) pour compléter les semaines.'
+        )
+    ouvrir_semaine_complete.short_description = "Ouvrir semaines complètes"
+
+
     
     def statut_colored(self, obj):
         """Affichage coloré du statut"""
@@ -154,24 +306,12 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
     statut_colored.short_description = 'Statut'
     
     def save_model(self, request, obj, form, change):
-        """Logique personnalisée de sauvegarde"""
-        if not change:  # Création
+        if not change:  # Nouveau objet
             obj.cree_par = request.user
         super().save_model(request, obj, form, change)
     
-    actions = ['ouvrir_jours', 'fermer_jours', 'marquer_impertinents']
     
-    def ouvrir_jours(self, request, queryset):
-        """Action pour ouvrir des jours"""
-        count = queryset.update(statut='ouvert')
-        self.message_user(request, f'{count} jour(s) ouvert(s) pour la saisie.')
-    ouvrir_jours.short_description = 'Ouvrir pour saisie'
     
-    def fermer_jours(self, request, queryset):
-        """Action pour fermer des jours"""
-        count = queryset.update(statut='ferme')
-        self.message_user(request, f'{count} jour(s) fermé(s) pour la saisie.')
-    fermer_jours.short_description = 'Fermer pour saisie'
     
     def marquer_impertinents(self, request, queryset):
         """Action pour marquer des jours comme impertinents"""
@@ -400,56 +540,136 @@ class DetailInventairePeriodeAdmin(admin.ModelAdmin):
 
 @admin.register(RecetteJournaliere)
 class RecetteJournaliereAdmin(admin.ModelAdmin):
+    # 🔧 AJOUTER cette ligne pour utiliser le formulaire personnalisé
+    form = RecetteJournaliereAdminForm
+    
     list_display = [
-        'poste', 'date', 'montant_declare_formatted', 
-        'taux_deperdition_colored', 'status_recette'
+        'poste', 'date', 'montant_declare_formatted', 'recette_potentielle_formatted', 
+        'taux_deperdition_colored', 'get_couleur_alerte_display', 'chef_poste', 'verrouille'
     ]
-    list_filter = ['date', 'poste__region', 'verrouille', 'valide']
-    search_fields = ['poste__nom', 'chef_poste__nom_complet']
+    
+    list_filter = [
+        'poste__region', 'poste', 'date', 'verrouille', 'valide', 
+        'chef_poste__habilitation'
+    ]
+    
+    search_fields = [
+        'poste__nom', 'poste__code', 'chef_poste__nom_complet', 
+        'chef_poste__username'
+    ]
+    
     date_hierarchy = 'date'
     
-    fieldsets = (
-        ('Informations principales', {
-            'fields': ('poste', 'date', 'chef_poste', 'montant_declare')
-        }),
-        ('Calculs automatiques', {
-            'fields': (
-                'inventaire_associe', 'recette_potentielle', 
-                'ecart', 'taux_deperdition'
-            ),
-            'classes': ('collapse',)
-        }),
-        ('État', {
-            'fields': ('verrouille', 'valide')
-        }),
-        ('Observations', {
-            'fields': ('observations',)
-        }),
-    )
-    
     readonly_fields = [
-        'recette_potentielle', 'ecart', 'taux_deperdition'
+        'recette_potentielle', 'ecart', 'taux_deperdition', 
+        'date_saisie', 'date_modification', 'get_status_jour'
     ]
     
+    fieldsets = [
+        ('Informations principales', {
+            'fields': [
+                'poste', 'date', 'get_status_jour', 'chef_poste', 'montant_declare'
+            ]
+        }),
+        ('Calculs automatiques', {
+            'fields': [
+                'inventaire_associe', 'recette_potentielle', 'ecart', 'taux_deperdition'
+            ],
+            'classes': ['collapse']
+        }),
+        ('État et validation', {
+            'fields': [
+                'verrouille', 'valide'
+            ]
+        }),
+        ('Informations complémentaires', {
+            'fields': [
+                'observations', 'date_saisie', 'date_modification'
+            ],
+            'classes': ['collapse']
+        })
+    ]
+    
+    # 🔧 NOUVELLE MÉTHODE : Afficher le statut du jour
+    def get_status_jour(self, obj):
+        """Affiche le statut du jour pour cette recette"""
+        if obj.date and obj.poste:
+            from .models import ConfigurationJour
+            
+            inventaire_ouvert = ConfigurationJour.est_jour_ouvert_pour_inventaire(obj.date, obj.poste)
+            recette_ouvert = ConfigurationJour.est_jour_ouvert_pour_recette(obj.date, obj.poste)
+            
+            status = []
+            if inventaire_ouvert:
+                status.append('<span style="color: green;">✓ Inventaire</span>')
+            else:
+                status.append('<span style="color: red;">✗ Inventaire</span>')
+                
+            if recette_ouvert:
+                status.append('<span style="color: green;">✓ Recette</span>')
+            else:
+                status.append('<span style="color: red;">✗ Recette</span>')
+            
+            return format_html(' | '.join(status))
+        return '-'
+    get_status_jour.short_description = 'Statut du jour'
+    
     def montant_declare_formatted(self, obj):
-        """Format monétaire du montant"""
-        return format_html(
-            '<strong>{:,.0f} FCFA</strong>',
-            obj.montant_declare
-        )
+        """Affichage formaté du montant déclaré"""
+        if obj.montant_declare is not None:
+            try:
+                # Conversion sécurisée en float puis formatage
+                montant = float(obj.montant_declare)
+                return format_html(
+                    '<strong>{:,.0f} FCFA</strong>',
+                    montant
+                )
+            except (ValueError, TypeError):
+                return str(obj.montant_declare)
+        return '-'
     montant_declare_formatted.short_description = 'Montant déclaré'
+    montant_declare_formatted.admin_order_field = 'montant_declare'
+
+    def recette_potentielle_formatted(self, obj):
+        """Affichage formaté de la recette potentielle"""
+        if obj.recette_potentielle is not None:
+            try:
+                montant = float(obj.recette_potentielle)
+                return format_html(
+                    '{:,.0f} FCFA',
+                    montant
+                )
+            except (ValueError, TypeError):
+                return str(obj.recette_potentielle)
+        return '-'
+    recette_potentielle_formatted.short_description = 'Recette potentielle'
+    recette_potentielle_formatted.admin_order_field = 'recette_potentielle'
     
     def taux_deperdition_colored(self, obj):
-        """Affichage coloré du taux de déperdition"""
-        if obj.taux_deperdition is None:
-            return '-'
-        
-        couleur = obj.get_couleur_alerte()
-        return format_html(
-            '<span class="badge bg-{}">{:.1f}%</span>',
-            couleur, obj.taux_deperdition
-        )
+        """Affichage formaté du taux de déperdition"""
+        if obj.taux_deperdition is not None:
+            try:
+                taux = float(obj.taux_deperdition)
+                couleur = obj.get_couleur_alerte()
+                
+                # Mapping couleurs bootstrap vers couleurs CSS
+                color_map = {
+                    'success': '#28a745',
+                    'warning': '#ffc107', 
+                    'danger': '#dc3545',
+                    'secondary': '#6c757d'
+                }
+                
+                return format_html(
+                    '<span style="color: {}; font-weight: bold;">{:.2f}%</span>',
+                    color_map.get(couleur, '#000000'),
+                    taux
+                )
+            except (ValueError, TypeError):
+                return str(obj.taux_deperdition)
+        return '-'
     taux_deperdition_colored.short_description = 'Taux déperdition'
+    taux_deperdition_colored.admin_order_field = 'taux_deperdition'
     
     def status_recette(self, obj):
         """Statut de la recette"""
@@ -460,6 +680,30 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
         else:
             return format_html('<span class="badge bg-info">📝 En cours</span>')
     status_recette.short_description = 'Statut'
+
+    def get_couleur_alerte_display(self, obj):
+        """Affichage de l'alerte couleur"""
+        couleur = obj.get_couleur_alerte()
+        
+        # Labels et couleurs
+        labels = {
+            'success': ('✓ Normal', '#28a745'),
+            'warning': ('⚠ Attention', '#ffc107'),
+            'danger': ('✗ Critique', '#dc3545'),
+            'secondary': ('? Inconnu', '#6c757d')
+        }
+        
+        label, color = labels.get(couleur, ('?', '#000000'))
+        
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            label
+        )
+    get_couleur_alerte_display.short_description = 'Alerte'
+    
+    # Actions personnalisées
+    actions = ['recalculer_indicateurs', 'verrouiller_recettes', 'exporter_csv']
     
     def get_queryset(self, request):
         """Optimiser les requêtes"""
@@ -470,20 +714,27 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
     actions = ['recalculer_indicateurs', 'verrouiller_recettes', 'export_recettes']
     
     def recalculer_indicateurs(self, request, queryset):
-        """Action pour recalculer les indicateurs"""
-        count = 0
+        """Recalcule les indicateurs pour les recettes sélectionnées"""
+        updated = 0
         for recette in queryset:
             recette.calculer_indicateurs()
             recette.save()
-            count += 1
-        self.message_user(request, f'{count} recette(s) recalculée(s).')
-    recalculer_indicateurs.short_description = 'Recalculer les indicateurs'
+            updated += 1
+        
+        self.message_user(
+            request, 
+            f'{updated} recette(s) recalculée(s) avec succès.'
+        )
+    recalculer_indicateurs.short_description = "Recalculer les indicateurs"
     
     def verrouiller_recettes(self, request, queryset):
-        """Action pour verrouiller des recettes"""
-        count = queryset.filter(verrouille=False).update(verrouille=True)
-        self.message_user(request, f'{count} recette(s) verrouillée(s).')
-    verrouiller_recettes.short_description = 'Verrouiller les recettes'
+        """Verrouille les recettes sélectionnées"""
+        updated = queryset.update(verrouille=True)
+        self.message_user(
+            request,
+            f'{updated} recette(s) verrouillée(s) avec succès.'
+        )
+    verrouiller_recettes.short_description = "Verrouiller les recettes"
     
     def export_recettes(self, request, queryset):
         """Export CSV des recettes"""
@@ -512,6 +763,85 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
         
         return response
     export_recettes.short_description = 'Exporter en CSV'
+
+    def exporter_csv(self, request, queryset):
+        """Exporte les recettes en CSV"""
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone
+        
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="recettes_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
+        # BOM UTF-8 pour Excel
+        response.write('\ufeff')
+        
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow([
+            'Poste', 'Date', 'Montant déclaré', 'Recette potentielle', 
+            'Écart', 'Taux déperdition', 'Chef de poste', 'Verrouillé'
+        ])
+        
+        for recette in queryset:
+            writer.writerow([
+                recette.poste.nom,
+                recette.date.strftime('%d/%m/%Y'),
+                float(recette.montant_declare) if recette.montant_declare else 0,
+                float(recette.recette_potentielle) if recette.recette_potentielle else 0,
+                float(recette.ecart) if recette.ecart else 0,
+                float(recette.taux_deperdition) if recette.taux_deperdition else 0,
+                recette.chef_poste.nom_complet if recette.chef_poste else '',
+                'Oui' if recette.verrouille else 'Non'
+            ])
+        
+        return response
+    exporter_csv.short_description = "Exporter en CSV"
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Personnalise le formulaire selon l'utilisateur"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # Limiter les postes selon les permissions de l'utilisateur
+        if hasattr(request.user, 'get_postes_accessibles'):
+            postes_accessibles = request.user.get_postes_accessibles()
+            if 'poste' in form.base_fields:
+                form.base_fields['poste'].queryset = postes_accessibles
+        
+        # Définir l'utilisateur connecté comme chef de poste par défaut
+        if not obj and 'chef_poste' in form.base_fields:
+            form.base_fields['chef_poste'].initial = request.user
+
+        
+        return form
+    
+    def save_model(self, request, obj, form, change):
+        """Sauvegarde personnalisée avec gestion d'erreurs"""
+        try:
+            if not change:  # Nouvel objet
+                if not obj.chef_poste:
+                    obj.chef_poste = request.user
+            
+            # Calculer automatiquement les indicateurs
+            obj.save()
+            obj.calculer_indicateurs()
+            obj.save()
+            
+            # Message de succès avec détails
+            self.message_user(
+                request,
+                f'Recette sauvegardée avec succès. '
+                f'Taux de déperdition: {obj.taux_deperdition:.2f}% '
+                f'({obj.get_couleur_alerte().title()})'
+            )
+            
+        except Exception as e:
+            self.message_user(
+                request,
+                f'Erreur lors de la sauvegarde: {str(e)}',
+                level='ERROR'
+            )
+            raise
+
 
 
 @admin.register(StatistiquesPeriodiques)

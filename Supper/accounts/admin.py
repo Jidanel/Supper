@@ -53,7 +53,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'fields': ('username', 'password')
         }),
         (_('Informations personnelles'), {
-            'fields': ('nom_complet', 'telephone', 'email', 'photo_profil')
+            'fields': ('nom_complet', 'telephone', 'email')
         }),
         (_('Affectation'), {
             'fields': ('poste_affectation', 'habilitation', 'acces_tous_postes')
@@ -77,7 +77,7 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'classes': ('collapse',)
         }),
         (_('Informations système'), {
-            'fields': ('cree_par', 'commentaires'),
+            'fields': ('cree_par',),
             'classes': ('collapse',)
         }),
     )

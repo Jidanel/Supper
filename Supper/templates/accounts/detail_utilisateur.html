@@ -1,0 +1,460 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extrahead %}
+<style>
+    .profile-header {
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .profile-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 100px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(30px, -30px);
+    }
+    
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e0e0e0;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .info-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .section-title {
+        color: #6B46C1;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: #F8FAFC;
+        border-radius: 8px;
+        border-left: 4px solid #6B46C1;
+    }
+    
+    .info-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #334155;
+        min-width: 120px;
+    }
+    
+    .info-value {
+        color: #64748B;
+        flex-grow: 1;
+    }
+    
+    .badge-status {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .badge-active {
+        background: #dcfce7;
+        color: #166534;
+    }
+    
+    .badge-inactive {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn-edit {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-edit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .activity-item {
+        padding: 1rem;
+        border-left: 3px solid #e0e0e0;
+        margin-bottom: 1rem;
+        background: #F8FAFC;
+        border-radius: 0 8px 8px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .activity-item:hover {
+        border-left-color: #6B46C1;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .activity-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        border: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        border-color: #6B46C1;
+        transform: translateY(-2px);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #6B46C1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #64748B;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 0.5rem;
+    }
+    
+    .permission-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: #F8FAFC;
+        border-radius: 6px;
+    }
+    
+    .permission-granted {
+        background: #dcfce7;
+        color: #166534;
+    }
+    
+    .permission-denied {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête profil -->
+    <div class="profile-header">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+                <div class="me-4">
+                    {% if user_detail.photo_profil %}
+                        <img src="{{ user_detail.photo_profil.url }}" 
+                             class="rounded-circle" width="80" height="80"
+                             alt="Photo de {{ user_detail.nom_complet }}">
+                    {% else %}
+                        <div class="rounded-circle bg-white bg-opacity-25 d-flex align-items-center justify-content-center"
+                             style="width: 80px; height: 80px;">
+                            <i class="fas fa-user fa-2x text-white"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div>
+                    <h1 class="h3 mb-1">{{ user_detail.nom_complet }}</h1>
+                    <p class="mb-1 opacity-75">{{ user_detail.get_habilitation_display }}</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge-status {% if user_detail.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+                            {% if user_detail.is_active %}
+                                <i class="fas fa-check-circle me-1"></i>
+                                {% trans "Actif" %}
+                            {% else %}
+                                <i class="fas fa-times-circle me-1"></i>
+                                {% trans "Inactif" %}
+                            {% endif %}
+                        </span>
+                        {% if user_detail.is_staff %}
+                        <span class="badge-status badge-active">
+                            <i class="fas fa-crown me-1"></i>
+                            {% trans "Staff" %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <a href="{% url 'accounts:modifier_utilisateur' user_detail.id %}" class="btn-edit">
+                    <i class="fas fa-edit"></i>
+                    {% trans "Modifier" %}
+                </a>
+                <a href="{% url 'accounts:liste_utilisateurs' %}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    {% trans "Retour à la liste" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques utilisateur -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ stats_user.nb_connexions }}</div>
+            <div class="stat-label">{% trans "Connexions" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stats_user.nb_actions_mois }}</div>
+            <div class="stat-label">{% trans "Actions ce mois" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">
+                {% if stats_user.derniere_connexion %}
+                    {{ stats_user.derniere_connexion.timestamp|timesince }}
+                {% else %}
+                    {% trans "Jamais" %}
+                {% endif %}
+            </div>
+            <div class="stat-label">{% trans "Dernière connexion" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ user_detail.date_creation|timesince }}</div>
+            <div class="stat-label">{% trans "Membre depuis" %}</div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations personnelles -->
+        <div class="col-lg-6">
+            <div class="info-card">
+                <div class="section-title">
+                    <i class="fas fa-user"></i>
+                    {% trans "Informations personnelles" %}
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">{% trans "Matricule :" %}</div>
+                    <div class="info-value">
+                        <strong>{{ user_detail.username }}</strong>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">{% trans "Nom complet :" %}</div>
+                    <div class="info-value">{{ user_detail.nom_complet }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">{% trans "Téléphone :" %}</div>
+                    <div class="info-value">
+                        <a href="tel:{{ user_detail.telephone }}" class="text-decoration-none">
+                            <i class="fas fa-phone me-1"></i>
+                            {{ user_detail.telephone }}
+                        </a>
+                    </div>
+                </div>
+                
+                {% if user_detail.email %}
+                <div class="info-item">
+                    <div class="info-label">{% trans "Email :" %}</div>
+                    <div class="info-value">
+                        <a href="mailto:{{ user_detail.email }}" class="text-decoration-none">
+                            <i class="fas fa-envelope me-1"></i>
+                            {{ user_detail.email }}
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Affectation professionnelle -->
+        <div class="col-lg-6">
+            <div class="info-card">
+                <div class="section-title">
+                    <i class="fas fa-briefcase"></i>
+                    {% trans "Affectation professionnelle" %}
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">{% trans "Habilitation :" %}</div>
+                    <div class="info-value">
+                        <span class="badge bg-primary">{{ user_detail.get_habilitation_display }}</span>
+                    </div>
+                </div>
+                
+                {% if user_detail.poste_affectation %}
+                <div class="info-item">
+                    <div class="info-label">{% trans "Poste :" %}</div>
+                    <div class="info-value">
+                        <div>
+                            <strong>{{ user_detail.poste_affectation.nom }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                {{ user_detail.poste_affectation.get_type_poste_display }} - 
+                                {{ user_detail.poste_affectation.get_region_display }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="info-item">
+                    <div class="info-label">{% trans "Poste :" %}</div>
+                    <div class="info-value">
+                        <span class="text-muted">{% trans "Accès global (tous les postes)" %}</span>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="info-item">
+                    <div class="info-label">{% trans "Créé par :" %}</div>
+                    <div class="info-value">
+                        {% if user_detail.cree_par %}
+                            {{ user_detail.cree_par.nom_complet }}
+                            <small class="text-muted">({{ user_detail.cree_par.username }})</small>
+                        {% else %}
+                            <span class="text-muted">{% trans "Système" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions -->
+    <div class="info-card">
+        <div class="section-title">
+            <i class="fas fa-key"></i>
+            {% trans "Permissions et accès" %}
+        </div>
+        
+        <div class="permissions-grid">
+            <div class="permission-item {% if user_detail.peut_saisir_peage %}permission-granted{% else %}permission-denied{% endif %}">
+                <i class="fas {% if user_detail.peut_saisir_peage %}fa-check{% else %}fa-times{% endif %}"></i>
+                {% trans "Saisir données péage" %}
+            </div>
+            
+            <div class="permission-item {% if user_detail.peut_saisir_pesage %}permission-granted{% else %}permission-denied{% endif %}">
+                <i class="fas {% if user_detail.peut_saisir_pesage %}fa-check{% else %}fa-times{% endif %}"></i>
+                {% trans "Saisir données pesage" %}
+            </div>
+            
+            <div class="permission-item {% if user_detail.peut_gerer_inventaire %}permission-granted{% else %}permission-denied{% endif %}">
+                <i class="fas {% if user_detail.peut_gerer_inventaire %}fa-check{% else %}fa-times{% endif %}"></i>
+                {% trans "Gérer l'inventaire" %}
+            </div>
+            
+            <div class="permission-item {% if user_detail.peut_gerer_personnel %}permission-granted{% else %}permission-denied{% endif %}">
+                <i class="fas {% if user_detail.peut_gerer_personnel %}fa-check{% else %}fa-times{% endif %}"></i>
+                {% trans "Gérer le personnel" %}
+            </div>
+            
+            <div class="permission-item {% if user_detail.peut_gerer_budget %}permission-granted{% else %}permission-denied{% endif %}">
+                <i class="fas {% if user_detail.peut_gerer_budget %}fa-check{% else %}fa-times{% endif %}"></i>
+                {% trans "Gérer le budget" %}
+            </div>
+            
+            <div class="permission-item {% if user_detail.acces_tous_postes %}permission-granted{% else %}permission-denied{% endif %}">
+                <i class="fas {% if user_detail.acces_tous_postes %}fa-check{% else %}fa-times{% endif %}"></i>
+                {% trans "Accès à tous les postes" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Activité récente -->
+    <div class="info-card">
+        <div class="section-title">
+            <i class="fas fa-history"></i>
+            {% trans "Activité récente" %}
+        </div>
+        
+        {% if activites_recentes %}
+            {% for activite in activites_recentes %}
+            <div class="activity-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">{{ activite.action }}</div>
+                        {% if activite.details %}
+                        <div class="small text-muted mt-1">{{ activite.details|truncatechars:100 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="text-end">
+                        <div class="small text-muted">{{ activite.timestamp|date:"d/m/Y H:i" }}</div>
+                        {% if activite.succes %}
+                            <span class="badge bg-success">{% trans "Succès" %}</span>
+                        {% else %}
+                            <span class="badge bg-danger">{% trans "Échec" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-info-circle fa-2x mb-2"></i>
+                <p>{% trans "Aucune activité récente enregistrée." %}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
