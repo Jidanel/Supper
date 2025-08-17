@@ -26,7 +26,27 @@ urlpatterns = [
     path('dashboard/chef/', views.DashboardChefView.as_view(), name='chef_dashboard'),
     path('dashboard/agent/', views.DashboardAgentView.as_view(), name='agent_dashboard'),
     path('dashboard/general/', views.GeneralDashboardView.as_view(), name='general_dashboard'),
+    path('inventaire/<int:inventaire_id>/gerer-jours/', 
+         views.gerer_jours, 
+         name='gerer_jours'),
+      # Actions administratives rapides
+    path('admin/actions/ouvrir-semaine/', 
+         views.action_ouvrir_semaine, 
+         name='action_ouvrir_semaine'),
     
+    path('admin/actions/fermer-anciens/', 
+         views.action_fermer_anciens, 
+         name='action_fermer_anciens'),
+    
+    path('admin/actions/marquer-impertinent/', 
+         views.action_marquer_impertinent, 
+         name='action_marquer_impertinent'),
+    
+    # API pour notifications et données temps réel
+    path('admin/api/notifications/', 
+         views.api_notifications, 
+         name='api_notifications'),
+
     # API pour données dashboard
     # path('api/stats-generales/', views.StatsGeneralesAPIView.as_view(), name='api_stats_generales'),
     # path('api/activite-recente/', views.ActiviteRecenteAPIView.as_view(), name='api_activite_recente'),

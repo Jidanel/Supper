@@ -11,11 +11,11 @@ from django.http import HttpResponse
 from django import forms
 from datetime import date
 from django.utils.html import format_html
-from .models import (
-    ConfigurationJour, InventaireJournalier, DetailInventairePeriode,
-    RecetteJournaliere, StatistiquesPeriodiques
-)
+from django.shortcuts import  redirect
+from .models import *
 import csv
+from django.urls import path
+from .widgets import InventaireMensuelForm
 
 # ===================================================================
 # FORMULAIRES PERSONNALISÉS
@@ -610,3 +610,175 @@ class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
         
         return response
     export_statistiques.short_description = 'Exporter en CSV'
+
+@admin.register(InventaireMensuel)
+class InventaireMensuelAdmin(admin.ModelAdmin):
+    """
+    Administration des inventaires mensuels avec widget calendrier
+    """
+    
+    # 🆕 UTILISER LE FORM PERSONNALISÉ
+    form = InventaireMensuelForm
+    
+    list_display = [
+        'titre', 'mois_annee', 'nombre_jours_actifs', 
+        'actif', 'actions_admin', 'date_creation'
+    ]
+    
+    list_filter = ['actif', 'annee', 'mois', 'date_creation']
+    
+    search_fields = ['titre', 'description']
+    
+    readonly_fields = ['date_creation', 'date_modification']
+    
+    fieldsets = (
+        ('Informations principales', {
+            'fields': ('titre', 'mois', 'annee', 'description')
+        }),
+        ('Configuration des Jours', {
+            'fields': ('jours_actifs',),
+            'description': 'Sélectionnez les jours du mois où la saisie d\'inventaire sera autorisée'
+        }),
+        ('État', {
+            'fields': ('actif',)
+        }),
+        ('Métadonnées', {
+            'fields': ('cree_par', 'date_creation', 'date_modification'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """Personnaliser le formulaire"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # Définir le modèle pour le form
+        if hasattr(form, '_meta'):
+            form._meta.model = InventaireMensuel
+        
+        return form
+    
+    def mois_annee(self, obj):
+        """Affiche mois et année formatés"""
+        try:
+            return f"{obj.get_mois_display()} {obj.annee}"
+        except Exception as e:
+            return f"Erreur: {str(e)}"
+    mois_annee.short_description = "Période"
+    
+    def nombre_jours_actifs(self, obj):
+        """Affiche le nombre de jours actifs avec style"""
+        try:
+            count = len(obj.jours_actifs) if obj.jours_actifs else 0
+            if count > 0:
+                return format_html(
+                    '<span style="color: green; font-weight: bold; background: #d4edda; '
+                    'padding: 3px 8px; border-radius: 12px;">{} jours</span>',
+                    count
+                )
+            return format_html(
+                '<span style="color: red; background: #f8d7da; '
+                'padding: 3px 8px; border-radius: 12px;">Aucun jour</span>'
+            )
+        except Exception as e:
+            return f"Erreur: {str(e)}"
+    nombre_jours_actifs.short_description = "Jours actifs"
+    
+    def actions_admin(self, obj):
+        """Boutons d'actions rapides"""
+        if obj.pk:
+            buttons = []
+            
+            # Bouton générer configurations
+            buttons.append(format_html(
+                '<a href="{}" class="button" style="background: #28a745; color: white; '
+                'padding: 5px 10px; text-decoration: none; border-radius: 3px; margin-right: 5px;">'
+                '🔧 Générer Configs</a>',
+                reverse('admin:inventaire_inventairemensuel_generer_config', args=[obj.pk])
+            ))
+            
+            # Bouton voir calendrier (futur)
+            buttons.append(format_html(
+                '<span class="button" style="background: #6B46C1; color: white; '
+                'padding: 5px 10px; border-radius: 3px;">'
+                '📅 Gérer Jours (bientôt)</span>'
+            ))
+            
+            return format_html(''.join(buttons))
+        return "Sauvegardez d'abord"
+    actions_admin.short_description = "Actions"
+    
+    def save_model(self, request, obj, form, change):
+        """Surcharge avec gestion d'erreurs détaillée"""
+        try:
+            if not change:  # Création
+                obj.cree_par = request.user
+            
+            # Validation de l'unicité
+            if not change:
+                existing = InventaireMensuel.objects.filter(
+                    mois=obj.mois, 
+                    annee=obj.annee
+                ).exclude(pk=obj.pk)
+                
+                if existing.exists():
+                    self.message_user(
+                        request,
+                        f"Un inventaire existe déjà pour {obj.get_mois_display()} {obj.annee}",
+                        level='ERROR'
+                    )
+                    return
+            
+            super().save_model(request, obj, form, change)
+            
+            # Message de succès avec détails
+            jours_count = len(obj.jours_actifs) if obj.jours_actifs else 0
+            self.message_user(
+                request,
+                f"Inventaire '{obj.titre}' sauvegardé avec succès ! "
+                f"({jours_count} jours sélectionnés)",
+                level='SUCCESS'
+            )
+            
+        except Exception as e:
+            self.message_user(
+                request,
+                f"Erreur lors de la sauvegarde: {str(e)}",
+                level='ERROR'
+            )
+    
+    def get_urls(self):
+        """Ajouter des URLs personnalisées"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:object_id>/generer_config/',
+                self.admin_site.admin_view(self.generer_config_view),
+                name='inventaire_inventairemensuel_generer_config'
+            ),
+        ]
+        return custom_urls + urls
+    
+    def generer_config_view(self, request, object_id):
+        """Action pour générer automatiquement les configurations de jours"""
+        try:
+            inventaire = InventaireMensuel.objects.get(pk=object_id)
+            configs_creees = inventaire.generer_configurations_jours()
+            
+            self.message_user(
+                request,
+                f"Configuration automatique réussie ! "
+                f"{len(configs_creees)} jours configurés pour {inventaire.titre}",
+                level='SUCCESS'
+            )
+            
+        except InventaireMensuel.DoesNotExist:
+            self.message_user(request, "Inventaire mensuel introuvable", level='ERROR')
+        except Exception as e:
+            self.message_user(request, f"Erreur: {str(e)}", level='ERROR')
+        
+        return redirect('admin:inventaire_inventairemensuel_change', object_id)
+    
+    def gerer_jours_view(self, request, object_id):
+        """Redirection vers la vue de gestion des jours"""
+        return redirect('gerer_jours', inventaire_id=object_id)

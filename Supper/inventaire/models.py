@@ -9,8 +9,194 @@ from django.urls import reverse
 from django.utils import timezone
 from decimal import Decimal
 from accounts.models import UtilisateurSUPPER, Poste
+from django.urls import reverse
+import calendar
+
+class MoisChoices(models.TextChoices):
+    """Choix des mois pour l'inventaire mensuel"""
+    JANVIER = '01', _('Janvier')
+    FEVRIER = '02', _('Février')
+    MARS = '03', _('Mars')
+    AVRIL = '04', _('Avril')
+    MAI = '05', _('Mai')
+    JUIN = '06', _('Juin')
+    JUILLET = '07', _('Juillet')
+    AOUT = '08', _('Août')
+    SEPTEMBRE = '09', _('Septembre')
+    OCTOBRE = '10', _('Octobre')
+    NOVEMBRE = '11', _('Novembre')
+    DECEMBRE = '12', _('Décembre')
 
 
+class InventaireMensuel(models.Model):
+    """
+    Modèle pour organiser les inventaires par mois
+    Permet d'activer/désactiver des jours spécifiques pour la saisie
+    """
+    
+    titre = models.CharField(
+        max_length=200,
+        verbose_name=_("Titre de l'inventaire"),
+        help_text=_("Titre descriptif pour cet inventaire mensuel")
+    )
+    
+    mois = models.CharField(
+        max_length=2,
+        choices=MoisChoices.choices,
+        verbose_name=_("Mois")
+    )
+    
+    annee = models.IntegerField(
+        verbose_name=_("Année"),
+        help_text=_("Année de l'inventaire")
+    )
+    
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée de cet inventaire mensuel")
+    )
+    
+    # Champs pour gérer l'activation des jours
+    jours_actifs = models.JSONField(
+        default=list,
+        verbose_name=_("Jours actifs"),
+        help_text=_("Liste des jours du mois où la saisie est autorisée")
+    )
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        'accounts.UtilisateurSUPPER',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='inventaires_mensuels_crees',
+        verbose_name=_("Créé par")
+    )
+    
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+    
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Dernière modification")
+    )
+    
+    # État de l'inventaire mensuel
+    actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Inventaire actif"),
+        help_text=_("Indique si cet inventaire mensuel est en cours")
+    )
+    def get_mois_display(self):
+        """Retourne le nom du mois en français"""
+        # 🔧 CORRECTION : Gérer le format string des choix
+        if isinstance(self.mois, str):
+            mois_num = int(self.mois)
+        else:
+            mois_num = self.mois
+            
+        mois_noms = {
+            1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
+            5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
+            9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
+        }
+        return mois_noms.get(mois_num, f'Mois {mois_num}')
+
+    def get_nombre_postes(self):
+        """Retourne le nombre de postes dans le système"""
+        from accounts.models import Poste
+        return Poste.objects.filter(actif=True).count()
+    
+    def get_calendrier_mois(self):
+        """Génère le calendrier du mois sous forme de grille"""
+        import calendar
+        # 🔧 CORRECTION : Convertir le mois string en int
+        mois_int = int(self.mois)
+        cal = calendar.monthcalendar(int(self.annee), mois_int)
+        return cal
+    def est_jour_actif(self, jour):
+        """Vérifie si un jour donné est actif pour la saisie"""
+        return jour in (self.jours_actifs or [])
+    
+    def activer_jour(self, jour):
+        """Active un jour pour la saisie"""
+        if not self.jours_actifs:
+            self.jours_actifs = []
+        if jour not in self.jours_actifs:
+            self.jours_actifs.append(jour)
+            self.save()
+    
+    def desactiver_jour(self, jour):
+        """Désactive un jour pour la saisie"""
+        if self.jours_actifs and jour in self.jours_actifs:
+            self.jours_actifs.remove(jour)
+            self.save()
+    
+    def activer_jours_ouvres(self):
+        """Active automatiquement tous les jours ouvrés (lundi à vendredi)"""
+        import calendar
+        
+        # 🔧 CORRECTION : Convertir le mois string en int
+        mois_int = int(self.mois)
+        cal = calendar.monthcalendar(int(self.annee), mois_int)
+        jours_ouvres = []
+        
+        for semaine in cal:
+            for i, jour in enumerate(semaine):
+                # i=0 est lundi, i=4 est vendredi
+                if jour != 0 and i < 6:  # Jours ouvrés uniquement
+                    jours_ouvres.append(jour)
+        
+        self.jours_actifs = jours_ouvres
+        self.save()
+        
+    def generer_configurations_jours(self):
+        """Génère automatiquement les ConfigurationJour pour tous les jours actifs"""
+        from datetime import date
+        
+        configurations_creees = []
+        
+        for jour in (self.jours_actifs or []):
+            try:
+                # 🔧 CORRECTION : Convertir le mois string en int
+                mois_int = int(self.mois)
+                date_jour = date(int(self.annee), mois_int, jour)
+                
+                config, created = ConfigurationJour.objects.get_or_create(
+                    date=date_jour,
+                    defaults={
+                        'statut': StatutJour.OUVERT,
+                        'cree_par': self.cree_par,
+                        'commentaire': f'Généré automatiquement depuis {self.titre}'
+                    }
+                )
+                
+                if created:
+                    configurations_creees.append(config)
+                    
+            except ValueError:
+                # Jour invalide (ex: 31 février)
+                continue
+        
+        return configurations_creees
+    
+    class Meta:
+        verbose_name = _("Inventaire mensuel")
+        verbose_name_plural = _("Inventaires mensuels")
+        unique_together = [['mois', 'annee']]
+        ordering = ['-annee', '-mois']
+        indexes = [
+            models.Index(fields=['mois', 'annee']),
+            models.Index(fields=['actif']),
+        ]
+    
+    def __str__(self):
+        return f"{self.titre} - {self.get_mois_display()} {self.annee}"
+    
+    def get_absolute_url(self):
+        return reverse('admin:inventaire_inventairemensuel_change', kwargs={'object_id': self.pk})
+    
 class StatutJour(models.TextChoices):
     """Statut d'un jour pour la saisie d'inventaire"""
     OUVERT = 'ouvert', _('Ouvert pour saisie')
@@ -269,12 +455,8 @@ class InventaireJournalier(models.Model):
         self.save(update_fields=['total_vehicules', 'nombre_periodes_saisies'])
     
     def save(self, *args, **kwargs):
-        """Surcharge pour recalculer automatiquement les totaux"""
+        """Surcharge pour logs automatiques"""
         super().save(*args, **kwargs)
-        
-        # Recalculer les totaux après la sauvegarde si nécessaire
-        if hasattr(self, '_recalculer_totaux'):
-            self.recalculer_totaux()
     
     def link_to_inventaire_mensuel(self):
     # """Lie cet inventaire journalier à un inventaire mensuel s'il existe"""
@@ -356,9 +538,8 @@ class DetailInventairePeriode(models.Model):
         """Surcharge pour recalculer les totaux de l'inventaire"""
         super().save(*args, **kwargs)
         
-        # Marquer pour recalcul des totaux
-        self.inventaire._recalculer_totaux = True
-        self.inventaire.save()
+        # Recalculer directement sans sauvegarder l'inventaire
+        self.inventaire.recalculer_totaux()
 
 
 class RecetteJournaliere(models.Model):
@@ -691,138 +872,6 @@ class MotifInventaire(models.TextChoices):
     GRAND_RISQUE_STOCK = 'grand_risque', _('Grand risque de stock au 31 décembre')
     RISQUE_BAISSE_ANNUEL = 'risque_baisse', _('Risque de baisse annuel')
 
-
-class InventaireMensuel(models.Model):
-    """
-    Inventaire mensuel regroupant plusieurs postes
-    Permet de gérer les inventaires par mois avec activation par jour
-    """
-    
-    mois = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(12)],
-        verbose_name=_("Mois")
-    )
-    
-    annee = models.IntegerField(
-        validators=[MinValueValidator(2024), MaxValueValidator(2100)],
-        verbose_name=_("Année")
-    )
-    
-    titre = models.CharField(
-        max_length=200,
-        verbose_name=_("Titre de l'inventaire"),
-        help_text=_("Ex: Inventaire Janvier 2025 - Région Centre")
-    )
-    
-    description = models.TextField(
-        blank=True,
-        verbose_name=_("Description"),
-        help_text=_("Objectifs et notes sur cet inventaire mensuel")
-    )
-    
-    cree_par = models.ForeignKey(
-        UtilisateurSUPPER,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='inventaires_mensuels_crees',
-        verbose_name=_("Créé par")
-    )
-    
-    date_creation = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Date de création")
-    )
-    
-    date_modification = models.DateTimeField(
-        auto_now=True,
-        verbose_name=_("Dernière modification")
-    )
-    
-    actif = models.BooleanField(
-        default=True,
-        verbose_name=_("Inventaire actif"),
-        help_text=_("Désactiver pour archiver l'inventaire")
-    )
-    
-    class Meta:
-        verbose_name = _("Inventaire mensuel")
-        verbose_name_plural = _("Inventaires mensuels")
-        unique_together = [['mois', 'annee']]
-        ordering = ['-annee', '-mois']
-        indexes = [
-            models.Index(fields=['-annee', '-mois']),
-            models.Index(fields=['actif']),
-        ]
-    
-    def __str__(self):
-        mois_noms = [
-            'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-        ]
-        return f"{self.titre} ({mois_noms[self.mois-1]} {self.annee})"
-    
-    def get_nombre_postes(self):
-        """Retourne le nombre de postes dans cet inventaire"""
-        return self.postes_inventaire.count()
-    
-    def get_jours_actifs(self):
-        """Retourne les jours activés pour cet inventaire"""
-        from datetime import date
-        import calendar
-        
-        # Obtenir le nombre de jours dans le mois
-        nb_jours = calendar.monthrange(self.annee, self.mois)[1]
-        
-        jours_actifs = []
-        for jour in range(1, nb_jours + 1):
-            date_jour = date(self.annee, self.mois, jour)
-            config = ConfigurationJour.objects.filter(date=date_jour).first()
-            if config and config.statut == 'ouvert':
-                jours_actifs.append(jour)
-        
-        return jours_actifs
-    
-    def activer_jour(self, jour, admin_user):
-        """Active un jour spécifique pour la saisie"""
-        from datetime import date
-        
-        date_jour = date(self.annee, self.mois, jour)
-        config, created = ConfigurationJour.objects.get_or_create(
-            date=date_jour,
-            defaults={
-                'statut': 'ouvert',
-                'cree_par': admin_user,
-                'commentaire': f'Activé pour {self.titre}'
-            }
-        )
-        
-        if not created and config.statut != 'ouvert':
-            config.statut = 'ouvert'
-            config.commentaire = f'Réactivé pour {self.titre}'
-            config.save()
-        
-        return config
-    
-    def desactiver_jour(self, jour, admin_user):
-        """Désactive un jour spécifique"""
-        from datetime import date
-        
-        date_jour = date(self.annee, self.mois, jour)
-        config, created = ConfigurationJour.objects.get_or_create(
-            date=date_jour,
-            defaults={
-                'statut': 'ferme',
-                'cree_par': admin_user,
-                'commentaire': f'Fermé après {self.titre}'
-            }
-        )
-        
-        if not created and config.statut != 'ferme':
-            config.statut = 'ferme'
-            config.commentaire = f'Fermé après {self.titre}'
-            config.save()
-        
-        return config
 
 
 class PosteInventaireMensuel(models.Model):

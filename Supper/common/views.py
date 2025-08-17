@@ -18,6 +18,9 @@ from django.utils import timezone
 from django.urls import reverse
 from datetime import datetime, timedelta
 import json
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.http import require_http_methods
+import calendar
 
 from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
 from inventaire.models import *
@@ -1489,3 +1492,308 @@ def handle_url_error(request, exception=None):
     
     # Redirection sécurisée
     return redirect('/admin/')
+
+@login_required
+def gerer_jours(request, inventaire_id):
+    """
+    Vue pour gérer l'activation des jours d'un inventaire mensuel
+    """
+    try:
+        from inventaire.models import InventaireMensuel
+        inventaire = get_object_or_404(InventaireMensuel, id=inventaire_id)
+    except ImportError:
+        messages.error(request, "Le modèle InventaireMensuel n'est pas disponible")
+        return redirect('admin:index')
+    
+    # Vérifier les permissions
+    if not request.user.is_admin():
+        messages.error(request, "Accès refusé - Permission administrateur requise")
+        return redirect('admin:index')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'ouvrir_semaine':
+            # Ouvrir la semaine courante
+            inventaire.activer_jours_ouvres()
+            messages.success(request, f"Semaine courante activée pour {inventaire.titre}")
+            
+        elif action == 'fermer_ancien':
+            # Fermer tous les jours anciens
+            from datetime import date
+            from inventaire.models import ConfigurationJour, StatutJour
+            
+            today = date.today()
+            jours_fermes = ConfigurationJour.objects.filter(
+                date__lt=today,
+                statut=StatutJour.OUVERT
+            ).update(statut=StatutJour.FERME)
+            
+            messages.success(request, f"{jours_fermes} jours anciens fermés")
+            
+        elif action == 'ouvrir_date':
+            # Ouvrir une date spécifique
+            date_str = request.POST.get('date_specifique')
+            if date_str:
+                try:
+                    from datetime import datetime
+                    from inventaire.models import ConfigurationJour, StatutJour
+                    
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    
+                    config, created = ConfigurationJour.objects.get_or_create(
+                        date=date_obj,
+                        defaults={
+                            'statut': StatutJour.OUVERT,
+                            'cree_par': request.user,
+                            'commentaire': 'Ouverture manuelle'
+                        }
+                    )
+                    
+                    if not created:
+                        config.statut = StatutJour.OUVERT
+                        config.save()
+                    
+                    messages.success(request, f"Date {date_obj.strftime('%d/%m/%Y')} ouverte")
+                    
+                except ValueError:
+                    messages.error(request, "Format de date invalide")
+            
+        elif action == 'changer_statut':
+            # Changer le statut d'un jour spécifique
+            jour_id = request.POST.get('jour_id')
+            nouveau_statut = request.POST.get('nouveau_statut')
+            
+            if jour_id and nouveau_statut:
+                try:
+                    from inventaire.models import ConfigurationJour
+                    
+                    config = ConfigurationJour.objects.get(id=jour_id)
+                    config.statut = nouveau_statut
+                    config.save()
+                    
+                    messages.success(request, f"Statut du {config.date.strftime('%d/%m/%Y')} changé")
+                    
+                except ConfigurationJour.DoesNotExist:
+                    messages.error(request, "Configuration de jour introuvable")
+        
+        elif action == 'update_jours':
+            # Mettre à jour les jours actifs de l'inventaire mensuel
+            jours_selectionnes = request.POST.getlist('jours_actifs')
+            jours_int = [int(j) for j in jours_selectionnes if j.isdigit()]
+            
+            inventaire.jours_actifs = jours_int
+            inventaire.save()
+            
+            # Générer les configurations de jours
+            configs_creees = inventaire.generer_configurations_jours()
+            
+            messages.success(
+                request, 
+                f"Inventaire mis à jour - {len(jours_int)} jours actifs, "
+                f"{len(configs_creees)} nouvelles configurations créées"
+            )
+        
+        return redirect('gerer_jours', inventaire_id=inventaire.id)
+    
+    # GET - Afficher l'interface
+    
+    # Récupérer les jours configurés récents
+    from inventaire.models import ConfigurationJour
+    from datetime import date, timedelta
+    
+    date_limite = date.today() - timedelta(days=30)
+    jours = ConfigurationJour.objects.filter(
+        date__gte=date_limite
+    ).order_by('-date')[:50]
+    
+    # Générer le calendrier du mois
+    calendrier = inventaire.get_calendrier_mois()
+    jours_actifs = inventaire.jours_actifs
+    
+    context = {
+        'title': f'Gestion des Jours - {inventaire.titre}',
+        'inventaire': inventaire,
+        'calendrier': calendrier,
+        'jours_actifs': jours_actifs,
+        'jours': jours,
+    }
+    
+    return render(request, 'admin/inventaire/gerer_jours.html', context)
+
+@staff_member_required
+@require_http_methods(["POST"])
+def action_ouvrir_semaine(request):
+    """
+    Action rapide pour ouvrir tous les jours ouvrables de la semaine courante
+    """
+    try:
+        from inventaire.models import ConfigurationJour, StatutJour
+        
+        # Calculer le lundi de la semaine courante
+        today = date.today()
+        monday = today - timedelta(days=today.weekday())
+        
+        jours_ouverts = 0
+        for i in range(5):  # Lundi à Vendredi
+            jour = monday + timedelta(days=i)
+            
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=jour,
+                defaults={
+                    'statut': StatutJour.OUVERT,
+                    'cree_par': request.user,
+                    'commentaire': 'Ouverture automatique semaine courante'
+                }
+            )
+            
+            if not created and config.statut != StatutJour.OUVERT:
+                config.statut = StatutJour.OUVERT
+                config.save()
+                jours_ouverts += 1
+            elif created:
+                jours_ouverts += 1
+        
+        return JsonResponse({
+            'success': True,
+            'message': _(f'{jours_ouverts} jours ouverts pour la semaine du {monday.strftime("%d/%m/%Y")}')
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': _(f'Erreur: {str(e)}')
+        })
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def action_fermer_anciens(request):
+    """
+    Action rapide pour fermer tous les jours antérieurs à aujourd'hui
+    """
+    try:
+        from inventaire.models import ConfigurationJour, StatutJour
+        
+        today = date.today()
+        
+        # Fermer tous les jours ouverts antérieurs à aujourd'hui
+        jours_fermes = ConfigurationJour.objects.filter(
+            date__lt=today,
+            statut=StatutJour.OUVERT
+        ).update(statut=StatutJour.FERME)
+        
+        return JsonResponse({
+            'success': True,
+            'message': _(f'{jours_fermes} jours anciens fermés')
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': _(f'Erreur: {str(e)}')
+        })
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def action_marquer_impertinent(request):
+    """
+    Action rapide pour marquer un jour comme impertinent
+    """
+    try:
+        from inventaire.models import ConfigurationJour, StatutJour
+        from datetime import datetime
+        
+        data = json.loads(request.body)
+        date_str = data.get('date')
+        commentaire = data.get('commentaire', '')
+        
+        if not date_str:
+            return JsonResponse({
+                'success': False,
+                'message': _('Date manquante')
+            })
+        
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'message': _('Format de date invalide')
+            })
+        
+        config, created = ConfigurationJour.objects.get_or_create(
+            date=date_obj,
+            defaults={
+                'statut': StatutJour.IMPERTINENT,
+                'cree_par': request.user,
+                'commentaire': commentaire or 'Marqué impertinent manuellement'
+            }
+        )
+        
+        if not created:
+            config.statut = StatutJour.IMPERTINENT
+            if commentaire:
+                config.commentaire = commentaire
+            config.save()
+        
+        action_text = 'créé' if created else 'mis à jour'
+        
+        return JsonResponse({
+            'success': True,
+            'message': _(f'Jour {date_obj.strftime("%d/%m/%Y")} marqué comme impertinent ({action_text})')
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': _(f'Erreur: {str(e)}')
+        })
+
+
+@staff_member_required
+@require_http_methods(["GET"])
+def api_notifications(request):
+    """
+    API pour récupérer les notifications de l'utilisateur
+    """
+    try:
+        from accounts.models import NotificationUtilisateur
+        
+        # Compter les notifications non lues
+        unread_count = NotificationUtilisateur.objects.filter(
+            destinataire=request.user,
+            lue=False
+        ).count()
+        
+        # Récupérer les dernières notifications
+        recent_notifications = NotificationUtilisateur.objects.filter(
+            destinataire=request.user
+        ).order_by('-date_creation')[:5]
+        
+        notifications_data = []
+        for notif in recent_notifications:
+            notifications_data.append({
+                'id': notif.id,
+                'title': notif.titre,
+                'message': notif.message,
+                'type': notif.type_notification,
+                'read': notif.lue,
+                'created': notif.date_creation.isoformat(),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'unread_count': unread_count,
+            'notifications': notifications_data,
+            'new_notifications': []  # À implémenter pour les notifications en temps réel
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': _(f'Erreur: {str(e)}'),
+            'unread_count': 0,
+            'notifications': []
+        })
