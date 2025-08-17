@@ -1,6 +1,6 @@
 # ===================================================================
-# inventaire/urls.py - URLs pour la gestion des inventaires avec redirections admin Django
-# MISE À JOUR : Ajout des redirections vers l'admin Django pour la gestion des inventaires
+# inventaire/urls.py - URLs COMPLÈTES pour base_site.html
+# SOLUTION PROBLÈME 1 : Toutes les URLs référencées dans base_site.html
 # ===================================================================
 
 from django.urls import path
@@ -10,74 +10,93 @@ app_name = 'inventaire'
 
 urlpatterns = [
     # ================================================================
-    # SAISIE D'INVENTAIRE (AGENTS) - Vues existantes
+    # URLS PRINCIPALES INVENTAIRE
     # ================================================================
+    path('', views.InventaireListView.as_view(), name='inventaire_list'),
+    path('<int:pk>/', views.InventaireDetailView.as_view(), name='inventaire_detail'),
     path('saisie/', views.SaisieInventaireView.as_view(), name='saisie_inventaire'),
     path('saisie/<int:poste_id>/<str:date>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_detail'),
     
     # ================================================================
-    # CONSULTATION DES INVENTAIRES - Vues existantes
+    # URLS RÉFÉRENCÉES DANS BASE_SITE.HTML - MENU INVENTAIRES
     # ================================================================
-    path('', views.InventaireListView.as_view(), name='inventaire_list'),
-    path('<int:pk>/', views.InventaireDetailView.as_view(), name='inventaire_detail'),
-    # path('<int:pk>/edit/', views.EditInventaireView.as_view(), name='edit_inventaire'),
-    # path('<int:pk>/lock/', views.LockInventaireView.as_view(), name='lock_inventaire'),
-    # path('<int:pk>/validate/', views.ValidateInventaireView.as_view(), name='validate_inventaire'),
+    # URL : {% url 'admin:inventaire_inventairejournalier_add' %}
+    path('admin/add/', views.redirect_to_add_inventaire_admin, name='add_inventaire_admin'),
+    
+    # URL : {% url 'admin:inventaire_inventairejournalier_changelist' %}
+    path('admin/list/', views.redirect_to_inventaires_admin, name='inventaires_admin'),
+    
+    # URL : /admin/tools/saisie-inventaire/ (référencé dans base_site.html ligne 98)
+    path('tools/saisie-inventaire/', views.SaisieInventaireView.as_view(), name='tools_saisie'),
     
     # ================================================================
-    # CONFIGURATION DES JOURS - Vues existantes
+    # URLS RÉFÉRENCÉES DANS BASE_SITE.HTML - MENU RECETTES
     # ================================================================
-    path('config-jours/', views.ConfigurationJourListView.as_view(), name='config_jour_list'),
-    # path('config-jours/create/', views.CreateConfigurationJourView.as_view(), name='create_config_jour'),
-    # path('config-jours/<int:pk>/edit/', views.EditConfigurationJourView.as_view(), name='edit_config_jour'),
+    # URL : {% url 'admin:inventaire_recettejournaliere_add' %}
+    path('recettes/admin/add/', views.redirect_to_add_recette_admin, name='add_recette_admin'),
     
-    # URLs pour la gestion des inventaires mensuels
-    path('mensuel/<int:inventaire_id>/gerer-jours/', 
-         views.gerer_jours_inventaire, 
-         name='gerer_jours'),
-         
-    # ================================================================
-    # NOUVEAU: REDIRECTIONS VERS ADMIN DJANGO POUR LA GESTION
-    # ================================================================
-    # Redirections vers l'admin Django pour la gestion complète des inventaires
-    path('admin/inventaires/', views.redirect_to_inventaires_admin, name='redirect_inventaires_admin'),
-    path('admin/recettes/', views.redirect_to_recettes_admin, name='redirect_recettes_admin'),
-    path('admin/config-jours/', views.redirect_to_config_jours_admin, name='redirect_config_jours_admin'),
-    path('admin/statistiques/', views.redirect_to_statistiques_admin, name='redirect_statistiques_admin'),
-    
-    # Redirections spécifiques avec paramètres
-    path('admin/inventaire/<int:inventaire_id>/', views.redirect_to_edit_inventaire_admin, name='redirect_edit_inventaire_admin'),
-    path('admin/recette/<int:recette_id>/', views.redirect_to_edit_recette_admin, name='redirect_edit_recette_admin'),
-    
-    # Redirections pour création
-    path('admin/add-inventaire/', views.redirect_to_add_inventaire_admin, name='redirect_add_inventaire_admin'),
-    path('admin/add-recette/', views.redirect_to_add_recette_admin, name='redirect_add_recette_admin'),
-    path('admin/add-config-jour/', views.redirect_to_add_config_jour_admin, name='redirect_add_config_jour_admin'),
+    # URL : {% url 'admin:inventaire_recettejournaliere_changelist' %}
+    path('recettes/admin/list/', views.redirect_to_recettes_admin, name='recettes_admin'),
     
     # ================================================================
-    # GESTION DES RECETTES (CHEFS DE POSTE) - URLs commentées en attente de développement
+    # URLS RÉFÉRENCÉES DANS BASE_SITE.HTML - MENU PLANIFICATION
     # ================================================================
-    # path('recettes/', views.RecetteListView.as_view(), name='recette_list'),
-    # path('recettes/saisie/', views.SaisieRecetteView.as_view(), name='saisie_recette'),
-    # path('recettes/<int:pk>/', views.RecetteDetailView.as_view(), name='recette_detail'),
-    # path('recettes/<int:pk>/edit/', views.EditRecetteView.as_view(), name='edit_recette'),
+    # URL : {% url 'admin:inventaire_inventairemensuel_add' %} (ligne 113)
+    path('mensuel/add/', views.redirect_to_add_inventaire_admin, name='add_inventaire_mensuel'),
+    
+    # URL : {% url 'admin:inventaire_inventairemensuel_changelist' %} (ligne 116)
+    path('mensuel/list/', views.redirect_to_inventaires_admin, name='list_inventaire_mensuel'),
+    
+    # URL : {% url 'admin:inventaire_configurationjour_changelist' %} (ligne 124)
+    path('config-jours/', views.redirect_to_config_jours_admin, name='config_jours'),
+    
+    # URL : {% url 'admin:inventaire_configurationjour_add' %} (ligne 127)
+    path('config-jours/add/', views.redirect_to_add_config_jour_admin, name='add_config_jour'),
     
     # ================================================================
-    # STATISTIQUES ET RAPPORTS - URLs commentées en attente de développement
+    # GESTION DES JOURS ET INVENTAIRES MENSUELS
     # ================================================================
-    # path('statistiques/', views.StatistiquesView.as_view(), name='statistiques'),
-    # path('statistiques/<int:poste_id>/', views.StatistiquesPosteView.as_view(), name='statistiques_poste'),
-    # path('rapports/', views.RapportsView.as_view(), name='rapports'),
-    # path('rapports/export/<str:format>/', views.ExportRapportView.as_view(), name='export_rapport'),
+    path('config-jours/list/', views.ConfigurationJourListView.as_view(), name='config_jour_list'),
+    path('mensuel/<int:inventaire_id>/gerer-jours/', views.gerer_jours_inventaire, name='gerer_jours'),
     
     # ================================================================
-    # API POUR LES CALCULS EN TEMPS RÉEL - Vues existantes
+    # ASSOCIATIONS POSTES-INVENTAIRES-AGENTS
+    # ================================================================
+    path('postes/', views.liste_postes_inventaires, name='liste_postes_inventaires'),
+    path('postes/<int:poste_id>/', views.detail_poste_inventaires, name='detail_poste_inventaires'),
+    path('postes/<int:poste_id>/changer-agent/', views.changer_agent_poste, name='changer_agent_poste'),
+    
+    # ================================================================
+    # ACTIONS ET VERROUILLAGE
+    # ================================================================
+    path('<int:pk>/lock/', views.InventaireVerrouillerView.as_view(), name='lock_inventaire'),
+    path('<int:pk>/validate/', views.InventaireValiderView.as_view(), name='validate_inventaire'),
+    
+    # ================================================================
+    # API ENDPOINTS
     # ================================================================
     path('api/calcul-automatique/', views.CalculAutomatiqueAPIView.as_view(), name='api_calcul_automatique'),
     path('api/verification-jour/', views.VerificationJourAPIView.as_view(), name='api_verification_jour'),
-    
-    # NOUVEAU: API pour intégration avec admin Django
     path('api/inventaire-stats/', views.inventaire_stats_api, name='api_inventaire_stats'),
     path('api/recette-stats/', views.recette_stats_api, name='api_recette_stats'),
     path('api/check-day-status/', views.check_day_status_api, name='api_check_day_status'),
+    path('api/quick-action/', views.quick_action_api, name='api_quick_action'),
+    
+    # ================================================================
+    # RAPPORTS ET EXPORTS
+    # ================================================================
+    path('rapports/', views.RapportInventaireView.as_view(), name='rapport_generation'),
+    path('backup/', views.backup_inventaires_api, name='backup_inventaires'),
+    path('diagnostic/', views.diagnostic_inventaires_view, name='diagnostic'),
+    
+    # ================================================================
+    # DASHBOARD ET WIDGETS
+    # ================================================================
+    path('dashboard/widget/', views.inventaire_dashboard_widget, name='dashboard_widget'),
+    path('admin/help/', views.inventaire_admin_help_view, name='admin_help'),
+    
+    # ================================================================
+    # GESTION DES ERREURS
+    # ================================================================
+    path('error/<str:error_type>/', views.inventaire_redirect_error_handler, name='error_handler'),
 ]

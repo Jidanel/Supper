@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     # Applications SUPPER
     'accounts.apps.AccountsConfig',      # Gestion des utilisateurs et authentification
     'inventaire.apps.InventaireConfig',  # Module de gestion des inventaires
-    'common.apps.CommonConfig',          # Fonctions communes et journalisation
+    'common.apps.CommonConfig',  
+    'openpyxl',        # Fonctions communes et journalisation
 ]
 
 # ===================================================================

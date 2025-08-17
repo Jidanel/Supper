@@ -2183,3 +2183,203 @@ def gerer_jours_inventaire(request, inventaire_id):
 #         except Exception as e:
 #             health_status['checks']['models'] = f'error: {str(e)}'
 #             health_status['status'] = 'error'
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def liste_postes_inventaires(request):
+    """
+    Vue pour afficher la liste des postes avec leurs inventaires du mois en cours
+    Permet de voir l'association postes-agents-inventaires
+    """
+    # Période actuelle (mois en cours)
+    today = date.today()
+    debut_mois = date(today.year, today.month, 1)
+    
+    # Récupérer les postes accessibles selon les permissions
+    postes_accessibles = request.user.get_postes_accessibles()
+    
+    # Construire les données pour chaque poste
+    postes_data = []
+    
+    for poste in postes_accessibles:
+        # Inventaires du mois pour ce poste
+        inventaires_mois = InventaireJournalier.objects.filter(
+            poste=poste,
+            date__gte=debut_mois,
+            date__lte=today
+        ).select_related('agent_saisie').order_by('-date')
+        
+        # Agent principal (le plus récent ou d'affectation)
+        agent_principal = None
+        if inventaires_mois.exists():
+            agent_principal = inventaires_mois.first().agent_saisie
+        elif poste.agents_affectes.filter(is_active=True).exists():
+            agent_principal = poste.agents_affectes.filter(is_active=True).first()
+        
+        # Statistiques du mois
+        nb_inventaires = inventaires_mois.count()
+        nb_jours_travailles = inventaires_mois.filter(verrouille=True).count()
+        
+        # Dernière activité
+        derniere_activite = inventaires_mois.first().date if inventaires_mois.exists() else None
+        
+        # Changements d'agents dans le mois
+        agents_differents = inventaires_mois.values_list('agent_saisie__nom_complet', flat=True).distinct()
+        changements_agents = len(agents_differents) > 1
+        
+        postes_data.append({
+            'poste': poste,
+            'agent_principal': agent_principal,
+            'nb_inventaires': nb_inventaires,
+            'nb_jours_travailles': nb_jours_travailles,
+            'derniere_activite': derniere_activite,
+            'changements_agents': changements_agents,
+            'agents_differents': list(agents_differents),
+            'inventaires_recents': inventaires_mois[:5]  # 5 plus récents
+        })
+    
+    # Statistiques globales
+    stats_globales = {
+        'total_postes': postes_accessibles.count(),
+        'postes_actifs': len([p for p in postes_data if p['nb_inventaires'] > 0]),
+        'total_inventaires': sum(p['nb_inventaires'] for p in postes_data),
+        'postes_avec_changements': len([p for p in postes_data if p['changements_agents']])
+    }
+    
+    context = {
+        'postes_data': postes_data,
+        'stats_globales': stats_globales,
+        'mois_actuel': debut_mois,
+        'today': today,
+        'title': 'Association Postes-Inventaires-Agents'
+    }
+    
+    return render(request, 'inventaire/liste_postes_inventaires.html', context)
+
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def detail_poste_inventaires(request, poste_id):
+    """
+    Vue détaillée pour un poste spécifique avec historique complet
+    """
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    # Vérifier l'accès au poste
+    if not request.user.peut_acceder_poste(poste):
+        messages.error(request, "Vous n'avez pas accès aux données de ce poste.")
+        return redirect('liste_postes_inventaires')
+    
+    # Période d'affichage (3 derniers mois par défaut)
+    today = date.today()
+    debut_periode = date(today.year, today.month - 2, 1) if today.month > 2 else date(today.year - 1, today.month + 10, 1)
+    
+    # Inventaires de la période
+    inventaires = InventaireJournalier.objects.filter(
+        poste=poste,
+        date__gte=debut_periode
+    ).select_related('agent_saisie', 'valide_par').order_by('-date')
+    
+    # Agents ayant travaillé sur ce poste
+    agents_historique = InventaireJournalier.objects.filter(
+        poste=poste,
+        date__gte=debut_periode
+    ).values(
+        'agent_saisie__nom_complet',
+        'agent_saisie__username'
+    ).annotate(
+        nb_inventaires=Count('id'),
+        derniere_saisie=models.Max('date')
+    ).order_by('-derniere_saisie')
+    
+    # Changements d'agents par mois
+    changements_mensuels = []
+    for mois in range(3):  # 3 derniers mois
+        date_mois = date(today.year, today.month - mois, 1) if today.month > mois else date(today.year - 1, today.month - mois + 12, 1)
+        fin_mois = date(date_mois.year, date_mois.month + 1, 1) - timedelta(days=1) if date_mois.month < 12 else date(date_mois.year, 12, 31)
+        
+        agents_mois = InventaireJournalier.objects.filter(
+            poste=poste,
+            date__gte=date_mois,
+            date__lte=fin_mois
+        ).values_list('agent_saisie__nom_complet', flat=True).distinct()
+        
+        changements_mensuels.append({
+            'mois': date_mois,
+            'agents': list(agents_mois),
+            'nb_changements': len(agents_mois)
+        })
+    
+    context = {
+        'poste': poste,
+        'inventaires': inventaires,
+        'agents_historique': agents_historique,
+        'changements_mensuels': changements_mensuels,
+        'debut_periode': debut_periode,
+        'today': today,
+        'title': f'Détail inventaires - {poste.nom}'
+    }
+    
+    return render(request, 'inventaire/detail_poste_inventaires.html', context)
+
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def changer_agent_poste(request, poste_id):
+    """
+    Vue pour changer l'agent d'un poste
+    """
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    if not request.user.peut_acceder_poste(poste):
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return redirect('liste_postes_inventaires')
+    
+    if request.method == 'POST':
+        nouvel_agent_id = request.POST.get('agent_id')
+        commentaire = request.POST.get('commentaire', '')
+        
+        if nouvel_agent_id:
+            try:
+                nouvel_agent = UtilisateurSUPPER.objects.get(
+                    id=nouvel_agent_id,
+                    habilitation='agent_inventaire',
+                    is_active=True
+                )
+                
+                # Changer l'affectation
+                ancien_agent = poste.agents_affectes.first()
+                poste.agents_affectes.clear()
+                nouvel_agent.poste_affectation = poste
+                nouvel_agent.save()
+                
+                # Journaliser le changement
+                log_user_action(
+                    request.user,
+                    "Changement agent poste",
+                    f"Poste: {poste.nom} | Ancien: {ancien_agent.nom_complet if ancien_agent else 'Aucun'} "
+                    f"| Nouveau: {nouvel_agent.nom_complet} | Commentaire: {commentaire}",
+                    request
+                )
+                
+                messages.success(request, f"Agent {nouvel_agent.nom_complet} affecté au poste {poste.nom}")
+                return redirect('detail_poste_inventaires', poste_id=poste.id)
+                
+            except UtilisateurSUPPER.DoesNotExist:
+                messages.error(request, "Agent sélectionné invalide.")
+    
+    # Agents inventaire disponibles
+    agents_disponibles = UtilisateurSUPPER.objects.filter(
+        habilitation='agent_inventaire',
+        is_active=True
+    ).exclude(
+        poste_affectation=poste
+    )
+    
+    context = {
+        'poste': poste,
+        'agents_disponibles': agents_disponibles,
+        'title': f'Changer agent - {poste.nom}'
+    }
+    
+    return render(request, 'inventaire/changer_agent_poste.html', context)

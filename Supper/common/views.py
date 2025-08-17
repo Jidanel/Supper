@@ -21,6 +21,7 @@ import json
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
 import calendar
+from datetime import date
 
 from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
 from inventaire.models import *
@@ -1621,6 +1622,119 @@ def gerer_jours(request, inventaire_id):
     
     return render(request, 'admin/inventaire/gerer_jours.html', context)
 
+@login_required
+@require_http_methods(["POST"])
+def ouvrir_semaine_courante(request):
+    """
+    Action rapide : Ouvrir tous les jours de la semaine courante
+    Référencée dans base_site.html ligne 392 - fonction ouvrirSemaineEnCours()
+    """
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
+    
+    try:
+        # Calculer la semaine courante (lundi à vendredi)
+        today = date.today()
+        monday = today - timedelta(days=today.weekday())
+        jours_ouverts = 0
+        
+        for i in range(5):  # Lundi à vendredi
+            jour = monday + timedelta(days=i)
+            
+            config, created = ConfigurationJour.objects.get_or_create(
+                date=jour,
+                defaults={
+                    'statut': 'ouvert',
+                    'cree_par': user,
+                    'commentaire': f'Ouvert automatiquement - semaine courante par {user.nom_complet}'
+                }
+            )
+            
+            if not created and config.statut != 'ouvert':
+                config.statut = 'ouvert'
+                config.commentaire = f'Réouvert automatiquement - semaine courante par {user.nom_complet}'
+                config.save()
+            
+            jours_ouverts += 1
+        
+        # Journaliser l'action
+        JournalAudit.objects.create(
+            utilisateur=user,
+            action="Ouverture semaine courante",
+            details=f"Semaine du {monday.strftime('%d/%m/%Y')} - {jours_ouverts} jours ouverts",
+            adresse_ip=request.META.get('REMOTE_ADDR'),
+            url_acces=request.path,
+            methode_http=request.method,
+            succes=True
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Semaine courante ouverte : {jours_ouverts} jours de travail activés'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur ouverture semaine courante: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': 'Erreur lors de l\'ouverture de la semaine'
+        }, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def fermer_jours_anciens(request):
+    """
+    Action rapide : Fermer tous les jours antérieurs à aujourd'hui
+    Référencée dans base_site.html ligne 414 - fonction fermerJoursAnciens()
+    """
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
+    
+    try:
+        today = date.today()
+        # Fermer tous les jours jusqu'à hier
+        jours_fermes = 0
+        
+        # Récupérer tous les jours ouverts antérieurs à aujourd'hui
+        configs_a_fermer = ConfigurationJour.objects.filter(
+            date__lt=today,
+            statut='ouvert'
+        )
+        
+        for config in configs_a_fermer:
+            config.statut = 'ferme'
+            config.commentaire = f'Fermé automatiquement - jours anciens par {user.nom_complet}'
+            config.save()
+            jours_fermes += 1
+        
+        # Journaliser l'action
+        JournalAudit.objects.create(
+            utilisateur=user,
+            action="Fermeture jours anciens",
+            details=f"Fermeture automatique de {jours_fermes} jours antérieurs à {today.strftime('%d/%m/%Y')}",
+            adresse_ip=request.META.get('REMOTE_ADDR'),
+            url_acces=request.path,
+            methode_http=request.method,
+            succes=True
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{jours_fermes} jours anciens fermés automatiquement'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur fermeture jours anciens: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': 'Erreur lors de la fermeture des jours anciens'
+        }, status=500)
+
+
 @staff_member_required
 @require_http_methods(["POST"])
 def action_ouvrir_semaine(request):
@@ -1797,3 +1911,71 @@ def api_notifications(request):
             'unread_count': 0,
             'notifications': []
         })
+    
+@login_required
+@require_http_methods(["POST"])
+def marquer_jour_impertinent(request):
+    """
+    Action rapide : Marquer un jour comme impertinent
+    Référencée dans base_site.html ligne 436 - fonction marquerJourImpertinent()
+    """
+    user = request.user
+    
+    if not _check_admin_permission(user):
+        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        date_str = data.get('date')
+        commentaire = data.get('commentaire', '')
+        
+        if not date_str:
+            return JsonResponse({'success': False, 'message': 'Date requise'}, status=400)
+        
+        from datetime import datetime
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        config, created = ConfigurationJour.objects.get_or_create(
+            date=target_date,
+            defaults={
+                'statut': 'impertinent',
+                'cree_par': user,
+                'commentaire': commentaire or f'Marqué impertinent par {user.nom_complet}'
+            }
+        )
+        
+        if not created:
+            config.statut = 'impertinent'
+            config.commentaire = commentaire or f'Marqué impertinent par {user.nom_complet}'
+            config.save()
+        
+        # Journaliser l'action
+        JournalAudit.objects.create(
+            utilisateur=user,
+            action="Marquage jour impertinent",
+            details=f"Jour {target_date.strftime('%d/%m/%Y')} marqué impertinent - Commentaire: {commentaire}",
+            adresse_ip=request.META.get('REMOTE_ADDR'),
+            url_acces=request.path,
+            methode_http=request.method,
+            succes=True
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Jour {target_date.strftime("%d/%m/%Y")} marqué comme impertinent'
+        })
+        
+    except ValueError:
+        return JsonResponse({'success': False, 'message': 'Format de date invalide'}, status=400)
+    except Exception as e:
+        logger.error(f"Erreur marquage jour impertinent: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': 'Erreur lors du marquage'
+        }, status=500)
+    
+urlpatterns_js = [
+    ('ouvrir-semaine', ouvrir_semaine_courante),
+    ('fermer-anciens', fermer_jours_anciens),
+    ('marquer-impertinent', marquer_jour_impertinent),
+]

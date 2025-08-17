@@ -797,3 +797,4 @@ class InventaireMensuelAdmin(admin.ModelAdmin):
         if db_field.name == 'jours_actifs':
             kwargs['widget'] = CalendrierJoursWidget()
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+

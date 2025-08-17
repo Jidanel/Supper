@@ -78,7 +78,7 @@ class CustomLoginView(BilingualMixin, LoginView):
     Support bilingue et redirection intelligente selon le rôle utilisateur
     """
     
-    template_name = 'registration/login.html'
+    template_name = 'accounts/login.html'
     redirect_authenticated_user = True
     
     def form_valid(self, form):
@@ -274,6 +274,231 @@ def redirect_to_add_user_admin(request):
     
     return redirect('/admin/accounts/utilisateursupper/add/')
 
+@login_required
+def liste_utilisateurs(request):
+    """
+    NOUVELLE VUE PRINCIPALE - Vue pour lister tous les utilisateurs
+    SOLUTION PROBLÈME 3 : Cette vue remplace UserListView
+    """
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('/admin/')
+    
+    # Filtres
+    search = request.GET.get('search', '')
+    habilitation_filter = request.GET.get('habilitation', '')
+    actif_filter = request.GET.get('actif', '')
+    
+    # Construction de la requête
+    users = UtilisateurSUPPER.objects.select_related('poste_affectation').all()
+    
+    if search:
+        users = users.filter(
+            Q(nom_complet__icontains=search) |
+            Q(username__icontains=search) |
+            Q(telephone__icontains=search)
+        )
+    
+    if habilitation_filter:
+        users = users.filter(habilitation=habilitation_filter)
+    
+    if actif_filter:
+        users = users.filter(is_active=actif_filter == 'true')
+    
+    users = users.order_by('-date_creation')
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(users, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    stats = {
+        'total': UtilisateurSUPPER.objects.count(),
+        'actifs': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+        'admins': UtilisateurSUPPER.objects.filter(habilitation='admin_principal').count(),
+        'agents': UtilisateurSUPPER.objects.filter(habilitation='agent_inventaire').count(),
+    }
+    
+    context = {
+        'page_obj': page_obj,
+        'stats': stats,
+        'search': search,
+        'habilitation_filter': habilitation_filter,
+        'actif_filter': actif_filter,
+        'habilitations': UtilisateurSUPPER.Habilitation.choices,
+        'title': 'Gestion des Utilisateurs'
+    }
+    
+    log_user_action(request.user, "Consultation liste utilisateurs", "", request)
+    
+    return render(request, 'accounts/liste_utilisateurs.html', context)
+
+
+@login_required
+def creer_utilisateur(request):
+    """
+    NOUVELLE VUE PRINCIPALE - Vue pour créer un nouvel utilisateur
+    SOLUTION PROBLÈME 3 : Cette vue remplace CreateUserView
+    """
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('accounts:liste_utilisateurs')
+    
+    if request.method == 'POST':
+        # Récupération des données du formulaire
+        username = request.POST.get('username', '').upper()
+        nom_complet = request.POST.get('nom_complet', '')
+        telephone = request.POST.get('telephone', '')
+        email = request.POST.get('email', '')
+        habilitation = request.POST.get('habilitation', 'agent_inventaire')
+        poste_id = request.POST.get('poste_affectation', '')
+        password = request.POST.get('password', 'supper2025')
+        
+        try:
+            # Validation
+            if UtilisateurSUPPER.objects.filter(username=username).exists():
+                messages.error(request, f"Le matricule {username} existe déjà.")
+                return render(request, 'accounts/creer_utilisateur.html', {'postes': Poste.objects.filter(actif=True)})
+            
+            # Création utilisateur
+            user = UtilisateurSUPPER.objects.create_user(
+                username=username,
+                password=password,
+                nom_complet=nom_complet,
+                telephone=telephone,
+                email=email if email else None,
+                habilitation=habilitation,
+                cree_par=request.user
+            )
+            
+            # Affectation poste si spécifié
+            if poste_id:
+                poste = Poste.objects.get(id=poste_id)
+                user.poste_affectation = poste
+                user.save()
+            
+            # Journalisation
+            log_user_action(
+                request.user,
+                "Création utilisateur",
+                f"Utilisateur créé: {username} ({nom_complet}) - {habilitation}",
+                request
+            )
+            
+            messages.success(request, f"Utilisateur {nom_complet} créé avec succès.")
+            return redirect('accounts:detail_utilisateur', user_id=user.id)
+            
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la création: {str(e)}")
+    
+    context = {
+        'postes': Poste.objects.filter(actif=True).order_by('nom'),
+        'habilitations': UtilisateurSUPPER.Habilitation.choices,
+        'title': 'Créer un Utilisateur'
+    }
+    
+    return render(request, 'accounts/creer_utilisateur.html', context)
+
+
+@login_required
+def detail_utilisateur(request, user_id):
+    """
+    NOUVELLE VUE PRINCIPALE - Vue pour afficher les détails d'un utilisateur
+    SOLUTION PROBLÈME 3 : Cette vue remplace UserDetailView
+    """
+    user = get_object_or_404(UtilisateurSUPPER, id=user_id)
+    
+    # Vérification des permissions
+    if not _check_admin_permission(request.user) and request.user != user:
+        messages.error(request, "Accès non autorisé.")
+        return redirect('/admin/')
+    
+    # Activités récentes
+    activites_recentes = JournalAudit.objects.filter(
+        utilisateur=user
+    ).order_by('-timestamp')[:10]
+    
+    # Statistiques utilisateur
+    stats_user = {
+        'nb_connexions': JournalAudit.objects.filter(
+            utilisateur=user,
+            action__icontains='connexion'
+        ).count(),
+        'derniere_connexion': JournalAudit.objects.filter(
+            utilisateur=user,
+            action__icontains='connexion'
+        ).first(),
+        'nb_actions_mois': JournalAudit.objects.filter(
+            utilisateur=user,
+            timestamp__gte=timezone.now().replace(day=1)
+        ).count()
+    }
+    
+    context = {
+        'user_detail': user,
+        'activites_recentes': activites_recentes,
+        'stats_user': stats_user,
+        'title': f'Profil - {user.nom_complet}'
+    }
+    
+    return render(request, 'accounts/detail_utilisateur.html', context)
+
+
+@login_required
+def modifier_utilisateur(request, user_id):
+    """
+    NOUVELLE VUE PRINCIPALE - Vue pour modifier un utilisateur
+    SOLUTION PROBLÈME 3 : Cette vue remplace UserUpdateView
+    """
+    user = get_object_or_404(UtilisateurSUPPER, id=user_id)
+    
+    # Vérification des permissions
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('accounts:detail_utilisateur', user_id=user.id)
+    
+    if request.method == 'POST':
+        try:
+            # Mise à jour des champs
+            user.nom_complet = request.POST.get('nom_complet', user.nom_complet)
+            user.telephone = request.POST.get('telephone', user.telephone)
+            user.email = request.POST.get('email', '') or None
+            user.habilitation = request.POST.get('habilitation', user.habilitation)
+            user.is_active = request.POST.get('is_active') == 'on'
+            
+            # Poste d'affectation
+            poste_id = request.POST.get('poste_affectation', '')
+            if poste_id:
+                user.poste_affectation = Poste.objects.get(id=poste_id)
+            else:
+                user.poste_affectation = None
+            
+            user.save()
+            
+            # Journalisation
+            log_user_action(
+                request.user,
+                "Modification utilisateur",
+                f"Utilisateur modifié: {user.username} ({user.nom_complet})",
+                request
+            )
+            
+            messages.success(request, f"Utilisateur {user.nom_complet} modifié avec succès.")
+            return redirect('accounts:detail_utilisateur', user_id=user.id)
+            
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la modification: {str(e)}")
+    
+    context = {
+        'user_edit': user,
+        'postes': Poste.objects.filter(actif=True).order_by('nom'),
+        'habilitations': UtilisateurSUPPER.Habilitation.choices,
+        'title': f'Modifier - {user.nom_complet}'
+    }
+    
+    return render(request, 'accounts/modifier_utilisateur.html', context)
 
 # ===================================================================
 # REDIRECTIONS AVEC PARAMÈTRES
@@ -465,64 +690,64 @@ class PasswordResetView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, 
 # GESTION DES UTILISATEURS
 # ===================================================================
 
-class UserListView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, ListView):
-    """Liste des utilisateurs du système - accès administrateur uniquement"""
+# class UserListView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, ListView):
+#     """Liste des utilisateurs du système - accès administrateur uniquement"""
     
-    model = UtilisateurSUPPER
-    template_name = 'accounts/user_list.html'
-    context_object_name = 'users'
-    paginate_by = 25
-    audit_action = _("Consultation liste utilisateurs")
+#     model = UtilisateurSUPPER
+#     template_name = 'accounts/user_list.html'
+#     context_object_name = 'users'
+#     paginate_by = 25
+#     audit_action = _("Consultation liste utilisateurs")
     
-    def get_queryset(self):
-        """Récupérer la liste des utilisateurs avec optimisations et filtres"""
-        queryset = UtilisateurSUPPER.objects.select_related('poste_affectation').order_by('nom_complet')
+#     def get_queryset(self):
+#         """Récupérer la liste des utilisateurs avec optimisations et filtres"""
+#         queryset = UtilisateurSUPPER.objects.select_related('poste_affectation').order_by('nom_complet')
         
-        search_query = self.request.GET.get('search', '').strip()
-        if search_query:
-            queryset = queryset.filter(
-                Q(username__icontains=search_query) |
-                Q(nom_complet__icontains=search_query) |
-                Q(telephone__icontains=search_query)
-            )
+#         search_query = self.request.GET.get('search', '').strip()
+#         if search_query:
+#             queryset = queryset.filter(
+#                 Q(username__icontains=search_query) |
+#                 Q(nom_complet__icontains=search_query) |
+#                 Q(telephone__icontains=search_query)
+#             )
         
-        return queryset
+#         return queryset
     
-    def get_context_data(self, **kwargs):
-        """Ajouter des statistiques au contexte"""
-        context = super().get_context_data(**kwargs)
+#     def get_context_data(self, **kwargs):
+#         """Ajouter des statistiques au contexte"""
+#         context = super().get_context_data(**kwargs)
         
-        context.update({
-            'total_users': UtilisateurSUPPER.objects.count(),
-            'active_users': UtilisateurSUPPER.objects.filter(is_active=True).count(),
-        })
+#         context.update({
+#             'total_users': UtilisateurSUPPER.objects.count(),
+#             'active_users': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+#         })
         
-        return context
+#         return context
 
 
-class CreateUserView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, CreateView):
-    """Création d'un nouvel utilisateur - accès administrateur uniquement"""
+# class CreateUserView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, CreateView):
+#     """Création d'un nouvel utilisateur - accès administrateur uniquement"""
     
-    model = UtilisateurSUPPER
-    form_class = UserCreateForm
-    template_name = 'accounts/user_create.html'
-    success_url = reverse_lazy('accounts:user_list')
-    audit_action = _("Création utilisateur")
+#     model = UtilisateurSUPPER
+#     form_class = UserCreateForm
+#     template_name = 'accounts/user_create.html'
+#     success_url = reverse_lazy('accounts:user_list')
+#     audit_action = _("Création utilisateur")
     
-    def form_valid(self, form):
-        """Traitement de la création d'utilisateur réussie"""
-        form.instance.cree_par = self.request.user
-        response = super().form_valid(form)
+#     def form_valid(self, form):
+#         """Traitement de la création d'utilisateur réussie"""
+#         form.instance.cree_par = self.request.user
+#         response = super().form_valid(form)
         
-        messages.success(
-            self.request,
-            _("Utilisateur %(username)s (%(nom)s) créé avec succès.") % {
-                'username': form.instance.username,
-                'nom': form.instance.nom_complet
-            }
-        )
+#         messages.success(
+#             self.request,
+#             _("Utilisateur %(username)s (%(nom)s) créé avec succès.") % {
+#                 'username': form.instance.username,
+#                 'nom': form.instance.nom_complet
+#             }
+#         )
         
-        return response
+#         return response
 
 
 class CreateBulkUsersView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, TemplateView):

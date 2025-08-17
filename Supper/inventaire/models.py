@@ -295,6 +295,16 @@ class ConfigurationJour(models.Model):
         help_text=_("Date concernée par cette configuration")
     )
     
+    poste = models.ForeignKey(
+        'accounts.Poste',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='configurations_jours',
+        verbose_name=_("Poste"),
+        help_text=_("Si spécifié, la configuration ne s'applique qu'à ce poste. Si vide, s'applique à tous les postes.")
+    )
+
     statut = models.CharField(
         max_length=15,
         choices=StatutJour.choices,
