@@ -25,7 +25,32 @@ class TypePoste(models.TextChoices):
     PEAGE = 'peage', _('Poste de Péage')
     PESAGE = 'pesage', _('Poste de Pesage')
 
+class Region(models.Model):
+    nom = models.CharField(max_length=50, unique=True, verbose_name=_("Région"))
 
+    class Meta:
+        verbose_name = _("Région")
+        verbose_name_plural = _("Régions")
+        ordering = ['nom']
+
+    def __str__(self):
+        return self.nom
+
+class Departement(models.Model):
+    region = models.ForeignKey(
+        Region, on_delete=models.CASCADE, related_name='departements', verbose_name=_("Région")
+    )
+    nom = models.CharField(max_length=50, verbose_name=_("Département"))
+
+    class Meta:
+        verbose_name = _("Département")
+        verbose_name_plural = _("Départements")
+        unique_together = ('region', 'nom')
+        ordering = ['region__nom', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.region.nom})"
+    
 class Habilitation(models.TextChoices):
     """Rôles et habilitations dans le système SUPPER"""
     ADMIN_PRINCIPAL = 'admin_principal', _('Administrateur Principal')
@@ -86,18 +111,19 @@ class Poste(models.Model):
     )
     
     # Localisation géographique
-    region = models.CharField(
-        max_length=50,
-        verbose_name=_("Région"),
-        help_text=_("Région administrative du Cameroun")
+    region = models.ForeignKey(
+        Region,
+        on_delete=models.PROTECT,
+        verbose_name=_("Région")
     )
     
-    departement = models.CharField(
-        max_length=50,
+    departement = models.ForeignKey(
+        Departement,
+        null=True,
         blank=True,
+        on_delete=models.PROTECT,
         verbose_name=_("Département")
     )
-    
     # CHANGEMENT : arrondissement → axe_routier
     axe_routier = models.CharField(
         max_length=100,
@@ -431,7 +457,14 @@ class UtilisateurSUPPER(AbstractUser):
             logger.info(f"Nouvel utilisateur créé: {self.username} ({self.nom_complet})")
         else:
             logger.info(f"Utilisateur modifié: {self.username}")
-    
+    @property
+    def is_admin(self):
+        # Tu adaptes la logique de _check_admin_permission
+        return (
+            self.is_superuser or
+            self.is_staff or
+            self.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']
+        )
     def get_absolute_url(self):
         return reverse('accounts:user_detail', kwargs={'pk': self.pk})
     

@@ -1,0 +1,232 @@
+<!-- Créer le fichier : Supper/templates/admin/inventaire/gerer_jours.html -->
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+<style>
+    .calendar-container {
+        max-width: 800px;
+        margin: 20px auto;
+    }
+    
+    .calendar-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .calendar-table th {
+        background: #6B46C1;
+        color: white;
+        padding: 10px;
+        text-align: center;
+    }
+    
+    .calendar-table td {
+        border: 1px solid #ddd;
+        padding: 15px;
+        text-align: center;
+        position: relative;
+        height: 80px;
+        vertical-align: top;
+    }
+    
+    .calendar-table td.empty {
+        background: #f9f9f9;
+    }
+    
+    .calendar-table td.active {
+        background: #d4edda;
+    }
+    
+    .calendar-table td.today {
+        background: #fff3cd;
+    }
+    
+    .day-number {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .day-checkbox {
+        margin-top: 10px;
+    }
+    
+    .legend {
+        margin: 20px 0;
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .legend-box {
+        width: 20px;
+        height: 20px;
+        border: 1px solid #ddd;
+    }
+    
+    .btn-container {
+        text-align: center;
+        margin: 30px 0;
+    }
+    
+    .header-info {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .header-info h2 {
+        color: #6B46C1;
+        margin-bottom: 10px;
+    }
+    
+    .btn-select-all {
+        margin: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-info">
+        <h2>{{ inventaire.titre }}</h2>
+        <p><strong>Période :</strong> {{ inventaire.get_mois_display }} {{ inventaire.annee }}</p>
+        <p><strong>Nombre de postes :</strong> {{ inventaire.get_nombre_postes }}</p>
+        <p><strong>Description :</strong> {{ inventaire.description|default:"Aucune description" }}</p>
+    </div>
+    
+    <div class="calendar-container">
+        <h3>Sélectionner les jours à activer pour la saisie d'inventaire</h3>
+        
+        <div class="btn-container">
+            <button type="button" class="btn btn-sm btn-secondary btn-select-all" onclick="selectAll(true)">
+                ✓ Tout sélectionner
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary btn-select-all" onclick="selectAll(false)">
+                ✗ Tout désélectionner
+            </button>
+            <button type="button" class="btn btn-sm btn-info btn-select-all" onclick="selectWeekdays()">
+                📅 Jours ouvrables uniquement
+            </button>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <table class="calendar-table">
+                <thead>
+                    <tr>
+                        <th>Lundi</th>
+                        <th>Mardi</th>
+                        <th>Mercredi</th>
+                        <th>Jeudi</th>
+                        <th>Vendredi</th>
+                        <th>Samedi</th>
+                        <th>Dimanche</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for week in calendrier %}
+                    <tr>
+                        {% for day in week %}
+                        <td class="{% if day == 0 %}empty{% elif day in jours_actifs %}active{% endif %}" 
+                            {% if day != 0 %}data-day="{{ day }}"{% endif %}>
+                            {% if day != 0 %}
+                                <div class="day-number">{{ day }}</div>
+                                <div class="day-checkbox">
+                                    <input type="checkbox" 
+                                           name="jours_actifs" 
+                                           value="{{ day }}"
+                                           id="jour_{{ day }}"
+                                           {% if day in jours_actifs %}checked{% endif %}>
+                                    <label for="jour_{{ day }}">Actif</label>
+                                </div>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #d4edda;"></div>
+                    <span>Jour actif</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: white;"></div>
+                    <span>Jour inactif</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #f9f9f9;"></div>
+                    <span>Hors mois</span>
+                </div>
+            </div>
+            
+            <div class="btn-container">
+                <button type="submit" class="btn btn-primary">
+                    💾 Enregistrer les modifications
+                </button>
+                <a href="{% url 'admin:inventaire_inventairemensuel_change' inventaire.id %}" 
+                   class="btn btn-secondary">
+                    ← Retour à l'inventaire
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function selectAll(checked) {
+    const checkboxes = document.querySelectorAll('input[name="jours_actifs"]');
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+        updateCellClass(cb);
+    });
+}
+
+function selectWeekdays() {
+    const cells = document.querySelectorAll('td[data-day]');
+    cells.forEach((cell, index) => {
+        const dayOfWeek = index % 7;
+        const checkbox = cell.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            // Lundi = 0, Mardi = 1, ..., Dimanche = 6
+            checkbox.checked = dayOfWeek < 5; // Lundi à Vendredi
+            updateCellClass(checkbox);
+        }
+    });
+}
+
+function updateCellClass(checkbox) {
+    const cell = checkbox.closest('td');
+    if (checkbox.checked) {
+        cell.classList.add('active');
+    } else {
+        cell.classList.remove('active');
+    }
+}
+
+// Mettre à jour les classes lors du changement
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="jours_actifs"]');
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            updateCellClass(this);
+        });
+    });
+});
+</script>
+{% endblock %}

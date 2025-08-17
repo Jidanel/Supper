@@ -275,6 +275,26 @@ class InventaireJournalier(models.Model):
         # Recalculer les totaux après la sauvegarde si nécessaire
         if hasattr(self, '_recalculer_totaux'):
             self.recalculer_totaux()
+    
+    def link_to_inventaire_mensuel(self):
+    # """Lie cet inventaire journalier à un inventaire mensuel s'il existe"""
+        from datetime import date
+    
+        # Chercher l'inventaire mensuel correspondant
+        inventaire_mensuel = InventaireMensuel.objects.filter(
+            mois=self.date.month,
+            annee=self.date.year,
+            actif=True
+        ).first()
+        
+        if inventaire_mensuel:
+            # Vérifier si le poste est dans l'inventaire mensuel
+            return PosteInventaireMensuel.objects.filter(
+                inventaire_mensuel=inventaire_mensuel,
+                poste=self.poste
+            ).first()
+        
+        return None
 
 
 class DetailInventairePeriode(models.Model):
@@ -664,4 +684,254 @@ class StatistiquesPeriodiques(models.Model):
         )
         
         return stats
-       
+
+class MotifInventaire(models.TextChoices):
+    """Motifs pour l'inventaire d'un poste"""
+    TAUX_DEPERDITION = 'taux_deperdition', _('Taux de déperdition')
+    GRAND_RISQUE_STOCK = 'grand_risque', _('Grand risque de stock au 31 décembre')
+    RISQUE_BAISSE_ANNUEL = 'risque_baisse', _('Risque de baisse annuel')
+
+
+class InventaireMensuel(models.Model):
+    """
+    Inventaire mensuel regroupant plusieurs postes
+    Permet de gérer les inventaires par mois avec activation par jour
+    """
+    
+    mois = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        verbose_name=_("Mois")
+    )
+    
+    annee = models.IntegerField(
+        validators=[MinValueValidator(2024), MaxValueValidator(2100)],
+        verbose_name=_("Année")
+    )
+    
+    titre = models.CharField(
+        max_length=200,
+        verbose_name=_("Titre de l'inventaire"),
+        help_text=_("Ex: Inventaire Janvier 2025 - Région Centre")
+    )
+    
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Objectifs et notes sur cet inventaire mensuel")
+    )
+    
+    cree_par = models.ForeignKey(
+        UtilisateurSUPPER,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='inventaires_mensuels_crees',
+        verbose_name=_("Créé par")
+    )
+    
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+    
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Dernière modification")
+    )
+    
+    actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Inventaire actif"),
+        help_text=_("Désactiver pour archiver l'inventaire")
+    )
+    
+    class Meta:
+        verbose_name = _("Inventaire mensuel")
+        verbose_name_plural = _("Inventaires mensuels")
+        unique_together = [['mois', 'annee']]
+        ordering = ['-annee', '-mois']
+        indexes = [
+            models.Index(fields=['-annee', '-mois']),
+            models.Index(fields=['actif']),
+        ]
+    
+    def __str__(self):
+        mois_noms = [
+            'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+        ]
+        return f"{self.titre} ({mois_noms[self.mois-1]} {self.annee})"
+    
+    def get_nombre_postes(self):
+        """Retourne le nombre de postes dans cet inventaire"""
+        return self.postes_inventaire.count()
+    
+    def get_jours_actifs(self):
+        """Retourne les jours activés pour cet inventaire"""
+        from datetime import date
+        import calendar
+        
+        # Obtenir le nombre de jours dans le mois
+        nb_jours = calendar.monthrange(self.annee, self.mois)[1]
+        
+        jours_actifs = []
+        for jour in range(1, nb_jours + 1):
+            date_jour = date(self.annee, self.mois, jour)
+            config = ConfigurationJour.objects.filter(date=date_jour).first()
+            if config and config.statut == 'ouvert':
+                jours_actifs.append(jour)
+        
+        return jours_actifs
+    
+    def activer_jour(self, jour, admin_user):
+        """Active un jour spécifique pour la saisie"""
+        from datetime import date
+        
+        date_jour = date(self.annee, self.mois, jour)
+        config, created = ConfigurationJour.objects.get_or_create(
+            date=date_jour,
+            defaults={
+                'statut': 'ouvert',
+                'cree_par': admin_user,
+                'commentaire': f'Activé pour {self.titre}'
+            }
+        )
+        
+        if not created and config.statut != 'ouvert':
+            config.statut = 'ouvert'
+            config.commentaire = f'Réactivé pour {self.titre}'
+            config.save()
+        
+        return config
+    
+    def desactiver_jour(self, jour, admin_user):
+        """Désactive un jour spécifique"""
+        from datetime import date
+        
+        date_jour = date(self.annee, self.mois, jour)
+        config, created = ConfigurationJour.objects.get_or_create(
+            date=date_jour,
+            defaults={
+                'statut': 'ferme',
+                'cree_par': admin_user,
+                'commentaire': f'Fermé après {self.titre}'
+            }
+        )
+        
+        if not created and config.statut != 'ferme':
+            config.statut = 'ferme'
+            config.commentaire = f'Fermé après {self.titre}'
+            config.save()
+        
+        return config
+
+
+class PosteInventaireMensuel(models.Model):
+    """
+    Association entre un inventaire mensuel et un poste avec ses motifs
+    """
+    
+    inventaire_mensuel = models.ForeignKey(
+        InventaireMensuel,
+        on_delete=models.CASCADE,
+        related_name='postes_inventaire',
+        verbose_name=_("Inventaire mensuel")
+    )
+    
+    poste = models.ForeignKey(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='inventaires_mensuels',
+        verbose_name=_("Poste")
+    )
+    
+    # Motifs multiples possibles
+    motif_taux_deperdition = models.BooleanField(
+        default=False,
+        verbose_name=_("Taux de déperdition"),
+        help_text=_("Cocher si le poste est concerné par le taux de déperdition")
+    )
+    
+    motif_grand_risque = models.BooleanField(
+        default=False,
+        verbose_name=_("Grand risque de stock au 31 décembre"),
+        help_text=_("Cocher si risque de stock important en fin d'année")
+    )
+    
+    motif_risque_baisse = models.BooleanField(
+        default=False,
+        verbose_name=_("Risque de baisse annuel"),
+        help_text=_("Cocher si risque de baisse annuelle")
+    )
+    
+    observations = models.TextField(
+        blank=True,
+        verbose_name=_("Observations"),
+        help_text=_("Notes spécifiques pour ce poste dans cet inventaire")
+    )
+    
+    date_ajout = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date d'ajout")
+    )
+    
+    class Meta:
+        verbose_name = _("Poste d'inventaire mensuel")
+        verbose_name_plural = _("Postes d'inventaires mensuels")
+        unique_together = [['inventaire_mensuel', 'poste']]
+        ordering = ['poste__region', 'poste__nom']
+        indexes = [
+            models.Index(fields=['inventaire_mensuel', 'poste']),
+        ]
+    
+    def __str__(self):
+        motifs = self.get_motifs_list()
+        motifs_str = ', '.join(motifs) if motifs else 'Aucun motif'
+        return f"{self.poste.nom} - {motifs_str}"
+    
+    def get_motifs_list(self):
+        """Retourne la liste des motifs sélectionnés"""
+        motifs = []
+        if self.motif_taux_deperdition:
+            motifs.append("Taux déperdition")
+        if self.motif_grand_risque:
+            motifs.append("Grand risque stock")
+        if self.motif_risque_baisse:
+            motifs.append("Risque baisse")
+        return motifs
+    
+    def get_motifs_count(self):
+        """Retourne le nombre de motifs sélectionnés"""
+        count = 0
+        if self.motif_taux_deperdition:
+            count += 1
+        if self.motif_grand_risque:
+            count += 1
+        if self.motif_risque_baisse:
+            count += 1
+        return count
+    
+    def get_inventaires_journaliers(self):
+        """Retourne tous les inventaires journaliers de ce poste pour le mois"""
+        from datetime import date
+        import calendar
+        
+        # Obtenir le premier et dernier jour du mois
+        premier_jour = date(
+            self.inventaire_mensuel.annee, 
+            self.inventaire_mensuel.mois, 
+            1
+        )
+        
+        dernier_jour = date(
+            self.inventaire_mensuel.annee,
+            self.inventaire_mensuel.mois,
+            calendar.monthrange(
+                self.inventaire_mensuel.annee, 
+                self.inventaire_mensuel.mois
+            )[1]
+        )
+        
+        return InventaireJournalier.objects.filter(
+            poste=self.poste,
+            date__range=[premier_jour, dernier_jour]
+        )

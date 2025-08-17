@@ -31,6 +31,11 @@ urlpatterns = [
     # path('config-jours/create/', views.CreateConfigurationJourView.as_view(), name='create_config_jour'),
     # path('config-jours/<int:pk>/edit/', views.EditConfigurationJourView.as_view(), name='edit_config_jour'),
     
+    # URLs pour la gestion des inventaires mensuels
+    path('mensuel/<int:inventaire_id>/gerer-jours/', 
+         views.gerer_jours_inventaire, 
+         name='gerer_jours'),
+         
     # ================================================================
     # NOUVEAU: REDIRECTIONS VERS ADMIN DJANGO POUR LA GESTION
     # ================================================================

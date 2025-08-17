@@ -1,6 +1,6 @@
 # ===================================================================
 # inventaire/admin.py - Interface admin pour les inventaires CORRIGÉE
-# CORRESPONDANCE EXACTE avec les modèles définis
+# VERSION COMPLÈTE AVEC TOUTES LES CLASSES NÉCESSAIRES
 # ===================================================================
 
 from django.contrib import admin
@@ -8,46 +8,148 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
 from django.http import HttpResponse
-from accounts.admin import admin_site
+from django import forms
+from datetime import date
+from django.utils.html import format_html
 from .models import (
     ConfigurationJour, InventaireJournalier, DetailInventairePeriode,
     RecetteJournaliere, StatistiquesPeriodiques
 )
 import csv
-from .forms import InventaireJournalierForm
-from zoneinfo import ZoneInfo
 
+# ===================================================================
+# FORMULAIRES PERSONNALISÉS
+# ===================================================================
+
+class DetailInventairePeriodeInlineForm(forms.ModelForm):
+    """Formulaire pour la saisie inline des périodes"""
+    class Meta:
+        model = DetailInventairePeriode
+        fields = ['periode', 'nombre_vehicules', 'observations_periode']
+        widgets = {
+            'periode': forms.Select(attrs={
+                'class': 'form-control',
+                'style': 'width: 120px;'
+            }),
+            'nombre_vehicules': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '0',
+                'max': '1000',
+                'style': 'width: 100px;',
+                'placeholder': '0'
+            }),
+            'observations_periode': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Observations (optionnel)',
+                'style': 'width: 300px;'
+            })
+        }
+
+class InventaireJournalierForm(forms.ModelForm):
+    """Formulaire principal pour l'inventaire"""
+    class Meta:
+        model = InventaireJournalier
+        fields = '__all__'
+        widgets = {
+            'date': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control'
+            }),
+            'observations': forms.Textarea(attrs={
+                'rows': 3,
+                'class': 'form-control',
+                'placeholder': 'Notes ou observations sur cet inventaire'
+            }),
+            'poste': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'agent_saisie': forms.Select(attrs={
+                'class': 'form-control'
+            })
+        }
+
+# ===================================================================
+# INLINES
+# ===================================================================
 
 class DetailInventairePeriodeInline(admin.TabularInline):
-    """Inline pour les détails d'inventaire par période"""
+    """Inline pour saisir les véhicules par période directement dans l'inventaire"""
     model = DetailInventairePeriode
-    extra = 0
+    form = DetailInventairePeriodeInlineForm
+    extra = 10  # Afficher 10 lignes vides (pour les 10 périodes)
+    max_num = 10  # Maximum 10 périodes
+    can_delete = True
+    
+    # Ordre d'affichage des périodes
+    ordering = ['periode']
+    
+    # Personnalisation de l'affichage
+    fields = ['periode', 'nombre_vehicules', 'observations_periode']
     readonly_fields = ('heure_saisie', 'modifie_le')
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        
+        # Si c'est un nouvel inventaire, pré-remplir avec toutes les périodes
+        if not obj:
+            # Définir les choix de périodes dans l'ordre
+            PERIODES = [
+                ('08h-09h', '08h-09h'),
+                ('09h-10h', '09h-10h'),
+                ('10h-11h', '10h-11h'),
+                ('11h-12h', '11h-12h'),
+                ('12h-13h', '12h-13h'),
+                ('13h-14h', '13h-14h'),
+                ('14h-15h', '14h-15h'),
+                ('15h-16h', '15h-16h'),
+                ('16h-17h', '16h-17h'),
+                ('17h-18h', '17h-18h'),
+            ]
+            
+            # Configurer le formset avec les périodes prédéfinies
+            formset.extra = len(PERIODES)
+            
+        return formset
     
     def get_queryset(self, request):
         return super().get_queryset(request).order_by('periode')
 
+# ===================================================================
+# ADMIN CLASSES
+# ===================================================================
 
-@admin.register(ConfigurationJour, site=admin_site)
+@admin.register(ConfigurationJour)
 class ConfigurationJourAdmin(admin.ModelAdmin):
-    list_display = ['date', 'statut', 'cree_par', 'date_creation']
+    list_display = ['date', 'statut_colored', 'cree_par', 'date_creation']
     list_filter = ['statut', 'date_creation']
     search_fields = ['commentaire']
     date_hierarchy = 'date'
     
-    def statut_badge(self, obj):
-        """Badge coloré pour le statut"""
+    fieldsets = (
+        ('Informations principales', {
+            'fields': ('date', 'statut')
+        }),
+        ('Détails', {
+            'fields': ('commentaire', 'cree_par', 'date_creation'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ('cree_par', 'date_creation')
+    
+    def statut_colored(self, obj):
+        """Affichage coloré du statut"""
         colors = {
             'ouvert': 'success',
             'ferme': 'danger',
-            'impertinent': 'warning',
+            'impertinent': 'warning'
         }
         color = colors.get(obj.statut, 'secondary')
         return format_html(
             '<span class="badge bg-{}">{}</span>',
             color, obj.get_statut_display()
         )
-    statut_badge.short_description = 'Statut'
+    statut_colored.short_description = 'Statut'
     
     def save_model(self, request, obj, form, change):
         """Logique personnalisée de sauvegarde"""
@@ -60,83 +162,131 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
     def ouvrir_jours(self, request, queryset):
         """Action pour ouvrir des jours"""
         count = queryset.update(statut='ouvert')
-        self.message_user(request, f'{count} jours ouverts pour la saisie.')
+        self.message_user(request, f'{count} jour(s) ouvert(s) pour la saisie.')
     ouvrir_jours.short_description = 'Ouvrir pour saisie'
     
     def fermer_jours(self, request, queryset):
         """Action pour fermer des jours"""
         count = queryset.update(statut='ferme')
-        self.message_user(request, f'{count} jours fermés pour la saisie.')
+        self.message_user(request, f'{count} jour(s) fermé(s) pour la saisie.')
     fermer_jours.short_description = 'Fermer pour saisie'
     
     def marquer_impertinents(self, request, queryset):
         """Action pour marquer des jours comme impertinents"""
         count = queryset.update(statut='impertinent')
-        self.message_user(request, f'{count} jours marqués comme impertinents.')
+        self.message_user(request, f'{count} jour(s) marqué(s) comme impertinent(s).')
     marquer_impertinents.short_description = 'Marquer impertinents'
 
 
-@admin.register(InventaireJournalier, site=admin_site)
+@admin.register(InventaireJournalier)
 class InventaireJournalierAdmin(admin.ModelAdmin):
     form = InventaireJournalierForm
+    inlines = [DetailInventairePeriodeInline]  # Inline pour saisie des périodes
     
+    # Configuration de la liste
     list_display = [
         'poste', 'date', 'agent_saisie', 
-        'total_vehicules', 'verrouille', 'valide'
+        'total_vehicules_colored', 'nombre_periodes_colored',
+        'status_inventaire'
     ]
-    list_filter = ['date', 'verrouille', 'valide', 'poste__region']
-    search_fields = ['poste__nom', 'agent_saisie__nom_complet']
+    list_filter = ['date', 'verrouille', 'valide', 'poste__region', 'poste__type']
+    search_fields = ['poste__nom', 'poste__code', 'agent_saisie__nom_complet']
     date_hierarchy = 'date'
     
+    # Organisation des champs
     fieldsets = (
         ('Informations générales', {
-            'fields': ('poste', 'date', 'agent_saisie')
+            'fields': ('poste', 'date', 'agent_saisie'),
+            'description': 'Informations de base de l\'inventaire'
         }),
         ('État', {
-            'fields': ('verrouille', 'valide', 'valide_par', 'date_validation')
+            'fields': ('verrouille', 'valide', 'valide_par', 'date_validation'),
+            'description': 'État de validation de l\'inventaire'
         }),
-        ('Données', {
-            'fields': ('total_vehicules', 'nombre_periodes_saisies', 'observations')
+        ('Totaux calculés', {
+            'fields': ('total_vehicules', 'nombre_periodes_saisies'),
+            'description': 'Ces valeurs sont calculées automatiquement',
+            'classes': ('collapse',)
+        }),
+        ('Observations', {
+            'fields': ('observations',),
+            'classes': ('wide',)
         }),
     )
     
-    readonly_fields = ['total_vehicules', 'nombre_periodes_saisies']
+    # Champs en lecture seule
+    readonly_fields = [
+        'total_vehicules', 'nombre_periodes_saisies',
+        'valide_par', 'date_validation'
+    ]
     
-    def get_form(self, request, obj=None, **kwargs):
-        Form = super().get_form(request, obj, **kwargs)
-        
-        class RequestForm(Form):
-            def __new__(cls, *args, **kwargs):
-                kwargs['request'] = request
-                return Form(*args, **kwargs)
-        
-        return RequestForm
+    def total_vehicules_colored(self, obj):
+        """Affichage coloré du total de véhicules"""
+        if obj.total_vehicules == 0:
+            color = 'danger'
+        elif obj.total_vehicules < 100:
+            color = 'warning'
+        else:
+            color = 'success'
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color, obj.total_vehicules
+        )
+    total_vehicules_colored.short_description = 'Total véhicules'
+    
+    def nombre_periodes_colored(self, obj):
+        """Affichage coloré du nombre de périodes saisies"""
+        if obj.nombre_periodes_saisies == 0:
+            color = 'danger'
+            text = 'Aucune'
+        elif obj.nombre_periodes_saisies < 5:
+            color = 'warning'
+            text = f'{obj.nombre_periodes_saisies}/10'
+        else:
+            color = 'success'
+            text = f'{obj.nombre_periodes_saisies}/10'
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color, text
+        )
+    nombre_periodes_colored.short_description = 'Périodes saisies'
+    
+    def status_inventaire(self, obj):
+        """Affichage du statut de l'inventaire"""
+        if obj.valide:
+            return format_html(
+                '<span class="badge bg-success">✓ Validé</span>'
+            )
+        elif obj.verrouille:
+            return format_html(
+                '<span class="badge bg-warning">🔒 Verrouillé</span>'
+            )
+        else:
+            return format_html(
+                '<span class="badge bg-info">📝 En cours</span>'
+            )
+    status_inventaire.short_description = 'Statut'
     
     def save_model(self, request, obj, form, change):
-        # Si validation, définir automatiquement les champs
+        """Gestion automatique de la validation"""
         if obj.valide and not obj.valide_par:
             obj.valide_par = request.user
-            
-        if obj.valide and not obj.date_validation:
-            cameroon_tz = ZoneInfo('Africa/Douala')
-            obj.date_validation = timezone.now().astimezone(cameroon_tz)
-            
+            # Utiliser le timezone de Django
+            obj.date_validation = timezone.now()
         super().save_model(request, obj, form, change)
-
     
-    def verrouille_badge(self, obj):
-        """Badge pour le statut verrouillé"""
-        if obj.verrouille:
-            return format_html('<span class="badge bg-warning">Verrouillé</span>')
-        return format_html('<span class="badge bg-success">Modifiable</span>')
-    verrouille_badge.short_description = 'Verrouillage'
-    
-    def valide_badge(self, obj):
-        """Badge pour le statut validé"""
-        if obj.valide:
-            return format_html('<span class="badge bg-success">Validé</span>')
-        return format_html('<span class="badge bg-secondary">En attente</span>')
-    valide_badge.short_description = 'Validation'
+    def save_formset(self, request, form, formset, change):
+        """Sauvegarde des périodes et recalcul automatique des totaux"""
+        instances = formset.save(commit=False)
+        
+        for instance in instances:
+            instance.save()
+        
+        formset.save_m2m()
+        
+        # Recalculer les totaux après sauvegarde des périodes
+        if form.instance:
+            form.instance.recalculer_totaux()
     
     def get_queryset(self, request):
         """Optimiser les requêtes"""
@@ -147,23 +297,40 @@ class InventaireJournalierAdmin(admin.ModelAdmin):
     actions = ['verrouiller_inventaires', 'valider_inventaires', 'export_inventaires', 'recalculer_totaux']
     
     def verrouiller_inventaires(self, request, queryset):
-        """Action pour verrouiller des inventaires"""
+        """Action pour verrouiller plusieurs inventaires"""
         count = 0
-        for inventaire in queryset.filter(verrouille=False):
-            inventaire.verrouiller(request.user)
-            count += 1
-        self.message_user(request, f'{count} inventaires verrouillés.')
-    verrouiller_inventaires.short_description = 'Verrouiller les inventaires'
-    
-    def valider_inventaires(self, request, queryset):
-        """Action pour valider des inventaires"""
-        count = queryset.filter(valide=False).update(
-            valide=True,
-            valide_par=request.user,
-            date_validation=timezone.now()
+        for inventaire in queryset:
+            if not inventaire.verrouille:
+                inventaire.verrouiller(request.user)
+                count += 1
+        self.message_user(request, f'{count} inventaire(s) verrouillé(s)')
+    verrouiller_inventaires.short_description = "Verrouiller les inventaires sélectionnés"
+    def changelist_view(self, request, extra_context=None):
+        """Ajouter un bouton pour gérer les jours du mois"""
+        extra_context = extra_context or {}
+        
+        # Ajouter l'URL de gestion des jours
+        today = date.today()
+        gerer_jours_url = reverse('inventaire:gerer_jours', args=[1])
+        
+        extra_context['custom_buttons'] = format_html(
+            '<a class="btn btn-primary" href="{}">📅 Gérer les jours du mois</a>',
+            gerer_jours_url
         )
-        self.message_user(request, f'{count} inventaires validés.')
-    valider_inventaires.short_description = 'Valider les inventaires'
+        
+        return super().changelist_view(request, extra_context)
+    def valider_inventaires(self, request, queryset):
+        """Action pour valider plusieurs inventaires"""
+        count = 0
+        for inventaire in queryset:
+            if not inventaire.valide:
+                inventaire.valide = True
+                inventaire.valide_par = request.user
+                inventaire.date_validation = timezone.now()
+                inventaire.save()
+                count += 1
+        self.message_user(request, f'{count} inventaire(s) validé(s)')
+    valider_inventaires.short_description = "Valider les inventaires sélectionnés"
     
     def recalculer_totaux(self, request, queryset):
         """Action pour recalculer les totaux"""
@@ -171,7 +338,7 @@ class InventaireJournalierAdmin(admin.ModelAdmin):
         for inventaire in queryset:
             inventaire.recalculer_totaux()
             count += 1
-        self.message_user(request, f'{count} inventaires recalculés.')
+        self.message_user(request, f'{count} inventaire(s) recalculé(s).')
     recalculer_totaux.short_description = 'Recalculer les totaux'
     
     def export_inventaires(self, request, queryset):
@@ -206,65 +373,91 @@ class InventaireJournalierAdmin(admin.ModelAdmin):
     export_inventaires.short_description = 'Exporter en CSV'
 
 
-@admin.register(RecetteJournaliere, site=admin_site)
+@admin.register(DetailInventairePeriode)
+class DetailInventairePeriodeAdmin(admin.ModelAdmin):
+    """Admin pour voir toutes les périodes (lecture seule principalement)"""
+    list_display = ['inventaire', 'periode', 'nombre_vehicules_colored', 'heure_saisie']
+    list_filter = ['periode', 'inventaire__date', 'inventaire__poste__region']
+    search_fields = ['inventaire__poste__nom']
+    readonly_fields = ['heure_saisie', 'modifie_le']
+    
+    def nombre_vehicules_colored(self, obj):
+        """Affichage coloré du nombre de véhicules"""
+        if obj.nombre_vehicules == 0:
+            color = 'secondary'
+        elif obj.nombre_vehicules < 10:
+            color = 'warning'
+        else:
+            color = 'success'
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color, obj.nombre_vehicules
+        )
+    nombre_vehicules_colored.short_description = 'Véhicules'
+
+
+@admin.register(RecetteJournaliere)
 class RecetteJournaliereAdmin(admin.ModelAdmin):
     list_display = [
-        'poste', 'date', 'montant_declare', 
-        'recette_potentielle', 'taux_deperdition', 'get_couleur_alerte'
+        'poste', 'date', 'montant_declare_formatted', 
+        'taux_deperdition_colored', 'status_recette'
     ]
-    list_filter = ['date', 'poste__region', 'verrouille']
+    list_filter = ['date', 'poste__region', 'verrouille', 'valide']
     search_fields = ['poste__nom', 'chef_poste__nom_complet']
     date_hierarchy = 'date'
     
+    fieldsets = (
+        ('Informations principales', {
+            'fields': ('poste', 'date', 'chef_poste', 'montant_declare')
+        }),
+        ('Calculs automatiques', {
+            'fields': (
+                'inventaire_associe', 'recette_potentielle', 
+                'ecart', 'taux_deperdition'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('État', {
+            'fields': ('verrouille', 'valide')
+        }),
+        ('Observations', {
+            'fields': ('observations',)
+        }),
+    )
+    
     readonly_fields = [
-        'recette_potentielle', 'ecart', 
-        'taux_deperdition', 'get_couleur_alerte'
+        'recette_potentielle', 'ecart', 'taux_deperdition'
     ]
-
-
     
-    def recette_potentielle_formatted(self, obj):
-        """Recette potentielle formatée"""
-        if obj.recette_potentielle:
-            return f"{obj.recette_potentielle:,.0f} FCFA".replace(',', ' ')
-        return "Non calculée"
-    recette_potentielle_formatted.short_description = 'Recette potentielle'
+    def montant_declare_formatted(self, obj):
+        """Format monétaire du montant"""
+        return format_html(
+            '<strong>{:,.0f} FCFA</strong>',
+            obj.montant_declare
+        )
+    montant_declare_formatted.short_description = 'Montant déclaré'
     
-    def ecart_formatted(self, obj):
-        """Écart formaté avec couleur"""
-        if obj.ecart is not None:
-            ecart_str = f"{obj.ecart:,.0f} FCFA".replace(',', ' ')
-            if obj.ecart >= 0:
-                return format_html('<span class="text-success">+{}</span>', ecart_str)
-            else:
-                return format_html('<span class="text-danger">{}</span>', ecart_str)
-        return "Non calculé"
-    ecart_formatted.short_description = 'Écart'
+    def taux_deperdition_colored(self, obj):
+        """Affichage coloré du taux de déperdition"""
+        if obj.taux_deperdition is None:
+            return '-'
+        
+        couleur = obj.get_couleur_alerte()
+        return format_html(
+            '<span class="badge bg-{}">{:.1f}%</span>',
+            couleur, obj.taux_deperdition
+        )
+    taux_deperdition_colored.short_description = 'Taux déperdition'
     
-    def taux_deperdition_badge(self, obj):
-        """Badge pour le taux de déperdition"""
-        if obj.taux_deperdition is not None:
-            couleur = obj.get_couleur_alerte()
-            colors = {
-                'success': 'success',
-                'warning': 'warning', 
-                'danger': 'danger',
-                'secondary': 'secondary',
-            }
-            color_class = colors.get(couleur, 'secondary')
-            return format_html(
-                '<span class="badge bg-{}">{:.2f}%</span>',
-                color_class, obj.taux_deperdition
-            )
-        return format_html('<span class="badge bg-secondary">N/A</span>')
-    taux_deperdition_badge.short_description = 'Taux déperdition'
-    
-    def verrouille_badge(self, obj):
-        """Badge pour le statut verrouillé"""
-        if obj.verrouille:
-            return format_html('<span class="badge bg-warning">Verrouillé</span>')
-        return format_html('<span class="badge bg-success">Modifiable</span>')
-    verrouille_badge.short_description = 'Statut'
+    def status_recette(self, obj):
+        """Statut de la recette"""
+        if obj.valide:
+            return format_html('<span class="badge bg-success">✓ Validée</span>')
+        elif obj.verrouille:
+            return format_html('<span class="badge bg-warning">🔒 Verrouillée</span>')
+        else:
+            return format_html('<span class="badge bg-info">📝 En cours</span>')
+    status_recette.short_description = 'Statut'
     
     def get_queryset(self, request):
         """Optimiser les requêtes"""
@@ -281,13 +474,13 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
             recette.calculer_indicateurs()
             recette.save()
             count += 1
-        self.message_user(request, f'{count} recettes recalculées.')
+        self.message_user(request, f'{count} recette(s) recalculée(s).')
     recalculer_indicateurs.short_description = 'Recalculer les indicateurs'
     
     def verrouiller_recettes(self, request, queryset):
         """Action pour verrouiller des recettes"""
         count = queryset.filter(verrouille=False).update(verrouille=True)
-        self.message_user(request, f'{count} recettes verrouillées.')
+        self.message_user(request, f'{count} recette(s) verrouillée(s).')
     verrouiller_recettes.short_description = 'Verrouiller les recettes'
     
     def export_recettes(self, request, queryset):
@@ -319,11 +512,11 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
     export_recettes.short_description = 'Exporter en CSV'
 
 
-@admin.register(StatistiquesPeriodiques, site=admin_site)
+@admin.register(StatistiquesPeriodiques)
 class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
     list_display = [
         'poste', 'type_periode', 'date_debut', 
-        'date_fin', 'taux_deperdition_moyen'
+        'date_fin', 'taux_deperdition_moyen_badge'
     ]
     list_filter = ['type_periode', 'poste__region']
     search_fields = ['poste__nom']
@@ -331,13 +524,25 @@ class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
     
     readonly_fields = [
         'total_recettes_declarees', 'total_recettes_potentielles',
-        'taux_deperdition_moyen', 'nombre_jours_impertinents'
+        'taux_deperdition_moyen', 'nombre_jours_impertinents', 'date_calcul'
     ]
     
-    def total_recettes_declarees_formatted(self, obj):
-        """Total recettes formaté"""
-        return f"{obj.total_recettes_declarees:,.0f} FCFA".replace(',', ' ')
-    total_recettes_declarees_formatted.short_description = 'Total déclaré'
+    fieldsets = (
+        ('Période', {
+            'fields': ('poste', 'type_periode', 'date_debut', 'date_fin')
+        }),
+        ('Statistiques calculées', {
+            'fields': (
+                'nombre_jours_actifs', 'total_recettes_declarees',
+                'total_recettes_potentielles', 'taux_deperdition_moyen',
+                'nombre_jours_impertinents'
+            )
+        }),
+        ('Métadonnées', {
+            'fields': ('date_calcul',),
+            'classes': ('collapse',)
+        }),
+    )
     
     def taux_deperdition_moyen_badge(self, obj):
         """Badge pour le taux moyen"""
@@ -373,7 +578,7 @@ class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
             if stat_recalculee:
                 count += 1
         
-        self.message_user(request, f'{count} statistiques recalculées.')
+        self.message_user(request, f'{count} statistique(s) recalculée(s).')
     recalculer_statistiques.short_description = 'Recalculer les statistiques'
     
     def export_statistiques(self, request, queryset):
@@ -405,17 +610,3 @@ class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
         
         return response
     export_statistiques.short_description = 'Exporter en CSV'
-
-
-# AJOUT : Admin pour DetailInventairePeriode (pour gestion directe si nécessaire)
-@admin.register(DetailInventairePeriode, site=admin_site)
-class DetailInventairePeriodeAdmin(admin.ModelAdmin):
-    list_display = ['inventaire', 'periode', 'nombre_vehicules', 'heure_saisie']
-    list_filter = ['periode', 'inventaire__date']
-    search_fields = ['inventaire__poste__nom']
-    
-    def get_queryset(self, request):
-        """Optimiser les requêtes"""
-        return super().get_queryset(request).select_related(
-            'inventaire', 'inventaire__poste', 'inventaire__agent_saisie'
-        )

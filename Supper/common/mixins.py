@@ -58,7 +58,7 @@ class AdminRequiredMixin(UserPassesTestMixin):
             bool: True si l'utilisateur est connecté ET administrateur
         """
         # Vérifier que l'utilisateur est connecté ET a des droits admin
-        return self.request.user.is_authenticated and self.request.user.is_admin
+        return self.request.user.is_authenticated and (self.request.user.is_superuser or self.request.user.is_staff)
     
     def handle_no_permission(self):
         """
@@ -106,7 +106,7 @@ class ChefPosteRequiredMixin(UserPassesTestMixin):
         # Vérifier la connexion et les rôles appropriés
         return (
             self.request.user.is_authenticated and 
-            (self.request.user.is_chef_poste() or self.request.user.is_admin)
+            (self.request.user.is_chef_poste() or self.request.user.is_superuser or self.request.user.is_staff)
         )
     
     def handle_no_permission(self):

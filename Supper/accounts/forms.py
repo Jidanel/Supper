@@ -122,58 +122,58 @@ from django.utils.html import format_html
 from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur
 from .forms import PosteForm
 
-@admin.register(Poste)
-class PosteAdmin(admin.ModelAdmin):
-    form = PosteForm
+# @admin.register(Poste)
+# class PosteAdmin(admin.ModelAdmin):
+#     form = PosteForm
     
-    list_display = [
-        'nom', 'code', 'type', 
-        'region', 'departement', 'actif_status'
-    ]
-    list_filter = ['type', 'region', 'is_active']
-    search_fields = ['nom', 'code', 'localisation']
-    ordering = ['region', 'nom']
+#     list_display = [
+#         'nom', 'code', 'type', 
+#         'region', 'departement', 'actif_status'
+#     ]
+#     list_filter = ['type', 'region', 'is_active']
+#     search_fields = ['nom', 'code', 'localisation']
+#     ordering = ['region', 'nom']
     
-    fieldsets = (
-        ('Informations générales', {
-            'fields': ('nom', 'code', 'type')
-        }),
-        ('Localisation', {
-            'fields': ('region', 'departement', 'arrondissement', 'localisation')
-        }),
-        ('Coordonnées GPS', {
-            'fields': ('latitude', 'longitude'),
-            'classes': ('collapse',)
-        }),
-        ('Informations complémentaires', {
-            'fields': ('actif', 'date_ouverture', 'observations')
-        }),
-    )
+#     fieldsets = (
+#         ('Informations générales', {
+#             'fields': ('nom', 'code', 'type')
+#         }),
+#         ('Localisation', {
+#             'fields': ('region', 'departement', 'arrondissement', 'localisation')
+#         }),
+#         ('Coordonnées GPS', {
+#             'fields': ('latitude', 'longitude'),
+#             'classes': ('collapse',)
+#         }),
+#         ('Informations complémentaires', {
+#             'fields': ('actif', 'date_ouverture', 'observations')
+#         }),
+#     )
     
-    def type_poste_colored(self, obj):
-        colors = {
-            'peage': 'success',
-            'pesage': 'info'
-        }
-        color = colors.get(obj.type_poste, 'secondary')
-        return format_html(
-            '<span class="badge bg-{}">{}</span>',
-            color, obj.get_type_poste_display()
-        )
-    type_poste_colored.short_description = 'Type'
+#     def type_poste_colored(self, obj):
+#         colors = {
+#             'peage': 'success',
+#             'pesage': 'info'
+#         }
+#         color = colors.get(obj.type_poste, 'secondary')
+#         return format_html(
+#             '<span class="badge bg-{}">{}</span>',
+#             color, obj.get_type_poste_display()
+#         )
+#     type_poste_colored.short_description = 'Type'
     
-    def actif_status(self, obj):
-        if obj.is_active:
-            return format_html(
-                '<span class="badge bg-success">Actif</span>'
-            )
-        return format_html(
-            '<span class="badge bg-danger">Inactif</span>'
-        )
-    actif_status.short_description = 'Statut'
+#     def actif_status(self, obj):
+#         if obj.is_active:
+#             return format_html(
+#                 '<span class="badge bg-success">Actif</span>'
+#             )
+#         return format_html(
+#             '<span class="badge bg-danger">Inactif</span>'
+#         )
+#     actif_status.short_description = 'Statut'
     
-    class Media:
-        js = ('admin/js/region_departement.js',)
+#     class Media:
+#         js = ('admin/js/region_departement.js',)
 
 class CustomLoginForm(LoginView):
     """

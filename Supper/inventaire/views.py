@@ -4,7 +4,7 @@
 # ===================================================================
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required,user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
@@ -2051,6 +2051,96 @@ def diagnostic_inventaires_view(request):
         logger.error(f"Erreur diagnostic inventaires: {str(e)}")
         messages.error(request, _("Erreur lors du diagnostic."))
         return redirect('inventaire:inventaire_list')
+
+import calendar
+from datetime import date
+
+def is_admin(user):
+    """Vérifier si l'utilisateur est admin"""
+    return user.is_authenticated and user.is_superuser
+
+@login_required
+@user_passes_test(is_admin)
+def gerer_jours_inventaire(request, inventaire_id):
+    """Vue pour gérer les jours d'activation d'un inventaire mensuel"""
+    
+    # Pour l'instant, utiliser l'inventaire journalier
+    # (Plus tard, remplacer par InventaireMensuel quand le modèle sera créé)
+    
+    # Récupérer le mois et l'année depuis l'inventaire
+    # Pour le test, on va utiliser le mois et année courants
+    today = date.today()
+    mois = today.month
+    annee = today.year
+    
+    # Obtenir le calendrier du mois
+    cal = calendar.monthcalendar(annee, mois)
+    
+    # Obtenir les jours actuellement ouverts
+    jours_actifs = []
+    nb_jours = calendar.monthrange(annee, mois)[1]
+    
+    for jour in range(1, nb_jours + 1):
+        date_jour = date(annee, mois, jour)
+        config = ConfigurationJour.objects.filter(date=date_jour).first()
+        if config and config.statut == 'ouvert':
+            jours_actifs.append(jour)
+    
+    if request.method == 'POST':
+        # Traiter l'activation/désactivation des jours
+        jours_a_activer = request.POST.getlist('jours_actifs')
+        
+        for jour in range(1, nb_jours + 1):
+            date_jour = date(annee, mois, jour)
+            
+            if str(jour) in jours_a_activer:
+                # Activer le jour
+                config, created = ConfigurationJour.objects.get_or_create(
+                    date=date_jour,
+                    defaults={
+                        'statut': 'ouvert',
+                        'cree_par': request.user,
+                        'commentaire': f'Activé pour inventaire du {mois}/{annee}'
+                    }
+                )
+                if not created and config.statut != 'ouvert':
+                    config.statut = 'ouvert'
+                    config.save()
+            else:
+                # Désactiver le jour
+                config, created = ConfigurationJour.objects.get_or_create(
+                    date=date_jour,
+                    defaults={
+                        'statut': 'ferme',
+                        'cree_par': request.user,
+                        'commentaire': f'Fermé pour inventaire du {mois}/{annee}'
+                    }
+                )
+                if not created and config.statut != 'ferme':
+                    config.statut = 'ferme'
+                    config.save()
+        
+        messages.success(request, f"Les jours du mois {mois}/{annee} ont été mis à jour.")
+        return redirect('admin:inventaire_inventairejournalier_changelist')
+    
+    # Créer un objet fictif pour le template
+    inventaire = {
+        'id': inventaire_id,
+        'titre': f'Inventaire {calendar.month_name[mois]} {annee}',
+        'mois': mois,
+        'annee': annee,
+        'description': 'Gestion des jours d\'activation pour la saisie',
+        'get_nombre_postes': lambda: 'Tous les postes'
+    }
+    
+    context = {
+        'inventaire': inventaire,
+        'calendrier': cal,
+        'jours_actifs': jours_actifs,
+        'title': f'Gérer les jours - {calendar.month_name[mois]} {annee}',
+    }
+    
+    return render(request, 'admin/inventaire/gerer_jours.html', context)
 
 
 # # ===================================================================

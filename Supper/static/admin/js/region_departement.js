@@ -1,4 +1,4 @@
-<!-- Créer le fichier : Supper/static/admin/js/region_departement.js -->
+// <!-- Créer le fichier : Supper/static/admin/js/region_departement.js -->
 <script>
 // Dictionnaire des départements par région du Cameroun
 const DEPARTEMENTS_CAMEROUN = {
@@ -39,7 +39,7 @@ const DEPARTEMENTS_CAMEROUN = {
     ]
 };
 
-// Fonction pour mettre à jour les départements selon la région sélectionnée
+
 function updateDepartements() {
     const regionSelect = document.getElementById('id_region');
     const departementSelect = document.getElementById('id_departement');

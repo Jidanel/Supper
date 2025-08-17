@@ -100,22 +100,25 @@ WSGI_APPLICATION = 'Supper.wsgi.application'
 # ===================================================================
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='supper_db'),
-        'USER': config('DB_USER', default='supper_user'),
-        'PASSWORD': config('DB_PASSWORD', default='SupperDB2025'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
-        'CONN_MAX_AGE': 60,
-    }
-}
-# Fallback SQLite pour les tests si PostgreSQL non disponible
-if config('USE_SQLITE_FOR_TESTS', default=False, cast=bool):
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_test.sqlite3',
-    }
+     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': config('DB_NAME', default='supper_db'),
+#         'USER': config('DB_USER', default='supper_user'),
+#         'PASSWORD': config('DB_PASSWORD', default='SupperDB2025'),
+#         'HOST': config('DB_HOST', default='localhost'),
+#         'PORT': config('DB_PORT', default='5432'),
+#         'CONN_MAX_AGE': 60,
+
+         'ENGINE': 'django.db.backends.sqlite3',
+         'NAME': BASE_DIR / 'db_test.sqlite3',
+     }
+ }
+# # Fallback SQLite pour les tests si PostgreSQL non disponible
+# if config('USE_SQLITE_FOR_TESTS', default=False, cast=bool):
+#     DATABASES['default'] = {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db_test.sqlite3',
+#     }
 
 # ===================================================================
 # VALIDATION DES MOTS DE PASSE
