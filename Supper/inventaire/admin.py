@@ -760,6 +760,94 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
         return '-'
     taux_deperdition_colored.short_description = 'Taux déperdition'
     taux_deperdition_colored.admin_order_field = 'taux_deperdition'
+
+    def inventaire_lie(self, obj):
+        """Affiche si l'inventaire est lié"""
+        if obj.inventaire_associe:
+            return format_html(
+                '<span style="color: green;">✓ Lié</span>'
+            )
+        else:
+            return format_html(
+                '<span style="color: red;">✗ Non lié</span>'
+            )
+    inventaire_lie.short_description = 'Inventaire'
+    
+    def debug_calculs(self, obj):
+        """Affichage de debug pour comprendre les calculs"""
+        if obj.inventaire_associe:
+            stats = obj.inventaire_associe.get_statistiques_detaillees()
+            
+            if 'erreur' in stats:
+                return format_html('<div style="color: red;">{}</div>', stats['erreur'])
+            
+            html = """
+            <div style="font-family: monospace; font-size: 12px;">
+                <strong>Détails du calcul :</strong><br>
+                • Somme véhicules : {somme_vehicules}<br>
+                • Nombre périodes : {nombre_periodes}<br>
+                • Moyenne horaire : {moyenne_horaire}<br>
+                • Estimation 24h : {estimation_24h}<br>
+                • Véhicules effectifs (75%) : {vehicules_effectifs_75%}<br>
+                • Recette potentielle : {recette_potentielle} FCFA<br>
+                <br>
+                <strong>Résultat :</strong><br>
+                • Montant déclaré : {montant_declare} FCFA<br>
+                • Écart : {ecart} FCFA<br>
+                • Taux déperdition : {td}%
+            </div>
+            """.format(
+                **stats,
+                montant_declare=obj.montant_declare,
+                ecart=obj.ecart or 'N/A',
+                td=f"{obj.taux_deperdition:.2f}" if obj.taux_deperdition else 'N/A'
+            )
+            
+            return format_html(html)
+        else:
+            return "Aucun inventaire associé"
+    
+    debug_calculs.short_description = 'Debug calculs'
+    
+    # Actions personnalisées
+    actions = ['recalculer_indicateurs', 'forcer_liaison_inventaire']
+    
+    def recalculer_indicateurs(self, request, queryset):
+        """Action pour recalculer les indicateurs"""
+        count = 0
+        for recette in queryset:
+            recette.calculer_indicateurs()
+            recette.save()
+            count += 1
+        
+        self.message_user(
+            request,
+            f"{count} recette(s) recalculée(s) avec succès."
+        )
+    recalculer_indicateurs.short_description = "Recalculer les indicateurs sélectionnés"
+    
+    def forcer_liaison_inventaire(self, request, queryset):
+        """Action pour forcer la liaison avec l'inventaire"""
+        from .models import InventaireJournalier
+        count = 0
+        
+        for recette in queryset:
+            try:
+                inventaire = InventaireJournalier.objects.get(
+                    poste=recette.poste,
+                    date=recette.date
+                )
+                recette.inventaire_associe = inventaire
+                recette.save()
+                count += 1
+            except InventaireJournalier.DoesNotExist:
+                continue
+        
+        self.message_user(
+            request,
+            f"{count} recette(s) liée(s) à leur inventaire."
+        )
+    forcer_liaison_inventaire.short_description = "Forcer la liaison avec l'inventaire"
     
     def status_recette(self, obj):
         """Statut de la recette"""
@@ -803,19 +891,6 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
     
     actions = ['recalculer_indicateurs', 'verrouiller_recettes', 'export_recettes']
     
-    def recalculer_indicateurs(self, request, queryset):
-        """Recalcule les indicateurs pour les recettes sélectionnées"""
-        updated = 0
-        for recette in queryset:
-            recette.calculer_indicateurs()
-            recette.save()
-            updated += 1
-        
-        self.message_user(
-            request, 
-            f'{updated} recette(s) recalculée(s) avec succès.'
-        )
-    recalculer_indicateurs.short_description = "Recalculer les indicateurs"
     
     def verrouiller_recettes(self, request, queryset):
         """Verrouille les recettes sélectionnées"""

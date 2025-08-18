@@ -20,6 +20,7 @@ from django.utils import timezone
 from django.db import models
 from datetime import datetime, date, timedelta
 import json
+from django.views.decorators.csrf import csrf_exempt
 import logging
 
 logger = logging.getLogger('supper')
@@ -62,10 +63,14 @@ class AdminRequiredMixin(UserPassesTestMixin):
 
 
 def _check_admin_permission(user):
-    """Vérifier les permissions administrateur"""
-    return (user.is_superuser or 
-            user.is_staff or 
-            user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'])
+    """Vérifier les permissions administrateur - FONCTION CORRIGÉE"""
+    return (user.is_authenticated and (
+        user.is_superuser or 
+        user.is_staff or 
+        hasattr(user, 'habilitation') and user.habilitation in [
+            'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'
+        ]
+    ))
 
 
 def _log_inventaire_action(request, action, details=""):
@@ -2384,3 +2389,239 @@ def changer_agent_poste(request, poste_id):
     }
     
     return render(request, 'inventaire/changer_agent_poste.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt  # Pour les appels AJAX depuis le dashboard
+def action_ouvrir_semaine(request):
+    """Action rapide : Ouvrir tous les jours de la semaine courante"""
+    
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
+    
+    try:
+        # Obtenir les jours de la semaine courante (lundi à vendredi)
+        today = date.today()
+        start_week = today - timedelta(days=today.weekday())  # Lundi
+        
+        jours_ouverts = 0
+        
+        for i in range(5):  # Lundi à vendredi
+            jour = start_week + timedelta(days=i)
+            
+            # Ouvrir le jour globalement
+            config = ConfigurationJour.ouvrir_jour_global(
+                date=jour,
+                admin_user=request.user,
+                commentaire=f"Ouverture automatique semaine du {start_week.strftime('%d/%m/%Y')}",
+                permet_inventaire=True,
+                permet_recette=True
+            )
+            
+            jours_ouverts += 1
+        
+        # Journaliser l'action
+        _log_inventaire_action(
+            request,
+            "Ouverture semaine courante",
+            f"Semaine du {start_week.strftime('%d/%m/%Y')} - {jours_ouverts} jours ouverts"
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Semaine courante ouverte avec succès ({jours_ouverts} jours ouvrables)'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur ouverture semaine: {str(e)}")
+        return JsonResponse({
+            'success': False, 
+            'message': f'Erreur lors de l\'ouverture de la semaine: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def action_fermer_anciens(request):
+    """Action rapide : Fermer tous les jours antérieurs à aujourd'hui"""
+    
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
+    
+    try:
+        today = date.today()
+        
+        # Fermer tous les jours ouverts antérieurs à aujourd'hui
+        configurations_anciennes = ConfigurationJour.objects.filter(
+            date__lt=today,
+            statut=StatutJour.OUVERT
+        )
+        
+        jours_fermes = 0
+        
+        for config in configurations_anciennes:
+            config.statut = StatutJour.FERME
+            config.permet_saisie_inventaire = False
+            config.permet_saisie_recette = False
+            config.commentaire = f"Fermé automatiquement le {today.strftime('%d/%m/%Y')}"
+            config.save()
+            jours_fermes += 1
+        
+        # Journaliser l'action
+        _log_inventaire_action(
+            request,
+            "Fermeture jours anciens",
+            f"{jours_fermes} jours antérieurs à {today.strftime('%d/%m/%Y')} fermés"
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{jours_fermes} jour(s) ancien(s) fermé(s) avec succès'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur fermeture anciens: {str(e)}")
+        return JsonResponse({
+            'success': False, 
+            'message': f'Erreur lors de la fermeture: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def action_marquer_impertinent(request):
+    """Action rapide : Marquer un jour comme impertinent"""
+    
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
+    
+    try:
+        # Récupérer les données de la requête
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+        else:
+            data = request.POST
+        
+        date_str = data.get('date')
+        commentaire = data.get('commentaire', '')
+        poste_id = data.get('poste_id')
+        
+        if not date_str:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Date requise'
+            }, status=400)
+        
+        # Valider et parser la date
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Format de date invalide (YYYY-MM-DD requis)'
+            }, status=400)
+        
+        # Déterminer le poste
+        poste = None
+        if poste_id:
+            try:
+                poste = Poste.objects.get(id=poste_id)
+            except Poste.DoesNotExist:
+                return JsonResponse({
+                    'success': False, 
+                    'message': 'Poste non trouvé'
+                }, status=404)
+        
+        # Marquer comme impertinent
+        config = ConfigurationJour.marquer_impertinent(
+            date=target_date,
+            admin_user=request.user,
+            poste=poste,
+            commentaire=commentaire or f"Marqué impertinent par {request.user.nom_complet}"
+        )
+        
+        # Journaliser l'action
+        poste_str = f" pour {poste.nom}" if poste else " (global)"
+        _log_inventaire_action(
+            request,
+            "Marquage jour impertinent",
+            f"Date: {target_date.strftime('%d/%m/%Y')}{poste_str} - Commentaire: {commentaire}"
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Jour {target_date.strftime("%d/%m/%Y")}{poste_str} marqué comme impertinent'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur marquage impertinent: {str(e)}")
+        return JsonResponse({
+            'success': False, 
+            'message': f'Erreur lors du marquage: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def redirect_to_dashboard(request):
+    """Redirection vers le dashboard approprié selon le rôle"""
+    if request.user.is_authenticated:
+        return redirect('admin:index')  # Rediriger vers l'admin Django
+    else:
+        return redirect('accounts:login')
+
+
+# ===================================================================
+# AMÉLIORATION : API pour les notifications temps réel
+# ===================================================================
+
+@login_required
+@require_http_methods(["GET"])
+def api_notifications(request):
+    """API pour récupérer les notifications utilisateur"""
+    try:
+        user = request.user
+        
+        # Simuler des notifications (à remplacer par vraies notifications plus tard)
+        notifications = {
+            'unread_count': 0,
+            'new_notifications': []
+        }
+        
+        # Vérifier s'il y a des inventaires en attente pour l'utilisateur
+        if user.peut_gerer_inventaire:
+            today = timezone.now().date()
+            
+            # Inventaires non verrouillés de plus de 2 jours
+            inventaires_en_retard = InventaireJournalier.objects.filter(
+                date__lt=today - timedelta(days=2),
+                verrouille=False
+            )
+            
+            if user.poste_affectation:
+                inventaires_en_retard = inventaires_en_retard.filter(
+                    poste=user.poste_affectation
+                )
+            
+            count_retard = inventaires_en_retard.count()
+            if count_retard > 0:
+                notifications['unread_count'] += 1
+                notifications['new_notifications'].append({
+                    'type': 'warning',
+                    'message': f'{count_retard} inventaire(s) en retard de verrouillage'
+                })
+        
+        # Vérifier les jours fermés pour aujourd'hui
+        if not ConfigurationJour.est_jour_ouvert_pour_inventaire(timezone.now().date()):
+            notifications['unread_count'] += 1
+            notifications['new_notifications'].append({
+                'type': 'info',
+                'message': 'Jour actuel fermé pour la saisie'
+            })
+        
+        return JsonResponse(notifications)
+        
+    except Exception as e:
+        logger.error(f"Erreur API notifications: {str(e)}")
+        return JsonResponse({'unread_count': 0, 'new_notifications': []})

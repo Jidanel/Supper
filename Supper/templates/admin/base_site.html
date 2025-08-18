@@ -1,5 +1,6 @@
 <!-- ===================================================================
-     templates/admin/base_site.html - NOUVEAU TEMPLATE avec design violet
+     templates/admin/base_site.html - VERSION FINALE COMPLÈTE
+     Design violet professionnel avec toutes les corrections appliquées
      ================================================================== -->
 {% load static %}
 {% load i18n %}
@@ -27,8 +28,255 @@
     <link rel="icon" type="image/x-icon" href="{% static 'admin/img/favicon.ico' %}">
     <link rel="stylesheet" type="text/css" href="{% static 'css/calendrier-widget.css' %}">
 
-<!-- 🔧 AJOUTER avant la fermeture </body> : -->
-<script src="{% static 'js/calendrier-widget.js' %}"></script>
+    <!-- Variables CSS pour le thème violet -->
+    <style>
+        :root {
+            --violet-principal: #6B46C1;
+            --violet-fonce: #553C9A;
+            --violet-clair: #8B5CF6;
+            --blanc-pur: #FFFFFF;
+            --gris-clair: #F8FAFC;
+            --gris-moyen: #64748B;
+            --gris-fonce: #334155;
+            --accent-orange: #F59E0B;
+            --success-vert: #10B981;
+            --warning-orange: #F59E0B;
+            --danger-rouge: #EF4444;
+        }
+
+        /* Header avec design violet professionnel */
+        .header-violet {
+            background: linear-gradient(135deg, var(--violet-principal) 0%, var(--violet-fonce) 100%);
+            box-shadow: 0 4px 20px rgba(107, 70, 193, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-section h1 {
+            color: white;
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 0.9rem;
+            font-weight: 300;
+        }
+
+        /* Navigation principale */
+        .main-navigation .nav-links {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.9) !important;
+            text-decoration: none;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255,255,255,0.15);
+            color: white !important;
+            transform: translateY(-1px);
+        }
+
+        /* Dropdowns */
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            padding: 0.5rem 0;
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background: var(--violet-clair);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .dropdown-header {
+            font-weight: 600;
+            color: var(--violet-principal);
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Section utilisateur */
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .notification-btn {
+            position: relative;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--accent-orange);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .user-info {
+            text-align: right;
+            color: white;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .user-role {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        /* Contenu principal */
+        .main-content {
+            min-height: calc(100vh - 80px);
+            background: var(--gris-clair);
+        }
+
+        .content-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .breadcrumb-item a {
+            color: var(--violet-principal);
+            text-decoration: none;
+        }
+
+        .breadcrumb-item.active {
+            color: var(--gris-fonce);
+        }
+
+        /* Messages */
+        .messages-container .alert {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Dashboard welcome */
+        .dashboard-welcome .welcome-card {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .welcome-card h2 {
+            color: var(--violet-principal);
+            margin-bottom: 1rem;
+        }
+
+        /* Footer */
+        .main-footer {
+            border-top: 1px solid #e5e7eb;
+            margin-top: auto;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .main-navigation .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .content-wrapper {
+                padding: 1rem;
+            }
+        }
+
+        /* Animation pour les boutons d'action */
+        .btn-action {
+            transition: all 0.3s ease;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        /* Styles pour les badges de statut */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-success { background: rgba(16, 185, 129, 0.1); color: var(--success-vert); }
+        .status-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning-orange); }
+        .status-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger-rouge); }
+    </style>
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
@@ -50,158 +298,148 @@
         </div>
 
         <!-- Navigation principale -->
-       <nav class="main-navigation">
-    <ul class="nav-links">
-        <li>
-            <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                <i class="fas fa-tachometer-alt me-1"></i>
-                {% trans "Tableau de Bord" %}
-            </a>
-        </li>
-        
-        {% if user.peut_gerer_inventaire %}
-        <li class="dropdown">
-            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-clipboard-list me-1"></i>
-                {% trans "Inventaires" %}
-            </a>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_add' %}">
-                    <i class="fas fa-plus me-2"></i>{% trans "Nouvel Inventaire" %}
-                </a></li>
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_changelist' %}">
-                    <i class="fas fa-list me-2"></i>{% trans "Liste Inventaires" %}
-                </a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="/admin/tools/saisie-inventaire/">
-                    <i class="fas fa-keyboard me-2"></i>{% trans "Saisie Rapide" %}
-                </a></li>
-            </ul>
-        </li>
-        {% endif %}
+        <nav class="main-navigation">
+            <ul class="nav-links">
+                <li>
+                    <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                        <i class="fas fa-tachometer-alt me-1"></i>
+                        {% trans "Tableau de Bord" %}
+                    </a>
+                </li>
+                
+                {% if user.peut_gerer_inventaire %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-clipboard-list me-1"></i>
+                        {% trans "Inventaires" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_add' %}">
+                            <i class="fas fa-plus me-2"></i>{% trans "Nouvel Inventaire" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_changelist' %}">
+                            <i class="fas fa-list me-2"></i>{% trans "Liste Inventaires" %}
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'inventaire:saisie_inventaire' %}">
+                            <i class="fas fa-keyboard me-2"></i>{% trans "Saisie Rapide" %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
 
-        <!-- =============================================== -->
-        <!-- NOUVEAU MENU : GESTION DES JOURS ET PLANIFICATION -->
-        <!-- =============================================== -->
-        {% if user.is_superuser or user.peut_gerer_inventaire %}
-        <li class="dropdown">
-            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-calendar-check me-1"></i>
-                {% trans "Planification" %}
-            </a>
-            <ul class="dropdown-menu">
-                <!-- Inventaires Mensuels -->
-                <li><h6 class="dropdown-header text-primary">
-                    <i class="fas fa-calendar-alt me-1"></i>{% trans "Inventaires Mensuels" %}
-                </h6></li>
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairemensuel_add' %}">
-                    <i class="fas fa-plus me-2 text-success"></i>{% trans "Créer Inventaire Mensuel" %}
-                </a></li>
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairemensuel_changelist' %}">
-                    <i class="fas fa-list-alt me-2 text-info"></i>{% trans "Gérer Inventaires Mensuels" %}
-                </a></li>
-                
-                <li><hr class="dropdown-divider"></li>
-                
-                <!-- Gestion des Jours -->
-                <li><h6 class="dropdown-header text-warning">
-                    <i class="fas fa-clock me-1"></i>{% trans "Gestion des Jours" %}
-                </h6></li>
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
-                    <i class="fas fa-calendar-day me-2 text-primary"></i>{% trans "Configuration des Jours" %}
-                </a></li>
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_add' %}">
-                    <i class="fas fa-calendar-plus me-2 text-success"></i>{% trans "Ouvrir/Fermer un Jour" %}
-                </a></li>
-                
+                <!-- MENU PLANIFICATION CORRIGÉ -->
+                {% if user.is_superuser or user.peut_gerer_inventaire %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar-check me-1"></i>
+                        {% trans "Planification" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <!-- Inventaires Mensuels -->
+                        <li><h6 class="dropdown-header text-primary">
+                            <i class="fas fa-calendar-alt me-1"></i>{% trans "Inventaires Mensuels" %}
+                        </h6></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairemensuel_add' %}">
+                            <i class="fas fa-plus me-2 text-success"></i>{% trans "Créer Inventaire Mensuel" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairemensuel_changelist' %}">
+                            <i class="fas fa-list-alt me-2 text-info"></i>{% trans "Gérer Inventaires Mensuels" %}
+                        </a></li>
+                        
+                        <li><hr class="dropdown-divider"></li>
+                        
+                        <!-- Gestion des Jours -->
+                        <li><h6 class="dropdown-header text-warning">
+                            <i class="fas fa-clock me-1"></i>{% trans "Gestion des Jours" %}
+                        </h6></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
+                            <i class="fas fa-calendar-day me-2 text-primary"></i>{% trans "Configuration des Jours" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_add' %}">
+                            <i class="fas fa-calendar-plus me-2 text-success"></i>{% trans "Ouvrir/Fermer un Jour" %}
+                        </a></li>
+                        
+                        {% if user.is_superuser %}
+                        <li><hr class="dropdown-divider"></li>
+                        
+                        <!-- Actions Administratives CORRIGÉES -->
+                        <li><h6 class="dropdown-header text-danger">
+                            <i class="fas fa-tools me-1"></i>{% trans "Actions Rapides" %}
+                        </h6></li>
+                        <li><a class="dropdown-item btn-action" href="#" onclick="ouvrirSemaineEnCours(); return false;">
+                            <i class="fas fa-unlock me-2 text-success"></i>{% trans "Ouvrir Semaine Courante" %}
+                        </a></li>
+                        <li><a class="dropdown-item btn-action" href="#" onclick="fermerJoursAnciens(); return false;">
+                            <i class="fas fa-lock me-2 text-danger"></i>{% trans "Fermer Jours Anciens" %}
+                        </a></li>
+                        <li><a class="dropdown-item btn-action" href="#" onclick="marquerJourImpertinent(); return false;">
+                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>{% trans "Marquer Jour Impertinent" %}
+                        </a></li>
+                        {% endif %}
+                    </ul>
+                </li>
+                {% endif %}
+
+                {% if user.peut_gerer_peage or user.peut_gerer_pesage %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-money-bill-wave me-1"></i>
+                        {% trans "Recettes" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_add' %}">
+                            <i class="fas fa-plus me-2"></i>{% trans "Nouvelle Recette" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_changelist' %}">
+                            <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+
+                {% if user.peut_gerer_personnel %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-users me-1"></i>
+                        {% trans "Personnel" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
+                            <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
+                            <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
+                            <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+
                 {% if user.is_superuser %}
-                <li><hr class="dropdown-divider"></li>
-                
-                <!-- Actions Administratives -->
-                <li><h6 class="dropdown-header text-danger">
-                    <i class="fas fa-tools me-1"></i>{% trans "Actions Rapides" %}
-                </h6></li>
-                <li><a class="dropdown-item" href="#" onclick="ouvrirSemaineEnCours()">
-                    <i class="fas fa-unlock me-2 text-success"></i>{% trans "Ouvrir Semaine Courante" %}
-                </a></li>
-                <li><a class="dropdown-item" href="#" onclick="fermerJoursAnciens()">
-                    <i class="fas fa-lock me-2 text-danger"></i>{% trans "Fermer Jours Anciens" %}
-                </a></li>
-                <li><a class="dropdown-item" href="#" onclick="marquerJourImpertinent()">
-                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>{% trans "Marquer Jour Impertinent" %}
-                </a></li>
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-cogs me-1"></i>
+                        {% trans "Administration" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
+                            <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
+                            <i class="fas fa-calendar-alt me-2"></i>{% trans "Configuration Jours" %}
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin/">
+                            <i class="fas fa-tools me-2"></i>{% trans "Administration Avancée" %}
+                        </a></li>
+                    </ul>
+                </li>
                 {% endif %}
             </ul>
-        </li>
-        {% endif %}
-
-        {% if user.peut_gerer_peage or user.peut_gerer_pesage %}
-        <li class="dropdown">
-            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-money-bill-wave me-1"></i>
-                {% trans "Recettes" %}
-            </a>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_add' %}">
-                    <i class="fas fa-plus me-2"></i>{% trans "Nouvelle Recette" %}
-                </a></li>
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_changelist' %}">
-                    <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
-                </a></li>
-            </ul>
-        </li>
-        {% endif %}
-
-        <!-- Reste du menu inchangé... -->
-        {% if user.peut_gerer_personnel %}
-        <li class="dropdown">
-            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-users me-1"></i>
-                {% trans "Personnel" %}
-            </a>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
-                    <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
-                </a></li>
-                <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
-                    <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
-                </a></li>
-                <li>
-            <a class="dropdown-item" href="{% url 'accounts:user_list' %}">
-                <i class="fas fa-list me-2"></i>
-                {% trans "Voir tous les utilisateurs" %}
-            </a>
-        </li>
-       
-                <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
-                    <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
-                </a></li>
-            </ul>
-        </li>
-        {% endif %}
-
-        {% if user.is_superuser %}
-        <li class="dropdown">
-            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-cogs me-1"></i>
-                {% trans "Administration" %}
-            </a>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
-                    <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
-                </a></li>
-                <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
-                    <i class="fas fa-calendar-alt me-2"></i>{% trans "Configuration Jours" %}
-                </a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="/admin/">
-                    <i class="fas fa-tools me-2"></i>{% trans "Administration Avancée" %}
-                </a></li>
-            </ul>
-        </li>
-        {% endif %}
-    </ul>
-</nav>
+        </nav>
 
         <!-- Section utilisateur -->
         <div class="user-section">
@@ -209,7 +447,7 @@
             <div class="notification-btn me-3">
                 <button class="btn btn-link text-white p-2" data-bs-toggle="dropdown">
                     <i class="fas fa-bell fs-5"></i>
-                    <span class="notification-badge">3</span>
+                    <span class="notification-badge" style="display: none;">0</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><h6 class="dropdown-header">{% trans "Notifications" %}</h6></li>
@@ -302,6 +540,14 @@
                     <div class="welcome-card">
                         <h2>{% trans "Bienvenue dans SUPPER" %}</h2>
                         <p class="text-muted">{% trans "Système de Suivi des Péages et Pesages Routiers" %}</p>
+                        <div class="mt-4">
+                            <span class="status-badge status-success me-2">
+                                <i class="fas fa-check me-1"></i>{% trans "Système Opérationnel" %}
+                            </span>
+                            <span class="status-badge status-warning">
+                                <i class="fas fa-user me-1"></i>{{ user.get_habilitation_display }}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -331,126 +577,72 @@
 <!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'js/calendrier-widget.js' %}"></script>
 
-<!-- JavaScript personnalisé -->
+<!-- JavaScript personnalisé COMPLET -->
 <script>
-// Initialisation des tooltips Bootstrap
+// Configuration globale
+const SUPPER_CONFIG = {
+    CSRF_TOKEN: '{{ csrf_token }}',
+    API_ENDPOINTS: {
+        OUVRIR_SEMAINE: "{% url 'action_ouvrir_semaine' %}",
+        FERMER_ANCIENS: "{% url 'action_fermer_anciens' %}",
+        MARQUER_IMPERTINENT: "{% url 'action_marquer_impertinent' %}",
+        NOTIFICATIONS: "{% url 'inventaire:api_notifications' %}"
+    },
+    USER: {
+        IS_SUPERUSER: {{ user.is_superuser|yesno:"true,false" }},
+        USERNAME: "{{ user.username }}"
+    }
+};
+
+// Initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    console.log('🚀 SUPPER System Loading...');
+    
+    // Initialiser tooltips Bootstrap
+    initializeTooltips();
     
     // Animation fade-in pour le contenu
-    document.querySelector('.content-wrapper').classList.add('fade-in');
+    document.querySelector('.content-wrapper').style.opacity = '1';
+    
+    // Améliorations UX
+    enhanceUserExperience();
+    
+    // Vérifier les notifications
+    checkNotifications();
+    
+    // Configurer les intervals
+    setupIntervals();
+    
+    console.log('✅ SUPPER System Ready!');
 });
 
-// Fonction pour les notifications temps réel (à implémenter)
-function checkNotifications() {
-    // TODO: Implémentation AJAX pour vérifier les nouvelles notifications
-}
-
-// Vérifier les notifications toutes les 30 secondes
-setInterval(checkNotifications, 30000);
-function ouvrirSemaineEnCours() {
-    if (confirm('{% trans "Voulez-vous ouvrir tous les jours ouvrables de la semaine courante ?" %}')) {
-        fetch('/admin/actions/ouvrir-semaine/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                action: 'ouvrir_semaine_courante'
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('success', data.message);
-                // Recharger la page si on est sur la liste des configurations
-                if (window.location.pathname.includes('configurationjour')) {
-                    location.reload();
-                }
-            } else {
-                showNotification('error', data.message || '{% trans "Erreur lors de l'opération" %}');
+function initializeTooltips() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingState();
+        if (data.success) {
+            showNotification('success', data.message);
+            if (window.location.pathname.includes('configurationjour')) {
+                setTimeout(() => location.reload(), 1500);
             }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
-        });
-    }
+        } else {
+            showNotification('error', data.message || '{% trans "Erreur lors de l'opération" %}');
+        }
+    })
+    .catch(error => {
+        hideLoadingState();
+        console.error('Erreur:', error);
+        showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
+    });
 }
 
-function fermerJoursAnciens() {
-    if (confirm('{% trans "Voulez-vous fermer tous les jours antérieurs à aujourd'hui ?" %}')) {
-        fetch('/admin/actions/fermer-anciens/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                action: 'fermer_jours_anciens'
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('success', data.message);
-                if (window.location.pathname.includes('configurationjour')) {
-                    location.reload();
-                }
-            } else {
-                showNotification('error', data.message || '{% trans "Erreur lors de l'opération" %}');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
-        });
-    }
-}
-
-function marquerJourImpertinent() {
-    const date = prompt('{% trans "Entrez la date à marquer comme impertinente (YYYY-MM-DD):" %}');
-    if (date && isValidDate(date)) {
-        const commentaire = prompt('{% trans "Commentaire (optionnel):" %}') || '';
-        
-        fetch('/admin/actions/marquer-impertinent/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                action: 'marquer_impertinent',
-                date: date,
-                commentaire: commentaire
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('success', data.message);
-                if (window.location.pathname.includes('configurationjour')) {
-                    location.reload();
-                }
-            } else {
-                showNotification('error', data.message || '{% trans "Erreur lors de l'opération" %}');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
-        });
-    } else if (date) {
-        showNotification('error', '{% trans "Format de date invalide. Utilisez YYYY-MM-DD" %}');
-    }
-}
-
-// Fonctions utilitaires
+// FONCTIONS UTILITAIRES
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -480,47 +672,88 @@ function isValidDate(dateString) {
 
 function showNotification(type, message) {
     // Créer une notification Bootstrap dynamique
-    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-    const iconClass = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'warning' ? 'alert-warning' : 
+                      type === 'info' ? 'alert-info' : 'alert-danger';
+    
+    const iconClass = type === 'success' ? 'fas fa-check-circle' : 
+                     type === 'warning' ? 'fas fa-exclamation-triangle' :
+                     type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
     
     const alertHTML = `
-        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+        <div class="alert ${alertClass} alert-dismissible fade show notification-dynamic" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
             <i class="${iconClass} me-2"></i>
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
     
-    // Insérer la notification en haut du contenu
-    const contentWrapper = document.querySelector('.content-wrapper');
-    if (contentWrapper) {
-        contentWrapper.insertAdjacentHTML('afterbegin', alertHTML);
-        
-        // Auto-supprimer après 5 secondes
-        setTimeout(() => {
-            const alert = contentWrapper.querySelector('.alert');
-            if (alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }
-        }, 5000);
+    // Insérer la notification dans le body
+    document.body.insertAdjacentHTML('beforeend', alertHTML);
+    
+    // Auto-supprimer après 5 secondes
+    setTimeout(() => {
+        const notification = document.querySelector('.notification-dynamic');
+        if (notification) {
+            const bsAlert = new bootstrap.Alert(notification);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+
+function showLoadingState(message) {
+    // Créer ou mettre à jour l'indicateur de chargement
+    let loadingElement = document.getElementById('supper-loading');
+    
+    if (!loadingElement) {
+        const loadingHTML = `
+            <div id="supper-loading" class="loading-overlay" style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(107, 70, 193, 0.9);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                color: white;
+                font-size: 1.2rem;
+                backdrop-filter: blur(5px);
+            ">
+                <div class="text-center">
+                    <div class="spinner-border text-white mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Chargement...</span>
+                    </div>
+                    <div id="loading-message">${message}</div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', loadingHTML);
+    } else {
+        document.getElementById('loading-message').textContent = message;
+        loadingElement.style.display = 'flex';
     }
 }
 
-// Fonction pour mettre à jour le badge de notifications
-function updateNotificationBadge(count) {
-    const badge = document.querySelector('.notification-badge');
-    if (badge) {
-        badge.textContent = count;
-        badge.style.display = count > 0 ? 'inline-block' : 'none';
+function hideLoadingState() {
+    const loadingElement = document.getElementById('supper-loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
     }
 }
 
-// Amélioration de la fonction checkNotifications existante
+// GESTION DES NOTIFICATIONS
 function checkNotifications() {
-    fetch('/admin/api/notifications/', {
+    if (!SUPPER_CONFIG.API_ENDPOINTS.NOTIFICATIONS) {
+        console.warn('API Notifications non configurée');
+        return;
+    }
+
+    fetch(SUPPER_CONFIG.API_ENDPOINTS.NOTIFICATIONS, {
         headers: {
-            'X-CSRFToken': getCookie('csrftoken')
+            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN
         }
     })
     .then(response => response.json())
@@ -530,15 +763,356 @@ function checkNotifications() {
         // Afficher les nouvelles notifications importantes
         if (data.new_notifications && data.new_notifications.length > 0) {
             data.new_notifications.forEach(notif => {
-                if (notif.type === 'urgent') {
-                    showNotification('error', notif.message);
+                if (notif.type === 'urgent' || notif.type === 'warning') {
+                    showNotification(notif.type === 'urgent' ? 'error' : 'warning', notif.message);
                 }
             });
         }
     })
     .catch(error => {
-        console.error('Erreur lors de la vérification des notifications:', error);
+        console.warn('Erreur lors de la vérification des notifications:', error);
     });
+}
+
+function updateNotificationBadge(count) {
+    const badge = document.querySelector('.notification-badge');
+    if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+}
+
+// FONCTIONS D'AMÉLIORATION UX
+function highlightActiveMenu() {
+    const currentPath = window.location.pathname;
+    const menuLinks = document.querySelectorAll('.nav-link');
+    
+    menuLinks.forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+        }
+    });
+}
+
+function addHoverEffects() {
+    // Ajouter des effets hover améliorés
+    const actionButtons = document.querySelectorAll('.btn-action');
+    
+    actionButtons.forEach(button => {
+        button.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
+        });
+        
+        button.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none';
+        });
+    });
+}
+
+// FONCTIONS DE DIAGNOSTIC ET DEBUG
+function debugSupperSystem() {
+    if (!SUPPER_CONFIG.USER.IS_SUPERUSER) {
+        console.log('🚫 Fonction de debug réservée aux administrateurs');
+        return;
+    }
+    
+    console.log('🔧 SUPPER System Debug Info:');
+    console.log('- User:', SUPPER_CONFIG.USER.USERNAME);
+    console.log('- API Endpoints:', SUPPER_CONFIG.API_ENDPOINTS);
+    console.log('- Current Path:', window.location.pathname);
+    console.log('- CSRF Token:', SUPPER_CONFIG.CSRF_TOKEN ? 'Present' : 'Missing');
+    
+    // Vérifier l'état des APIs
+    checkApiHealth();
+}
+
+function checkApiHealth() {
+    console.log('🔍 Vérification de l\'état des APIs...');
+    
+    Object.entries(SUPPER_CONFIG.API_ENDPOINTS).forEach(([name, url]) => {
+        fetch(url, {
+            method: 'HEAD',
+            headers: {
+                'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN
+            }
+        })
+        .then(response => {
+            console.log(`✅ ${name}: ${response.status}`);
+        })
+        .catch(error => {
+            console.log(`❌ ${name}: Error - ${error.message}`);
+        });
+    });
+}
+
+// RACCOURCIS CLAVIER POUR ADMIN
+function setupKeyboardShortcuts() {
+    if (!SUPPER_CONFIG.USER.IS_SUPERUSER) return;
+    
+    document.addEventListener('keydown', function(event) {
+        // Ctrl + Shift + D pour debug
+        if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+            event.preventDefault();
+            debugSupperSystem();
+        }
+        
+        // Ctrl + Shift + O pour ouvrir semaine
+        if (event.ctrlKey && event.shiftKey && event.key === 'O') {
+            event.preventDefault();
+            ouvrirSemaineEnCours();
+        }
+        
+        // Ctrl + Shift + F pour fermer anciens
+        if (event.ctrlKey && event.shiftKey && event.key === 'F') {
+            event.preventDefault();
+            fermerJoursAnciens();
+        }
+        
+        // Ctrl + Shift + I pour marquer impertinent
+        if (event.ctrlKey && event.shiftKey && event.key === 'I') {
+            event.preventDefault();
+            marquerJourImpertinent();
+        }
+    });
+}
+
+// AMÉLIORATION DE L'EXPÉRIENCE UTILISATEUR
+function enhanceUserExperience() {
+    // Ajouter des tooltips dynamiques
+    addDynamicTooltips();
+    
+    // Améliorer la navigation
+    highlightActiveMenu();
+    
+    // Ajouter des effets hover
+    addHoverEffects();
+    
+    // Configurer les raccourcis clavier
+    setupKeyboardShortcuts();
+    
+    // Ajouter un indicateur de connexion
+    addConnectionIndicator();
+    
+    // Améliorer l'accessibilité
+    improveAccessibility();
+}
+
+function addDynamicTooltips() {
+    // Ajouter des tooltips aux éléments de navigation
+    const navItems = document.querySelectorAll('.nav-link');
+    navItems.forEach(item => {
+        if (!item.getAttribute('title')) {
+            const text = item.textContent.trim();
+            item.setAttribute('title', `Accéder à ${text}`);
+            item.setAttribute('data-bs-toggle', 'tooltip');
+            item.setAttribute('data-bs-placement', 'bottom');
+        }
+    });
+    
+    // Réinitialiser les tooltips
+    initializeTooltips();
+}
+
+function addConnectionIndicator() {
+    // Ajouter un indicateur de statut de connexion
+    const statusHTML = `
+        <div id="connection-status" class="position-fixed" style="
+            bottom: 20px;
+            right: 20px;
+            background: var(--success-vert);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            opacity: 0.8;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        ">
+            <i class="fas fa-wifi me-1"></i>
+            <span>{% trans "Connecté" %}</span>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', statusHTML);
+    
+    // Surveiller l'état de la connexion
+    window.addEventListener('online', () => {
+        updateConnectionStatus(true);
+    });
+    
+    window.addEventListener('offline', () => {
+        updateConnectionStatus(false);
+    });
+}
+
+function updateConnectionStatus(isOnline) {
+    const statusElement = document.getElementById('connection-status');
+    if (!statusElement) return;
+    
+    if (isOnline) {
+        statusElement.style.background = 'var(--success-vert)';
+        statusElement.innerHTML = '<i class="fas fa-wifi me-1"></i><span>{% trans "Connecté" %}</span>';
+    } else {
+        statusElement.style.background = 'var(--danger-rouge)';
+        statusElement.innerHTML = '<i class="fas fa-wifi-slash me-1"></i><span>{% trans "Hors ligne" %}</span>';
+    }
+}
+
+function improveAccessibility() {
+    // Améliorer l'accessibilité pour les utilisateurs de lecteurs d'écran
+    const dropdownToggles = document.querySelectorAll('[data-bs-toggle="dropdown"]');
+    
+    dropdownToggles.forEach(toggle => {
+        if (!toggle.getAttribute('aria-expanded')) {
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+        
+        toggle.addEventListener('click', function() {
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', !isExpanded);
+        });
+    });
+    
+    // Ajouter des rôles ARIA appropriés
+    const navElement = document.querySelector('.main-navigation');
+    if (navElement && !navElement.getAttribute('role')) {
+        navElement.setAttribute('role', 'navigation');
+        navElement.setAttribute('aria-label', 'Navigation principale SUPPER');
+    }
+}
+
+// FONCTIONS DE SÉCURITÉ ET VALIDATION
+function validateUserAction(action) {
+    // Valider que l'utilisateur a les permissions pour l'action
+    if (!SUPPER_CONFIG.USER.IS_SUPERUSER && ['ouvrir_semaine', 'fermer_anciens', 'marquer_impertinent'].includes(action)) {
+        showNotification('error', '{% trans "Permission insuffisante pour cette action" %}');
+        return false;
+    }
+    
+    return true;
+}
+
+function sanitizeInput(input) {
+    // Nettoyer les entrées utilisateur pour éviter les injections
+    if (typeof input !== 'string') return input;
+    
+    return input
+        .replace(/[<>]/g, '') // Supprimer les balises HTML de base
+        .trim()
+        .substring(0, 1000); // Limiter la longueur
+}
+
+// GESTION DES ERREURS GLOBALES
+window.addEventListener('error', function(event) {
+    console.error('Erreur JavaScript:', event.error);
+    
+    if (SUPPER_CONFIG.USER.IS_SUPERUSER) {
+        showNotification('error', `Erreur système: ${event.error.message}`);
+    }
+});
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Promise rejetée:', event.reason);
+    
+    if (SUPPER_CONFIG.USER.IS_SUPERUSER) {
+        showNotification('error', 'Erreur de communication avec le serveur');
+    }
+});
+
+// SURVEILLANCE DE LA PERFORMANCE
+function monitorPerformance() {
+    if ('performance' in window && 'getEntriesByType' in performance) {
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const navigationEntries = performance.getEntriesByType('navigation')[0];
+                const loadTime = navigationEntries.loadEventEnd - navigationEntries.loadEventStart;
+                
+                if (loadTime > 3000 && SUPPER_CONFIG.USER.IS_SUPERUSER) {
+                    console.warn(`⚠️ Page lente à charger: ${loadTime}ms`);
+                }
+            }, 1000);
+        });
+    }
+}
+
+// INITIALISATION FINALE COMPLÈTE
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 SUPPER System Loading...');
+    
+    try {
+        // Initialisation de base
+        initializeTooltips();
+        
+        // Améliorations UX
+        enhanceUserExperience();
+        
+        // Vérifications initiales
+        checkNotifications();
+        
+        // Surveillance de la performance
+        monitorPerformance();
+        
+        // Animation d'entrée
+        setTimeout(() => {
+            const contentWrapper = document.querySelector('.content-wrapper');
+            if (contentWrapper) {
+                contentWrapper.style.opacity = '1';
+            }
+            console.log('✅ SUPPER System Ready!');
+            
+            // Afficher un message de bienvenue pour les admins
+            if (SUPPER_CONFIG.USER.IS_SUPERUSER) {
+                setTimeout(() => {
+                    showNotification('info', `{% trans "Bienvenue" %} ${SUPPER_CONFIG.USER.USERNAME}! {% trans "Système SUPPER opérationnel" %}`);
+                }, 1000);
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Erreur d\'initialisation SUPPER:', error);
+        showNotification('error', '{% trans "Erreur d\'initialisation du système" %}');
+    }
+});
+
+// Exposer les fonctions globalement pour le debug et l'utilisation
+window.SUPPER = {
+    config: SUPPER_CONFIG,
+    debug: debugSupperSystem,
+    actions: {
+        ouvrirSemaine: ouvrirSemaineEnCours,
+        fermerAnciens: fermerJoursAnciens,
+        marquerImpertinent: marquerJourImpertinent
+    },
+    notifications: {
+        check: checkNotifications,
+        show: showNotification
+    },
+    utils: {
+        getCookie: getCookie,
+        isValidDate: isValidDate,
+        sanitizeInput: sanitizeInput,
+        validateUserAction: validateUserAction
+    }
+};
+
+// Message informatif pour les développeurs
+console.log('🎯 SUPPER System loaded successfully!');
+console.log('📋 Commands disponibles:');
+console.log('  - SUPPER.debug() : Diagnostic système');
+console.log('  - SUPPER.actions.ouvrirSemaine() : Ouvrir semaine courante');
+console.log('  - SUPPER.notifications.show("success", "message") : Afficher notification');
+
+// Raccourcis clavier pour debug (admins uniquement)
+if (SUPPER_CONFIG.USER.IS_SUPERUSER) {
+    console.log('⌨️  Raccourcis admin:');
+    console.log('  - Ctrl+Shift+D : Debug system');
+    console.log('  - Ctrl+Shift+O : Ouvrir semaine');
+    console.log('  - Ctrl+Shift+F : Fermer anciens jours');
+    console.log('  - Ctrl+Shift+I : Marquer jour impertinent');
 }
 </script>
 
@@ -546,4 +1120,110 @@ function checkNotifications() {
 {% block extra_js %}{% endblock %}
 
 </body>
-</html>
+</html>;
+}
+
+function setupIntervals() {
+    // Vérifier les notifications toutes les 30 secondes
+    setInterval(checkNotifications, 30000);
+}
+
+// FONCTIONS ACTIONS RAPIDES CORRIGÉES
+function ouvrirSemaineEnCours() {
+    if (!confirm('{% trans "Voulez-vous ouvrir tous les jours ouvrables de la semaine courante ?" %}')) {
+        return;
+    }
+
+    showLoadingState('{% trans "Ouverture en cours..." %}');
+
+    fetch(SUPPER_CONFIG.API_ENDPOINTS.OUVRIR_SEMAINE, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN
+        },
+        body: JSON.stringify({
+            action: 'ouvrir_semaine_courante'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingState();
+        if (data.success) {
+            showNotification('success', data.message);
+            // Recharger la page si on est sur la configuration des jours
+            if (window.location.pathname.includes('configurationjour')) {
+                setTimeout(() => location.reload(), 1500);
+            }
+        } else {
+            showNotification('error', data.message || '{% trans "Erreur lors de l'opération" %}');
+        }
+    })
+    .catch(error => {
+        hideLoadingState();
+        console.error('Erreur:', error);
+        showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
+    });
+}
+
+function fermerJoursAnciens() {
+    if (!confirm('{% trans "Voulez-vous fermer tous les jours antérieurs à aujourd'hui ?" %}')) {
+        return;
+    }
+
+    showLoadingState('{% trans "Fermeture en cours..." %}');
+
+    fetch(SUPPER_CONFIG.API_ENDPOINTS.FERMER_ANCIENS, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN
+        },
+        body: JSON.stringify({
+            action: 'fermer_jours_anciens'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingState();
+        if (data.success) {
+            showNotification('success', data.message);
+            if (window.location.pathname.includes('configurationjour')) {
+                setTimeout(() => location.reload(), 1500);
+            }
+        } else {
+            showNotification('error', data.message || '{% trans "Erreur lors de l'opération" %}');
+        }
+    })
+    .catch(error => {
+        hideLoadingState();
+        console.error('Erreur:', error);
+        showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
+    });
+}
+
+function marquerJourImpertinent() {
+    const date = prompt('{% trans "Entrez la date à marquer comme impertinente (YYYY-MM-DD):" %}');
+    if (!date) return;
+    
+    if (!isValidDate(date)) {
+        showNotification('error', '{% trans "Format de date invalide. Utilisez YYYY-MM-DD" %}');
+        return;
+    }
+    
+    const commentaire = prompt('{% trans "Commentaire (optionnel):" %}') || '';
+    
+    showLoadingState('{% trans "Marquage en cours..." %}');
+
+    fetch(SUPPER_CONFIG.API_ENDPOINTS.MARQUER_IMPERTINENT, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN
+        },
+        body: JSON.stringify({
+            action: 'marquer_impertinent',
+            date: date,
+            commentaire: commentaire
+        })
+    })

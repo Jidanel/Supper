@@ -7,6 +7,7 @@ from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 import logging
+from .models import *
 
 logger = logging.getLogger('supper')
 
@@ -16,15 +17,8 @@ _signal_processing = set()
 
 @receiver(post_save, sender='inventaire.InventaireJournalier')
 def log_inventaire_creation_modification(sender, instance, created, **kwargs):
-    """Journalise la création et modification d'inventaires"""
-    # Éviter la récursion
-    signal_key = f"inventaire_{instance.pk}_{created}"
-    if signal_key in _signal_processing:
-        return
-    
+    """Journalise la création et modification d'inventaires + recalcul recettes"""
     try:
-        _signal_processing.add(signal_key)
-        
         from accounts.models import JournalAudit
         
         if created:
@@ -34,7 +28,7 @@ def log_inventaire_creation_modification(sender, instance, created, **kwargs):
         else:
             action = "Modification inventaire"
             details = f"Inventaire modifié pour {instance.poste.nom} - {instance.date}"
-            
+        
         # Journaliser si un agent est associé
         if instance.agent_saisie:
             JournalAudit.objects.create(
@@ -43,46 +37,46 @@ def log_inventaire_creation_modification(sender, instance, created, **kwargs):
                 details=details,
                 succes=True
             )
+        
+        # NOUVEAU: Recalculer les recettes associées
+        _recalculer_recettes_associees(instance)
             
     except Exception as e:
         logger.error(f"Erreur signal inventaire: {str(e)}")
-    finally:
-        _signal_processing.discard(signal_key)
-
 
 @receiver(post_save, sender='inventaire.DetailInventairePeriode')
 def recalculate_totals_on_detail_save(sender, instance, created, **kwargs):
     """Recalcule automatiquement les totaux quand un détail est sauvegardé"""
-    # Éviter la récursion
-    signal_key = f"detail_{instance.pk}_{created}"
-    if signal_key in _signal_processing:
-        return
-        
     try:
-        _signal_processing.add(signal_key)
-        
         # Recalculer les totaux de l'inventaire parent
         inventaire = instance.inventaire
+        inventaire.recalculer_totaux()
         
-        # CORRECTION: Recalcul direct sans sauvegarder l'inventaire pour éviter la récursion
-        details = inventaire.details_periodes.all()
-        total_vehicules = sum(detail.nombre_vehicules for detail in details)
-        nombre_periodes = details.count()
-        
-        # Mise à jour directe en base sans déclencher les signaux
-        InventaireJournalier = inventaire.__class__
-        InventaireJournalier.objects.filter(pk=inventaire.pk).update(
-            total_vehicules=total_vehicules,
-            nombre_periodes_saisies=nombre_periodes
-        )
+        # NOUVEAU: Recalculer les recettes liées
+        _recalculer_recettes_associees(inventaire)
         
         if created:
             logger.debug(f"Détail ajouté: {instance.periode} - {instance.nombre_vehicules} véhicules")
             
     except Exception as e:
         logger.error(f"Erreur recalcul totaux: {str(e)}")
-    finally:
-        _signal_processing.discard(signal_key)
+
+
+@receiver(post_delete, sender='inventaire.DetailInventairePeriode')
+def recalculate_totals_on_detail_delete(sender, instance, **kwargs):
+    """Recalcule automatiquement les totaux quand un détail est supprimé"""
+    try:
+        # Recalculer les totaux de l'inventaire parent
+        inventaire = instance.inventaire
+        inventaire.recalculer_totaux()
+        
+        # NOUVEAU: Recalculer les recettes liées
+        _recalculer_recettes_associees(inventaire)
+        
+        logger.debug(f"Détail supprimé: {instance.periode}")
+        
+    except Exception as e:
+        logger.error(f"Erreur recalcul totaux après suppression: {str(e)}")
 
 
 @receiver(post_delete, sender='inventaire.DetailInventairePeriode')
@@ -122,14 +116,7 @@ def recalculate_totals_on_detail_delete(sender, instance, **kwargs):
 @receiver(post_save, sender='inventaire.RecetteJournaliere')
 def log_recette_creation_modification(sender, instance, created, **kwargs):
     """Journalise la création et modification de recettes"""
-    # Éviter la récursion
-    signal_key = f"recette_{instance.pk}_{created}"
-    if signal_key in _signal_processing:
-        return
-        
     try:
-        _signal_processing.add(signal_key)
-        
         from accounts.models import JournalAudit
         
         if created:
@@ -142,8 +129,10 @@ def log_recette_creation_modification(sender, instance, created, **kwargs):
             
         # Ajouter les indicateurs calculés aux détails
         if instance.taux_deperdition is not None:
-            details += f" | Taux déperdition: {instance.taux_deperdition}%"
-            details += f" | Couleur alerte: {instance.get_couleur_alerte()}"
+            details += f" | TD: {instance.taux_deperdition:.2f}%"
+            details += f" | Statut: {instance.get_statut_deperdition()}"
+            details += f" | Recette potentielle: {instance.recette_potentielle} FCFA"
+            details += f" | Écart: {instance.ecart} FCFA"
         
         # Journaliser si un chef de poste est associé
         if instance.chef_poste:
@@ -156,8 +145,36 @@ def log_recette_creation_modification(sender, instance, created, **kwargs):
             
     except Exception as e:
         logger.error(f"Erreur signal recette: {str(e)}")
-    finally:
-        _signal_processing.discard(signal_key)
+
+def _recalculer_recettes_associees(inventaire):
+    """
+    Fonction utilitaire pour recalculer les recettes associées à un inventaire
+    """
+    try:
+        from .models import RecetteJournaliere
+        
+        # Chercher les recettes pour ce poste et cette date
+        recettes = RecetteJournaliere.objects.filter(
+            poste=inventaire.poste,
+            date=inventaire.date
+        )
+        
+        for recette in recettes:
+            # Associer l'inventaire si pas déjà fait
+            if not recette.inventaire_associe:
+                recette.inventaire_associe = inventaire
+            
+            # Recalculer les indicateurs
+            recette.calculer_indicateurs()
+            recette.save(update_fields=[
+                'inventaire_associe', 'recette_potentielle', 
+                'ecart', 'taux_deperdition'
+            ])
+            
+            logger.info(f"Recette recalculée: {recette.poste.nom} du {recette.date} - TD: {recette.taux_deperdition:.2f}%")
+    
+    except Exception as e:
+        logger.error(f"Erreur recalcul recettes associées: {str(e)}")
 
 
 @receiver(pre_save, sender='inventaire.InventaireJournalier')
@@ -313,3 +330,26 @@ def get_signal_processing_status():
         active_signals=list(_signal_processing),
         count=len(_signal_processing)
     )
+
+@receiver(post_save, sender='inventaire.RecetteJournaliere')
+def auto_link_inventaire_recette(sender, instance, created, **kwargs):
+    """Lie automatiquement une recette à son inventaire correspondant"""
+    if not instance.inventaire_associe:
+        try:
+            from .models import InventaireJournalier
+            
+            inventaire = InventaireJournalier.objects.get(
+                poste=instance.poste,
+                date=instance.date
+            )
+            
+            instance.inventaire_associe = inventaire
+            # Éviter la récursion en utilisant update_fields
+            instance.save(update_fields=['inventaire_associe'])
+            
+            logger.info(f"Inventaire automatiquement lié à la recette: {instance.poste.nom} du {instance.date}")
+            
+        except InventaireJournalier.DoesNotExist:
+            logger.warning(f"Aucun inventaire trouvé pour la recette: {instance.poste.nom} du {instance.date}")
+        except Exception as e:
+            logger.error(f"Erreur liaison auto inventaire-recette: {str(e)}")

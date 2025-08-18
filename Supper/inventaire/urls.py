@@ -100,4 +100,5 @@ urlpatterns = [
     # GESTION DES ERREURS
     # ================================================================
     path('error/<str:error_type>/', views.inventaire_redirect_error_handler, name='error_handler'),
+    path('api/notifications/', views.api_notifications, name='api_notifications'),
 ]

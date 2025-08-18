@@ -11,6 +11,9 @@ from decimal import Decimal
 from accounts.models import UtilisateurSUPPER, Poste
 from django.urls import reverse
 import calendar
+import logging
+
+logger = logging.getLogger('supper')
 
 class MoisChoices(models.TextChoices):
     """Choix des mois pour l'inventaire mensuel"""
@@ -287,7 +290,7 @@ class ConfigurationJour(models.Model):
     """
     Configuration des jours ouverts/fermés pour la saisie d'inventaire ET de recettes
     Permet aux administrateurs de contrôler quels jours sont disponibles pour la saisie
-    AMÉLIORATION : Support des configurations par poste ou globales
+    CORRECTION : Support amélioré pour configurations globales et par poste
     """
     
     date = models.DateField(
@@ -295,7 +298,7 @@ class ConfigurationJour(models.Model):
         help_text=_("Date concernée par cette configuration")
     )
     
-    # 🔧 NOUVEAU : Poste optionnel pour configuration spécifique
+    # 🔧 CORRECTION : Poste optionnel pour configuration spécifique
     poste = models.ForeignKey(
         'accounts.Poste',
         on_delete=models.CASCADE,
@@ -313,7 +316,7 @@ class ConfigurationJour(models.Model):
         verbose_name=_("Statut du jour")
     )
     
-    # 🔧 NOUVEAU : Types de saisie concernés
+    # 🔧 CORRECTION : Types de saisie séparés
     permet_saisie_inventaire = models.BooleanField(
         default=True,
         verbose_name=_("Permet saisie inventaire"),
@@ -328,7 +331,7 @@ class ConfigurationJour(models.Model):
     
     # Métadonnées de gestion
     cree_par = models.ForeignKey(
-        UtilisateurSUPPER,
+        'accounts.UtilisateurSUPPER',
         on_delete=models.SET_NULL,
         null=True,
         related_name='jours_configures',
@@ -353,59 +356,75 @@ class ConfigurationJour(models.Model):
         indexes = [
             models.Index(fields=['date']),
             models.Index(fields=['statut']),
+            models.Index(fields=['poste', 'date']),
         ]
-        # AMÉLIORATION : Contrainte de base de données plus claire
+        # 🔧 CORRECTION : Contrainte permettant une config globale ET des configs par poste
         constraints = [
-            models.UniqueConstraint(fields=['date'], name='unique_date_configuration')
+            models.UniqueConstraint(
+                fields=['date', 'poste'], 
+                name='unique_date_poste_configuration'
+            )
         ]
     
     def __str__(self):
         poste_str = f" - {self.poste.nom}" if self.poste else " (Global)"
         return f"{self.date.strftime('%d/%m/%Y')}{poste_str} - {self.get_statut_display()}"
     
-    # 🔧 NOUVELLES MÉTHODES pour la gestion des recettes
+    # 🔧 CORRECTION : Méthodes de vérification améliorées
     
     @classmethod
     def est_jour_ouvert_pour_inventaire(cls, date, poste=None):
         """Vérifie si un jour donné est ouvert pour la saisie d'inventaire"""
         try:
-            # Chercher d'abord une configuration spécifique au poste
+            # 1. Chercher d'abord une configuration spécifique au poste
             if poste:
-                config = cls.objects.filter(date=date, poste=poste).first()
-                if config:
-                    return config.statut == StatutJour.OUVERT and config.permet_saisie_inventaire
+                config_poste = cls.objects.filter(date=date, poste=poste).first()
+                if config_poste:
+                    return (config_poste.statut == StatutJour.OUVERT and 
+                           config_poste.permet_saisie_inventaire)
             
-            # Chercher une configuration globale
-            config = cls.objects.filter(date=date, poste__isnull=True).first()
-            if config:
-                return config.statut == StatutJour.OUVERT and config.permet_saisie_inventaire
+            # 2. Chercher une configuration globale
+            config_globale = cls.objects.filter(date=date, poste__isnull=True).first()
+            if config_globale:
+                return (config_globale.statut == StatutJour.OUVERT and 
+                       config_globale.permet_saisie_inventaire)
             
-            # Par défaut, fermé si pas de configuration
+            # 3. Par défaut, fermé si pas de configuration
             return False
             
-        except cls.DoesNotExist:
+        except Exception as e:
+            logger.error(f"Erreur vérification jour inventaire: {str(e)}")
             return False
     
     @classmethod
     def est_jour_ouvert_pour_recette(cls, date, poste=None):
         """Vérifie si un jour donné est ouvert pour la saisie de recette"""
         try:
-            # Chercher d'abord une configuration spécifique au poste
+            # 1. Chercher d'abord une configuration spécifique au poste
             if poste:
-                config = cls.objects.filter(date=date, poste=poste).first()
-                if config:
-                    return config.statut == StatutJour.OUVERT and config.permet_saisie_recette
+                config_poste = cls.objects.filter(date=date, poste=poste).first()
+                if config_poste:
+                    return (config_poste.statut == StatutJour.OUVERT and 
+                           config_poste.permet_saisie_recette)
             
-            # Chercher une configuration globale
-            config = cls.objects.filter(date=date, poste__isnull=True).first()
-            if config:
-                return config.statut == StatutJour.OUVERT and config.permet_saisie_recette
+            # 2. Chercher une configuration globale
+            config_globale = cls.objects.filter(date=date, poste__isnull=True).first()
+            if config_globale:
+                return (config_globale.statut == StatutJour.OUVERT and 
+                       config_globale.permet_saisie_recette)
             
-            # Par défaut, fermé si pas de configuration
+            # 3. Par défaut, fermé si pas de configuration
             return False
             
-        except cls.DoesNotExist:
+        except Exception as e:
+            logger.error(f"Erreur vérification jour recette: {str(e)}")
             return False
+    
+    # 🔧 CORRECTION : Méthode globale pour les cas génériques
+    @classmethod
+    def est_jour_ouvert(cls, date, poste=None):
+        """Méthode de compatibilité - vérifie pour inventaire"""
+        return cls.est_jour_ouvert_pour_inventaire(date, poste)
     
     @classmethod
     def ouvrir_jour_global(cls, date, admin_user, commentaire="", permet_inventaire=True, permet_recette=True):
@@ -423,10 +442,12 @@ class ConfigurationJour(models.Model):
         )
         
         if not created:
+            # Mettre à jour si existe déjà
             config.statut = StatutJour.OUVERT
             config.permet_saisie_inventaire = permet_inventaire
             config.permet_saisie_recette = permet_recette
-            config.commentaire = commentaire or config.commentaire
+            if commentaire:
+                config.commentaire = commentaire
             config.save()
         
         return config
@@ -450,7 +471,8 @@ class ConfigurationJour(models.Model):
             config.statut = StatutJour.OUVERT
             config.permet_saisie_inventaire = permet_inventaire
             config.permet_saisie_recette = permet_recette
-            config.commentaire = commentaire or config.commentaire
+            if commentaire:
+                config.commentaire = commentaire
             config.save()
         
         return config
@@ -467,7 +489,8 @@ class ConfigurationJour(models.Model):
             config.statut = StatutJour.FERME
             config.permet_saisie_inventaire = False
             config.permet_saisie_recette = False
-            config.commentaire = commentaire or f'Jour fermé le {timezone.now()}'
+            if commentaire:
+                config.commentaire = commentaire
             config.save()
             
             return config
@@ -495,36 +518,23 @@ class ConfigurationJour(models.Model):
                 'permet_saisie_inventaire': False,
                 'permet_saisie_recette': False,
                 'cree_par': admin_user,
-                'commentaire': commentaire or 'Journée marquée impertinente automatiquement'
+                'commentaire': commentaire or 'Journée marquée impertinente'
             }
         )
         
-        if not created and config.statut != StatutJour.IMPERTINENT:
+        if not created:
             config.statut = StatutJour.IMPERTINENT
             config.permet_saisie_inventaire = False
             config.permet_saisie_recette = False
-            config.commentaire = commentaire or config.commentaire
+            if commentaire:
+                config.commentaire = commentaire
             config.save()
         
         return config
     
-    def get_config_summary(self):
-        """Retourne un résumé de la configuration"""
-        types = []
-        if self.permet_saisie_inventaire:
-            types.append("Inventaire")
-        if self.permet_saisie_recette:
-            types.append("Recette")
-        
-        types_str = " + ".join(types) if types else "Aucune saisie"
-        poste_str = f" pour {self.poste.nom}" if self.poste else " (Global)"
-        
-        return f"{self.get_statut_display()}{poste_str} - {types_str}"
-    
     def clean(self):
         """Validation personnalisée du modèle"""
         from django.core.exceptions import ValidationError
-        from django.utils import timezone
         from datetime import date, timedelta
         
         # Validation de la date
@@ -537,26 +547,11 @@ class ConfigurationJour(models.Model):
             raise ValidationError({
                 'date': f'Impossible de configurer une date antérieure au {limite_passee.strftime("%d/%m/%Y")}.'
             })
-        
-        # Empêcher la configuration de dates trop futures (plus de 1 an)
-        limite_future = date.today() + timedelta(days=365)  # 1 an
-        if self.date > limite_future:
-            raise ValidationError({
-                'date': f'Impossible de configurer une date postérieure au {limite_future.strftime("%d/%m/%Y")}.'
-            })
-        
-        # Vérifier l'unicité manuellement pour donner un message plus clair
-        if self.__class__.objects.filter(date=self.date).exclude(pk=self.pk).exists():
-            raise ValidationError({
-                'date': f'Une configuration existe déjà pour le {self.date.strftime("%d/%m/%Y")}. '
-                        'Modifiez la configuration existante au lieu d\'en créer une nouvelle.'
-            })
+    
     def save(self, *args, **kwargs):
         """Surcharge pour validation avant sauvegarde"""
         self.full_clean()  # Déclenche clean() avant la sauvegarde
         super().save(*args, **kwargs)
-
-
 # ===================================================================
 # UTILISATION DANS LES VUES
 # ===================================================================
@@ -740,19 +735,51 @@ class InventaireJournalier(models.Model):
     
     def calculer_recette_potentielle(self):
         """
-        Calcule la recette potentielle selon la formule SUPPER
-        Formule: (Total estimé 24h × 75% × 500 FCFA) / 100
+        Calcule la recette potentielle selon le nouvel algorithme
         """
-        from django.conf import settings
+        details = self.details_periodes.all()
         
-        config = getattr(settings, 'SUPPER_CONFIG', {})
-        tarif = config.get('TARIF_VEHICULE_LEGER', 500)
-        pourcentage_legers = config.get('POURCENTAGE_VEHICULES_LEGERS', 75)
+        if not details.exists():
+            return Decimal('0')
         
-        total_estime = self.estimer_total_24h()
-        recette = (total_estime * pourcentage_legers * tarif) / 100
+        # Somme et moyenne
+        somme_vehicules = sum(detail.nombre_vehicules for detail in details)
+        nombre_periodes = details.count()
+        moyenne_horaire = somme_vehicules / nombre_periodes
         
-        return Decimal(str(recette))
+        # Estimation 24h
+        estimation_24h = moyenne_horaire * 24
+        
+        # Recette potentielle = T * 75% * 500
+        vehicules_effectifs = estimation_24h * 0.75
+        recette_potentielle = vehicules_effectifs * 500
+        
+        return Decimal(str(recette_potentielle))
+    
+    def get_statistiques_detaillees(self):
+        """Retourne des statistiques détaillées pour debug"""
+        details = self.details_periodes.all()
+        
+        if not details.exists():
+            return {
+                'erreur': 'Aucun détail de période trouvé'
+            }
+        
+        somme_vehicules = sum(detail.nombre_vehicules for detail in details)
+        nombre_periodes = details.count()
+        moyenne_horaire = somme_vehicules / nombre_periodes
+        estimation_24h = moyenne_horaire * 24
+        vehicules_effectifs = estimation_24h * 0.75
+        recette_potentielle = vehicules_effectifs * 500
+        
+        return {
+            'somme_vehicules': somme_vehicules,
+            'nombre_periodes': nombre_periodes,
+            'moyenne_horaire': round(moyenne_horaire, 2),
+            'estimation_24h': round(estimation_24h, 2),
+            'vehicules_effectifs_75%': round(vehicules_effectifs, 2),
+            'recette_potentielle': round(recette_potentielle, 2)
+        }
     
     def recalculer_totaux(self):
         """Recalcule les totaux basés sur les détails de périodes"""
@@ -967,73 +994,127 @@ class RecetteJournaliere(models.Model):
     def calculer_indicateurs(self):
         """
         Calcule tous les indicateurs basés sur l'inventaire associé
+        ALGORITHME CORRIGÉ selon vos spécifications
         """
         if not self.inventaire_associe:
+            # Essayer de trouver l'inventaire automatiquement
+            try:
+                from .models import InventaireJournalier
+                self.inventaire_associe = InventaireJournalier.objects.get(
+                    poste=self.poste,
+                    date=self.date
+                )
+                # Sauvegarder la liaison
+                self.save(update_fields=['inventaire_associe'])
+            except InventaireJournalier.DoesNotExist:
+                # Pas d'inventaire = pas de calcul possible
+                self.recette_potentielle = None
+                self.ecart = None
+                self.taux_deperdition = None
+                return
+        
+        # ÉTAPE 1: Calculer la moyenne horaire
+        inventaire = self.inventaire_associe
+        details_periodes = inventaire.details_periodes.all()
+        
+        if not details_periodes.exists():
+            # Pas de détails = pas de calcul
+            self.recette_potentielle = None
+            self.ecart = None
+            self.taux_deperdition = None
             return
         
-        # Recette potentielle
-        self.recette_potentielle = self.inventaire_associe.calculer_recette_potentielle()
+        # Somme des véhicules et nombre de périodes
+        somme_vehicules = sum(detail.nombre_vehicules for detail in details_periodes)
+        nombre_periodes = details_periodes.count()
         
-        # Écart
-        self.ecart = self.montant_declare - self.recette_potentielle
+        # Moyenne horaire = Somme / Nombre de périodes
+        moyenne_horaire = somme_vehicules / nombre_periodes
         
-        # Taux de déperdition
-        if self.recette_potentielle > 0:
-            self.taux_deperdition = (self.ecart / self.recette_potentielle) * 100
+        # ÉTAPE 2: Estimation 24h
+        estimation_24h = moyenne_horaire * 24
+        
+        # ÉTAPE 3: Calcul recette potentielle
+        # T diminué de 25% = T * 75%
+        # P = T * 75% * 500 FCFA
+        vehicules_effectifs = estimation_24h * 0.75  # 75% des véhicules
+        self.recette_potentielle = Decimal(str(vehicules_effectifs * 500))
+        
+        # ÉTAPE 4: Calcul de l'écart
+        # Écart = Recettes potentielles - Recettes déclarées
+        self.ecart = self.recette_potentielle - self.montant_declare
+        
+        # ÉTAPE 5: Calcul du taux de déperdition
+        # TD = Écart / Recettes déclarées * 100
+        if self.montant_declare > 0:
+            self.taux_deperdition = (self.ecart / self.montant_declare) * 100
         else:
             self.taux_deperdition = Decimal('0')
         
-        # Vérifier si journée impertinente
-        if self.ecart >= 0:
+        # ÉTAPE 6: Gestion des journées impertinentes
+        self._gerer_journee_impertinente()
+    
+    def _gerer_journee_impertinente(self):
+        """Gère les journées impertinentes selon le TD"""
+        if self.taux_deperdition is None:
+            return
+        
+        # Si TD > -5% : journée impertinente
+        if self.taux_deperdition > Decimal('-5'):
             self._marquer_journee_impertinente()
     
     def _marquer_journee_impertinente(self):
-        """Marque la journée comme impertinente si nécessaire"""
+        """Marque la journée comme impertinente"""
+        from .models import ConfigurationJour
+        
         ConfigurationJour.marquer_impertinent(
             self.date,
-            self.chef_poste,
-            f"Recette déclarée supérieure à la potentielle: {self.montant_declare} > {self.recette_potentielle}"
+            self.chef_poste or self.inventaire_associe.agent_saisie,
+            f"TD > -5%: {self.taux_deperdition:.2f}% - "
+            f"Recettes déclarées ({self.montant_declare} FCFA) trop proches des potentielles ({self.recette_potentielle} FCFA)"
         )
-        
-        # Recalculer avec la valeur max des périodes
-        if self.inventaire_associe:
-            details = self.inventaire_associe.details_periodes.all()
-            if details:
-                valeur_max = max(detail.nombre_vehicules for detail in details)
-                # Utiliser cette valeur pour recalculer
-                total_estime_corrige = valeur_max * 24
-                from django.conf import settings
-                config = getattr(settings, 'SUPPER_CONFIG', {})
-                tarif = config.get('TARIF_VEHICULE_LEGER', 500)
-                pourcentage_legers = config.get('POURCENTAGE_VEHICULES_LEGERS', 75)
-                
-                self.recette_potentielle = Decimal(str((total_estime_corrige * pourcentage_legers * tarif) / 100))
-                self.ecart = self.montant_declare - self.recette_potentielle
-                if self.recette_potentielle > 0:
-                    self.taux_deperdition = (self.ecart / self.recette_potentielle) * 100
-    
     def get_couleur_alerte(self):
-        """Retourne la couleur d'alerte selon le taux de déperdition"""
+        """
+        Retourne la couleur d'alerte selon le nouveau système:
+        - TD > -5% : Impertinent (gris)
+        - -5% >= TD >= -9.99% : Bon (vert)  
+        - -10% >= TD >= -29.99% : Acceptable (orange)
+        - TD < -30% : Mauvais (rouge)
+        """
         if self.taux_deperdition is None:
             return 'secondary'
         
-        from django.conf import settings
-        config = getattr(settings, 'SUPPER_CONFIG', {})
-        seuil_orange = config.get('SEUIL_ALERTE_ORANGE', -10)
-        seuil_rouge = config.get('SEUIL_ALERTE_ROUGE', -30)
+        td = float(self.taux_deperdition)
         
-        if self.taux_deperdition > seuil_orange:
-            return 'success'  # Vert
-        elif self.taux_deperdition >= seuil_rouge:
-            return 'warning'  # Orange
-        else:
-            return 'danger'   # Rouge
+        if td > -5:
+            return 'secondary'  # Gris - Impertinent
+        elif -5 >= td >= -9.99:
+            return 'success'    # Vert - Bon
+        elif -10 >= td >= -29.99:
+            return 'warning'    # Orange - Acceptable  
+        else:  # td < -30
+            return 'danger'     # Rouge - Mauvais
     
     def get_classe_css_alerte(self):
         """Retourne la classe CSS Bootstrap pour l'alerte"""
         couleur = self.get_couleur_alerte()
         return f'alert-{couleur}'
     
+    def get_statut_deperdition(self):
+        """Retourne le statut textuel de la déperdition"""
+        if self.taux_deperdition is None:
+            return 'Non calculé'
+        
+        td = float(self.taux_deperdition)
+        
+        if td > -5:
+            return 'Impertinent'
+        elif -5 >= td >= -9.99:
+            return 'Bon'
+        elif -10 >= td >= -29.99:
+            return 'Acceptable'
+        else:
+            return 'Mauvais'
     def save(self, *args, **kwargs):
         """Surcharge pour calculer automatiquement les indicateurs"""
         # Calculer les indicateurs avant la sauvegarde
