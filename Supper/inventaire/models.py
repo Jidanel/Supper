@@ -371,53 +371,86 @@ class ConfigurationJour(models.Model):
         return f"{self.date.strftime('%d/%m/%Y')}{poste_str} - {self.get_statut_display()}"
     
     # 🔧 CORRECTION : Méthodes de vérification améliorées
+    def get_config_summary(self):
+        """Résumé de la configuration pour l'admin"""
+        summary_parts = []
+        
+        # Statut principal
+        summary_parts.append(f"Statut: {self.get_statut_display()}")
+        
+        # Permissions de saisie
+        permissions = []
+        if getattr(self, 'permet_saisie_inventaire', False):
+            permissions.append("Inventaire")
+        if getattr(self, 'permet_saisie_recette', False):
+            permissions.append("Recette")
+        
+        if permissions:
+            summary_parts.append(f"Autorisé: {', '.join(permissions)}")
+        else:
+            summary_parts.append("Aucune saisie autorisée")
+        
+        # Poste ou global
+        if self.poste:
+            summary_parts.append(f"Poste: {self.poste.code}")
+        else:
+            summary_parts.append("Configuration globale")
+        
+        return " | ".join(summary_parts)
     
-    @classmethod
+    def permet_saisie_inventaire_display(self):
+        """Affichage pour l'admin - Permission inventaire"""
+        return "✓ Oui" if getattr(self, 'permet_saisie_inventaire', False) else "✗ Non"
+    permet_saisie_inventaire_display.short_description = 'Inventaire autorisé'
+    
+    def permet_saisie_recette_display(self):
+        """Affichage pour l'admin - Permission recette"""
+        return "✓ Oui" if getattr(self, 'permet_saisie_recette', False) else "✗ Non"
+    permet_saisie_recette_display.short_description = 'Recette autorisée'
+
     def est_jour_ouvert_pour_inventaire(cls, date, poste=None):
-        """Vérifie si un jour donné est ouvert pour la saisie d'inventaire"""
+        """Vérifie si la saisie d'inventaire est autorisée pour un jour donné"""
         try:
-            # 1. Chercher d'abord une configuration spécifique au poste
+            # Chercher configuration spécifique au poste
             if poste:
-                config_poste = cls.objects.filter(date=date, poste=poste).first()
-                if config_poste:
-                    return (config_poste.statut == StatutJour.OUVERT and 
-                           config_poste.permet_saisie_inventaire)
+                config = cls.objects.filter(date=date, poste=poste).first()
+                if config:
+                    return (config.statut == StatutJour.OUVERT and 
+                            getattr(config, 'permet_saisie_inventaire', False))
             
-            # 2. Chercher une configuration globale
+            # Chercher configuration globale
             config_globale = cls.objects.filter(date=date, poste__isnull=True).first()
             if config_globale:
                 return (config_globale.statut == StatutJour.OUVERT and 
-                       config_globale.permet_saisie_inventaire)
+                        getattr(config_globale, 'permet_saisie_inventaire', False))
             
-            # 3. Par défaut, fermé si pas de configuration
+            # Par défaut : fermé si pas de configuration
             return False
             
-        except Exception as e:
-            logger.error(f"Erreur vérification jour inventaire: {str(e)}")
+        except Exception:
             return False
     
     @classmethod
     def est_jour_ouvert_pour_recette(cls, date, poste=None):
-        """Vérifie si un jour donné est ouvert pour la saisie de recette"""
+        """Vérifie si la saisie de recette est autorisée pour un jour donné"""
         try:
-            # 1. Chercher d'abord une configuration spécifique au poste
+            # Chercher configuration spécifique au poste
             if poste:
-                config_poste = cls.objects.filter(date=date, poste=poste).first()
-                if config_poste:
-                    return (config_poste.statut == StatutJour.OUVERT and 
-                           config_poste.permet_saisie_recette)
+                config = cls.objects.filter(date=date, poste=poste).first()
+                if config:
+                    return (config.statut == StatutJour.OUVERT and 
+                            getattr(config, 'permet_saisie_recette', False))
             
-            # 2. Chercher une configuration globale
+            # Chercher configuration globale
             config_globale = cls.objects.filter(date=date, poste__isnull=True).first()
             if config_globale:
                 return (config_globale.statut == StatutJour.OUVERT and 
-                       config_globale.permet_saisie_recette)
+                        getattr(config_globale, 'permet_saisie_recette', False))
             
-            # 3. Par défaut, fermé si pas de configuration
+            # Par défaut : fermé si pas de configuration
             return False
             
-        except Exception as e:
-            logger.error(f"Erreur vérification jour recette: {str(e)}")
+        except Exception:
             return False
     
     # 🔧 CORRECTION : Méthode globale pour les cas génériques
@@ -532,25 +565,37 @@ class ConfigurationJour(models.Model):
         
         return config
     
+   
+    
     def clean(self):
         """Validation personnalisée du modèle"""
         from django.core.exceptions import ValidationError
-        from datetime import date, timedelta
         
         # Validation de la date
         if not self.date:
-            raise ValidationError({'date': 'La date est obligatoire.'})
+            raise ValidationError("La date est obligatoire.")
         
-        # Empêcher la configuration de dates trop anciennes (plus de 2 ans)
-        limite_passee = date.today() - timedelta(days=730)  # 2 ans
-        if self.date < limite_passee:
-            raise ValidationError({
-                'date': f'Impossible de configurer une date antérieure au {limite_passee.strftime("%d/%m/%Y")}.'
-            })
+        # Vérifier l'unicité date/poste
+        existing = ConfigurationJour.objects.filter(
+            date=self.date, 
+            poste=self.poste
+        ).exclude(pk=self.pk if self.pk else 0)
+        
+        if existing.exists():
+            if self.poste:
+                raise ValidationError(
+                    f"Une configuration existe déjà pour le poste {self.poste.nom} "
+                    f"à la date du {self.date.strftime('%d/%m/%Y')}."
+                )
+            else:
+                raise ValidationError(
+                    f"Une configuration globale existe déjà "
+                    f"pour la date du {self.date.strftime('%d/%m/%Y')}."
+                )
     
     def save(self, *args, **kwargs):
-        """Surcharge pour validation avant sauvegarde"""
-        self.full_clean()  # Déclenche clean() avant la sauvegarde
+        """Sauvegarde avec validation"""
+        self.full_clean()  # Appelle clean() automatiquement
         super().save(*args, **kwargs)
 # ===================================================================
 # UTILISATION DANS LES VUES

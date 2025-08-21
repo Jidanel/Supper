@@ -208,8 +208,24 @@ class InventaireDetailView(InventaireMixin, DetailView):
         return obj
     
     def get_context_data(self, **kwargs):
+        """Méthode get_context_data corrigée"""
         context = super().get_context_data(**kwargs)
+        
+        # 🔧 CORRECTION 1 : Une seule récupération de l'objet
         inventaire = self.get_object()
+        
+        # 🔧 CORRECTION 2 : Vérifier le statut pour la date de l'inventaire
+        try:
+            context['jour_etait_ouvert'] = ConfigurationJour.est_jour_ouvert_pour_inventaire(
+                date=inventaire.date,     # 🔧 Date de l'inventaire
+                poste=inventaire.poste    # 🔧 Poste de l'inventaire
+            )
+        except Exception as e:
+            # 🔧 AMÉLIORATION : Log l'erreur pour debug
+            import logging
+            logger = logging.getLogger('supper')
+            logger.warning(f"Erreur vérification statut jour {inventaire.date}: {str(e)}")
+            context['jour_etait_ouvert'] = False
         
         # Détails par période
         details_periodes = inventaire.details_periodes.all().order_by('periode')
@@ -223,33 +239,38 @@ class InventaireDetailView(InventaireMixin, DetailView):
         except RecetteJournaliere.DoesNotExist:
             recette = None
         
-        # Calculs
-        total_vehicules = sum(d.nombre_vehicules for d in details_periodes)
-        moyenne_horaire = total_vehicules / len(details_periodes) if details_periodes else 0
-        estimation_24h = moyenne_horaire * 24
-        recette_potentielle = inventaire.calculer_recette_potentielle()
+        # 🔧 AMÉLIORATION : Calculs sécurisés avec gestion d'erreurs
+        try:
+            total_vehicules = sum(d.nombre_vehicules for d in details_periodes)
+            nombre_periodes = len(details_periodes)
+            moyenne_horaire = total_vehicules / nombre_periodes if nombre_periodes > 0 else 0
+            estimation_24h = moyenne_horaire * 24
+            recette_potentielle = inventaire.calculer_recette_potentielle()
+        except Exception as e:
+            # Valeurs par défaut en cas d'erreur
+            total_vehicules = 0
+            moyenne_horaire = 0
+            estimation_24h = 0
+            recette_potentielle = 0
+            
+            import logging
+            logger = logging.getLogger('supper')
+            logger.error(f"Erreur calculs inventaire {inventaire.pk}: {str(e)}")
         
         # Données pour graphique par période
-        graph_data = {
-            'periodes': [d.get_periode_display() for d in details_periodes],
-            'vehicules': [d.nombre_vehicules for d in details_periodes],
-        }
-        
-        context.update({
-            'details_periodes': details_periodes,
-            'recette': recette,
-            'total_vehicules': total_vehicules,
-            'moyenne_horaire': round(moyenne_horaire, 2),
-            'estimation_24h': round(estimation_24h, 2),
-            'recette_potentielle': recette_potentielle,
-            'graph_data': json.dumps(graph_data),
-            'can_edit': not inventaire.verrouille and self.request.user.peut_gerer_inventaire,
-            'can_lock': not inventaire.verrouille and _check_admin_permission(self.request.user),
-            'can_validate': inventaire.verrouille and not inventaire.valide and _check_admin_permission(self.request.user),
-        })
-        
-        return context
-
+        try:
+            graph_data = {
+                'periodes': [d.get_periode_display() for d in details_periodes],
+                'vehicules': [d.nombre_vehicules for d in details_periodes],
+            }
+            # 🔧 CORRECTION 3 : json.dumps sécurisé
+            graph_data_json = json.dumps(graph_data, ensure_ascii=False)
+        except Exception as e:
+            # Fallback en cas d'erreur de sérialisation
+            graph_data_json = '{}'
+            import logging
+            logger = logging.getLogger('supper')
+            logger.error(f"Erreur sérialisation graph_data: {str(e)}")
 
 class SaisieInventaireView(InventaireMixin, View):
     """Vue pour la saisie d'inventaire par les agents"""
@@ -430,6 +451,120 @@ class SaisieInventaireView(InventaireMixin, View):
             else:
                 messages.error(request, _("Erreur lors de la sauvegarde de l'inventaire."))
                 return redirect('inventaire:saisie_inventaire')
+    def get_context_data(self, **kwargs):
+        """Ajouter des données au contexte"""
+        context = super().get_context_data(**kwargs)
+        
+        # Ajouter la date d'aujourd'hui
+        context['today'] = date.today()
+        
+        # Ajouter les postes accessibles
+        if hasattr(self.request.user, 'get_postes_accessibles'):
+            context['postes_accessibles'] = self.request.user.get_postes_accessibles()
+        else:
+            context['postes_accessibles'] = Poste.objects.filter(actif=True)
+        
+        # 🔧 CORRECTION : Vérifier si aujourd'hui est ouvert - AVEC l'argument date
+        try:
+            today = date.today()
+            context['jour_ouvert_inventaire'] = ConfigurationJour.est_jour_ouvert_pour_inventaire(
+                date=today,  # 🔧 AJOUT de l'argument date manquant
+                poste=None   # Configuration globale
+            )
+            context['message_statut_jour'] = self._get_message_statut_jour(today)
+        except Exception as e:
+            # En cas d'erreur, considérer comme fermé par sécurité
+            context['jour_ouvert_inventaire'] = False
+            context['message_statut_jour'] = f"Impossible de vérifier le statut du jour : {str(e)}"
+        
+        return context
+    
+    def _get_message_statut_jour(self, date_check):
+        """
+        🔧 MÉTHODE CORRIGÉE : Obtenir le message de statut du jour
+        """
+        try:
+            # Vérifier la configuration globale
+            config_globale = ConfigurationJour.objects.filter(
+                date=date_check, 
+                poste__isnull=True
+            ).first()
+            
+            if config_globale:
+                if config_globale.statut == 'ouvert':
+                    if getattr(config_globale, 'permet_saisie_inventaire', False):
+                        return "✅ Jour ouvert pour la saisie d'inventaires"
+                    else:
+                        return "⚠️ Jour ouvert mais saisie d'inventaires non autorisée"
+                elif config_globale.statut == 'ferme':
+                    return "🔒 Jour fermé pour toutes les saisies"
+                elif config_globale.statut == 'impertinent':
+                    return "⚠️ Jour marqué comme impertinent"
+            else:
+                return "❌ Aucune configuration trouvée pour ce jour - Saisie fermée par défaut"
+                
+        except Exception as e:
+            return f"❌ Erreur lors de la vérification : {str(e)}"
+    
+    def get_form_kwargs(self):
+        """Passer l'utilisateur au formulaire"""
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
+    
+    def form_valid(self, form):
+        """Traitement lors de la soumission valide du formulaire"""
+        # 🔧 VALIDATION CORRIGÉE : Vérifier que le jour est ouvert AVANT la sauvegarde
+        try:
+            date_inventaire = form.cleaned_data.get('date', date.today())
+            poste_inventaire = form.cleaned_data.get('poste')
+            
+            # Vérification avec les bons arguments
+            if not ConfigurationJour.est_jour_ouvert_pour_inventaire(
+                date=date_inventaire,  # 🔧 Argument date correct
+                poste=poste_inventaire  # 🔧 Argument poste correct
+            ):
+                messages.error(
+                    self.request, 
+                    f"La saisie d'inventaire n'est pas autorisée pour le "
+                    f"{date_inventaire.strftime('%d/%m/%Y')}. "
+                    "Contactez un administrateur pour ouvrir ce jour."
+                )
+                return self.form_invalid(form)
+            
+            # Définir l'agent de saisie
+            form.instance.agent_saisie = self.request.user
+            
+            # Sauvegarder
+            response = super().form_valid(form)
+            
+            messages.success(
+                self.request, 
+                f'Inventaire créé avec succès pour le {date_inventaire.strftime("%d/%m/%Y")} '
+                f'au poste {poste_inventaire.nom if poste_inventaire else "non spécifié"}!'
+            )
+            
+            return response
+            
+        except Exception as e:
+            messages.error(
+                self.request, 
+                f"Erreur lors de la création de l'inventaire : {str(e)}"
+            )
+            return self.form_invalid(form)
+    
+    def form_invalid(self, form):
+        """Traitement lors d'un formulaire invalide"""
+        messages.error(
+            self.request, 
+            "Erreur dans le formulaire. Veuillez vérifier les données saisies."
+        )
+        return super().form_invalid(form)
+    
+    def get_success_url(self):
+        """URL de redirection après succès"""
+        return '/admin/inventaire/inventairejournalier/'
+
 
 
 class ConfigurationJourListView(AdminRequiredMixin, ListView):
@@ -2625,3 +2760,42 @@ def api_notifications(request):
     except Exception as e:
         logger.error(f"Erreur API notifications: {str(e)}")
         return JsonResponse({'unread_count': 0, 'new_notifications': []})
+
+def verifier_jour_ouvert_inventaire(date_check, poste=None):
+    """
+    Fonction utilitaire pour vérifier si un jour est ouvert pour inventaire
+    🔧 AVEC gestion d'erreurs et arguments corrects
+    """
+    try:
+        return ConfigurationJour.est_jour_ouvert_pour_inventaire(
+            date=date_check,  # Argument positionnel correct
+            poste=poste       # Argument positionnel correct
+        )
+    except Exception as e:
+        # Log l'erreur pour debug
+        import logging
+        logger = logging.getLogger('supper')
+        logger.error(f"Erreur vérification jour ouvert : {str(e)}")
+        
+        # Par défaut : fermé pour sécurité
+        return False
+
+
+def verifier_jour_ouvert_recette(date_check, poste=None):
+    """
+    Fonction utilitaire pour vérifier si un jour est ouvert pour recette
+    🔧 AVEC gestion d'erreurs et arguments corrects
+    """
+    try:
+        return ConfigurationJour.est_jour_ouvert_pour_recette(
+            date=date_check,  # Argument positionnel correct
+            poste=poste       # Argument positionnel correct
+        )
+    except Exception as e:
+        # Log l'erreur pour debug
+        import logging
+        logger = logging.getLogger('supper')
+        logger.error(f"Erreur vérification jour ouvert recette : {str(e)}")
+        
+        # Par défaut : fermé pour sécurité
+        return False
