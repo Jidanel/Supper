@@ -31,9 +31,9 @@
     <!-- Variables CSS pour le thème violet -->
     <style>
         :root {
-            --violet-principal: #6B46C1;
-            --violet-fonce: #553C9A;
-            --violet-clair: #8B5CF6;
+            --violet-principal: #2563eb; /* Bleu principal */
+            --violet-fonce: #1e40af; /* Bleu foncé */
+            --violet-clair: #3b82f6; /* Bleu clair */
             --blanc-pur: #FFFFFF;
             --gris-clair: #F8FAFC;
             --gris-moyen: #64748B;
@@ -87,8 +87,11 @@
             display: flex;
             list-style: none;
             margin: 0;
-            padding: 0;
+            padding: 0.75rem 1rem;
+            font-weight: 500;
+            position: relative;
             gap: 0.5rem;
+            align-items: center;
         }
 
         .nav-link {
@@ -99,6 +102,8 @@
             transition: all 0.3s ease;
             font-weight: 500;
             position: relative;
+            display: flex;
+            align-items: center;
         }
 
         .nav-link:hover, .nav-link.active {
@@ -113,11 +118,14 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.15);
             border-radius: 12px;
             padding: 0.5rem 0;
+            background-color: #2563eb;  /* Fond bleu */
+            color: white;
         }
 
         .dropdown-item {
             padding: 0.75rem 1.5rem;
             transition: all 0.2s ease;
+            color: white;
         }
 
         .dropdown-item:hover {
@@ -128,7 +136,7 @@
 
         .dropdown-header {
             font-weight: 600;
-            color: var(--violet-principal);
+            color: white;
             border-bottom: 1px solid #e5e7eb;
             margin-bottom: 0.5rem;
         }
@@ -303,7 +311,7 @@
                 <li>
                     <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                         <i class="fas fa-tachometer-alt me-1"></i>
-                        {% trans "Tableau de Bord" %}
+                        {% trans "DashBoard" %}
                     </a>
                 </li>
                 
@@ -337,7 +345,7 @@
                     </a>
                     <ul class="dropdown-menu">
                         <!-- Inventaires Mensuels -->
-                        <li><h6 class="dropdown-header text-primary">
+                        <li><h6 class="dropdown-header ">
                             <i class="fas fa-calendar-alt me-1"></i>{% trans "Inventaires Mensuels" %}
                         </h6></li>
                         <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairemensuel_add' %}">
@@ -350,7 +358,7 @@
                         <li><hr class="dropdown-divider"></li>
                         
                         <!-- Gestion des Jours -->
-                        <li><h6 class="dropdown-header text-warning">
+                        <li><h6 class="dropdown-header ">
                             <i class="fas fa-clock me-1"></i>{% trans "Gestion des Jours" %}
                         </h6></li>
                         <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
@@ -364,7 +372,7 @@
                         <li><hr class="dropdown-divider"></li>
                         
                         <!-- Actions Administratives CORRIGÉES -->
-                        <li><h6 class="dropdown-header text-danger">
+                        <li><h6 class="dropdown-header ">
                             <i class="fas fa-tools me-1"></i>{% trans "Actions Rapides" %}
                         </h6></li>
                         <li><a class="dropdown-item btn-action" href="#" onclick="ouvrirSemaineEnCours(); return false;">

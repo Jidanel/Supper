@@ -35,6 +35,11 @@ class MoisChoices(models.TextChoices):
 # CORRECTION DANS inventaire/models.py
 # Remplacer la classe InventaireMensuel
 # ===================================================================
+class MotifInventaire(models.TextChoices):
+    """Motifs pour programmer un inventaire"""
+    TAUX_DEPERDITION = 'taux_deperdition', _('Taux de déperdition élevé')
+    RISQUE_BAISSE = 'risque_baisse', _('Risque de baisse annuel')
+    GRAND_STOCK = 'grand_stock', _('Risque de grand stock')
 
 class InventaireMensuel(models.Model):
     """
@@ -46,6 +51,37 @@ class InventaireMensuel(models.Model):
         max_length=200,
         verbose_name=_("Titre de l'inventaire"),
         help_text=_("Titre descriptif pour cet inventaire mensuel")
+    )
+    poste = models.ForeignKey(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='inventaires_mensuels',
+        verbose_name=_("Poste")
+    )
+
+    motif = models.CharField(
+        max_length=20,
+        choices=MotifInventaire.choices,
+        verbose_name=_("Motif de l'inventaire")
+    )
+     # Données pour le motif
+    taux_deperdition_precedent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Taux de déperdition précédent (%)")
+    )
+    
+    risque_baisse_annuel = models.BooleanField(
+        default=False,
+        verbose_name=_("Risque de baisse annuel détecté")
+    )
+    
+    date_epuisement_stock = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date prévue d'épuisement du stock")
     )
     
     mois = models.CharField(
@@ -92,7 +128,6 @@ class InventaireMensuel(models.Model):
         auto_now=True,
         verbose_name=_("Dernière modification")
     )
-    
     actif = models.BooleanField(
         default=True,
         verbose_name=_("Inventaire actif"),
@@ -141,6 +176,11 @@ class InventaireMensuel(models.Model):
                     continue
             
             self.jours_actifs = sorted(list(set(jours_valides)))  # Supprimer les doublons
+    class Meta:
+        verbose_name = _("Inventaire mensuel")
+        verbose_name_plural = _("Inventaires mensuels")
+        unique_together = [['mois', 'poste']]
+        ordering = ['-mois', 'poste__nom']
     
     def save(self, *args, **kwargs):
         """Surcharge pour validation automatique"""
@@ -285,7 +325,10 @@ class PeriodeHoraire(models.TextChoices):
     H16_17 = '16h-17h', _('16h-17h')
     H17_18 = '17h-18h', _('17h-18h')
 
-
+class TypeConfiguration(models.TextChoices):
+    """Types de configuration de jour"""
+    INVENTAIRE = 'inventaire', _('Configuration Inventaire')
+    RECETTE = 'recette', _('Configuration Recette')
 class ConfigurationJour(models.Model):
     """
     Configuration des jours ouverts/fermés pour la saisie d'inventaire ET de recettes
@@ -293,11 +336,17 @@ class ConfigurationJour(models.Model):
     CORRECTION : Support amélioré pour configurations globales et par poste
     """
     
-    date = models.DateField(
-        verbose_name=_("Date"),
-        help_text=_("Date concernée par cette configuration")
+    
+    type_config = models.CharField(
+        max_length=15,
+        choices=TypeConfiguration.choices,
+        default=TypeConfiguration.INVENTAIRE,
+        verbose_name=_("Type de configuration")
     )
     
+    date = models.DateField(
+        verbose_name=_("Date")
+    )
     # 🔧 CORRECTION : Poste optionnel pour configuration spécifique
     poste = models.ForeignKey(
         'accounts.Poste',
@@ -353,6 +402,7 @@ class ConfigurationJour(models.Model):
         verbose_name = _("Configuration de jour")
         verbose_name_plural = _("Configurations de jours")
         ordering = ['-date']
+        unique_together = [['date', 'type_config']] 
         indexes = [
             models.Index(fields=['date']),
             models.Index(fields=['statut']),
@@ -1299,121 +1349,116 @@ class StatistiquesPeriodiques(models.Model):
         
         return stats
 
-class MotifInventaire(models.TextChoices):
-    """Motifs pour l'inventaire d'un poste"""
-    TAUX_DEPERDITION = 'taux_deperdition', _('Taux de déperdition')
-    GRAND_RISQUE_STOCK = 'grand_risque', _('Grand risque de stock au 31 décembre')
-    RISQUE_BAISSE_ANNUEL = 'risque_baisse', _('Risque de baisse annuel')
 
 
 
-class PosteInventaireMensuel(models.Model):
-    """
-    Association entre un inventaire mensuel et un poste avec ses motifs
-    """
+# class PosteInventaireMensuel(models.Model):
+#     """
+#     Association entre un inventaire mensuel et un poste avec ses motifs
+#     """
     
-    inventaire_mensuel = models.ForeignKey(
-        InventaireMensuel,
-        on_delete=models.CASCADE,
-        related_name='postes_inventaire',
-        verbose_name=_("Inventaire mensuel")
-    )
+#     inventaire_mensuel = models.ForeignKey(
+#         InventaireMensuel,
+#         on_delete=models.CASCADE,
+#         related_name='postes_inventaire',
+#         verbose_name=_("Inventaire mensuel")
+#     )
     
-    poste = models.ForeignKey(
-        Poste,
-        on_delete=models.CASCADE,
-        related_name='inventaires_mensuels',
-        verbose_name=_("Poste")
-    )
+#     poste = models.ForeignKey(
+#         Poste,
+#         on_delete=models.CASCADE,
+#         related_name='inventaires_mensuels',
+#         verbose_name=_("Poste")
+#     )
     
-    # Motifs multiples possibles
-    motif_taux_deperdition = models.BooleanField(
-        default=False,
-        verbose_name=_("Taux de déperdition"),
-        help_text=_("Cocher si le poste est concerné par le taux de déperdition")
-    )
+#     # Motifs multiples possibles
+#     motif_taux_deperdition = models.BooleanField(
+#         default=False,
+#         verbose_name=_("Taux de déperdition"),
+#         help_text=_("Cocher si le poste est concerné par le taux de déperdition")
+#     )
     
-    motif_grand_risque = models.BooleanField(
-        default=False,
-        verbose_name=_("Grand risque de stock au 31 décembre"),
-        help_text=_("Cocher si risque de stock important en fin d'année")
-    )
+#     motif_grand_risque = models.BooleanField(
+#         default=False,
+#         verbose_name=_("Grand risque de stock au 31 décembre"),
+#         help_text=_("Cocher si risque de stock important en fin d'année")
+#     )
     
-    motif_risque_baisse = models.BooleanField(
-        default=False,
-        verbose_name=_("Risque de baisse annuel"),
-        help_text=_("Cocher si risque de baisse annuelle")
-    )
+#     motif_risque_baisse = models.BooleanField(
+#         default=False,
+#         verbose_name=_("Risque de baisse annuel"),
+#         help_text=_("Cocher si risque de baisse annuelle")
+#     )
     
-    observations = models.TextField(
-        blank=True,
-        verbose_name=_("Observations"),
-        help_text=_("Notes spécifiques pour ce poste dans cet inventaire")
-    )
+#     observations = models.TextField(
+#         blank=True,
+#         verbose_name=_("Observations"),
+#         help_text=_("Notes spécifiques pour ce poste dans cet inventaire")
+#     )
     
-    date_ajout = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Date d'ajout")
-    )
+#     date_ajout = models.DateTimeField(
+#         auto_now_add=True,
+#         verbose_name=_("Date d'ajout")
+#     )
     
-    class Meta:
-        verbose_name = _("Poste d'inventaire mensuel")
-        verbose_name_plural = _("Postes d'inventaires mensuels")
-        unique_together = [['inventaire_mensuel', 'poste']]
-        ordering = ['poste__region', 'poste__nom']
-        indexes = [
-            models.Index(fields=['inventaire_mensuel', 'poste']),
-        ]
+#     class Meta:
+#         verbose_name = _("Poste d'inventaire mensuel")
+#         verbose_name_plural = _("Postes d'inventaires mensuels")
+#         unique_together = [['inventaire_mensuel', 'poste']]
+#         ordering = ['poste__region', 'poste__nom']
+#         indexes = [
+#             models.Index(fields=['inventaire_mensuel', 'poste']),
+#         ]
     
-    def __str__(self):
-        motifs = self.get_motifs_list()
-        motifs_str = ', '.join(motifs) if motifs else 'Aucun motif'
-        return f"{self.poste.nom} - {motifs_str}"
+#     def __str__(self):
+#         motifs = self.get_motifs_list()
+#         motifs_str = ', '.join(motifs) if motifs else 'Aucun motif'
+#         return f"{self.poste.nom} - {motifs_str}"
     
-    def get_motifs_list(self):
-        """Retourne la liste des motifs sélectionnés"""
-        motifs = []
-        if self.motif_taux_deperdition:
-            motifs.append("Taux déperdition")
-        if self.motif_grand_risque:
-            motifs.append("Grand risque stock")
-        if self.motif_risque_baisse:
-            motifs.append("Risque baisse")
-        return motifs
+#     def get_motifs_list(self):
+#         """Retourne la liste des motifs sélectionnés"""
+#         motifs = []
+#         if self.motif_taux_deperdition:
+#             motifs.append("Taux déperdition")
+#         if self.motif_grand_risque:
+#             motifs.append("Grand risque stock")
+#         if self.motif_risque_baisse:
+#             motifs.append("Risque baisse")
+#         return motifs
     
-    def get_motifs_count(self):
-        """Retourne le nombre de motifs sélectionnés"""
-        count = 0
-        if self.motif_taux_deperdition:
-            count += 1
-        if self.motif_grand_risque:
-            count += 1
-        if self.motif_risque_baisse:
-            count += 1
-        return count
+#     def get_motifs_count(self):
+#         """Retourne le nombre de motifs sélectionnés"""
+#         count = 0
+#         if self.motif_taux_deperdition:
+#             count += 1
+#         if self.motif_grand_risque:
+#             count += 1
+#         if self.motif_risque_baisse:
+#             count += 1
+#         return count
     
-    def get_inventaires_journaliers(self):
-        """Retourne tous les inventaires journaliers de ce poste pour le mois"""
-        from datetime import date
-        import calendar
+#     def get_inventaires_journaliers(self):
+#         """Retourne tous les inventaires journaliers de ce poste pour le mois"""
+#         from datetime import date
+#         import calendar
         
-        # Obtenir le premier et dernier jour du mois
-        premier_jour = date(
-            self.inventaire_mensuel.annee, 
-            self.inventaire_mensuel.mois, 
-            1
-        )
+#         # Obtenir le premier et dernier jour du mois
+#         premier_jour = date(
+#             self.inventaire_mensuel.annee, 
+#             self.inventaire_mensuel.mois, 
+#             1
+#         )
         
-        dernier_jour = date(
-            self.inventaire_mensuel.annee,
-            self.inventaire_mensuel.mois,
-            calendar.monthrange(
-                self.inventaire_mensuel.annee, 
-                self.inventaire_mensuel.mois
-            )[1]
-        )
+#         dernier_jour = date(
+#             self.inventaire_mensuel.annee,
+#             self.inventaire_mensuel.mois,
+#             calendar.monthrange(
+#                 self.inventaire_mensuel.annee, 
+#                 self.inventaire_mensuel.mois
+#             )[1]
+#         )
         
-        return InventaireJournalier.objects.filter(
-            poste=self.poste,
-            date__range=[premier_jour, dernier_jour]
-        )
+#         return InventaireJournalier.objects.filter(
+#             poste=self.poste,
+#             date__range=[premier_jour, dernier_jour]
+#         )
