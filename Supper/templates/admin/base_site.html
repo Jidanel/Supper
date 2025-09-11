@@ -1,9 +1,5 @@
-<!-- ===================================================================
-     templates/admin/base_site.html - VERSION FINALE COMPLÈTE
-     Design violet professionnel avec toutes les corrections appliquées
-     ================================================================== -->
-{% load static %}
-{% load i18n %}
+<!-- templates/admin/base_site.html - Version révisée avec nouvelles URLs -->
+{% load static i18n %}
 
 <!DOCTYPE html>
 <html lang="{% get_current_language as LANGUAGE_CODE %}{{ LANGUAGE_CODE }}">
@@ -15,39 +11,26 @@
     <!-- CSS Bootstrap et personnalisé -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/supper_admin.css' %}">
     
-    <!-- CSS spécifique à la page -->
-    {% block extra_css %}{% endblock %}
-    
-    <!-- Meta tags pour mobile et SEO -->
-    <meta name="description" content="SUPPER - Système de Suivi des Péages et Pesages Routiers">
-    <meta name="robots" content="noindex, nofollow">
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{% static 'admin/img/favicon.ico' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/calendrier-widget.css' %}">
-
-    <!-- Variables CSS pour le thème violet -->
+    <!-- Variables CSS pour le thème -->
     <style>
         :root {
-            --violet-principal: #2563eb; /* Bleu principal */
-            --violet-fonce: #1e40af; /* Bleu foncé */
-            --violet-clair: #3b82f6; /* Bleu clair */
-            --blanc-pur: #FFFFFF;
-            --gris-clair: #F8FAFC;
-            --gris-moyen: #64748B;
-            --gris-fonce: #334155;
-            --accent-orange: #F59E0B;
-            --success-vert: #10B981;
-            --warning-orange: #F59E0B;
-            --danger-rouge: #EF4444;
+            --primary-color: #2563eb;
+            --primary-dark: #1e40af;
+            --primary-light: #3b82f6;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --danger-color: #EF4444;
+            --info-color: #3B82F6;
+            --dark-color: #334155;
+            --light-bg: #F8FAFC;
+            --white: #FFFFFF;
         }
 
-        /* Header avec design violet professionnel */
-        .header-violet {
-            background: linear-gradient(135deg, var(--violet-principal) 0%, var(--violet-fonce) 100%);
-            box-shadow: 0 4px 20px rgba(107, 70, 193, 0.3);
+        /* Header principal */
+        .header-main {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
             position: sticky;
             top: 0;
             z-index: 1000;
@@ -82,14 +65,12 @@
             font-weight: 300;
         }
 
-        /* Navigation principale */
+        /* Navigation */
         .main-navigation .nav-links {
             display: flex;
             list-style: none;
             margin: 0;
             padding: 0.75rem 1rem;
-            font-weight: 500;
-            position: relative;
             gap: 0.5rem;
             align-items: center;
         }
@@ -101,7 +82,6 @@
             border-radius: 8px;
             transition: all 0.3s ease;
             font-weight: 500;
-            position: relative;
             display: flex;
             align-items: center;
         }
@@ -118,27 +98,27 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.15);
             border-radius: 12px;
             padding: 0.5rem 0;
-            background-color: #2563eb;  /* Fond bleu */
-            color: white;
+            background-color: white;
         }
 
         .dropdown-item {
             padding: 0.75rem 1.5rem;
             transition: all 0.2s ease;
-            color: white;
+            color: var(--dark-color);
         }
 
         .dropdown-item:hover {
-            background: var(--violet-clair);
-            color: white;
+            background: var(--light-bg);
+            color: var(--primary-color);
             transform: translateX(5px);
         }
 
         .dropdown-header {
             font-weight: 600;
-            color: white;
+            color: var(--primary-dark);
             border-bottom: 1px solid #e5e7eb;
             margin-bottom: 0.5rem;
+            padding: 0.5rem 1.5rem;
         }
 
         /* Section utilisateur */
@@ -146,26 +126,6 @@
             display: flex;
             align-items: center;
             gap: 1rem;
-        }
-
-        .notification-btn {
-            position: relative;
-        }
-
-        .notification-badge {
-            position: absolute;
-            top: 0;
-            right: 0;
-            background: var(--accent-orange);
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 0.7rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
         }
 
         .user-info {
@@ -186,7 +146,7 @@
         /* Contenu principal */
         .main-content {
             min-height: calc(100vh - 80px);
-            background: var(--gris-clair);
+            background: var(--light-bg);
         }
 
         .content-wrapper {
@@ -201,23 +161,6 @@
             to { opacity: 1; }
         }
 
-        /* Breadcrumbs */
-        .breadcrumbs {
-            background: white;
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-
-        .breadcrumb-item a {
-            color: var(--violet-principal);
-            text-decoration: none;
-        }
-
-        .breadcrumb-item.active {
-            color: var(--gris-fonce);
-        }
-
         /* Messages */
         .messages-container .alert {
             border: none;
@@ -225,25 +168,19 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
-        /* Dashboard welcome */
-        .dashboard-welcome .welcome-card {
-            background: white;
-            border-radius: 16px;
-            padding: 3rem;
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        /* Badges de statut */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
         }
 
-        .welcome-card h2 {
-            color: var(--violet-principal);
-            margin-bottom: 1rem;
-        }
-
-        /* Footer */
-        .main-footer {
-            border-top: 1px solid #e5e7eb;
-            margin-top: auto;
-        }
+        .status-success { background: rgba(16, 185, 129, 0.1); color: var(--success-color); }
+        .status-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
+        .status-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
+        .status-info { background: rgba(59, 130, 246, 0.1); color: var(--info-color); }
 
         /* Responsive */
         @media (max-width: 768px) {
@@ -261,38 +198,17 @@
                 padding: 1rem;
             }
         }
-
-        /* Animation pour les boutons d'action */
-        .btn-action {
-            transition: all 0.3s ease;
-        }
-
-        .btn-action:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-        }
-
-        /* Styles pour les badges de statut */
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .status-success { background: rgba(16, 185, 129, 0.1); color: var(--success-vert); }
-        .status-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning-orange); }
-        .status-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger-rouge); }
     </style>
+    
+    {% block extra_css %}{% endblock %}
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
 
-<!-- HEADER PRINCIPAL avec bande violette -->
-<header id="header" class="header-violet">
+<!-- HEADER PRINCIPAL -->
+<header id="header" class="header-main">
     <div class="header-container">
-        <!-- Logo et titre SUPPER -->
+        <!-- Logo et titre -->
         <div class="logo-section">
             <div class="logo-icon">
                 <i class="fas fa-road text-white fs-2"></i>
@@ -308,13 +224,15 @@
         <!-- Navigation principale -->
         <nav class="main-navigation">
             <ul class="nav-links">
+                <!-- Dashboard -->
                 <li>
                     <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                         <i class="fas fa-tachometer-alt me-1"></i>
-                        {% trans "DashBoard" %}
+                        {% trans "Tableau de bord" %}
                     </a>
                 </li>
                 
+                <!-- Menu Inventaires -->
                 {% if user.peut_gerer_inventaire %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
@@ -322,90 +240,147 @@
                         {% trans "Inventaires" %}
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_add' %}">
-                            <i class="fas fa-plus me-2"></i>{% trans "Nouvel Inventaire" %}
-                        </a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairejournalier_changelist' %}">
-                            <i class="fas fa-list me-2"></i>{% trans "Liste Inventaires" %}
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{% url 'inventaire:saisie_inventaire' %}">
-                            <i class="fas fa-keyboard me-2"></i>{% trans "Saisie Rapide" %}
-                        </a></li>
-                    </ul>
-                </li>
-                {% endif %}
-
-                <!-- MENU PLANIFICATION CORRIGÉ -->
-                {% if user.is_superuser or user.peut_gerer_inventaire %}
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-calendar-check me-1"></i>
-                        {% trans "Planification" %}
-                    </a>
-                    <ul class="dropdown-menu">
-                        <!-- Inventaires Mensuels -->
-                        <li><h6 class="dropdown-header ">
-                            <i class="fas fa-calendar-alt me-1"></i>{% trans "Inventaires Mensuels" %}
-                        </h6></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairemensuel_add' %}">
-                            <i class="fas fa-plus me-2 text-success"></i>{% trans "Créer Inventaire Mensuel" %}
-                        </a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_inventairemensuel_changelist' %}">
-                            <i class="fas fa-list-alt me-2 text-info"></i>{% trans "Gérer Inventaires Mensuels" %}
-                        </a></li>
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-edit me-1"></i>{% trans "Saisie" %}
+                            </h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:saisie_inventaire' %}">
+                                <i class="fas fa-keyboard me-2"></i>{% trans "Saisir Inventaire" %}
+                            </a>
+                        </li>
+                        {% if user.is_chef_poste or user.is_admin %}
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:saisie_recette' %}">
+                                <i class="fas fa-coins me-2"></i>{% trans "Saisir Recette" %}
+                            </a>
+                        </li>
+                        {% endif %}
                         
                         <li><hr class="dropdown-divider"></li>
                         
-                        <!-- Gestion des Jours -->
-                        <li><h6 class="dropdown-header ">
-                            <i class="fas fa-clock me-1"></i>{% trans "Gestion des Jours" %}
-                        </h6></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
-                            <i class="fas fa-calendar-day me-2 text-primary"></i>{% trans "Configuration des Jours" %}
-                        </a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_add' %}">
-                            <i class="fas fa-calendar-plus me-2 text-success"></i>{% trans "Ouvrir/Fermer un Jour" %}
-                        </a></li>
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-list me-1"></i>{% trans "Consultation" %}
+                            </h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:inventaire_list' %}">
+                                <i class="fas fa-list-alt me-2"></i>{% trans "Liste Inventaires" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_mensuels' %}">
+                                <i class="fas fa-calendar-alt me-2"></i>{% trans "Inventaires Mensuels" %}
+                            </a>
+                        </li>
                         
-                        {% if user.is_superuser %}
+                        {% if user.is_admin %}
                         <li><hr class="dropdown-divider"></li>
-                        
-                        <!-- Actions Administratives CORRIGÉES -->
-                        <li><h6 class="dropdown-header ">
-                            <i class="fas fa-tools me-1"></i>{% trans "Actions Rapides" %}
-                        </h6></li>
-                        <li><a class="dropdown-item btn-action" href="#" onclick="ouvrirSemaineEnCours(); return false;">
-                            <i class="fas fa-unlock me-2 text-success"></i>{% trans "Ouvrir Semaine Courante" %}
-                        </a></li>
-                        <li><a class="dropdown-item btn-action" href="#" onclick="fermerJoursAnciens(); return false;">
-                            <i class="fas fa-lock me-2 text-danger"></i>{% trans "Fermer Jours Anciens" %}
-                        </a></li>
-                        <li><a class="dropdown-item btn-action" href="#" onclick="marquerJourImpertinent(); return false;">
-                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>{% trans "Marquer Jour Impertinent" %}
-                        </a></li>
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-cogs me-1"></i>{% trans "Administration" %}
+                            </h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:consolider_inventaire_mensuel' %}">
+                                <i class="fas fa-compress me-2"></i>{% trans "Consolider Mensuel" %}
+                            </a>
+                        </li>
                         {% endif %}
                     </ul>
                 </li>
                 {% endif %}
 
-                {% if user.peut_gerer_peage or user.peut_gerer_pesage %}
+                <!-- Menu Programmation -->
+                {% if user.is_admin or user.peut_gerer_inventaire %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-money-bill-wave me-1"></i>
-                        {% trans "Recettes" %}
+                        <i class="fas fa-calendar-check me-1"></i>
+                        {% trans "Programmation" %}
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_add' %}">
-                            <i class="fas fa-plus me-2"></i>{% trans "Nouvelle Recette" %}
-                        </a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_recettejournaliere_changelist' %}">
-                            <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
-                        </a></li>
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-plus me-1"></i>{% trans "Nouvelle Programmation" %}
+                            </h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:programmer_inventaire' %}">
+                                <i class="fas fa-calendar-plus me-2 text-success"></i>
+                                {% trans "Programmer Inventaires" %}
+                            </a>
+                        </li>
+                        
+                        <li><hr class="dropdown-divider"></li>
+                        
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-list me-1"></i>{% trans "Gestion" %}
+                            </h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:liste_programmations' %}">
+                                <i class="fas fa-tasks me-2 text-primary"></i>
+                                {% trans "Programmations Actives" %}
+                            </a>
+                        </li>
+                        
+                        {% if user.is_admin %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-exclamation-triangle me-1"></i>{% trans "Actions Spéciales" %}
+                            </h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="marquerJourImpertinent(); return false;">
+                                <i class="fas fa-flag me-2 text-warning"></i>
+                                {% trans "Marquer Jour Impertinent" %}
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                 </li>
                 {% endif %}
 
+                <!-- Menu Rapports -->
+                {% if user.peut_gerer_inventaire or user.is_admin %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-chart-bar me-1"></i>
+                        {% trans "Rapports" %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
+                                <i class="fas fa-file-export me-2"></i>{% trans "Générer Rapports" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:api_inventaire_stats' %}">
+                                <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
+                            </a>
+                        </li>
+                        {% if user.is_admin %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:diagnostic' %}">
+                                <i class="fas fa-stethoscope me-2"></i>{% trans "Diagnostic Système" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
+                                <i class="fas fa-download me-2"></i>{% trans "Sauvegarde" %}
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </li>
+                {% endif %}
+
+                <!-- Menu Personnel (si permission) -->
                 {% if user.peut_gerer_personnel %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
@@ -413,19 +388,26 @@
                         {% trans "Personnel" %}
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
-                            <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
-                        </a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
-                            <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
-                        </a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
-                            <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
-                        </a></li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
+                                <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
+                                <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
+                                <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 {% endif %}
 
+                <!-- Menu Administration (superuser uniquement) -->
                 {% if user.is_superuser %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
@@ -433,16 +415,17 @@
                         {% trans "Administration" %}
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
-                            <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
-                        </a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:inventaire_configurationjour_changelist' %}">
-                            <i class="fas fa-calendar-alt me-2"></i>{% trans "Configuration Jours" %}
-                        </a></li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
+                                <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="/admin/">
-                            <i class="fas fa-tools me-2"></i>{% trans "Administration Avancée" %}
-                        </a></li>
+                        <li>
+                            <a class="dropdown-item" href="/admin/">
+                                <i class="fas fa-tools me-2"></i>{% trans "Administration Django" %}
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 {% endif %}
@@ -453,15 +436,17 @@
         <div class="user-section">
             <!-- Notifications -->
             <div class="notification-btn me-3">
-                <button class="btn btn-link text-white p-2" data-bs-toggle="dropdown">
+                <button class="btn btn-link text-white p-2" id="notificationBtn" data-bs-toggle="dropdown">
                     <i class="fas fa-bell fs-5"></i>
-                    <span class="notification-badge" style="display: none;">0</span>
+                    <span class="badge bg-danger notification-badge" style="display: none;">0</span>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" id="notificationDropdown">
                     <li><h6 class="dropdown-header">{% trans "Notifications" %}</h6></li>
-                    <li><a class="dropdown-item" href="#">
-                        <small class="text-muted">{% trans "Aucune nouvelle notification" %}</small>
-                    </a></li>
+                    <li id="notificationList">
+                        <a class="dropdown-item" href="#">
+                            <small class="text-muted">{% trans "Aucune nouvelle notification" %}</small>
+                        </a>
+                    </li>
                 </ul>
             </div>
 
@@ -478,12 +463,16 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
-                    <li><a class="dropdown-item" href="#">
-                        <i class="fas fa-user me-2"></i>{% trans "Mon Profil" %}
-                    </a></li>
-                    <li><a class="dropdown-item" href="#">
-                        <i class="fas fa-key me-2"></i>{% trans "Changer mot de passe" %}
-                    </a></li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                            <i class="fas fa-user me-2"></i>{% trans "Mon Profil" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'accounts:change_password' %}">
+                            <i class="fas fa-key me-2"></i>{% trans "Changer mot de passe" %}
+                        </a>
+                    </li>
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
@@ -503,22 +492,6 @@
 <main id="content" class="main-content">
     <div class="content-wrapper">
         
-        <!-- Breadcrumbs -->
-        {% block breadcrumbs %}
-        <nav class="breadcrumbs mb-4">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item">
-                    <a href="{% url 'admin:index' %}">
-                        <i class="fas fa-home me-1"></i>{% trans "Accueil" %}
-                    </a>
-                </li>
-                {% if title %}
-                <li class="breadcrumb-item active">{{ title }}</li>
-                {% endif %}
-            </ol>
-        </nav>
-        {% endblock %}
-
         <!-- Messages Django -->
         {% if messages %}
         <div class="messages-container mb-4">
@@ -545,16 +518,22 @@
         <div class="dashboard-welcome">
             <div class="row">
                 <div class="col-12">
-                    <div class="welcome-card">
-                        <h2>{% trans "Bienvenue dans SUPPER" %}</h2>
-                        <p class="text-muted">{% trans "Système de Suivi des Péages et Pesages Routiers" %}</p>
-                        <div class="mt-4">
-                            <span class="status-badge status-success me-2">
-                                <i class="fas fa-check me-1"></i>{% trans "Système Opérationnel" %}
-                            </span>
-                            <span class="status-badge status-warning">
-                                <i class="fas fa-user me-1"></i>{{ user.get_habilitation_display }}
-                            </span>
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <h2>{% trans "Bienvenue dans SUPPER" %}</h2>
+                            <p class="text-muted">{% trans "Système de Suivi des Péages et Pesages Routiers" %}</p>
+                            <div class="mt-4">
+                                {% if user.peut_gerer_inventaire %}
+                                <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-primary me-2">
+                                    <i class="fas fa-plus me-2"></i>{% trans "Saisir Inventaire" %}
+                                </a>
+                                {% endif %}
+                                {% if user.is_chef_poste %}
+                                <a href="{% url 'inventaire:saisie_recette' %}" class="btn btn-success">
+                                    <i class="fas fa-coins me-2"></i>{% trans "Saisir Recette" %}
+                                </a>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -575,7 +554,7 @@
             </div>
             <div class="col-md-6 text-end">
                 <small class="text-muted">
-                    {% trans "Version" %} 1.0 | {% trans "Connecté en tant que" %}: <strong>{{ user.username }}</strong>
+                    {% trans "Version" %} 2.0 | {% trans "Connecté en tant que" %}: <strong>{{ user.username }}</strong>
                 </small>
             </div>
         </div>
@@ -585,628 +564,132 @@
 <!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{% static 'js/calendrier-widget.js' %}"></script>
 
-<!-- JavaScript personnalisé COMPLET -->
+<!-- JavaScript personnalisé -->
 <script>
-// Configuration globale CORRIGÉE
+// Configuration globale
 const SUPPER_CONFIG = {
     CSRF_TOKEN: '{{ csrf_token }}',
     API_ENDPOINTS: {
-        OUVRIR_SEMAINE: "{% url 'action_ouvrir_semaine' %}",
-        FERMER_ANCIENS: "{% url 'action_fermer_anciens' %}",
-        MARQUER_IMPERTINENT: "{% url 'action_marquer_impertinent' %}",
-        NOTIFICATIONS: "{% url 'inventaire:api_notifications' %}"
+        NOTIFICATIONS: "{% url 'inventaire:api_notifications' %}",
+        QUICK_ACTION: "{% url 'inventaire:api_quick_action' %}",
+        STATS: "{% url 'inventaire:api_inventaire_stats' %}"
     },
     USER: {
-        IS_SUPERUSER: {{ user.is_superuser|yesno:"true,false" }},
+        IS_ADMIN: {{ user.is_admin|yesno:"true,false" }},
         USERNAME: "{{ user.username }}"
     }
 };
 
-// ===================================================================
-// FONCTIONS ACTIONS RAPIDES CORRIGÉES (PROBLÈME 3)
-// ===================================================================
-
-function ouvrirSemaineEnCours() {
-    console.log('🔧 Ouverture semaine en cours...');
-    
-    if (!validateUserAction('ouvrir_semaine')) {
-        return false;
-    }
-
-    if (!confirm('{% trans "Voulez-vous ouvrir tous les jours ouvrables de la semaine courante pour toutes les saisies ?" %}')) {
-        return false;
-    }
-
-    showLoadingState('{% trans "Ouverture de la semaine en cours..." %}');
-
-    fetch(SUPPER_CONFIG.API_ENDPOINTS.OUVRIR_SEMAINE, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN,
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-            action: 'ouvrir_semaine_courante'
-        })
-    })
-    .then(response => {
-        hideLoadingState();
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            showNotification('success', data.message);
-            // Recharger la page si on est sur la configuration des jours
-            if (window.location.pathname.includes('configurationjour')) {
-                setTimeout(() => location.reload(), 1500);
-            }
-        } else {
-            showNotification('error', data.message || '{% trans "Erreur lors de l\'opération" %}');
-        }
-    })
-    .catch(error => {
-        hideLoadingState();
-        console.error('Erreur ouverture semaine:', error);
-        showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
-    });
-
-    return false; // Empêcher la soumission du lien
-}
-
-function fermerJoursAnciens() {
-    console.log('🔧 Fermeture jours anciens...');
-    
-    if (!validateUserAction('fermer_anciens')) {
-        return false;
-    }
-
-    if (!confirm('{% trans "Voulez-vous fermer tous les jours antérieurs à aujourd\'hui ?" %}')) {
-        return false;
-    }
-
-    showLoadingState('{% trans "Fermeture des jours anciens..." %}');
-
-    fetch(SUPPER_CONFIG.API_ENDPOINTS.FERMER_ANCIENS, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN,
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-            action: 'fermer_jours_anciens'
-        })
-    })
-    .then(response => {
-        hideLoadingState();
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            showNotification('success', data.message);
-            if (window.location.pathname.includes('configurationjour')) {
-                setTimeout(() => location.reload(), 1500);
-            }
-        } else {
-            showNotification('error', data.message || '{% trans "Erreur lors de l\'opération" %}');
-        }
-    })
-    .catch(error => {
-        hideLoadingState();
-        console.error('Erreur fermeture anciens:', error);
-        showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
-    });
-
-    return false;
-}
-
+// Fonction pour marquer un jour comme impertinent
 function marquerJourImpertinent() {
-    console.log('🔧 Marquage jour impertinent...');
-    
-    if (!validateUserAction('marquer_impertinent')) {
-        return false;
-    }
-    
-    // Demander la date avec validation
-    let date;
-    do {
-        date = prompt('{% trans "Entrez la date à marquer comme impertinente (YYYY-MM-DD):" %}');
-        if (date === null) return false; // Annulé
-        
-        if (date && !isValidDate(date)) {
-            alert('{% trans "Format de date invalide. Utilisez YYYY-MM-DD (ex: 2025-08-18)" %}');
-            date = null;
-        }
-    } while (date === null || (date && !isValidDate(date)));
-    
-    if (!date) return false;
+    const date = prompt('{% trans "Entrez la date à marquer comme impertinente (YYYY-MM-DD):" %}');
+    if (!date) return;
     
     const commentaire = prompt('{% trans "Commentaire (optionnel):" %}', '') || '';
     
-    showLoadingState('{% trans "Marquage du jour comme impertinent..." %}');
-
-    fetch(SUPPER_CONFIG.API_ENDPOINTS.MARQUER_IMPERTINENT, {
+    fetch(SUPPER_CONFIG.API_ENDPOINTS.QUICK_ACTION, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN,
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN
         },
         body: JSON.stringify({
-            action: 'marquer_impertinent',
+            action: 'mark_impertinent',
             date: date,
             commentaire: commentaire
         })
     })
-    .then(response => {
-        hideLoadingState();
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
             showNotification('success', data.message);
-            if (window.location.pathname.includes('configurationjour')) {
-                setTimeout(() => location.reload(), 1500);
-            }
         } else {
             showNotification('error', data.message || '{% trans "Erreur lors de l\'opération" %}');
         }
     })
     .catch(error => {
-        hideLoadingState();
-        console.error('Erreur marquage impertinent:', error);
+        console.error('Erreur:', error);
         showNotification('error', '{% trans "Erreur de communication avec le serveur" %}');
     });
-
-    return false;
 }
 
-// ===================================================================
-// FONCTIONS UTILITAIRES CORRIGÉES
-// ===================================================================
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-function isValidDate(dateString) {
-    // Format YYYY-MM-DD
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(dateString)) return false;
-    
-    const date = new Date(dateString + 'T00:00:00.000Z');
-    const timestamp = date.getTime();
-    
-    if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) return false;
-    
-    // Vérifier que la date correspond au format
-    const [year, month, day] = dateString.split('-').map(Number);
-    return date.getUTCFullYear() === year && 
-           date.getUTCMonth() === month - 1 && 
-           date.getUTCDate() === day;
-}
-
-function validateUserAction(action) {
-    // Valider que l'utilisateur a les permissions pour l'action
-    if (!SUPPER_CONFIG.USER.IS_SUPERUSER && 
-        ['ouvrir_semaine', 'fermer_anciens', 'marquer_impertinent'].includes(action)) {
-        showNotification('error', '{% trans "Permission insuffisante pour cette action" %}');
-        return false;
-    }
-    
-    return true;
-}
-
+// Fonction pour afficher les notifications
 function showNotification(type, message) {
-    // Créer une notification Bootstrap dynamique
     const alertClass = type === 'success' ? 'alert-success' : 
                       type === 'warning' ? 'alert-warning' : 
                       type === 'info' ? 'alert-info' : 'alert-danger';
     
-    const iconClass = type === 'success' ? 'fas fa-check-circle' : 
-                     type === 'warning' ? 'fas fa-exclamation-triangle' :
-                     type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
-    
     const alertHTML = `
-        <div class="alert ${alertClass} alert-dismissible fade show notification-dynamic" 
-             role="alert" 
-             style="position: fixed; top: 20px; right: 20px; z-index: 9999; 
-                    min-width: 300px; max-width: 500px; 
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                    animation: slideInRight 0.3s ease;">
-            <i class="${iconClass} me-2"></i>
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
     
-    // Supprimer les notifications existantes
-    document.querySelectorAll('.notification-dynamic').forEach(notif => notif.remove());
+    const container = document.querySelector('.messages-container') || 
+                     document.querySelector('.content-wrapper');
     
-    // Insérer la nouvelle notification
-    document.body.insertAdjacentHTML('beforeend', alertHTML);
-    
-    // Auto-supprimer après 5 secondes
-    setTimeout(() => {
-        const notification = document.querySelector('.notification-dynamic');
-        if (notification) {
-            notification.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
-        }
-    }, 5000);
-}
-
-function showLoadingState(message) {
-    // Supprimer l'indicateur existant
-    hideLoadingState();
-    
-    const loadingHTML = `
-        <div id="supper-loading" class="loading-overlay" style="
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(107, 70, 193, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            color: white;
-            font-size: 1.2rem;
-            backdrop-filter: blur(5px);
-            animation: fadeIn 0.3s ease;
-        ">
-            <div class="text-center">
-                <div class="spinner-border text-white mb-3" role="status" style="width: 3rem; height: 3rem;">
-                    <span class="visually-hidden">Chargement...</span>
-                </div>
-                <div id="loading-message">${message}</div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', loadingHTML);
-}
-
-function hideLoadingState() {
-    const loadingElement = document.getElementById('supper-loading');
-    if (loadingElement) {
-        loadingElement.style.animation = 'fadeOut 0.3s ease';
-        setTimeout(() => loadingElement.remove(), 300);
+    if (container) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = alertHTML;
+        container.insertBefore(tempDiv.firstChild, container.firstChild);
     }
 }
 
-// ===================================================================
-// GESTION DES NOTIFICATIONS
-// ===================================================================
-
+// Vérifier les notifications
 function checkNotifications() {
-    if (!SUPPER_CONFIG.API_ENDPOINTS.NOTIFICATIONS) {
-        console.warn('API Notifications non configurée');
-        return;
-    }
-
-    fetch(SUPPER_CONFIG.API_ENDPOINTS.NOTIFICATIONS, {
-        method: 'GET',
-        headers: {
-            'X-CSRFToken': SUPPER_CONFIG.CSRF_TOKEN,
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-    })
-    .then(data => {
-        updateNotificationBadge(data.unread_count || 0);
-        
-        // Afficher les nouvelles notifications importantes
-        if (data.new_notifications && data.new_notifications.length > 0) {
-            data.new_notifications.forEach(notif => {
-                if (notif.type === 'urgent' || notif.type === 'warning') {
-                    showNotification(notif.type === 'urgent' ? 'error' : 'warning', notif.message);
-                }
-            });
-        }
-    })
-    .catch(error => {
-        console.warn('Erreur vérification notifications:', error);
-    });
-}
-
-function updateNotificationBadge(count) {
-    const badge = document.querySelector('.notification-badge');
-    if (badge) {
-        badge.textContent = count;
-        badge.style.display = count > 0 ? 'inline-block' : 'none';
-    }
-}
-
-// ===================================================================
-// INITIALISATION ET ÉVÉNEMENTS
-// ===================================================================
-
-function initializeTooltips() {
-    if (typeof bootstrap !== 'undefined') {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    }
-}
-
-function enhanceUserExperience() {
-    // Améliorer la navigation
-    highlightActiveMenu();
-    
-    // Ajouter des effets hover
-    addHoverEffects();
-    
-    // Ajouter un indicateur de connexion
-    addConnectionIndicator();
-    
-    // Améliorer l'accessibilité
-    improveAccessibility();
-}
-
-function highlightActiveMenu() {
-    const currentPath = window.location.pathname;
-    const menuLinks = document.querySelectorAll('.nav-link');
-    
-    menuLinks.forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
-            link.classList.add('active');
-        }
-    });
-}
-
-function addHoverEffects() {
-    // Ajouter des effets hover améliorés
-    const actionButtons = document.querySelectorAll('.btn-action');
-    
-    actionButtons.forEach(button => {
-        button.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-2px)';
-            this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
-        });
-        
-        button.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-            this.style.boxShadow = 'none';
-        });
-    });
-}
-
-function addConnectionIndicator() {
-    // Ajouter un indicateur de statut de connexion
-    const statusHTML = `
-        <div id="connection-status" class="position-fixed" style="
-            bottom: 20px;
-            right: 20px;
-            background: var(--success-vert, #28a745);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            opacity: 0.8;
-            z-index: 1000;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            display: none;
-        ">
-            <i class="fas fa-wifi me-1"></i>
-            <span>{% trans "Connecté" %}</span>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', statusHTML);
-    
-    // Afficher l'indicateur après 2 secondes
-    setTimeout(() => {
-        const indicator = document.getElementById('connection-status');
-        if (indicator) {
-            indicator.style.display = 'block';
-            setTimeout(() => indicator.style.opacity = '0.6', 3000);
-        }
-    }, 2000);
-    
-    // Surveiller l'état de la connexion
-    window.addEventListener('online', () => updateConnectionStatus(true));
-    window.addEventListener('offline', () => updateConnectionStatus(false));
-}
-
-function updateConnectionStatus(isOnline) {
-    const statusElement = document.getElementById('connection-status');
-    if (!statusElement) return;
-    
-    statusElement.style.display = 'block';
-    statusElement.style.opacity = '1';
-    
-    if (isOnline) {
-        statusElement.style.background = 'var(--success-vert, #28a745)';
-        statusElement.innerHTML = '<i class="fas fa-wifi me-1"></i><span>{% trans "Connecté" %}</span>';
-    } else {
-        statusElement.style.background = 'var(--danger-rouge, #dc3545)';
-        statusElement.innerHTML = '<i class="fas fa-wifi-slash me-1"></i><span>{% trans "Hors ligne" %}</span>';
-    }
-    
-    // Masquer après 5 secondes si en ligne
-    if (isOnline) {
-        setTimeout(() => statusElement.style.opacity = '0.6', 5000);
-    }
-}
-
-function improveAccessibility() {
-    // Améliorer l'accessibilité
-    const dropdownToggles = document.querySelectorAll('[data-bs-toggle="dropdown"]');
-    
-    dropdownToggles.forEach(toggle => {
-        toggle.addEventListener('click', function() {
-            const isExpanded = this.getAttribute('aria-expanded') === 'true';
-            this.setAttribute('aria-expanded', !isExpanded);
-        });
-    });
-    
-    // Ajouter des rôles ARIA
-    const navElement = document.querySelector('.main-navigation');
-    if (navElement && !navElement.getAttribute('role')) {
-        navElement.setAttribute('role', 'navigation');
-        navElement.setAttribute('aria-label', 'Navigation principale SUPPER');
-    }
-}
-
-// ===================================================================
-// STYLES CSS POUR ANIMATIONS
-// ===================================================================
-
-const animationStyles = `
-<style>
-@keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes slideOutRight {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0; }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes fadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
-}
-
-.btn-action {
-    transition: all 0.3s ease;
-}
-
-.loading-overlay {
-    backdrop-filter: blur(5px);
-}
-</style>
-`;
-
-// Injecter les styles
-document.head.insertAdjacentHTML('beforeend', animationStyles);
-
-// ===================================================================
-// INITIALISATION PRINCIPALE
-// ===================================================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 SUPPER System Loading...');
-    
-    try {
-        // Initialisation de base
-        initializeTooltips();
-        
-        // Améliorations UX
-        enhanceUserExperience();
-        
-        // Vérifications initiales
-        checkNotifications();
-        
-        // Animation d'entrée
-        setTimeout(() => {
-            const contentWrapper = document.querySelector('.content-wrapper');
-            if (contentWrapper) {
-                contentWrapper.style.opacity = '1';
-            }
-            console.log('✅ SUPPER System Ready!');
+    fetch(SUPPER_CONFIG.API_ENDPOINTS.NOTIFICATIONS)
+        .then(response => response.json())
+        .then(data => {
+            const badge = document.querySelector('.notification-badge');
+            const list = document.getElementById('notificationList');
             
-            // Message de bienvenue pour les admins
-            if (SUPPER_CONFIG.USER.IS_SUPERUSER) {
-                setTimeout(() => {
-                    showNotification('info', `{% trans "Bienvenue" %} ${SUPPER_CONFIG.USER.USERNAME}! {% trans "Système SUPPER opérationnel" %}`);
-                }, 1000);
+            if (data.unread_count > 0) {
+                badge.textContent = data.unread_count;
+                badge.style.display = 'inline-block';
+                
+                // Mettre à jour la liste des notifications
+                if (data.new_notifications && data.new_notifications.length > 0) {
+                    let html = '';
+                    data.new_notifications.forEach(notif => {
+                        html += `
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-${notif.type === 'warning' ? 'exclamation-triangle text-warning' : 'info-circle text-info'} me-2"></i>
+                                        <small>${notif.message}</small>
+                                    </div>
+                                </a>
+                            </li>
+                        `;
+                    });
+                    list.innerHTML = html;
+                }
+            } else {
+                badge.style.display = 'none';
             }
-        }, 100);
-        
-        // Configurer les vérifications périodiques
-        setInterval(checkNotifications, 30000); // Toutes les 30 secondes
-        
-    } catch (error) {
-        console.error('Erreur d\'initialisation SUPPER:', error);
-        showNotification('error', '{% trans "Erreur d\'initialisation du système" %}');
-    }
-});
+        })
+        .catch(error => console.error('Erreur notifications:', error));
+}
 
-// ===================================================================
-// GESTION DES ERREURS GLOBALES
-// ===================================================================
-
-window.addEventListener('error', function(event) {
-    console.error('Erreur JavaScript:', event.error);
+// Initialisation
+document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier les notifications au chargement
+    checkNotifications();
     
-    if (SUPPER_CONFIG.USER.IS_SUPERUSER) {
-        showNotification('error', `Erreur système: ${event.error.message}`);
-    }
-});
-
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('Promise rejetée:', event.reason);
+    // Vérifier les notifications toutes les 30 secondes
+    setInterval(checkNotifications, 30000);
     
-    if (SUPPER_CONFIG.USER.IS_SUPERUSER) {
-        showNotification('error', 'Erreur de communication avec le serveur');
-    }
+    // Initialiser les tooltips Bootstrap
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });
-
-// ===================================================================
-// EXPORT GLOBAL POUR DEBUG
-// ===================================================================
-
-window.SUPPER = {
-    config: SUPPER_CONFIG,
-    actions: {
-        ouvrirSemaine: ouvrirSemaineEnCours,
-        fermerAnciens: fermerJoursAnciens,
-        marquerImpertinent: marquerJourImpertinent
-    },
-    notifications: {
-        check: checkNotifications,
-        show: showNotification
-    },
-    utils: {
-        getCookie: getCookie,
-        isValidDate: isValidDate,
-        validateUserAction: validateUserAction
-    }
-};
-
-console.log('🎯 SUPPER System JavaScript chargé avec succès!');
-console.log('📋 Fonctions disponibles: SUPPER.actions.ouvrirSemaine(), SUPPER.actions.fermerAnciens(), etc.');
 </script>
-<!-- JavaScript spécifique à la page -->
+
 {% block extra_js %}{% endblock %}
 
 </body>
-</html>;
+</html>

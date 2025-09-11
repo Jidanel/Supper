@@ -41,6 +41,211 @@ class MotifInventaire(models.TextChoices):
     RISQUE_BAISSE = 'risque_baisse', _('Risque de baisse annuel')
     GRAND_STOCK = 'grand_stock', _('Risque de grand stock')
 
+class ProgrammationInventaire(models.Model):
+    """
+    Modèle pour programmer des inventaires mensuels par poste
+    """
+    poste = models.ForeignKey(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='programmations_inventaire',
+        verbose_name=_("Poste")
+    )
+    
+    mois = models.DateField(
+        verbose_name=_("Mois de programmation"),
+        help_text=_("Premier jour du mois concerné")
+    )
+    
+    motif = models.CharField(
+        max_length=20,
+        choices=MotifInventaire.choices,
+        verbose_name=_("Motif de l'inventaire")
+    )
+    
+    # Données pour le motif taux de déperdition
+    taux_deperdition_precedent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Taux de déperdition précédent (%)"),
+        help_text=_("Saisi manuellement ou récupéré du dernier inventaire")
+    )
+    
+    # Données pour le risque de baisse annuel
+    risque_baisse_annuel = models.BooleanField(
+        default=False,
+        verbose_name=_("Risque de baisse annuel"),
+        help_text=_("Calculé automatiquement selon les recettes")
+    )
+    
+    recettes_periode_actuelle = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Recettes période actuelle")
+    )
+    
+    recettes_periode_precedente = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Recettes même période année précédente")
+    )
+    
+    # Données pour le risque de grand stock
+    stock_restant = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Stock restant de tickets")
+    )
+    
+    date_epuisement_prevu = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date d'épuisement prévue du stock")
+    )
+    
+    risque_grand_stock = models.BooleanField(
+        default=False,
+        verbose_name=_("Risque de grand stock"),
+        help_text=_("Si la date d'épuisement dépasse le 31 décembre")
+    )
+    
+    # Métadonnées
+    cree_par = models.ForeignKey(
+        UtilisateurSUPPER,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='programmations_creees',
+        verbose_name=_("Créé par")
+    )
+    
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+    
+    actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Programmation active")
+    )
+    
+    class Meta:
+        verbose_name = _("Programmation inventaire")
+        verbose_name_plural = _("Programmations inventaires")
+        unique_together = [['poste', 'mois']]
+        ordering = ['-mois', 'poste__nom']
+        indexes = [
+            models.Index(fields=['poste', '-mois']),
+            models.Index(fields=['motif']),
+            models.Index(fields=['actif']),
+        ]
+    
+    def __str__(self):
+        return f"Programmation {self.poste.nom} - {self.mois.strftime('%B %Y')} - {self.get_motif_display()}"
+    
+    def calculer_risque_baisse_annuel(self):
+        """
+        Calcule automatiquement le risque de baisse annuel
+        Compare les recettes de la période actuelle avec la même période l'année précédente
+        """
+        from datetime import date, timedelta
+        from django.db.models import Sum
+        
+        # Période actuelle (du 1er janvier à aujourd'hui)
+        annee_actuelle = date.today().year
+        debut_annee = date(annee_actuelle, 1, 1)
+        fin_periode = date.today()
+        
+        # Calculer les recettes de la période actuelle
+        recettes_actuelles = RecetteJournaliere.objects.filter(
+            poste=self.poste,
+            date__range=[debut_annee, fin_periode]
+        ).aggregate(total=Sum('montant_declare'))['total'] or 0
+        
+        # Même période l'année précédente
+        annee_precedente = annee_actuelle - 1
+        debut_annee_prec = date(annee_precedente, 1, 1)
+        fin_periode_prec = date(annee_precedente, fin_periode.month, fin_periode.day)
+        
+        # Calculer les recettes de la période précédente
+        recettes_precedentes = RecetteJournaliere.objects.filter(
+            poste=self.poste,
+            date__range=[debut_annee_prec, fin_periode_prec]
+        ).aggregate(total=Sum('montant_declare'))['total'] or 0
+        
+        # Sauvegarder les valeurs
+        self.recettes_periode_actuelle = recettes_actuelles
+        self.recettes_periode_precedente = recettes_precedentes
+        
+        # Déterminer le risque
+        self.risque_baisse_annuel = recettes_actuelles < recettes_precedentes
+        
+        return self.risque_baisse_annuel
+    
+    def calculer_date_epuisement_stock(self):
+        """
+        Calcule la date d'épuisement prévue du stock
+        Basé sur la moyenne des ventes journalières
+        """
+        from datetime import date, timedelta
+        from django.db.models import Avg
+        
+        if not self.stock_restant:
+            return None
+        
+        # Calculer la moyenne des recettes journalières sur les 30 derniers jours
+        fin = date.today()
+        debut = fin - timedelta(days=30)
+        
+        moyenne_journaliere = RecetteJournaliere.objects.filter(
+            poste=self.poste,
+            date__range=[debut, fin]
+        ).aggregate(moyenne=Avg('montant_declare'))['moyenne'] or 0
+        
+        if moyenne_journaliere > 0:
+            # Estimer le nombre de tickets vendus par jour (approximation)
+            tickets_par_jour = moyenne_journaliere / 500  # Assumant 500 FCFA par ticket
+            
+            if tickets_par_jour > 0:
+                jours_restants = self.stock_restant / tickets_par_jour
+                self.date_epuisement_prevu = date.today() + timedelta(days=int(jours_restants))
+                
+                # Vérifier si ça dépasse le 31 décembre
+                fin_annee = date(date.today().year, 12, 31)
+                self.risque_grand_stock = self.date_epuisement_prevu > fin_annee
+                
+                return self.date_epuisement_prevu
+        
+        return None
+    
+    def save(self, *args, **kwargs):
+        """Calculs automatiques avant sauvegarde"""
+        # Si c'est un risque de baisse annuel, calculer automatiquement
+        if self.motif == MotifInventaire.RISQUE_BAISSE_ANNUEL:
+            self.calculer_risque_baisse_annuel()
+        
+        # Si c'est un risque de grand stock, calculer la date d'épuisement
+        if self.motif == MotifInventaire.RISQUE_GRAND_STOCK:
+            self.calculer_date_epuisement_stock()
+        
+        # Si c'est pour taux de déperdition et qu'il n'y a pas de taux précédent
+        if self.motif == MotifInventaire.TAUX_DEPERDITION and not self.taux_deperdition_precedent:
+            # Récupérer le dernier taux de déperdition calculé pour ce poste
+            derniere_recette = RecetteJournaliere.objects.filter(
+                poste=self.poste,
+                taux_deperdition__isnull=False
+            ).order_by('-date').first()
+            
+            if derniere_recette:
+                self.taux_deperdition_precedent = derniere_recette.taux_deperdition
+        
+        super().save(*args, **kwargs)
+
 class InventaireMensuel(models.Model):
     """
     Modèle pour organiser les inventaires par mois
@@ -57,6 +262,14 @@ class InventaireMensuel(models.Model):
         on_delete=models.CASCADE,
         related_name='inventaires_mensuels',
         verbose_name=_("Poste")
+    )
+    programmation = models.OneToOneField(
+        ProgrammationInventaire,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='inventaire_mensuel',
+        verbose_name=_("Programmation associée")
     )
 
     motif = models.CharField(
@@ -101,13 +314,9 @@ class InventaireMensuel(models.Model):
         help_text=_("Description détaillée de cet inventaire mensuel")
     )
     
-    # 🔧 CORRECTION : JSONField simplifié
-    jours_actifs = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name=_("Jours actifs"),
-        help_text=_("Liste des jours du mois où la saisie est autorisée"),
-        encoder= None
+    nombre_jours_saisis = models.IntegerField(
+        default=0,
+        verbose_name=_("Nombre de jours saisis")
     )
     
     # Métadonnées
@@ -134,21 +343,53 @@ class InventaireMensuel(models.Model):
         help_text=_("Indique si cet inventaire mensuel est en cours")
     )
     
-    def get_jours_actifs_display(self):
-        """Retourne une représentation textuelle des jours actifs"""
-        if not self.jours_actifs:
-            return "Aucun jour sélectionné"
+    # def get_jours_actifs_display(self):
+    #     """Retourne une représentation textuelle des jours actifs"""
+    #     if not self.jours_actifs:
+    #         return "Aucun jour sélectionné"
         
-        if isinstance(self.jours_actifs, list):
-            if len(self.jours_actifs) == 0:
-                return "Aucun jour sélectionné"
-            elif len(self.jours_actifs) <= 5:
-                return f"Jours: {', '.join(map(str, sorted(self.jours_actifs)))}"
-            else:
-                return f"{len(self.jours_actifs)} jours sélectionnés"
+    #     if isinstance(self.jours_actifs, list):
+    #         if len(self.jours_actifs) == 0:
+    #             return "Aucun jour sélectionné"
+    #         elif len(self.jours_actifs) <= 5:
+    #             return f"Jours: {', '.join(map(str, sorted(self.jours_actifs)))}"
+    #         else:
+    #             return f"{len(self.jours_actifs)} jours sélectionnés"
         
-        return str(self.jours_actifs)
+    #     return str(self.jours_actifs)
     
+    total_vehicules = models.IntegerField(
+        default=0,
+        verbose_name=_("Total véhicules du mois")
+    )
+    
+    total_recettes_declarees = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name=_("Total recettes déclarées")
+    )
+    
+    total_recettes_potentielles = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name=_("Total recettes potentielles")
+    )
+    
+    taux_deperdition_moyen = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Taux de déperdition moyen (%)")
+    )
+    
+    nombre_jours_impertinents = models.IntegerField(
+        default=0,
+        verbose_name=_("Nombre de jours impertinents")
+    )
+
     def clean(self):
         """Validation du modèle"""
         from django.core.exceptions import ValidationError
@@ -213,45 +454,45 @@ class InventaireMensuel(models.Model):
         cal = calendar.monthcalendar(int(self.annee), mois_int)
         return cal
     
-    def est_jour_actif(self, jour):
-        """Vérifie si un jour donné est actif pour la saisie"""
-        if not self.jours_actifs or not isinstance(self.jours_actifs, list):
-            return False
-        return jour in self.jours_actifs
+    # def est_jour_actif(self, jour):
+    #     """Vérifie si un jour donné est actif pour la saisie"""
+    #     if not self.jours_actifs or not isinstance(self.jours_actifs, list):
+    #         return False
+    #     return jour in self.jours_actifs
     
-    def activer_jour(self, jour):
-        """Active un jour pour la saisie"""
-        if not self.jours_actifs:
-            self.jours_actifs = []
-        elif not isinstance(self.jours_actifs, list):
-            self.jours_actifs = []
+    # def activer_jour(self, jour):
+    #     """Active un jour pour la saisie"""
+    #     if not self.jours_actifs:
+    #         self.jours_actifs = []
+    #     elif not isinstance(self.jours_actifs, list):
+    #         self.jours_actifs = []
             
-        if jour not in self.jours_actifs and 1 <= jour <= 31:
-            self.jours_actifs.append(jour)
-            self.jours_actifs = sorted(self.jours_actifs)
-            self.save()
+    #     if jour not in self.jours_actifs and 1 <= jour <= 31:
+    #         self.jours_actifs.append(jour)
+    #         self.jours_actifs = sorted(self.jours_actifs)
+    #         self.save()
     
-    def desactiver_jour(self, jour):
-        """Désactive un jour pour la saisie"""
-        if self.jours_actifs and isinstance(self.jours_actifs, list) and jour in self.jours_actifs:
-            self.jours_actifs.remove(jour)
-            self.save()
+    # def desactiver_jour(self, jour):
+    #     """Désactive un jour pour la saisie"""
+    #     if self.jours_actifs and isinstance(self.jours_actifs, list) and jour in self.jours_actifs:
+    #         self.jours_actifs.remove(jour)
+    #         self.save()
     
-    def activer_jours_ouvres(self):
-        """Active automatiquement tous les jours ouvrés (lundi à vendredi)"""
-        import calendar
+    # def activer_jours_ouvres(self):
+    #     """Active automatiquement tous les jours ouvrés (lundi à vendredi)"""
+    #     import calendar
         
-        mois_int = int(self.mois)
-        cal = calendar.monthcalendar(int(self.annee), mois_int)
-        jours_ouvres = []
+    #     mois_int = int(self.mois)
+    #     cal = calendar.monthcalendar(int(self.annee), mois_int)
+    #     jours_ouvres = []
         
-        for semaine in cal:
-            for i, jour in enumerate(semaine):
-                if jour != 0 and i < 5:  # Lundi à vendredi
-                    jours_ouvres.append(jour)
+    #     for semaine in cal:
+    #         for i, jour in enumerate(semaine):
+    #             if jour != 0 and i < 5:  # Lundi à vendredi
+    #                 jours_ouvres.append(jour)
         
-        self.jours_actifs = sorted(jours_ouvres)
-        self.save()
+    #     self.jours_actifs = sorted(jours_ouvres)
+    #     self.save()
         
     def generer_configurations_jours(self):
         """Génère automatiquement les ConfigurationJour pour tous les jours actifs"""
@@ -305,6 +546,62 @@ class InventaireMensuel(models.Model):
     def get_absolute_url(self):
         return reverse('admin:inventaire_inventairemensuel_change', kwargs={'object_id': self.pk})
     
+    def consolider_donnees(self):
+        """
+        Consolide les données du mois à partir des inventaires journaliers
+        """
+        from datetime import date
+        from calendar import monthrange
+        from django.db.models import Sum, Avg, Count
+        
+        # Déterminer le début et la fin du mois
+        annee = self.mois.year
+        mois = self.mois.month
+        debut_mois = date(annee, mois, 1)
+        dernier_jour = monthrange(annee, mois)[1]
+        fin_mois = date(annee, mois, dernier_jour)
+        
+        # Récupérer tous les inventaires du mois
+        inventaires = InventaireJournalier.objects.filter(
+            poste=self.poste,
+            date__range=[debut_mois, fin_mois]
+        )
+        
+        # Récupérer toutes les recettes du mois
+        recettes = RecetteJournaliere.objects.filter(
+            poste=self.poste,
+            date__range=[debut_mois, fin_mois]
+        )
+        
+        # Calculer les statistiques
+        self.nombre_jours_saisis = inventaires.count()
+        self.total_vehicules = inventaires.aggregate(
+            total=Sum('total_vehicules')
+        )['total'] or 0
+        
+        self.total_recettes_declarees = recettes.aggregate(
+            total=Sum('montant_declare')
+        )['total'] or Decimal('0')
+        
+        self.total_recettes_potentielles = recettes.aggregate(
+            total=Sum('recette_potentielle')
+        )['total'] or Decimal('0')
+        
+        # Calculer le taux de déperdition moyen
+        if self.total_recettes_potentielles > 0:
+            ecart = self.total_recettes_declarees - self.total_recettes_potentielles
+            self.taux_deperdition_moyen = (ecart / self.total_recettes_potentielles) * 100
+        
+        # Compter les jours impertinents
+        self.nombre_jours_impertinents = ConfigurationJour.objects.filter(
+            date__range=[debut_mois, fin_mois],
+            statut=StatutJour.IMPERTINENT
+        ).count()
+        
+        self.save()
+        
+        return self
+    
 class StatutJour(models.TextChoices):
     """Statut d'un jour pour la saisie d'inventaire"""
     OUVERT = 'ouvert', _('Ouvert pour saisie')
@@ -329,6 +626,13 @@ class TypeConfiguration(models.TextChoices):
     """Types de configuration de jour"""
     INVENTAIRE = 'inventaire', _('Configuration Inventaire')
     RECETTE = 'recette', _('Configuration Recette')
+
+class StatutJour(models.TextChoices):
+    """Statut d'un jour pour la saisie d'inventaire"""
+    # Suppression de OUVERT et FERME, on garde uniquement IMPERTINENT
+    IMPERTINENT = 'impertinent', _('Journée impertinente')
+    NORMAL = 'normal', _('Journée normale')  # Ajout d'un statut par défaut
+
 class ConfigurationJour(models.Model):
     """
     Configuration des jours ouverts/fermés pour la saisie d'inventaire ET de recettes
@@ -345,9 +649,10 @@ class ConfigurationJour(models.Model):
     )
     
     date = models.DateField(
-        verbose_name=_("Date")
+        unique=True,
+        verbose_name=_("Date"),
+        help_text=_("Date concernée par cette configuration")
     )
-    # 🔧 CORRECTION : Poste optionnel pour configuration spécifique
     poste = models.ForeignKey(
         'accounts.Poste',
         on_delete=models.CASCADE,
@@ -361,7 +666,7 @@ class ConfigurationJour(models.Model):
     statut = models.CharField(
         max_length=15,
         choices=StatutJour.choices,
-        default=StatutJour.OUVERT,
+        default=StatutJour.NORMAL,  # Changement du défaut
         verbose_name=_("Statut du jour")
     )
     
@@ -380,7 +685,7 @@ class ConfigurationJour(models.Model):
     
     # Métadonnées de gestion
     cree_par = models.ForeignKey(
-        'accounts.UtilisateurSUPPER',
+        UtilisateurSUPPER,
         on_delete=models.SET_NULL,
         null=True,
         related_name='jours_configures',
@@ -395,30 +700,20 @@ class ConfigurationJour(models.Model):
     commentaire = models.TextField(
         blank=True,
         verbose_name=_("Commentaire"),
-        help_text=_("Raison de la configuration ou notes particulières")
+        help_text=_("Raison du marquage ou notes particulières")
     )
     
     class Meta:
         verbose_name = _("Configuration de jour")
         verbose_name_plural = _("Configurations de jours")
         ordering = ['-date']
-        unique_together = [['date', 'type_config']] 
         indexes = [
             models.Index(fields=['date']),
             models.Index(fields=['statut']),
-            models.Index(fields=['poste', 'date']),
-        ]
-        # 🔧 CORRECTION : Contrainte permettant une config globale ET des configs par poste
-        constraints = [
-            models.UniqueConstraint(
-                fields=['date', 'poste'], 
-                name='unique_date_poste_configuration'
-            )
         ]
     
     def __str__(self):
-        poste_str = f" - {self.poste.nom}" if self.poste else " (Global)"
-        return f"{self.date.strftime('%d/%m/%Y')}{poste_str} - {self.get_statut_display()}"
+        return f"{self.date.strftime('%d/%m/%Y')} - {self.get_statut_display()}"
     
     # 🔧 CORRECTION : Méthodes de vérification améliorées
     def get_config_summary(self):
@@ -591,26 +886,28 @@ class ConfigurationJour(models.Model):
             )
     
     @classmethod
-    def marquer_impertinent(cls, date, admin_user, poste=None, commentaire=""):
+    def est_jour_impertinent(cls, date):
+        """Vérifie si un jour est marqué comme impertinent"""
+        try:
+            config = cls.objects.get(date=date)
+            return config.statut == StatutJour.IMPERTINENT
+        except cls.DoesNotExist:
+            return False
+    @classmethod
+    def marquer_impertinent(cls, date, admin_user, commentaire=""):
         """Marque un jour comme impertinent"""
         config, created = cls.objects.get_or_create(
             date=date,
-            poste=poste,
             defaults={
                 'statut': StatutJour.IMPERTINENT,
-                'permet_saisie_inventaire': False,
-                'permet_saisie_recette': False,
                 'cree_par': admin_user,
-                'commentaire': commentaire or 'Journée marquée impertinente'
+                'commentaire': commentaire
             }
         )
         
-        if not created:
+        if not created and config.statut != StatutJour.IMPERTINENT:
             config.statut = StatutJour.IMPERTINENT
-            config.permet_saisie_inventaire = False
-            config.permet_saisie_recette = False
-            if commentaire:
-                config.commentaire = commentaire
+            config.commentaire = commentaire
             config.save()
         
         return config
@@ -722,35 +1019,51 @@ class InventaireJournalier(models.Model):
         verbose_name=_("Agent de saisie")
     )
     
-    # État de l'inventaire
-    verrouille = models.BooleanField(
-        default=False,
-        verbose_name=_("Inventaire verrouillé"),
-        help_text=_("Une fois verrouillé, l'inventaire ne peut plus être modifié")
+    # # État de l'inventaire
+    # verrouille = models.BooleanField(
+    #     default=False,
+    #     verbose_name=_("Inventaire verrouillé"),
+    #     help_text=_("Une fois verrouillé, l'inventaire ne peut plus être modifié")
+    # )
+    
+    # valide = models.BooleanField(
+    #     default=False,
+    #     verbose_name=_("Inventaire validé"),
+    #     help_text=_("Validation par un responsable")
+    # )
+    
+    # valide_par = models.ForeignKey(
+    #     UtilisateurSUPPER,
+    #     on_delete=models.SET_NULL,
+    #     null=True,
+    #     blank=True,
+    #     related_name='inventaires_valides',
+    #     verbose_name=_("Validé par")
+    # )
+    
+    # date_validation = models.DateTimeField(
+    #     null=True,
+    #     blank=True,
+    #     verbose_name=_("Date de validation")
+    # )
+    
+    # Totaux calculés automatiquement
+    modifiable_par_agent = models.BooleanField(
+        default=True,
+        verbose_name=_("Modifiable par l'agent"),
+        help_text=_("False après première soumission, seul admin peut modifier")
     )
     
-    valide = models.BooleanField(
-        default=False,
-        verbose_name=_("Inventaire validé"),
-        help_text=_("Validation par un responsable")
-    )
-    
-    valide_par = models.ForeignKey(
+    # Ajout d'un champ pour tracer qui a modifié en dernier
+    derniere_modification_par = models.ForeignKey(
         UtilisateurSUPPER,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='inventaires_valides',
-        verbose_name=_("Validé par")
+        related_name='inventaires_modifies',
+        verbose_name=_("Dernière modification par")
     )
-    
-    date_validation = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Date de validation")
-    )
-    
-    # Totaux calculés automatiquement
+
     total_vehicules = models.IntegerField(
         default=0,
         verbose_name=_("Total véhicules comptés"),
@@ -798,24 +1111,32 @@ class InventaireJournalier(models.Model):
     def get_absolute_url(self):
         return reverse('inventaire_detail', kwargs={'pk': self.pk})
     
-    def peut_etre_modifie(self):
-        """Vérifie si l'inventaire peut encore être modifié"""
-        return not self.verrouille and not self.valide
+    def peut_etre_modifie_par(self, user):
+        """Vérifie si l'utilisateur peut modifier cet inventaire"""
+        if user.is_admin():
+            return True
+        if self.modifiable_par_agent and user == self.agent_saisie:
+            return True
+        return False
+    def soumettre(self):
+        """Soumet l'inventaire - ne peut plus être modifié par l'agent après"""
+        self.modifiable_par_agent = False
+        self.save()
     
-    def verrouiller(self, user=None):
-        """Verrouille l'inventaire"""
-        if not self.verrouille:
-            self.verrouille = True
-            self.save()
+    # # def verrouiller(self, user=None):
+    # #     """Verrouille l'inventaire"""
+    # #     if not self.verrouille:
+    # #         self.verrouille = True
+    # #         self.save()
             
-            # Log de l'action
-            if user:
-                from common.utils import log_user_action
-                log_user_action(
-                    user, 
-                    "Verrouillage inventaire",
-                    f"Poste: {self.poste.nom}, Date: {self.date}"
-                )
+    # #         # Log de l'action
+    # #         if user:
+    # #             from common.utils import log_user_action
+    # #             log_user_action(
+    # #                 user, 
+    # #                 "Verrouillage inventaire",
+    # #                 f"Poste: {self.poste.nom}, Date: {self.date}"
+    #             )
     
     def calculer_moyenne_horaire(self):
         """Calcule la moyenne de véhicules par heure"""
@@ -884,13 +1205,29 @@ class InventaireJournalier(models.Model):
         self.save(update_fields=['total_vehicules', 'nombre_periodes_saisies'])
     
     def save(self, *args, **kwargs):
-        """Surcharge pour logs automatiques"""
+        """Surcharge pour recalculer automatiquement les totaux"""
+        # Toujours recalculer la recette potentielle associée si elle existe
         super().save(*args, **kwargs)
+        
+        # Recalculer les totaux après la sauvegarde si nécessaire
+        if hasattr(self, '_recalculer_totaux'):
+            self.recalculer_totaux()
+        
+        # Mettre à jour la recette si elle existe
+        try:
+            if hasattr(self, 'recette'):
+                self.recette.calculer_indicateurs()
+                self.recette.save()
+        except:
+            pass
+
     
     def link_to_inventaire_mensuel(self):
     # """Lie cet inventaire journalier à un inventaire mensuel s'il existe"""
         from datetime import date
-    
+        # Importer le modèle PosteInventaireMensuel localement pour éviter les problèmes de dépendance circulaire
+        from .models import PosteInventaireMensuel
+
         # Chercher l'inventaire mensuel correspondant
         inventaire_mensuel = InventaireMensuel.objects.filter(
             mois=self.date.month,
@@ -1040,18 +1377,36 @@ class RecetteJournaliere(models.Model):
         verbose_name=_("Taux de déperdition (%)"),
         help_text=_("Taux de déperdition calculé")
     )
+    stock_tickets_restant = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Stock de tickets restant"),
+        help_text=_("Nombre de tickets restants après cette journée")
+    )
     
     # État de la saisie
-    verrouille = models.BooleanField(
-        default=False,
-        verbose_name=_("Recette verrouillée")
-    )
+    # verrouille = models.BooleanField(
+    #     default=False,
+    #     verbose_name=_("Recette verrouillée")
+    # )
     
-    valide = models.BooleanField(
-        default=False,
-        verbose_name=_("Recette validée")
+    # valide = models.BooleanField(
+    #     default=False,
+    #     verbose_name=_("Recette validée")
+    # )
+    modifiable_par_chef = models.BooleanField(
+        default=True,
+        verbose_name=_("Modifiable par le chef"),
+        help_text=_("False après première soumission, seul admin peut modifier")
     )
-    
+    derniere_modification_par = models.ForeignKey(
+        UtilisateurSUPPER,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='recettes_modifiees',
+        verbose_name=_("Dernière modification par")
+    )
     # Métadonnées
     date_saisie = models.DateTimeField(
         auto_now_add=True,

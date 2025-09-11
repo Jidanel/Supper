@@ -1,0 +1,480 @@
+<!-- templates/inventaire/liste_programmations.html -->
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Programmations d'Inventaires" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .programmation-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+    }
+    
+    .programmation-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
+    }
+    
+    .motif-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    
+    .motif-taux { background: #fee2e2; color: #dc2626; }
+    .motif-baisse { background: #fef3c7; color: #d97706; }
+    .motif-stock { background: #dbeafe; color: #2563eb; }
+    
+    .stat-item {
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-value {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .status-active {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: #d1fae5;
+        color: #065f46;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .status-inactive {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: #fee2e2;
+        color: #991b1b;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .filter-tabs {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .filter-tab {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e5e7eb;
+        background: white;
+        border-radius: 6px;
+        margin-right: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-tab:hover {
+        background: #f3f4f6;
+    }
+    
+    .filter-tab.active {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #9ca3af;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="mb-0">
+                <i class="fas fa-calendar-check me-2 text-primary"></i>
+                {% trans "Programmations d'Inventaires" %}
+            </h2>
+            <p class="text-muted mt-2">
+                {% trans "Gestion des inventaires programmés pour les différents postes" %}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if user.is_admin %}
+            <a href="{% url 'inventaire:programmer_inventaire' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>
+                {% trans "Nouvelle Programmation" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-tabs">
+        <div class="d-flex flex-wrap align-items-center">
+            <button class="filter-tab active" data-filter="all">
+                <i class="fas fa-list me-2"></i>
+                {% trans "Toutes" %}
+                <span class="badge bg-secondary ms-2">{{ programmations|length }}</span>
+            </button>
+            <button class="filter-tab" data-filter="taux_deperdition">
+                <i class="fas fa-chart-line me-2"></i>
+                {% trans "Taux Déperdition" %}
+            </button>
+            <button class="filter-tab" data-filter="risque_baisse">
+                <i class="fas fa-arrow-down me-2"></i>
+                {% trans "Risque Baisse" %}
+            </button>
+            <button class="filter-tab" data-filter="grand_stock">
+                <i class="fas fa-boxes me-2"></i>
+                {% trans "Grand Stock" %}
+            </button>
+            
+            <div class="ms-auto">
+                <select class="form-select form-select-sm" id="monthFilter">
+                    <option value="">{% trans "Tous les mois" %}</option>
+                    {% for prog in programmations %}
+                        <option value="{{ prog.mois|date:'Y-m' }}">{{ prog.mois|date:'F Y' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des programmations -->
+    {% if programmations %}
+    <div class="row" id="programmationsList">
+        {% for prog in programmations %}
+        <div class="col-12 programmation-item" 
+             data-motif="{{ prog.motif }}"
+             data-mois="{{ prog.mois|date:'Y-m' }}">
+            <div class="programmation-card">
+                <div class="row align-items-center">
+                    <!-- Icône du motif -->
+                    <div class="col-auto">
+                        <div class="motif-icon 
+                            {% if prog.motif == 'taux_deperdition' %}motif-taux
+                            {% elif prog.motif == 'risque_baisse' %}motif-baisse
+                            {% else %}motif-stock{% endif %}">
+                            {% if prog.motif == 'taux_deperdition' %}
+                                <i class="fas fa-chart-line"></i>
+                            {% elif prog.motif == 'risque_baisse' %}
+                                <i class="fas fa-arrow-down"></i>
+                            {% else %}
+                                <i class="fas fa-boxes"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Informations principales -->
+                    <div class="col">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="mb-1">
+                                    {{ prog.poste.nom }}
+                                    <span class="status-active ms-2">Actif</span>
+                                </h5>
+                                <p class="text-muted mb-2">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ prog.poste.get_region_display }} | Code: {{ prog.poste.code }}
+                                </p>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge bg-primary">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {{ prog.mois|date:"F Y" }}
+                                    </span>
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-tag me-1"></i>
+                                        {{ prog.get_motif_display }}
+                                    </span>
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-user me-1"></i>
+                                        Créé par {{ prog.cree_par.nom_complet }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- Actions -->
+                            <div class="text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="toggleDetails('prog_{{ prog.id }}')">
+                                    <i class="fas fa-chevron-down"></i>
+                                    {% trans "Détails" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Détails expandables -->
+                <div class="collapse mt-3" id="prog_{{ prog.id }}">
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <div class="stat-label">{% trans "Motif de programmation" %}</div>
+                                <div class="stat-value">{{ prog.get_motif_display }}</div>
+                            </div>
+                        </div>
+                        
+                        {% if prog.motif == 'taux_deperdition' and prog.taux_deperdition_precedent %}
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <div class="stat-label">{% trans "Taux précédent" %}</div>
+                                <div class="stat-value text-danger">{{ prog.taux_deperdition_precedent|floatformat:2 }}%</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if prog.motif == 'risque_baisse' %}
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <div class="stat-label">{% trans "Recettes actuelles" %}</div>
+                                <div class="stat-value">{{ prog.recettes_periode_actuelle|floatformat:0 }} FCFA</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <div class="stat-label">{% trans "Recettes année précédente" %}</div>
+                                <div class="stat-value">{{ prog.recettes_periode_precedente|floatformat:0 }} FCFA</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if prog.motif == 'grand_stock' %}
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <div class="stat-label">{% trans "Stock restant" %}</div>
+                                <div class="stat-value">{{ prog.stock_restant|default:"N/A" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <div class="stat-label">{% trans "Date épuisement prévue" %}</div>
+                                <div class="stat-value">
+                                    {% if prog.date_epuisement_prevu %}
+                                        {{ prog.date_epuisement_prevu|date:"d/m/Y" }}
+                                        {% if prog.risque_grand_stock %}
+                                            <span class="badge bg-warning ms-2">Après le 31/12</span>
+                                        {% endif %}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <div class="stat-label">{% trans "Date de création" %}</div>
+                                <div class="stat-value">{{ prog.date_creation|date:"d/m/Y H:i" }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions sur la programmation -->
+                    <div class="mt-3 text-end">
+                        {% if user.is_admin %}
+                        <button class="btn btn-sm btn-warning" onclick="desactiverProgrammation({{ prog.id }})">
+                            <i class="fas fa-pause me-1"></i>
+                            {% trans "Désactiver" %}
+                        </button>
+                        <button class="btn btn-sm btn-danger ms-2" onclick="supprimerProgrammation({{ prog.id }})">
+                            <i class="fas fa-trash me-1"></i>
+                            {% trans "Supprimer" %}
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- État vide -->
+    <div class="empty-state">
+        <i class="fas fa-calendar-times empty-state-icon"></i>
+        <h4>{% trans "Aucune programmation d'inventaire" %}</h4>
+        <p class="text-muted">
+            {% if user.is_admin %}
+                {% trans "Commencez par programmer des inventaires pour les postes qui nécessitent un suivi" %}
+            {% else %}
+                {% trans "Aucun inventaire n'est programmé pour vos postes" %}
+            {% endif %}
+        </p>
+        {% if user.is_admin %}
+        <a href="{% url 'inventaire:programmer_inventaire' %}" class="btn btn-primary mt-3">
+            <i class="fas fa-plus me-2"></i>
+            {% trans "Programmer un inventaire" %}
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Gestion des filtres
+document.addEventListener('DOMContentLoaded', function() {
+    // Filtres par motif
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Retirer la classe active de tous les tabs
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            const filter = this.dataset.filter;
+            filterProgrammations(filter);
+        });
+    });
+    
+    // Filtre par mois
+    document.getElementById('monthFilter').addEventListener('change', function() {
+        filterByMonth(this.value);
+    });
+});
+
+function filterProgrammations(motif) {
+    const items = document.querySelectorAll('.programmation-item');
+    
+    items.forEach(item => {
+        if (motif === 'all' || item.dataset.motif === motif) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    updateEmptyState();
+}
+
+function filterByMonth(month) {
+    const items = document.querySelectorAll('.programmation-item');
+    
+    items.forEach(item => {
+        if (!month || item.dataset.mois === month) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    updateEmptyState();
+}
+
+function updateEmptyState() {
+    const visibleItems = document.querySelectorAll('.programmation-item:not([style*="display: none"])');
+    const emptyState = document.querySelector('.empty-state');
+    
+    if (visibleItems.length === 0 && !emptyState) {
+        // Créer un état vide temporaire
+        const tempEmpty = document.createElement('div');
+        tempEmpty.className = 'empty-state';
+        tempEmpty.innerHTML = `
+            <i class="fas fa-search empty-state-icon"></i>
+            <h4>{% trans "Aucun résultat" %}</h4>
+            <p class="text-muted">{% trans "Aucune programmation ne correspond aux filtres sélectionnés" %}</p>
+        `;
+        document.getElementById('programmationsList').appendChild(tempEmpty);
+    } else if (visibleItems.length > 0 && emptyState) {
+        emptyState.remove();
+    }
+}
+
+function toggleDetails(id) {
+    const element = document.getElementById(id);
+    const button = event.currentTarget;
+    const icon = button.querySelector('i');
+    
+    if (element.classList.contains('show')) {
+        element.classList.remove('show');
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    } else {
+        element.classList.add('show');
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    }
+}
+
+function desactiverProgrammation(id) {
+    if (confirm('{% trans "Êtes-vous sûr de vouloir désactiver cette programmation ?" %}')) {
+        // Appel API pour désactiver
+        fetch(`/inventaire/api/programmation/${id}/desactiver/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || '{% trans "Erreur lors de la désactivation" %}');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('{% trans "Erreur de communication avec le serveur" %}');
+        });
+    }
+}
+
+function supprimerProgrammation(id) {
+    if (confirm('{% trans "Êtes-vous sûr de vouloir supprimer définitivement cette programmation ?" %}')) {
+        // Appel API pour supprimer
+        fetch(`/inventaire/api/programmation/${id}/supprimer/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || '{% trans "Erreur lors de la suppression" %}');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('{% trans "Erreur de communication avec le serveur" %}');
+        });
+    }
+}
+</script>
+{% endblock %}

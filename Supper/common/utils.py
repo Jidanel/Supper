@@ -58,12 +58,17 @@ def log_action(action_name, include_params=False):
     return decorator
 
 
-def log_user_action(user, action, details="", request=None):
+def log_user_action_detailed(user, action, details, request=None):
     """
-    Fonction pour journaliser manuellement une action utilisateur
+    Fonction améliorée pour journaliser manuellement une action utilisateur avec détails
     
     Usage:
-    log_user_action(request.user, "Calcul taux déperdition", "Poste: XYZ", request)
+    log_user_action_detailed(
+        request.user, 
+        "Modification inventaire",
+        f"L'administrateur {request.user.nom_complet} a modifié l'inventaire du poste X du jour Y",
+        request
+    )
     """
     try:
         from accounts.models import JournalAudit
@@ -90,10 +95,10 @@ def log_user_action(user, action, details="", request=None):
             succes=True
         )
         
-        logger.info(f"Action manuelle: {action} | Utilisateur: {user.username}")
+        logger.info(f"Action détaillée: {action} | {details} | Utilisateur: {user.username}")
         
     except Exception as e:
-        logger.error(f"Erreur journalisation manuelle: {str(e)}")
+        logger.error(f"Erreur journalisation détaillée: {str(e)}")
 
 
 def require_permission(permission_field):

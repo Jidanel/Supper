@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpResponseRedirect, HttpResponseForbidden
-from django.urls import reverse
+from django.urls import resolve, reverse
 
 logger = logging.getLogger('supper')
 
@@ -157,11 +157,14 @@ class AuditMiddleware(MiddlewareMixin):
         
         # Pages importantes même en GET
         important_paths = [
-            '/accounts/login/',
+             '/accounts/login/',
             '/accounts/logout/',
+            '/inventaire/',
+            '/recette/',
             '/admin/',
             '/dashboard/',
             '/reports/',
+            '/programmation/',
         ]
         
         if any(path in request.path for path in important_paths):
@@ -173,26 +176,29 @@ class AuditMiddleware(MiddlewareMixin):
         
         return False
     
-    def _log_action(self, request, response):
-        """Enregistre l'action dans le journal d'audit - MÉTHODE MANQUANTE AJOUTÉE"""
+    def _log_detailed_action(self, request, response):
+        """Enregistre l'action avec des détails précis sur qui fait quoi"""
         
         try:
             from accounts.models import JournalAudit
             
             audit_info = request._audit_info
-            action = self._determine_action(request, response)
-            details = self._build_action_details(request, response)
+            user = audit_info['user']
+            
+            # Déterminer l'action précise avec contexte
+            action, details = self._build_detailed_action(request, response, user)
             
             # Calculer la durée si disponible
             duration = getattr(request, '_audit_duration', None)
             if duration:
+                from datetime import timedelta
                 duration_obj = timedelta(seconds=duration)
             else:
                 duration_obj = None
             
-            # Créer l'entrée de journal
+            # Créer l'entrée de journal détaillée
             JournalAudit.objects.create(
-                utilisateur=audit_info['user'],
+                utilisateur=user,
                 action=action,
                 details=details,
                 adresse_ip=audit_info['ip'],
@@ -207,70 +213,153 @@ class AuditMiddleware(MiddlewareMixin):
             
             # Log dans le fichier système aussi
             logger.info(
-                f"Action: {action} | Utilisateur: {audit_info['user'].username} | "
-                f"IP: {audit_info['ip']} | Path: {audit_info['path']} | "
-                f"Status: {response.status_code} | "
-                f"Durée: {duration:.3f}s" if duration else "Durée: N/A"
+                f"Action détaillée: {action} | {details} | "
+                f"Utilisateur: {user.username} ({user.nom_complet}) | "
+                f"IP: {audit_info['ip']} | Status: {response.status_code}"
             )
             
         except Exception as e:
-            # Ne pas interrompre l'application si le logging échoue
-            logger.error(f"Erreur lors de la journalisation: {str(e)}")
+            logger.error(f"Erreur lors de la journalisation détaillée: {str(e)}")
     
-    def _determine_action(self, request, response):
-        """Détermine le type d'action effectuée - MÉTHODE MANQUANTE AJOUTÉE"""
+    def _build_detailed_action(self, request, response, user):
+        """Construit une description détaillée de l'action effectuée"""
         
         path = request.path.lower()
         method = request.method
+        username = f"{user.nom_complet} ({user.username})"
+        role = user.get_habilitation_display()
+        
+        # Essayer de résoudre l'URL pour obtenir les paramètres
+        try:
+            resolved = resolve(request.path)
+            view_kwargs = resolved.kwargs
+        except:
+            view_kwargs = {}
         
         # Actions de connexion/déconnexion
         if 'login' in path:
-            if response.status_code == 302:  # Redirection = succès
-                return "Connexion réussie"
+            if response.status_code == 302:
+                return "Connexion réussie", f"{username} ({role}) s'est connecté avec succès"
             else:
-                return "Tentative de connexion échouée"
+                return "Tentative de connexion échouée", f"{username} a tenté de se connecter sans succès"
         
         if 'logout' in path:
-            return "Déconnexion"
+            return "Déconnexion", f"{username} s'est déconnecté"
         
         # Actions sur l'inventaire
         if 'inventaire' in path:
-            if method == 'POST':
-                return "Saisie inventaire"
-            elif method == 'PUT':
-                return "Modification inventaire"
-            elif method == 'DELETE':
-                return "Suppression inventaire"
+            poste_id = view_kwargs.get('poste_id') or request.POST.get('poste')
+            date = request.POST.get('date', '')
+            
+            if poste_id:
+                try:
+                    from accounts.models import Poste
+                    poste = Poste.objects.get(id=poste_id)
+                    poste_nom = poste.nom
+                except:
+                    poste_nom = f"Poste ID {poste_id}"
             else:
-                return "Consultation inventaire"
+                poste_nom = "Poste non spécifié"
+            
+            if method == 'POST':
+                if 'saisie' in path:
+                    return "Saisie inventaire", f"{username} a saisi l'inventaire du {poste_nom} pour le {date}"
+                elif 'modifier' in path:
+                    return "Modification inventaire", f"L'administrateur {username} a modifié l'inventaire du {poste_nom} pour le {date}"
+                else:
+                    return "Création inventaire", f"{username} a créé un inventaire pour {poste_nom}"
+            elif method == 'PUT':
+                return "Modification inventaire", f"L'administrateur {username} a modifié l'inventaire du {poste_nom}"
+            elif method == 'DELETE':
+                return "Suppression inventaire", f"L'administrateur {username} a supprimé l'inventaire du {poste_nom}"
+            else:
+                if 'liste' in path or 'index' in path:
+                    return "Consultation liste inventaires", f"{username} a consulté la liste des inventaires"
+                elif view_kwargs.get('pk'):
+                    return "Consultation inventaire", f"{username} a consulté l'inventaire du {poste_nom}"
+                else:
+                    return "Consultation inventaires", f"{username} a consulté la page des inventaires"
         
         # Actions sur les recettes
         if 'recette' in path:
-            if method == 'POST':
-                return "Saisie recette"
-            elif method == 'PUT':
-                return "Modification recette"
+            poste_id = view_kwargs.get('poste_id') or request.POST.get('poste')
+            date = request.POST.get('date', '')
+            montant = request.POST.get('montant_declare', '')
+            
+            if poste_id:
+                try:
+                    from accounts.models import Poste
+                    poste = Poste.objects.get(id=poste_id)
+                    poste_nom = poste.nom
+                except:
+                    poste_nom = f"Poste ID {poste_id}"
             else:
-                return "Consultation recette"
+                poste_nom = "Poste non spécifié"
+            
+            if method == 'POST':
+                if 'saisie' in path:
+                    return "Saisie recette", f"{username} a saisi la recette du {poste_nom} pour le {date}: {montant} FCFA"
+                elif 'modifier' in path:
+                    return "Modification recette", f"L'administrateur {username} a modifié la recette du {poste_nom} pour le {date}"
+                else:
+                    return "Création recette", f"{username} a créé une recette pour {poste_nom}"
+            elif method == 'PUT':
+                return "Modification recette", f"L'administrateur {username} a modifié la recette du {poste_nom}"
+            else:
+                if 'statistiques' in path:
+                    return "Consultation statistiques", f"{username} a consulté les statistiques de recettes"
+                elif 'liste' in path:
+                    return "Consultation liste recettes", f"{username} a consulté la liste des recettes"
+                else:
+                    return "Consultation recettes", f"{username} a consulté la page des recettes"
+        
+        # Actions sur la programmation d'inventaires
+        if 'programmation' in path:
+            if method == 'POST':
+                postes = request.POST.getlist('postes', [])
+                mois = request.POST.get('mois', '')
+                motif = request.POST.get('motif', '')
+                return "Programmation inventaire", f"L'administrateur {username} a programmé un inventaire pour {len(postes)} poste(s) en {mois} - Motif: {motif}"
+            else:
+                return "Consultation programmations", f"{username} a consulté les programmations d'inventaires"
         
         # Actions administratives
-        if 'admin' in path or 'user' in path:
-            if method == 'POST':
-                return "Action administrative"
+        if 'admin' in path:
+            if 'utilisateur' in path or 'user' in path:
+                if method == 'POST':
+                    return "Gestion utilisateurs", f"L'administrateur {username} a modifié les utilisateurs"
+                else:
+                    return "Consultation utilisateurs", f"L'administrateur {username} a consulté la liste des utilisateurs"
+            elif 'poste' in path:
+                if method == 'POST':
+                    return "Gestion postes", f"L'administrateur {username} a modifié les postes"
+                else:
+                    return "Consultation postes", f"L'administrateur {username} a consulté la liste des postes"
             else:
-                return "Consultation administration"
+                return "Administration", f"L'administrateur {username} a accédé au panel d'administration"
         
         # Tableau de bord
         if 'dashboard' in path:
-            return "Accès tableau de bord"
+            return "Accès tableau de bord", f"{username} ({role}) a accédé à son tableau de bord"
         
         # Rapports
-        if 'report' in path:
-            return "Génération rapport"
+        if 'report' in path or 'rapport' in path:
+            type_rapport = request.GET.get('type', 'général')
+            periode = request.GET.get('periode', '')
+            return "Génération rapport", f"{username} a généré un rapport {type_rapport} pour la période {periode}"
         
-        # Action générique
-        return f"{method} {path}"
+        # Action générique avec plus de contexte
+        return f"{method} {path}", f"{username} ({role}) a effectué une action {method} sur {path}"
     
+    def _get_client_ip(self, request):
+        """Récupère l'adresse IP réelle du client"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
     def _build_action_details(self, request, response):
         """Construit les détails de l'action pour le journal"""
         
@@ -324,15 +413,7 @@ class AuditMiddleware(MiddlewareMixin):
         
         # Retourner une chaîne formatée lisible
         return " | ".join(details_list)
-    
-    def _get_client_ip(self, request):
-        """Récupère l'adresse IP réelle du client"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
+
 
 
 class AdminAccessMiddleware(MiddlewareMixin):

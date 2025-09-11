@@ -1,0 +1,424 @@
+<!-- templates/inventaire/programmer_inventaire.html -->
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Programmer Inventaire" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .poste-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .poste-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .poste-card.selected {
+        background: #e7f3ff;
+        border-color: #2563eb;
+    }
+    
+    .motif-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-right: 0.5rem;
+    }
+    
+    .motif-danger { background: #fee2e2; color: #dc2626; }
+    .motif-warning { background: #fef3c7; color: #d97706; }
+    .motif-info { background: #dbeafe; color: #2563eb; }
+    
+    .suggestion-alert {
+        background: #fefce8;
+        border-left: 4px solid #facc15;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+    
+    .stats-box {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .progress-custom {
+        height: 8px;
+        background: #e5e7eb;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-bar-custom {
+        height: 100%;
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+        transition: width 0.5s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-calendar-check me-2 text-primary"></i>
+                {% trans "Programmer des Inventaires Mensuels" %}
+            </h2>
+        </div>
+    </div>
+
+    <!-- Statistiques et suggestions -->
+    {% if suggestions %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="suggestion-alert">
+                <h5 class="mb-3">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    {% trans "Postes nécessitant une attention particulière" %}
+                </h5>
+                <div class="row">
+                    {% for suggestion in suggestions|slice:":3" %}
+                    <div class="col-md-4 mb-2">
+                        <div class="stats-box">
+                            <h6 class="text-primary mb-2">{{ suggestion.poste.nom }}</h6>
+                            {% for motif in suggestion.motifs %}
+                                {% if motif.type == 'taux_deperdition' %}
+                                    <span class="motif-badge motif-{% if motif.alerte == 'danger' %}danger{% else %}warning{% endif %}">
+                                        <i class="fas fa-chart-line me-1"></i>
+                                        Taux: {{ motif.valeur|floatformat:1 }}%
+                                    </span>
+                                {% elif motif.type == 'risque_baisse' %}
+                                    <span class="motif-badge motif-warning">
+                                        <i class="fas fa-arrow-down me-1"></i>
+                                        Baisse: -{{ motif.valeur|floatformat:1 }}%
+                                    </span>
+                                {% elif motif.type == 'grand_stock' %}
+                                    <span class="motif-badge motif-info">
+                                        <i class="fas fa-boxes me-1"></i>
+                                        Stock: {{ motif.stock_restant|floatformat:0 }}
+                                    </span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Formulaire de programmation -->
+    <form method="post" id="programmationForm">
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- Sélection du mois -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            {% trans "Période de Programmation" %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="mois" class="form-label">{% trans "Mois à programmer" %}</label>
+                            <select name="mois" id="mois" class="form-select" required>
+                                <option value="">-- {% trans "Sélectionner un mois" %} --</option>
+                                {% for mois in mois_disponibles %}
+                                <option value="{{ mois }}">
+                                    {% now "Y-m" as current %}
+                                    {% if mois == current %}
+                                        {% trans "Mois en cours" %} - 
+                                    {% endif %}
+                                    {{ mois }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="motif" class="form-label">{% trans "Motif de l'inventaire" %}</label>
+                            <select name="motif" id="motif" class="form-select" required onchange="onMotifChange()">
+                                <option value="">-- {% trans "Sélectionner un motif" %} --</option>
+                                {% for value, label in motifs %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div id="tauxDeperditionManuel" class="mb-3" style="display: none;">
+                            <label for="taux_deperdition_manuel" class="form-label">
+                                {% trans "Taux de déperdition actuel (%)" %}
+                                <small class="text-muted">({% trans "Première programmation uniquement" %})</small>
+                            </label>
+                            <input type="number" 
+                                   name="taux_deperdition_manuel" 
+                                   id="taux_deperdition_manuel" 
+                                   class="form-control" 
+                                   step="0.01" 
+                                   min="-100" 
+                                   max="100"
+                                   placeholder="Ex: -15.5">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistiques du motif sélectionné -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% trans "Informations sur le Motif" %}
+                        </h5>
+                    </div>
+                    <div class="card-body" id="motifInfo">
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-hand-pointer fa-3x mb-3"></i>
+                            <p>{% trans "Sélectionnez un motif pour voir les informations" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sélection des postes -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            {% trans "Sélection des Postes" %}
+                        </h5>
+                        <div>
+                            <button type="button" class="btn btn-light btn-sm" onclick="selectAllPostes()">
+                                <i class="fas fa-check-square me-1"></i>{% trans "Tout sélectionner" %}
+                            </button>
+                            <button type="button" class="btn btn-light btn-sm ms-2" onclick="deselectAllPostes()">
+                                <i class="fas fa-square me-1"></i>{% trans "Tout désélectionner" %}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="postesContainer">
+                            {% for poste in postes %}
+                            <div class="col-md-6 col-lg-4">
+                                <div class="poste-card" data-poste-id="{{ poste.id }}">
+                                    <div class="form-check">
+                                        <input class="form-check-input poste-checkbox" 
+                                               type="checkbox" 
+                                               name="postes" 
+                                               value="{{ poste.id }}" 
+                                               id="poste_{{ poste.id }}">
+                                        <label class="form-check-label d-block" for="poste_{{ poste.id }}">
+                                            <strong>{{ poste.nom }}</strong>
+                                            <br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-map-pin me-1"></i>{{ poste.get_region_display }}
+                                                | Code: {{ poste.code }}
+                                            </small>
+                                            
+                                            <!-- Indicateurs pour ce poste -->
+                                            <div class="mt-2">
+                                                {% for suggestion in suggestions %}
+                                                    {% if suggestion.poste.id == poste.id %}
+                                                        {% for motif in suggestion.motifs %}
+                                                            {% if motif.type == 'taux_deperdition' %}
+                                                                <span class="badge bg-warning text-dark">
+                                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                                    Taux: {{ motif.valeur|floatformat:1 }}%
+                                                                </span>
+                                                            {% elif motif.type == 'risque_baisse' %}
+                                                                <span class="badge bg-danger">
+                                                                    <i class="fas fa-arrow-down me-1"></i>
+                                                                    Baisse annuelle
+                                                                </span>
+                                                            {% elif motif.type == 'grand_stock' %}
+                                                                <span class="badge bg-info">
+                                                                    <i class="fas fa-boxes me-1"></i>
+                                                                    Grand stock
+                                                                </span>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mt-3">
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="selectedCount">0</span> poste(s) sélectionné(s) sur {{ postes|length }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-save me-2"></i>
+                    {% trans "Programmer les Inventaires" %}
+                </button>
+                <a href="{% url 'inventaire:liste_programmations' %}" class="btn btn-secondary btn-lg ms-2">
+                    <i class="fas fa-times me-2"></i>
+                    {% trans "Annuler" %}
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Gestion de la sélection des postes
+document.addEventListener('DOMContentLoaded', function() {
+    updateSelectedCount();
+    
+    // Ajouter un événement click sur les cartes
+    document.querySelectorAll('.poste-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (!e.target.classList.contains('form-check-input')) {
+                const checkbox = this.querySelector('.form-check-input');
+                checkbox.checked = !checkbox.checked;
+                updateCardSelection(this, checkbox.checked);
+                updateSelectedCount();
+            }
+        });
+    });
+    
+    // Mise à jour visuelle lors du changement de checkbox
+    document.querySelectorAll('.poste-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const card = this.closest('.poste-card');
+            updateCardSelection(card, this.checked);
+            updateSelectedCount();
+        });
+    });
+});
+
+function updateCardSelection(card, isSelected) {
+    if (isSelected) {
+        card.classList.add('selected');
+    } else {
+        card.classList.remove('selected');
+    }
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.poste-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+}
+
+function selectAllPostes() {
+    document.querySelectorAll('.poste-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+        const card = checkbox.closest('.poste-card');
+        updateCardSelection(card, true);
+    });
+    updateSelectedCount();
+}
+
+function deselectAllPostes() {
+    document.querySelectorAll('.poste-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+        const card = checkbox.closest('.poste-card');
+        updateCardSelection(card, false);
+    });
+    updateSelectedCount();
+}
+
+function onMotifChange() {
+    const motif = document.getElementById('motif').value;
+    const tauxDiv = document.getElementById('tauxDeperditionManuel');
+    const infoDiv = document.getElementById('motifInfo');
+    
+    // Afficher/cacher le champ taux selon le motif
+    if (motif === 'taux_deperdition') {
+        tauxDiv.style.display = 'block';
+        infoDiv.innerHTML = `
+            <div class="alert alert-warning mb-0">
+                <h6><i class="fas fa-chart-line me-2"></i>Taux de Déperdition</h6>
+                <p class="mb-0">Programme un inventaire pour les postes ayant un taux de déperdition élevé. 
+                Le système récupérera automatiquement le dernier taux calculé ou vous pouvez le saisir manuellement.</p>
+            </div>
+        `;
+    } else if (motif === 'risque_baisse') {
+        tauxDiv.style.display = 'none';
+        infoDiv.innerHTML = `
+            <div class="alert alert-danger mb-0">
+                <h6><i class="fas fa-arrow-down me-2"></i>Risque de Baisse Annuel</h6>
+                <p class="mb-0">Programme un inventaire pour les postes dont les recettes ont baissé par rapport à l'année précédente.
+                Le système calculera automatiquement la comparaison.</p>
+            </div>
+        `;
+    } else if (motif === 'grand_stock') {
+        tauxDiv.style.display = 'none';
+        infoDiv.innerHTML = `
+            <div class="alert alert-info mb-0">
+                <h6><i class="fas fa-boxes me-2"></i>Risque de Grand Stock</h6>
+                <p class="mb-0">Programme un inventaire pour les postes dont le stock de tickets risque de ne pas être épuisé avant la fin de l'année.
+                Le système calculera la date d'épuisement prévue.</p>
+            </div>
+        `;
+    } else {
+        tauxDiv.style.display = 'none';
+        infoDiv.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-hand-pointer fa-3x mb-3"></i>
+                <p>{% trans "Sélectionnez un motif pour voir les informations" %}</p>
+            </div>
+        `;
+    }
+}
+
+// Validation du formulaire
+document.getElementById('programmationForm').addEventListener('submit', function(e) {
+    const selectedPostes = document.querySelectorAll('.poste-checkbox:checked');
+    if (selectedPostes.length === 0) {
+        e.preventDefault();
+        alert('{% trans "Veuillez sélectionner au moins un poste" %}');
+        return false;
+    }
+    
+    const mois = document.getElementById('mois').value;
+    if (!mois) {
+        e.preventDefault();
+        alert('{% trans "Veuillez sélectionner un mois" %}');
+        return false;
+    }
+    
+    const motif = document.getElementById('motif').value;
+    if (!motif) {
+        e.preventDefault();
+        alert('{% trans "Veuillez sélectionner un motif" %}');
+        return false;
+    }
+    
+    return confirm(`{% trans "Confirmer la programmation d'inventaires pour" %} ${selectedPostes.length} {% trans "poste(s)" %} ?`);
+});
+</script>
+{% endblock %}
