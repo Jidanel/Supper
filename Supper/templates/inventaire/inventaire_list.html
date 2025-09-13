@@ -168,12 +168,12 @@
                 <div class="text-muted">{% trans "Aujourd'hui" %}</div>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6 mb-3">
+        {% comment %} <div class="col-lg-3 col-md-6 mb-3">
             <div class="stats-card">
                 <div class="stats-number text-warning">{{ inventaires_verrouilles }}</div>
                 <div class="text-muted">{% trans "Verrouillés" %}</div>
             </div>
-        </div>
+        </div> {% endcomment %}
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="stats-card">
                 <div class="stats-number text-info">{{ postes|length }}</div>
@@ -223,14 +223,14 @@
                                     {% if current_filters.statut == "en_cours" %}selected{% endif %}>
                                 {% trans "En cours" %}
                             </option>
-                            <option value="verrouille" 
+                            {% comment %} <option value="verrouille" 
                                     {% if current_filters.statut == "verrouille" %}selected{% endif %}>
                                 {% trans "Verrouillé" %}
                             </option>
                             <option value="valide" 
                                     {% if current_filters.statut == "valide" %}selected{% endif %}>
                                 {% trans "Validé" %}
-                            </option>
+                            </option> {% endcomment %}
                         </select>
                     </div>
                     <div class="col-md-1">
@@ -287,7 +287,7 @@
                             <td>
                                 <span class="badge bg-info">{{ inventaire.nombre_periodes_saisies }}/10</span>
                             </td>
-                            <td>
+                            {% comment %} <td>
                                 {% if inventaire.valide %}
                                     <span class="badge badge-custom badge-valide">
                                         <i class="fas fa-check-circle me-1"></i>{% trans "Validé" %}
@@ -301,14 +301,14 @@
                                         <i class="fas fa-edit me-1"></i>{% trans "En cours" %}
                                     </span>
                                 {% endif %}
-                            </td>
+                            </td> {% endcomment %}
                             <td>
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" 
                                        class="btn btn-outline-primary btn-sm" title="{% trans 'Voir détails' %}">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    {% if not inventaire.verrouille and user.peut_gerer_inventaire %}
+                                    {% if  user.peut_gerer_inventaire %}
                                     <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}" 
                                        class="btn btn-outline-success btn-sm" title="{% trans 'Modifier' %}">
                                         <i class="fas fa-edit"></i>

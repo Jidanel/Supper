@@ -56,10 +56,10 @@ class Command(BaseCommand):
         
         # Sélectionner les postes
         if postes_param == 'all':
-            postes = Poste.objects.filter(actif=True)
+            postes = Poste.objects.filter(is_active=True)
         else:
             codes_postes = [code.strip() for code in postes_param.split(',')]
-            postes = Poste.objects.filter(code__in=codes_postes, actif=True)
+            postes = Poste.objects.filter(code__in=codes_postes, is_active=True)
         
         if not postes.exists():
             self.stdout.write(
@@ -183,9 +183,6 @@ class Command(BaseCommand):
                 # Recalculer les totaux
                 inventaire.recalculer_totaux()
                 
-                # Verrouiller l'inventaire
-                if not inventaire.verrouille:
-                    inventaire.verrouiller(agent)
                 
                 # Créer ou mettre à jour une recette correspondante
                 recette_potentielle = inventaire.calculer_recette_potentielle()

@@ -236,7 +236,6 @@ def alert_box(type, message, dismissible=True):
 def status_badge_component(value, label=None):
     """
     Génère un badge de statut
-    Usage: {% status_badge_component inventaire.verrouille "Verrouillé" %}
     """
     return {
         'value': value,

@@ -475,10 +475,10 @@ Corrigé pour gérer les erreurs et améliorer l'UX
                 {% trans "Sauvegarder" %}
             </button>
             
-            <button type="submit" name="action" value="verrouiller" class="btn-primary" onclick="return confirm('{% trans "Êtes-vous sûr de vouloir verrouiller cet inventaire ? Cette action est irréversible." %}')">
+            {% comment %} <button type="submit" name="action" value="verrouiller" class="btn-primary" onclick="return confirm('{% trans "Êtes-vous sûr de vouloir verrouiller cet inventaire ? Cette action est irréversible." %}')">
                 <i class="fas fa-lock"></i>
                 {% trans "Enregistrer et Verrouiller" %}
-            </button>
+            </button> {% endcomment %}
             
             <a href="{% url 'inventaire:inventaire_list' %}" class="btn-secondary">
                 <i class="fas fa-times"></i>

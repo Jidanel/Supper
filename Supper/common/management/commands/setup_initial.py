@@ -307,7 +307,6 @@ class Command(BaseCommand):
             
             # Recalculer les totaux
             inventaire.recalculer_totaux()
-            inventaire.verrouiller(agent)
             
             # Créer une recette correspondante
             recette_potentielle = inventaire.calculer_recette_potentielle()

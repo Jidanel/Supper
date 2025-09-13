@@ -60,7 +60,8 @@ class ProgrammationInventaire(models.Model):
     motif = models.CharField(
         max_length=20,
         choices=MotifInventaire.choices,
-        verbose_name=_("Motif de l'inventaire")
+        verbose_name=_("Motif de l'inventaire"),
+        default=0
     )
     
     # Données pour le motif taux de déperdition
@@ -261,7 +262,11 @@ class InventaireMensuel(models.Model):
         Poste,
         on_delete=models.CASCADE,
         related_name='inventaires_mensuels',
-        verbose_name=_("Poste")
+        verbose_name=_("Poste"),
+        #default=1
+       #null=True
+        null=True,  # ← Gardez null=True temporairement
+        blank=True
     )
     programmation = models.OneToOneField(
         ProgrammationInventaire,
@@ -275,7 +280,8 @@ class InventaireMensuel(models.Model):
     motif = models.CharField(
         max_length=20,
         choices=MotifInventaire.choices,
-        verbose_name=_("Motif de l'inventaire")
+        verbose_name=_("Motif de l'inventaire"),
+        default=MotifInventaire.TAUX_DEPERDITION
     )
      # Données pour le motif
     taux_deperdition_precedent = models.DecimalField(
@@ -445,7 +451,7 @@ class InventaireMensuel(models.Model):
     def get_nombre_postes(self):
         """Retourne le nombre de postes dans le système"""
         from accounts.models import Poste
-        return Poste.objects.filter(actif=True).count()
+        return Poste.objects.filter(is_active=True).count()
     
     def get_calendrier_mois(self):
         """Génère le calendrier du mois sous forme de grille"""
@@ -1019,33 +1025,7 @@ class InventaireJournalier(models.Model):
         verbose_name=_("Agent de saisie")
     )
     
-    # # État de l'inventaire
-    # verrouille = models.BooleanField(
-    #     default=False,
-    #     verbose_name=_("Inventaire verrouillé"),
-    #     help_text=_("Une fois verrouillé, l'inventaire ne peut plus être modifié")
-    # )
     
-    # valide = models.BooleanField(
-    #     default=False,
-    #     verbose_name=_("Inventaire validé"),
-    #     help_text=_("Validation par un responsable")
-    # )
-    
-    # valide_par = models.ForeignKey(
-    #     UtilisateurSUPPER,
-    #     on_delete=models.SET_NULL,
-    #     null=True,
-    #     blank=True,
-    #     related_name='inventaires_valides',
-    #     verbose_name=_("Validé par")
-    # )
-    
-    # date_validation = models.DateTimeField(
-    #     null=True,
-    #     blank=True,
-    #     verbose_name=_("Date de validation")
-    # )
     
     # Totaux calculés automatiquement
     modifiable_par_agent = models.BooleanField(
@@ -1102,7 +1082,6 @@ class InventaireJournalier(models.Model):
             models.Index(fields=['poste', '-date']),
             models.Index(fields=['date']),
             models.Index(fields=['agent_saisie']),
-            models.Index(fields=['verrouille']),
         ]
     
     def __str__(self):
@@ -1232,7 +1211,7 @@ class InventaireJournalier(models.Model):
         inventaire_mensuel = InventaireMensuel.objects.filter(
             mois=self.date.month,
             annee=self.date.year,
-            actif=True
+            is_active=True
         ).first()
         
         if inventaire_mensuel:

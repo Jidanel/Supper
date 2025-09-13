@@ -208,7 +208,7 @@
                     <i class="fas fa-edit me-2"></i>{% trans "Modifier" %}
                 </a>
                 {% endif %}
-                {% if can_lock %}
+                {% comment %} {% if can_lock %}
                 <button class="btn btn-warning btn-lg" onclick="verrouillerInventaire()">
                     <i class="fas fa-lock me-2"></i>{% trans "Verrouiller" %}
                 </button>
@@ -217,7 +217,7 @@
                 <button class="btn btn-success btn-lg" onclick="validerInventaire()">
                     <i class="fas fa-check me-2"></i>{% trans "Valider" %}
                 </button>
-                {% endif %}
+                {% endif %} {% endcomment %}
             </div>
         </div>
     </div>
@@ -552,7 +552,7 @@ const inventaireChart = new Chart(ctx, {
 });
 
 // Fonction de verrouillage
-function verrouillerInventaire() {
+{% comment %} function verrouillerInventaire() {
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     document.getElementById('confirmModalTitle').textContent = '{% trans "Verrouiller l'inventaire" %}';
     document.getElementById('confirmModalBody').innerHTML = `
@@ -625,7 +625,7 @@ function validerInventaire() {
     };
     
     modal.show();
-}
+} {% endcomment %}
 
 // Fonction d'impression
 function imprimerInventaire() {
@@ -651,7 +651,7 @@ function exporterPDF() {
 }
 
 // Auto-refresh des données toutes les 2 minutes si l'inventaire n'est pas verrouillé
-{% if not inventaire.verrouille %}
+//{% if not inventaire.verrouille %} {% endcomment %}
 setInterval(() => {
     fetch(window.location.href)
         .then(response => response.text())
@@ -686,7 +686,7 @@ setInterval(() => {
         })
         .catch(error => console.error('Erreur refresh:', error));
 }, 120000);
-{% endif %}
+//{% endif %}
 
 // Gestion du token CSRF
 document.addEventListener('DOMContentLoaded', function() {

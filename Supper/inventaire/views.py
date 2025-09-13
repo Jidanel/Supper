@@ -100,14 +100,26 @@ class InventaireListView(InventaireMixin, ListView):
     context_object_name = 'inventaires'
     paginate_by = 20
     
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if not hasattr(request.user, 'peut_gerer_inventaire') or not request.user.peut_gerer_inventaire:
+            messages.error(request, "Vous n'avez pas les permissions pour accéder aux inventaires.")
+            return redirect('common:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
     def get_queryset(self):
         queryset = InventaireJournalier.objects.select_related(
             'poste', 'agent_saisie',
         ).prefetch_related('details_periodes')
         
         # Filtrer selon les postes accessibles à l'utilisateur
-        if not self.request.user.acces_tous_postes and not _check_admin_permission(self.request.user):
-            if self.request.user.poste_affectation:
+        if not _check_admin_permission(self.request.user):
+            if hasattr(self.request.user, 'get_postes_accessibles'):
+                queryset = queryset.filter(
+                    poste__in=self.request.user.get_postes_accessibles()
+                )
+            elif self.request.user.poste_affectation:
                 queryset = queryset.filter(poste=self.request.user.poste_affectation)
             else:
                 queryset = queryset.none()
@@ -144,38 +156,31 @@ class InventaireListView(InventaireMixin, ListView):
             except ValueError:
                 pass
         
-        # Filtre par statut
-        statut = self.request.GET.get('statut')
-        if statut == 'verrouille':
-            queryset = queryset.filter(verrouille=True)
-        elif statut == 'valide':
-            queryset = queryset.filter(valide=True)
-        elif statut == 'en_cours':
-            queryset = queryset.filter(verrouille=False, valide=False)
         
         return queryset.order_by('-date', 'poste__nom')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['can_admin'] = _check_admin_permission(self.request.user)
         
         # Postes accessibles pour le filtre
-        if self.request.user.acces_tous_postes or _check_admin_permission(self.request.user):
-            postes = Poste.objects.filter(is_active=True).order_by('nom')
+        if context['can_admin']:
+            context['postes'] = Poste.objects.filter(is_active=True).order_by('nom')
+        elif hasattr(self.request.user, 'get_postes_accessibles'):
+            context['postes'] = self.request.user.get_postes_accessibles()
         else:
-            postes = Poste.objects.filter(
-                id=self.request.user.poste_affectation.id
-            ) if self.request.user.poste_affectation else Poste.objects.none()
+            context['postes'] = Poste.objects.none()
         
         # Statistiques rapides
         total_inventaires = self.get_queryset().count()
         inventaires_today = self.get_queryset().filter(date=timezone.now().date()).count()
-        inventaires_verrouilles = self.get_queryset().filter(verrouille=True).count()
+        #inventaires_verrouilles = self.get_queryset().filter(verrouille=True).count()
         
         context.update({
-            'postes': postes,
+            'postes': context['postes'],
             'total_inventaires': total_inventaires,
             'inventaires_today': inventaires_today,
-            'inventaires_verrouilles': inventaires_verrouilles,
+            #'inventaires_verrouilles': inventaires_verrouilles,
             'can_admin': _check_admin_permission(self.request.user),
             'current_filters': {
                 'search': self.request.GET.get('search', ''),
@@ -195,12 +200,18 @@ class InventaireDetailView(InventaireMixin, DetailView):
     template_name = 'inventaire/inventaire_detail.html'
     context_object_name = 'inventaire'
     
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
         
         # Vérifier l'accès au poste
-        if not self.request.user.peut_acceder_poste(obj.poste):
-            raise PermissionError(_("Accès non autorisé à ce poste."))
+        if hasattr(self.request.user, 'peut_acceder_poste'):
+            if not self.request.user.peut_acceder_poste(obj.poste):
+                raise PermissionError("Accès non autorisé à ce poste.")
         
         return obj
     
@@ -209,46 +220,52 @@ class InventaireDetailView(InventaireMixin, DetailView):
         context = super().get_context_data(**kwargs)
         
         # 🔧 CORRECTION 1 : Une seule récupération de l'objet
-        inventaire = self.get_object()
+        inventaire = self.object()
         
-        # 🔧 CORRECTION 2 : Vérifier le statut pour la date de l'inventaire
-        try:
-            context['jour_etait_ouvert'] = ConfigurationJour.est_jour_ouvert_pour_inventaire(
-                date=inventaire.date,     # 🔧 Date de l'inventaire
-                poste=inventaire.poste    # 🔧 Poste de l'inventaire
-            )
-        except Exception as e:
-            # 🔧 AMÉLIORATION : Log l'erreur pour debug
-            import logging
-            logger = logging.getLogger('supper')
-            logger.warning(f"Erreur vérification statut jour {inventaire.date}: {str(e)}")
-            context['jour_etait_ouvert'] = False
+        # # 🔧 CORRECTION 2 : Vérifier le statut pour la date de l'inventaire
+        # try:
+        #     context['jour_etait_ouvert'] = ConfigurationJour.est_jour_ouvert_pour_inventaire(
+        #         date=inventaire.date,     # 🔧 Date de l'inventaire
+        #         poste=inventaire.poste    # 🔧 Poste de l'inventaire
+        #     )
+        # except Exception as e:
+        #     # 🔧 AMÉLIORATION : Log l'erreur pour debug
+        #     import logging
+        #     logger = logging.getLogger('supper')
+        #     logger.warning(f"Erreur vérification statut jour {inventaire.date}: {str(e)}")
+        #     context['jour_etait_ouvert'] = False
         
         # Détails par période
-        details_periodes = inventaire.details_periodes.all().order_by('periode')
+        # details_periodes = inventaire.details_periodes.all().order_by('periode')
+        context['details_periodes'] = inventaire.details_periodes.all().order_by('periode')
         
         # Recette associée
         try:
-            recette = RecetteJournaliere.objects.get(
+            context['recette'] = RecetteJournaliere.objects.get(
                 poste=inventaire.poste,
                 date=inventaire.date
             )
         except RecetteJournaliere.DoesNotExist:
-            recette = None
+            context['recette'] = None
         
-        # 🔧 AMÉLIORATION : Calculs sécurisés avec gestion d'erreurs
+         # Calculs sécurisés
         try:
-            total_vehicules = sum(d.nombre_vehicules for d in details_periodes)
-            nombre_periodes = len(details_periodes)
-            moyenne_horaire = total_vehicules / nombre_periodes if nombre_periodes > 0 else 0
-            estimation_24h = moyenne_horaire * 24
-            recette_potentielle = inventaire.calculer_recette_potentielle()
+            context['moyenne_horaire'] = inventaire.calculer_moyenne_horaire()
+            context['estimation_24h'] = inventaire.estimer_total_24h()
+            context['recette_potentielle'] = inventaire.calculer_recette_potentielle()
         except Exception as e:
-            # Valeurs par défaut en cas d'erreur
-            total_vehicules = 0
-            moyenne_horaire = 0
-            estimation_24h = 0
-            recette_potentielle = 0
+            logger.error(f"Erreur calculs inventaire {inventaire.pk}: {str(e)}")
+            context['moyenne_horaire'] = 0
+            context['estimation_24h'] = 0
+            context['recette_potentielle'] = 0
+        
+        # Vérifier si le jour est impertinent
+        try:
+            config = ConfigurationJour.objects.filter(date=inventaire.date).first()
+            context['jour_impertinent'] = config and config.statut == StatutJour.IMPERTINENT
+        except:
+            context['jour_impertinent'] = False
+        
             
             import logging
             logger = logging.getLogger('supper')
@@ -256,6 +273,7 @@ class InventaireDetailView(InventaireMixin, DetailView):
         
         # Données pour graphique par période
         try:
+            details_periodes = inventaire.details_periodes.all().order_by('periode')
             graph_data = {
                 'periodes': [d.get_periode_display() for d in details_periodes],
                 'vehicules': [d.nombre_vehicules for d in details_periodes],
@@ -268,54 +286,55 @@ class InventaireDetailView(InventaireMixin, DetailView):
             import logging
             logger = logging.getLogger('supper')
             logger.error(f"Erreur sérialisation graph_data: {str(e)}")
+        return context
 
 class SaisieInventaireView(InventaireMixin, View):
     """Vue pour la saisie d'inventaire par les agents"""
     template_name = 'inventaire/saisie_inventaire.html'
     
-    def get(self, request, poste_id=None, date=None):
+    @require_permission('peut_gerer_inventaire')
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get(self, request, poste_id=None, date_str=None):
         """Affichage du formulaire de saisie"""
         
         # Déterminer le poste
         if poste_id:
             poste = get_object_or_404(Poste, id=poste_id)
-            if not request.user.peut_acceder_poste(poste):
-                messages.error(request, _("Accès non autorisé à ce poste."))
-                return redirect('inventaire:inventaire_list')
         else:
             poste = request.user.poste_affectation
             if not poste:
-                messages.error(request, _("Aucun poste d'affectation configuré."))
+                messages.error(request, "Aucun poste d'affectation configuré.")
                 return redirect('common:dashboard')
         
+        # Vérifier l'accès au poste
+        if hasattr(request.user, 'peut_acceder_poste'):
+            if not request.user.peut_acceder_poste(poste):
+                messages.error(request, "Accès non autorisé à ce poste.")
+                return redirect('inventaire:inventaire_list')
+        
         # Déterminer la date
-        if date:
+        if date_str:
             try:
-                target_date = datetime.strptime(date, '%Y-%m-%d').date()
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             except ValueError:
-                messages.error(request, _("Format de date invalide."))
+                messages.error(request, "Format de date invalide.")
                 return redirect('inventaire:saisie_inventaire')
         else:
             target_date = timezone.now().date()
-        
-        # Vérifier si le jour est ouvert
-        if not ConfigurationJour.est_jour_ouvert_pour_inventaire(target_date):
-            messages.warning(request, _(f"Le jour {target_date.strftime('%d/%m/%Y')} n'est pas ouvert pour la saisie."))
-            return redirect('inventaire:inventaire_list')
         
         # Récupérer ou créer l'inventaire
         inventaire, created = InventaireJournalier.objects.get_or_create(
             poste=poste,
             date=target_date,
-            defaults={
-                'agent_saisie': request.user,
-            }
+            defaults={'agent_saisie': request.user}
         )
         
-        # Vérifier si l'inventaire peut être modifié
-        if inventaire.verrouille:
-            messages.warning(request, _("Cet inventaire est verrouillé et ne peut plus être modifié."))
-            return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
+        # # Vérifier si l'inventaire peut être modifié
+        # if hasattr(inventaire, 'verrouille') and inventaire.verrouille:
+        #     messages.warning(request, "Cet inventaire est verrouillé et ne peut plus être modifié.")
+        #     return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
         
         # Récupérer les détails existants
         details_existants = {
@@ -341,12 +360,12 @@ class SaisieInventaireView(InventaireMixin, View):
             'target_date': target_date,
             'periodes_data': periodes_data,
             'is_new': created,
-            'can_save': not inventaire.verrouille,
+            'can_save': not getattr(inventaire, 'verrouille', False),
         }
         
         return render(request, self.template_name, context)
     
-    def post(self, request, poste_id=None, date=None):
+    def post(self, request, poste_id=None, date_str=None):
         """Traitement de la saisie d'inventaire"""
         
         # Récupérer les paramètres
@@ -355,17 +374,15 @@ class SaisieInventaireView(InventaireMixin, View):
         else:
             poste = request.user.poste_affectation
         
-        if date:
-            target_date = datetime.strptime(date, '%Y-%m-%d').date()
+        if date_str:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         else:
             target_date = timezone.now().date()
         
         # Vérifications de sécurité
-        if not request.user.peut_acceder_poste(poste):
-            return JsonResponse({'error': 'Accès non autorisé'}, status=403)
-        
-        if not ConfigurationJour.est_jour_ouvert(target_date):
-            return JsonResponse({'error': 'Jour fermé pour la saisie'}, status=400)
+        if hasattr(request.user, 'peut_acceder_poste'):
+            if not request.user.peut_acceder_poste(poste):
+                return JsonResponse({'error': 'Accès non autorisé'}, status=403)
         
         try:
             # Récupérer l'inventaire
@@ -374,8 +391,8 @@ class SaisieInventaireView(InventaireMixin, View):
                 date=target_date
             )
             
-            if inventaire.verrouille:
-                return JsonResponse({'error': 'Inventaire verrouillé'}, status=400)
+            # if hasattr(inventaire, 'verrouille') and inventaire.verrouille:
+            #     return JsonResponse({'error': 'Inventaire verrouillé'}, status=400)
             
             # Traiter les données des périodes
             details_saved = 0
@@ -384,70 +401,47 @@ class SaisieInventaireView(InventaireMixin, View):
             for periode_choice in PeriodeHoraire.choices:
                 periode_code, _ = periode_choice
                 
-                # Récupérer les données du formulaire
                 nombre_vehicules = request.POST.get(f'periode_{periode_code}', '').strip()
                 observations = request.POST.get(f'observations_{periode_code}', '').strip()
                 
                 if nombre_vehicules:
                     try:
                         nombre_vehicules = int(nombre_vehicules)
-                        if nombre_vehicules < 0 or nombre_vehicules > 1000:
-                            return JsonResponse({
-                                'error': f'Nombre de véhicules invalide pour {periode_code}'
-                            }, status=400)
-                        
-                        # Créer ou mettre à jour le détail
-                        detail, created = DetailInventairePeriode.objects.update_or_create(
-                            inventaire=inventaire,
-                            periode=periode_code,
-                            defaults={
-                                'nombre_vehicules': nombre_vehicules,
-                                'observations_periode': observations,
-                            }
-                        )
-                        
-                        details_saved += 1
-                        total_vehicules += nombre_vehicules
-                        
+                        if 0 <= nombre_vehicules <= 1000:
+                            detail, created = DetailInventairePeriode.objects.update_or_create(
+                                inventaire=inventaire,
+                                periode=periode_code,
+                                defaults={
+                                    'nombre_vehicules': nombre_vehicules,
+                                    'observations_periode': observations,
+                                }
+                            )
+                            details_saved += 1
+                            total_vehicules += nombre_vehicules
                     except ValueError:
-                        return JsonResponse({
-                            'error': f'Nombre de véhicules invalide pour {periode_code}'
-                        }, status=400)
+                        continue
             
             # Mettre à jour l'inventaire
             inventaire.total_vehicules = total_vehicules
             inventaire.nombre_periodes_saisies = details_saved
-            inventaire.agent_saisie = request.user
             inventaire.save()
             
             # Journaliser l'action
-            _log_inventaire_action(
-                request,
+            log_user_action(
+                request.user,
                 "Saisie inventaire",
-                f"Poste: {poste.nom}, Date: {target_date}, Véhicules: {total_vehicules}"
+                f"Poste: {poste.nom}, Date: {target_date}, Véhicules: {total_vehicules}",
+                request
             )
             
-            # Réponse selon le type de requête
-            if request.headers.get('Content-Type') == 'application/json':
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Inventaire sauvegardé avec succès',
-                    'total_vehicules': total_vehicules,
-                    'details_saved': details_saved,
-                    'inventaire_id': inventaire.id,
-                })
-            else:
-                messages.success(request, _("Inventaire sauvegardé avec succès."))
-                return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
+            messages.success(request, "Inventaire sauvegardé avec succès.")
+            return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
         
         except Exception as e:
             logger.error(f"Erreur saisie inventaire: {str(e)}")
-            
-            if request.headers.get('Content-Type') == 'application/json':
-                return JsonResponse({'error': 'Erreur lors de la sauvegarde'}, status=500)
-            else:
-                messages.error(request, _("Erreur lors de la sauvegarde de l'inventaire."))
-                return redirect('inventaire:saisie_inventaire')
+            messages.error(request, "Erreur lors de la sauvegarde de l'inventaire.")
+            return redirect('inventaire:saisie_inventaire')
+        
     def get_context_data(self, **kwargs):
         """Ajouter des données au contexte"""
         context = super().get_context_data(**kwargs)
@@ -459,7 +453,7 @@ class SaisieInventaireView(InventaireMixin, View):
         if hasattr(self.request.user, 'get_postes_accessibles'):
             context['postes_accessibles'] = self.request.user.get_postes_accessibles()
         else:
-            context['postes_accessibles'] = Poste.objects.filter(actif=True)
+            context['postes_accessibles'] = Poste.objects.filter(is_active=True)
         
         # 🔧 CORRECTION : Vérifier si aujourd'hui est ouvert - AVEC l'argument date
         try:
@@ -607,95 +601,95 @@ class ConfigurationJourListView(AdminRequiredMixin, ListView):
         return context
 
 
-class InventaireVerrouillerView(InventaireMixin, View):
-    """Vue pour verrouiller un inventaire"""
+# class InventaireVerrouillerView(InventaireMixin, View):
+#     """Vue pour verrouiller un inventaire"""
     
-    @method_decorator(require_http_methods(["POST"]))
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
+#     @method_decorator(require_http_methods(["POST"]))
+#     def dispatch(self, *args, **kwargs):
+#         return super().dispatch(*args, **kwargs)
     
-    def post(self, request, pk):
-        """Verrouiller un inventaire"""
-        if not _check_admin_permission(request.user):
-            return JsonResponse({'error': 'Permission refusée'}, status=403)
+#     def post(self, request, pk):
+#         """Verrouiller un inventaire"""
+#         if not _check_admin_permission(request.user):
+#             return JsonResponse({'error': 'Permission refusée'}, status=403)
         
-        try:
-            inventaire = get_object_or_404(InventaireJournalier, pk=pk)
+#         try:
+#             inventaire = get_object_or_404(InventaireJournalier, pk=pk)
             
-            if not request.user.peut_acceder_poste(inventaire.poste):
-                return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
+#             if not request.user.peut_acceder_poste(inventaire.poste):
+#                 return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
             
-            if inventaire.verrouille:
-                return JsonResponse({'error': 'Inventaire déjà verrouillé'}, status=400)
+#             if inventaire.verrouille:
+#                 return JsonResponse({'error': 'Inventaire déjà verrouillé'}, status=400)
             
-            # Vérifier que l'inventaire est complet
-            if inventaire.nombre_periodes_saisies < 1:
-                return JsonResponse({'error': 'Inventaire incomplet'}, status=400)
+#             # Vérifier que l'inventaire est complet
+#             if inventaire.nombre_periodes_saisies < 1:
+#                 return JsonResponse({'error': 'Inventaire incomplet'}, status=400)
             
-            inventaire.verrouille = True
-            inventaire.date_verrouillage = timezone.now()
-            inventaire.verrouille_par = request.user
-            inventaire.save()
+#             inventaire.verrouille = True
+#             inventaire.date_verrouillage = timezone.now()
+#             inventaire.verrouille_par = request.user
+#             inventaire.save()
             
-            _log_inventaire_action(
-                request, 
-                "Verrouillage inventaire",
-                f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
-            )
+#             _log_inventaire_action(
+#                 request, 
+#                 "Verrouillage inventaire",
+#                 f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
+#             )
             
-            return JsonResponse({
-                'success': True,
-                'message': 'Inventaire verrouillé avec succès'
-            })
+#             return JsonResponse({
+#                 'success': True,
+#                 'message': 'Inventaire verrouillé avec succès'
+#             })
             
-        except Exception as e:
-            logger.error(f"Erreur verrouillage inventaire: {str(e)}")
-            return JsonResponse({'error': 'Erreur serveur'}, status=500)
+#         except Exception as e:
+#             logger.error(f"Erreur verrouillage inventaire: {str(e)}")
+#             return JsonResponse({'error': 'Erreur serveur'}, status=500)
 
 
-class InventaireValiderView(InventaireMixin, View):
-    """Vue pour valider un inventaire"""
+# class InventaireValiderView(InventaireMixin, View):
+#     """Vue pour valider un inventaire"""
     
-    @method_decorator(require_http_methods(["POST"]))
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
+#     @method_decorator(require_http_methods(["POST"]))
+#     def dispatch(self, *args, **kwargs):
+#         return super().dispatch(*args, **kwargs)
     
-    def post(self, request, pk):
-        """Valider un inventaire"""
-        if not _check_admin_permission(request.user):
-            return JsonResponse({'error': 'Permission refusée'}, status=403)
+#     def post(self, request, pk):
+#         """Valider un inventaire"""
+#         if not _check_admin_permission(request.user):
+#             return JsonResponse({'error': 'Permission refusée'}, status=403)
         
-        try:
-            inventaire = get_object_or_404(InventaireJournalier, pk=pk)
+#         try:
+#             inventaire = get_object_or_404(InventaireJournalier, pk=pk)
             
-            if not request.user.peut_acceder_poste(inventaire.poste):
-                return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
+#             if not request.user.peut_acceder_poste(inventaire.poste):
+#                 return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
             
-            if not inventaire.verrouille:
-                return JsonResponse({'error': 'Inventaire non verrouillé'}, status=400)
+#             if not inventaire.verrouille:
+#                 return JsonResponse({'error': 'Inventaire non verrouillé'}, status=400)
             
-            if inventaire.valide:
-                return JsonResponse({'error': 'Inventaire déjà validé'}, status=400)
+#             if inventaire.valide:
+#                 return JsonResponse({'error': 'Inventaire déjà validé'}, status=400)
             
-            inventaire.valide = True
-            inventaire.date_validation = timezone.now()
-            inventaire.valide_par = request.user
-            inventaire.save()
+#             inventaire.valide = True
+#             inventaire.date_validation = timezone.now()
+#             inventaire.valide_par = request.user
+#             inventaire.save()
             
-            _log_inventaire_action(
-                request, 
-                "Validation inventaire",
-                f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
-            )
+#             _log_inventaire_action(
+#                 request, 
+#                 "Validation inventaire",
+#                 f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
+#             )
             
-            return JsonResponse({
-                'success': True,
-                'message': 'Inventaire validé avec succès'
-            })
+#             return JsonResponse({
+#                 'success': True,
+#                 'message': 'Inventaire validé avec succès'
+#             })
             
-        except Exception as e:
-            logger.error(f"Erreur validation inventaire: {str(e)}")
-            return JsonResponse({'error': 'Erreur serveur'}, status=500)
+#         except Exception as e:
+#             logger.error(f"Erreur validation inventaire: {str(e)}")
+#             return JsonResponse({'error': 'Erreur serveur'}, status=500)
 
 
 # ===================================================================
@@ -705,18 +699,16 @@ class InventaireValiderView(InventaireMixin, View):
 class CalculAutomatiqueAPIView(InventaireMixin, View):
     """API pour les calculs automatiques d'inventaire"""
     
-    @method_decorator(require_http_methods(["POST"]))
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Non authentifié'}, status=401)
+        return super().dispatch(request, *args, **kwargs)
     
     def post(self, request):
-        """Calcul automatique basé sur les données saisies"""
         try:
-            # Récupérer les données
             data = json.loads(request.body)
             periodes_data = data.get('periodes', {})
             
-            # Calculer les totaux
             total_vehicules = 0
             nombre_periodes = 0
             
@@ -724,16 +716,15 @@ class CalculAutomatiqueAPIView(InventaireMixin, View):
                 if nombre_str and nombre_str.strip():
                     try:
                         nombre = int(nombre_str)
-                        total_vehicules += nombre
-                        nombre_periodes += 1
+                        if nombre > 0:
+                            total_vehicules += nombre
+                            nombre_periodes += 1
                     except ValueError:
                         continue
             
-            # Calculs métier
             moyenne_horaire = total_vehicules / nombre_periodes if nombre_periodes > 0 else 0
             estimation_24h = moyenne_horaire * 24
             
-            # Calcul recette potentielle (formule SUPPER)
             from django.conf import settings
             config = getattr(settings, 'SUPPER_CONFIG', {})
             tarif = config.get('TARIF_VEHICULE_LEGER', 500)
@@ -749,82 +740,81 @@ class CalculAutomatiqueAPIView(InventaireMixin, View):
                 'estimation_24h': round(estimation_24h, 2),
                 'recette_potentielle': round(recette_potentielle, 2),
             })
-        
+            
         except Exception as e:
             logger.error(f"Erreur calcul automatique: {str(e)}")
             return JsonResponse({'error': 'Erreur de calcul'}, status=500)
 
-
-class VerificationJourAPIView(InventaireMixin, View):
-    """API pour vérifier le statut d'un jour"""
+# class VerificationJourAPIView(InventaireMixin, View):
+#     """API pour vérifier le statut d'un jour"""
     
-    @method_decorator(require_http_methods(["GET"]))
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
+#     @method_decorator(require_http_methods(["GET"]))
+#     def dispatch(self, *args, **kwargs):
+#         return super().dispatch(*args, **kwargs)
     
-    def get(self, request):
-        """Vérifier si un jour est ouvert pour la saisie"""
-        date_str = request.GET.get('date')
+#     def get(self, request):
+#         """Vérifier si un jour est ouvert pour la saisie"""
+#         date_str = request.GET.get('date')
         
-        if not date_str:
-            return JsonResponse({'error': 'Date requise'}, status=400)
+#         if not date_str:
+#             return JsonResponse({'error': 'Date requise'}, status=400)
         
-        try:
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+#         try:
+#             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             
-            # Vérifier la configuration
-            is_open = ConfigurationJour.est_jour_ouvert(target_date)
+#             # Vérifier la configuration
+#             is_open = ConfigurationJour.est_jour_ouvert(target_date)
             
-            # Informations supplémentaires
-            try:
-                config = ConfigurationJour.objects.get(date=target_date)
-                config_info = {
-                    'statut': config.statut,
-                    'statut_display': config.get_statut_display(),
-                    'commentaire': config.commentaire,
-                    'cree_par': config.cree_par.nom_complet if config.cree_par else None,
-                }
-            except ConfigurationJour.DoesNotExist:
-                config_info = {
-                    'statut': 'ferme',
-                    'statut_display': 'Fermé par défaut',
-                    'commentaire': 'Jour non configuré',
-                    'cree_par': None,
-                }
+#             # Informations supplémentaires
+#             try:
+#                 config = ConfigurationJour.objects.get(date=target_date)
+#                 config_info = {
+#                     'statut': config.statut,
+#                     'statut_display': config.get_statut_display(),
+#                     'commentaire': config.commentaire,
+#                     'cree_par': config.cree_par.nom_complet if config.cree_par else None,
+#                 }
+#             except ConfigurationJour.DoesNotExist:
+#                 config_info = {
+#                     'statut': 'ferme',
+#                     'statut_display': 'Fermé par défaut',
+#                     'commentaire': 'Jour non configuré',
+#                     'cree_par': None,
+#                 }
             
-            # Vérifier s'il y a déjà des données
-            poste = request.user.poste_affectation
-            has_inventaire = False
-            inventaire_id = None
+#             # Vérifier s'il y a déjà des données
+#             poste = request.user.poste_affectation
+#             has_inventaire = False
+#             inventaire_id = None
             
-            if poste:
-                try:
-                    inventaire = InventaireJournalier.objects.get(
-                        poste=poste,
-                        date=target_date
-                    )
-                    has_inventaire = True
-                    inventaire_id = inventaire.id
-                except InventaireJournalier.DoesNotExist:
-                    pass
+#             if poste:
+#                 try:
+#                     inventaire = InventaireJournalier.objects.get(
+#                         poste=poste,
+#                         date=target_date
+#                     )
+#                     has_inventaire = True
+#                     inventaire_id = inventaire.id
+#                 except InventaireJournalier.DoesNotExist:
+#                     pass
             
-            return JsonResponse({
-                'success': True,
-                'date': target_date.isoformat(),
-                'is_open': is_open,
-                'config': config_info,
-                'has_inventaire': has_inventaire,
-                'inventaire_id': inventaire_id,
-                'can_edit': is_open and not (has_inventaire and InventaireJournalier.objects.filter(
-                    id=inventaire_id, verrouille=True
-                ).exists()) if has_inventaire else is_open,
-            })
+#             return JsonResponse({
+#                 'success': True,
+#                 'date': target_date.isoformat(),
+#                 'is_open': is_open,
+#                 'config': config_info,
+#                 'has_inventaire': has_inventaire,
+#                 'inventaire_id': inventaire_id,
+#                 'can_edit': is_open and not (has_inventaire and InventaireJournalier.objects.filter(
+#                     id=inventaire_id, verrouille=True
+#                 ).exists()) if has_inventaire else is_open,
+#             })
         
-        except ValueError:
-            return JsonResponse({'error': 'Format de date invalide'}, status=400)
-        except Exception as e:
-            logger.error(f"Erreur vérification jour: {str(e)}")
-            return JsonResponse({'error': 'Erreur serveur'}, status=500)
+#         except ValueError:
+#             return JsonResponse({'error': 'Format de date invalide'}, status=400)
+#         except Exception as e:
+#             logger.error(f"Erreur vérification jour: {str(e)}")
+#             return JsonResponse({'error': 'Erreur serveur'}, status=500)
 
 
 # ===================================================================
@@ -834,14 +824,13 @@ class VerificationJourAPIView(InventaireMixin, View):
 @login_required
 def redirect_to_inventaires_admin(request):
     """Redirection vers la gestion des inventaires dans l'admin Django"""
-    user = request.user
     
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la gestion des inventaires."))
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé à la gestion des inventaires.")
         return redirect('inventaire:inventaire_list')
     
-    _log_inventaire_action(request, "Accès admin inventaires")
-    messages.info(request, _("Redirection vers la gestion des inventaires."))
+    log_user_action(request.user, "Accès admin inventaires", "", request)
+    messages.info(request, "Redirection vers la gestion des inventaires.")
     
     return redirect('/admin/inventaire/inventairejournalier/')
 
@@ -849,14 +838,13 @@ def redirect_to_inventaires_admin(request):
 @login_required
 def redirect_to_recettes_admin(request):
     """Redirection vers la gestion des recettes dans l'admin Django"""
-    user = request.user
     
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la gestion des recettes."))
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé à la gestion des recettes.")
         return redirect('inventaire:inventaire_list')
     
-    _log_inventaire_action(request, "Accès admin recettes")
-    messages.info(request, _("Redirection vers la gestion des recettes."))
+    log_user_action(request.user, "Accès admin recettes", "", request)
+    messages.info(request, "Redirection vers la gestion des recettes.")
     
     return redirect('/admin/inventaire/recettejournaliere/')
 
@@ -997,16 +985,12 @@ def redirect_to_add_config_jour_admin(request):
 @login_required
 @require_http_methods(["GET"])
 def inventaire_stats_api(request):
-    """API pour statistiques des inventaires"""
-    user = request.user
+    """API pour les statistiques des inventaires"""
     
-    if not _check_admin_permission(user):
+    if not _check_admin_permission(request.user):
         return JsonResponse({'error': 'Permission refusée'}, status=403)
     
     try:
-        from django.utils import timezone
-        from datetime import timedelta
-        
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
         month_ago = today - timedelta(days=30)
@@ -1015,32 +999,15 @@ def inventaire_stats_api(request):
             'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
             'inventaires_week': InventaireJournalier.objects.filter(date__gte=week_ago).count(),
             'inventaires_month': InventaireJournalier.objects.filter(date__gte=month_ago).count(),
-            'inventaires_locked': InventaireJournalier.objects.filter(verrouille=True).count(),
-            'inventaires_validated': InventaireJournalier.objects.filter(valide=True).count(),
             'total_inventaires': InventaireJournalier.objects.count(),
-            'postes_actifs': InventaireJournalier.objects.filter(
-                date__gte=week_ago
-            ).values('poste').distinct().count(),
         }
-        
-        # Graphique activité par jour (7 derniers jours)
-        daily_activity = []
-        for i in range(7):
-            day = today - timedelta(days=i)
-            count = InventaireJournalier.objects.filter(date=day).count()
-            daily_activity.append({
-                'date': day.isoformat(),
-                'date_display': day.strftime('%d/%m'),
-                'count': count
-            })
-        
-        stats['daily_activity'] = list(reversed(daily_activity))
         
         return JsonResponse(stats)
         
     except Exception as e:
         logger.error(f"Erreur API inventaire stats: {str(e)}")
         return JsonResponse({'error': 'Erreur serveur'}, status=500)
+
 
 
 @login_required
@@ -1141,7 +1108,7 @@ def check_day_status_api(request):
             status = {
                 'date': target_date.isoformat(),
                 'statut': 'ferme',  # Par défaut fermé si pas configuré
-                'statut_display': 'Fermé - saisie verrouillée',
+                #'statut_display': 'Fermé - saisie verrouillée',
                 'configured': False,
                 'cree_par': None,
                 'commentaire': 'Jour non configuré - fermé par défaut',
@@ -1167,8 +1134,8 @@ def check_day_status_api(request):
                     'poste_nom': inv.poste.nom,
                     'poste_code': inv.poste.code,
                     'total_vehicules': inv.total_vehicules,
-                    'verrouille': inv.verrouille,
-                    'valide': inv.valide,
+                 #   'verrouille': inv.verrouille,
+                   # 'valide': inv.valide,
                     'agent_saisie': inv.agent_saisie.nom_complet if inv.agent_saisie else None,
                 }
                 for inv in inventaires
@@ -1212,55 +1179,20 @@ def check_day_status_api(request):
 # ===================================================================
 
 @login_required
-@require_http_methods(["POST"])
 def quick_action_api(request):
-    """API pour les actions rapides depuis le dashboard"""
-    user = request.user
+    """API pour les actions rapides"""
     
-    if not _check_admin_permission(user):
+    if not _check_admin_permission(request.user):
         return JsonResponse({'error': 'Permission refusée'}, status=403)
     
     try:
-        if request.content_type == 'application/json':
-            data = json.loads(request.body)
-            action = data.get('action')
+        data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+        action = data.get('action')
+        
+        if action == 'mark_impertinent':
             date_str = data.get('date')
             commentaire = data.get('commentaire', '')
-        else:
-            action = request.POST.get('action')
-            date_str = request.POST.get('date')
-            commentaire = request.POST.get('commentaire', '')
-        
-        if action == 'open_today':
-            # Ouvrir le jour actuel
-            from django.utils import timezone
-            today = timezone.now().date()
             
-            config, created = ConfigurationJour.objects.get_or_create(
-                date=today,
-                defaults={
-                    'statut': 'ouvert',
-                    'cree_par': user,
-                    'commentaire': commentaire or f'Ouvert via API par {user.nom_complet}'
-                }
-            )
-            
-            if not created and config.statut != 'ouvert':
-                config.statut = 'ouvert'
-                config.commentaire = commentaire or f'Réouvert via API par {user.nom_complet}'
-                config.save()
-            
-            _log_inventaire_action(request, f"Ouverture jour {today}")
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Jour {today.strftime("%d/%m/%Y")} ouvert pour la saisie.',
-                'date': today.isoformat(),
-                'statut': config.statut
-            })
-        
-        elif action == 'open_date':
-            # Ouvrir une date spécifique
             if not date_str:
                 return JsonResponse({'error': 'Date requise'}, status=400)
             
@@ -1269,127 +1201,32 @@ def quick_action_api(request):
             config, created = ConfigurationJour.objects.get_or_create(
                 date=target_date,
                 defaults={
-                    'statut': 'ouvert',
-                    'cree_par': user,
-                    'commentaire': commentaire or f'Ouvert via API par {user.nom_complet}'
+                    'statut': StatutJour.IMPERTINENT,
+                    'cree_par': request.user,
+                    'commentaire': commentaire or f'Marqué impertinent par {request.user.nom_complet}'
                 }
             )
             
             if not created:
-                config.statut = 'ouvert'
-                config.commentaire = commentaire or f'Réouvert via API par {user.nom_complet}'
+                config.statut = StatutJour.IMPERTINENT
+                config.commentaire = commentaire
                 config.save()
             
-            _log_inventaire_action(request, f"Ouverture jour {target_date}")
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Jour {target_date.strftime("%d/%m/%Y")} ouvert pour la saisie.',
-                'date': target_date.isoformat(),
-                'statut': config.statut
-            })
-        
-        elif action == 'close_date':
-            # Fermer une date spécifique
-            if not date_str:
-                return JsonResponse({'error': 'Date requise'}, status=400)
-            
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            
-            config, created = ConfigurationJour.objects.get_or_create(
-                date=target_date,
-                defaults={
-                    'statut': 'ferme',
-                    'cree_par': user,
-                    'commentaire': commentaire or f'Fermé via API par {user.nom_complet}'
-                }
+            log_user_action(
+                request.user,
+                "Marquage jour impertinent",
+                f"Date: {target_date}, Commentaire: {commentaire}",
+                request
             )
             
-            if not created:
-                config.statut = 'ferme'
-                config.commentaire = commentaire or f'Fermé via API par {user.nom_complet}'
-                config.save()
-            
-            _log_inventaire_action(request, f"Fermeture jour {target_date}")
-            
             return JsonResponse({
                 'success': True,
-                'message': f'Jour {target_date.strftime("%d/%m/%Y")} fermé pour la saisie.',
-                'date': target_date.isoformat(),
-                'statut': config.statut
+                'message': f'Jour {target_date.strftime("%d/%m/%Y")} marqué comme impertinent'
             })
-        
-        elif action == 'mark_impertinent':
-            # Marquer un jour comme impertinent
-            if not date_str:
-                return JsonResponse({'error': 'Date requise'}, status=400)
-            
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            
-            config, created = ConfigurationJour.objects.get_or_create(
-                date=target_date,
-                defaults={
-                    'statut': 'impertinent',
-                    'cree_par': user,
-                    'commentaire': commentaire or f'Marqué impertinent via API par {user.nom_complet}'
-                }
-            )
-            
-            if not created:
-                config.statut = 'impertinent'
-                config.commentaire = commentaire or f'Marqué impertinent via API par {user.nom_complet}'
-                config.save()
-            
-            _log_inventaire_action(request, f"Marquage impertinent {target_date}")
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Jour {target_date.strftime("%d/%m/%Y")} marqué comme impertinent.',
-                'date': target_date.isoformat(),
-                'statut': config.statut
-            })
-        
-        elif action == 'lock_inventaire':
-            # Verrouiller un inventaire spécifique
-            inventaire_id = data.get('inventaire_id') if request.content_type == 'application/json' else request.POST.get('inventaire_id')
-            
-            if not inventaire_id:
-                return JsonResponse({'error': 'ID inventaire requis'}, status=400)
-            
-            try:
-                inventaire = InventaireJournalier.objects.get(id=inventaire_id)
-                
-                if not user.peut_acceder_poste(inventaire.poste):
-                    return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
-                
-                if inventaire.verrouille:
-                    return JsonResponse({'error': 'Inventaire déjà verrouillé'}, status=400)
-                
-                inventaire.verrouille = True
-                inventaire.date_verrouillage = timezone.now()
-                inventaire.verrouille_par = user
-                inventaire.save()
-                
-                _log_inventaire_action(
-                    request, 
-                    "Verrouillage inventaire",
-                    f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
-                )
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': f'Inventaire {inventaire.poste.nom} du {inventaire.date.strftime("%d/%m/%Y")} verrouillé.',
-                    'inventaire_id': inventaire.id,
-                })
-                
-            except InventaireJournalier.DoesNotExist:
-                return JsonResponse({'error': 'Inventaire non trouvé'}, status=404)
         
         else:
             return JsonResponse({'error': 'Action non reconnue'}, status=400)
-    
-    except ValueError as e:
-        return JsonResponse({'error': f'Erreur de format: {str(e)}'}, status=400)
+            
     except Exception as e:
         logger.error(f"Erreur API quick action: {str(e)}")
         return JsonResponse({'error': 'Erreur serveur'}, status=500)
@@ -1459,302 +1296,302 @@ class RapportInventaireView(AdminRequiredMixin, View):
             messages.error(request, _("Erreur lors de la génération du rapport."))
             return redirect('inventaire:rapport_generation')
     
-    def _generer_rapport_inventaires_detailles(self, queryset, format_export):
-        """Générer un rapport détaillé des inventaires"""
-        import io
-        from django.http import HttpResponse
+    # def _generer_rapport_inventaires_detailles(self, queryset, format_export):
+    #     """Générer un rapport détaillé des inventaires"""
+    #     import io
+    #     from django.http import HttpResponse
         
-        if format_export == 'excel':
-            try:
-                import openpyxl
-                from openpyxl.styles import Font, Alignment, PatternFill
+    #     if format_export == 'excel':
+    #         try:
+    #             import openpyxl
+    #             from openpyxl.styles import Font, Alignment, PatternFill
                 
-                # Créer le workbook
-                wb = openpyxl.Workbook()
-                ws = wb.active
-                ws.title = "Inventaires Détaillés"
+    #             # Créer le workbook
+    #             wb = openpyxl.Workbook()
+    #             ws = wb.active
+    #             ws.title = "Inventaires Détaillés"
                 
-                # En-têtes
-                headers = [
-                    'Date', 'Poste', 'Code Poste', 'Agent Saisie', 
-                    'Total Véhicules', 'Périodes Saisies', 'Verrouillé', 
-                    'Validé', 'Date Création'
-                ]
+    #             # En-têtes
+    #             headers = [
+    #                 'Date', 'Poste', 'Code Poste', 'Agent Saisie', 
+    #                 'Total Véhicules', 'Périodes Saisies', 'Verrouillé', 
+    #                 'Validé', 'Date Création'
+    #             ]
                 
-                for col, header in enumerate(headers, 1):
-                    cell = ws.cell(row=1, column=col, value=header)
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
+    #             for col, header in enumerate(headers, 1):
+    #                 cell = ws.cell(row=1, column=col, value=header)
+    #                 cell.font = Font(bold=True)
+    #                 cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
                 
-                # Données
-                for row, inventaire in enumerate(queryset.order_by('date', 'poste__nom'), 2):
-                    ws.cell(row=row, column=1, value=inventaire.date.strftime('%d/%m/%Y'))
-                    ws.cell(row=row, column=2, value=inventaire.poste.nom)
-                    ws.cell(row=row, column=3, value=inventaire.poste.code)
-                    ws.cell(row=row, column=4, value=inventaire.agent_saisie.nom_complet if inventaire.agent_saisie else '')
-                    ws.cell(row=row, column=5, value=inventaire.total_vehicules)
-                    ws.cell(row=row, column=6, value=inventaire.nombre_periodes_saisies)
-                    ws.cell(row=row, column=7, value='Oui' if inventaire.verrouille else 'Non')
-                    ws.cell(row=row, column=8, value='Oui' if inventaire.valide else 'Non')
-                    ws.cell(row=row, column=9, value=inventaire.date_creation.strftime('%d/%m/%Y %H:%M'))
+    #             # Données
+    #             for row, inventaire in enumerate(queryset.order_by('date', 'poste__nom'), 2):
+    #                 ws.cell(row=row, column=1, value=inventaire.date.strftime('%d/%m/%Y'))
+    #                 ws.cell(row=row, column=2, value=inventaire.poste.nom)
+    #                 ws.cell(row=row, column=3, value=inventaire.poste.code)
+    #                 ws.cell(row=row, column=4, value=inventaire.agent_saisie.nom_complet if inventaire.agent_saisie else '')
+    #                 ws.cell(row=row, column=5, value=inventaire.total_vehicules)
+    #                 ws.cell(row=row, column=6, value=inventaire.nombre_periodes_saisies)
+    #                 ws.cell(row=row, column=7, value='Oui' if inventaire.verrouille else 'Non')
+    #                 ws.cell(row=row, column=8, value='Oui' if inventaire.valide else 'Non')
+    #                 ws.cell(row=row, column=9, value=inventaire.date_creation.strftime('%d/%m/%Y %H:%M'))
                 
-                # Ajuster la largeur des colonnes
-                for column in ws.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 2, 50)
-                    ws.column_dimensions[column_letter].width = adjusted_width
+    #             # Ajuster la largeur des colonnes
+    #             for column in ws.columns:
+    #                 max_length = 0
+    #                 column_letter = column[0].column_letter
+    #                 for cell in column:
+    #                     try:
+    #                         if len(str(cell.value)) > max_length:
+    #                             max_length = len(str(cell.value))
+    #                     except:
+    #                         pass
+    #                 adjusted_width = min(max_length + 2, 50)
+    #                 ws.column_dimensions[column_letter].width = adjusted_width
                 
-                # Générer la réponse
-                output = io.BytesIO()
-                wb.save(output)
-                output.seek(0)
+    #             # Générer la réponse
+    #             output = io.BytesIO()
+    #             wb.save(output)
+    #             output.seek(0)
                 
-                response = HttpResponse(
-                    output.getvalue(),
-                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
-                response['Content-Disposition'] = 'attachment; filename="rapport_inventaires_detailles.xlsx"'
-                return response
+    #             response = HttpResponse(
+    #                 output.getvalue(),
+    #                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    #             )
+    #             response['Content-Disposition'] = 'attachment; filename="rapport_inventaires_detailles.xlsx"'
+    #             return response
                 
-            except ImportError:
-                # Fallback vers CSV si openpyxl n'est pas disponible
-                format_export = 'csv'
+    #         except ImportError:
+    #             # Fallback vers CSV si openpyxl n'est pas disponible
+    #             format_export = 'csv'
         
-        if format_export == 'csv':
-            import csv
+    #     if format_export == 'csv':
+    #         import csv
             
-            response = HttpResponse(content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename="rapport_inventaires_detailles.csv"'
+    #         response = HttpResponse(content_type='text/csv')
+    #         response['Content-Disposition'] = 'attachment; filename="rapport_inventaires_detailles.csv"'
             
-            writer = csv.writer(response)
-            writer.writerow([
-                'Date', 'Poste', 'Code Poste', 'Agent Saisie', 
-                'Total Véhicules', 'Périodes Saisies', 'Verrouillé', 
-                'Validé', 'Date Création'
-            ])
+    #         writer = csv.writer(response)
+    #         writer.writerow([
+    #             'Date', 'Poste', 'Code Poste', 'Agent Saisie', 
+    #             'Total Véhicules', 'Périodes Saisies', 'Verrouillé', 
+    #             'Validé', 'Date Création'
+    #         ])
             
-            for inventaire in queryset.order_by('date', 'poste__nom'):
-                writer.writerow([
-                    inventaire.date.strftime('%d/%m/%Y'),
-                    inventaire.poste.nom,
-                    inventaire.poste.code,
-                    inventaire.agent_saisie.nom_complet if inventaire.agent_saisie else '',
-                    inventaire.total_vehicules,
-                    inventaire.nombre_periodes_saisies,
-                    'Oui' if inventaire.verrouille else 'Non',
-                    'Oui' if inventaire.valide else 'Non',
-                    inventaire.date_creation.strftime('%d/%m/%Y %H:%M')
-                ])
+    #         for inventaire in queryset.order_by('date', 'poste__nom'):
+    #             writer.writerow([
+    #                 inventaire.date.strftime('%d/%m/%Y'),
+    #                 inventaire.poste.nom,
+    #                 inventaire.poste.code,
+    #                 inventaire.agent_saisie.nom_complet if inventaire.agent_saisie else '',
+    #                 inventaire.total_vehicules,
+    #                 inventaire.nombre_periodes_saisies,
+    #                 'Oui' if inventaire.verrouille else 'Non',
+    #                 'Oui' if inventaire.valide else 'Non',
+    #                 inventaire.date_creation.strftime('%d/%m/%Y %H:%M')
+    #             ])
             
-            return response
+    #         return response
     
-    def _generer_rapport_synthese_postes(self, queryset, format_export):
-        """Générer un rapport de synthèse par poste"""
-        from django.db.models import Sum, Avg, Count
+    # def _generer_rapport_synthese_postes(self, queryset, format_export):
+    #     """Générer un rapport de synthèse par poste"""
+    #     from django.db.models import Sum, Avg, Count
         
-        # Agrégation des données par poste
-        synthese = queryset.values('poste__nom', 'poste__code').annotate(
-            total_vehicules=Sum('total_vehicules'),
-            nombre_inventaires=Count('id'),
-            moyenne_vehicules=Avg('total_vehicules'),
-            inventaires_verrouilles=Count('id', filter=Q(verrouille=True)),
-            inventaires_valides=Count('id', filter=Q(valide=True))
-        ).order_by('poste__nom')
+    #     # Agrégation des données par poste
+    #     synthese = queryset.values('poste__nom', 'poste__code').annotate(
+    #         total_vehicules=Sum('total_vehicules'),
+    #         nombre_inventaires=Count('id'),
+    #         moyenne_vehicules=Avg('total_vehicules'),
+    #         inventaires_verrouilles=Count('id', filter=Q(verrouille=True)),
+    #         inventaires_valides=Count('id', filter=Q(valide=True))
+    #     ).order_by('poste__nom')
         
-        if format_export == 'excel':
-            try:
-                import openpyxl
-                from openpyxl.styles import Font, Alignment, PatternFill
-                import io
+    #     if format_export == 'excel':
+    #         try:
+    #             import openpyxl
+    #             from openpyxl.styles import Font, Alignment, PatternFill
+    #             import io
                 
-                wb = openpyxl.Workbook()
-                ws = wb.active
-                ws.title = "Synthèse par Poste"
+    #             wb = openpyxl.Workbook()
+    #             ws = wb.active
+    #             ws.title = "Synthèse par Poste"
                 
-                # En-têtes
-                headers = [
-                    'Poste', 'Code', 'Total Véhicules', 'Nb Inventaires',
-                    'Moyenne Véhicules/Jour', 'Inventaires Verrouillés',
-                    'Inventaires Validés', 'Taux Validation (%)'
-                ]
+    #             # En-têtes
+    #             headers = [
+    #                 'Poste', 'Code', 'Total Véhicules', 'Nb Inventaires',
+    #                 'Moyenne Véhicules/Jour', 'Inventaires Verrouillés',
+    #                 'Inventaires Validés', 'Taux Validation (%)'
+    #             ]
                 
-                for col, header in enumerate(headers, 1):
-                    cell = ws.cell(row=1, column=col, value=header)
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
+    #             for col, header in enumerate(headers, 1):
+    #                 cell = ws.cell(row=1, column=col, value=header)
+    #                 cell.font = Font(bold=True)
+    #                 cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
                 
-                # Données
-                for row, data in enumerate(synthese, 2):
-                    taux_validation = (data['inventaires_valides'] / data['nombre_inventaires'] * 100) if data['nombre_inventaires'] > 0 else 0
+    #             # Données
+    #             for row, data in enumerate(synthese, 2):
+    #                 taux_validation = (data['inventaires_valides'] / data['nombre_inventaires'] * 100) if data['nombre_inventaires'] > 0 else 0
                     
-                    ws.cell(row=row, column=1, value=data['poste__nom'])
-                    ws.cell(row=row, column=2, value=data['poste__code'])
-                    ws.cell(row=row, column=3, value=data['total_vehicules'] or 0)
-                    ws.cell(row=row, column=4, value=data['nombre_inventaires'])
-                    ws.cell(row=row, column=5, value=round(data['moyenne_vehicules'] or 0, 2))
-                    ws.cell(row=row, column=6, value=data['inventaires_verrouilles'])
-                    ws.cell(row=row, column=7, value=data['inventaires_valides'])
-                    ws.cell(row=row, column=8, value=round(taux_validation, 2))
+    #                 ws.cell(row=row, column=1, value=data['poste__nom'])
+    #                 ws.cell(row=row, column=2, value=data['poste__code'])
+    #                 ws.cell(row=row, column=3, value=data['total_vehicules'] or 0)
+    #                 ws.cell(row=row, column=4, value=data['nombre_inventaires'])
+    #                 ws.cell(row=row, column=5, value=round(data['moyenne_vehicules'] or 0, 2))
+    #                 ws.cell(row=row, column=6, value=data['inventaires_verrouilles'])
+    #                 ws.cell(row=row, column=7, value=data['inventaires_valides'])
+    #                 ws.cell(row=row, column=8, value=round(taux_validation, 2))
                 
-                # Ajuster les colonnes
-                for column in ws.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 2, 50)
-                    ws.column_dimensions[column_letter].width = adjusted_width
+    #             # Ajuster les colonnes
+    #             for column in ws.columns:
+    #                 max_length = 0
+    #                 column_letter = column[0].column_letter
+    #                 for cell in column:
+    #                     try:
+    #                         if len(str(cell.value)) > max_length:
+    #                             max_length = len(str(cell.value))
+    #                     except:
+    #                         pass
+    #                 adjusted_width = min(max_length + 2, 50)
+    #                 ws.column_dimensions[column_letter].width = adjusted_width
                 
-                output = io.BytesIO()
-                wb.save(output)
-                output.seek(0)
+    #             output = io.BytesIO()
+    #             wb.save(output)
+    #             output.seek(0)
                 
-                response = HttpResponse(
-                    output.getvalue(),
-                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
-                response['Content-Disposition'] = 'attachment; filename="rapport_synthese_postes.xlsx"'
-                return response
+    #             response = HttpResponse(
+    #                 output.getvalue(),
+    #                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    #             )
+    #             response['Content-Disposition'] = 'attachment; filename="rapport_synthese_postes.xlsx"'
+    #             return response
                 
-            except ImportError:
-                format_export = 'csv'
+    #         except ImportError:
+    #             format_export = 'csv'
         
-        if format_export == 'csv':
-            import csv
+    #     if format_export == 'csv':
+    #         import csv
             
-            response = HttpResponse(content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename="rapport_synthese_postes.csv"'
+    #         response = HttpResponse(content_type='text/csv')
+    #         response['Content-Disposition'] = 'attachment; filename="rapport_synthese_postes.csv"'
             
-            writer = csv.writer(response)
-            writer.writerow([
-                'Poste', 'Code', 'Total Véhicules', 'Nb Inventaires',
-                'Moyenne Véhicules/Jour', 'Inventaires Verrouillés',
-                'Inventaires Validés', 'Taux Validation (%)'
-            ])
+    #         writer = csv.writer(response)
+    #         writer.writerow([
+    #             'Poste', 'Code', 'Total Véhicules', 'Nb Inventaires',
+    #             'Moyenne Véhicules/Jour', 'Inventaires Verrouillés',
+    #             'Inventaires Validés', 'Taux Validation (%)'
+    #         ])
             
-            for data in synthese:
-                taux_validation = (data['inventaires_valides'] / data['nombre_inventaires'] * 100) if data['nombre_inventaires'] > 0 else 0
-                writer.writerow([
-                    data['poste__nom'],
-                    data['poste__code'],
-                    data['total_vehicules'] or 0,
-                    data['nombre_inventaires'],
-                    round(data['moyenne_vehicules'] or 0, 2),
-                    data['inventaires_verrouilles'],
-                    data['inventaires_valides'],
-                    round(taux_validation, 2)
-                ])
+    #         for data in synthese:
+    #             taux_validation = (data['inventaires_valides'] / data['nombre_inventaires'] * 100) if data['nombre_inventaires'] > 0 else 0
+    #             writer.writerow([
+    #                 data['poste__nom'],
+    #                 data['poste__code'],
+    #                 data['total_vehicules'] or 0,
+    #                 data['nombre_inventaires'],
+    #                 round(data['moyenne_vehicules'] or 0, 2),
+    #                 data['inventaires_verrouilles'],
+    #                 data['inventaires_valides'],
+    #                 round(taux_validation, 2)
+    #             ])
             
-            return response
+    #         return response
     
-    def _generer_rapport_evolution_trafic(self, queryset, format_export):
-        """Générer un rapport d'évolution du trafic"""
-        from django.db.models import Sum
-        from collections import defaultdict
+    # def _generer_rapport_evolution_trafic(self, queryset, format_export):
+    #     """Générer un rapport d'évolution du trafic"""
+    #     from django.db.models import Sum
+    #     from collections import defaultdict
         
-        # Agrégation par date
-        evolution = queryset.values('date').annotate(
-            total_vehicules=Sum('total_vehicules'),
-            nombre_postes=Count('poste', distinct=True)
-        ).order_by('date')
+    #     # Agrégation par date
+    #     evolution = queryset.values('date').annotate(
+    #         total_vehicules=Sum('total_vehicules'),
+    #         nombre_postes=Count('poste', distinct=True)
+    #     ).order_by('date')
         
-        if format_export == 'excel':
-            try:
-                import openpyxl
-                from openpyxl.styles import Font, PatternFill
-                from openpyxl.chart import LineChart, Reference
-                import io
+    #     if format_export == 'excel':
+    #         try:
+    #             import openpyxl
+    #             from openpyxl.styles import Font, PatternFill
+    #             from openpyxl.chart import LineChart, Reference
+    #             import io
                 
-                wb = openpyxl.Workbook()
-                ws = wb.active
-                ws.title = "Evolution du Trafic"
+    #             wb = openpyxl.Workbook()
+    #             ws = wb.active
+    #             ws.title = "Evolution du Trafic"
                 
-                # En-têtes
-                headers = ['Date', 'Total Véhicules', 'Nombre Postes', 'Moyenne par Poste']
+    #             # En-têtes
+    #             headers = ['Date', 'Total Véhicules', 'Nombre Postes', 'Moyenne par Poste']
                 
-                for col, header in enumerate(headers, 1):
-                    cell = ws.cell(row=1, column=col, value=header)
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
+    #             for col, header in enumerate(headers, 1):
+    #                 cell = ws.cell(row=1, column=col, value=header)
+    #                 cell.font = Font(bold=True)
+    #                 cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
                 
-                # Données
-                for row, data in enumerate(evolution, 2):
-                    moyenne_poste = (data['total_vehicules'] / data['nombre_postes']) if data['nombre_postes'] > 0 else 0
+    #             # Données
+    #             for row, data in enumerate(evolution, 2):
+    #                 moyenne_poste = (data['total_vehicules'] / data['nombre_postes']) if data['nombre_postes'] > 0 else 0
                     
-                    ws.cell(row=row, column=1, value=data['date'].strftime('%d/%m/%Y'))
-                    ws.cell(row=row, column=2, value=data['total_vehicules'] or 0)
-                    ws.cell(row=row, column=3, value=data['nombre_postes'])
-                    ws.cell(row=row, column=4, value=round(moyenne_poste, 2))
+    #                 ws.cell(row=row, column=1, value=data['date'].strftime('%d/%m/%Y'))
+    #                 ws.cell(row=row, column=2, value=data['total_vehicules'] or 0)
+    #                 ws.cell(row=row, column=3, value=data['nombre_postes'])
+    #                 ws.cell(row=row, column=4, value=round(moyenne_poste, 2))
                 
-                # Ajouter un graphique si possible
-                if len(evolution) > 1:
-                    chart = LineChart()
-                    chart.title = "Evolution du trafic"
-                    chart.y_axis.title = 'Nombre de véhicules'
-                    chart.x_axis.title = 'Date'
+    #             # Ajouter un graphique si possible
+    #             if len(evolution) > 1:
+    #                 chart = LineChart()
+    #                 chart.title = "Evolution du trafic"
+    #                 chart.y_axis.title = 'Nombre de véhicules'
+    #                 chart.x_axis.title = 'Date'
                     
-                    data_ref = Reference(ws, min_col=2, min_row=1, max_col=2, max_row=len(evolution) + 1)
-                    chart.add_data(data_ref, titles_from_data=True)
+    #                 data_ref = Reference(ws, min_col=2, min_row=1, max_col=2, max_row=len(evolution) + 1)
+    #                 chart.add_data(data_ref, titles_from_data=True)
                     
-                    ws.add_chart(chart, "F5")
+    #                 ws.add_chart(chart, "F5")
                 
-                # Ajuster les colonnes
-                for column in ws.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 2, 50)
-                    ws.column_dimensions[column_letter].width = adjusted_width
+    #             # Ajuster les colonnes
+    #             for column in ws.columns:
+    #                 max_length = 0
+    #                 column_letter = column[0].column_letter
+    #                 for cell in column:
+    #                     try:
+    #                         if len(str(cell.value)) > max_length:
+    #                             max_length = len(str(cell.value))
+    #                     except:
+    #                         pass
+    #                 adjusted_width = min(max_length + 2, 50)
+    #                 ws.column_dimensions[column_letter].width = adjusted_width
                 
-                output = io.BytesIO()
-                wb.save(output)
-                output.seek(0)
+    #             output = io.BytesIO()
+    #             wb.save(output)
+    #             output.seek(0)
                 
-                response = HttpResponse(
-                    output.getvalue(),
-                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
-                response['Content-Disposition'] = 'attachment; filename="rapport_evolution_trafic.xlsx"'
-                return response
+    #             response = HttpResponse(
+    #                 output.getvalue(),
+    #                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    #             )
+    #             response['Content-Disposition'] = 'attachment; filename="rapport_evolution_trafic.xlsx"'
+    #             return response
                 
-            except ImportError:
-                format_export = 'csv'
+    #         except ImportError:
+    #             format_export = 'csv'
         
-        if format_export == 'csv':
-            import csv
+    #     if format_export == 'csv':
+    #         import csv
             
-            response = HttpResponse(content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename="rapport_evolution_trafic.csv"'
+    #         response = HttpResponse(content_type='text/csv')
+    #         response['Content-Disposition'] = 'attachment; filename="rapport_evolution_trafic.csv"'
             
-            writer = csv.writer(response)
-            writer.writerow(['Date', 'Total Véhicules', 'Nombre Postes', 'Moyenne par Poste'])
+    #         writer = csv.writer(response)
+    #         writer.writerow(['Date', 'Total Véhicules', 'Nombre Postes', 'Moyenne par Poste'])
             
-            for data in evolution:
-                moyenne_poste = (data['total_vehicules'] / data['nombre_postes']) if data['nombre_postes'] > 0 else 0
-                writer.writerow([
-                    data['date'].strftime('%d/%m/%Y'),
-                    data['total_vehicules'] or 0,
-                    data['nombre_postes'],
-                    round(moyenne_poste, 2)
-                ])
+    #         for data in evolution:
+    #             moyenne_poste = (data['total_vehicules'] / data['nombre_postes']) if data['nombre_postes'] > 0 else 0
+    #             writer.writerow([
+    #                 data['date'].strftime('%d/%m/%Y'),
+    #                 data['total_vehicules'] or 0,
+    #                 data['nombre_postes'],
+    #                 round(moyenne_poste, 2)
+    #             ])
             
-            return response
+    #         return response
 
 
 # ===================================================================
@@ -1874,9 +1711,9 @@ def inventaire_dashboard_widget(request):
         stats = {
             'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
             'inventaires_week': InventaireJournalier.objects.filter(date__gte=week_ago).count(),
-            'inventaires_en_attente': InventaireJournalier.objects.filter(
-                verrouille=False, date__lte=today
-            ).count(),
+            # 'inventaires_en_attente': InventaireJournalier.objects.filter(
+            #     verrouille=False, date__lte=today
+            # ).count(),
             'postes_actifs_today': InventaireJournalier.objects.filter(
                 date=today
             ).values('poste').distinct().count(),
@@ -1899,8 +1736,8 @@ def inventaire_dashboard_widget(request):
                 'date': inv.date.strftime('%d/%m/%Y'),
                 'poste': inv.poste.nom,
                 'total_vehicules': inv.total_vehicules,
-                'verrouille': inv.verrouille,
-                'valide': inv.valide,
+              #  'verrouille': inv.verrouille,
+               # 'valide': inv.valide,
                 'agent': inv.agent_saisie.nom_complet if inv.agent_saisie else 'Non défini',
                 'url': f'/inventaire/{inv.id}/'
             })
@@ -2080,110 +1917,110 @@ def backup_inventaires_api(request):
 # VUES DE MAINTENANCE ET DIAGNOSTIC
 # ===================================================================
 
-@login_required
-def diagnostic_inventaires_view(request):
-    """Vue de diagnostic pour les inventaires"""
-    user = request.user
+# @login_required
+# def diagnostic_inventaires_view(request):
+#     """Vue de diagnostic pour les inventaires"""
+#     user = request.user
     
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé au diagnostic."))
-        return redirect('inventaire:inventaire_list')
+#     if not _check_admin_permission(user):
+#         messages.error(request, _("Accès non autorisé au diagnostic."))
+#         return redirect('inventaire:inventaire_list')
     
-    try:
-        # Statistiques de santé
-        today = timezone.now().date()
-        week_ago = today - timedelta(days=7)
-        month_ago = today - timedelta(days=30)
+#     try:
+#         # Statistiques de santé
+#         today = timezone.now().date()
+#         week_ago = today - timedelta(days=7)
+#         month_ago = today - timedelta(days=30)
         
-        # Détection des anomalies
-        anomalies = []
+#         # Détection des anomalies
+#         anomalies = []
         
-        # Inventaires sans détails
-        inventaires_vides = InventaireJournalier.objects.filter(
-            details_periodes__isnull=True
-        ).count()
-        if inventaires_vides > 0:
-            anomalies.append({
-                'type': 'warning',
-                'message': f'{inventaires_vides} inventaires sans détails de périodes',
-                'action': 'Vérifier les inventaires incomplets'
-            })
+#         # Inventaires sans détails
+#         inventaires_vides = InventaireJournalier.objects.filter(
+#             details_periodes__isnull=True
+#         ).count()
+#         if inventaires_vides > 0:
+#             anomalies.append({
+#                 'type': 'warning',
+#                 'message': f'{inventaires_vides} inventaires sans détails de périodes',
+#                 'action': 'Vérifier les inventaires incomplets'
+#             })
         
-        # Inventaires non verrouillés anciens
-        inventaires_anciens = InventaireJournalier.objects.filter(
-            date__lt=week_ago, verrouille=False
-        ).count()
-        if inventaires_anciens > 0:
-            anomalies.append({
-                'type': 'info',
-                'message': f'{inventaires_anciens} inventaires de plus de 7 jours non verrouillés',
-                'action': 'Vérifier les inventaires en attente'
-            })
+#         # Inventaires non verrouillés anciens
+#         inventaires_anciens = InventaireJournalier.objects.filter(
+#             date__lt=week_ago, verrouille=False
+#         ).count()
+#         if inventaires_anciens > 0:
+#             anomalies.append({
+#                 'type': 'info',
+#                 'message': f'{inventaires_anciens} inventaires de plus de 7 jours non verrouillés',
+#                 'action': 'Vérifier les inventaires en attente'
+#             })
         
-        # Recettes sans inventaire associé
-        recettes_orphelines = RecetteJournaliere.objects.exclude(
-            poste__in=InventaireJournalier.objects.filter(
-                date=models.OuterRef('date')
-            ).values('poste')
-        ).count()
-        if recettes_orphelines > 0:
-            anomalies.append({
-                'type': 'error',
-                'message': f'{recettes_orphelines} recettes sans inventaire associé',
-                'action': 'Créer les inventaires manquants'
-            })
+#         # Recettes sans inventaire associé
+#         recettes_orphelines = RecetteJournaliere.objects.exclude(
+#             poste__in=InventaireJournalier.objects.filter(
+#                 date=models.OuterRef('date')
+#             ).values('poste')
+#         ).count()
+#         if recettes_orphelines > 0:
+#             anomalies.append({
+#                 'type': 'error',
+#                 'message': f'{recettes_orphelines} recettes sans inventaire associé',
+#                 'action': 'Créer les inventaires manquants'
+#             })
         
-        # Jours sans configuration
-        jours_non_configures = 0
-        for i in range(7):
-            day = today - timedelta(days=i)
-            if not ConfigurationJour.objects.filter(date=day).exists():
-                jours_non_configures += 1
+#         # Jours sans configuration
+#         jours_non_configures = 0
+#         for i in range(7):
+#             day = today - timedelta(days=i)
+#             if not ConfigurationJour.objects.filter(date=day).exists():
+#                 jours_non_configures += 1
         
-        if jours_non_configures > 0:
-            anomalies.append({
-                'type': 'warning',
-                'message': f'{jours_non_configures} jours récents sans configuration',
-                'action': 'Configurer les jours manquants'
-            })
+#         if jours_non_configures > 0:
+#             anomalies.append({
+#                 'type': 'warning',
+#                 'message': f'{jours_non_configures} jours récents sans configuration',
+#                 'action': 'Configurer les jours manquants'
+#             })
         
-        # Statistiques de performance
-        stats_performance = {
-            'inventaires_total': InventaireJournalier.objects.count(),
-            'inventaires_month': InventaireJournalier.objects.filter(date__gte=month_ago).count(),
-            'taux_verrouillage': 0,
-            'taux_validation': 0,
-            'postes_actifs': Poste.objects.filter(is_active=True).count(),
-            'derniere_saisie': None
-        }
+#         # Statistiques de performance
+#         stats_performance = {
+#             'inventaires_total': InventaireJournalier.objects.count(),
+#             'inventaires_month': InventaireJournalier.objects.filter(date__gte=month_ago).count(),
+#             'taux_verrouillage': 0,
+#             'taux_validation': 0,
+#             'postes_actifs': Poste.objects.filter(is_active=True).count(),
+#             'derniere_saisie': None
+#         }
         
-        # Calculs des taux
-        inventaires_month = InventaireJournalier.objects.filter(date__gte=month_ago)
-        if inventaires_month.exists():
-            total_month = inventaires_month.count()
-            verrouilles_month = inventaires_month.filter(verrouille=True).count()
-            valides_month = inventaires_month.filter(valide=True).count()
+#         # Calculs des taux
+#         inventaires_month = InventaireJournalier.objects.filter(date__gte=month_ago)
+#         if inventaires_month.exists():
+#             total_month = inventaires_month.count()
+#             verrouilles_month = inventaires_month.filter(verrouille=True).count()
+#             valides_month = inventaires_month.filter(valide=True).count()
             
-            stats_performance['taux_verrouillage'] = round((verrouilles_month / total_month) * 100, 2)
-            stats_performance['taux_validation'] = round((valides_month / total_month) * 100, 2)
+#             stats_performance['taux_verrouillage'] = round((verrouilles_month / total_month) * 100, 2)
+#             stats_performance['taux_validation'] = round((valides_month / total_month) * 100, 2)
         
-        # Dernière saisie
-        derniere_saisie = InventaireJournalier.objects.order_by('-date_creation').first()
-        if derniere_saisie:
-            stats_performance['derniere_saisie'] = {
-                'date': derniere_saisie.date_creation.strftime('%d/%m/%Y %H:%M'),
-                'poste': derniere_saisie.poste.nom,
-                'agent': derniere_saisie.agent_saisie.nom_complet if derniere_saisie.agent_saisie else 'Non défini'
-            }
+#         # Dernière saisie
+#         derniere_saisie = InventaireJournalier.objects.order_by('-date_creation').first()
+#         if derniere_saisie:
+#             stats_performance['derniere_saisie'] = {
+#                 'date': derniere_saisie.date_creation.strftime('%d/%m/%Y %H:%M'),
+#                 'poste': derniere_saisie.poste.nom,
+#                 'agent': derniere_saisie.agent_saisie.nom_complet if derniere_saisie.agent_saisie else 'Non défini'
+#             }
         
-        context = {
-            'title': 'Diagnostic Inventaires',
-            'anomalies': anomalies,
-            'stats_performance': stats_performance,
-            'diagnostic_date': timezone.now().strftime('%d/%m/%Y %H:%M'),
-        }
+#         context = {
+#             'title': 'Diagnostic Inventaires',
+#             'anomalies': anomalies,
+#             'stats_performance': stats_performance,
+#             'diagnostic_date': timezone.now().strftime('%d/%m/%Y %H:%M'),
+#         }
         
-        return render(request, 'inventaire/diagnostic.html', context)
+#         return render(request, 'inventaire/diagnostic.html', context)
         
     except Exception as e:
         logger.error(f"Erreur diagnostic inventaires: {str(e)}")
@@ -2708,94 +2545,94 @@ def redirect_to_dashboard(request):
 # AMÉLIORATION : API pour les notifications temps réel
 # ===================================================================
 
-@login_required
-@require_http_methods(["GET"])
-def api_notifications(request):
-    """API pour récupérer les notifications utilisateur"""
-    try:
-        user = request.user
+# @login_required
+# @require_http_methods(["GET"])
+# def api_notifications(request):
+#     """API pour récupérer les notifications utilisateur"""
+#     try:
+#         user = request.user
         
-        # Simuler des notifications (à remplacer par vraies notifications plus tard)
-        notifications = {
-            'unread_count': 0,
-            'new_notifications': []
-        }
+#         # Simuler des notifications (à remplacer par vraies notifications plus tard)
+#         notifications = {
+#             'unread_count': 0,
+#             'new_notifications': []
+#         }
         
-        # Vérifier s'il y a des inventaires en attente pour l'utilisateur
-        if user.peut_gerer_inventaire:
-            today = timezone.now().date()
+#         # Vérifier s'il y a des inventaires en attente pour l'utilisateur
+#         if user.peut_gerer_inventaire:
+#             today = timezone.now().date()
             
-            # Inventaires non verrouillés de plus de 2 jours
-            inventaires_en_retard = InventaireJournalier.objects.filter(
-                date__lt=today - timedelta(days=2),
-                verrouille=False
-            )
+#             # # Inventaires non verrouillés de plus de 2 jours
+#             # inventaires_en_retard = InventaireJournalier.objects.filter(
+#             #     date__lt=today - timedelta(days=2),
+#             #     verrouille=False
+#             # )
             
-            if user.poste_affectation:
-                inventaires_en_retard = inventaires_en_retard.filter(
-                    poste=user.poste_affectation
-                )
+#             if user.poste_affectation:
+#                 inventaires_en_retard = inventaires_en_retard.filter(
+#                     poste=user.poste_affectation
+#                 )
             
-            count_retard = inventaires_en_retard.count()
-            if count_retard > 0:
-                notifications['unread_count'] += 1
-                notifications['new_notifications'].append({
-                    'type': 'warning',
-                    'message': f'{count_retard} inventaire(s) en retard de verrouillage'
-                })
+#             count_retard = inventaires_en_retard.count()
+#             if count_retard > 0:
+#                 notifications['unread_count'] += 1
+#                 notifications['new_notifications'].append({
+#                     'type': 'warning',
+#                     'message': f'{count_retard} inventaire(s) en retard de verrouillage'
+#                 })
         
-        # Vérifier les jours fermés pour aujourd'hui
-        if not ConfigurationJour.est_jour_ouvert_pour_inventaire(timezone.now().date()):
-            notifications['unread_count'] += 1
-            notifications['new_notifications'].append({
-                'type': 'info',
-                'message': 'Jour actuel fermé pour la saisie'
-            })
+#         # Vérifier les jours fermés pour aujourd'hui
+#         if not ConfigurationJour.est_jour_ouvert_pour_inventaire(timezone.now().date()):
+#             notifications['unread_count'] += 1
+#             notifications['new_notifications'].append({
+#                 'type': 'info',
+#                 'message': 'Jour actuel fermé pour la saisie'
+#             })
         
-        return JsonResponse(notifications)
+#         return JsonResponse(notifications)
         
-    except Exception as e:
-        logger.error(f"Erreur API notifications: {str(e)}")
-        return JsonResponse({'unread_count': 0, 'new_notifications': []})
+#     except Exception as e:
+#         logger.error(f"Erreur API notifications: {str(e)}")
+#         return JsonResponse({'unread_count': 0, 'new_notifications': []})
 
-def verifier_jour_ouvert_inventaire(date_check, poste=None):
-    """
-    Fonction utilitaire pour vérifier si un jour est ouvert pour inventaire
-    🔧 AVEC gestion d'erreurs et arguments corrects
-    """
-    try:
-        return ConfigurationJour.est_jour_ouvert_pour_inventaire(
-            date=date_check,  # Argument positionnel correct
-            poste=poste       # Argument positionnel correct
-        )
-    except Exception as e:
-        # Log l'erreur pour debug
-        import logging
-        logger = logging.getLogger('supper')
-        logger.error(f"Erreur vérification jour ouvert : {str(e)}")
+# def verifier_jour_ouvert_inventaire(date_check, poste=None):
+#     """
+#     Fonction utilitaire pour vérifier si un jour est ouvert pour inventaire
+#     🔧 AVEC gestion d'erreurs et arguments corrects
+#     """
+#     try:
+#         return ConfigurationJour.est_jour_ouvert_pour_inventaire(
+#             date=date_check,  # Argument positionnel correct
+#             poste=poste       # Argument positionnel correct
+#         )
+#     except Exception as e:
+#         # Log l'erreur pour debug
+#         import logging
+#         logger = logging.getLogger('supper')
+#         logger.error(f"Erreur vérification jour ouvert : {str(e)}")
         
-        # Par défaut : fermé pour sécurité
-        return False
+#         # Par défaut : fermé pour sécurité
+#         return False
 
 
-def verifier_jour_ouvert_recette(date_check, poste=None):
-    """
-    Fonction utilitaire pour vérifier si un jour est ouvert pour recette
-    🔧 AVEC gestion d'erreurs et arguments corrects
-    """
-    try:
-        return ConfigurationJour.est_jour_ouvert_pour_recette(
-            date=date_check,  # Argument positionnel correct
-            poste=poste       # Argument positionnel correct
-        )
-    except Exception as e:
-        # Log l'erreur pour debug
-        import logging
-        logger = logging.getLogger('supper')
-        logger.error(f"Erreur vérification jour ouvert recette : {str(e)}")
+# def verifier_jour_ouvert_recette(date_check, poste=None):
+#     """
+#     Fonction utilitaire pour vérifier si un jour est ouvert pour recette
+#     🔧 AVEC gestion d'erreurs et arguments corrects
+#     """
+#     try:
+#         return ConfigurationJour.est_jour_ouvert_pour_recette(
+#             date=date_check,  # Argument positionnel correct
+#             poste=poste       # Argument positionnel correct
+#         )
+#     except Exception as e:
+#         # Log l'erreur pour debug
+#         import logging
+#         logger = logging.getLogger('supper')
+#         logger.error(f"Erreur vérification jour ouvert recette : {str(e)}")
         
-        # Par défaut : fermé pour sécurité
-        return False
+#         # Par défaut : fermé pour sécurité
+#         return False
 
 @login_required
 @require_permission('peut_gerer_inventaire')
@@ -2875,7 +2712,7 @@ def programmer_inventaire(request):
         return redirect('liste_programmations')
     
     # GET: Afficher le formulaire
-    postes = Poste.objects.filter(actif=True).order_by('region', 'nom')
+    postes = Poste.objects.filter(is_active=True).order_by('region', 'nom')
     
     # Analyser les postes pour suggérer les programmations
     suggestions = []
@@ -2982,11 +2819,11 @@ def liste_programmations(request):
     
     # Filtrer selon le rôle de l'utilisateur
     if request.user.is_admin():
-        programmations = ProgrammationInventaire.objects.filter(actif=True)
+        programmations = ProgrammationInventaire.objects.filter(is_active=True)
     else:
         # Les chefs de poste et agents voient seulement leurs programmations
         programmations = ProgrammationInventaire.objects.filter(
-            actif=True,
+            is_active=True,
             poste__in=request.user.get_postes_accessibles()
         )
     

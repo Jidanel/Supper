@@ -238,7 +238,7 @@
                                             </span>
                                             {% trans "véhicules" %}
                                         </td>
-                                        <td>
+                                        {% comment %} <td>
                                             {% if inventaire.verrouille %}
                                                 <span class="badge bg-success">
                                                     <i class="fas fa-lock me-1"></i>
@@ -250,20 +250,20 @@
                                                     {% trans "En cours" %}
                                                 </span>
                                             {% endif %}
-                                        </td>
+                                        </td> {% endcomment %}
                                         <td>
                                             <a href="{% url 'inventaire:detail' inventaire.id %}" 
                                                class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye me-1"></i>
                                                 {% trans "Voir" %}
                                             </a>
-                                            {% if not inventaire.verrouille %}
+                                            {% comment %} {% if not inventaire.verrouille %}
                                                 <a href="{% url 'inventaire:saisie' inventaire.date %}" 
                                                    class="btn btn-sm btn-outline-success ms-1">
                                                     <i class="fas fa-edit me-1"></i>
                                                     {% trans "Modifier" %}
                                                 </a>
-                                            {% endif %}
+                                            {% endif %} {% endcomment %}
                                         </td>
                                     </tr>
                                     {% endfor %}

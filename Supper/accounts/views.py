@@ -360,7 +360,7 @@ def creer_utilisateur(request):
             # Validation
             if UtilisateurSUPPER.objects.filter(username=username).exists():
                 messages.error(request, f"Le matricule {username} existe déjà.")
-                return render(request, 'accounts/creer_utilisateur.html', {'postes': Poste.objects.filter(actif=True)})
+                return render(request, 'accounts/creer_utilisateur.html', {'postes': Poste.objects.filter(is_active=True)})
             
             # Création utilisateur
             user = UtilisateurSUPPER.objects.create_user(
@@ -394,7 +394,7 @@ def creer_utilisateur(request):
             messages.error(request, f"Erreur lors de la création: {str(e)}")
     
     context = {
-        'postes': Poste.objects.filter(actif=True).order_by('nom'),
+        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
         'habilitations': UtilisateurSUPPER.Habilitation.choices,
         'title': 'Créer un Utilisateur'
     }
@@ -493,7 +493,7 @@ def modifier_utilisateur(request, user_id):
     
     context = {
         'user_edit': user,
-        'postes': Poste.objects.filter(actif=True).order_by('nom'),
+        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
         'habilitations': UtilisateurSUPPER.Habilitation.choices,
         'title': f'Modifier - {user.nom_complet}'
     }

@@ -483,7 +483,7 @@ def api_stats_dashboard(request):
                 'taux_moyen_today': RecetteJournaliere.objects.filter(
                     date=today
                 ).aggregate(Avg('taux_deperdition'))['taux_deperdition__avg'] or 0,
-                'postes_actifs': Poste.objects.filter(actif=True).count(),
+                'postes_actifs': Poste.objects.filter(is_active=True).count(),
             }
             
             # Admin peut voir alertes déperdition

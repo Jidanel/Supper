@@ -124,7 +124,7 @@ class AuditMiddleware(MiddlewareMixin):
         
         # Journaliser les actions importantes
         if self._is_important_action(request, response):
-            self._log_action(request, response)
+            self._log_detailed_action(request, response)
         
         return response
     

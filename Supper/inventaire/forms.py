@@ -4,87 +4,322 @@ from django.utils import timezone
 from .models import *
 from zoneinfo import ZoneInfo  
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from datetime import date, datetime
+from decimal import Decimal
+from accounts.models import Poste, UtilisateurSUPPER
 
 class InventaireJournalierForm(forms.ModelForm):
     """Formulaire personnalisé pour la saisie d'inventaire"""
         
     class Meta:
         model = InventaireJournalier
-        fields = '__all__'
+        fields = ['poste', 'date', 'observations', 'modifiable_par_agent']
         widgets = {
-            'date': forms.DateInput(
-                attrs={
-                    'type': 'date',
-                    'class': 'form-control',
-                    'required': True
-                }
-            ),
-            'date_validation': forms.DateTimeInput(
-                attrs={
-                    'type': 'datetime-local',
-                    'class': 'form-control',
-                    'readonly': True
-                }
-            ),
-            'observations': forms.Textarea(
-                attrs={
-                    'rows': 3,
-                    'class': 'form-control'
-                }
-            ),
+            'poste': forms.Select(attrs={
+                'class': 'form-control select2',
+                'data-placeholder': 'Sélectionnez un poste'
+            }),
+            'date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'max': date.today().isoformat()
+            }),
+            'observations': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Notes ou observations particulières (optionnel)'
+            }),
+            'modifiable_par_agent': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            })
+        }
+        labels = {
+            'poste': _('Poste de péage/pesage'),
+            'date': _('Date de l\'inventaire'),
+            'observations': _('Observations'),
+            'modifiable_par_agent': _('Modifiable par l\'agent')
         }
         
     def __init__(self, *args, **kwargs):
-        self.request = kwargs.pop('request', None)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-                
-        # Configurer le champ valide_par en lecture seule avec l'utilisateur connecté
-        if self.request and self.request.user.is_authenticated:
-            if 'valide_par' in self.fields:
-                self.fields['valide_par'].widget = forms.HiddenInput()
-                self.initial['valide_par'] = self.request.user
+        
+        # Filtrer les postes selon les permissions de l'utilisateur
+        if self.user:
+            if hasattr(self.user, 'get_postes_accessibles'):
+                self.fields['poste'].queryset = self.user.get_postes_accessibles()
+            else:
+                self.fields['poste'].queryset = Poste.objects.filter(is_active=True)
+
+        # Si c'est une modification, désactiver les champs poste et date
+        if self.instance.pk:
+            self.fields['poste'].disabled = True
+            self.fields['date'].disabled = True
+            
+            # Cacher le champ modifiable_par_agent si l'utilisateur n'est pas admin
+            if self.user and not self.user.is_superuser:
+                self.fields['modifiable_par_agent'].widget = forms.HiddenInput()
                         
         # Si validation, définir automatiquement la date/heure du Cameroun
         if self.instance and self.instance.valide:
             # Utilisation de zoneinfo au lieu de pytz
             cameroon_tz = ZoneInfo('Africa/Douala')
             self.initial['date_validation'] = timezone.now().astimezone(cameroon_tz)
+
+    def clean_date(self):
+        """Vérifie que la date est valide"""
+        date_inventaire = self.cleaned_data['date']
         
+        # Vérifier que la date n'est pas dans le futur
+        if date_inventaire > date.today():
+            raise ValidationError(_("La date ne peut pas être dans le futur"))
+        
+        # Pas de vérification de jour ouvert/fermé - toujours autorisé
+        
+        return date_inventaire
+    
+    def clean(self):
+        """Validation globale du formulaire"""
+        cleaned_data = super().clean()
+        poste = cleaned_data.get('poste')
+        date_inventaire = cleaned_data.get('date')
+        
+        if poste and date_inventaire:
+            # Vérifier qu'un inventaire n'existe pas déjà pour ce poste et cette date
+            if not self.instance.pk:  # Seulement pour la création
+                if InventaireJournalier.objects.filter(
+                    poste=poste, 
+                    date=date_inventaire
+                ).exists():
+                    raise ValidationError(
+                        _("Un inventaire existe déjà pour ce poste à cette date")
+                    )
+        
+        # Vérifier les permissions de modification
+        if self.instance.pk and not self.instance.peut_etre_modifie_par(self.user):
+            raise ValidationError(
+                _("Vous n'avez pas les permissions pour modifier cet inventaire")
+            )
+        
+        return cleaned_data
+
     def save(self, commit=True):
         instance = super().save(commit=False)
-                
-        # Si l'inventaire est validé, définir automatiquement les champs
-        if instance.valide and not instance.date_validation:
-            # Utilisation de zoneinfo au lieu de pytz
-            cameroon_tz = ZoneInfo('Africa/Douala')
-            instance.date_validation = timezone.now().astimezone(cameroon_tz)
-                        
-            if self.request and self.request.user.is_authenticated:
-                instance.valide_par = self.request.user
                 
         if commit:
             instance.save()
         return instance
+
+class DetailInventairePeriodeForm(forms.ModelForm):
+    """
+    Formulaire pour la saisie d'une période d'inventaire
+    """
+    
+    class Meta:
+        model = DetailInventairePeriode
+        fields = ['periode', 'nombre_vehicules', 'observations_periode']
+        widgets = {
+            'periode': forms.Select(attrs={
+                'class': 'form-control',
+                'required': True
+            }),
+            'nombre_vehicules': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'max': 1000,
+                'placeholder': 'Nombre de véhicules'
+            }),
+            'observations_periode': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Observations (optionnel)',
+                'maxlength': 200
+            })
+        }
+        labels = {
+            'periode': _('Période horaire'),
+            'nombre_vehicules': _('Nombre de véhicules'),
+            'observations_periode': _('Observations')
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.inventaire = kwargs.pop('inventaire', None)
+        super().__init__(*args, **kwargs)
+        
+        # Filtrer les périodes déjà saisies
+        if self.inventaire and not self.instance.pk:
+            periodes_existantes = self.inventaire.details_periodes.values_list(
+                'periode', flat=True
+            )
+            # Créer les choix en excluant les périodes déjà saisies
+            choix_periodes = [
+                (choice[0], choice[1]) 
+                for choice in PeriodeHoraire.choices 
+                if choice[0] not in periodes_existantes
+            ]
+            self.fields['periode'].choices = choix_periodes
+    
+    def clean_nombre_vehicules(self):
+        """Validation du nombre de véhicules"""
+        nombre = self.cleaned_data['nombre_vehicules']
+        
+        if nombre < 0:
+            raise ValidationError(_("Le nombre de véhicules ne peut pas être négatif"))
+        
+        if nombre > 5000:
+            raise ValidationError(
+                _("Le nombre de véhicules semble trop élevé (max: 5000)."
+                  "Vérifiez votre saisie.")
+            )
+        
+        return nombre
+class SaisieRapideInventaireForm(forms.Form):
+    """
+    Formulaire pour la saisie rapide de toutes les périodes d'un inventaire
+    """
+    
+    poste = forms.ModelChoiceField(
+        queryset=Poste.objects.filter(is_active=True),
+        label=_('Poste'),
+        widget=forms.Select(attrs={
+            'class': 'form-control select2',
+            'data-placeholder': 'Sélectionnez un poste'
+        })
+    )
+    
+    date = forms.DateField(
+        label=_('Date'),
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date',
+            'max': date.today().isoformat()
+        })
+    )
+    
+    # Génération dynamique des champs pour chaque période
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Filtrer les postes
+        if self.user and hasattr(self.user, 'get_postes_accessibles'):
+            self.fields['poste'].queryset = self.user.get_postes_accessibles()
+        
+        # Créer un champ pour chaque période
+        for periode_code, periode_label in PeriodeHoraire.choices:
+            field_name = f'periode_{periode_code}'
+            self.fields[field_name] = forms.IntegerField(
+                required=False,
+                label=periode_label,
+                min_value=0,
+                max_value=5000,
+                widget=forms.NumberInput(attrs={
+                    'class': 'form-control periode-input',
+                    'placeholder': '0',
+                    'data-periode': periode_code
+                })
+            )
+        
+        # Champ observations global
+        self.fields['observations'] = forms.CharField(
+            required=False,
+            label=_('Observations'),
+            widget=forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Observations générales (optionnel)'
+            })
+        )
+    
+    def clean(self):
+        """Validation du formulaire"""
+        cleaned_data = super().clean()
+        poste = cleaned_data.get('poste')
+        date_inventaire = cleaned_data.get('date')
+        
+        if poste and date_inventaire:
+            # Vérifier qu'un inventaire n'existe pas déjà
+            if InventaireJournalier.objects.filter(
+                poste=poste, 
+                date=date_inventaire
+            ).exists():
+                raise ValidationError(
+                    _("Un inventaire existe déjà pour ce poste à cette date")
+                )
+        
+        # Vérifier qu'au moins une période a été saisie
+        periodes_saisies = False
+        for field_name, value in cleaned_data.items():
+            if field_name.startswith('periode_') and value is not None and value > 0:
+                periodes_saisies = True
+                break
+        
+        if not periodes_saisies:
+            raise ValidationError(
+                _("Veuillez saisir au moins une période")
+            )
+        
+        return cleaned_data
+    
+    def save(self):
+        """Créer l'inventaire et ses détails"""
+        # Créer l'inventaire principal
+        inventaire = InventaireJournalier.objects.create(
+            poste=self.cleaned_data['poste'],
+            date=self.cleaned_data['date'],
+            agent_saisie=self.user,
+            observations=self.cleaned_data.get('observations', '')
+        )
+        
+        # Créer les détails par période
+        for field_name, value in self.cleaned_data.items():
+            if field_name.startswith('periode_') and value is not None and value > 0:
+                periode_code = field_name.replace('periode_', '')
+                DetailInventairePeriode.objects.create(
+                    inventaire=inventaire,
+                    periode=periode_code,
+                    nombre_vehicules=value
+                )
+        
+        # Recalculer les totaux
+        inventaire.recalculer_totaux()
+        
+        return inventaire
+
 
 class RecetteJournaliereForm(forms.ModelForm):
     """
     Formulaire personnalisé pour RecetteJournaliere avec widget calendrier
     """
     
+    # Champ pour lier automatiquement à un inventaire existant
+    lier_inventaire = forms.BooleanField(
+        required=False,
+        label=_("Lier à l'inventaire du jour"),
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input',
+            'checked': True
+        }),
+        help_text=_("Cochez pour lier automatiquement à l'inventaire existant")
+    )
+
     class Meta:
         model = RecetteJournaliere
-        fields = [
-            'poste', 'date', 'montant_declare', 'chef_poste', 
-            'observations', 'verrouille', 'valide'
-        ]
+        fields = ['poste', 'date', 'montant_declare', 'observations']
         
         widgets = {
+            'poste': forms.Select(attrs={
+                'class': 'form-control select2',
+                'data-placeholder': 'Sélectionnez un poste'
+            }),
+
             'date': forms.DateInput(
                 attrs={
                     'type': 'date',  # Widget calendrier HTML5
                     'class': 'form-control',
                     'placeholder': 'Sélectionner une date',
-                    'style': 'max-width: 200px;'
+                    'style': 'max-width: 200px;',
+                    'max': date.today().isoformat()
                 }
             ),
             'montant_declare': forms.NumberInput(
@@ -95,31 +330,11 @@ class RecetteJournaliereForm(forms.ModelForm):
                     'step': '0.01'
                 }
             ),
-            'poste': forms.Select(
-                attrs={
-                    'class': 'form-control'
-                }
-            ),
-            'chef_poste': forms.Select(
-                attrs={
-                    'class': 'form-control'
-                }
-            ),
             'observations': forms.Textarea(
                 attrs={
                     'class': 'form-control',
                     'rows': 3,
                     'placeholder': 'Observations sur cette recette (optionnel)'
-                }
-            ),
-            'verrouille': forms.CheckboxInput(
-                attrs={
-                    'class': 'form-check-input'
-                }
-            ),
-            'valide': forms.CheckboxInput(
-                attrs={
-                    'class': 'form-check-input'
                 }
             )
         }
@@ -128,38 +343,31 @@ class RecetteJournaliereForm(forms.ModelForm):
             'poste': 'Poste *',
             'date': 'Date de la recette *',
             'montant_declare': 'Montant déclaré (FCFA) *',
-            'chef_poste': 'Chef de poste *',
             'observations': 'Observations',
-            'verrouille': 'Recette verrouillée',
-            'valide': 'Recette validée'
         }
         
         help_texts = {
             'date': 'Cliquez pour ouvrir le calendrier et sélectionner la date',
             'montant_declare': 'Recette déclarée par le chef de poste en FCFA',
             'observations': 'Commentaires optionnels sur cette recette',
-            'verrouille': 'Une fois verrouillée, la recette ne peut plus être modifiée',
-            'valide': 'Validation par un responsable'
         }
     
     def __init__(self, *args, **kwargs):
-        # Récupérer l'utilisateur connecté si fourni
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Filtrer les postes selon les permissions de l'utilisateur
-        if self.user and hasattr(self.user, 'get_postes_accessibles'):
-            postes_accessibles = self.user.get_postes_accessibles()
-            self.fields['poste'].queryset = postes_accessibles
+        # Filtrer les postes selon les permissions
+        if self.user:
+            if hasattr(self.user, 'get_postes_accessibles'):
+                self.fields['poste'].queryset = self.user.get_postes_accessibles()
+            else:
+                self.fields['poste'].queryset = Poste.objects.filter(is_active=True)
         
-        # Filtrer les chefs de poste
-        self.fields['chef_poste'].queryset = UtilisateurSUPPER.objects.filter(
-            habilitation__in=['chef_peage', 'chef_pesage', 'admin_principal']
-        )
-        
-        # Définir l'utilisateur connecté comme chef de poste par défaut
-        if self.user and not self.instance.pk:
-            self.fields['chef_poste'].initial = self.user
+        # Si modification, désactiver poste et date
+        if self.instance.pk:
+            self.fields['poste'].disabled = True
+            self.fields['date'].disabled = True
+            self.fields.pop('lier_inventaire')
         
         # Définir la date d'aujourd'hui par défaut
         if not self.instance.pk:
@@ -167,78 +375,70 @@ class RecetteJournaliereForm(forms.ModelForm):
     
     def clean_date(self):
         """Validation de la date"""
-        date = self.cleaned_data.get('date')
+        date_recette = self.cleaned_data['date']
         
-        if not date:
-            raise ValidationError("La date est obligatoire.")
+        if date_recette > date.today():
+            raise ValidationError(_("La date ne peut pas être dans le futur"))
         
-        # Vérifier que la date n'est pas dans le futur
-        if date > timezone.now().date():
-            raise ValidationError("La date ne peut pas être dans le futur.")
-        
-        # Vérifier si le jour est ouvert pour la saisie de recettes
-        poste = self.cleaned_data.get('poste')
-        if poste and not ConfigurationJour.est_jour_ouvert_pour_recette(date, poste):
-            raise ValidationError(
-                f"La saisie de recettes n'est pas autorisée pour le {date.strftime('%d/%m/%Y')} "
-                f"au poste {poste.nom}. Contactez un administrateur pour ouvrir ce jour."
-            )
-        
-        return date
+        return date_recette
     
     def clean_montant_declare(self):
         """Validation du montant déclaré"""
-        montant = self.cleaned_data.get('montant_declare')
-        
-        if montant is None:
-            raise ValidationError("Le montant déclaré est obligatoire.")
+        montant = self.cleaned_data['montant_declare']
         
         if montant < 0:
-            raise ValidationError("Le montant ne peut pas être négatif.")
+            raise ValidationError(_("Le montant ne peut pas être négatif"))
         
-        # Limite raisonnable pour éviter les erreurs de saisie
-        if montant > 10000000:  # 10 millions FCFA
+        # Alerte si montant très élevé (à ajuster selon contexte)
+        if montant > Decimal('100000000'):  # 100 millions FCFA
             raise ValidationError(
-                "Montant très élevé. Veuillez vérifier votre saisie. "
-                "Si ce montant est correct, contactez un administrateur."
+                _("Le montant semble trop élevé. Vérifiez votre saisie ou contactez l'administrateur")
             )
         
         return montant
     
     def clean(self):
-        """Validations globales"""
+        """Validation globale"""
         cleaned_data = super().clean()
         poste = cleaned_data.get('poste')
-        date = cleaned_data.get('date')
+        date_recette = cleaned_data.get('date')
         
-        # Vérifier l'unicité poste/date si c'est une nouvelle recette
-        if poste and date and not self.instance.pk:
-            if RecetteJournaliere.objects.filter(poste=poste, date=date).exists():
-                raise ValidationError(
-                    f"Une recette existe déjà pour le poste {poste.nom} "
-                    f"à la date du {date.strftime('%d/%m/%Y')}."
-                )
-        
-        # Vérifier que l'utilisateur peut modifier cette recette
-        if self.instance.pk and self.instance.verrouille:
-            if not (self.user and self.user.is_admin()):
-                raise ValidationError(
-                    "Cette recette est verrouillée et ne peut plus être modifiée."
-                )
+        if poste and date_recette:
+            # Vérifier qu'une recette n'existe pas déjà
+            if not self.instance.pk:
+                if RecetteJournaliere.objects.filter(
+                    poste=poste, 
+                    date=date_recette
+                ).exists():
+                    raise ValidationError(
+                        _("Une recette existe déjà pour ce poste à cette date")
+                    )
         
         return cleaned_data
     
     def save(self, commit=True):
-        """Sauvegarde personnalisée"""
-        recette = super().save(commit=False)
+        """Sauvegarde avec liaison automatique à l'inventaire"""
+        instance = super().save(commit=False)
         
-        # Calculer automatiquement les indicateurs
+        # Lier l'inventaire si demandé et si création
+        if not self.instance.pk and self.cleaned_data.get('lier_inventaire'):
+            try:
+                inventaire = InventaireJournalier.objects.get(
+                    poste=instance.poste,
+                    date=instance.date
+                )
+                instance.inventaire_associe = inventaire
+            except InventaireJournalier.DoesNotExist:
+                pass
+        
+        # Définir le chef de poste
+        if self.user:
+            instance.chef_poste = self.user
+        
         if commit:
-            recette.save()
-            recette.calculer_indicateurs()
-            recette.save()
+            instance.save()
         
-        return recette
+        return instance
 
 
 class ConfigurationJourForm(forms.ModelForm):
@@ -248,10 +448,7 @@ class ConfigurationJourForm(forms.ModelForm):
     
     class Meta:
         model = ConfigurationJour
-        fields = [
-            'date', 'poste', 'statut', 'permet_saisie_inventaire', 
-            'permet_saisie_recette', 'commentaire'
-        ]
+        fields = ['date', 'statut', 'commentaire']
         
         widgets = {
             'date': forms.DateInput(
@@ -261,26 +458,10 @@ class ConfigurationJourForm(forms.ModelForm):
                     'style': 'max-width: 200px;'
                 }
             ),
-            'poste': forms.Select(
-                attrs={
-                    'class': 'form-control',
-                    'style': 'max-width: 300px;'
-                }
-            ),
             'statut': forms.Select(
                 attrs={
                     'class': 'form-control',
                     'style': 'max-width: 200px;'
-                }
-            ),
-            'permet_saisie_inventaire': forms.CheckboxInput(
-                attrs={
-                    'class': 'form-check-input'
-                }
-            ),
-            'permet_saisie_recette': forms.CheckboxInput(
-                attrs={
-                    'class': 'form-check-input'
                 }
             ),
             'commentaire': forms.Textarea(
@@ -293,91 +474,12 @@ class ConfigurationJourForm(forms.ModelForm):
         }
         
         labels = {
-            'date': 'Date *',
-            'poste': 'Poste (optionnel)',
-            'statut': 'Statut du jour *',
-            'permet_saisie_inventaire': 'Autoriser saisie inventaire',
-            'permet_saisie_recette': 'Autoriser saisie recette',
-            'commentaire': 'Commentaire'
-        }
-        
-        help_texts = {
-            'date': 'Date à configurer',
-            'poste': 'Laisser vide pour une configuration globale',
-            'permet_saisie_inventaire': 'Cocher pour permettre la saisie d\'inventaires',
-            'permet_saisie_recette': 'Cocher pour permettre la saisie de recettes',
-            'commentaire': 'Explication de cette configuration'
+            'date': _('Date'),
+            'statut': _('Statut du jour'),
+            'commentaire': _('Commentaire')
         }
     
-    
-    def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)
-        super().__init__(*args, **kwargs)
-        
-        # 🔧 GESTION SÉCURISÉE des postes
-        try:
-            if self.user and hasattr(self.user, 'get_postes_accessibles'):
-                postes_accessibles = self.user.get_postes_accessibles()
-                self.fields['poste'].queryset = postes_accessibles
-            else:
-                # Fallback : tous les postes actifs
-                self.fields['poste'].queryset = Poste.objects.filter(actif=True)
-        except Exception:
-            # En cas d'erreur, utiliser tous les postes
-            self.fields['poste'].queryset = Poste.objects.all()
-        
-        # Ajouter une option vide pour configuration globale
-        self.fields['poste'].empty_label = "Configuration globale"
-        
-        # Valeurs par défaut
-        if not self.instance.pk:
-            self.fields['statut'].initial = 'ouvert'
-            self.fields['permet_saisie_inventaire'].initial = True
-            self.fields['permet_saisie_recette'].initial = True
-    
-    def clean_date(self):
-        """Validation de la date"""
-        date = self.cleaned_data.get('date')
-        
-        if not date:
-            raise ValidationError("La date est obligatoire.")
-        
-        return date
-    
-    def clean(self):
-        """Validations globales"""
-        cleaned_data = super().clean()
-        date = cleaned_data.get('date')
-        poste = cleaned_data.get('poste')
-        
-        # Vérifier l'unicité date/poste (si c'est une nouvelle configuration)
-        if date and not self.instance.pk:
-            existing = ConfigurationJour.objects.filter(date=date, poste=poste)
-            if existing.exists():
-                if poste:
-                    raise ValidationError(
-                        f"Une configuration existe déjà pour le poste {poste.nom} "
-                        f"à la date du {date.strftime('%d/%m/%Y')}."
-                    )
-                else:
-                    raise ValidationError(
-                        f"Une configuration globale existe déjà "
-                        f"pour la date du {date.strftime('%d/%m/%Y')}."
-                    )
-        
-        return cleaned_data
-    
-    def save(self, commit=True):
-        """Sauvegarde avec utilisateur créateur"""
-        config = super().save(commit=False)
-        
-        if not config.pk and self.user:
-            config.cree_par = self.user
-        
-        if commit:
-            config.save()
-        
-        return config
+
 # ===================================================================
 # WIDGET CALENDRIER AVANCÉ (OPTIONNEL)
 # Pour une interface encore plus riche
@@ -418,4 +520,197 @@ class RecetteJournaliereAdminForm(RecetteJournaliereForm):
         widgets = {
             **RecetteJournaliereForm.Meta.widgets,
             'date': CalendrierWidget(),  # Widget calendrier avancé
+        }
+
+class ConfigurationMultiJoursForm(forms.Form):
+    """
+    Formulaire pour configurer plusieurs jours en une fois
+    """
+    
+    date_debut = forms.DateField(
+        label=_('Date de début'),
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    date_fin = forms.DateField(
+        label=_('Date de fin'),
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    statut = forms.ChoiceField(
+        choices=StatutJour.choices,
+        label=_('Statut à appliquer'),
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
+    
+    exclure_weekends = forms.BooleanField(
+        required=False,
+        label=_('Exclure les weekends'),
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
+    
+    commentaire = forms.CharField(
+        required=False,
+        label=_('Commentaire'),
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3
+        })
+    )
+    
+    def clean(self):
+        """Validation du formulaire"""
+        cleaned_data = super().clean()
+        date_debut = cleaned_data.get('date_debut')
+        date_fin = cleaned_data.get('date_fin')
+        
+        if date_debut and date_fin:
+            if date_debut > date_fin:
+                raise ValidationError(
+                    _("La date de début doit être avant la date de fin")
+                )
+            
+            # Limiter à 365 jours maximum
+            delta = (date_fin - date_debut).days
+            if delta > 365:
+                raise ValidationError(
+                    _("La période ne peut pas dépasser 365 jours")
+                )
+        
+        return cleaned_data
+
+
+# ===================================================================
+# FORMULAIRES PROGRAMMATION
+# ===================================================================
+
+class ProgrammationInventaireForm(forms.ModelForm):
+    """
+    Formulaire pour programmer des inventaires mensuels
+    """
+    
+    class Meta:
+        model = ProgrammationInventaire
+        fields = [
+            'poste', 'mois', 'motif', 'taux_deperdition_precedent', 
+            'risque_baisse_annuel', 'recettes_periode_actuelle', 
+            'recettes_periode_precedente', 'stock_restant', 
+            'date_epuisement_prevu', 'risque_grand_stock', 
+            'actif'
+        ]
+        widgets = {
+            'poste': forms.Select(attrs={
+                'class': 'form-control select2'
+            }),
+            'mois': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'motif': forms.Select(attrs={
+                'class': 'form-control',
+                'id': 'motif'
+            }),
+            'taux_deperdition_precedent': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': 0
+            }),
+            'risque_baisse_annuel': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'recettes_periode_actuelle': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': 0
+            }),
+            'recettes_periode_precedente': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': 0
+            }),
+            'stock_restant': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0
+            }),
+            'date_epuisement_prevu': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'risque_grand_stock': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'actif': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            })
+        }
+
+
+
+# ===================================================================
+# FORMULAIRES INVENTAIRE MENSUEL
+# ===================================================================
+
+class InventaireMensuelForm(forms.ModelForm):
+    """
+    Formulaire pour la gestion des inventaires mensuels
+    """
+    
+    class Meta:
+        model = InventaireMensuel
+        fields = [
+            'poste', 'programmation', 'motif', 'taux_deperdition_precedent',
+            'risque_baisse_annuel', 'date_epuisement_stock', 'mois', 'annee', 
+            'description', 'nombre_jours_saisis', 'actif'
+        ]
+        widgets = {
+            'poste': forms.Select(attrs={
+                'class': 'form-control select2'
+            }),
+            'programmation': forms.Select(attrs={
+                'class': 'form-control select2'
+            }),
+            'motif': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'taux_deperdition_precedent': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': 0
+            }),
+            'risque_baisse_annuel': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'date_epuisement_stock': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'mois': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'annee': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 2020,
+                'max': 2099
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4
+            }),
+            'nombre_jours_saisis': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0
+            }),
+            'actif': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            })
         }

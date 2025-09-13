@@ -11,8 +11,8 @@ urlpatterns = [
     # ================================================================
     path('', views.InventaireListView.as_view(), name='inventaire_list'),
     path('<int:pk>/', views.InventaireDetailView.as_view(), name='inventaire_detail'),
-    path('saisie/', views.saisie_inventaire, name='saisie_inventaire'),
-    path('saisie/<int:poste_id>/', views.saisie_inventaire, name='saisie_inventaire_poste'),
+    path('saisie/', views.SaisieInventaireView.as_view(), name='saisie_inventaire'),
+    path('saisie/<int:poste_id>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_poste'),
     
     # ================================================================
     # PROGRAMMATION INVENTAIRES (NOUVELLES)
@@ -23,39 +23,37 @@ urlpatterns = [
     # ================================================================
     # SAISIE RECETTES
     # ================================================================
-    path('recettes/saisie/', views.saisie_recette, name='saisie_recette'),
-    path('recettes/saisie/<int:poste_id>/', views.saisie_recette, name='saisie_recette_poste'),
+    #path('recettes/saisie/', views.saisie_recette, name='saisie_recette'),
+    #path('recettes/saisie/<int:poste_id>/', views.saisie_recette, name='saisie_recette_poste'),
     
     # ================================================================
     # MODIFICATIONS ADMIN
     # ================================================================
-    path('admin/<int:inventaire_id>/modifier/', views.modifier_inventaire_admin, name='modifier_inventaire_admin'),
-    path('recettes/admin/<int:recette_id>/modifier/', views.modifier_recette_admin, name='modifier_recette_admin'),
+    #path('admin/<int:inventaire_id>/modifier/', views.modifier_inventaire_admin, name='modifier_inventaire_admin'),
+    #path('recettes/admin/<int:recette_id>/modifier/', views.modifier_recette_admin, name='modifier_recette_admin'),
     
     # ================================================================
     # CONSOLIDATION MENSUELLE
     # ================================================================
-    path('mensuel/', views.liste_inventaires_mensuels, name='liste_inventaires_mensuels'),
-    path('mensuel/<int:pk>/', views.detail_inventaire_mensuel, name='detail_inventaire_mensuel'),
-    path('mensuel/consolider/', views.consolider_inventaire_mensuel, name='consolider_inventaire_mensuel'),
+    # path('mensuel/', views.liste_inventaires_mensuels, name='liste_inventaires_mensuels'),
+    # path('mensuel/<int:pk>/', views.detail_inventaire_mensuel, name='detail_inventaire_mensuel'),
+    # path('mensuel/consolider/', views.consolider_inventaire_mensuel, name='consolider_inventaire_mensuel'),
     
     # ================================================================
     # API ENDPOINTS
     # ================================================================
     path('api/calcul-automatique/', views.CalculAutomatiqueAPIView.as_view(), name='api_calcul_automatique'),
-    path('api/verification-jour/', views.VerificationJourAPIView.as_view(), name='api_verification_jour'),
     path('api/inventaire-stats/', views.inventaire_stats_api, name='api_inventaire_stats'),
     path('api/recette-stats/', views.recette_stats_api, name='api_recette_stats'),
     path('api/check-day-status/', views.check_day_status_api, name='api_check_day_status'),
     path('api/quick-action/', views.quick_action_api, name='api_quick_action'),
-    path('api/notifications/', views.api_notifications, name='api_notifications'),
+   # path('api/notifications/', views.api_notifications, name='api_notifications'),
     
     # ================================================================
     # RAPPORTS ET EXPORTS
     # ================================================================
     path('rapports/', views.RapportInventaireView.as_view(), name='rapport_generation'),
     path('backup/', views.backup_inventaires_api, name='backup_inventaires'),
-    path('diagnostic/', views.diagnostic_inventaires_view, name='diagnostic'),
     
     # ================================================================
     # DASHBOARD ET WIDGETS

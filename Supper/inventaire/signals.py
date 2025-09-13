@@ -177,43 +177,43 @@ def _recalculer_recettes_associees(inventaire):
         logger.error(f"Erreur recalcul recettes associées: {str(e)}")
 
 
-@receiver(pre_save, sender='inventaire.InventaireJournalier')
-def log_inventaire_lock(sender, instance, **kwargs):
-    """Journalise le verrouillage d'inventaires"""
-    try:
-        if instance.pk:  # Si l'objet existe déjà
-            old_instance = sender.objects.get(pk=instance.pk)
+# @receiver(pre_save, sender='inventaire.InventaireJournalier')
+# def log_inventaire_lock(sender, instance, **kwargs):
+#     """Journalise le verrouillage d'inventaires"""
+#     try:
+#         if instance.pk:  # Si l'objet existe déjà
+#             old_instance = sender.objects.get(pk=instance.pk)
             
-            # Détecter le verrouillage
-            if not old_instance.verrouille and instance.verrouille:
-                logger.info(f"Inventaire verrouillé: {instance.poste.nom} du {instance.date}")
+#             # Détecter le verrouillage
+#             if not old_instance.verrouille and instance.verrouille:
+#                 logger.info(f"Inventaire verrouillé: {instance.poste.nom} du {instance.date}")
                 
-                # Optionnel: Journaliser le verrouillage
-                if instance.agent_saisie:
-                    from accounts.models import JournalAudit
-                    JournalAudit.objects.create(
-                        utilisateur=instance.agent_saisie,
-                        action="Verrouillage inventaire",
-                        details=f"Inventaire verrouillé pour {instance.poste.nom} - {instance.date}",
-                        succes=True
-                    )
+#                 # Optionnel: Journaliser le verrouillage
+#                 if instance.agent_saisie:
+#                     from accounts.models import JournalAudit
+#                     JournalAudit.objects.create(
+#                         utilisateur=instance.agent_saisie,
+#                         action="Verrouillage inventaire",
+#                         details=f"Inventaire verrouillé pour {instance.poste.nom} - {instance.date}",
+#                         succes=True
+#                     )
                 
-            # Détecter la validation
-            if not old_instance.valide and instance.valide:
-                logger.info(f"Inventaire validé: {instance.poste.nom} du {instance.date}")
+#             # Détecter la validation
+#             if not old_instance.valide and instance.valide:
+#                 logger.info(f"Inventaire validé: {instance.poste.nom} du {instance.date}")
                 
-                # Optionnel: Journaliser la validation
-                if instance.agent_saisie:
-                    from accounts.models import JournalAudit
-                    JournalAudit.objects.create(
-                        utilisateur=instance.agent_saisie,
-                        action="Validation inventaire",
-                        details=f"Inventaire validé pour {instance.poste.nom} - {instance.date}",
-                        succes=True
-                    )
+#                 # Optionnel: Journaliser la validation
+#                 if instance.agent_saisie:
+#                     from accounts.models import JournalAudit
+#                     JournalAudit.objects.create(
+#                         utilisateur=instance.agent_saisie,
+#                         action="Validation inventaire",
+#                         details=f"Inventaire validé pour {instance.poste.nom} - {instance.date}",
+#                         succes=True
+#                     )
                 
-    except Exception as e:
-        logger.error(f"Erreur signal verrouillage: {str(e)}")
+#     except Exception as e:
+#         logger.error(f"Erreur signal verrouillage: {str(e)}")
 
 
 @receiver(post_save, sender='inventaire.ConfigurationJour')

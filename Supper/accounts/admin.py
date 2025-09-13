@@ -282,7 +282,7 @@ class PosteAdmin(admin.ModelAdmin):
     
     def activate_postes(self, request, queryset):
         """Activer les postes"""
-        count = queryset.update(actif=True)
+        count = queryset.update(is_active=True)
         self.message_user(request, f'✓ {count} poste(s) activé(s).')
     activate_postes.short_description = '✓ Activer les postes'
     
