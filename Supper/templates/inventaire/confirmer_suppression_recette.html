@@ -1,0 +1,45 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Confirmer la suppression{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Confirmer la suppression de la recette</h4>
+                </div>
+                <div class="card-body">
+                    <p>Êtes-vous sûr de vouloir supprimer cette recette ?</p>
+                    
+                    <div class="alert alert-info">
+                        <strong>Détails de la recette :</strong>
+                        <ul class="mb-0">
+                            <li>Poste : {{ recette.poste.nom }}</li>
+                            <li>Date : {{ recette.date|date:"d/m/Y" }}</li>
+                            <li>Montant : {{ recette.montant_declare|floatformat:0 }} FCFA</li>
+                            {% if recette.taux_deperdition %}
+                            <li>Taux de déperdition : {{ recette.taux_deperdition|floatformat:2 }}%</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'inventaire:recette_detail' recette.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Confirmer la suppression
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

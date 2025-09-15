@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin/base_site.html" %}
 {% load static %}
 {% load i18n %}
 
@@ -7,12 +7,22 @@
 {% block extra_css %}
 <style>
 :root {
-    --violet-principal: #6B46C1;
-    --violet-fonce: #553C9A;
+    --violet-principal: #1e40af;
+    --violet-fonce: #3b82f6;
     --gris-clair: #F8FAFC;
     --gris-moyen: #64748B;
     --gris-fonce: #334155;
     --accent-orange: #F59E0B;
+    {% comment %} --primary-color: #2563eb;
+            --primary-dark: #1e40af;
+            --primary-light: #3b82f6;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --danger-color: #EF4444;
+            --info-color: #3B82F6;
+            --dark-color: #334155;
+            --light-bg: #F8FAFC;
+            --white: #FFFFFF; {% endcomment %}
 }
 
 .supper-header {
@@ -127,7 +137,7 @@
     background: var(--violet-principal);
     border-color: var(--violet-principal);
 }
-</style>
+</style> 
 {% endblock %}
 
 {% block content %}
@@ -388,10 +398,6 @@
            class="btn btn-dark btn-sm mb-2" title="{% trans 'Panel Admin Inventaires' %}">
             <i class="fas fa-cogs"></i>
         </a>
-        <button type="button" class="btn btn-success btn-sm mb-2" 
-                onclick="ouvrirJourActuel()" title="{% trans 'Ouvrir jour actuel' %}">
-            <i class="fas fa-calendar-plus"></i>
-        </button>
     </div>
 </div>
 {% endif %}
@@ -400,24 +406,6 @@
 {% block extra_js %}
 <script>
 // Actions rapides admin
-function ouvrirJourActuel() {
-    if (confirm("{% trans 'Ouvrir le jour actuel pour la saisie ?' %}")) {
-        fetch('/admin/actions/open-day/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            }
-        })
-        .catch(error => console.error('Erreur:', error));
-    }
-}
 
 // Auto-refresh des stats toutes les 30 secondes
 setInterval(() => {

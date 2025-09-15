@@ -128,25 +128,25 @@ Navigation responsive, support bilingue FR/EN, thème moderne
                                     {% trans "Utilisateurs" %}
                                 </a>
                             </li>
-                            <li>
+                            {% comment %} <li>
                                 <a class="dropdown-item" href="{% url 'common:jour_list' %}">
                                     <i class="fas fa-calendar-alt me-2"></i>
                                     {% trans "Gestion des jours" %}
                                 </a>
-                            </li>
-                            <li>
+                            </li> {% endcomment %}
+                            {% comment %} <li>
                                 <a class="dropdown-item" href="{% url 'common:audit_log' %}">
                                     <i class="fas fa-history me-2"></i>
                                     {% trans "Journal d'audit" %}
                                 </a>
-                            </li>
+                            </li> {% endcomment %}
                             <li><hr class="dropdown-divider"></li>
-                            <li>
+                            {% comment %} <li>
                                 <a class="dropdown-item" href="{% url 'common:system_health' %}">
                                     <i class="fas fa-heartbeat me-2"></i>
                                     {% trans "Santé système" %}
                                 </a>
-                            </li>
+                            </li> {% endcomment %}
                         </ul>
                     </li>
                     {% endif %}

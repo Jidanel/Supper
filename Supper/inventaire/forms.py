@@ -127,7 +127,7 @@ class DetailInventairePeriodeForm(forms.ModelForm):
             'nombre_vehicules': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': 0,
-                'max': 1000,
+                'max': 5000,
                 'placeholder': 'Nombre de véhicules'
             }),
             'observations_periode': forms.TextInput(attrs={
@@ -173,6 +173,17 @@ class DetailInventairePeriodeForm(forms.ModelForm):
             )
         
         return nombre
+DetailInventairePeriodeFormSet = forms.inlineformset_factory(
+    InventaireJournalier,
+    DetailInventairePeriode,
+    form=DetailInventairePeriodeForm,
+    extra=0,  # Pas de formulaires vides supplémentaires
+    can_delete=False,
+    min_num=10,  # 10 périodes minimum (8h-18h)
+    max_num=10,
+    validate_min=True,
+    validate_max=True
+)
 class SaisieRapideInventaireForm(forms.Form):
     """
     Formulaire pour la saisie rapide de toutes les périodes d'un inventaire
@@ -594,68 +605,170 @@ class ConfigurationMultiJoursForm(forms.Form):
 # FORMULAIRES PROGRAMMATION
 # ===================================================================
 
-class ProgrammationInventaireForm(forms.ModelForm):
+class ProgrammationInventaireForm(forms.Form):
     """
     Formulaire pour programmer des inventaires mensuels
     """
     
-    class Meta:
-        model = ProgrammationInventaire
-        fields = [
-            'poste', 'mois', 'motif', 'taux_deperdition_precedent', 
-            'risque_baisse_annuel', 'recettes_periode_actuelle', 
-            'recettes_periode_precedente', 'stock_restant', 
-            'date_epuisement_prevu', 'risque_grand_stock', 
-            'actif'
+    mois = forms.DateField(
+        label="Mois à programmer",
+        widget=forms.DateInput(attrs={
+            'type': 'month',
+            'class': 'form-control',
+            'required': True
+        }),
+        help_text="Sélectionnez le mois pour la programmation"
+    )
+    
+    motif = forms.ChoiceField(
+        label="Motif de l'inventaire",
+        choices=MotifInventaire.choices,
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'motif-select',
+            'required': True
+        })
+    )
+    
+    # Ce champ sera rempli dynamiquement via JavaScript
+    postes = forms.MultipleChoiceField(
+        label="Postes à programmer",
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'poste-checkbox'
+        })
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Charger dynamiquement les postes actifs
+        self.fields['postes'].choices = [
+            (poste.id, f"{poste.nom} ({poste.code})")
+            for poste in Poste.objects.filter(is_active=True).order_by('nom')
         ]
-        widgets = {
-            'poste': forms.Select(attrs={
-                'class': 'form-control select2'
-            }),
-            'mois': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
-            'motif': forms.Select(attrs={
-                'class': 'form-control',
-                'id': 'motif'
-            }),
-            'taux_deperdition_precedent': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01',
-                'min': 0
-            }),
-            'risque_baisse_annuel': forms.CheckboxInput(attrs={
-                'class': 'form-check-input'
-            }),
-            'recettes_periode_actuelle': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01',
-                'min': 0
-            }),
-            'recettes_periode_precedente': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01',
-                'min': 0
-            }),
-            'stock_restant': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': 0
-            }),
-            'date_epuisement_prevu': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
-            'risque_grand_stock': forms.CheckboxInput(attrs={
-                'class': 'form-check-input'
-            }),
-            'actif': forms.CheckboxInput(attrs={
-                'class': 'form-check-input'
-            })
-        }
-
-
-
+    
+    def clean_mois(self):
+        """Valide le mois sélectionné"""
+        mois = self.cleaned_data['mois']
+        
+        # S'assurer que c'est le premier jour du mois
+        if mois.day != 1:
+            mois = mois.replace(day=1)
+        
+        # Vérifier que le mois n'est pas trop dans le passé
+        today = date.today()
+        if mois < today.replace(day=1):
+            # Autoriser seulement le mois précédent
+            mois_precedent = today.replace(day=1)
+            if mois.month == 12:
+                mois_precedent = mois_precedent.replace(year=mois_precedent.year-1, month=1)
+            else:
+                mois_precedent = mois_precedent.replace(month=mois_precedent.month-1)
+            
+            if mois < mois_precedent:
+                raise ValidationError("Vous ne pouvez pas programmer pour un mois si ancien")
+        
+        return mois
+    
+    def clean_postes(self):
+        """Valide les postes sélectionnés"""
+        postes_ids = self.cleaned_data.get('postes', [])
+        
+        if not postes_ids:
+            raise ValidationError("Veuillez sélectionner au moins un poste")
+        
+        # Vérifier que les postes existent et sont actifs
+        postes_valides = Poste.objects.filter(
+            id__in=postes_ids,
+            is_active=True
+        ).values_list('id', flat=True)
+        
+        postes_invalides = set(postes_ids) - set(str(p) for p in postes_valides)
+        if postes_invalides:
+            raise ValidationError(f"Postes invalides: {postes_invalides}")
+        
+        return postes_ids
+    
+    def clean(self):
+        """Validation globale du formulaire"""
+        cleaned_data = super().clean()
+        mois = cleaned_data.get('mois')
+        motif = cleaned_data.get('motif')
+        postes_ids = cleaned_data.get('postes', [])
+        
+        if mois and motif and postes_ids:
+            # Vérifier les doublons
+            programmations_existantes = ProgrammationInventaire.objects.filter(
+                poste_id__in=postes_ids,
+                mois=mois,
+                motif=motif,
+                actif=True
+            ).values_list('poste__nom', flat=True)
+            
+            if programmations_existantes:
+                raise ValidationError(
+                    f"Des programmations existent déjà pour: {', '.join(programmations_existantes)}"
+                )
+        
+        return cleaned_data
+    
+    def save(self, user):
+        """
+        Crée les programmations pour tous les postes sélectionnés
+        Retourne la liste des programmations créées
+        """
+        mois = self.cleaned_data['mois']
+        motif = self.cleaned_data['motif']
+        postes_ids = self.cleaned_data['postes']
+        
+        programmations_creees = []
+        
+        for poste_id in postes_ids:
+            try:
+                poste = Poste.objects.get(id=poste_id)
+                
+                # Créer la programmation
+                prog = ProgrammationInventaire(
+                    poste=poste,
+                    mois=mois,
+                    motif=motif,
+                    cree_par=user,
+                    actif=True
+                )
+                
+                # Ajouter les données spécifiques selon le motif
+                if motif == MotifInventaire.TAUX_DEPERDITION:
+                    # Récupérer le taux depuis la requête si disponible
+                    taux_key = f'taux_{poste_id}'
+                    if taux_key in self.data:
+                        try:
+                            prog.taux_deperdition_precedent = Decimal(self.data[taux_key])
+                        except:
+                            pass
+                
+                elif motif == MotifInventaire.GRAND_STOCK:
+                    # Récupérer le stock depuis la requête si disponible
+                    stock_key = f'stock_{poste_id}'
+                    if stock_key in self.data:
+                        try:
+                            prog.stock_restant = int(self.data[stock_key])
+                        except:
+                            pass
+                
+                # Sauvegarder (les calculs automatiques se font dans save())
+                prog.save()
+                programmations_creees.append(prog)
+                
+            except Poste.DoesNotExist:
+                continue
+            except Exception as e:
+                # Logger l'erreur mais continuer avec les autres postes
+                import logging
+                logger = logging.getLogger('supper')
+                logger.error(f"Erreur création programmation pour poste {poste_id}: {str(e)}")
+        
+        return programmations_creees
 # ===================================================================
 # FORMULAIRES INVENTAIRE MENSUEL
 # ===================================================================

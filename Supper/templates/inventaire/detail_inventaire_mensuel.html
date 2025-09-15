@@ -1,0 +1,115 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Détail inventaire mensuel{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3><i class="fas fa-calendar-check"></i> {{ title }}</h3>
+                    <p class="mb-0">Poste : {{ inventaire_mensuel.poste.nom }}</p>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Statistiques du mois -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5>{{ stats.total_vehicules }}</h5>
+                                    <small>Véhicules total</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5>{{ stats.total_recettes_declarees|floatformat:0 }}</h5>
+                                    <small>FCFA déclarés</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5>{{ stats.nombre_jours_saisis }}</h5>
+                                    <small>Jours saisis</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="{% if stats.taux_deperdition_moyen < -30 %}text-danger{% elif stats.taux_deperdition_moyen < -10 %}text-warning{% else %}text-success{% endif %}">
+                                        {{ stats.taux_deperdition_moyen|floatformat:2|default:"N/A" }}%
+                                    </h5>
+                                    <small>Taux moyen</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Calendrier du mois -->
+                    <h5>Calendrier du mois</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Lun</th>
+                                    <th>Mar</th>
+                                    <th>Mer</th>
+                                    <th>Jeu</th>
+                                    <th>Ven</th>
+                                    <th>Sam</th>
+                                    <th>Dim</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for semaine in calendrier %}
+                                <tr>
+                                    {% for jour_data in semaine %}
+                                        {% if jour_data %}
+                                        <td class="{% if jour_data.is_impertinent %}bg-warning{% elif jour_data.inventaire %}bg-success text-white{% endif %}">
+                                            <div>{{ jour_data.jour }}</div>
+                                            {% if jour_data.inventaire %}
+                                            <small>{{ jour_data.inventaire.total_vehicules }}v</small>
+                                            {% endif %}
+                                            {% if jour_data.recette %}
+                                            <small>{{ jour_data.recette.montant_declare|floatformat:0 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        {% else %}
+                                        <td></td>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="mt-3">
+                        <form method="post" action="{% url 'inventaire:consolider_inventaire_mensuel' %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="poste_id" value="{{ inventaire_mensuel.poste.id }}">
+                            <input type="hidden" name="mois" value="{{ inventaire_mensuel.mois }}">
+                            <input type="hidden" name="annee" value="{{ inventaire_mensuel.annee }}">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-sync"></i> Consolider les données
+                            </button>
+                        </form>
+                        
+                        <a href="{% url 'inventaire:liste_inventaires_mensuels' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Retour à la liste
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

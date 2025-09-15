@@ -1,0 +1,114 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Modifier inventaire - {{ inventaire.date }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3><i class="fas fa-edit"></i> Modifier l'inventaire du {{ inventaire.date|date:"d/m/Y" }}</h3>
+                    <p class="mb-0">Poste : {{ inventaire.poste.nom }}</p>
+                </div>
+                
+                <div class="card-body">
+                    {% if not inventaire.peut_etre_modifie_par %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-lock"></i> Cet inventaire n'est plus modifiable par les agents.
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Informations générales -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Poste</label>
+                                <input type="text" class="form-control" value="{{ inventaire.poste.nom }}" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Date</label>
+                                <input type="text" class="form-control" value="{{ inventaire.date|date:'d/m/Y' }}" readonly>
+                            </div>
+                        </div>
+                        
+                        <!-- Périodes horaires -->
+                        <h5 class="mb-3">Saisie par période horaire</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Période</th>
+                                        <th>Nombre de véhicules</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for periode, label in periodes_choices %}
+                                    <tr>
+                                        <td>{{ label }}</td>
+                                        <td>
+                                            <input type="number" 
+                                                   name="periode_{{ periode }}" 
+                                                   class="form-control periode-input"
+                                                   min="0" max="1000"
+                                                   value="{{ periodes_data|default_if_none:''|get_item:periode|default:'0' }}"
+                                                   data-periode="{{ periode }}">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-info">
+                                        <th>Total</th>
+                                        <th><span id="total-vehicules">0</span> véhicules</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        
+                        <!-- Observations -->
+                        <div class="mb-3">
+                            {{ form.observations.label_tag }}
+                            {{ form.observations }}
+                        </div>
+                        
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Enregistrer les modifications
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Calcul automatique du total
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('.periode-input');
+    
+    function updateTotal() {
+        let total = 0;
+        inputs.forEach(input => {
+            total += parseInt(input.value) || 0;
+        });
+        document.getElementById('total-vehicules').textContent = total;
+    }
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', updateTotal);
+    });
+    
+    updateTotal();
+});
+</script>
+{% endblock %}

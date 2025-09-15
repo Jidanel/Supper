@@ -9,7 +9,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, User
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import authenticate
-from .models import UtilisateurSUPPER, Poste
+from .models import Departement, UtilisateurSUPPER, Poste
 import re
 
 # Créer/Modifier le fichier : Supper/accounts/forms.py
@@ -58,37 +58,26 @@ DEPARTEMENTS_CAMEROUN = {
 class PosteForm(forms.ModelForm):
     """Formulaire personnalisé pour la création/modification de postes"""
     
-    departement = forms.ChoiceField(
-        choices=[],
-        required=True,
-        widget=forms.Select(attrs={
-            'class': 'form-control',
-            'id': 'id_departement'
-        })
-    )
-    
     class Meta:
         model = Poste
         fields = '__all__'
         widgets = {
             'nom': forms.TextInput(attrs={'class': 'form-control'}),
             'code': forms.TextInput(attrs={'class': 'form-control'}),
-            'type_poste': forms.Select(attrs={'class': 'form-control'}),
-            'localisation': forms.TextInput(attrs={'class': 'form-control'}),
+            'type': forms.Select(attrs={'class': 'form-control'}),
             'region': forms.Select(attrs={
                 'class': 'form-control',
                 'id': 'id_region',
-                'onchange': 'updateDepartements()'
             }),
-            'arrondissement': forms.TextInput(attrs={'class': 'form-control'}),
-            'latitude': forms.NumberInput(attrs={'class': 'form-control'}),
-            'longitude': forms.NumberInput(attrs={'class': 'form-control'}),
-            'actif': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'date_ouverture': forms.DateInput(attrs={
-                'type': 'date',
-                'class': 'form-control'
+            'departement': forms.Select(attrs={
+                'class': 'form-control',
+                'id': 'id_departement',
             }),
-            'observations': forms.Textarea(attrs={
+            'axe_routier': forms.TextInput(attrs={'class': 'form-control'}),
+            'latitude': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.000001'}),
+            'longitude': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.000001'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3
             }),
@@ -97,84 +86,14 @@ class PosteForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Initialiser les départements basés sur la région
-        if self.instance and self.instance.region:
-            region = self.instance.region
-            if region in DEPARTEMENTS_CAMEROUN:
-                departements = DEPARTEMENTS_CAMEROUN[region]
-                self.fields['departement'].choices = [
-                    (dept, dept) for dept in departements
-                ]
-                
-        # Si c'est une nouvelle instance, initialiser avec les départements du Centre
-        elif not self.instance.pk:
-            departements = DEPARTEMENTS_CAMEROUN.get('centre', [])
-            self.fields['departement'].choices = [
-                ('', '--- Sélectionner un département ---')
-            ] + [(dept, dept) for dept in departements]
-
-
-# Modifier le fichier : Supper/accounts/admin.py
-from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-from django.utils.translation import gettext_lazy as _
-from django.utils.html import format_html
-from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur
-from .forms import PosteForm
-
-# @admin.register(Poste)
-# class PosteAdmin(admin.ModelAdmin):
-#     form = PosteForm
-    
-#     list_display = [
-#         'nom', 'code', 'type', 
-#         'region', 'departement', 'actif_status'
-#     ]
-#     list_filter = ['type', 'region', 'is_active']
-#     search_fields = ['nom', 'code', 'localisation']
-#     ordering = ['region', 'nom']
-    
-#     fieldsets = (
-#         ('Informations générales', {
-#             'fields': ('nom', 'code', 'type')
-#         }),
-#         ('Localisation', {
-#             'fields': ('region', 'departement', 'arrondissement', 'localisation')
-#         }),
-#         ('Coordonnées GPS', {
-#             'fields': ('latitude', 'longitude'),
-#             'classes': ('collapse',)
-#         }),
-#         ('Informations complémentaires', {
-#             'fields': ('actif', 'date_ouverture', 'observations')
-#         }),
-#     )
-    
-#     def type_poste_colored(self, obj):
-#         colors = {
-#             'peage': 'success',
-#             'pesage': 'info'
-#         }
-#         color = colors.get(obj.type_poste, 'secondary')
-#         return format_html(
-#             '<span class="badge bg-{}">{}</span>',
-#             color, obj.get_type_poste_display()
-#         )
-#     type_poste_colored.short_description = 'Type'
-    
-#     def actif_status(self, obj):
-#         if obj.is_active:
-#             return format_html(
-#                 '<span class="badge bg-success">Actif</span>'
-#             )
-#         return format_html(
-#             '<span class="badge bg-danger">Inactif</span>'
-#         )
-#     actif_status.short_description = 'Statut'
-    
-#     class Media:
-#         js = ('admin/js/region_departement.js',)
-
+        # Filtrer les départements selon la région sélectionnée
+        if self.instance and self.instance.pk and self.instance.region:
+            self.fields['departement'].queryset = Departement.objects.filter(
+                region=self.instance.region
+            )
+        else:
+            # Par défaut, afficher tous les départements ou aucun
+            self.fields['departement'].queryset = Departement.objects.none()
 class CustomLoginForm(LoginView):
     """
     Formulaire de connexion personnalisé pour SUPPER

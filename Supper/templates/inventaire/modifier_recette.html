@@ -1,0 +1,78 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Modifier recette{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h3><i class="fas fa-edit"></i> Modifier la recette du {{ recette.date|date:"d/m/Y" }}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Poste</label>
+                                <input type="text" class="form-control" value="{{ recette.poste.nom }}" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Date</label>
+                                <input type="text" class="form-control" value="{{ recette.date|date:'d/m/Y' }}" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form.montant_declare.label_tag }}
+                                <div class="input-group">
+                                    {{ form.montant_declare }}
+                                    <span class="input-group-text">FCFA</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                {% if recette.inventaire_associe %}
+                                <div class="alert alert-info">
+                                    Inventaire lié : {{ recette.inventaire_associe.total_vehicules }} véhicules
+                                </div>
+                                {% else %}
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" name="lier_inventaire" class="form-check-input" id="lier_inventaire">
+                                    <label class="form-check-label" for="lier_inventaire">
+                                        Rechercher et lier l'inventaire
+                                    </label>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if recette.taux_deperdition %}
+                        <div class="alert alert-{{ recette.get_couleur_alerte }}">
+                            Taux de déperdition : {{ recette.taux_deperdition|floatformat:2 }}%
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            {{ form.observations.label_tag }}
+                            {{ form.observations }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'inventaire:recette_detail' recette.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save"></i> Enregistrer les modifications
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

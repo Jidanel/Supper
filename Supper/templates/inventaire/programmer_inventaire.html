@@ -1,0 +1,342 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Programmer Inventaire" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .motif-card {
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .motif-card:hover {
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    
+    .poste-item {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .poste-item.disabled {
+        opacity: 0.6;
+        background: #f3f4f6;
+    }
+    
+    .indicator-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .indicator-danger { background: #fee2e2; color: #dc2626; }
+    .indicator-warning { background: #fef3c7; color: #d97706; }
+    .indicator-success { background: #d1fae5; color: #065f46; }
+    .indicator-info { background: #dbeafe; color: #2563eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-3">
+                <i class="fas fa-calendar-check me-2" style="color: #6B46C1;"></i>
+                {% trans "Programmer des Inventaires Mensuels" %}
+            </h2>
+        </div>
+    </div>
+
+    <!-- Étape 1: Sélection du mois -->
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%); color: white;">
+            <h5 class="mb-0">{% trans "Étape 1: Sélection du mois" %}</h5>
+        </div>
+        <div class="card-body">
+            <form method="get">
+                <div class="row">
+                    <div class="col-md-6">
+                        <select name="mois" class="form-select form-select-lg" onchange="this.form.submit()" required>
+                            <option value="">-- {% trans "Sélectionner un mois" %} --</option>
+                            {% for mois in mois_disponibles %}
+                            <option value="{{ mois }}" {% if mois == mois_selectionne %}selected{% endif %}>
+                                {{ mois }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if mois_selectionne %}
+    <!-- Étape 2: Sélection du motif -->
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%); color: white;">
+            <h5 class="mb-0">{% trans "Étape 2: Sélection du motif" %}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Risque de baisse -->
+                <div class="col-md-4">
+                    <div class="motif-card">
+                        <div class="text-center">
+                            <i class="fas fa-arrow-down fa-3x mb-3" style="color: #d97706;"></i>
+                            <h5>{% trans "Risque de Baisse Annuel" %}</h5>
+                            <p class="text-muted mb-2">{% trans "Postes avec baisse de recettes" %}</p>
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="mois" value="{{ mois_selectionne }}">
+                                <input type="hidden" name="motif" value="risque_baisse">
+                                <button type="submit" name="generer" class="btn btn-warning">
+                                    <i class="fas fa-cogs me-1"></i>{% trans "Générer" %}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grand stock -->
+                <div class="col-md-4">
+                    <div class="motif-card">
+                        <div class="text-center">
+                            <i class="fas fa-boxes fa-3x mb-3" style="color: #2563eb;"></i>
+                            <h5>{% trans "Risque de Grand Stock" %}</h5>
+                            <p class="text-muted mb-2">{% trans "Stock non épuisé avant fin d'année" %}</p>
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="mois" value="{{ mois_selectionne }}">
+                                <input type="hidden" name="motif" value="grand_stock">
+                                <button type="submit" name="generer" class="btn btn-info">
+                                    <i class="fas fa-cogs me-1"></i>{% trans "Générer" %}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Taux de déperdition -->
+                <div class="col-md-4">
+                    <div class="motif-card">
+                        <div class="text-center">
+                            <i class="fas fa-chart-line fa-3x mb-3" style="color: #dc2626;"></i>
+                            <h5>{% trans "Taux de Déperdition" %}</h5>
+                            <p class="text-muted mb-2">{% trans "Sélection mixte" %}</p>
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="mois" value="{{ mois_selectionne }}">
+                                <input type="hidden" name="motif" value="taux_deperdition">
+                                <button type="submit" name="generer" class="btn btn-danger">
+                                    <i class="fas fa-cogs me-1"></i>{% trans "Générer" %}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Étape 3: Sélection des postes (après génération) -->
+<!-- Étape 3: Sélection des postes (après génération) -->
+{% if motif_selectionne %}
+<div class="card mb-4">
+    <div class="card-header" style="background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%); color: white;">
+        <h5 class="mb-0">{% trans "Étape 3: Sélection des postes" %}</h5>
+    </div>
+    <div class="card-body">
+        <!-- Message de debug (à retirer en production) -->
+        <div class="alert alert-info">
+            <strong> Le Nombre de postes généré par le système en motif --  {{ motif_selectionne }} </strong> est de : {{ postes_taux|length|default:"0" }}<br>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="mois" value="{{ mois_selectionne }}">
+            <input type="hidden" name="motif" value="{{ motif_selectionne }}">
+            
+            <!-- TAUX DE DÉPERDITION -->
+            {% if motif_selectionne == 'taux_deperdition' %}
+                
+                {% if postes_taux %}
+                    <h6 class="mb-3">
+                        <i class="fas fa-chart-line text-danger me-2"></i>
+                        {% trans "Postes avec taux de déperdition calculé" %}
+                    </h6>
+                    {% for item in postes_taux %}
+                    <div class="poste-item {% if item.poste.id in programmations_existantes %}disabled{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="postes" 
+                                   value="{{ item.poste.id }}" id="poste_{{ item.poste.id }}"
+                                   {% if item.taux_deperdition < -10 and item.poste.id not in programmations_existantes %}checked{% endif %}
+                                   {% if item.poste.id in programmations_existantes %}disabled{% endif %}>
+                            <input type="hidden" name="taux_{{ item.poste.id }}" value="{{ item.taux_deperdition }}">
+                            <label class="form-check-label d-flex justify-content-between w-100" for="poste_{{ item.poste.id }}">
+                                <div>
+                                    <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="fas fa-map-pin me-1"></i>{{ item.poste.get_region_display }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="indicator-badge indicator-{% if item.taux_deperdition < -30 %}danger{% elif item.taux_deperdition < -10 %}warning{% else %}success{% endif %}">
+                                        {{ item.taux_deperdition|floatformat:2 }}%
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">Calculé le {{ item.date_calcul|date:"d/m/Y" }}</small>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "Aucun poste avec taux de déperdition trouvé" %}
+                    </div>
+                {% endif %}
+                
+                {% if autres_postes %}
+                    <hr class="my-4">
+                    <h6 class="mb-3">
+                        <i class="fas fa-list me-2"></i>
+                        {% trans "Autres postes disponibles" %} ({{ autres_postes.count }})
+                    </h6>
+                    {% for poste in autres_postes %}
+                    <div class="poste-item {% if poste.id in programmations_existantes %}disabled{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="postes" 
+                                   value="{{ poste.id }}" id="poste_{{ poste.id }}"
+                                   {% if poste.id in programmations_existantes %}disabled{% endif %}>
+                            <label class="form-check-label" for="poste_{{ poste.id }}">
+                                <strong>{{ poste.nom }}</strong> ({{ poste.code }})
+                                <br>
+                                <small class="text-muted">
+                                    <i class="fas fa-map-pin me-1"></i>{{ poste.get_region_display }}
+                                </small>
+                                {% if poste.id in programmations_existantes %}
+                                <span class="badge bg-secondary ms-2">Déjà programmé</span>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+                
+            <!-- RISQUE DE BAISSE -->
+            {% elif motif_selectionne == 'risque_baisse' %}
+                {% if postes_risque_baisse %}
+                    <h6 class="mb-3">
+                        <i class="fas fa-arrow-down text-warning me-2"></i>
+                        {% trans "Postes avec risque de baisse détecté" %}
+                    </h6>
+                    {% for item in postes_risque_baisse %}
+                    <div class="poste-item {% if item.poste.id in programmations_existantes %}disabled{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="postes" 
+                                   value="{{ item.poste.id }}" id="poste_{{ item.poste.id }}"
+                                   {% if item.poste.id not in programmations_existantes %}checked{% endif %}
+                                   {% if item.poste.id in programmations_existantes %}disabled{% endif %}>
+                            <label class="form-check-label d-flex justify-content-between w-100" for="poste_{{ item.poste.id }}">
+                                <div>
+                                    <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="fas fa-map-pin me-1"></i>{{ item.poste.get_region_display }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="indicator-badge indicator-warning">
+                                        <i class="fas fa-arrow-down me-1"></i>
+                                        -{{ item.pourcentage_baisse|floatformat:1 }}%
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {% trans "Aucun poste avec risque de baisse annuel détecté" %}
+                    </div>
+                {% endif %}
+                
+            <!-- GRAND STOCK -->
+            {% elif motif_selectionne == 'grand_stock' %}
+                {% if postes_grand_stock %}
+                    <h6 class="mb-3">
+                        <i class="fas fa-boxes text-info me-2"></i>
+                        {% trans "Postes avec risque de grand stock" %}
+                    </h6>
+                    {% for item in postes_grand_stock %}
+                    <div class="poste-item {% if item.poste.id in programmations_existantes %}disabled{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="postes" 
+                                   value="{{ item.poste.id }}" id="poste_{{ item.poste.id }}"
+                                   {% if item.poste.id not in programmations_existantes %}checked{% endif %}
+                                   {% if item.poste.id in programmations_existantes %}disabled{% endif %}>
+                            <input type="hidden" name="stock_{{ item.poste.id }}" value="{{ item.stock_restant }}">
+                            <label class="form-check-label d-flex justify-content-between w-100" for="poste_{{ item.poste.id }}">
+                                <div>
+                                    <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="fas fa-map-pin me-1"></i>{{ item.poste.get_region_display }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="indicator-badge indicator-info">
+                                        Stock: {{ item.stock_restant|floatformat:0 }} tickets
+                                    </span>
+                                    {% if item.date_epuisement %}
+                                    <br>
+                                    <small class="text-muted">
+                                        Épuisement: {{ item.date_epuisement|date:"d/m/Y" }}
+                                    </small>
+                                    {% endif %}
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {% trans "Aucun poste avec risque de grand stock au 31 Decembre de l'année en cours détecté" %}
+                    </div>
+                {% endif %}
+            {% endif %}
+            
+            <!-- Boutons d'action -->
+            {% if postes_taux or autres_postes or postes_risque_baisse or postes_grand_stock %}
+            <div class="text-center mt-4">
+                <button type="submit" name="programmer" class="btn btn-primary btn-lg">
+                    <i class="fas fa-save me-2"></i>
+                    {% trans "Programmer les Inventaires" %}
+                </button>
+                <a href="{% url 'inventaire:liste_programmations' %}" class="btn btn-secondary btn-lg ms-2">
+                    <i class="fas fa-times me-2"></i>
+                    {% trans "Annuler" %}
+                </a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

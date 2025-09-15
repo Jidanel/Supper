@@ -29,6 +29,7 @@ logger = logging.getLogger('supper')
 from .models import *
 from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
 from common.utils import *
+from .forms import *
 
 # ===================================================================
 # MIXINS ET FONCTIONS UTILITAIRES
@@ -556,7 +557,614 @@ class SaisieInventaireView(InventaireMixin, View):
         """URL de redirection après succès"""
         return '/admin/inventaire/inventairejournalier/'
 
+@login_required
+@require_permission('peut_gerer_inventaire')
+def modifier_inventaire(request, pk):
+    """
+    Permet de modifier un inventaire existant
+    Pas de vérification de verrouillage car plus de verrouillage
+    """
+    inventaire = get_object_or_404(InventaireJournalier, pk=pk)
+    
+    # Vérifier que l'utilisateur peut accéder à ce poste
+    if not request.user.peut_acceder_poste(inventaire.poste):
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return HttpResponseForbidden("Accès non autorisé")
+    
+    # Vérifier si l'utilisateur peut modifier (admin ou agent si modifiable_par_agent)
+    if not inventaire.peut_etre_modifie_par(request.user):
+        messages.error(request, "Vous n'avez pas la permission de modifier cet inventaire.")
+        return HttpResponseForbidden("Permission insuffisante")
+    
+    if request.method == 'POST':
+        form = InventaireJournalierForm(
+            request.POST, 
+            instance=inventaire,
+            user=request.user
+        )
+        
+        if form.is_valid():
+            inventaire = form.save(commit=False)
+            inventaire.derniere_modification_par = request.user
+            inventaire.save()
+            
+            # Traiter les détails par période
+            periodes_data = {}
+            for key, value in request.POST.items():
+                if key.startswith('periode_'):
+                    periode = key.replace('periode_', '').replace('_', '-')
+                    if value and value.isdigit():
+                        periodes_data[periode] = int(value)
+            
+            # Mettre à jour ou créer les détails
+            for periode, nombre in periodes_data.items():
+                DetailInventairePeriode.objects.update_or_create(
+                    inventaire=inventaire,
+                    periode=periode,
+                    defaults={'nombre_vehicules': nombre}
+                )
+            
+            # Supprimer les périodes non soumises
+            periodes_soumises = list(periodes_data.keys())
+            inventaire.details_periodes.exclude(periode__in=periodes_soumises).delete()
+            
+            # Recalculer les totaux
+            inventaire.recalculer_totaux()
+            
+            # Recalculer la recette associée si elle existe
+            try:
+                if hasattr(inventaire, 'recette'):
+                    inventaire.recette.calculer_indicateurs()
+                    inventaire.recette.save()
+            except:
+                pass
+            
+            # Journaliser l'action
+            log_user_action(
+                request.user,
+                "Modification inventaire",
+                f"Inventaire modifié: {inventaire.poste.nom} - {inventaire.date}",
+                request
+            )
+            
+            messages.success(request, "L'inventaire a été modifié avec succès.")
+            return redirect('inventaire_detail', pk=inventaire.pk)
+    else:
+        form = InventaireJournalierForm(
+            instance=inventaire,
+            user=request.user
+        )
+        
+        # Récupérer les détails existants
+        details = inventaire.details_periodes.all()
+        periodes_data = {d.periode: d.nombre_vehicules for d in details}
+    
+    context = {
+        'form': form,
+        'inventaire': inventaire,
+        'periodes_data': periodes_data,
+        'periodes_choices': [
+            ('08h-09h', '08h-09h'), ('09h-10h', '09h-10h'), 
+            ('10h-11h', '10h-11h'), ('11h-12h', '11h-12h'),
+            ('12h-13h', '12h-13h'), ('13h-14h', '13h-14h'), 
+            ('14h-15h', '14h-15h'), ('15h-16h', '15h-16h'),
+            ('16h-17h', '16h-17h'), ('17h-18h', '17h-18h')
+        ],
+        'title': f'Modifier inventaire du {inventaire.date}'
+    }
+    
+    return render(request, 'inventaire/modifier_inventaire.html', context)
 
+@login_required
+@require_permission('peut_gerer_inventaire')
+def supprimer_inventaire(request, pk):
+    """
+    Permet de supprimer un inventaire
+    Seuls les admins  peuvent supprimer
+    """
+    inventaire = get_object_or_404(InventaireJournalier, pk=pk)
+    
+    # Vérifier les permissions
+    if not request.user.peut_acceder_poste(inventaire.poste):
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return HttpResponseForbidden("Accès non autorisé")
+    
+    # Seuls admin et chef de poste peuvent supprimer
+    if not (request.user.is_admin()):
+        messages.error(request, "Seuls les administrateurs peuvent supprimer des inventaires.")
+        return HttpResponseForbidden("Permission insuffisante")
+    
+    if request.method == 'POST':
+        # Sauvegarder les infos pour le log
+        info_inventaire = f"{inventaire.poste.nom} - {inventaire.date}"
+        
+        # Vérifier s'il y a une recette associée
+        recette_associee = None
+        try:
+            recette_associee = inventaire.recette
+        except:
+            pass
+        
+        if recette_associee:
+            # Dissocier la recette
+            recette_associee.inventaire_associe = None
+            recette_associee.recette_potentielle = None
+            recette_associee.ecart = None
+            recette_associee.taux_deperdition = None
+            recette_associee.save()
+            messages.info(request, "La recette associée a été dissociée.")
+        
+        # Supprimer l'inventaire et ses détails (cascade)
+        inventaire.delete()
+        
+        # Journaliser l'action
+        log_user_action(
+            request.user,
+            "Suppression inventaire",
+            f"Inventaire supprimé: {info_inventaire}",
+            request
+        )
+        
+        messages.success(request, "L'inventaire a été supprimé avec succès.")
+        return redirect('liste_inventaires')
+    
+    # Vérifier s'il y a une recette associée pour avertir
+    has_recette = False
+    try:
+        has_recette = hasattr(inventaire, 'recette') and inventaire.recette is not None
+    except:
+        pass
+    
+    context = {
+        'inventaire': inventaire,
+        'has_recette': has_recette,
+        'title': 'Confirmer la suppression'
+    }
+    
+    return render(request, 'inventaire/confirmer_suppression.html', context)
+@login_required
+def saisir_recette(request):
+    """
+    Interface de saisie de recette pour les chefs de poste
+    Pas de vérification de jour ouvert/fermé
+    """
+    # Vérifier que l'utilisateur peut saisir des recettes
+    if not (request.user.is_chef_poste or request.user.is_admin):
+        messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
+        return HttpResponseForbidden("Accès non autorisé")
+    
+    # Déterminer les postes accessibles
+    postes = request.user.get_postes_accessibles()
+    
+    if request.method == 'POST':
+        form = RecetteJournaliereForm(request.POST, user=request.user)
+        
+        if form.is_valid():
+            recette = form.save(commit=False)
+            recette.chef_poste = request.user
+            recette.derniere_modification_par = request.user
+            
+            # Vérifier qu'une recette n'existe pas déjà
+            existing = RecetteJournaliere.objects.filter(
+                poste=recette.poste,
+                date=recette.date
+            ).first()
+            
+            if existing:
+                messages.warning(request, f"Une recette existe déjà pour {recette.poste.nom} le {recette.date}")
+                return redirect('modifier_recette', pk=existing.pk)
+            
+            # Chercher l'inventaire associé automatiquement
+            if form.cleaned_data.get('lier_inventaire', True):
+                try:
+                    inventaire = InventaireJournalier.objects.get(
+                        poste=recette.poste,
+                        date=recette.date
+                    )
+                    recette.inventaire_associe = inventaire
+                except InventaireJournalier.DoesNotExist:
+                    messages.info(request, "Aucun inventaire trouvé pour cette date.")
+            
+            # Sauvegarder (les calculs se font automatiquement)
+            recette.save()
+            
+            # Journaliser l'action
+            log_user_action(
+                request.user,
+                "Saisie recette",
+                f"Recette saisie: {recette.montant_declare} FCFA pour {recette.poste.nom} - {recette.date}",
+                request
+            )
+            
+            # Messages selon le taux de déperdition
+            if recette.taux_deperdition is not None:
+                statut = recette.get_statut_deperdition()
+                couleur = recette.get_couleur_alerte()
+                
+                if statut == 'Impertinent':
+                    messages.warning(request, f"Journée marquée comme impertinente (TD: {recette.taux_deperdition:.2f}%)")
+                elif couleur == 'danger':
+                    messages.warning(request, f"Attention: Taux de déperdition mauvais ({recette.taux_deperdition:.2f}%)")
+                elif couleur == 'warning':
+                    messages.info(request, f"Taux de déperdition acceptable ({recette.taux_deperdition:.2f}%)")
+                else:
+                    messages.success(request, f"Bon taux de déperdition ({recette.taux_deperdition:.2f}%)")
+            else:
+                messages.success(request, "Recette enregistrée avec succès.")
+            
+            return redirect('recette_detail', pk=recette.pk)
+    else:
+        # Pré-remplir avec la date du jour et le poste
+        initial_data = {
+            'date': timezone.now().date(),
+            'lier_inventaire': True
+        }
+        if request.user.poste_affectation:
+            initial_data['poste'] = request.user.poste_affectation
+            
+        form = RecetteJournaliereForm(initial=initial_data, user=request.user)
+    
+    # Récupérer les recettes récentes
+    recettes_recentes = RecetteJournaliere.objects.filter(
+        chef_poste=request.user
+    ).select_related('poste', 'inventaire_associe').order_by('-date')[:10]
+    
+    # Statistiques rapides
+    stats = {}
+    if recettes_recentes:
+        stats = {
+            'total_mois': recettes_recentes.filter(
+                date__month=timezone.now().month,
+                date__year=timezone.now().year
+            ).aggregate(
+                total=Sum('montant_declare')
+            )['total'] or 0,
+            'moyenne_taux': recettes_recentes.filter(
+                taux_deperdition__isnull=False
+            ).aggregate(
+                moyenne=Avg('taux_deperdition')
+            )['moyenne'] or 0
+        }
+    
+    context = {
+        'form': form,
+        'postes': postes,
+        'recettes_recentes': recettes_recentes,
+        'stats': stats,
+        'title': 'Saisir une recette journalière'
+    }
+    
+    return render(request, 'inventaire/saisir_recette.html', context)
+@login_required
+def modifier_recette(request, pk):
+    """
+    Permet de modifier une recette existante
+    """
+    recette = get_object_or_404(RecetteJournaliere, pk=pk)
+    
+    # Vérifier les permissions
+   
+    is_admin = request.user.is_admin()
+    can_access_poste = request.user.peut_acceder_poste(recette.poste)
+    
+    # Vérifier si peut modifier
+    can_modify = False
+    if is_admin:
+        can_modify = True
+    
+    if not can_modify:
+        messages.error(request, "Vous n'avez pas la permission de modifier cette recette.")
+        return HttpResponseForbidden("Permission insuffisante")
+    
+    if request.method == 'POST':
+        form = RecetteJournaliereForm(
+            request.POST,
+            instance=recette,
+            user=request.user
+        )
+        
+        if form.is_valid():
+            recette = form.save(commit=False)
+            recette.derniere_modification_par = request.user
+            
+            # Re-lier l'inventaire si demandé
+            if 'lier_inventaire' in request.POST:
+                try:
+                    inventaire = InventaireJournalier.objects.get(
+                        poste=recette.poste,
+                        date=recette.date
+                    )
+                    recette.inventaire_associe = inventaire
+                except InventaireJournalier.DoesNotExist:
+                    messages.info(request, "Aucun inventaire trouvé pour cette date.")
+            
+            recette.save()
+            
+            # Journaliser
+            log_user_action(
+                request.user,
+                "Modification recette",
+                f"Recette modifiée: {recette.poste.nom} - {recette.date}",
+                request
+            )
+            
+            messages.success(request, "La recette a été modifiée avec succès.")
+            return redirect('recette_detail', pk=recette.pk)
+    else:
+        form = RecetteJournaliereForm(
+            instance=recette,
+            user=request.user
+        )
+    
+    context = {
+        'form': form,
+        'recette': recette,
+        'title': f'Modifier recette du {recette.date}'
+    }
+    
+    return render(request, 'inventaire/modifier_recette.html', context)
+
+@login_required
+def supprimer_recette(request, pk):
+    """
+    Permet de supprimer une recette
+    """
+    recette = get_object_or_404(RecetteJournaliere, pk=pk)
+    
+    # Vérifier les permissions
+    if not (request.user.is_admin()):
+        messages.error(request, "Seuls les administrateurs  peuvent supprimer des recettes.")
+        return HttpResponseForbidden("Permission insuffisante")
+    
+    if not request.user.peut_acceder_poste(recette.poste):
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return HttpResponseForbidden("Accès non autorisé")
+    
+    if request.method == 'POST':
+        # Sauvegarder les infos
+        info_recette = f"{recette.poste.nom} - {recette.date} - {recette.montant_declare} FCFA"
+        
+        # Supprimer
+        recette.delete()
+        
+        # Journaliser
+        log_user_action(
+            request.user,
+            "Suppression recette",
+            f"Recette supprimée: {info_recette}",
+            request
+        )
+        
+        messages.success(request, "La recette a été supprimée avec succès.")
+        return redirect('liste_recettes')
+    
+    context = {
+        'recette': recette,
+        'title': 'Confirmer la suppression'
+    }
+    
+    return render(request, 'inventaire/confirmer_suppression_recette.html', context)
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def liste_inventaires_mensuels(request):
+    """
+    Liste des inventaires mensuels programmés
+    """
+    # Filtrer selon les permissions
+    if request.user.is_admin:
+        inventaires = InventaireMensuel.objects.all()
+    else:
+        postes = request.user.get_postes_accessibles()
+        inventaires = InventaireMensuel.objects.filter(
+            poste__in=postes
+        )
+    
+    # Filtres
+    mois = request.GET.get('mois')
+    annee = request.GET.get('annee')
+    poste_id = request.GET.get('poste')
+    motif = request.GET.get('motif')
+    
+    if mois:
+        inventaires = inventaires.filter(mois=mois)
+    if annee:
+        inventaires = inventaires.filter(annee=annee)
+    if poste_id:
+        inventaires = inventaires.filter(poste_id=poste_id)
+    if motif:
+        inventaires = inventaires.filter(motif=motif)
+    
+    # Ordering
+    inventaires = inventaires.select_related(
+        'poste', 'cree_par', 'programmation'
+    ).order_by('-annee', '-mois', 'poste__nom')
+    
+    # Statistiques
+    stats = {
+        'total': inventaires.count(),
+        'actifs': inventaires.filter(actif=True).count(),
+        'mois_courant': inventaires.filter(
+            mois=str(timezone.now().month).zfill(2),
+            annee=timezone.now().year
+        ).count()
+    }
+    
+    context = {
+        'inventaires': inventaires,
+        'stats': stats,
+        'postes': Poste.objects.filter(is_active=True),
+        'current_year': timezone.now().year,
+        'title': 'Inventaires mensuels'
+    }
+    
+    return render(request, 'inventaire/liste_inventaires_mensuels.html', context)
+
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def detail_inventaire_mensuel(request, pk):
+    """
+    Détail d'un inventaire mensuel avec tous les inventaires journaliers associés
+    """
+    inventaire_mensuel = get_object_or_404(InventaireMensuel, pk=pk)
+    
+    # Vérifier l'accès au poste
+    if not request.user.peut_acceder_poste(inventaire_mensuel.poste):
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return HttpResponseForbidden("Accès non autorisé")
+    
+    # Calculer les dates du mois
+    annee = inventaire_mensuel.annee
+    mois = int(inventaire_mensuel.mois)
+    date_debut = date(annee, mois, 1)
+    dernier_jour = calendar.monthrange(annee, mois)[1]
+    date_fin = date(annee, mois, dernier_jour)
+    
+    # Récupérer les inventaires journaliers du mois
+    inventaires_journaliers = InventaireJournalier.objects.filter(
+        poste=inventaire_mensuel.poste,
+        date__range=[date_debut, date_fin]
+    ).select_related('agent_saisie').prefetch_related('details_periodes')
+    
+    # Récupérer les recettes du mois
+    recettes = RecetteJournaliere.objects.filter(
+        poste=inventaire_mensuel.poste,
+        date__range=[date_debut, date_fin]
+    ).select_related('chef_poste', 'inventaire_associe')
+    
+    # Calculer les statistiques
+    stats = {
+        'total_vehicules': inventaires_journaliers.aggregate(
+            total=Sum('total_vehicules')
+        )['total'] or 0,
+        'total_recettes_declarees': recettes.aggregate(
+            total=Sum('montant_declare')
+        )['total'] or Decimal('0'),
+        'total_recettes_potentielles': recettes.aggregate(
+            total=Sum('recette_potentielle')
+        )['total'] or Decimal('0'),
+        'nombre_jours_saisis': inventaires_journaliers.count(),
+        'nombre_jours_impertinents': ConfigurationJour.objects.filter(
+            date__range=[date_debut, date_fin],
+            statut='impertinent'
+        ).count()
+    }
+    
+    # Calculer le taux moyen
+    if stats['total_recettes_potentielles'] > 0:
+        ecart = stats['total_recettes_declarees'] - stats['total_recettes_potentielles']
+        stats['taux_deperdition_moyen'] = (ecart / stats['total_recettes_potentielles']) * 100
+    else:
+        stats['taux_deperdition_moyen'] = None
+    
+    # Créer un calendrier du mois avec les données
+    cal = calendar.monthcalendar(annee, mois)
+    calendrier_data = []
+    
+    for semaine in cal:
+        semaine_data = []
+        for jour in semaine:
+            if jour == 0:
+                semaine_data.append(None)
+            else:
+                date_jour = date(annee, mois, jour)
+                inventaire = inventaires_journaliers.filter(date=date_jour).first()
+                recette = recettes.filter(date=date_jour).first()
+                config = ConfigurationJour.objects.filter(date=date_jour).first()
+                
+                semaine_data.append({
+                    'jour': jour,
+                    'date': date_jour,
+                    'inventaire': inventaire,
+                    'recette': recette,
+                    'config': config,
+                    'is_impertinent': config and config.statut == 'impertinent'
+                })
+        calendrier_data.append(semaine_data)
+    
+    context = {
+        'inventaire_mensuel': inventaire_mensuel,
+        'inventaires_journaliers': inventaires_journaliers,
+        'recettes': recettes,
+        'stats': stats,
+        'calendrier': calendrier_data,
+        'title': f'Inventaire mensuel - {inventaire_mensuel.get_mois_display()} {annee}'
+    }
+    
+    return render(request, 'inventaire/detail_inventaire_mensuel.html', context)
+@login_required
+@require_permission('peut_gerer_inventaire')
+def consolider_inventaire_mensuel(request):
+    """
+    Consolide les données d'un mois pour créer/mettre à jour les statistiques
+    """
+    if request.method != 'POST':
+        return redirect('liste_inventaires_mensuels')
+    
+    poste_id = request.POST.get('poste_id')
+    mois = request.POST.get('mois')
+    annee = request.POST.get('annee')
+    
+    if not all([poste_id, mois, annee]):
+        messages.error(request, "Paramètres manquants pour la consolidation.")
+        return redirect('liste_inventaires_mensuels')
+    
+    try:
+        poste = Poste.objects.get(pk=poste_id)
+        
+        # Vérifier l'accès
+        if not request.user.peut_acceder_poste(poste):
+            messages.error(request, "Vous n'avez pas accès à ce poste.")
+            return HttpResponseForbidden("Accès non autorisé")
+        
+        # Calculer les dates
+        annee_int = int(annee)
+        mois_int = int(mois)
+        date_debut = date(annee_int, mois_int, 1)
+        dernier_jour = calendar.monthrange(annee_int, mois_int)[1]
+        date_fin = date(annee_int, mois_int, dernier_jour)
+        
+        # Créer ou mettre à jour l'inventaire mensuel
+        inventaire_mensuel, created = InventaireMensuel.objects.update_or_create(
+            poste=poste,
+            mois=str(mois_int).zfill(2),
+            annee=annee_int,
+            defaults={
+                'titre': f"Inventaire {poste.nom} - {mois}/{annee}",
+                'cree_par': request.user if created else None,
+                'actif': True
+            }
+        )
+        
+        # Consolider les données
+        inventaire_mensuel.consolider_donnees()
+        
+        # Créer les statistiques périodiques
+        StatistiquesPeriodiques.calculer_statistiques_periode(
+            poste=poste,
+            type_periode='mensuelle',
+            date_debut=date_debut,
+            date_fin=date_fin
+        )
+        
+        # Journaliser
+        log_user_action(
+            request.user,
+            "Consolidation inventaire mensuel",
+            f"Consolidation effectuée pour {poste.nom} - {mois}/{annee}",
+            request
+        )
+        
+        messages.success(request, f"Consolidation réussie pour {poste.nom} - {mois}/{annee}")
+        return redirect('detail_inventaire_mensuel', pk=inventaire_mensuel.pk)
+        
+    except Poste.DoesNotExist:
+        messages.error(request, "Poste introuvable.")
+    except Exception as e:
+        messages.error(request, f"Erreur lors de la consolidation: {str(e)}")
+    
+    return redirect('liste_inventaires_mensuels')
 
 class ConfigurationJourListView(AdminRequiredMixin, ListView):
     """Liste des configurations de jours"""
@@ -2637,201 +3245,417 @@ def redirect_to_dashboard(request):
 @login_required
 @require_permission('peut_gerer_inventaire')
 def programmer_inventaire(request):
-    """Vue pour programmer des inventaires mensuels pour les postes"""
-    
-    if request.method == 'POST':
-        postes_ids = request.POST.getlist('postes')
-        mois_str = request.POST.get('mois')
-        motif = request.POST.get('motif')
-        taux_deperdition_manuel = request.POST.get('taux_deperdition_manuel')
-        
-        # Convertir le mois en date (premier jour du mois)
-        try:
-            mois = datetime.strptime(mois_str, '%Y-%m').date()
-        except:
-            messages.error(request, "Format de mois invalide")
-            return redirect('programmer_inventaire')
-        
-        # Créer les programmations pour chaque poste sélectionné
-        postes_programmes = []
-        for poste_id in postes_ids:
-            try:
-                poste = Poste.objects.get(id=poste_id)
-                
-                # Créer ou mettre à jour la programmation
-                prog, created = ProgrammationInventaire.objects.update_or_create(
-                    poste=poste,
-                    mois=mois,
-                    defaults={
-                        'motif': motif,
-                        'cree_par': request.user,
-                        'actif': True
-                    }
-                )
-                
-                # Si c'est pour taux de déperdition et qu'un taux manuel est fourni
-                if motif == MotifInventaire.TAUX_DEPERDITION and taux_deperdition_manuel:
-                    prog.taux_deperdition_precedent = Decimal(taux_deperdition_manuel)
-                    prog.save()
-                
-                # Calculer automatiquement les indicateurs selon le motif
-                if motif == MotifInventaire.RISQUE_BAISSE_ANNUEL:
-                    prog.calculer_risque_baisse_annuel()
-                elif motif == MotifInventaire.RISQUE_GRAND_STOCK:
-                    # Récupérer le stock depuis la dernière recette
-                    derniere_recette = RecetteJournaliere.objects.filter(
-                        poste=poste,
-                        stock_tickets_restant__isnull=False
-                    ).order_by('-date').first()
-                    
-                    if derniere_recette:
-                        prog.stock_restant = derniere_recette.stock_tickets_restant
-                        prog.calculer_date_epuisement_stock()
-                
-                prog.save()
-                postes_programmes.append(poste.nom)
-                
-                # Journaliser l'action
-                log_user_action_detailed(
-                    request.user,
-                    "Programmation inventaire",
-                    f"L'administrateur {request.user.nom_complet} a programmé un inventaire pour {poste.nom} "
-                    f"en {mois.strftime('%B %Y')} - Motif: {prog.get_motif_display()}",
-                    request
-                )
-                
-            except Poste.DoesNotExist:
-                continue
-        
-        if postes_programmes:
-            messages.success(
-                request,
-                f"Inventaires programmés pour {len(postes_programmes)} poste(s): {', '.join(postes_programmes[:3])}..."
-            )
-        
-        return redirect('liste_programmations')
-    
-    # GET: Afficher le formulaire
-    postes = Poste.objects.filter(is_active=True).order_by('region', 'nom')
-    
-    # Analyser les postes pour suggérer les programmations
-    suggestions = []
-    
-    for poste in postes:
-        suggestion = {
-            'poste': poste,
-            'motifs': []
-        }
-        
-        # Vérifier le taux de déperdition
-        derniere_recette = RecetteJournaliere.objects.filter(
-            poste=poste,
-            taux_deperdition__isnull=False
-        ).order_by('-date').first()
-        
-        if derniere_recette:
-            if derniere_recette.taux_deperdition < -30:
-                suggestion['motifs'].append({
-                    'type': 'taux_deperdition',
-                    'valeur': derniere_recette.taux_deperdition,
-                    'alerte': 'danger'
-                })
-            elif derniere_recette.taux_deperdition < -10:
-                suggestion['motifs'].append({
-                    'type': 'taux_deperdition',
-                    'valeur': derniere_recette.taux_deperdition,
-                    'alerte': 'warning'
-                })
-        
-        # Vérifier le risque de baisse annuel
-        annee_actuelle = date.today().year
-        debut_annee = date(annee_actuelle, 1, 1)
-        fin_periode = date.today()
-        
-        recettes_actuelles = RecetteJournaliere.objects.filter(
-            poste=poste,
-            date__range=[debut_annee, fin_periode]
-        ).aggregate(total=Sum('montant_declare'))['total'] or 0
-        
-        # Même période l'année précédente
-        annee_precedente = annee_actuelle - 1
-        debut_annee_prec = date(annee_precedente, 1, 1)
-        fin_periode_prec = date(annee_precedente, fin_periode.month, fin_periode.day)
-        
-        recettes_precedentes = RecetteJournaliere.objects.filter(
-            poste=poste,
-            date__range=[debut_annee_prec, fin_periode_prec]
-        ).aggregate(total=Sum('montant_declare'))['total'] or 0
-        
-        if recettes_precedentes > 0 and recettes_actuelles < recettes_precedentes:
-            pourcentage_baisse = ((recettes_precedentes - recettes_actuelles) / recettes_precedentes) * 100
-            suggestion['motifs'].append({
-                'type': 'risque_baisse',
-                'valeur': pourcentage_baisse,
-                'recettes_actuelles': recettes_actuelles,
-                'recettes_precedentes': recettes_precedentes
-            })
-        
-        # Vérifier le risque de grand stock
-        derniere_recette_stock = RecetteJournaliere.objects.filter(
-            poste=poste,
-            stock_tickets_restant__isnull=False
-        ).order_by('-date').first()
-        
-        if derniere_recette_stock and derniere_recette_stock.stock_tickets_restant > 0:
-            # Calculer la moyenne journalière
-            moyenne_journaliere = RecetteJournaliere.objects.filter(
-                poste=poste,
-                date__gte=date.today() - timedelta(days=30)
-            ).aggregate(moyenne=Avg('montant_declare'))['moyenne'] or 0
-            
-            if moyenne_journaliere > 0:
-                tickets_par_jour = moyenne_journaliere / 500
-                if tickets_par_jour > 0:
-                    jours_restants = derniere_recette_stock.stock_tickets_restant / tickets_par_jour
-                    date_epuisement = date.today() + timedelta(days=int(jours_restants))
-                    fin_annee = date(date.today().year, 12, 31)
-                    
-                    if date_epuisement > fin_annee:
-                        suggestion['motifs'].append({
-                            'type': 'grand_stock',
-                            'stock_restant': derniere_recette_stock.stock_tickets_restant,
-                            'date_epuisement': date_epuisement
-                        })
-        
-        if suggestion['motifs']:
-            suggestions.append(suggestion)
+    """Vue pour programmer des inventaires sans JavaScript"""
+    import logging
+    logger = logging.getLogger('supper')
     
     context = {
-        'postes': postes,
-        'suggestions': suggestions,
-        'motifs': MotifInventaire.choices,
         'mois_disponibles': [
             (date.today() + timedelta(days=30*i)).strftime('%Y-%m')
-            for i in range(1, 4)  # Proposer les 3 prochains mois
+            for i in range(0, 6)
         ]
     }
     
+    # Récupérer le mois sélectionné
+    mois_str = request.GET.get('mois') or request.POST.get('mois')
+    logger.debug(f"[DEBUG] Mois sélectionné: {mois_str}")
+    
+    if mois_str:
+        context['mois_selectionne'] = mois_str
+        try:
+            mois = datetime.strptime(mois_str, '%Y-%m').date()
+            context['mois'] = mois
+        except Exception as e:
+            logger.error(f"[ERROR] Format de mois invalide: {e}")
+            messages.error(request, "Format de mois invalide")
+            return render(request, 'inventaire/programmer_inventaire.html', context)
+    
+    # Si on clique sur "Générer" pour un motif
+    if request.method == 'POST' and 'generer' in request.POST:
+        motif = request.POST.get('motif')
+        logger.info(f"[INFO] Génération pour motif: {motif}, mois: {mois_str}")
+        context['motif_selectionne'] = motif
+        
+        try:
+            if motif == 'risque_baisse':
+                postes_data = ProgrammationInventaire.get_postes_avec_risque_baisse()
+                context['postes_risque_baisse'] = postes_data
+                logger.debug(f"[DEBUG] Postes risque baisse trouvés: {len(postes_data)}")
+                
+            elif motif == 'grand_stock':
+                postes_data = ProgrammationInventaire.get_postes_avec_grand_stock()
+                context['postes_grand_stock'] = postes_data
+                logger.debug(f"[DEBUG] Postes grand stock trouvés: {len(postes_data)}")
+                
+            elif motif == 'taux_deperdition':
+                # Récupérer TOUS les postes actifs d'abord
+                tous_postes = Poste.objects.filter(is_active=True)
+                logger.debug(f"[DEBUG] Total postes actifs: {tous_postes.count()}")
+                
+                # Récupérer les postes avec taux
+                postes_taux = []
+                for poste in tous_postes:
+                    # Chercher le dernier taux de déperdition
+                    derniere_recette = RecetteJournaliere.objects.filter(
+                        poste=poste,
+                        taux_deperdition__isnull=False
+                    ).order_by('-date').first()
+                    
+                    if derniere_recette:
+                        postes_taux.append({
+                            'poste': poste,
+                            'taux_deperdition': derniere_recette.taux_deperdition,
+                            'date_calcul': derniere_recette.date,
+                            'alerte': derniere_recette.get_couleur_alerte()
+                        })
+                        logger.debug(f"[DEBUG] Poste {poste.nom}: taux={derniere_recette.taux_deperdition}")
+                
+                # Les autres postes sans taux
+                postes_avec_taux_ids = [p['poste'].id for p in postes_taux]
+                autres_postes = tous_postes.exclude(id__in=postes_avec_taux_ids)
+                
+                context['postes_taux'] = postes_taux
+                context['autres_postes'] = autres_postes
+                
+                logger.info(f"[INFO] Postes avec taux: {len(postes_taux)}, Sans taux: {autres_postes.count()}")
+                
+                # Si aucun poste trouvé
+                if not postes_taux and not autres_postes.exists():
+                    context['aucun_poste'] = True
+                    messages.warning(request, "Aucun poste actif trouvé dans le système")
+            
+            # Vérifier les programmations existantes
+            if mois_str and motif:
+                prog_existantes = ProgrammationInventaire.objects.filter(
+                    mois=mois,
+                    motif=motif,
+                    actif=True
+                ).values_list('poste_id', flat=True)
+                context['programmations_existantes'] = list(prog_existantes)
+                logger.debug(f"[DEBUG] Programmations existantes: {len(prog_existantes)}")
+                
+        except Exception as e:
+            logger.error(f"[ERROR] Erreur lors de la génération: {str(e)}")
+            messages.error(request, f"Erreur lors de la génération: {str(e)}")
+    
+    # Si on soumet le formulaire final
+    if request.method == 'POST' and 'programmer' in request.POST:
+        motif = request.POST.get('motif')
+        postes_ids = request.POST.getlist('postes')
+        logger.info(f"[INFO] Programmation finale - Motif: {motif}, Postes: {len(postes_ids)}")
+        
+        if not postes_ids:
+            messages.error(request, "Veuillez sélectionner au moins un poste")
+        else:
+            postes_programmes = []
+            postes_deja_programmes = []
+            
+            for poste_id in postes_ids:
+                try:
+                    poste = Poste.objects.get(id=poste_id)
+                    
+                    if ProgrammationInventaire.objects.filter(
+                        poste=poste,
+                        mois=mois,
+                        motif=motif,
+                        actif=True
+                    ).exists():
+                        postes_deja_programmes.append(poste.nom)
+                        continue
+                    
+                    prog = ProgrammationInventaire.objects.create(
+                        poste=poste,
+                        mois=mois,
+                        motif=motif,
+                        cree_par=request.user,
+                        actif=True
+                    )
+                    
+                    if motif == MotifInventaire.GRAND_STOCK:
+                        stock_key = f'stock_{poste_id}'
+                        if stock_key in request.POST:
+                            prog.stock_restant = int(request.POST[stock_key])
+                    elif motif == MotifInventaire.TAUX_DEPERDITION:
+                        taux_key = f'taux_{poste_id}'
+                        if taux_key in request.POST:
+                            prog.taux_deperdition_precedent = Decimal(request.POST[taux_key])
+                    
+                    prog.save()
+                    postes_programmes.append(poste.nom)
+                    logger.info(f"[INFO] Programmation créée pour: {poste.nom}")
+                    
+                except Exception as e:
+                    logger.error(f"[ERROR] Erreur pour poste {poste_id}: {str(e)}")
+                    messages.error(request, f"Erreur pour le poste: {str(e)}")
+            
+            if postes_programmes:
+                messages.success(request, f"✅ {len(postes_programmes)} programmation(s) créée(s)")
+            if postes_deja_programmes:
+                messages.warning(request, f"⚠️ {len(postes_deja_programmes)} poste(s) déjà programmé(s)")
+            
+            return redirect('inventaire:liste_programmations')
+    
+    # Log final du contexte
+    logger.debug(f"[DEBUG] Contexte final: motif={context.get('motif_selectionne')}, "
+                f"postes_taux={len(context.get('postes_taux', []))}, "
+                f"autres_postes={context.get('autres_postes').count() if 'autres_postes' in context else 0}")
+    
     return render(request, 'inventaire/programmer_inventaire.html', context)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_get_postes_par_motif(request):
+    """API pour récupérer les postes selon le motif sélectionné"""
+    
+    motif = request.GET.get('motif')
+    mois = request.GET.get('mois')
+    
+    if not motif:
+        return JsonResponse({'error': 'Motif requis'}, status=400)
+    
+    # Convertir le mois si fourni
+    mois_date = None
+    if mois:
+        try:
+            mois_date = datetime.strptime(mois, '%Y-%m').date()
+        except:
+            pass
+    
+    data = {
+        'postes': [],
+        'postes_sugeres': [],
+        'total_postes': 0
+    }
+    
+    if motif == MotifInventaire.RISQUE_BAISSE:
+        # Récupérer les postes avec risque de baisse
+        postes_risque = ProgrammationInventaire.get_postes_avec_risque_baisse()
+        
+        for item in postes_risque:
+            # Vérifier si déjà programmé pour ce mois/motif
+            deja_programme = False
+            if mois_date:
+                deja_programme = ProgrammationInventaire.objects.filter(
+                    poste=item['poste'],
+                    mois=mois_date,
+                    motif=motif,
+                    actif=True
+                ).exists()
+            
+            data['postes_sugeres'].append({
+                'id': item['poste'].id,
+                'nom': item['poste'].nom,
+                'code': item['poste'].code,
+                'region': item['poste'].get_region_display(),
+                'recettes_actuelles': float(item['recettes_actuelles']),
+                'recettes_precedentes': float(item['recettes_precedentes']),
+                'pourcentage_baisse': float(item['pourcentage_baisse']),
+                'selectionne': True,  # Pré-sélectionné
+                'deja_programme': deja_programme
+            })
+    
+    elif motif == MotifInventaire.GRAND_STOCK:
+        # Récupérer les postes avec grand stock
+        postes_stock = ProgrammationInventaire.get_postes_avec_grand_stock()
+        
+        for item in postes_stock:
+            deja_programme = False
+            if mois_date:
+                deja_programme = ProgrammationInventaire.objects.filter(
+                    poste=item['poste'],
+                    mois=mois_date,
+                    motif=motif,
+                    actif=True
+                ).exists()
+            
+            data['postes_sugeres'].append({
+                'id': item['poste'].id,
+                'nom': item['poste'].nom,
+                'code': item['poste'].code,
+                'region': item['poste'].get_region_display(),
+                'stock_restant': item['stock_restant'],
+                'date_epuisement': item['date_epuisement'].strftime('%d/%m/%Y'),
+                'jours_restants': item['jours_restants'],
+                'selectionne': True,  # Pré-sélectionné
+                'deja_programme': deja_programme
+            })
+    
+    elif motif == MotifInventaire.TAUX_DEPERDITION:
+        # Récupérer TOUS les postes avec leur taux si disponible
+        postes_taux = ProgrammationInventaire.get_postes_avec_taux_deperdition()
+        postes_avec_taux_ids = [item['poste'].id for item in postes_taux]
+        
+        # Postes avec taux (pré-sélectionnés)
+        for item in postes_taux:
+            deja_programme = False
+            if mois_date:
+                deja_programme = ProgrammationInventaire.objects.filter(
+                    poste=item['poste'],
+                    mois=mois_date,
+                    motif=motif,
+                    actif=True
+                ).exists()
+            
+            data['postes_sugeres'].append({
+                'id': item['poste'].id,
+                'nom': item['poste'].nom,
+                'code': item['poste'].code,
+                'region': item['poste'].get_region_display(),
+                'taux_deperdition': float(item['taux_deperdition']),
+                'date_calcul': item['date_calcul'].strftime('%d/%m/%Y'),
+                'alerte': item['alerte'],
+                'selectionne': float(item['taux_deperdition']) < -10,  # Sélectionné si taux < -10%
+                'deja_programme': deja_programme
+            })
+        
+        # Ajouter les autres postes (non sélectionnés)
+        autres_postes = Poste.objects.filter(
+            is_active=True
+        ).exclude(id__in=postes_avec_taux_ids)
+        
+        for poste in autres_postes:
+            deja_programme = False
+            if mois_date:
+                deja_programme = ProgrammationInventaire.objects.filter(
+                    poste=poste,
+                    mois=mois_date,
+                    motif=motif,
+                    actif=True
+                ).exists()
+            
+            data['postes'].append({
+                'id': poste.id,
+                'nom': poste.nom,
+                'code': poste.code,
+                'region': poste.get_region_display(),
+                'taux_deperdition': None,
+                'selectionne': False,
+                'deja_programme': deja_programme
+            })
+    
+    data['total_postes'] = len(data['postes']) + len(data['postes_sugeres'])
+    
+    return JsonResponse(data)
+
+
 @login_required
 def liste_programmations(request):
-    """Vue pour afficher la liste des programmations d'inventaires"""
+    """Vue pour afficher la liste des programmations groupées par poste"""
     
-    # Filtrer selon le rôle de l'utilisateur
-    if request.user.is_admin():
-        programmations = ProgrammationInventaire.objects.filter(is_active=True)
+    # Récupérer toutes les programmations actives
+    if request.user.is_admin:
+        programmations = ProgrammationInventaire.objects.filter(actif=True)
     else:
-        # Les chefs de poste et agents voient seulement leurs programmations
         programmations = ProgrammationInventaire.objects.filter(
-            is_active=True,
+            actif=True,
             poste__in=request.user.get_postes_accessibles()
         )
     
-    programmations = programmations.select_related('poste', 'cree_par').order_by('-mois', 'poste__nom')
+    # Grouper par poste et mois
+    programmations_groupees = {}
+    
+    for prog in programmations.select_related('poste', 'cree_par'):
+        key = f"{prog.poste.id}_{prog.mois.strftime('%Y-%m')}"
+        
+        if key not in programmations_groupees:
+            programmations_groupees[key] = {
+                'poste': prog.poste,
+                'mois': prog.mois,
+                'motifs': [],
+                'cree_par': prog.cree_par,
+                'date_creation': prog.date_creation
+            }
+        
+        # Ajouter les détails du motif
+        motif_detail = {
+            'type': prog.motif,
+            'display': prog.get_motif_display()
+        }
+        
+        if prog.motif == MotifInventaire.TAUX_DEPERDITION:
+            motif_detail['taux'] = prog.taux_deperdition_precedent
+        elif prog.motif == MotifInventaire.RISQUE_BAISSE:
+            motif_detail['pourcentage_baisse'] = prog.pourcentage_baisse
+        elif prog.motif == MotifInventaire.GRAND_STOCK:
+            motif_detail['stock_restant'] = prog.stock_restant
+            motif_detail['date_epuisement'] = prog.date_epuisement_prevu
+        
+        programmations_groupees[key]['motifs'].append(motif_detail)
+    
+    # Trier par mois décroissant et poste
+    programmations_liste = sorted(
+        programmations_groupees.values(),
+        key=lambda x: (x['mois'], x['poste'].nom),
+        reverse=True
+    )
     
     context = {
-        'programmations': programmations,
+        'programmations': programmations_liste,
         'user_role': request.user.get_habilitation_display()
     }
     
     return render(request, 'inventaire/liste_programmations.html', context)
+
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+@require_http_methods(["POST"])
+def desactiver_programmation(request, poste_id, mois, motif):
+    """Désactive une programmation spécifique"""
+    
+    try:
+        mois_date = datetime.strptime(mois, '%Y-%m').date()
+        
+        prog = get_object_or_404(
+            ProgrammationInventaire,
+            poste_id=poste_id,
+            mois=mois_date,
+            motif=motif,
+            actif=True
+        )
+        
+        prog.actif = False
+        prog.save()
+        
+        messages.success(
+            request,
+            f"Programmation désactivée pour {prog.poste.nom} - {prog.get_motif_display()}"
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+@require_http_methods(["DELETE"])
+def supprimer_programmation(request, poste_id, mois, motif):
+    """Supprime définitivement une programmation"""
+    
+    try:
+        mois_date = datetime.strptime(mois, '%Y-%m').date()
+        
+        prog = get_object_or_404(
+            ProgrammationInventaire,
+            poste_id=poste_id,
+            mois=mois_date,
+            motif=motif
+        )
+        
+        poste_nom = prog.poste.nom
+        motif_display = prog.get_motif_display()
+        
+        prog.delete()
+        
+        messages.success(
+            request,
+            f"Programmation supprimée pour {poste_nom} - {motif_display}"
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)

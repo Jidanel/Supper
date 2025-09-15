@@ -44,6 +44,7 @@ class MotifInventaire(models.TextChoices):
 class ProgrammationInventaire(models.Model):
     """
     Modèle pour programmer des inventaires mensuels par poste
+    Un poste peut avoir plusieurs motifs pour le même mois
     """
     poste = models.ForeignKey(
         Poste,
@@ -96,6 +97,14 @@ class ProgrammationInventaire(models.Model):
         blank=True,
         verbose_name=_("Recettes même période année précédente")
     )
+
+    pourcentage_baisse = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Pourcentage de baisse (%)")
+    )
     
     # Données pour le risque de grand stock
     stock_restant = models.IntegerField(
@@ -138,13 +147,15 @@ class ProgrammationInventaire(models.Model):
     class Meta:
         verbose_name = _("Programmation inventaire")
         verbose_name_plural = _("Programmations inventaires")
-        unique_together = [['poste', 'mois']]
-        ordering = ['-mois', 'poste__nom']
+        # CHANGEMENT : Un poste peut avoir plusieurs motifs pour le même mois
+        unique_together = [['poste', 'mois', 'motif']]  # Ajout du motif dans la contrainte
+        ordering = ['-mois', 'poste__nom', 'motif']
         indexes = [
             models.Index(fields=['poste', '-mois']),
             models.Index(fields=['motif']),
             models.Index(fields=['actif']),
         ]
+    
     
     def __str__(self):
         return f"Programmation {self.poste.nom} - {self.mois.strftime('%B %Y')} - {self.get_motif_display()}"
@@ -183,8 +194,13 @@ class ProgrammationInventaire(models.Model):
         self.recettes_periode_actuelle = recettes_actuelles
         self.recettes_periode_precedente = recettes_precedentes
         
-        # Déterminer le risque
-        self.risque_baisse_annuel = recettes_actuelles < recettes_precedentes
+        # Calculer le pourcentage de baisse
+        if recettes_precedentes > 0 and recettes_actuelles < recettes_precedentes:
+            self.pourcentage_baisse = ((recettes_precedentes - recettes_actuelles) / recettes_precedentes) * 100
+            self.risque_baisse_annuel = True
+        else:
+            self.pourcentage_baisse = 0
+            self.risque_baisse_annuel = False
         
         return self.risque_baisse_annuel
     
@@ -224,14 +240,118 @@ class ProgrammationInventaire(models.Model):
         
         return None
     
+    @classmethod
+    def get_postes_avec_risque_baisse(cls):
+        """Retourne les postes avec risque de baisse annuel"""
+        from datetime import date
+        from django.db.models import Sum
+        
+        postes_risque = []
+        annee_actuelle = date.today().year
+        debut_annee = date(annee_actuelle, 1, 1)
+        fin_periode = date.today()
+        
+        # Même période l'année précédente
+        annee_precedente = annee_actuelle - 1
+        debut_annee_prec = date(annee_precedente, 1, 1)
+        fin_periode_prec = date(annee_precedente, fin_periode.month, fin_periode.day)
+        
+        for poste in Poste.objects.filter(is_active=True):
+            # Recettes actuelles
+            recettes_actuelles = RecetteJournaliere.objects.filter(
+                poste=poste,
+                date__range=[debut_annee, fin_periode]
+            ).aggregate(total=Sum('montant_declare'))['total'] or 0
+            
+            # Recettes précédentes
+            recettes_precedentes = RecetteJournaliere.objects.filter(
+                poste=poste,
+                date__range=[debut_annee_prec, fin_periode_prec]
+            ).aggregate(total=Sum('montant_declare'))['total'] or 0
+            
+            if recettes_precedentes > 0 and recettes_actuelles < recettes_precedentes:
+                pourcentage_baisse = ((recettes_precedentes - recettes_actuelles) / recettes_precedentes) * 100
+                postes_risque.append({
+                    'poste': poste,
+                    'recettes_actuelles': recettes_actuelles,
+                    'recettes_precedentes': recettes_precedentes,
+                    'pourcentage_baisse': pourcentage_baisse
+                })
+        
+        return postes_risque
+    
+    @classmethod
+    def get_postes_avec_grand_stock(cls):
+        """Retourne les postes avec risque de grand stock"""
+        from datetime import date, timedelta
+        from django.db.models import Avg
+        
+        postes_stock = []
+        fin_annee = date(date.today().year, 12, 31)
+        
+        for poste in Poste.objects.filter(is_active=True):
+            # Récupérer le dernier stock connu
+            derniere_recette = RecetteJournaliere.objects.filter(
+                poste=poste,
+                stock_tickets_restant__isnull=False
+            ).order_by('-date').first()
+            
+            if derniere_recette and derniere_recette.stock_tickets_restant > 0:
+                # Calculer la moyenne journalière
+                fin = date.today()
+                debut = fin - timedelta(days=30)
+                
+                moyenne_journaliere = RecetteJournaliere.objects.filter(
+                    poste=poste,
+                    date__range=[debut, fin]
+                ).aggregate(moyenne=Avg('montant_declare'))['moyenne'] or 0
+                
+                if moyenne_journaliere > 0:
+                    tickets_par_jour = moyenne_journaliere / 500
+                    if tickets_par_jour > 0:
+                        jours_restants = derniere_recette.stock_tickets_restant / tickets_par_jour
+                        date_epuisement = date.today() + timedelta(days=int(jours_restants))
+                        
+                        if date_epuisement > fin_annee:
+                            postes_stock.append({
+                                'poste': poste,
+                                'stock_restant': derniere_recette.stock_tickets_restant,
+                                'date_epuisement': date_epuisement,
+                                'jours_restants': int(jours_restants)
+                            })
+        
+        return postes_stock
+    
+    @classmethod
+    def get_postes_avec_taux_deperdition(cls):
+        """Retourne les postes avec leur dernier taux de déperdition"""
+        postes_taux = []
+        
+        for poste in Poste.objects.filter(is_active=True):
+            # Récupérer le dernier taux de déperdition
+            derniere_recette = RecetteJournaliere.objects.filter(
+                poste=poste,
+                taux_deperdition__isnull=False
+            ).order_by('-date').first()
+            
+            if derniere_recette:
+                postes_taux.append({
+                    'poste': poste,
+                    'taux_deperdition': derniere_recette.taux_deperdition,
+                    'date_calcul': derniere_recette.date,
+                    'alerte': derniere_recette.get_couleur_alerte()
+                })
+        
+        return postes_taux
+    
     def save(self, *args, **kwargs):
         """Calculs automatiques avant sauvegarde"""
         # Si c'est un risque de baisse annuel, calculer automatiquement
-        if self.motif == MotifInventaire.RISQUE_BAISSE_ANNUEL:
+        if self.motif == MotifInventaire.RISQUE_BAISSE:
             self.calculer_risque_baisse_annuel()
         
         # Si c'est un risque de grand stock, calculer la date d'épuisement
-        if self.motif == MotifInventaire.RISQUE_GRAND_STOCK:
+        if self.motif == MotifInventaire.GRAND_STOCK:
             self.calculer_date_epuisement_stock()
         
         # Si c'est pour taux de déperdition et qu'il n'y a pas de taux précédent
@@ -246,7 +366,6 @@ class ProgrammationInventaire(models.Model):
                 self.taux_deperdition_precedent = derniere_recette.taux_deperdition
         
         super().save(*args, **kwargs)
-
 class InventaireMensuel(models.Model):
     """
     Modèle pour organiser les inventaires par mois

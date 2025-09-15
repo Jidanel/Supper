@@ -1,0 +1,126 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Inventaires mensuels{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between">
+                    <h3><i class="fas fa-calendar-alt"></i> Inventaires mensuels programmés</h3>
+                    <a href="{% url 'inventaire:programmer_inventaire' %}" class="btn btn-light">
+                        <i class="fas fa-plus"></i> Programmer
+                    </a>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Filtres -->
+                    <form method="get" class="mb-3">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <select name="mois" class="form-control">
+                                    <option value="">-- Tous les mois --</option>
+                                    {% for i in "123456789"|make_list %}
+                                    <option value="0{{ i }}">{{ i|date:"F" }}</option>
+                                    {% endfor %}
+                                    {% for i in "101112"|make_list %}
+                                    <option value="{{ i }}">{{ i|date:"F" }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="annee" class="form-control">
+                                    <option value="">-- Toutes les années --</option>
+                                    <option value="{{ current_year }}">{{ current_year }}</option>
+                                    <option value="{{ current_year|add:-1 }}">{{ current_year|add:-1 }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="poste" class="form-control">
+                                    <option value="">-- Tous les postes --</option>
+                                    {% for poste in postes %}
+                                    <option value="{{ poste.id }}">{{ poste.nom }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Filtrer
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Statistiques -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="alert alert-info">
+                                Total : <strong>{{ stats.total }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-success">
+                                Actifs : <strong>{{ stats.actifs }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                Mois courant : <strong>{{ stats.mois_courant }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Liste -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Mois/Année</th>
+                                    <th>Poste</th>
+                                    <th>Motif</th>
+                                    <th>Créé par</th>
+                                    <th>État</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for inventaire in inventaires %}
+                                <tr>
+                                    <td>{{ inventaire.get_mois_display }} {{ inventaire.annee }}</td>
+                                    <td>{{ inventaire.poste.nom }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ inventaire.get_motif_display }}</span>
+                                    </td>
+                                    <td>{{ inventaire.cree_par.nom_complet|default:"-" }}</td>
+                                    <td>
+                                        {% if inventaire.actif %}
+                                        <span class="badge bg-success">Actif</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactif</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'inventaire:detail_inventaire_mensuel' inventaire.pk %}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        Aucun inventaire mensuel trouvé
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

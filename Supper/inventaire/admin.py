@@ -233,139 +233,11 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
         count = queryset.update(statut='normal')
         self.message_user(request, f'{count} jour(s) marqué(s) comme normal(aux).')
     marquer_normal.short_description = '✓ Marquer comme normal'
-
-    # def get_config_summary(self, obj):
-    #     """Résumé de la configuration"""
-    #     return obj.get_config_summary()
-    # get_config_summary.short_description = 'Résumé configuration'
     
-    
-    # def get_form(self, request, obj=None, **kwargs):
-    #     """Personnaliser le formulaire"""
-    #     form = super().get_form(request, obj, **kwargs)
-        
-    #     # Ajouter des attributs HTML personnalisés
-    #     if 'date' in form.base_fields:
-    #         form.base_fields['date'].widget.attrs.update({
-    #             'class': 'supper-date-input',
-    #             'placeholder': 'Sélectionnez une date',
-    #         })
-        
-    #     return form
-    
-    # # # Actions en lot améliorées
-    # # actions = [
-    # #     'ouvrir_jours_selectionnes', 'fermer_jours_selectionnes', 
-    # #     'dupliquer_configuration', 'ouvrir_semaine_complete'
-    # # ]
-    
-    # # def ouvrir_jours_selectionnes(self, request, queryset):
-    # #     """Ouvre les jours sélectionnés pour toutes les saisies"""
-    # #     updated = queryset.update(
-    # #         statut='ouvert',
-    # #         permet_saisie_inventaire=True,
-    # #         permet_saisie_recette=True
-    # #     )
-    # #     self.message_user(
-    # #         request, 
-    # #         f'{updated} jour(s) ouvert(s) avec succès pour inventaires et recettes.'
-    # #     )
-    # # ouvrir_jours_selectionnes.short_description = "Ouvrir pour toutes les saisies"
-    
-    # # def fermer_jours_selectionnes(self, request, queryset):
-    # #     """Ferme les jours sélectionnés"""
-    # #     updated = queryset.update(
-    # #         statut='ferme',
-    # #         permet_saisie_inventaire=False,
-    # #         permet_saisie_recette=False
-    # #     )
-    # #     self.message_user(
-    # #         request,
-    # #         f'{updated} jour(s) fermé(s) avec succès.'
-    # #     )
-    # # fermer_jours_selectionnes.short_description = "Fermer les jours sélectionnés"
-    
-    # def dupliquer_configuration(self, request, queryset):
-    #     """Duplique la configuration pour d'autres postes"""
-    #     if queryset.count() != 1:
-    #         self.message_user(
-    #             request,
-    #             "Sélectionnez exactement une configuration à dupliquer.",
-    #             level='ERROR'
-    #         )
-    #         return
-        
-    #     config_originale = queryset.first()
-        
-    #     # Dupliquer pour tous les postes (configuration globale -> spécifique)
-    #     if not config_originale.poste:
-    #         from accounts.models import Poste
-    #         postes = Poste.objects.filter(actif=True)
-    #         created = 0
-            
-    #         for poste in postes:
-    #             if not ConfigurationJour.objects.filter(
-    #                 date=config_originale.date, poste=poste
-    #             ).exists():
-    #                 ConfigurationJour.objects.create(
-    #                     date=config_originale.date,
-    #                     poste=poste,
-    #                     statut=config_originale.statut,
-    #                     permet_saisie_inventaire=config_originale.permet_saisie_inventaire,
-    #                     permet_saisie_recette=config_originale.permet_saisie_recette,
-    #                     cree_par=request.user,
-    #                     commentaire=f"Dupliqué depuis configuration globale"
-    #                 )
-    #                 created += 1
-            
-    #         self.message_user(
-    #             request,
-    #             f'Configuration dupliquée pour {created} poste(s).'
-    #         )
-    # dupliquer_configuration.short_description = "Dupliquer la configuration"
-    
-    # def ouvrir_semaine_complete(self, request, queryset):
-    #     """Ouvre une semaine complète basée sur les jours sélectionnés"""
-    #     from datetime import timedelta
-        
-    #     dates_selectionnees = queryset.values_list('date', flat=True)
-    #     if not dates_selectionnees:
-    #         return
-        
-    #     created = 0
-    #     for date_base in dates_selectionnees:
-    #         # Ouvrir 7 jours à partir de cette date
-    #         for i in range(7):
-    #             date_semaine = date_base + timedelta(days=i)
-                
-    #             config, created_config = ConfigurationJour.objects.get_or_create(
-    #                 date=date_semaine,
-    #                 poste=None,  # Configuration globale
-    #                 defaults={
-    #                     'statut': 'ouvert',
-    #                     'permet_saisie_inventaire': True,
-    #                     'permet_saisie_recette': True,
-    #                     'cree_par': request.user,
-    #                     'commentaire': f'Semaine ouverte automatiquement'
-    #                 }
-    #             )
-                
-    #             if created_config:
-    #                 created += 1
-        
-    #     self.message_user(
-    #         request,
-    #         f'{created} jour(s) supplémentaire(s) ouvert(s) pour compléter les semaines.'
-    #     )
-    # ouvrir_semaine_complete.short_description = "Ouvrir semaines complètes"
-
-
-    
-    def statut_colored(self, obj):
+    def statut_badge(self, obj):
         """Affichage coloré du statut"""
         colors = {
-            # 'ouvert': 'success',
-            # 'ferme': 'danger',
+            'normal': 'success',
             'impertinent': 'warning'
         }
         color = colors.get(obj.statut, 'secondary')
@@ -373,98 +245,28 @@ class ConfigurationJourAdmin(admin.ModelAdmin):
             '<span class="badge bg-{}">{}</span>',
             color, obj.get_statut_display()
         )
-    statut_colored.short_description = 'Statut'
-    
-    # def save_model(self, request, obj, form, change):
-    #     """Sauvegarder avec gestion d'erreurs améliorée"""
-    #     try:
-    #         # Assigner l'utilisateur créateur si nouveau
-    #         if not change:
-    #             obj.cree_par = request.user
-            
-    #         # Sauvegarder (déclenche clean() grâce à notre amélioration du modèle)
-    #         super().save_model(request, obj, form, change)
-            
-    #         # Message de succès personnalisé
-    #         action = "modifiée" if change else "créée"
-    #         messages.success(
-    #             request, 
-    #             f'Configuration du {obj.date.strftime("%d/%m/%Y")} {action} avec succès. '
-    #             f'Statut: {obj.get_statut_display()}'
-    #         )
-            
-    #         # Journaliser l'action
-    #         from common.utils import log_user_action
-    #         action_log = "Modification configuration jour" if change else "Création configuration jour"
-    #         details = f"Date: {obj.date.strftime('%d/%m/%Y')} - Statut: {obj.get_statut_display()}"
-    #         if obj.commentaire:
-    #             details += f" - Commentaire: {obj.commentaire[:100]}"
-            
-    #         log_user_action(request.user, action_log, details, request)
-            
-    #     except ValidationError as e:
-    #         # Gestion des erreurs de validation
-    #         if hasattr(e, 'error_dict'):
-    #             for field, errors in e.error_dict.items():
-    #                 for error in errors:
-    #                     messages.error(request, f'{field}: {error.message}')
-    #         else:
-    #             messages.error(request, str(e))
-    #         raise
-        
-    #     except IntegrityError as e:
-    #         # Gestion des erreurs de contrainte de base de données
-    #         if 'unique_date_configuration' in str(e):
-    #             messages.error(
-    #                 request, 
-    #                 f'Une configuration existe déjà pour le {obj.date.strftime("%d/%m/%Y")}. '
-    #                 'Veuillez modifier la configuration existante.'
-    #             )
-    #         else:
-    #             messages.error(request, 'Erreur lors de la sauvegarde. Vérifiez les données saisies.')
-    #         raise
-            
-    #     except Exception as e:
-    #         # Gestion des autres erreurs
-    #         messages.error(request, f'Erreur inattendue: {str(e)}')
-    #         logger.error(f"Erreur sauvegarde ConfigurationJour: {str(e)}")
-    #         raise
-    
+    statut_badge.short_description = 'Statut'
     
     def date_formatee(self, obj):
         """Affiche la date formatée"""
         return obj.date.strftime('%d/%m/%Y')
     date_formatee.short_description = _('Date')
     date_formatee.admin_order_field = 'date'
-    
-    # def marquer_impertinents(self, request, queryset):
-    #     """Action pour marquer des jours comme impertinents"""
-    #     count = queryset.update(statut='impertinent')
-    #     self.message_user(request, f'{count} jour(s) marqué(s) comme impertinent(s).')
-    # marquer_impertinents.short_description = 'Marquer impertinents'
 
-    def statut_badge(self, obj):
-        """Affichage du statut avec badge coloré"""
-        colors = {
-            # 'ouvert': 'success',
-            # 'ferme': 'warning', 
-            'impertinent': 'danger'
-        }
-        color = colors.get(obj.statut, 'secondary')
-        return format_html(
-            '<span class="badge badge-{}">{}</span>',
-            color,
-            obj.get_statut_display()
-        )
-    statut_badge.short_description = 'Statut'
-    statut_badge.admin_order_field = 'statut'
+    def permissions_display(self, obj):
+        """Affichage des permissions"""
+        permissions = []
+        if obj.permet_saisie_inventaire:
+            permissions.append('<span class="badge bg-success">✓ Inventaire</span>')
+        if obj.permet_saisie_recette:
+            permissions.append('<span class="badge bg-info">✓ Recette</span>')
+        
+        if not permissions:
+            return format_html('<span class="badge bg-secondary">Aucune permission</span>')
+        
+        return format_html(' '.join(permissions))
+    permissions_display.short_description = 'Permissions'
     
-    # def commentaire_court(self, obj):
-    #     """Commentaire tronqué pour la liste"""
-    #     if obj.commentaire:
-    #         return obj.commentaire[:50] + '...' if len(obj.commentaire) > 50 else obj.commentaire
-    #     return '-'
-    # commentaire_court.short_description = 'Commentaire'
 
 @admin.register(InventaireJournalier)
 class InventaireJournalierAdmin(admin.ModelAdmin):
@@ -1449,41 +1251,184 @@ class ProgrammationInventaireAdmin(admin.ModelAdmin):
     """Administration des programmations d'inventaires"""
     
     list_display = [
-        'poste', 'mois_formatted', 'motif', 'indicateur_motif', 
-        'actif', 'cree_par', 'date_creation'
+        'poste_display', 'mois_formatted', 'motif_badge', 
+        'indicateurs_display', 'actif_badge', 'cree_par', 'date_creation'
     ]
     
-    list_filter = ['motif', 'actif', 'mois', 'poste__region']
+    list_filter = [
+        'motif', 'actif', 'mois', 
+        'poste__region', 'poste__type'
+    ]
+    
     search_fields = ['poste__nom', 'poste__code']
     date_hierarchy = 'mois'
     
-    readonly_fields = ['cree_par', 'date_creation']
+    readonly_fields = [
+        'cree_par', 'date_creation', 'recettes_periode_actuelle',
+        'recettes_periode_precedente', 'pourcentage_baisse',
+        'date_epuisement_prevu', 'risque_grand_stock'
+    ]
+    
+    fieldsets = (
+        ('Informations de base', {
+            'fields': ('poste', 'mois', 'motif', 'actif')
+        }),
+        ('Données Taux de déperdition', {
+            'fields': ('taux_deperdition_precedent',),
+            'classes': ('collapse',),
+        }),
+        ('Données Risque de baisse', {
+            'fields': (
+                'risque_baisse_annuel', 'recettes_periode_actuelle',
+                'recettes_periode_precedente', 'pourcentage_baisse'
+            ),
+            'classes': ('collapse',),
+        }),
+        ('Données Grand stock', {
+            'fields': (
+                'stock_restant', 'date_epuisement_prevu', 'risque_grand_stock'
+            ),
+            'classes': ('collapse',),
+        }),
+        ('Métadonnées', {
+            'fields': ('cree_par', 'date_creation'),
+            'classes': ('collapse',),
+        })
+    )
+
+    def poste_display(self, obj):
+        """Affichage enrichi du poste"""
+        return format_html(
+            '<strong>{}</strong><br><small>{} - {}</small>',
+            obj.poste.nom,
+            obj.poste.code,
+            obj.poste.get_region_display()
+        )
+    poste_display.short_description = 'Poste'
+
     
     def mois_formatted(self, obj):
-        """Mois formaté"""
+        """Mois formaté avec indicateur"""
+        mois_actuel = date.today().replace(day=1)
+        is_current = obj.mois.year == mois_actuel.year and obj.mois.month == mois_actuel.month
+        
+        if is_current:
+            return format_html(
+                '<span class="badge bg-success">{}</span>',
+                obj.mois.strftime('%B %Y')
+            )
         return obj.mois.strftime('%B %Y')
     mois_formatted.short_description = 'Mois'
+
+    def motif_badge(self, obj):
+        """Badge coloré pour le motif"""
+        colors = {
+            MotifInventaire.TAUX_DEPERDITION: 'danger',
+            MotifInventaire.RISQUE_BAISSE: 'warning',
+            MotifInventaire.GRAND_STOCK: 'info'
+        }
+        color = colors.get(obj.motif, 'secondary')
+        
+        icon = ''
+        if obj.motif == MotifInventaire.TAUX_DEPERDITION:
+            icon = '📊'
+        elif obj.motif == MotifInventaire.RISQUE_BAISSE:
+            icon = '📉'
+        elif obj.motif == MotifInventaire.GRAND_STOCK:
+            icon = '📦'
+        
+        return format_html(
+            '<span class="badge bg-{}">{} {}</span>',
+            color, icon, obj.get_motif_display()
+        )
+    motif_badge.short_description = 'Motif'
     
-    def indicateur_motif(self, obj):
-        """Indicateur selon le motif"""
-        if obj.motif == 'taux_deperdition' and obj.taux_deperdition_precedent:
-            color = 'danger' if obj.taux_deperdition_precedent < -30 else 'warning'
+    
+    def indicateurs_display(self, obj):
+        """Affichage des indicateurs selon le motif"""
+        if obj.motif == MotifInventaire.TAUX_DEPERDITION and obj.taux_deperdition_precedent:
+            taux = float(obj.taux_deperdition_precedent)
+            color = 'danger' if taux < -30 else 'warning' if taux < -10 else 'success'
             return format_html(
-                '<span class="badge bg-{}">{:.1f}%</span>',
-                color, float(obj.taux_deperdition_precedent)
+                '<span class="badge bg-{}">Taux: {:.1f}%</span>',
+                color, taux
             )
-        elif obj.motif == 'risque_baisse' and obj.risque_baisse_annuel:
-            return format_html('<span class="badge bg-danger">⚠ Risque</span>')
-        elif obj.motif == 'grand_stock' and obj.risque_grand_stock:
-            return format_html('<span class="badge bg-warning">📦 Stock élevé</span>')
+        
+        elif obj.motif == MotifInventaire.RISQUE_BAISSE and obj.pourcentage_baisse:
+            return format_html(
+                '<span class="badge bg-warning">Baisse: -{:.1f}%</span>',
+                float(obj.pourcentage_baisse)
+            )
+        
+        elif obj.motif == MotifInventaire.GRAND_STOCK and obj.date_epuisement_prevu:
+            return format_html(
+                '<span class="badge bg-info">Épuisement: {}</span>',
+                obj.date_epuisement_prevu.strftime('%d/%m/%Y')
+            )
+        
         return '-'
-    indicateur_motif.short_description = 'Indicateur'
+    indicateurs_display.short_description = 'Indicateurs'
+
+    def actif_badge(self, obj):
+        """Badge pour le statut actif"""
+        if obj.actif:
+            return format_html('<span class="badge bg-success">✓ Actif</span>')
+        return format_html('<span class="badge bg-secondary">Inactif</span>')
+    actif_badge.short_description = 'Statut'
     
     def save_model(self, request, obj, form, change):
-        """Enregistre le créateur"""
+        """Enregistre le créateur et fait les calculs automatiques"""
         if not change:
             obj.cree_par = request.user
+        
+        # Forcer les calculs selon le motif
+        if obj.motif == MotifInventaire.RISQUE_BAISSE:
+            obj.calculer_risque_baisse_annuel()
+        elif obj.motif == MotifInventaire.GRAND_STOCK:
+            obj.calculer_date_epuisement_stock()
+        
         super().save_model(request, obj, form, change)
+    
+    def get_queryset(self, request):
+        """Optimise les requêtes"""
+        qs = super().get_queryset(request)
+        return qs.select_related('poste', 'cree_par')
+    
+    actions = ['activer_programmations', 'desactiver_programmations', 'recalculer_indicateurs']
+    
+    def activer_programmations(self, request, queryset):
+        """Action pour activer les programmations sélectionnées"""
+        count = queryset.update(actif=True)
+        self.message_user(request, f"{count} programmation(s) activée(s)")
+    activer_programmations.short_description = "Activer les programmations sélectionnées"
+    
+    def desactiver_programmations(self, request, queryset):
+        """Action pour désactiver les programmations sélectionnées"""
+        count = queryset.update(actif=False)
+        self.message_user(request, f"{count} programmation(s) désactivée(s)")
+    desactiver_programmations.short_description = "Désactiver les programmations sélectionnées"
+    
+    def recalculer_indicateurs(self, request, queryset):
+        """Recalcule les indicateurs pour les programmations sélectionnées"""
+        count = 0
+        for prog in queryset:
+            if prog.motif == MotifInventaire.RISQUE_BAISSE:
+                prog.calculer_risque_baisse_annuel()
+            elif prog.motif == MotifInventaire.GRAND_STOCK:
+                prog.calculer_date_epuisement_stock()
+            prog.save()
+            count += 1
+        self.message_user(request, f"Indicateurs recalculés pour {count} programmation(s)")
+    recalculer_indicateurs.short_description = "Recalculer les indicateurs"
+
+
+class ProgrammationInline(admin.TabularInline):
+    """Inline pour voir les programmations d'un poste"""
+    model = ProgrammationInventaire
+    extra = 0
+    fields = ['mois', 'motif', 'actif']
+    readonly_fields = ['mois', 'motif']
+    can_delete = False
 
 
 @admin.register(StatistiquesPeriodiques)

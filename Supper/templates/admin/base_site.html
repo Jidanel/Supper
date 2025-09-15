@@ -294,7 +294,7 @@
                 {% endif %}
 
                 <!-- Menu Programmation -->
-                {% if user.is_admin or user.peut_gerer_inventaire %}
+                {% if user.is_admin or user.peut_gerer_inventaire or user.peut_gerer_personnel %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-calendar-check me-1"></i>
@@ -326,6 +326,9 @@
                                 {% trans "Programmations Actives" %}
                             </a>
                         </li>
+                        <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
+                            <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
+                        </a></li>
                         
                         {% if user.is_admin %}
                         <li><hr class="dropdown-divider"></li>
@@ -363,7 +366,7 @@
                                 <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
                             </a>
                         </li>
-                        {% if user.is_admin %}
+                        {% comment %} {% if user.is_admin %}
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item" href="{% url 'inventaire:diagnostic' %}">
@@ -377,8 +380,8 @@
                         </li>
                         {% endif %}
                     </ul>
-                </li>
-                {% endif %}
+                </li>{% endcomment %}
+                {% endif %} 
 
                 <!-- Menu Personnel (si permission) -->
                 {% if user.peut_gerer_personnel %}

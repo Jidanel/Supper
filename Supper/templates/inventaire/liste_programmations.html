@@ -1,0 +1,479 @@
+<!-- templates/inventaire/liste_programmations.html -->
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Programmations d'Inventaires" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .programmation-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border-left: 4px solid #6B46C1;
+    }
+    
+    .programmation-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
+    }
+    
+    .motif-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .motif-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        position: relative;
+    }
+    
+    .motif-pill-taux {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626;
+        border: 1px solid #fca5a5;
+    }
+    
+    .motif-pill-baisse {
+        background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+        color: #d97706;
+        border: 1px solid #fbbf24;
+    }
+    
+    .motif-pill-stock {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: #2563eb;
+        border: 1px solid #93c5fd;
+    }
+    
+    .motif-detail {
+        font-size: 0.85rem;
+        margin-left: 0.5rem;
+        background: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+    }
+    
+    .poste-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+    }
+    
+    .poste-info h5 {
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+    
+    .poste-meta {
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+    
+    .month-badge {
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-action {
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-view {
+        background: #f3f4f6;
+        color: #4b5563;
+    }
+    
+    .btn-view:hover {
+        background: #e5e7eb;
+    }
+    
+    .btn-disable {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .btn-disable:hover {
+        background: #fed7aa;
+    }
+    
+    .btn-delete {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .btn-delete:hover {
+        background: #fecaca;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #9ca3af;
+        margin-bottom: 1rem;
+    }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #6B46C1;
+    }
+    
+    .stat-label {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="mb-0">
+                <i class="fas fa-calendar-check me-2" style="color: #6B46C1;"></i>
+                {% trans "Programmations d'Inventaires" %}
+            </h2>
+            <p class="text-muted mt-2">
+                {% trans "Vue consolidée des inventaires programmés par poste et par mois" %}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if user.is_admin %}
+            <a href="{% url 'inventaire:programmer_inventaire' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>
+                {% trans "Nouvelle Programmation" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Statistiques résumées -->
+    <div class="stats-summary">
+        <div class="stat-card">
+            <div class="stat-value">{{ programmations|length }}</div>
+            <div class="stat-label">{% trans "Programmations actives" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalPostes">0</div>
+            <div class="stat-label">{% trans "Postes concernés" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalMotifs">0</div>
+            <div class="stat-label">{% trans "Motifs distincts" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="moisActuel">0</div>
+            <div class="stat-label">{% trans "Pour le mois en cours" %}</div>
+        </div>
+    </div>
+
+    <!-- Barre de filtres -->
+    <div class="filter-bar">
+        <div class="row align-items-center">
+            <div class="col-md-3">
+                <label class="form-label mb-2">{% trans "Filtrer par mois" %}</label>
+                <select class="form-select" id="filterMois">
+                    <option value="">{% trans "Tous les mois" %}</option>
+                    {% for prog in programmations %}
+                        <option value="{{ prog.mois|date:'Y-m' }}">{{ prog.mois|date:'F Y' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-2">{% trans "Filtrer par région" %}</label>
+                <select class="form-select" id="filterRegion">
+                    <option value="">{% trans "Toutes les régions" %}</option>
+                    {% for prog in programmations %}
+                        <option value="{{ prog.poste.region }}">{{ prog.poste.get_region_display }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-2">{% trans "Filtrer par motif" %}</label>
+                <select class="form-select" id="filterMotif">
+                    <option value="">{% trans "Tous les motifs" %}</option>
+                    <option value="taux_deperdition">{% trans "Taux de déperdition" %}</option>
+                    <option value="risque_baisse">{% trans "Risque de baisse" %}</option>
+                    <option value="grand_stock">{% trans "Grand stock" %}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-2">{% trans "Rechercher" %}</label>
+                <input type="text" class="form-control" id="searchPoste" placeholder="{% trans 'Nom ou code du poste...' %}">
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des programmations -->
+    {% if programmations %}
+    <div id="programmationsList">
+        {% for prog in programmations %}
+        <div class="programmation-card" 
+             data-mois="{{ prog.mois|date:'Y-m' }}"
+             data-region="{{ prog.poste.region }}"
+             data-poste="{{ prog.poste.nom|lower }} {{ prog.poste.code|lower }}"
+             data-motifs="{% for motif in prog.motifs %}{{ motif.type }} {% endfor %}">
+            
+            <div class="poste-header">
+                <div class="poste-info">
+                    <h5>
+                        <i class="fas fa-map-marker-alt me-2" style="color: #6B46C1;"></i>
+                        {{ prog.poste.nom }}
+                    </h5>
+                    <div class="poste-meta">
+                        <span class="me-3">
+                            <i class="fas fa-barcode me-1"></i>Code: {{ prog.poste.code }}
+                        </span>
+                        <span class="me-3">
+                            <i class="fas fa-map me-1"></i>{{ prog.poste.get_region_display }}
+                        </span>
+                        <span>
+                            <i class="fas fa-user me-1"></i>Créé par {{ prog.cree_par.nom_complet }}
+                        </span>
+                    </div>
+                </div>
+                <div>
+                    <div class="month-badge">
+                        <i class="fas fa-calendar me-2"></i>
+                        {{ prog.mois|date:"F Y" }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motifs -->
+            <div class="motif-pills">
+                {% for motif in prog.motifs %}
+                    {% if motif.type == 'taux_deperdition' %}
+                    <div class="motif-pill motif-pill-taux">
+                        <i class="fas fa-chart-line me-2"></i>
+                        {{ motif.display }}
+                        {% if motif.taux %}
+                        <span class="motif-detail">{{ motif.taux|floatformat:2 }}%</span>
+                        {% endif %}
+                    </div>
+                    {% elif motif.type == 'risque_baisse' %}
+                    <div class="motif-pill motif-pill-baisse">
+                        <i class="fas fa-arrow-down me-2"></i>
+                        {{ motif.display }}
+                        {% if motif.pourcentage_baisse %}
+                        <span class="motif-detail">-{{ motif.pourcentage_baisse|floatformat:1 }}%</span>
+                        {% endif %}
+                    </div>
+                    {% elif motif.type == 'grand_stock' %}
+                    <div class="motif-pill motif-pill-stock">
+                        <i class="fas fa-boxes me-2"></i>
+                        {{ motif.display }}
+                        {% if motif.stock_restant %}
+                        <span class="motif-detail">{{ motif.stock_restant|floatformat:0 }} tickets</span>
+                        {% endif %}
+                        {% if motif.date_epuisement %}
+                        <span class="motif-detail">📅 {{ motif.date_epuisement|date:"d/m/Y" }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Actions -->
+            {% if user.is_admin %}
+            <div class="mt-3 pt-3 border-top">
+                <div class="action-buttons">
+                    <button class="btn btn-action btn-view" onclick="voirDetails('{{ prog.poste.id }}', '{{ prog.mois|date:'Y-m' }}')">
+                        <i class="fas fa-eye me-1"></i>
+                        {% trans "Détails" %}
+                    </button>
+                    {% for motif in prog.motifs %}
+                    <button class="btn btn-action btn-disable" 
+                            onclick="desactiverMotif('{{ prog.poste.id }}', '{{ prog.mois|date:'Y-m' }}', '{{ motif.type }}')">
+                        <i class="fas fa-pause me-1"></i>
+                        {% trans "Désactiver" %} {{ motif.display }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- État vide -->
+    <div class="empty-state">
+        <i class="fas fa-calendar-times empty-state-icon"></i>
+        <h4>{% trans "Aucune programmation d'inventaire" %}</h4>
+        <p class="text-muted">
+            {% if user.is_admin %}
+                {% trans "Commencez par programmer des inventaires pour les postes qui nécessitent un suivi" %}
+            {% else %}
+                {% trans "Aucun inventaire n'est programmé pour vos postes" %}
+            {% endif %}
+        </p>
+        {% if user.is_admin %}
+        <a href="{% url 'inventaire:programmer_inventaire' %}" class="btn btn-primary mt-3">
+            <i class="fas fa-plus me-2"></i>
+            {% trans "Programmer un inventaire" %}
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Calcul des statistiques
+document.addEventListener('DOMContentLoaded', function() {
+    calculateStats();
+    setupFilters();
+});
+
+function calculateStats() {
+    const programmations = document.querySelectorAll('.programmation-card');
+    const postes = new Set();
+    const motifs = new Set();
+    let moisActuel = 0;
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    programmations.forEach(card => {
+        postes.add(card.dataset.poste);
+        card.dataset.motifs.split(' ').forEach(m => {
+            if (m) motifs.add(m);
+        });
+        if (card.dataset.mois === currentMonth) {
+            moisActuel++;
+        }
+    });
+    
+    document.getElementById('totalPostes').textContent = postes.size;
+    document.getElementById('totalMotifs').textContent = motifs.size;
+    document.getElementById('moisActuel').textContent = moisActuel;
+}
+
+function setupFilters() {
+    const filterMois = document.getElementById('filterMois');
+    const filterRegion = document.getElementById('filterRegion');
+    const filterMotif = document.getElementById('filterMotif');
+    const searchPoste = document.getElementById('searchPoste');
+    
+    const applyFilters = () => {
+        const cards = document.querySelectorAll('.programmation-card');
+        
+        cards.forEach(card => {
+            let show = true;
+            
+            // Filtre par mois
+            if (filterMois.value && card.dataset.mois !== filterMois.value) {
+                show = false;
+            }
+            
+            // Filtre par région
+            if (filterRegion.value && card.dataset.region !== filterRegion.value) {
+                show = false;
+            }
+            
+            // Filtre par motif
+            if (filterMotif.value && !card.dataset.motifs.includes(filterMotif.value)) {
+                show = false;
+            }
+            
+            // Recherche
+            if (searchPoste.value && !card.dataset.poste.includes(searchPoste.value.toLowerCase())) {
+                show = false;
+            }
+            
+            card.style.display = show ? 'block' : 'none';
+        });
+    };
+    
+    filterMois.addEventListener('change', applyFilters);
+    filterRegion.addEventListener('change', applyFilters);
+    filterMotif.addEventListener('change', applyFilters);
+    searchPoste.addEventListener('input', applyFilters);
+}
+
+function voirDetails(posteId, mois) {
+    // Redirection vers une page de détails ou ouverture d'un modal
+    window.location.href = `/inventaire/programmation/${posteId}/${mois}/`;
+}
+
+function desactiverMotif(posteId, mois, motif) {
+    if (confirm('{% trans "Êtes-vous sûr de vouloir désactiver ce motif ?" %}')) {
+        // Construction manuelle de l'URL pour éviter l'erreur NoReverseMatch
+        const url = `/inventaire/programmation/${posteId}/${mois}/${motif}/desactiver/`;
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || '{% trans "Erreur lors de la désactivation" %}');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('{% trans "Erreur de communication avec le serveur" %}');
+        });
+    }
+}
+</script>
+{% endblock %}

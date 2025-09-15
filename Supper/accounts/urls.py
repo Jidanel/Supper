@@ -86,7 +86,7 @@ urlpatterns = [
     path('api/postes/', views.postes_api, name='api_postes'),
     path('api/stats/', views.stats_api, name='api_stats'),
     path('api/check-admin-permission/', views.check_admin_permission_api, name='api_check_admin'),
-    
+    path('api/departements/', views.api_departements, name='api_departements'),
     # ================================================================
     # GESTION DES ERREURS
     # ================================================================

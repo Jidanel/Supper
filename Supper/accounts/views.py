@@ -1249,7 +1249,20 @@ def get_admin_navigation_context(user):
         }
     }
 
-
+@login_required
+def api_departements(request):
+    """API pour récupérer les départements d'une région"""
+    region_id = request.GET.get('region')
+    
+    if not region_id:
+        return JsonResponse({'departements': []})
+    
+    try:
+        departements = Departement.objects.filter(region_id=region_id).values('id', 'nom')
+        return JsonResponse({'departements': list(departements)})
+    except Exception as e:
+        logger.error(f"Erreur API départements: {str(e)}")
+        return JsonResponse({'departements': [], 'error': str(e)})
 # ===================================================================
 # GESTIONNAIRES D'ERREURS PERSONNALISÉS
 # ===================================================================

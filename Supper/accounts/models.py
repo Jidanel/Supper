@@ -465,6 +465,10 @@ class UtilisateurSUPPER(AbstractUser):
             self.is_staff or
             self.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']
         )
+    @property
+    def is_chef_poste(self):
+        return self.habilitation in ['chef_peage', 'chef_pesage']
+    
     def get_absolute_url(self):
         return reverse('accounts:user_detail', kwargs={'pk': self.pk})
     
@@ -554,7 +558,7 @@ class UtilisateurSUPPER(AbstractUser):
             # Chef péage : SEULEMENT taux déperdition (PAS recettes potentielles)
             self.peut_gerer_peage = True
             self.peut_saisir_peage = True
-            self.peut_gerer_inventaire = True
+            self.peut_gerer_inventaire = False
             # RESTRICTIONS IMPORTANTES
             self.voir_recettes_potentielles = False  # PAS les recettes potentielles
             self.voir_taux_deperdition = True        # SEULEMENT le taux

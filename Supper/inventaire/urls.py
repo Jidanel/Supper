@@ -13,31 +13,46 @@ urlpatterns = [
     path('<int:pk>/', views.InventaireDetailView.as_view(), name='inventaire_detail'),
     path('saisie/', views.SaisieInventaireView.as_view(), name='saisie_inventaire'),
     path('saisie/<int:poste_id>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_poste'),
+    path('inventaire/supprimer/<int:poste_id>/', views.supprimer_inventaire, name='supprimer_inventaire_poste'),
     
     # ================================================================
     # PROGRAMMATION INVENTAIRES (NOUVELLES)
     # ================================================================
     path('programmer/', views.programmer_inventaire, name='programmer_inventaire'),
     path('programmations/', views.liste_programmations, name='liste_programmations'),
+    # API pour les postes par motif
+    path('api/postes-par-motif/', 
+         views.api_get_postes_par_motif, 
+         name='api_get_postes_par_motif'),
+    
+    # Actions sur les programmations
+    path('programmation/<int:poste_id>/<str:mois>/<str:motif>/desactiver/', 
+         views.desactiver_programmation, 
+         name='desactiver_programmation'),
+    
+    path('programmation/<int:poste_id>/<str:mois>/<str:motif>/supprimer/', 
+         views.supprimer_programmation, 
+         name='supprimer_programmation'),
     
     # ================================================================
     # SAISIE RECETTES
     # ================================================================
-    #path('recettes/saisie/', views.saisie_recette, name='saisie_recette'),
-    #path('recettes/saisie/<int:poste_id>/', views.saisie_recette, name='saisie_recette_poste'),
+    path('recettes/saisie/', views.saisir_recette, name='saisie_recette'),
+    path('recettes/saisie/<int:poste_id>/', views.saisir_recette, name='saisie_recette_poste'),
+    path('recettes/supprimer/<int:poste_id>/', views.supprimer_recette, name='supprimer_recette_poste'),
     
     # ================================================================
     # MODIFICATIONS ADMIN
     # ================================================================
-    #path('admin/<int:inventaire_id>/modifier/', views.modifier_inventaire_admin, name='modifier_inventaire_admin'),
-    #path('recettes/admin/<int:recette_id>/modifier/', views.modifier_recette_admin, name='modifier_recette_admin'),
+    path('admin/<int:inventaire_id>/modifier/', views.modifier_inventaire, name='modifier_inventaire_admin'),
+    path('recettes/admin/<int:recette_id>/modifier/', views.modifier_recette, name='modifier_recette_admin'),
     
     # ================================================================
     # CONSOLIDATION MENSUELLE
     # ================================================================
-    # path('mensuel/', views.liste_inventaires_mensuels, name='liste_inventaires_mensuels'),
-    # path('mensuel/<int:pk>/', views.detail_inventaire_mensuel, name='detail_inventaire_mensuel'),
-    # path('mensuel/consolider/', views.consolider_inventaire_mensuel, name='consolider_inventaire_mensuel'),
+     path('mensuel/', views.liste_inventaires_mensuels, name='liste_inventaires_mensuels'),
+     path('mensuel/<int:pk>/', views.detail_inventaire_mensuel, name='detail_inventaire_mensuel'),
+     path('mensuel/consolider/', views.consolider_inventaire_mensuel, name='consolider_inventaire_mensuel'),
     
     # ================================================================
     # API ENDPOINTS

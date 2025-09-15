@@ -249,7 +249,9 @@ class PosteAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ('date_creation', 'date_modification')
-    
+    class Media:
+        js = ('admin/js/region_departement.js',)
+        
     def type_badge(self, obj):
         """Badge pour le type de poste"""
         colors = {

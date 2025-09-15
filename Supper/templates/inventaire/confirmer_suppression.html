@@ -1,0 +1,50 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Confirmer la suppression{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Confirmer la suppression</h4>
+                </div>
+                <div class="card-body">
+                    <p>Êtes-vous sûr de vouloir supprimer cet inventaire ?</p>
+                    
+                    <div class="alert alert-info">
+                        <strong>Détails de l'inventaire :</strong>
+                        <ul class="mb-0">
+                            <li>Poste : {{ inventaire.poste.nom }}</li>
+                            <li>Date : {{ inventaire.date|date:"d/m/Y" }}</li>
+                            <li>Total véhicules : {{ inventaire.total_vehicules }}</li>
+                            <li>Agent : {{ inventaire.agent_saisie.nom_complet|default:"Non renseigné" }}</li>
+                        </ul>
+                    </div>
+                    
+                    {% if has_recette %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-link"></i> Une recette est associée à cet inventaire. 
+                        Elle sera dissociée mais pas supprimée.
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Confirmer la suppression
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
