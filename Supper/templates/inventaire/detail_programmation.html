@@ -1,0 +1,200 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête avec informations du poste -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3><i class="fas fa-calendar-check"></i> {{ poste.nom }}</h3>
+            <p class="mb-0">{{ mois_date|date:"F Y" }} - Code: {{ poste.code }}</p>
+        </div>
+        
+        <div class="card-body">
+            <!-- Motifs de programmation -->
+            <div class="mb-3">
+                <strong>Motifs programmés:</strong>
+                {% for prog in programmations %}
+                    <span class="badge bg-info ms-2">{{ prog.get_motif_display }}</span>
+                    {% if prog.taux_deperdition_precedent %}
+                        <small>(Taux: {{ prog.taux_deperdition_precedent }}%)</small>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <!-- Statistiques du mois -->
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="alert alert-info">
+                        <strong>Inventaires saisis:</strong> {{ stats.total_inventaires }}/{{ calendrier|length|mul:7 }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="alert alert-success">
+                        <strong>Total véhicules:</strong> {{ stats.total_vehicules|floatformat:0 }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="alert alert-warning">
+                        <strong>Taux moyen:</strong> 
+                        {% if stats.taux_moyen %}
+                            {{ stats.taux_moyen|floatformat:2 }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="alert alert-danger">
+                        <strong>Jours à risque:</strong> {{ stats.jours_risque }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Calendrier avec inventaires -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Calendrier des inventaires</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Lun</th>
+                        <th>Mar</th>
+                        <th>Mer</th>
+                        <th>Jeu</th>
+                        <th>Ven</th>
+                        <th>Sam</th>
+                        <th>Dim</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for semaine in calendrier %}
+                    <tr>
+                        {% for jour_data in semaine %}
+                            {% if jour_data %}
+                            <td class="p-2 {% if jour_data.inventaire or jour_data.recette %}bg-{{ jour_data.couleur_alerte }}-subtle{% endif %}">
+                                <div><strong>{{ jour_data.jour }}</strong></div>
+                                {% if jour_data.inventaire %}
+                                    <small class="text-primary">
+                                        <i class="fas fa-clipboard-check"></i> 
+                                        {{ jour_data.inventaire.total_vehicules }} véh.
+                                    </small>
+                                {% endif %}
+                                {% if jour_data.recette %}
+                                    <small class="d-block text-success">
+                                        <i class="fas fa-coins"></i> 
+                                        {{ jour_data.recette.montant_declare|floatformat:0 }} F
+                                    </small>
+                                    {% if jour_data.taux_deperdition %}
+                                    <small class="d-block">
+                                        TD: {{ jour_data.taux_deperdition|floatformat:1 }}%
+                                    </small>
+                                    {% endif %}
+                                {% endif %}
+                                {% if not jour_data.inventaire %}
+                                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ poste.id }}&date={{ jour_data.date|date:'Y-m-d' }}" 
+                                       class="btn btn-sm btn-outline-primary mt-1">
+                                        <i class="fas fa-plus"></i> Saisir
+                                    </a>
+                                {% endif %}
+                            </td>
+                            {% else %}
+                            <td class="bg-light"></td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Liste détaillée des inventaires -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Détail des inventaires et recettes</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Inventaire</th>
+                            <th>Recette déclarée</th>
+                            <th>Recette potentielle</th>
+                            <th>Taux déperdition</th>
+                            <th>Stock restant</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for date_key, data in donnees_par_jour.items %}
+                        <tr>
+                            <td>{{ date_key|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if data.inventaire %}
+                                    {{ data.inventaire.total_vehicules }} véhicules
+                                {% else %}
+                                    <span class="text-muted">Non saisi</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.recette %}
+                                    {{ data.recette.montant_declare|floatformat:0 }} FCFA
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.recette and data.recette.recette_potentielle %}
+                                    {{ data.recette.recette_potentielle|floatformat:0 }} FCFA
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.taux_deperdition %}
+                                    <span class="badge bg-{{ data.couleur_alerte }}">
+                                        {{ data.taux_deperdition|floatformat:2 }}%
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.stock_restant %}
+                                    {{ data.stock_restant }} tickets
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.inventaire %}
+                                    <a href="{% url 'inventaire:inventaire_detail' data.inventaire.pk %}" 
+                                       class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ poste.id }}&date={{ date_key|date:'Y-m-d' }}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-plus"></i> Saisir
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -2,12 +2,13 @@
 # inventaire/models.py - Modèles pour la gestion des inventaires SUPPER
 # ===================================================================
 
+import decimal
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from accounts.models import UtilisateurSUPPER, Poste
 from django.urls import reverse
 import calendar
@@ -706,11 +707,11 @@ class InventaireMensuel(models.Model):
         
         self.total_recettes_declarees = recettes.aggregate(
             total=Sum('montant_declare')
-        )['total'] or Decimal('0')
+        )['total'] or float('0')
         
         self.total_recettes_potentielles = recettes.aggregate(
             total=Sum('recette_potentielle')
-        )['total'] or Decimal('0')
+        )['total'] or float('0')
         
         # Calculer le taux de déperdition moyen
         if self.total_recettes_potentielles > 0:
@@ -1210,11 +1211,16 @@ class InventaireJournalier(models.Model):
         return reverse('inventaire_detail', kwargs={'pk': self.pk})
     
     def peut_etre_modifie_par(self, user):
-        """Vérifie si l'utilisateur peut modifier cet inventaire"""
-        if user.is_admin():
+        """Vérifie si l'inventaire peut être modifié par l'utilisateur"""
+        # Les admins peuvent toujours modifier
+        if user.is_admin:
             return True
-        if self.modifiable_par_agent and user == self.agent_saisie:
+        
+        # Si l'inventaire n'a jamais été sauvegardé ou s'il n'a pas de détails
+        if not self.pk or not self.details_periodes.exists():
             return True
+        
+        # Une fois saisi avec des données, seuls les admins peuvent modifier
         return False
     def soumettre(self):
         """Soumet l'inventaire - ne peut plus être modifié par l'agent après"""
@@ -1254,7 +1260,7 @@ class InventaireJournalier(models.Model):
         details = self.details_periodes.all()
         
         if not details.exists():
-            return Decimal('0')
+            return float('0')
         
         # Somme et moyenne
         somme_vehicules = sum(detail.nombre_vehicules for detail in details)
@@ -1268,7 +1274,7 @@ class InventaireJournalier(models.Model):
         vehicules_effectifs = estimation_24h * 0.75
         recette_potentielle = vehicules_effectifs * 500
         
-        return Decimal(str(recette_potentielle))
+        return float(str(recette_potentielle))
     
     def get_statistiques_detaillees(self):
         """Retourne des statistiques détaillées pour debug"""
@@ -1542,64 +1548,66 @@ class RecetteJournaliere(models.Model):
     def calculer_indicateurs(self):
         """
         Calcule tous les indicateurs basés sur l'inventaire associé
-        ALGORITHME CORRIGÉ selon vos spécifications
+        Version corrigée avec conversion sécurisée des Decimal
         """
+        from decimal import Decimal, InvalidOperation
+        
         if not self.inventaire_associe:
-            # Essayer de trouver l'inventaire automatiquement
             try:
-                from .models import InventaireJournalier
                 self.inventaire_associe = InventaireJournalier.objects.get(
                     poste=self.poste,
                     date=self.date
                 )
-                # Sauvegarder la liaison
-                self.save(update_fields=['inventaire_associe'])
             except InventaireJournalier.DoesNotExist:
-                # Pas d'inventaire = pas de calcul possible
-                self.recette_potentielle = None
-                self.ecart = None
-                self.taux_deperdition = None
+                self.recette_potentielle = Decimal('0')
+                self.ecart = Decimal('0')
+                self.taux_deperdition = Decimal('0')
                 return
         
-        # ÉTAPE 1: Calculer la moyenne horaire
         inventaire = self.inventaire_associe
         details_periodes = inventaire.details_periodes.all()
         
         if not details_periodes.exists():
-            # Pas de détails = pas de calcul
-            self.recette_potentielle = None
-            self.ecart = None
-            self.taux_deperdition = None
+            self.recette_potentielle = Decimal('0')
+            self.ecart = Decimal('0')
+            self.taux_deperdition = Decimal('0')
             return
         
-        # Somme des véhicules et nombre de périodes
-        somme_vehicules = sum(detail.nombre_vehicules for detail in details_periodes)
-        nombre_periodes = details_periodes.count()
-        
-        # Moyenne horaire = Somme / Nombre de périodes
-        moyenne_horaire = somme_vehicules / nombre_periodes
-        
-        # ÉTAPE 2: Estimation 24h
-        estimation_24h = moyenne_horaire * 24
-        
-        # ÉTAPE 3: Calcul recette potentielle
-        # T diminué de 25% = T * 75%
-        # P = T * 75% * 500 FCFA
-        vehicules_effectifs = estimation_24h * 0.75  # 75% des véhicules
-        self.recette_potentielle = Decimal(str(vehicules_effectifs * 500))
-        
-        # ÉTAPE 4: Calcul de l'écart
-        # Écart = Recettes potentielles - Recettes déclarées
-        self.ecart = self.recette_potentielle - self.montant_declare
-        
-        # ÉTAPE 5: Calcul du taux de déperdition
-        # TD = Écart / Recettes déclarées * 100
-        if self.montant_declare > 0:
-            self.taux_deperdition = (self.ecart / self.montant_declare) * 100
-        else:
+        try:
+            # Utiliser uniquement Decimal pour tous les calculs
+            somme_vehicules = Decimal(str(sum(detail.nombre_vehicules for detail in details_periodes)))
+            nombre_periodes = Decimal(str(details_periodes.count()))
+            
+            if nombre_periodes > 0:
+                moyenne_horaire = somme_vehicules / nombre_periodes
+                estimation_24h = moyenne_horaire * Decimal('24')
+                vehicules_effectifs = estimation_24h * Decimal('0.75')
+                self.recette_potentielle = vehicules_effectifs * Decimal('500')
+            else:
+                self.recette_potentielle = Decimal('0')
+            
+            # S'assurer que montant_declare est un Decimal valide
+            if self.montant_declare is None:
+                self.montant_declare = Decimal('0')
+            elif not isinstance(self.montant_declare, Decimal):
+                self.montant_declare = Decimal(str(self.montant_declare))
+            
+            # Calcul de l'écart
+            self.ecart = self.montant_declare - self.recette_potentielle
+            
+            # Calcul du taux de déperdition
+            if self.recette_potentielle > 0:
+                self.taux_deperdition = (self.ecart / self.recette_potentielle) * Decimal('100')
+            else:
+                self.taux_deperdition = Decimal('0')
+                
+        except (TypeError, ValueError, InvalidOperation) as e:
+            logger.error(f"Erreur calcul indicateurs: {str(e)}")
+            self.recette_potentielle = Decimal('0')
+            self.ecart = Decimal('0')
             self.taux_deperdition = Decimal('0')
         
-        # ÉTAPE 6: Gestion des journées impertinentes
+        # Gestion des journées impertinentes
         self._gerer_journee_impertinente()
     
     def _gerer_journee_impertinente(self):
@@ -1625,21 +1633,25 @@ class RecetteJournaliere(models.Model):
         """
         Retourne la couleur d'alerte selon le nouveau système:
         - TD > -5% : Impertinent (gris)
-        - -5% >= TD >= -9.99% : Bon (vert)  
-        - -10% >= TD >= -29.99% : Acceptable (orange)
+        - -5% >= TD >= -29.99% : Bon (vert)  
         - TD < -30% : Mauvais (rouge)
         """
         if self.taux_deperdition is None:
             return 'secondary'
         
-        td = float(self.taux_deperdition)
+        try:
+        # Conversion sécurisée en float
+            if isinstance(self.taux_deperdition, Decimal):
+                td = float(str(self.taux_deperdition))
+            else:
+                td = float(self.taux_deperdition) if self.taux_deperdition else 0.0
+        except (TypeError, ValueError, InvalidOperation):
+            return 'secondary'
         
         if td > -5:
             return 'secondary'  # Gris - Impertinent
-        elif -5 >= td >= -9.99:
-            return 'success'    # Vert - Bon
-        elif -10 >= td >= -29.99:
-            return 'warning'    # Orange - Acceptable  
+        elif -5 >= td >= -29.99:
+            return 'success'    # Vert - Bon  
         else:  # td < -30
             return 'danger'     # Rouge - Mauvais
     
@@ -1653,20 +1665,28 @@ class RecetteJournaliere(models.Model):
         if self.taux_deperdition is None:
             return 'Non calculé'
         
-        td = float(self.taux_deperdition)
+        try:
+            td = float(self.taux_deperdition)
+        except (TypeError, ValueError):
+            return 'Non calculé'
         
         if td > -5:
             return 'Impertinent'
-        elif -5 >= td >= -9.99:
+        elif -5 >= td >= -29.99:
             return 'Bon'
-        elif -10 >= td >= -29.99:
-            return 'Acceptable'
         else:
             return 'Mauvais'
     def save(self, *args, **kwargs):
-        """Surcharge pour calculer automatiquement les indicateurs"""
-        # Calculer les indicateurs avant la sauvegarde
-        self.calculer_indicateurs()
+        """Surcharge pour calculer automatiquement les indicateurs avec gestion d'erreurs"""
+        try:
+            # Calculer les indicateurs avant la sauvegarde
+            self.calculer_indicateurs()
+        except (TypeError, ValueError, InvalidOperation) as e:
+            logger.error(f"Erreur calcul indicateurs pour recette {self.pk}: {str(e)}")
+            # Continuer la sauvegarde même si le calcul échoue
+            self.taux_deperdition = None
+            self.recette_potentielle = None
+            self.ecart = None
         
         super().save(*args, **kwargs)
 

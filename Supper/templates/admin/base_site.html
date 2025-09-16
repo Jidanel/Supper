@@ -222,218 +222,242 @@
         </div>
 
         <!-- Navigation principale -->
-        <nav class="main-navigation">
-            <ul class="nav-links">
-                <!-- Dashboard -->
+<nav class="main-navigation">
+    <ul class="nav-links">
+        <!-- Dashboard -->
+        <li>
+            <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                <i class="fas fa-tachometer-alt me-1"></i>
+                {% trans "Dashboard" %}
+            </a>
+        </li>
+        
+        <!-- Menu INVENTAIRES -->
+        {% if user.peut_gerer_inventaire %}
+        <li class="dropdown">
+            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-clipboard-list me-1"></i>
+                {% trans "Inventaires" %}
+            </a>
+            <ul class="dropdown-menu">
                 <li>
-                    <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                        <i class="fas fa-tachometer-alt me-1"></i>
-                        {% trans "Tableau de bord" %}
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-edit me-1"></i>{% trans "Saisie" %}
+                    </h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:saisie_inventaire' %}">
+                        <i class="fas fa-keyboard me-2"></i>{% trans "Saisir Inventaire" %}
                     </a>
                 </li>
                 
-                <!-- Menu Inventaires -->
-                {% if user.peut_gerer_inventaire %}
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-clipboard-list me-1"></i>
-                        {% trans "Inventaires" %}
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-edit me-1"></i>{% trans "Saisie" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisie_inventaire' %}">
-                                <i class="fas fa-keyboard me-2"></i>{% trans "Saisir Inventaire" %}
-                            </a>
-                        </li>
-                        {% if user.is_chef_poste or user.is_admin %}
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisie_recette' %}">
-                                <i class="fas fa-coins me-2"></i>{% trans "Saisir Recette" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                        
-                        <li><hr class="dropdown-divider"></li>
-                        
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-list me-1"></i>{% trans "Consultation" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:inventaire_list' %}">
-                                <i class="fas fa-list-alt me-2"></i>{% trans "Liste Inventaires" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_mensuels' %}">
-                                <i class="fas fa-calendar-alt me-2"></i>{% trans "Inventaires Mensuels" %}
-                            </a>
-                        </li>
-                        
-                        {% if user.is_admin %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-cogs me-1"></i>{% trans "Administration" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:consolider_inventaire_mensuel' %}">
-                                <i class="fas fa-compress me-2"></i>{% trans "Consolider Mensuel" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
+                <li><hr class="dropdown-divider"></li>
+                
+                <li>
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-calendar me-1"></i>{% trans "Programmation" %}
+                    </h6>
                 </li>
-                {% endif %}
-
-                <!-- Menu Programmation -->
-                {% if user.is_admin or user.peut_gerer_inventaire or user.peut_gerer_personnel %}
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-calendar-check me-1"></i>
-                        {% trans "Programmation" %}
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:programmer_inventaire' %}">
+                        <i class="fas fa-calendar-plus me-2"></i>{% trans "Programmer Inventaire" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-plus me-1"></i>{% trans "Nouvelle Programmation" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:programmer_inventaire' %}">
-                                <i class="fas fa-calendar-plus me-2 text-success"></i>
-                                {% trans "Programmer Inventaires" %}
-                            </a>
-                        </li>
-                        
-                        <li><hr class="dropdown-divider"></li>
-                        
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-list me-1"></i>{% trans "Gestion" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_programmations' %}">
-                                <i class="fas fa-tasks me-2 text-primary"></i>
-                                {% trans "Programmations Actives" %}
-                            </a>
-                        </li>
-                        <li><a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
-                            <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
-                        </a></li>
-                        
-                        {% if user.is_admin %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-exclamation-triangle me-1"></i>{% trans "Actions Spéciales" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" onclick="marquerJourImpertinent(); return false;">
-                                <i class="fas fa-flag me-2 text-warning"></i>
-                                {% trans "Marquer Jour Impertinent" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
                 </li>
-                {% endif %}
-
-                <!-- Menu Rapports -->
-                {% if user.peut_gerer_inventaire or user.is_admin %}
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-chart-bar me-1"></i>
-                        {% trans "Rapports" %}
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:liste_programmations' %}">
+                        <i class="fas fa-tasks me-2"></i>{% trans "Programmations Actives" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
-                                <i class="fas fa-file-export me-2"></i>{% trans "Générer Rapports" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:api_inventaire_stats' %}">
-                                <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
-                            </a>
-                        </li>
-                        {% comment %} {% if user.is_admin %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:diagnostic' %}">
-                                <i class="fas fa-stethoscope me-2"></i>{% trans "Diagnostic Système" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
-                                <i class="fas fa-download me-2"></i>{% trans "Sauvegarde" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </li>{% endcomment %}
-                {% endif %} 
-
-                <!-- Menu Personnel (si permission) -->
-                {% if user.peut_gerer_personnel %}
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-users me-1"></i>
-                        {% trans "Personnel" %}
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
-                                <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
-                                <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
-                                <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion Postes" %}
-                            </a>
-                        </li>
-                    </ul>
                 </li>
-                {% endif %}
-
-                <!-- Menu Administration (superuser uniquement) -->
-                {% if user.is_superuser %}
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-cogs me-1"></i>
-                        {% trans "Administration" %}
+                
+                <li><hr class="dropdown-divider"></li>
+                
+                <li>
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-list me-1"></i>{% trans "Consultation" %}
+                    </h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:inventaire_list' %}">
+                        <i class="fas fa-list-alt me-2"></i>{% trans "Liste Inventaires" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
-                                <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="/admin/">
-                                <i class="fas fa-tools me-2"></i>{% trans "Administration Django" %}
-                            </a>
-                        </li>
-                    </ul>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_mensuels' %}">
+                        <i class="fas fa-calendar-alt me-2"></i>{% trans "Vue Mensuelle" %}
+                    </a>
+                </li>
+                
+                {% if user.is_admin %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:consolider_inventaire_mensuel' %}">
+                        <i class="fas fa-compress me-2"></i>{% trans "Consolider Mensuel" %}
+                    </a>
                 </li>
                 {% endif %}
             </ul>
-        </nav>
+        </li>
+        {% endif %}
+
+        <!-- Menu PÉAGE (Recettes) -->
+        {% if user.is_chef_poste or user.is_admin %}
+        <li class="dropdown">
+            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-road me-1"></i>
+                {% trans "Péage" %}
+            </a>
+            <ul class="dropdown-menu">
+                <li>
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-coins me-1"></i>{% trans "Recettes" %}
+                    </h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:saisie_recette' %}">
+                        <i class="fas fa-plus-circle me-2"></i>{% trans "Saisir Recette" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}">
+                        <i class="fas fa-list me-2"></i>{% trans "Liste des Recettes" %}
+                    </a>
+                </li>
+                
+                {% if user.voir_taux_deperdition %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-chart-line me-1"></i>{% trans "Analyse" %}
+                    </h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}?taux_filtre=mauvais">
+                        <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
+                        {% trans "Recettes à Risque" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}?periode=mois">
+                        <i class="fas fa-chart-bar me-2"></i>{% trans "Analyse Mensuelle" %}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </li>
+        {% endif %}
+
+        <!-- Menu GESTION -->
+        {% if user.peut_gerer_personnel or user.is_admin %}
+        <li class="dropdown">
+            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-cogs me-1"></i>
+                {% trans "Gestion" %}
+            </a>
+            <ul class="dropdown-menu">
+                <li>
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-map me-1"></i>{% trans "Postes" %}
+                    </h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
+                        <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion des Postes" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'admin:accounts_poste_add' %}">
+                        <i class="fas fa-plus me-2"></i>{% trans "Ajouter un Poste" %}
+                    </a>
+                </li>
+                
+                <li><hr class="dropdown-divider"></li>
+                
+                <li>
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-users me-1"></i>{% trans "Utilisateurs" %}
+                    </h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
+                        <i class="fas fa-users-cog me-2"></i>{% trans "Gestion des Utilisateurs" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
+                        <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
+                    </a>
+                </li>
+                
+                {% if user.is_admin %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <h6 class="dropdown-header">
+                        <i class="fas fa-shield-alt me-1"></i>{% trans "Administration" %}
+                    </h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
+                        <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="marquerJourImpertinent(); return false;">
+                        <i class="fas fa-flag me-2 text-warning"></i>
+                        {% trans "Marquer Jour Impertinent" %}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </li>
+        {% endif %}
+
+        <!-- Menu RAPPORTS -->
+        {% if user.peut_gerer_inventaire or user.is_admin %}
+        <li class="dropdown">
+            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-chart-bar me-1"></i>
+                {% trans "Rapports" %}
+            </a>
+            <ul class="dropdown-menu">
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
+                        <i class="fas fa-file-export me-2"></i>{% trans "Générer Rapports" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:api_inventaire_stats' %}">
+                        <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
+                        <i class="fas fa-download me-2"></i>{% trans "Sauvegarde" %}
+                    </a>
+                </li>
+            </ul>
+        </li>
+        {% endif %}
+
+        <!-- Menu ADMINISTRATION (superuser uniquement) -->
+        {% if user.is_superuser %}
+        <li class="dropdown">
+            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-tools me-1"></i>
+                {% trans "Administration" %}
+            </a>
+            <ul class="dropdown-menu">
+                <li>
+                    <a class="dropdown-item" href="/admin/">
+                        <i class="fas fa-shield-alt me-2"></i>{% trans "Panel Django Admin" %}
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+            </ul>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
 
         <!-- Section utilisateur -->
         <div class="user-section">
@@ -535,6 +559,7 @@
                                 <a href="{% url 'inventaire:saisie_recette' %}" class="btn btn-success">
                                     <i class="fas fa-coins me-2"></i>{% trans "Saisir Recette" %}
                                 </a>
+                            
                                 {% endif %}
                             </div>
                         </div>

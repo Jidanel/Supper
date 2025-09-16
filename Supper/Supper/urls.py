@@ -62,9 +62,6 @@ urlpatterns = [
     # ================================================================
     # ADMINISTRATION
     # ================================================================
-    path('admin/actions/ouvrir-semaine/', inventaire_views.action_ouvrir_semaine, name='action_ouvrir_semaine'),
-    path('admin/actions/fermer-anciens/', inventaire_views.action_fermer_anciens, name='action_fermer_anciens'),
-    path('admin/actions/marquer-impertinent/', inventaire_views.action_marquer_impertinent, name='action_marquer_impertinent'),
        # URLs des applications avec vues vérifiées
     path('accounts/', include('accounts.urls')),
     path('inventaire/', include('inventaire.urls')),

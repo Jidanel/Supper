@@ -11,15 +11,19 @@ urlpatterns = [
     # ================================================================
     path('', views.InventaireListView.as_view(), name='inventaire_list'),
     path('<int:pk>/', views.InventaireDetailView.as_view(), name='inventaire_detail'),
-    path('saisie/', views.SaisieInventaireView.as_view(), name='saisie_inventaire'),
-    path('saisie/<int:poste_id>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_poste'),
+    #path('saisie/<int:poste_id>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_poste'),
     path('inventaire/supprimer/<int:poste_id>/', views.supprimer_inventaire, name='supprimer_inventaire_poste'),
+    # Ajouter ces lignes dans inventaire/urls.py
+    path('saisie/', views.selection_date_inventaire, name='saisie_inventaire'),  # Redirige vers sélection
+    path('saisie/<int:poste_id>/', views.selection_date_inventaire, name='saisie_inventaire_poste'),  # Redirige vers sélection
+    path('saisie/<int:poste_id>/<str:date_str>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_avec_date'),  # Saisie réelle
     
     # ================================================================
     # PROGRAMMATION INVENTAIRES (NOUVELLES)
     # ================================================================
     path('programmer/', views.programmer_inventaire, name='programmer_inventaire'),
     path('programmations/', views.liste_programmations, name='liste_programmations'),
+    path('programmation/<int:poste_id>/<str:mois>/', views.detail_programmation, name='detail_programmation'),
     # API pour les postes par motif
     path('api/postes-par-motif/', 
          views.api_get_postes_par_motif, 
@@ -40,6 +44,10 @@ urlpatterns = [
     path('recettes/saisie/', views.saisir_recette, name='saisie_recette'),
     path('recettes/saisie/<int:poste_id>/', views.saisir_recette, name='saisie_recette_poste'),
     path('recettes/supprimer/<int:poste_id>/', views.supprimer_recette, name='supprimer_recette_poste'),
+    path('recettes/', views.RecetteListView.as_view(), name='liste_recettes'),
+    path('recettes/<int:pk>/', views.RecetteDetailView.as_view(), name='recette_detail'),
+    path('recettes/<int:pk>/modifier/', views.modifier_recette, name='modifier_recette'),
+
     
     # ================================================================
     # MODIFICATIONS ADMIN
@@ -63,6 +71,7 @@ urlpatterns = [
     path('api/check-day-status/', views.check_day_status_api, name='api_check_day_status'),
     path('api/quick-action/', views.quick_action_api, name='api_quick_action'),
    # path('api/notifications/', views.api_notifications, name='api_notifications'),
+    path('api/month-data/', views.api_month_data, name='api_month_data'),
     
     # ================================================================
     # RAPPORTS ET EXPORTS

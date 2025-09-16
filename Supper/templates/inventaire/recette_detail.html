@@ -1,0 +1,150 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Détail Recette - {{ recette.poste.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            
+            <!-- En-tête -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-coins me-2"></i>
+                        Détail de la Recette
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Poste:</strong> {{ recette.poste.nom }}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Date:</strong> {{ recette.date|date:"d/m/Y" }}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Chef de poste:</strong> {{ recette.chef_poste.nom_complet }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations de la recette -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Montants</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="text-muted">Recette déclarée:</label>
+                                <h4 class="text-success">{{ recette.montant_declare|floatformat:0 }} FCFA</h4>
+                            </div>
+                            
+                            {% if recette.recette_potentielle and request.user.voir_recettes_potentielles %}
+                            <div class="mb-3">
+                                <label class="text-muted">Recette potentielle:</label>
+                                <h4 class="text-info">{{ recette.recette_potentielle|floatformat:0 }} FCFA</h4>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="text-muted">Écart:</label>
+                                <h4 class="{% if recette.ecart < 0 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ recette.ecart|floatformat:0 }} FCFA
+                                </h4>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Indicateurs</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recette.taux_deperdition and request.user.voir_taux_deperdition %}
+                            <div class="mb-3">
+                                <label class="text-muted">Taux de déperdition:</label>
+                                <h4>
+                                    <span class="badge bg-{{ recette.get_couleur_alerte }}">
+                                        {{ recette.taux_deperdition|floatformat:2 }}%
+                                    </span>
+                                </h4>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="text-muted">Statut:</label>
+                                <p class="h5">{{ recette.get_statut_deperdition }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            {% if recette.stock_tickets_restant %}
+                            <div class="mb-3">
+                                <label class="text-muted">Stock tickets restant:</label>
+                                <h4>{{ recette.stock_tickets_restant }} tickets</h4>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventaire associé -->
+            {% if inventaire %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Inventaire associé</h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        <strong>Total véhicules:</strong> {{ inventaire.total_vehicules }}<br>
+                        <strong>Périodes saisies:</strong> {{ inventaire.nombre_periodes_saisies }}<br>
+                        <strong>Agent de saisie:</strong> {{ inventaire.agent_saisie.nom_complet }}
+                    </p>
+                    <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" class="btn btn-info btn-sm">
+                        <i class="fas fa-eye me-2"></i>Voir l'inventaire
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Observations -->
+            {% if recette.observations %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Observations</h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ recette.observations|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="mt-4">
+                <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Retour à la liste
+                </a>
+                
+                {% if peut_modifier %}
+                <a href="{% url 'inventaire:modifier_recette' recette.pk %}" class="btn btn-warning">
+                    <i class="fas fa-edit me-2"></i>Modifier
+                </a>
+                {% endif %}
+                
+                {% if request.user.is_admin %}
+                <a href="{% url 'inventaire:supprimer_recette' recette.pk %}" class="btn btn-danger"
+                   onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette recette?')">
+                    <i class="fas fa-trash me-2"></i>Supprimer
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

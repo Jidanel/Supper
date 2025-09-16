@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin/base_site.html" %}
 {% load static %}
 {% load i18n %}
 
@@ -7,8 +7,8 @@
 {% block extra_css %}
 <style>
 :root {
-    --violet-principal: #6B46C1;
-    --violet-fonce: #553C9A;
+    --violet-principal: #0000FF;
+    --violet-fonce: #00008B;
     --gris-clair: #F8FAFC;
     --gris-moyen: #64748B;
     --gris-fonce: #334155;
@@ -551,81 +551,7 @@ const inventaireChart = new Chart(ctx, {
     }
 });
 
-// Fonction de verrouillage
-{% comment %} function verrouillerInventaire() {
-    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
-    document.getElementById('confirmModalTitle').textContent = '{% trans "Verrouiller l'inventaire" %}';
-    document.getElementById('confirmModalBody').innerHTML = `
-        <p>{% trans "Êtes-vous sûr de vouloir verrouiller cet inventaire ?" %}</p>
-        <p class="text-warning">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            {% trans "Une fois verrouillé, l'inventaire ne pourra plus être modifié." %}
-        </p>
-    `;
-    
-    document.getElementById('confirmModalAction').onclick = function() {
-        fetch('{% url "inventaire:inventaire_verrouiller" inventaire.pk %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Erreur: ' + (data.error || 'Erreur inconnue'));
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('Erreur lors du verrouillage');
-        });
-        modal.hide();
-    };
-    
-    modal.show();
-}
 
-// Fonction de validation
-function validerInventaire() {
-    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
-    document.getElementById('confirmModalTitle').textContent = '{% trans "Valider l'inventaire" %}';
-    document.getElementById('confirmModalBody').innerHTML = `
-        <p>{% trans "Êtes-vous sûr de vouloir valider cet inventaire ?" %}</p>
-        <p class="text-success">
-            <i class="fas fa-check-circle me-2"></i>
-            {% trans "La validation confirme la conformité des données." %}
-        </p>
-    `;
-    
-    document.getElementById('confirmModalAction').onclick = function() {
-        fetch('{% url "inventaire:inventaire_valider" inventaire.pk %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Erreur: ' + (data.error || 'Erreur inconnue'));
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('Erreur lors de la validation');
-        });
-        modal.hide();
-    };
-    
-    modal.show();
-} {% endcomment %}
 
 // Fonction d'impression
 function imprimerInventaire() {
@@ -651,7 +577,7 @@ function exporterPDF() {
 }
 
 // Auto-refresh des données toutes les 2 minutes si l'inventaire n'est pas verrouillé
-//{% if not inventaire.verrouille %} {% endcomment %}
+
 setInterval(() => {
     fetch(window.location.href)
         .then(response => response.text())
@@ -686,7 +612,7 @@ setInterval(() => {
         })
         .catch(error => console.error('Erreur refresh:', error));
 }, 120000);
-//{% endif %}
+
 
 // Gestion du token CSRF
 document.addEventListener('DOMContentLoaded', function() {

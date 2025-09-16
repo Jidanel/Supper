@@ -629,6 +629,20 @@ class UtilisateurSUPPER(AbstractUser):
         if self.peut_saisir_pour_autres_postes:
             return True
         return self.peut_voir_poste(poste)
+    def get_postes_accessibles(self):
+        """Retourne la liste des postes auxquels l'utilisateur a accès"""
+        if self.acces_tous_postes or self.is_admin:
+            return Poste.objects.filter(is_active=True)
+        elif self.poste_affectation:
+            return Poste.objects.filter(id=self.poste_affectation.id)
+        else:
+            return Poste.objects.none()
+
+    def peut_acceder_poste(self, poste):
+        """Vérifie si l'utilisateur peut accéder aux données d'un poste"""
+        if self.acces_tous_postes or self.is_admin:
+            return True
+        return self.poste_affectation == poste
     
     @property
     def nom_role(self):

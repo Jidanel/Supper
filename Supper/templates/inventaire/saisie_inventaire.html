@@ -1,0 +1,236 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Saisie Inventaire - {{ poste.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .inventaire-form {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        padding: 2rem;
+    }
+    
+    .periode-input {
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        padding: 0.75rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .periode-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .periode-row {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .periode-row:hover {
+        background: #f1f5f9;
+        transform: translateX(5px);
+    }
+    
+    .total-section {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-top: 2rem;
+    }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            <!-- En-tête -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i>
+                        Saisie d'Inventaire
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Poste:</strong> {{ poste.nom }}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Date:</strong> {{ target_date|date:"d/m/Y" }}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Agent:</strong> {{ request.user.nom_complet }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire de saisie -->
+            <form method="post" class="inventaire-form" id="inventaireForm">
+                {% csrf_token %}
+                
+                <h4 class="mb-4">
+                    <i class="fas fa-clock me-2"></i>
+                    Saisie par période horaire
+                </h4>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Saisissez le nombre de véhicules comptés pour chaque période.
+                    Les champs vides seront considérés comme 0.
+                </div>
+
+                <!-- Périodes de saisie -->
+                {% for periode in periodes_data %}
+                <div class="periode-row">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <label class="fw-bold">{{ periode.display }}</label>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="number" 
+                                   name="periode_{{ periode.code }}" 
+                                   id="periode_{{ periode.code }}"
+                                   class="form-control periode-input"
+                                   min="0" 
+                                   max="1000"
+                                   value="{{ periode.nombre_vehicules|default:'' }}"
+                                   placeholder="Nombre de véhicules"
+                                   {% if inventaire.verrouille %}readonly{% endif %}>
+                        </div>
+                        <div class="col-md-5">
+                            <input type="text" 
+                                   name="observations_{{ periode.code }}"
+                                   class="form-control"
+                                   placeholder="Observations (optionnel)"
+                                   value="{{ periode.observations }}"
+                                   {% if inventaire.verrouille %}readonly{% endif %}>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Section totaux -->
+                <div class="total-section">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Total véhicules:</h5>
+                            <h2 id="totalVehicules">0</h2>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Moyenne horaire:</h5>
+                            <h2 id="moyenneHoraire">0</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observations générales -->
+                <div class="mt-4">
+                    <label for="observations" class="form-label fw-bold">
+                        <i class="fas fa-comment-alt me-2"></i>
+                        Observations générales
+                    </label>
+                    <textarea name="observations" 
+                              id="observations" 
+                              class="form-control" 
+                              rows="3"
+                              {% if inventaire.verrouille %}readonly{% endif %}>{{ inventaire.observations }}</textarea>
+                </div>
+
+                <!-- Boutons d'action -->
+                {% if not inventaire.verrouille %}
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{% url 'inventaire:inventaire_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Annuler
+                    </a>
+                    <button type="submit" class="btn btn-success btn-submit">
+                        <i class="fas fa-save me-2"></i>
+                        Enregistrer l'inventaire
+                    </button>
+                </div>
+                {% else %}
+                <div class="alert alert-warning mt-4">
+                    <i class="fas fa-lock me-2"></i>
+                    Cet inventaire est verrouillé et ne peut plus être modifié.
+                    {% if request.user.is_admin %}
+                    En tant qu'administrateur, vous pouvez 
+                    <a href="{% url 'inventaire:modifier_inventaire' inventaire.pk %}" class="alert-link">
+                        forcer la modification
+                    </a>.
+                    {% endif %}
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Calcul automatique des totaux
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('.periode-input');
+    
+    function calculerTotaux() {
+        let total = 0;
+        let count = 0;
+        
+        inputs.forEach(input => {
+            const val = parseInt(input.value) || 0;
+            if (val > 0) {
+                total += val;
+                count++;
+            }
+        });
+        
+        const moyenne = count > 0 ? Math.round(total / count) : 0;
+        
+        document.getElementById('totalVehicules').textContent = total;
+        document.getElementById('moyenneHoraire').textContent = moyenne;
+    }
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', calculerTotaux);
+    });
+    
+    // Calcul initial
+    calculerTotaux();
+    
+    // Confirmation avant soumission
+    document.getElementById('inventaireForm').addEventListener('submit', function(e) {
+        const total = document.getElementById('totalVehicules').textContent;
+        if (parseInt(total) === 0) {
+            if (!confirm('Aucun véhicule saisi. Voulez-vous vraiment enregistrer un inventaire vide?')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

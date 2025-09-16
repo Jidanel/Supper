@@ -1,5 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
+{% load inventaire_extras %}
 
 {% block title %}Détail inventaire mensuel{% endblock %}
 
@@ -27,7 +28,7 @@
                         <div class="col-md-3">
                             <div class="card bg-light">
                                 <div class="card-body text-center">
-                                    <h5>{{ stats.total_recettes_declarees|floatformat:0 }}</h5>
+                                    <h5>{{ recette.montant_declare|safe_decimal|floatformat:0 }}</h5>
                                     <small>FCFA déclarés</small>
                                 </div>
                             </div>
@@ -78,7 +79,7 @@
                                             <small>{{ jour_data.inventaire.total_vehicules }}v</small>
                                             {% endif %}
                                             {% if jour_data.recette %}
-                                            <small>{{ jour_data.recette.montant_declare|floatformat:0 }}</small>
+                                            <small>{{ jour_data.recette.montant_declare|safe_decimal|floatformat:0 }}</small>
                                             {% endif %}
                                         </td>
                                         {% else %}

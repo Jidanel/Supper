@@ -15,7 +15,9 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum, Avg, Count
+from decimal import Decimal, InvalidOperation
+import decimal
+from django.db.models import Sum, Avg, Count, Q
 from django.utils import timezone
 from django.db import models
 from datetime import datetime, date, timedelta
@@ -219,82 +221,96 @@ class InventaireDetailView(InventaireMixin, DetailView):
     def get_context_data(self, **kwargs):
         """Méthode get_context_data corrigée"""
         context = super().get_context_data(**kwargs)
+        inventaire = self.object
         
-        # 🔧 CORRECTION 1 : Une seule récupération de l'objet
-        inventaire = self.object()
+        # Calculs principaux avec gestion sécurisée
+        context['total_vehicules'] = inventaire.total_vehicules or 0
         
-        # # 🔧 CORRECTION 2 : Vérifier le statut pour la date de l'inventaire
-        # try:
-        #     context['jour_etait_ouvert'] = ConfigurationJour.est_jour_ouvert_pour_inventaire(
-        #         date=inventaire.date,     # 🔧 Date de l'inventaire
-        #         poste=inventaire.poste    # 🔧 Poste de l'inventaire
-        #     )
-        # except Exception as e:
-        #     # 🔧 AMÉLIORATION : Log l'erreur pour debug
-        #     import logging
-        #     logger = logging.getLogger('supper')
-        #     logger.warning(f"Erreur vérification statut jour {inventaire.date}: {str(e)}")
-        #     context['jour_etait_ouvert'] = False
+        try:
+            context['moyenne_horaire'] = int(inventaire.calculer_moyenne_horaire())
+        except:
+            context['moyenne_horaire'] = 0
+            
+        try:
+            context['estimation_24h'] = int(inventaire.estimer_total_24h())
+        except:
+            context['estimation_24h'] = 0
+            
+        try:
+            recette_pot = inventaire.calculer_recette_potentielle()
+            if isinstance(recette_pot, Decimal):
+                context['recette_potentielle'] = float(str(recette_pot))
+            else:
+                context['recette_potentielle'] = float(recette_pot) if recette_pot else 0
+        except:
+            context['recette_potentielle'] = 0
         
         # Détails par période
-        # details_periodes = inventaire.details_periodes.all().order_by('periode')
-        context['details_periodes'] = inventaire.details_periodes.all().order_by('periode')
+        details_periodes = inventaire.details_periodes.all().order_by('periode')
+        context['details_periodes'] = details_periodes
+        # Préparer les données du graphique côté serveur
+        graph_periodes = []
+        graph_vehicules = []
+        
+        for detail in details_periodes:
+            graph_periodes.append(detail.get_periode_display())
+            graph_vehicules.append(detail.nombre_vehicules)
+        
+        # Passer les données formatées au template
+        context['graph_data'] = {
+            'periodes': graph_periodes,
+            'vehicules': graph_vehicules,
+        }
+        
+        # Convertir en JSON pour le JavaScript
+        import json
+        context['graph_data_json'] = json.dumps(context['graph_data'])
         
         # Recette associée
         try:
-            context['recette'] = RecetteJournaliere.objects.get(
+            recette = RecetteJournaliere.objects.get(
                 poste=inventaire.poste,
                 date=inventaire.date
             )
+            context['recette'] = recette
         except RecetteJournaliere.DoesNotExist:
             context['recette'] = None
         
-         # Calculs sécurisés
-        try:
-            context['moyenne_horaire'] = inventaire.calculer_moyenne_horaire()
-            context['estimation_24h'] = inventaire.estimer_total_24h()
-            context['recette_potentielle'] = inventaire.calculer_recette_potentielle()
-        except Exception as e:
-            logger.error(f"Erreur calculs inventaire {inventaire.pk}: {str(e)}")
-            context['moyenne_horaire'] = 0
-            context['estimation_24h'] = 0
-            context['recette_potentielle'] = 0
+        # Permissions
+        context['can_edit'] = (
+            self.request.user.is_admin or 
+            inventaire.agent_saisie == self.request.user
+        )
         
-        # Vérifier si le jour est impertinent
+        # Vérifier si jour impertinent
         try:
+            from inventaire.models import ConfigurationJour, StatutJour
             config = ConfigurationJour.objects.filter(date=inventaire.date).first()
             context['jour_impertinent'] = config and config.statut == StatutJour.IMPERTINENT
         except:
             context['jour_impertinent'] = False
         
-            
+         
             import logging
             logger = logging.getLogger('supper')
             logger.error(f"Erreur calculs inventaire {inventaire.pk}: {str(e)}")
         
-        # Données pour graphique par période
-        try:
-            details_periodes = inventaire.details_periodes.all().order_by('periode')
-            graph_data = {
-                'periodes': [d.get_periode_display() for d in details_periodes],
-                'vehicules': [d.nombre_vehicules for d in details_periodes],
-            }
-            # 🔧 CORRECTION 3 : json.dumps sécurisé
-            graph_data_json = json.dumps(graph_data, ensure_ascii=False)
-        except Exception as e:
-            # Fallback en cas d'erreur de sérialisation
-            graph_data_json = '{}'
-            import logging
-            logger = logging.getLogger('supper')
-            logger.error(f"Erreur sérialisation graph_data: {str(e)}")
         return context
 
 class SaisieInventaireView(InventaireMixin, View):
     """Vue pour la saisie d'inventaire par les agents"""
     template_name = 'inventaire/saisie_inventaire.html'
     
-    @require_permission('peut_gerer_inventaire')
     def dispatch(self, request, *args, **kwargs):
+        # Vérification des permissions sans décorateur
+        if not request.user.is_authenticated:
+            messages.error(request, "Vous devez être connecté.")
+            return redirect('accounts:login')
+        
+        if not request.user.peut_gerer_inventaire:
+            messages.error(request, "Vous n'avez pas la permission de gérer les inventaires.")
+            return HttpResponseForbidden("Accès non autorisé")
+        
         return super().dispatch(request, *args, **kwargs)
     
     def get(self, request, poste_id=None, date_str=None):
@@ -324,18 +340,26 @@ class SaisieInventaireView(InventaireMixin, View):
                 return redirect('inventaire:saisie_inventaire')
         else:
             target_date = timezone.now().date()
+        mois_inventaire = target_date.replace(day=1)
+        programmation_existe = ProgrammationInventaire.objects.filter(
+            poste=poste,
+            mois=mois_inventaire,
+            actif=True
+        ).exists()
         
+        if not programmation_existe:
+            messages.error(
+                request, 
+                f"Le poste {poste.nom} n'est pas programmé pour {target_date.strftime('%B %Y')}. "
+                "Veuillez d'abord programmer l'inventaire mensuel."
+            )
+            return redirect('inventaire:programmer_inventaire')
         # Récupérer ou créer l'inventaire
         inventaire, created = InventaireJournalier.objects.get_or_create(
             poste=poste,
             date=target_date,
             defaults={'agent_saisie': request.user}
         )
-        
-        # # Vérifier si l'inventaire peut être modifié
-        # if hasattr(inventaire, 'verrouille') and inventaire.verrouille:
-        #     messages.warning(request, "Cet inventaire est verrouillé et ne peut plus être modifié.")
-        #     return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
         
         # Récupérer les détails existants
         details_existants = {
@@ -361,7 +385,6 @@ class SaisieInventaireView(InventaireMixin, View):
             'target_date': target_date,
             'periodes_data': periodes_data,
             'is_new': created,
-            'can_save': not getattr(inventaire, 'verrouille', False),
         }
         
         return render(request, self.template_name, context)
@@ -374,6 +397,9 @@ class SaisieInventaireView(InventaireMixin, View):
             poste = get_object_or_404(Poste, id=poste_id)
         else:
             poste = request.user.poste_affectation
+            if not poste:
+                messages.error(request, "Aucun poste d'affectation configuré.")
+                return redirect('common:dashboard')
         
         if date_str:
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -381,19 +407,22 @@ class SaisieInventaireView(InventaireMixin, View):
             target_date = timezone.now().date()
         
         # Vérifications de sécurité
-        if hasattr(request.user, 'peut_acceder_poste'):
-            if not request.user.peut_acceder_poste(poste):
-                return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+        if not request.user.peut_acceder_poste(poste):
+            return JsonResponse({'error': 'Accès non autorisé'}, status=403)
         
         try:
-            # Récupérer l'inventaire
-            inventaire = InventaireJournalier.objects.get(
+            # Récupérer ou créer l'inventaire
+            inventaire, created = InventaireJournalier.objects.get_or_create(
                 poste=poste,
-                date=target_date
+                date=target_date,
+                defaults={'agent_saisie': request.user}
             )
             
-            # if hasattr(inventaire, 'verrouille') and inventaire.verrouille:
-            #     return JsonResponse({'error': 'Inventaire verrouillé'}, status=400)
+            # Vérifier si peut être modifié
+            if not inventaire.peut_etre_modifie_par(request.user):
+                messages.error(request, 
+                    "Cet inventaire a déjà été saisi et ne peut être modifié que par un administrateur.")
+                return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
             
             # Traiter les données des périodes
             details_saved = 0
@@ -408,7 +437,7 @@ class SaisieInventaireView(InventaireMixin, View):
                 if nombre_vehicules:
                     try:
                         nombre_vehicules = int(nombre_vehicules)
-                        if 0 <= nombre_vehicules <= 1000:
+                        if 0 <= nombre_vehicules <= 5000:
                             detail, created = DetailInventairePeriode.objects.update_or_create(
                                 inventaire=inventaire,
                                 periode=periode_code,
@@ -425,6 +454,12 @@ class SaisieInventaireView(InventaireMixin, View):
             # Mettre à jour l'inventaire
             inventaire.total_vehicules = total_vehicules
             inventaire.nombre_periodes_saisies = details_saved
+            inventaire.observations = request.POST.get('observations', '')
+            
+            # Marquer comme verrouillé après première saisie complète
+            if details_saved > 0 and not request.user.is_admin:
+                inventaire.verrouille = True
+                
             inventaire.save()
             
             # Journaliser l'action
@@ -726,12 +761,25 @@ def supprimer_inventaire(request, pk):
 def saisir_recette(request):
     """
     Interface de saisie de recette pour les chefs de poste
-    Pas de vérification de jour ouvert/fermé
+    Version corrigée avec gestion des erreurs Decimal
     """
-    # Vérifier que l'utilisateur peut saisir des recettes
+    from decimal import Decimal, InvalidOperation
+     # Vérifier que l'utilisateur peut saisir des recettes
     if not (request.user.is_chef_poste or request.user.is_admin):
         messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
         return HttpResponseForbidden("Accès non autorisé")
+    
+    # Déterminer les postes accessibles
+    if hasattr(request.user, 'get_postes_accessibles'):
+        postes = request.user.get_postes_accessibles()
+    else:
+        # Fallback si la méthode n'existe pas encore
+        if request.user.acces_tous_postes or request.user.is_admin:
+            postes = Poste.objects.filter(is_active=True)
+        elif request.user.poste_affectation:
+            postes = Poste.objects.filter(id=request.user.poste_affectation.id)
+        else:
+            postes = Poste.objects.none()
     
     # Déterminer les postes accessibles
     postes = request.user.get_postes_accessibles()
@@ -785,14 +833,18 @@ def saisir_recette(request):
                     messages.warning(request, f"Journée marquée comme impertinente (TD: {recette.taux_deperdition:.2f}%)")
                 elif couleur == 'danger':
                     messages.warning(request, f"Attention: Taux de déperdition mauvais ({recette.taux_deperdition:.2f}%)")
-                elif couleur == 'warning':
-                    messages.info(request, f"Taux de déperdition acceptable ({recette.taux_deperdition:.2f}%)")
                 else:
                     messages.success(request, f"Bon taux de déperdition ({recette.taux_deperdition:.2f}%)")
             else:
-                messages.success(request, "Recette enregistrée avec succès.")
-            
-            return redirect('recette_detail', pk=recette.pk)
+                messages.success(request, f"Recette enregistrée avec succès. Montant: {recette.montant_declare} FCFA")
+
+            if request.user.is_admin:
+                    return redirect('inventaire:liste_recettes')
+            else:
+                    # Rediriger vers la liste filtrée sur son poste
+                    return redirect(f"{reverse('inventaire:liste_recettes')}?poste={recette.poste.id}")
+    
+
     else:
         # Pré-remplir avec la date du jour et le poste
         initial_data = {
@@ -804,27 +856,58 @@ def saisir_recette(request):
             
         form = RecetteJournaliereForm(initial=initial_data, user=request.user)
     
-    # Récupérer les recettes récentes
-    recettes_recentes = RecetteJournaliere.objects.filter(
+    recettes_query = RecetteJournaliere.objects.filter(
         chef_poste=request.user
-    ).select_related('poste', 'inventaire_associe').order_by('-date')[:10]
+    ).select_related('poste', 'inventaire_associe').order_by('-date')
     
-    # Statistiques rapides
-    stats = {}
-    if recettes_recentes:
-        stats = {
-            'total_mois': recettes_recentes.filter(
+    stats = {
+        'total_mois': 0,
+        'moyenne_taux': 0
+    }
+    
+    if request.method == 'GET':
+        recettes_query = RecetteJournaliere.objects.filter(
+            chef_poste=request.user
+        ).select_related('poste', 'inventaire_associe').order_by('-date')
+        
+        if recettes_query.exists():
+            # Total du mois avec gestion sécurisée
+            recettes_mois = recettes_query.filter(
                 date__month=timezone.now().month,
                 date__year=timezone.now().year
-            ).aggregate(
-                total=Sum('montant_declare')
-            )['total'] or 0,
-            'moyenne_taux': recettes_recentes.filter(
-                taux_deperdition__isnull=False
-            ).aggregate(
-                moyenne=Avg('taux_deperdition')
-            )['moyenne'] or 0
-        }
+            )
+            
+            total_result = recettes_mois.aggregate(total=Sum('montant_declare'))['total']
+            
+            # Conversion sécurisée en nombre
+            if total_result is not None:
+                try:
+                    if isinstance(total_result, Decimal):
+                        stats['total_mois'] = float(str(total_result))
+                    else:
+                        stats['total_mois'] = float(total_result) if total_result else 0
+                except (TypeError, ValueError, InvalidOperation):
+                    stats['total_mois'] = 0
+            
+            # Moyenne des taux avec gestion sécurisée
+            taux_values = []
+            for recette in recettes_query.filter(taux_deperdition__isnull=False):
+                if recette.taux_deperdition is not None:
+                    try:
+                        if isinstance(recette.taux_deperdition, Decimal):
+                            val = float(str(recette.taux_deperdition))
+                        else:
+                            val = float(recette.taux_deperdition)
+                        taux_values.append(val)
+                    except (TypeError, ValueError, InvalidOperation):
+                        continue
+            
+            if taux_values:
+                stats['moyenne_taux'] = sum(taux_values) / len(taux_values)
+        
+        recettes_recentes = recettes_query[:10]
+    else:
+        recettes_recentes = []
     
     context = {
         'form': form,
@@ -844,7 +927,7 @@ def modifier_recette(request, pk):
     
     # Vérifier les permissions
    
-    is_admin = request.user.is_admin()
+    is_admin = request.user.is_admin
     can_access_poste = request.user.peut_acceder_poste(recette.poste)
     
     # Vérifier si peut modifier
@@ -889,7 +972,11 @@ def modifier_recette(request, pk):
             )
             
             messages.success(request, "La recette a été modifiée avec succès.")
-            return redirect('recette_detail', pk=recette.pk)
+            if request.user.is_admin:
+                    return redirect('inventaire:liste_recettes')
+            else:
+                    # Rediriger vers la liste filtrée sur son poste
+                    return redirect(f"{reverse('inventaire:liste_recettes')}?poste={recette.poste.id}")
     else:
         form = RecetteJournaliereForm(
             instance=recette,
@@ -936,7 +1023,11 @@ def supprimer_recette(request, pk):
         )
         
         messages.success(request, "La recette a été supprimée avec succès.")
-        return redirect('liste_recettes')
+        if request.user.is_admin:
+                    return redirect('inventaire:liste_recettes')
+        else:
+                    # Rediriger vers la liste filtrée sur son poste
+                    return redirect(f"{reverse('inventaire:liste_recettes')}?poste={recette.poste.id}")
     
     context = {
         'recette': recette,
@@ -945,6 +1036,170 @@ def supprimer_recette(request, pk):
     
     return render(request, 'inventaire/confirmer_suppression_recette.html', context)
 
+from django.views.generic import ListView, DetailView
+
+class RecetteListView(LoginRequiredMixin, ListView):
+    """Vue pour lister les recettes avec filtres avancés"""
+    model = RecetteJournaliere
+    template_name = 'inventaire/liste_recettes.html'
+    context_object_name = 'recettes'
+    paginate_by = 25
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filtrage selon les permissions utilisateur
+        if not self.request.user.is_admin:
+            poste_filter = self.request.GET.get('poste')
+            if not poste_filter:
+                # Par défaut, montrer seulement les recettes de son poste
+                if self.request.user.poste_affectation:
+                    queryset = queryset.filter(poste=self.request.user.poste_affectation)
+                else:
+                    # Si pas de poste d'affectation, montrer ses propres recettes
+                    queryset = queryset.filter(chef_poste=self.request.user)
+        
+        # Jointures pour optimiser
+        queryset = queryset.select_related('poste', 'chef_poste', 'inventaire_associe')
+        
+        # Filtres depuis les paramètres GET
+        filters = self.request.GET
+        
+        # Filtre par poste
+        if filters.get('poste'):
+            queryset = queryset.filter(poste_id=filters.get('poste'))
+        
+        # Filtre par période
+        periode = filters.get('periode', 'all')
+        if periode == 'jour':
+            date_str = filters.get('date')
+            if date_str:
+                try:
+                    date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    queryset = queryset.filter(date=date)
+                except ValueError:
+                    pass
+        elif periode == 'semaine':
+            debut_semaine = timezone.now().date() - timedelta(days=timezone.now().weekday())
+            queryset = queryset.filter(date__gte=debut_semaine)
+        elif periode == 'mois':
+            mois = filters.get('mois')
+            annee = filters.get('annee')
+            if mois and annee:
+                queryset = queryset.filter(date__month=mois, date__year=annee)
+        
+        # Filtre par taux de déperdition
+        taux_filtre = filters.get('taux_filtre')
+        if taux_filtre == 'bon':
+            queryset = queryset.filter(taux_deperdition__gt=-10)
+        elif taux_filtre == 'moyen':
+            queryset = queryset.filter(taux_deperdition__lte=-10, taux_deperdition__gt=-30)
+        elif taux_filtre == 'mauvais':
+            queryset = queryset.filter(taux_deperdition__lte=-30)
+        
+        # Recherche
+        search = filters.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(poste__nom__icontains=search) |
+                Q(poste__code__icontains=search) |
+                Q(chef_poste__nom_complet__icontains=search)
+            )
+        
+        # Tri
+        order = filters.get('order', '-date')
+        queryset = queryset.order_by(order)
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        if not self.request.user.is_admin and self.request.user.poste_affectation:
+            poste_filter = self.request.GET.get('poste')
+            if poste_filter == str(self.request.user.poste_affectation.id):
+                context['viewing_own_poste'] = True
+                context['poste_name'] = self.request.user.poste_affectation.nom
+                
+        # Ajouter les filtres actuels
+        context['current_filters'] = self.request.GET.dict()
+        
+        # Statistiques globales
+        all_recettes = self.get_queryset()
+        # Calcul du total montant sécurisé
+        total_montant = all_recettes.aggregate(
+            Sum('montant_declare')
+        )['montant_declare__sum']
+        
+        # Calcul de la moyenne des taux sécurisé
+        moyenne_taux = None
+        taux_queryset = all_recettes.filter(
+            taux_deperdition__isnull=False
+        ).values_list('taux_deperdition', flat=True)
+        
+        if taux_queryset:
+            taux_values = []
+            for taux in taux_queryset:
+                if taux is not None:
+                    try:
+                        # Convertir en float pour le calcul
+                        taux_values.append(float(taux))
+                    except (TypeError, ValueError, decimal.InvalidOperation):
+                        continue
+            
+            if taux_values:
+                moyenne_taux = sum(taux_values) / len(taux_values)
+        
+        context['stats'] = {
+            'total_recettes': all_recettes.count(),
+            'total_montant': float(total_montant) if total_montant else 0,
+            'moyenne_taux': moyenne_taux,
+            'recettes_jour': all_recettes.filter(date=timezone.now().date()).count(),
+        }
+        
+        # Liste des postes pour le filtre
+        if self.request.user.is_admin:
+            context['postes'] = Poste.objects.filter(is_active=True).order_by('nom')
+        else:
+            if hasattr(self.request.user, 'get_postes_accessibles'):
+                context['postes'] = self.request.user.get_postes_accessibles()
+            else:
+                context['postes'] = Poste.objects.none()
+        
+        
+        # Mois disponibles
+        dates = all_recettes.dates('date', 'month', order='DESC')
+        context['mois_disponibles'] = [
+            {'mois': d.month, 'annee': d.year, 'label': d.strftime('%B %Y')}
+            for d in dates
+        ]
+        
+        return context
+
+
+class RecetteDetailView(LoginRequiredMixin, DetailView):
+    """Vue pour afficher le détail d'une recette"""
+    model = RecetteJournaliere
+    template_name = 'inventaire/recette_detail.html'
+    context_object_name = 'recette'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Vérifier les permissions de modification
+        recette = self.object
+        context['peut_modifier'] = (
+            self.request.user.is_admin or
+            recette.chef_poste == self.request.user
+        )
+        
+        # Ajouter l'inventaire associé si existe
+        if recette.inventaire_associe:
+            context['inventaire'] = recette.inventaire_associe
+            context['details_inventaire'] = recette.inventaire_associe.details_periodes.all()
+        
+        return context
+    
 @login_required
 @require_permission('peut_gerer_inventaire')
 def liste_inventaires_mensuels(request):
@@ -1040,10 +1295,10 @@ def detail_inventaire_mensuel(request, pk):
         )['total'] or 0,
         'total_recettes_declarees': recettes.aggregate(
             total=Sum('montant_declare')
-        )['total'] or Decimal('0'),
+        )['total'] or float('0'),
         'total_recettes_potentielles': recettes.aggregate(
             total=Sum('recette_potentielle')
-        )['total'] or Decimal('0'),
+        )['total'] or float('0'),
         'nombre_jours_saisis': inventaires_journaliers.count(),
         'nombre_jours_impertinents': ConfigurationJour.objects.filter(
             date__range=[date_debut, date_fin],
@@ -1100,7 +1355,7 @@ def consolider_inventaire_mensuel(request):
     Consolide les données d'un mois pour créer/mettre à jour les statistiques
     """
     if request.method != 'POST':
-        return redirect('liste_inventaires_mensuels')
+        return redirect('inventaire:liste_inventaires_mensuels')
     
     poste_id = request.POST.get('poste_id')
     mois = request.POST.get('mois')
@@ -1209,97 +1464,6 @@ class ConfigurationJourListView(AdminRequiredMixin, ListView):
         return context
 
 
-# class InventaireVerrouillerView(InventaireMixin, View):
-#     """Vue pour verrouiller un inventaire"""
-    
-#     @method_decorator(require_http_methods(["POST"]))
-#     def dispatch(self, *args, **kwargs):
-#         return super().dispatch(*args, **kwargs)
-    
-#     def post(self, request, pk):
-#         """Verrouiller un inventaire"""
-#         if not _check_admin_permission(request.user):
-#             return JsonResponse({'error': 'Permission refusée'}, status=403)
-        
-#         try:
-#             inventaire = get_object_or_404(InventaireJournalier, pk=pk)
-            
-#             if not request.user.peut_acceder_poste(inventaire.poste):
-#                 return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
-            
-#             if inventaire.verrouille:
-#                 return JsonResponse({'error': 'Inventaire déjà verrouillé'}, status=400)
-            
-#             # Vérifier que l'inventaire est complet
-#             if inventaire.nombre_periodes_saisies < 1:
-#                 return JsonResponse({'error': 'Inventaire incomplet'}, status=400)
-            
-#             inventaire.verrouille = True
-#             inventaire.date_verrouillage = timezone.now()
-#             inventaire.verrouille_par = request.user
-#             inventaire.save()
-            
-#             _log_inventaire_action(
-#                 request, 
-#                 "Verrouillage inventaire",
-#                 f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
-#             )
-            
-#             return JsonResponse({
-#                 'success': True,
-#                 'message': 'Inventaire verrouillé avec succès'
-#             })
-            
-#         except Exception as e:
-#             logger.error(f"Erreur verrouillage inventaire: {str(e)}")
-#             return JsonResponse({'error': 'Erreur serveur'}, status=500)
-
-
-# class InventaireValiderView(InventaireMixin, View):
-#     """Vue pour valider un inventaire"""
-    
-#     @method_decorator(require_http_methods(["POST"]))
-#     def dispatch(self, *args, **kwargs):
-#         return super().dispatch(*args, **kwargs)
-    
-#     def post(self, request, pk):
-#         """Valider un inventaire"""
-#         if not _check_admin_permission(request.user):
-#             return JsonResponse({'error': 'Permission refusée'}, status=403)
-        
-#         try:
-#             inventaire = get_object_or_404(InventaireJournalier, pk=pk)
-            
-#             if not request.user.peut_acceder_poste(inventaire.poste):
-#                 return JsonResponse({'error': 'Accès non autorisé à ce poste'}, status=403)
-            
-#             if not inventaire.verrouille:
-#                 return JsonResponse({'error': 'Inventaire non verrouillé'}, status=400)
-            
-#             if inventaire.valide:
-#                 return JsonResponse({'error': 'Inventaire déjà validé'}, status=400)
-            
-#             inventaire.valide = True
-#             inventaire.date_validation = timezone.now()
-#             inventaire.valide_par = request.user
-#             inventaire.save()
-            
-#             _log_inventaire_action(
-#                 request, 
-#                 "Validation inventaire",
-#                 f"Inventaire {inventaire.poste.nom} du {inventaire.date}"
-#             )
-            
-#             return JsonResponse({
-#                 'success': True,
-#                 'message': 'Inventaire validé avec succès'
-#             })
-            
-#         except Exception as e:
-#             logger.error(f"Erreur validation inventaire: {str(e)}")
-#             return JsonResponse({'error': 'Erreur serveur'}, status=500)
-
-
 # ===================================================================
 # API VIEWS POUR LES CALCULS EN TEMPS RÉEL
 # ===================================================================
@@ -1352,77 +1516,6 @@ class CalculAutomatiqueAPIView(InventaireMixin, View):
         except Exception as e:
             logger.error(f"Erreur calcul automatique: {str(e)}")
             return JsonResponse({'error': 'Erreur de calcul'}, status=500)
-
-# class VerificationJourAPIView(InventaireMixin, View):
-#     """API pour vérifier le statut d'un jour"""
-    
-#     @method_decorator(require_http_methods(["GET"]))
-#     def dispatch(self, *args, **kwargs):
-#         return super().dispatch(*args, **kwargs)
-    
-#     def get(self, request):
-#         """Vérifier si un jour est ouvert pour la saisie"""
-#         date_str = request.GET.get('date')
-        
-#         if not date_str:
-#             return JsonResponse({'error': 'Date requise'}, status=400)
-        
-#         try:
-#             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            
-#             # Vérifier la configuration
-#             is_open = ConfigurationJour.est_jour_ouvert(target_date)
-            
-#             # Informations supplémentaires
-#             try:
-#                 config = ConfigurationJour.objects.get(date=target_date)
-#                 config_info = {
-#                     'statut': config.statut,
-#                     'statut_display': config.get_statut_display(),
-#                     'commentaire': config.commentaire,
-#                     'cree_par': config.cree_par.nom_complet if config.cree_par else None,
-#                 }
-#             except ConfigurationJour.DoesNotExist:
-#                 config_info = {
-#                     'statut': 'ferme',
-#                     'statut_display': 'Fermé par défaut',
-#                     'commentaire': 'Jour non configuré',
-#                     'cree_par': None,
-#                 }
-            
-#             # Vérifier s'il y a déjà des données
-#             poste = request.user.poste_affectation
-#             has_inventaire = False
-#             inventaire_id = None
-            
-#             if poste:
-#                 try:
-#                     inventaire = InventaireJournalier.objects.get(
-#                         poste=poste,
-#                         date=target_date
-#                     )
-#                     has_inventaire = True
-#                     inventaire_id = inventaire.id
-#                 except InventaireJournalier.DoesNotExist:
-#                     pass
-            
-#             return JsonResponse({
-#                 'success': True,
-#                 'date': target_date.isoformat(),
-#                 'is_open': is_open,
-#                 'config': config_info,
-#                 'has_inventaire': has_inventaire,
-#                 'inventaire_id': inventaire_id,
-#                 'can_edit': is_open and not (has_inventaire and InventaireJournalier.objects.filter(
-#                     id=inventaire_id, verrouille=True
-#                 ).exists()) if has_inventaire else is_open,
-#             })
-        
-#         except ValueError:
-#             return JsonResponse({'error': 'Format de date invalide'}, status=400)
-#         except Exception as e:
-#             logger.error(f"Erreur vérification jour: {str(e)}")
-#             return JsonResponse({'error': 'Erreur serveur'}, status=500)
 
 
 # ===================================================================
@@ -2642,268 +2735,88 @@ def is_admin(user):
     """Vérifier si l'utilisateur est admin"""
     return user.is_authenticated and user.is_superuser
 
-@login_required
-@user_passes_test(is_admin)
-def gerer_jours_inventaire(request, inventaire_id):
-    """Vue pour gérer les jours d'activation d'un inventaire mensuel"""
-    
-    # Pour l'instant, utiliser l'inventaire journalier
-    # (Plus tard, remplacer par InventaireMensuel quand le modèle sera créé)
-    
-    # Récupérer le mois et l'année depuis l'inventaire
-    # Pour le test, on va utiliser le mois et année courants
-    today = date.today()
-    mois = today.month
-    annee = today.year
-    
-    # Obtenir le calendrier du mois
-    cal = calendar.monthcalendar(annee, mois)
-    
-    # Obtenir les jours actuellement ouverts
-    jours_actifs = []
-    nb_jours = calendar.monthrange(annee, mois)[1]
-    
-    for jour in range(1, nb_jours + 1):
-        date_jour = date(annee, mois, jour)
-        config = ConfigurationJour.objects.filter(date=date_jour).first()
-        if config and config.statut == 'ouvert':
-            jours_actifs.append(jour)
-    
-    if request.method == 'POST':
-        # Traiter l'activation/désactivation des jours
-        jours_a_activer = request.POST.getlist('jours_actifs')
-        
-        for jour in range(1, nb_jours + 1):
-            date_jour = date(annee, mois, jour)
-            
-            if str(jour) in jours_a_activer:
-                # Activer le jour
-                config, created = ConfigurationJour.objects.get_or_create(
-                    date=date_jour,
-                    defaults={
-                        'statut': 'ouvert',
-                        'cree_par': request.user,
-                        'commentaire': f'Activé pour inventaire du {mois}/{annee}'
-                    }
-                )
-                if not created and config.statut != 'ouvert':
-                    config.statut = 'ouvert'
-                    config.save()
-            else:
-                # Désactiver le jour
-                config, created = ConfigurationJour.objects.get_or_create(
-                    date=date_jour,
-                    defaults={
-                        'statut': 'ferme',
-                        'cree_par': request.user,
-                        'commentaire': f'Fermé pour inventaire du {mois}/{annee}'
-                    }
-                )
-                if not created and config.statut != 'ferme':
-                    config.statut = 'ferme'
-                    config.save()
-        
-        messages.success(request, f"Les jours du mois {mois}/{annee} ont été mis à jour.")
-        return redirect('admin:inventaire_inventairejournalier_changelist')
-    
-    # Créer un objet fictif pour le template
-    inventaire = {
-        'id': inventaire_id,
-        'titre': f'Inventaire {calendar.month_name[mois]} {annee}',
-        'mois': mois,
-        'annee': annee,
-        'description': 'Gestion des jours d\'activation pour la saisie',
-        'get_nombre_postes': lambda: 'Tous les postes'
-    }
-    
-    context = {
-        'inventaire': inventaire,
-        'calendrier': cal,
-        'jours_actifs': jours_actifs,
-        'title': f'Gérer les jours - {calendar.month_name[mois]} {annee}',
-    }
-    
-    return render(request, 'admin/inventaire/gerer_jours.html', context)
-
-
-# # ===================================================================
-# # VUES FINALES ET UTILS
-# # ===================================================================
-
 # @login_required
-# def inventaire_health_check_api(request):
-#     """API de vérification de santé du module inventaire"""
-#     if not _check_admin_permission(request.user):
-#         return JsonResponse({'error': 'Permission refusée'}, status=403)
+# @user_passes_test(is_admin)
+# def gerer_jours_inventaire(request, inventaire_id):
+#     """Vue pour gérer les jours d'activation d'un inventaire mensuel"""
     
-#     try:
-#         health_status = {
-#             'status': 'ok',
-#             'timestamp': timezone.now().isoformat(),
-#             'checks': {}
-#         }
+#     # Pour l'instant, utiliser l'inventaire journalier
+#     # (Plus tard, remplacer par InventaireMensuel quand le modèle sera créé)
+    
+#     # Récupérer le mois et l'année depuis l'inventaire
+#     # Pour le test, on va utiliser le mois et année courants
+#     today = date.today()
+#     mois = today.month
+#     annee = today.year
+    
+#     # Obtenir le calendrier du mois
+#     cal = calendar.monthcalendar(annee, mois)
+    
+#     # Obtenir les jours actuellement ouverts
+#     jours_actifs = []
+#     nb_jours = calendar.monthrange(annee, mois)[1]
+    
+#     for jour in range(1, nb_jours + 1):
+#         date_jour = date(annee, mois, jour)
+#         config = ConfigurationJour.objects.filter(date=date_jour).first()
+#         if config and config.statut == 'ouvert':
+#             jours_actifs.append(jour)
+    
+#     if request.method == 'POST':
+#         # Traiter l'activation/désactivation des jours
+#         jours_a_activer = request.POST.getlist('jours_actifs')
         
-#         # Vérification base de données
-#         try:
-#             InventaireJournalier.objects.count()
-#             health_status['checks']['database'] = 'ok'
-#         except Exception as e:
-#             health_status['checks']['database'] = f'error: {str(e)}'
-#             health_status['status'] = 'error'
+#         for jour in range(1, nb_jours + 1):
+#             date_jour = date(annee, mois, jour)
+            
+#             if str(jour) in jours_a_activer:
+#                 # Activer le jour
+#                 config, created = ConfigurationJour.objects.get_or_create(
+#                     date=date_jour,
+#                     defaults={
+#                         'statut': 'ouvert',
+#                         'cree_par': request.user,
+#                         'commentaire': f'Activé pour inventaire du {mois}/{annee}'
+#                     }
+#                 )
+#                 if not created and config.statut != 'ouvert':
+#                     config.statut = 'ouvert'
+#                     config.save()
+#             else:
+#                 # Désactiver le jour
+#                 config, created = ConfigurationJour.objects.get_or_create(
+#                     date=date_jour,
+#                     defaults={
+#                         'statut': 'ferme',
+#                         'cree_par': request.user,
+#                         'commentaire': f'Fermé pour inventaire du {mois}/{annee}'
+#                     }
+#                 )
+#                 if not created and config.statut != 'ferme':
+#                     config.statut = 'ferme'
+#                     config.save()
         
-#         # Vérification des permissions
-#         try:
-#             request.user.peut_gerer_inventaire
-#             health_status['checks']['permissions'] = 'ok'
-#         except Exception as e:
-#             health_status['checks']['permissions'] = f'error: {str(e)}'
-#             health_status['status'] = 'warning'
-        
-#         # Vérification des modèles
-#         try:
-#             from .models import PeriodeHoraire
-#             health_status['checks']['models'] = 'ok'
-#         except Exception as e:
-#             health_status['checks']['models'] = f'error: {str(e)}'
-#             health_status['status'] = 'error'
-
-@login_required
-@require_permission('peut_gerer_inventaire')
-def liste_postes_inventaires(request):
-    """
-    Vue pour afficher la liste des postes avec leurs inventaires du mois en cours
-    Permet de voir l'association postes-agents-inventaires
-    """
-    # Période actuelle (mois en cours)
-    today = date.today()
-    debut_mois = date(today.year, today.month, 1)
+#         messages.success(request, f"Les jours du mois {mois}/{annee} ont été mis à jour.")
+#         return redirect('admin:inventaire_inventairejournalier_changelist')
     
-    # Récupérer les postes accessibles selon les permissions
-    postes_accessibles = request.user.get_postes_accessibles()
+#     # Créer un objet fictif pour le template
+#     inventaire = {
+#         'id': inventaire_id,
+#         'titre': f'Inventaire {calendar.month_name[mois]} {annee}',
+#         'mois': mois,
+#         'annee': annee,
+#         'description': 'Gestion des jours d\'activation pour la saisie',
+#         'get_nombre_postes': lambda: 'Tous les postes'
+#     }
     
-    # Construire les données pour chaque poste
-    postes_data = []
+#     context = {
+#         'inventaire': inventaire,
+#         'calendrier': cal,
+#         'jours_actifs': jours_actifs,
+#         'title': f'Gérer les jours - {calendar.month_name[mois]} {annee}',
+#     }
     
-    for poste in postes_accessibles:
-        # Inventaires du mois pour ce poste
-        inventaires_mois = InventaireJournalier.objects.filter(
-            poste=poste,
-            date__gte=debut_mois,
-            date__lte=today
-        ).select_related('agent_saisie').order_by('-date')
-        
-        # Agent principal (le plus récent ou d'affectation)
-        agent_principal = None
-        if inventaires_mois.exists():
-            agent_principal = inventaires_mois.first().agent_saisie
-        elif poste.agents_affectes.filter(is_active=True).exists():
-            agent_principal = poste.agents_affectes.filter(is_active=True).first()
-        
-        # Statistiques du mois
-        nb_inventaires = inventaires_mois.count()
-        nb_jours_travailles = inventaires_mois.filter(verrouille=True).count()
-        
-        # Dernière activité
-        derniere_activite = inventaires_mois.first().date if inventaires_mois.exists() else None
-        
-        # Changements d'agents dans le mois
-        agents_differents = inventaires_mois.values_list('agent_saisie__nom_complet', flat=True).distinct()
-        changements_agents = len(agents_differents) > 1
-        
-        postes_data.append({
-            'poste': poste,
-            'agent_principal': agent_principal,
-            'nb_inventaires': nb_inventaires,
-            'nb_jours_travailles': nb_jours_travailles,
-            'derniere_activite': derniere_activite,
-            'changements_agents': changements_agents,
-            'agents_differents': list(agents_differents),
-            'inventaires_recents': inventaires_mois[:5]  # 5 plus récents
-        })
-    
-    # Statistiques globales
-    stats_globales = {
-        'total_postes': postes_accessibles.count(),
-        'postes_actifs': len([p for p in postes_data if p['nb_inventaires'] > 0]),
-        'total_inventaires': sum(p['nb_inventaires'] for p in postes_data),
-        'postes_avec_changements': len([p for p in postes_data if p['changements_agents']])
-    }
-    
-    context = {
-        'postes_data': postes_data,
-        'stats_globales': stats_globales,
-        'mois_actuel': debut_mois,
-        'today': today,
-        'title': 'Association Postes-Inventaires-Agents'
-    }
-    
-    return render(request, 'inventaire/liste_postes_inventaires.html', context)
-
-
-@login_required
-@require_permission('peut_gerer_inventaire')
-def detail_poste_inventaires(request, poste_id):
-    """
-    Vue détaillée pour un poste spécifique avec historique complet
-    """
-    poste = get_object_or_404(Poste, id=poste_id)
-    
-    # Vérifier l'accès au poste
-    if not request.user.peut_acceder_poste(poste):
-        messages.error(request, "Vous n'avez pas accès aux données de ce poste.")
-        return redirect('liste_postes_inventaires')
-    
-    # Période d'affichage (3 derniers mois par défaut)
-    today = date.today()
-    debut_periode = date(today.year, today.month - 2, 1) if today.month > 2 else date(today.year - 1, today.month + 10, 1)
-    
-    # Inventaires de la période
-    inventaires = InventaireJournalier.objects.filter(
-        poste=poste,
-        date__gte=debut_periode
-    ).select_related('agent_saisie', 'valide_par').order_by('-date')
-    
-    # Agents ayant travaillé sur ce poste
-    agents_historique = InventaireJournalier.objects.filter(
-        poste=poste,
-        date__gte=debut_periode
-    ).values(
-        'agent_saisie__nom_complet',
-        'agent_saisie__username'
-    ).annotate(
-        nb_inventaires=Count('id'),
-        derniere_saisie=models.Max('date')
-    ).order_by('-derniere_saisie')
-    
-    # Changements d'agents par mois
-    changements_mensuels = []
-    for mois in range(3):  # 3 derniers mois
-        date_mois = date(today.year, today.month - mois, 1) if today.month > mois else date(today.year - 1, today.month - mois + 12, 1)
-        fin_mois = date(date_mois.year, date_mois.month + 1, 1) - timedelta(days=1) if date_mois.month < 12 else date(date_mois.year, 12, 31)
-        
-        agents_mois = InventaireJournalier.objects.filter(
-            poste=poste,
-            date__gte=date_mois,
-            date__lte=fin_mois
-        ).values_list('agent_saisie__nom_complet', flat=True).distinct()
-        
-        changements_mensuels.append({
-            'mois': date_mois,
-            'agents': list(agents_mois),
-            'nb_changements': len(agents_mois)
-        })
-    
-    context = {
-        'poste': poste,
-        'inventaires': inventaires,
-        'agents_historique': agents_historique,
-        'changements_mensuels': changements_mensuels,
-        'debut_periode': debut_periode,
-        'today': today,
-        'title': f'Détail inventaires - {poste.nom}'
-    }
-    
-    return render(request, 'inventaire/detail_poste_inventaires.html', context)
+#     return render(request, 'admin/inventaire/gerer_jours.html', context)
 
 
 @login_required
@@ -2967,177 +2880,6 @@ def changer_agent_poste(request, poste_id):
     
     return render(request, 'inventaire/changer_agent_poste.html', context)
 
-@login_required
-@require_http_methods(["POST"])
-@csrf_exempt  # Pour les appels AJAX depuis le dashboard
-def action_ouvrir_semaine(request):
-    """Action rapide : Ouvrir tous les jours de la semaine courante"""
-    
-    if not (request.user.is_superuser or request.user.is_staff):
-        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
-    
-    try:
-        # Obtenir les jours de la semaine courante (lundi à vendredi)
-        today = date.today()
-        start_week = today - timedelta(days=today.weekday())  # Lundi
-        
-        jours_ouverts = 0
-        
-        for i in range(5):  # Lundi à vendredi
-            jour = start_week + timedelta(days=i)
-            
-            # Ouvrir le jour globalement
-            config = ConfigurationJour.ouvrir_jour_global(
-                date=jour,
-                admin_user=request.user,
-                commentaire=f"Ouverture automatique semaine du {start_week.strftime('%d/%m/%Y')}",
-                permet_inventaire=True,
-                permet_recette=True
-            )
-            
-            jours_ouverts += 1
-        
-        # Journaliser l'action
-        _log_inventaire_action(
-            request,
-            "Ouverture semaine courante",
-            f"Semaine du {start_week.strftime('%d/%m/%Y')} - {jours_ouverts} jours ouverts"
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Semaine courante ouverte avec succès ({jours_ouverts} jours ouvrables)'
-        })
-        
-    except Exception as e:
-        logger.error(f"Erreur ouverture semaine: {str(e)}")
-        return JsonResponse({
-            'success': False, 
-            'message': f'Erreur lors de l\'ouverture de la semaine: {str(e)}'
-        }, status=500)
-
-
-@login_required
-@require_http_methods(["POST"])
-@csrf_exempt
-def action_fermer_anciens(request):
-    """Action rapide : Fermer tous les jours antérieurs à aujourd'hui"""
-    
-    if not (request.user.is_superuser or request.user.is_staff):
-        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
-    
-    try:
-        today = date.today()
-        
-        # Fermer tous les jours ouverts antérieurs à aujourd'hui
-        configurations_anciennes = ConfigurationJour.objects.filter(
-            date__lt=today,
-            statut=StatutJour.OUVERT
-        )
-        
-        jours_fermes = 0
-        
-        for config in configurations_anciennes:
-            config.statut = StatutJour.FERME
-            config.permet_saisie_inventaire = False
-            config.permet_saisie_recette = False
-            config.commentaire = f"Fermé automatiquement le {today.strftime('%d/%m/%Y')}"
-            config.save()
-            jours_fermes += 1
-        
-        # Journaliser l'action
-        _log_inventaire_action(
-            request,
-            "Fermeture jours anciens",
-            f"{jours_fermes} jours antérieurs à {today.strftime('%d/%m/%Y')} fermés"
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'{jours_fermes} jour(s) ancien(s) fermé(s) avec succès'
-        })
-        
-    except Exception as e:
-        logger.error(f"Erreur fermeture anciens: {str(e)}")
-        return JsonResponse({
-            'success': False, 
-            'message': f'Erreur lors de la fermeture: {str(e)}'
-        }, status=500)
-
-
-@login_required
-@require_http_methods(["POST"])
-@csrf_exempt
-def action_marquer_impertinent(request):
-    """Action rapide : Marquer un jour comme impertinent"""
-    
-    if not (request.user.is_superuser or request.user.is_staff):
-        return JsonResponse({'success': False, 'message': 'Permission refusée'}, status=403)
-    
-    try:
-        # Récupérer les données de la requête
-        if request.content_type == 'application/json':
-            data = json.loads(request.body)
-        else:
-            data = request.POST
-        
-        date_str = data.get('date')
-        commentaire = data.get('commentaire', '')
-        poste_id = data.get('poste_id')
-        
-        if not date_str:
-            return JsonResponse({
-                'success': False, 
-                'message': 'Date requise'
-            }, status=400)
-        
-        # Valider et parser la date
-        try:
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return JsonResponse({
-                'success': False, 
-                'message': 'Format de date invalide (YYYY-MM-DD requis)'
-            }, status=400)
-        
-        # Déterminer le poste
-        poste = None
-        if poste_id:
-            try:
-                poste = Poste.objects.get(id=poste_id)
-            except Poste.DoesNotExist:
-                return JsonResponse({
-                    'success': False, 
-                    'message': 'Poste non trouvé'
-                }, status=404)
-        
-        # Marquer comme impertinent
-        config = ConfigurationJour.marquer_impertinent(
-            date=target_date,
-            admin_user=request.user,
-            poste=poste,
-            commentaire=commentaire or f"Marqué impertinent par {request.user.nom_complet}"
-        )
-        
-        # Journaliser l'action
-        poste_str = f" pour {poste.nom}" if poste else " (global)"
-        _log_inventaire_action(
-            request,
-            "Marquage jour impertinent",
-            f"Date: {target_date.strftime('%d/%m/%Y')}{poste_str} - Commentaire: {commentaire}"
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Jour {target_date.strftime("%d/%m/%Y")}{poste_str} marqué comme impertinent'
-        })
-        
-    except Exception as e:
-        logger.error(f"Erreur marquage impertinent: {str(e)}")
-        return JsonResponse({
-            'success': False, 
-            'message': f'Erreur lors du marquage: {str(e)}'
-        }, status=500)
 
 
 @login_required
@@ -3148,99 +2890,6 @@ def redirect_to_dashboard(request):
     else:
         return redirect('accounts:login')
 
-
-# ===================================================================
-# AMÉLIORATION : API pour les notifications temps réel
-# ===================================================================
-
-# @login_required
-# @require_http_methods(["GET"])
-# def api_notifications(request):
-#     """API pour récupérer les notifications utilisateur"""
-#     try:
-#         user = request.user
-        
-#         # Simuler des notifications (à remplacer par vraies notifications plus tard)
-#         notifications = {
-#             'unread_count': 0,
-#             'new_notifications': []
-#         }
-        
-#         # Vérifier s'il y a des inventaires en attente pour l'utilisateur
-#         if user.peut_gerer_inventaire:
-#             today = timezone.now().date()
-            
-#             # # Inventaires non verrouillés de plus de 2 jours
-#             # inventaires_en_retard = InventaireJournalier.objects.filter(
-#             #     date__lt=today - timedelta(days=2),
-#             #     verrouille=False
-#             # )
-            
-#             if user.poste_affectation:
-#                 inventaires_en_retard = inventaires_en_retard.filter(
-#                     poste=user.poste_affectation
-#                 )
-            
-#             count_retard = inventaires_en_retard.count()
-#             if count_retard > 0:
-#                 notifications['unread_count'] += 1
-#                 notifications['new_notifications'].append({
-#                     'type': 'warning',
-#                     'message': f'{count_retard} inventaire(s) en retard de verrouillage'
-#                 })
-        
-#         # Vérifier les jours fermés pour aujourd'hui
-#         if not ConfigurationJour.est_jour_ouvert_pour_inventaire(timezone.now().date()):
-#             notifications['unread_count'] += 1
-#             notifications['new_notifications'].append({
-#                 'type': 'info',
-#                 'message': 'Jour actuel fermé pour la saisie'
-#             })
-        
-#         return JsonResponse(notifications)
-        
-#     except Exception as e:
-#         logger.error(f"Erreur API notifications: {str(e)}")
-#         return JsonResponse({'unread_count': 0, 'new_notifications': []})
-
-# def verifier_jour_ouvert_inventaire(date_check, poste=None):
-#     """
-#     Fonction utilitaire pour vérifier si un jour est ouvert pour inventaire
-#     🔧 AVEC gestion d'erreurs et arguments corrects
-#     """
-#     try:
-#         return ConfigurationJour.est_jour_ouvert_pour_inventaire(
-#             date=date_check,  # Argument positionnel correct
-#             poste=poste       # Argument positionnel correct
-#         )
-#     except Exception as e:
-#         # Log l'erreur pour debug
-#         import logging
-#         logger = logging.getLogger('supper')
-#         logger.error(f"Erreur vérification jour ouvert : {str(e)}")
-        
-#         # Par défaut : fermé pour sécurité
-#         return False
-
-
-# def verifier_jour_ouvert_recette(date_check, poste=None):
-#     """
-#     Fonction utilitaire pour vérifier si un jour est ouvert pour recette
-#     🔧 AVEC gestion d'erreurs et arguments corrects
-#     """
-#     try:
-#         return ConfigurationJour.est_jour_ouvert_pour_recette(
-#             date=date_check,  # Argument positionnel correct
-#             poste=poste       # Argument positionnel correct
-#         )
-#     except Exception as e:
-#         # Log l'erreur pour debug
-#         import logging
-#         logger = logging.getLogger('supper')
-#         logger.error(f"Erreur vérification jour ouvert recette : {str(e)}")
-        
-#         # Par défaut : fermé pour sécurité
-#         return False
 
 @login_required
 @require_permission('peut_gerer_inventaire')
@@ -3378,7 +3027,7 @@ def programmer_inventaire(request):
                     elif motif == MotifInventaire.TAUX_DEPERDITION:
                         taux_key = f'taux_{poste_id}'
                         if taux_key in request.POST:
-                            prog.taux_deperdition_precedent = Decimal(request.POST[taux_key])
+                            prog.taux_deperdition_precedent = float(request.POST[taux_key])
                     
                     prog.save()
                     postes_programmes.append(poste.nom)
@@ -3659,3 +3308,218 @@ def supprimer_programmation(request, poste_id, mois, motif):
         
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=400)
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def detail_programmation(request, poste_id, mois):
+    """Vue détaillée d'une programmation avec inventaires journaliers"""
+    
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    # Parser le mois (format: 2025-09)
+    try:
+        mois_date = datetime.strptime(mois, '%Y-%m').date()
+    except ValueError:
+        messages.error(request, "Format de mois invalide")
+        return redirect('inventaire:liste_programmations')
+    
+    # Récupérer les programmations pour ce poste/mois
+    programmations = ProgrammationInventaire.objects.filter(
+        poste=poste,
+        mois=mois_date,
+        actif=True
+    ).select_related('cree_par')
+    
+    if not programmations.exists():
+        messages.error(request, "Aucune programmation trouvée")
+        return redirect('inventaire:liste_programmations')
+    
+    # Calculer les dates du mois
+    annee = mois_date.year
+    mois_num = mois_date.month
+    debut_mois = date(annee, mois_num, 1)
+    dernier_jour = calendar.monthrange(annee, mois_num)[1]
+    fin_mois = date(annee, mois_num, dernier_jour)
+    
+    # Récupérer les inventaires du mois
+    inventaires = InventaireJournalier.objects.filter(
+        poste=poste,
+        date__range=[debut_mois, fin_mois]
+    ).select_related('agent_saisie').prefetch_related('details_periodes').order_by('date')
+    
+    # Récupérer les recettes avec calculs
+    recettes = RecetteJournaliere.objects.filter(
+        poste=poste,
+        date__range=[debut_mois, fin_mois]
+    ).select_related('chef_poste', 'inventaire_associe').order_by('date')
+    
+    # Créer un dictionnaire date -> données
+    donnees_par_jour = {}
+    for inv in inventaires:
+        donnees_par_jour[inv.date] = {
+            'inventaire': inv,
+            'recette': None,
+            'taux_deperdition': None,
+            'couleur_alerte': 'secondary',
+            'stock_restant': None
+        }
+    
+    # Ajouter les recettes et calculs
+    for rec in recettes:
+        if rec.date not in donnees_par_jour:
+            donnees_par_jour[rec.date] = {
+                'inventaire': None,
+                'recette': rec,
+                'taux_deperdition': rec.taux_deperdition,
+                'couleur_alerte': rec.get_couleur_alerte() if rec.taux_deperdition else 'secondary',
+                'stock_restant': rec.stock_tickets_restant
+            }
+        else:
+            donnees_par_jour[rec.date]['recette'] = rec
+            donnees_par_jour[rec.date]['taux_deperdition'] = rec.taux_deperdition
+            donnees_par_jour[rec.date]['couleur_alerte'] = rec.get_couleur_alerte() if rec.taux_deperdition else 'secondary'
+            donnees_par_jour[rec.date]['stock_restant'] = rec.stock_tickets_restant
+    
+    # Statistiques du mois
+    stats = {
+        'total_inventaires': inventaires.count(),
+        'total_recettes': recettes.count(),
+        'jours_saisis': len(donnees_par_jour),
+        'total_vehicules': sum(inv.total_vehicules for inv in inventaires),
+        'total_recettes_declarees': sum(rec.montant_declare for rec in recettes),
+        'total_recettes_potentielles': sum(rec.recette_potentielle or 0 for rec in recettes),
+        'taux_moyen': None,
+        'jours_risque': 0,
+        'jours_impertinents': 0
+    }
+    
+    # Calculer le taux moyen et compter les jours à risque
+    taux_list = [rec.taux_deperdition for rec in recettes if rec.taux_deperdition is not None]
+    if taux_list:
+        stats['taux_moyen'] = sum(taux_list) / len(taux_list)
+        stats['jours_risque'] = sum(1 for t in taux_list if t < -30)
+        stats['jours_impertinents'] = sum(1 for t in taux_list if t > -5)
+    
+    # Créer le calendrier
+    cal = calendar.monthcalendar(annee, mois_num)
+    calendrier_data = []
+   
+    
+    for semaine in cal:
+        semaine_data = []
+        for jour in semaine:
+            if jour == 0:
+                semaine_data.append(None)
+            else:
+                date_jour = date(annee, mois_num, jour)
+                jour_data = donnees_par_jour.get(date_jour, {
+                    'inventaire': None,
+                    'recette': None,
+                    'taux_deperdition': None,
+                    'couleur_alerte': 'light',
+                    'stock_restant': None
+                })
+                jour_data['date'] = date_jour
+                jour_data['jour'] = jour
+                semaine_data.append(jour_data)
+        calendrier_data.append(semaine_data)
+    
+    context = {
+        'poste': poste,
+        'programmations': programmations,
+        'mois_date': mois_date,
+        'inventaires': inventaires,
+        'recettes': recettes,
+        'donnees_par_jour': donnees_par_jour,
+        'stats': stats,
+        'calendrier': calendrier_data,
+        'title': f'Détail programmation - {poste.nom} - {mois_date.strftime("%B %Y")}'
+    }
+    
+    return render(request, 'inventaire/detail_programmation.html', context)
+
+@login_required
+def api_month_data(request):
+    """API pour récupérer les données d'un mois"""
+    year = int(request.GET.get('year'))
+    month = int(request.GET.get('month'))
+    poste_id = request.GET.get('poste_id')
+    
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    # Vérifier si le mois est programmé
+    mois_date = date(year, month, 1)
+    programmation_exists = ProgrammationInventaire.objects.filter(
+        poste=poste,
+        mois=mois_date,
+        actif=True
+    ).exists()
+    
+    # Récupérer les inventaires existants
+    inventaires = InventaireJournalier.objects.filter(
+        poste=poste,
+        date__year=year,
+        date__month=month
+    ).values('date', 'id')
+    
+    data = {}
+    for inv in inventaires:
+        date_str = inv['date'].strftime('%Y-%m-%d')
+        data[date_str] = {
+            'has_inventory': True,
+            'inventory_id': inv['id'],
+            'is_programmable': False
+        }
+    
+    # Marquer les jours programmables
+    if programmation_exists:
+        from calendar import monthrange
+        days_in_month = monthrange(year, month)[1]
+        today = timezone.now().date()
+        
+        for day in range(1, days_in_month + 1):
+            date_obj = date(year, month, day)
+            date_str = date_obj.strftime('%Y-%m-%d')
+            
+            if date_str not in data and date_obj <= today:
+                data[date_str] = {
+                    'has_inventory': False,
+                    'is_programmable': True
+                }
+    
+    return JsonResponse(data)
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def selection_date_inventaire(request, poste_id=None):
+    """Vue intermédiaire pour sélectionner la date avant la saisie"""
+    
+    # Déterminer le poste
+    if poste_id:
+        poste = get_object_or_404(Poste, id=poste_id)
+    else:
+        poste = request.user.poste_affectation
+        if not poste:
+            messages.error(request, "Aucun poste d'affectation configuré.")
+            return redirect('common:dashboard')
+    
+    # Vérifier l'accès au poste
+    if hasattr(request.user, 'peut_acceder_poste'):
+        if not request.user.peut_acceder_poste(poste):
+            messages.error(request, "Accès non autorisé à ce poste.")
+            return redirect('inventaire:inventaire_list')
+    
+    # Si une date est passée en GET, rediriger vers la saisie
+    if request.GET.get('date'):
+        date_str = request.GET.get('date')
+        return redirect('inventaire:saisie_inventaire_avec_date', 
+                       poste_id=poste.id, 
+                       date_str=date_str)
+    
+    # Sinon, afficher le calendrier de sélection
+    return render(request, 'inventaire/selection_date_inventaire.html', {
+        'poste': poste,
+        'poste_id': poste.id,
+        'today': timezone.now().date(),
+        'current_month': timezone.now().strftime('%Y-%m'),
+    })
