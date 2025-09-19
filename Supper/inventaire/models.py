@@ -1255,26 +1255,34 @@ class InventaireJournalier(models.Model):
     
     def calculer_recette_potentielle(self):
         """
-        Calcule la recette potentielle selon le nouvel algorithme
+        Calcule la recette potentielle selon l'algorithme correct
         """
         details = self.details_periodes.all()
         
         if not details.exists():
-            return float('0')
+            return Decimal('0')
         
-        # Somme et moyenne
-        somme_vehicules = sum(detail.nombre_vehicules for detail in details)
-        nombre_periodes = details.count()
-        moyenne_horaire = somme_vehicules / nombre_periodes
+        # Calcul avec Decimal pour la précision
+        somme_vehicules = Decimal(str(sum(detail.nombre_vehicules for detail in details)))
+        nombre_periodes = Decimal(str(details.count()))
         
-        # Estimation 24h
-        estimation_24h = moyenne_horaire * 24
+        if nombre_periodes > 0:
+            # Moyenne horaire
+            moyenne_horaire = somme_vehicules / nombre_periodes
+            
+            # Estimation 24h
+            estimation_24h = moyenne_horaire * Decimal('24')
+            
+            # Véhicules effectifs (75%)
+            vehicules_effectifs = estimation_24h * Decimal('0.75')
+            
+            # Recette potentielle
+            recette_potentielle = vehicules_effectifs * Decimal('500')
+            
+            # Arrondir à l'entier le plus proche
+            return recette_potentielle.quantize(Decimal('1'))
         
-        # Recette potentielle = T * 75% * 500
-        vehicules_effectifs = estimation_24h * 0.75
-        recette_potentielle = vehicules_effectifs * 500
-        
-        return float(str(recette_potentielle))
+        return Decimal('0')
     
     def get_statistiques_detaillees(self):
         """Retourne des statistiques détaillées pour debug"""
@@ -1550,7 +1558,7 @@ class RecetteJournaliere(models.Model):
         Calcule tous les indicateurs basés sur l'inventaire associé
         Version corrigée avec conversion sécurisée des Decimal
         """
-        from decimal import Decimal, InvalidOperation
+        from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
         
         if not self.inventaire_associe:
             try:
@@ -1582,7 +1590,7 @@ class RecetteJournaliere(models.Model):
                 moyenne_horaire = somme_vehicules / nombre_periodes
                 estimation_24h = moyenne_horaire * Decimal('24')
                 vehicules_effectifs = estimation_24h * Decimal('0.75')
-                self.recette_potentielle = vehicules_effectifs * Decimal('500')
+                self.recette_potentielle = (vehicules_effectifs * Decimal('500')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
             else:
                 self.recette_potentielle = Decimal('0')
             
@@ -1642,9 +1650,9 @@ class RecetteJournaliere(models.Model):
         try:
         # Conversion sécurisée en float
             if isinstance(self.taux_deperdition, Decimal):
-                td = float(str(self.taux_deperdition))
+                td = Decimal(str(self.taux_deperdition))
             else:
-                td = float(self.taux_deperdition) if self.taux_deperdition else 0.0
+                td = Decimal(self.taux_deperdition) if self.taux_deperdition else 0.0
         except (TypeError, ValueError, InvalidOperation):
             return 'secondary'
         

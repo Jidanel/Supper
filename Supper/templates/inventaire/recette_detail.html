@@ -138,7 +138,7 @@
                 {% endif %}
                 
                 {% if request.user.is_admin %}
-                <a href="{% url 'inventaire:supprimer_recette' recette.pk %}" class="btn btn-danger"
+                <a href="{% url 'inventaire:supprimer_recette_poste' recette.pk %}" class="btn btn-danger"
                    onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette recette?')">
                     <i class="fas fa-trash me-2"></i>Supprimer
                 </a>

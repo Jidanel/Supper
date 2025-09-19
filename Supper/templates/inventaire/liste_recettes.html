@@ -354,19 +354,13 @@
                     <td>
                         {% if recette.taux_deperdition != None %}
                             <span class="badge bg-{{ recette.get_couleur_alerte }}">
-                                                {{ recette.taux_deperdition|floatformat:2 }}%
-                                            </span>
+                                                {{ recette.taux_deperdition|floatformat:2 }}% - Statut : {{recette.get_statut_deperdition }}
+                                        </span>
                                         {% else %}
                                             <span class="badge bg-secondary">N/A</span>
                                         {% endif %}
                     </td>
-                    <td>
-                                        {% if recette.get_statut_deperdition %}
-                                            {{ recette.get_statut_deperdition }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
+                    
                     {% endif %}
                     <td>
                         {{ recette.chef_poste.nom_complet }}
