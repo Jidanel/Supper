@@ -168,6 +168,11 @@
                 <i class="fas fa-plus me-2"></i>
                 {% trans "Nouvelle Recette" %}
             </a>
+
+            <a href="{% url 'inventaire:statistiques_recettes' %}" class="btn btn-info">
+            <i class="fas fa-chart-bar me-2"></i>
+            {% trans "Statistiques Recettes" %}
+             </a>
             {% endif %}
         </div>
     </div>

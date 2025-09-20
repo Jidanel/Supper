@@ -1,0 +1,252 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Statistiques Taux de Déperdition - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-header {
+        background: linear-gradient(135deg, #667eea, #1e40af);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+    
+    .filter-bar {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+    
+    .stats-table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .chart-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        height: 400px;
+    }
+    
+    .stat-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .stat-badge.bon {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .stat-badge.moyen {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .stat-badge.mauvais {
+        background: #f8d7da;
+        color: #721c24;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="stats-header">
+        <h2 class="mb-3">
+            <i class="fas fa-chart-line me-2"></i>
+            Statistiques des Taux de Déperdition
+        </h2>
+        <div class="row text-white-50">
+            <div class="col-md-3">
+                <strong>Taux Moyen de Déperdition :</strong> 
+                <span class="h4 text-white">{{ stats_globales.taux_moyen|floatformat:2 }}%</span>
+            </div>
+            <div class="col-md-3">
+                <strong>Nombre de Jours :</strong> 
+                <span class="h4 text-white">{{ stats_globales.total_recettes }}</span>
+            </div>
+            <div class="col-md-3">
+                <strong>Montant Total déclaré:</strong> 
+                <span class="h4 text-white">{{ stats_globales.montant_total|floatformat:0 }} FCFA</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-bar">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Période</label>
+                <select name="periode" class="form-select">
+                    <option value="hebdomadaire" {% if periode == 'hebdomadaire' %}selected{% endif %}>Hebdomadaire</option>
+                    <option value="mensuel" {% if periode == 'mensuel' %}selected{% endif %}>Mensuel</option>
+                    <option value="trimestriel" {% if periode == 'trimestriel' %}selected{% endif %}>Trimestriel</option>
+                    <option value="semestriel" {% if periode == 'semestriel' %}selected{% endif %}>Semestriel</option>
+                    <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Année</label>
+                <select name="annee" class="form-select">
+                    {% for year in annees_disponibles %}
+                    <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Poste</label>
+                <select name="poste" class="form-select">
+                    <option value="tous">Tous les postes (Moyenne)</option>
+                    {% for poste in postes %}
+                    <option value="{{ poste.id }}" {% if poste.id|stringformat:"s" == poste_selectionne %}selected{% endif %}>
+                        {{ poste.nom }} ({{ poste.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Graphique -->
+    <div class="chart-container">
+        <canvas id="tauxChart"></canvas>
+    </div>
+
+    <!-- Tableau des statistiques -->
+    <div class="stats-table">
+        <table class="table mb-0">
+            <thead style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
+                <tr>
+                    <th>Période</th>
+                    <th>Taux Moyen</th>
+                    <th>Nombre de Jours</th>
+                    <th>Montant Total</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in stats %}
+                <tr>
+                    <td><strong>{{ stat.periode }}</strong></td>
+                    <td>
+                        <span class="h5">{{ stat.taux_moyen|floatformat:2 }}%</span>
+                    </td>
+                    <td>{{ stat.nombre_jours }} jours</td>
+                    <td>{{ stat.montant_total|floatformat:0 }} FCFA</td>
+                    <td>
+                        <span class="stat-badge {{ stat.couleur }}">
+                            {% if stat.couleur == 'success' %}
+                                BON
+                            {% elif stat.couleur == 'danger' %}
+                                MAUVAIS
+                            {% else %}
+                                IMPERTINENT
+                            {% endif %}
+                        </span>
+                    </td>
+                    
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        Aucune donnée disponible pour cette période
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if can_export %}
+    <!-- Boutons d'export -->
+    <div class="mt-4 text-end">
+        <button class="btn btn-success" onclick="exportExcel()">
+            <i class="fas fa-file-excel me-2"></i>Export Excel
+        </button>
+        <button class="btn btn-danger" onclick="exportPDF()">
+            <i class="fas fa-file-pdf me-2"></i>Export PDF
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Données du graphique
+const graphData = {{ graph_data_json|safe }};
+
+// Configuration du graphique
+const ctx = document.getElementById('tauxChart').getContext('2d');
+const myChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: graphData.labels,
+        datasets: [{
+            label: 'Taux de Déperdition (%)',
+            data: graphData.data,
+            backgroundColor: graphData.colors,
+            borderColor: graphData.borderColors,
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Évolution du Taux de Déperdition - {{ periode|title }} {{ annee }}'
+            },
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: function(value) {
+                        return value + '%';
+                    }
+                }
+            }
+        }
+    }
+});
+
+function voirDetails(periode) {
+    // Redirection vers les détails de la période
+    window.location.href = `/inventaire/statistiques/details/?periode=${periode}&type={{ periode }}&annee={{ annee }}`;
+}
+
+function exportExcel() {
+    window.location.href = '{{ request.path }}?{{ request.GET.urlencode }}&export=excel';
+}
+
+function exportPDF() {
+    window.location.href = '{{ request.path }}?{{ request.GET.urlencode }}&export=pdf';
+}
+</script>
+{% endblock %}

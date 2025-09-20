@@ -268,6 +268,11 @@
                         <i class="fas fa-tasks me-2"></i>{% trans "Programmations Actives" %}
                     </a>
                 </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:programmations_desactivees' %}">
+                        <i class="fas fa-calendar-times me-2"></i>{% trans "Programmations Désactivées" %}
+                    </a>
+                </li>
                 
                 <li><hr class="dropdown-divider"></li>
                 
@@ -286,6 +291,17 @@
                         <i class="fas fa-calendar-alt me-2"></i>{% trans "Vue Mensuelle" %}
                     </a>
                 </li>
+                {% if user.is_admin %}
+                <li>
+                                
+            <!-- Bouton Statistiques -->
+            <a href="{% url 'inventaire:statistiques_taux' %}" class="dropdown-item">
+                <i class="fas fa-chart-line me-2"></i>
+                {% trans "Statistiques Taux" %}
+            </a>
+            
+                </li>
+                {% endif %}
                 
                 {% if user.is_admin %}
                 <li><hr class="dropdown-divider"></li>
@@ -320,6 +336,12 @@
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}">
                         <i class="fas fa-list me-2"></i>{% trans "Liste des Recettes" %}
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'inventaire:statistiques_recettes' %}" class="dropdown-item">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        {% trans "Statistiques Recettes" %}
                     </a>
                 </li>
                 

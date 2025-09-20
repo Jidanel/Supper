@@ -1684,6 +1684,19 @@ class RecetteJournaliere(models.Model):
             return 'Bon'
         else:
             return 'Mauvais'
+    
+    def get_chef_historique(self):
+        """Récupère le chef de poste à la date de la recette"""
+        if self.chef_poste:
+            return self.chef_poste
+        
+        # Chercher dans l'historique
+        historique = HistoriqueAffectation.get_affectation_a_date(
+            self.poste, self.date, 'chef_poste'
+        )
+        return historique.utilisateur if historique else None
+    
+
     def save(self, *args, **kwargs):
         """Surcharge pour calculer automatiquement les indicateurs avec gestion d'erreurs"""
         try:
@@ -1695,6 +1708,13 @@ class RecetteJournaliere(models.Model):
             self.taux_deperdition = None
             self.recette_potentielle = None
             self.ecart = None
+        # Si pas de chef défini, chercher dans l'historique
+        if not self.chef_poste:
+            historique = HistoriqueAffectation.get_affectation_a_date(
+                self.poste, self.date, 'chef_poste'
+            )
+            if historique:
+                self.chef_poste = historique.utilisateur
         
         super().save(*args, **kwargs)
 
@@ -1833,113 +1853,57 @@ class StatistiquesPeriodiques(models.Model):
 
 
 
-# class PosteInventaireMensuel(models.Model):
-#     """
-#     Association entre un inventaire mensuel et un poste avec ses motifs
-#     """
+class HistoriqueAffectation(models.Model):
+    """Historique des affectations utilisateur-poste"""
     
-#     inventaire_mensuel = models.ForeignKey(
-#         InventaireMensuel,
-#         on_delete=models.CASCADE,
-#         related_name='postes_inventaire',
-#         verbose_name=_("Inventaire mensuel")
-#     )
+    utilisateur = models.ForeignKey(
+        UtilisateurSUPPER,
+        on_delete=models.CASCADE,
+        related_name='historique_affectations'
+    )
     
-#     poste = models.ForeignKey(
-#         Poste,
-#         on_delete=models.CASCADE,
-#         related_name='inventaires_mensuels',
-#         verbose_name=_("Poste")
-#     )
+    poste = models.ForeignKey(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='historique_affectations'
+    )
     
-#     # Motifs multiples possibles
-#     motif_taux_deperdition = models.BooleanField(
-#         default=False,
-#         verbose_name=_("Taux de déperdition"),
-#         help_text=_("Cocher si le poste est concerné par le taux de déperdition")
-#     )
+    type_affectation = models.CharField(
+        max_length=20,
+        choices=[
+            ('chef_poste', 'Chef de poste'),
+            ('agent_inventaire', 'Agent inventaire'),
+        ]
+    )
     
-#     motif_grand_risque = models.BooleanField(
-#         default=False,
-#         verbose_name=_("Grand risque de stock au 31 décembre"),
-#         help_text=_("Cocher si risque de stock important en fin d'année")
-#     )
+    date_debut = models.DateField(
+        verbose_name="Date de début d'affectation"
+    )
     
-#     motif_risque_baisse = models.BooleanField(
-#         default=False,
-#         verbose_name=_("Risque de baisse annuel"),
-#         help_text=_("Cocher si risque de baisse annuelle")
-#     )
+    date_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date de fin d'affectation"
+    )
     
-#     observations = models.TextField(
-#         blank=True,
-#         verbose_name=_("Observations"),
-#         help_text=_("Notes spécifiques pour ce poste dans cet inventaire")
-#     )
+    actif = models.BooleanField(
+        default=True,
+        verbose_name="Affectation active"
+    )
     
-#     date_ajout = models.DateTimeField(
-#         auto_now_add=True,
-#         verbose_name=_("Date d'ajout")
-#     )
+    class Meta:
+        ordering = ['-date_debut']
+        indexes = [
+            models.Index(fields=['poste', 'date_debut']),
+            models.Index(fields=['utilisateur', 'actif']),
+        ]
     
-#     class Meta:
-#         verbose_name = _("Poste d'inventaire mensuel")
-#         verbose_name_plural = _("Postes d'inventaires mensuels")
-#         unique_together = [['inventaire_mensuel', 'poste']]
-#         ordering = ['poste__region', 'poste__nom']
-#         indexes = [
-#             models.Index(fields=['inventaire_mensuel', 'poste']),
-#         ]
-    
-#     def __str__(self):
-#         motifs = self.get_motifs_list()
-#         motifs_str = ', '.join(motifs) if motifs else 'Aucun motif'
-#         return f"{self.poste.nom} - {motifs_str}"
-    
-#     def get_motifs_list(self):
-#         """Retourne la liste des motifs sélectionnés"""
-#         motifs = []
-#         if self.motif_taux_deperdition:
-#             motifs.append("Taux déperdition")
-#         if self.motif_grand_risque:
-#             motifs.append("Grand risque stock")
-#         if self.motif_risque_baisse:
-#             motifs.append("Risque baisse")
-#         return motifs
-    
-#     def get_motifs_count(self):
-#         """Retourne le nombre de motifs sélectionnés"""
-#         count = 0
-#         if self.motif_taux_deperdition:
-#             count += 1
-#         if self.motif_grand_risque:
-#             count += 1
-#         if self.motif_risque_baisse:
-#             count += 1
-#         return count
-    
-#     def get_inventaires_journaliers(self):
-#         """Retourne tous les inventaires journaliers de ce poste pour le mois"""
-#         from datetime import date
-#         import calendar
-        
-#         # Obtenir le premier et dernier jour du mois
-#         premier_jour = date(
-#             self.inventaire_mensuel.annee, 
-#             self.inventaire_mensuel.mois, 
-#             1
-#         )
-        
-#         dernier_jour = date(
-#             self.inventaire_mensuel.annee,
-#             self.inventaire_mensuel.mois,
-#             calendar.monthrange(
-#                 self.inventaire_mensuel.annee, 
-#                 self.inventaire_mensuel.mois
-#             )[1]
-#         )
-        
-#         return InventaireJournalier.objects.filter(
-#             poste=self.poste,
-#             date__range=[premier_jour, dernier_jour]
-#         )
+    @classmethod
+    def get_affectation_a_date(cls, poste, date, type_affectation):
+        """Récupère l'affectation active à une date donnée"""
+        return cls.objects.filter(
+            models.Q(date_fin__gte=date) | models.Q(date_fin__isnull=True),
+            poste=poste,
+            type_affectation=type_affectation,
+            date_debut__lte=date
+        ).first()

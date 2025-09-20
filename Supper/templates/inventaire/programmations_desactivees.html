@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="inventaire-header">
+        <h2>Programmations Désactivées</h2>
+        <p>Gérez les programmations désactivées - Réactivation ou suppression définitive</p>
+    </div>
+    
+    {% if programmations %}
+    <div class="table-inventaire">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Poste</th>
+                    <th>Mois</th>
+                    <th>Motif</th>
+                    <th>Désactivée le</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prog in programmations %}
+                <tr>
+                    <td>{{ prog.poste.nom }}</td>
+                    <td>{{ prog.mois|date:"F Y" }}</td>
+                    <td>{{ prog.get_motif_display }}</td>
+                    <td>{{ prog.date_creation|date:"d/m/Y" }}</td>
+                    <td>
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="programmation_id" value="{{ prog.id }}">
+                            <button type="submit" name="action" value="reactiver" 
+                                    class="btn btn-sm btn-success">
+                                Réactiver
+                            </button>
+                            <button type="submit" name="action" value="supprimer" 
+                                    class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Supprimer définitivement ?')">
+                                Supprimer
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        Aucune programmation désactivée
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

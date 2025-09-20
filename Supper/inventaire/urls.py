@@ -2,6 +2,7 @@
 
 from django.urls import path
 from . import views
+from .views_stats import *
 
 app_name = 'inventaire'
 
@@ -37,7 +38,8 @@ urlpatterns = [
     path('programmation/<int:poste_id>/<str:mois>/<str:motif>/supprimer/', 
          views.supprimer_programmation, 
          name='supprimer_programmation'),
-    
+     path('programmations/desactivees/', views.programmations_desactivees, name='programmations_desactivees'),
+
     # ================================================================
     # SAISIE RECETTES
     # ================================================================
@@ -61,6 +63,8 @@ urlpatterns = [
      path('mensuel/', views.liste_inventaires_mensuels, name='liste_inventaires_mensuels'),
      path('mensuel/<int:pk>/', views.detail_inventaire_mensuel, name='detail_inventaire_mensuel'),
      path('mensuel/consolider/', views.consolider_inventaire_mensuel, name='consolider_inventaire_mensuel'),
+     path('statistiques/taux/', statistiques_taux_deperdition, name='statistiques_taux'),
+     path('statistiques/recettes/', statistiques_recettes, name='statistiques_recettes'),
     
     # ================================================================
     # API ENDPOINTS

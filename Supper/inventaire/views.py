@@ -1197,6 +1197,43 @@ class RecetteDetailView(LoginRequiredMixin, DetailView):
         if recette.inventaire_associe:
             context['inventaire'] = recette.inventaire_associe
             context['details_inventaire'] = recette.inventaire_associe.details_periodes.all()
+        peut_voir_taux = False
+        
+        if self.request.user.is_admin:
+            peut_voir_taux = True
+        elif self.request.user.is_chef_poste:
+            # Les chefs ne voient le taux que le dimanche
+            if recette.date.weekday() == 6:  # 6 = dimanche
+                peut_voir_taux = True
+        
+        context['peut_voir_taux'] = peut_voir_taux
+        
+        # Si peut voir, calculer les statistiques hebdomadaires
+        if peut_voir_taux and self.request.user.is_chef_poste:
+            debut_semaine = recette.date - timedelta(days=recette.date.weekday())
+            fin_semaine = debut_semaine + timedelta(days=6)
+            
+            recettes_semaine = RecetteJournaliere.objects.filter(
+                poste=recette.poste,
+                date__range=[debut_semaine, fin_semaine]
+            ).exclude(
+                # Exclure les jours impertinents
+                date__in=ConfigurationJour.objects.filter(
+                    statut='impertinent',
+                    date__range=[debut_semaine, fin_semaine]
+                ).values_list('date', flat=True)
+            )
+            
+            # Calculer le taux moyen hebdomadaire
+            taux_list = [r.taux_deperdition for r in recettes_semaine 
+                        if r.taux_deperdition is not None]
+            
+            context['taux_hebdomadaire'] = {
+                'moyenne': sum(taux_list) / len(taux_list) if taux_list else None,
+                'nombre_jours': len(taux_list),
+                'debut': debut_semaine,
+                'fin': fin_semaine
+            }
         
         return context
     
@@ -3523,3 +3560,53 @@ def selection_date_inventaire(request, poste_id=None):
         'today': timezone.now().date(),
         'current_month': timezone.now().strftime('%Y-%m'),
     })
+
+@login_required
+@require_permission('peut_gerer_inventaire')
+def programmations_desactivees(request):
+    """Liste des programmations désactivées"""
+    
+    programmations = ProgrammationInventaire.objects.filter(
+        actif=False
+    ).select_related('poste', 'cree_par').order_by('-date_creation')
+    
+    if request.method == 'POST':
+        prog_id = request.POST.get('programmation_id')
+        action = request.POST.get('action')
+        
+        try:
+            prog = ProgrammationInventaire.objects.get(id=prog_id)
+            
+            if action == 'reactiver':
+                # Vérifier qu'il n'y a pas de programmation active existante
+                existe = ProgrammationInventaire.objects.filter(
+                    poste=prog.poste,
+                    mois=prog.mois,
+                    motif=prog.motif,
+                    actif=True
+                ).exists()
+                
+                if existe:
+                    messages.error(
+                        request, 
+                        f"Une programmation active existe déjà pour {prog.poste.nom} - "
+                        f"{prog.mois.strftime('%B %Y')} - {prog.get_motif_display()}"
+                    )
+                else:
+                    prog.actif = True
+                    prog.save()
+                    messages.success(request, "Programmation réactivée avec succès")
+                    
+            elif action == 'supprimer':
+                prog.delete()
+                messages.success(request, "Programmation supprimée définitivement")
+                
+        except ProgrammationInventaire.DoesNotExist:
+            messages.error(request, "Programmation introuvable")
+    
+    context = {
+        'programmations': programmations,
+        'title': 'Programmations désactivées'
+    }
+    
+    return render(request, 'inventaire/programmations_desactivees.html', context)

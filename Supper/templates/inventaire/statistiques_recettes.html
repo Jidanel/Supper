@@ -1,0 +1,251 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}Statistiques Recettes - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-header {
+        background: linear-gradient(135deg, #667eea, #1e40af);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 4px solid;
+    }
+    
+    .summary-card.montant { border-left-color: #4facfe; }
+    .summary-card.potentiel { border-left-color: #f093fb; }
+    .summary-card.ecart { border-left-color: #43e97b; }
+    .summary-card.jours { border-left-color: #fa709a; }
+    
+    .top-postes-table {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .evolution-indicator {
+        font-size: 0.9rem;
+        margin-left: 0.5rem;
+    }
+    
+    .evolution-indicator.positive { color: #28a745; }
+    .evolution-indicator.negative { color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="stats-header">
+        <h2 class="mb-3">
+            <i class="fas fa-chart-bar me-2"></i>
+            Statistiques des Recettes
+        </h2>
+        <p class="mb-0">Analyse détaillée des recettes par période</p>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-bar bg-white p-4 rounded mb-4">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Type de statistique</label>
+                <select name="type_stat" class="form-select">
+                    <option value="montants" {% if type_stat == 'montants' %}selected{% endif %}>
+                        Montants seulement
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">Période</label>
+                <select name="periode" class="form-select">
+                    <option value="hebdomadaire" {% if periode == 'hebdomadaire' %}selected{% endif %}>Hebdomadaire</option>
+                    <option value="mensuel" {% if periode == 'mensuel' %}selected{% endif %}>Mensuel</option>
+                    <option value="trimestriel" {% if periode == 'trimestriel' %}selected{% endif %}>Trimestriel</option>
+                    <option value="semestriel" {% if periode == 'semestriel' %}selected{% endif %}>Semestriel</option>
+                    <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">Année</label>
+                <select name="annee" class="form-select">
+                    {% for year in annees_disponibles %}
+                    <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Poste</label>
+                <select name="poste" class="form-select">
+                    <option value="tous">Tous les postes</option>
+                    {% for poste in postes %}
+                    <option value="{{ poste.id }}" {% if poste.id|stringformat:"s" == poste_selectionne %}selected{% endif %}>
+                        {{ poste.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Cartes de résumé -->
+    <div class="summary-cards">
+        {% for stat in stats %}
+        {% with first_stat=stats.0 last_stat=stats|last %}
+        <div class="summary-card montant">
+            <h6 class="text-muted mb-2">Total Période</h6>
+            <h3 class="mb-0">{{ stat.montant_total|floatformat:0|default:"0" }} FCFA</h3>
+        </div>
+        
+        
+        <div class="summary-card jours">
+            <h6 class="text-muted mb-2">Jours avec données</h6>
+            <h3 class="mb-0">{{ stat.nombre_jours|default:"0" }}</h3>
+        </div>
+        {% endwith %}
+        {% endfor %}
+    </div>
+
+    <!-- Graphique principal -->
+    <div class="bg-white p-4 rounded mb-4">
+        <canvas id="recettesChart" style="height: 400px;"></canvas>
+    </div>
+
+    <!-- Tableau détaillé -->
+    <div class="stats-table bg-white rounded overflow-hidden">
+        <table class="table mb-0">
+            <thead style="background: linear-gradient(135deg, #f093fb, #f5576c); color: white;">
+                <tr>
+                    <th>Période</th>
+                    <th>Montant Déclaré</th>
+                    <th>Jours</th>
+                    <th>Moyenne/Jour</th>
+                    <th>Évolution</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in stats %}
+                <tr>
+                    <td><strong>{{ stat.periode }}</strong></td>
+                    <td class="h5">{{ stat.montant_total|floatformat:0 }} FCFA</td>
+                    <td>{{ stat.nombre_jours }}</td>
+                    <td>{{ stat.moyenne_journaliere|default:stat.montant_total|div:stat.nombre_jours|floatformat:0 }} FCFA</td>
+                    <td>
+                        {% if forloop.counter > 1 %}
+                            {% with prev=stats|get_item:forloop.counter0|add:-1 %}
+                            {% with evolution=stat.montant_total|sub:prev.montant_total|div:prev.montant_total|mul:100 %}
+                            <span class="evolution-indicator {% if evolution > 0 %}positive{% else %}negative{% endif %}">
+                                {% if evolution > 0 %}+{% endif %}{{ evolution|floatformat:1 }}%
+                            </span>
+                            {% endwith %}
+                            {% endwith %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        Aucune donnée pour cette période
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Top 10 des postes -->
+    {% if poste_selectionne == 'tous' %}
+    <div class="top-postes-table mt-4">
+        <h5 class="mb-3">Top 10 des postes - {{ annee }}</h5>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Poste</th>
+                    <th>Code</th>
+                    <th>Montant Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for poste in top_postes %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ poste.poste__nom }}</td>
+                    <td>{{ poste.poste__code }}</td>
+                    <td class="fw-bold">{{ poste.total|floatformat:0 }} FCFA</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const graphData = {{ graph_data_json|safe }};
+
+const ctx = document.getElementById('recettesChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: graphData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Évolution des Recettes - {{ periode|title }} {{ annee }}'
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ' + 
+                               context.parsed.y.toLocaleString('fr-FR') + ' FCFA';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return value.toLocaleString('fr-FR') + ' FCFA';
+                    }
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

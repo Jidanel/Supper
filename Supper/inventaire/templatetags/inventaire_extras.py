@@ -46,3 +46,44 @@ def safe_int(value, default=0):
         return int(value)
     except (TypeError, ValueError, InvalidOperation):
         return default
+
+from django import template
+
+register = template.Library()
+
+@register.filter
+def sum_attribute(queryset, attribute):
+    """Somme un attribut d'une liste d'objets"""
+    return sum(getattr(item, attribute, 0) for item in queryset)
+
+@register.filter
+def average_attribute(queryset, attribute):
+    """Moyenne d'un attribut d'une liste d'objets"""
+    values = [getattr(item, attribute, 0) for item in queryset if getattr(item, attribute, None) is not None]
+    return sum(values) / len(values) if values else 0
+
+@register.filter
+def div(value, divisor):
+    """Division sécurisée"""
+    try:
+        return float(value) / float(divisor)
+    except (ValueError, ZeroDivisionError):
+        return 0
+
+@register.filter
+def sub(value, arg):
+    """Soustraction"""
+    return float(value) - float(arg)
+
+@register.filter
+def mul(value, arg):
+    """Multiplication"""
+    return float(value) * float(arg)
+
+@register.filter
+def get_item(lst, index):
+    """Récupère un élément de liste par index"""
+    try:
+        return lst[index]
+    except (IndexError, TypeError):
+        return None
