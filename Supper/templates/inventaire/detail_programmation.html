@@ -29,7 +29,7 @@
             <div class="row">
                 <div class="col-md-3">
                     <div class="alert alert-info">
-                        <strong>Inventaires saisis:</strong> {{ stats.total_inventaires }}/{{ calendrier|length|mul:7 }}
+                        <strong>Jours d'inventaires saisis:</strong> {{ stats.total_inventaires }}
                     </div>
                 </div>
                 <div class="col-md-3">
@@ -49,7 +49,7 @@
                 </div>
                 <div class="col-md-3">
                     <div class="alert alert-danger">
-                        <strong>Jours à risque:</strong> {{ stats.jours_risque }}
+                        <strong>Jours à fort taux:</strong> {{ stats.jours_risque }}
                     </div>
                 </div>
             </div>

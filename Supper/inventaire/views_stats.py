@@ -483,6 +483,19 @@ def calculer_stats_recettes(periode, annee, filters, type_stat):
                     'taux_moyen': float(year_data['taux_moyen'] or 0),
                     'nombre_jours': year_data['nombre_jours']
                 })
+    for stat in stats:
+        # Calculer l'évolution pour chaque période
+        if 'date_debut' in stat:
+            evolution = calculer_evolution_recettes(
+                periode='cumul_annuel' if periode == 'annuel' else periode,
+                date_reference=stat.get('date_fin', stat.get('date_debut')),
+                poste_id=filters.get('poste_id')
+            )
+            
+            stat['evolution_n1'] = evolution['evolution_n1']
+            stat['evolution_n2'] = evolution['evolution_n2']
+            stat['montant_n1'] = evolution['annee_n1']
+            stat['montant_n2'] = evolution['annee_n2']
     
     return stats
 
@@ -526,3 +539,96 @@ def preparer_donnees_recettes_graph(stats, stats_comparaison=None):
         'labels': labels,
         'datasets': datasets
     }
+
+# Dans inventaire/views.py - Nouvelle fonction pour calculer l'évolution
+def calculer_evolution_recettes(periode, date_reference, poste_id=None):
+    """
+    Calcule l'évolution des recettes par rapport aux années précédentes
+    """
+    from django.db.models import Sum
+    from datetime import timedelta
+    
+    evolution = {
+        'annee_n': 0,
+        'annee_n1': 0,
+        'annee_n2': 0,
+        'evolution_n1': None,
+        'evolution_n2': None
+    }
+    
+    # Filtres de base
+    base_filter = Q()
+    if poste_id and poste_id != 'tous':
+        base_filter &= Q(poste_id=poste_id)
+    
+    # Calcul selon la période
+    if periode == 'jour':
+        dates = {
+            'n': date_reference,
+            'n1': date_reference.replace(year=date_reference.year - 1),
+            'n2': date_reference.replace(year=date_reference.year - 2)
+        }
+        
+        for key, date_calc in dates.items():
+            result = RecetteJournaliere.objects.filter(
+                base_filter,
+                date=date_calc
+            ).aggregate(total=Sum('montant_declare'))
+            
+            if key == 'n':
+                evolution['annee_n'] = float(result['total'] or 0)
+            elif key == 'n1':
+                evolution['annee_n1'] = float(result['total'] or 0)
+            elif key == 'n2':
+                evolution['annee_n2'] = float(result['total'] or 0)
+    
+    elif periode == 'cumul_annuel':
+        # Du 1er janvier à la date de référence
+        for year_offset in [0, 1, 2]:
+            year = date_reference.year - year_offset
+            date_debut = date(year, 1, 1)
+            date_fin = date_reference.replace(year=year)
+            
+            result = RecetteJournaliere.objects.filter(
+                base_filter,
+                date__gte=date_debut,
+                date__lte=date_fin
+            ).aggregate(total=Sum('montant_declare'))
+            
+            total = float(result['total'] or 0)
+            
+            if year_offset == 0:
+                evolution['annee_n'] = total
+            elif year_offset == 1:
+                evolution['annee_n1'] = total
+            elif year_offset == 2:
+                evolution['annee_n2'] = total
+    
+    elif periode == 'mois':
+        # Même mois des années précédentes
+        for year_offset in [0, 1, 2]:
+            year = date_reference.year - year_offset
+            result = RecetteJournaliere.objects.filter(
+                base_filter,
+                date__year=year,
+                date__month=date_reference.month
+            ).aggregate(total=Sum('montant_declare'))
+            
+            total = float(result['total'] or 0)
+            
+            if year_offset == 0:
+                evolution['annee_n'] = total
+            elif year_offset == 1:
+                evolution['annee_n1'] = total
+            elif year_offset == 2:
+                evolution['annee_n2'] = total
+    
+    # Calcul des taux d'évolution
+    if evolution['annee_n1'] > 0:
+        evolution['evolution_n1'] = ((evolution['annee_n'] - evolution['annee_n1']) / evolution['annee_n1']) * 100
+    
+    if evolution['annee_n2'] > 0:
+        evolution['evolution_n2'] = ((evolution['annee_n'] - evolution['annee_n2']) / evolution['annee_n2']) * 100
+    
+    return evolution
+

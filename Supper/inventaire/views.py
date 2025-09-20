@@ -318,13 +318,23 @@ class SaisieInventaireView(InventaireMixin, View):
         
         # Déterminer le poste
         if poste_id:
-            poste = get_object_or_404(Poste, id=poste_id)
+            try:
+                poste = Poste.objects.get(id=poste_id, is_active=True)
+            except Poste.DoesNotExist:
+                messages.error(request, "Poste introuvable ou inactif.")
+                return redirect('inventaire:inventaire_list')
         else:
+            # Si pas de poste_id, utiliser le poste d'affectation de l'utilisateur
             poste = request.user.poste_affectation
             if not poste:
                 messages.error(request, "Aucun poste d'affectation configuré.")
                 return redirect('common:dashboard')
         
+        # Vérification importante : s'assurer que le poste_id dans l'URL correspond bien au poste affiché
+        if poste_id and str(poste.id) != str(poste_id):
+            messages.warning(request, f"Redirection vers le bon poste: {poste.nom}")
+            return redirect('inventaire:saisie_inventaire', poste_id=poste.id, date_str=date_str)
+    
         # Vérifier l'accès au poste
         if hasattr(request.user, 'peut_acceder_poste'):
             if not request.user.peut_acceder_poste(poste):

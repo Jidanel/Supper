@@ -73,18 +73,16 @@
                 <div class="card-header bg-primary text-white">
                     <h3 class="mb-0">
                         <i class="fas fa-clipboard-list me-2"></i>
-                        Saisie d'Inventaire
+                        Saisie d'Inventaire du Poste de : {{ poste.nom }}
                     </h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-4">
-                            <strong>Poste:</strong> {{ poste.nom }}
-                        </div>
-                        <div class="col-md-4">
+                        
+                        <div class="col-md-6">
                             <strong>Date:</strong> {{ target_date|date:"d/m/Y" }}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <strong>Agent:</strong> {{ request.user.nom_complet }}
                         </div>
                     </div>
