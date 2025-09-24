@@ -23,6 +23,7 @@ from .widgets import CalendrierJoursWidget
 from .forms import RecetteJournaliereAdminForm, ConfigurationJourForm
 import logging
 from django.contrib import messages
+from django.utils.safestring import mark_safe
 
 logger = logging.getLogger('supper')
 
@@ -517,7 +518,7 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
     form = RecetteJournaliereAdminForm
     
     list_display = [
-        'poste', 'date', 'montant_declare_formatted', 'chef_poste',  'modifiable_badge',
+        'poste', 'date', 'montant_declare_formatted', 'chef_poste',  'modifiable_badge','taux_deperdition_format',
     ]
     
     list_filter = ['date', 'modifiable_par_chef', 'poste__region']
@@ -547,37 +548,13 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
         'derniere_modification_par', 'date_saisie', 'date_modification'
     ]
     
-    # 🔧 NOUVELLE MÉTHODE : Afficher le statut du jour
-    # def get_status_jour(self, obj):
-    #     """Affiche le statut du jour pour cette recette"""
-    #     if obj.date and obj.poste:
-    #         from .models import ConfigurationJour
-            
-    #         inventaire_ouvert = ConfigurationJour.est_jour_ouvert_pour_inventaire(obj.date, obj.poste)
-    #         recette_ouvert = ConfigurationJour.est_jour_ouvert_pour_recette(obj.date, obj.poste)
-            
-    #         status = []
-    #         if inventaire_ouvert:
-    #             status.append('<span style="color: green;">✓ Inventaire</span>')
-    #         else:
-    #             status.append('<span style="color: red;">✗ Inventaire</span>')
-                
-    #         if recette_ouvert:
-    #             status.append('<span style="color: green;">✓ Recette</span>')
-    #         else:
-    #             status.append('<span style="color: red;">✗ Recette</span>')
-            
-    #         return format_html(' | '.join(status))
-    #     return '-'
-    # get_status_jour.short_description = 'Statut du jour'
     
     def montant_declare_formatted(self, obj):
-        """Montant formaté"""
-        return format_html(
-            '<strong>{:,.0f} FCFA</strong>',
-            float(obj.montant_declare) if obj.montant_declare else 0
-        )
-    montant_declare_formatted.short_description = 'Montant déclaré'
+        """Formatage sécurisé du montant"""
+        if obj.montant_declare:
+            return f"{float(obj.montant_declare):,.0f}".replace(",", " ")
+        return "0"
+    montant_declare_formatted.short_description = 'Montant déclaré (FCFA)'
     
     def modifiable_badge(self, obj):
         """Badge modifiable"""
@@ -630,6 +607,13 @@ class RecetteJournaliereAdmin(admin.ModelAdmin):
                 continue
         self.message_user(request, f'{count} recette(s) liée(s) à leur inventaire.')
     lier_inventaires.short_description = "Lier aux inventaires"
+
+    def taux_deperdition_format(self, obj):
+        """Formatage sécurisé du taux"""
+        if obj.taux_deperdition is not None:
+            return f"{float(obj.taux_deperdition):.2f}%"
+        return "-"
+    taux_deperdition_format.short_description = 'Taux déperdition'
 
     # def taux_deperdition_colored(self, obj):
     #     """Taux de déperdition coloré"""
@@ -1473,3 +1457,5 @@ class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
             color, taux
         )
     taux_moyen_badge.short_description = 'Taux moyen'
+
+

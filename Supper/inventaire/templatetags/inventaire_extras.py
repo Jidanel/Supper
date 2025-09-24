@@ -87,3 +87,19 @@ def get_item(lst, index):
         return lst[index]
     except (IndexError, TypeError):
         return None
+    
+@register.filter
+def format_milliers(value):
+    """Formate un nombre avec séparateurs de milliers"""
+    try:
+        value = float(value)
+        return f"{value:,.0f}".replace(",", " ")
+    except (ValueError, TypeError):
+        return value 
+
+@register.filter
+def get_item(dictionary, key):
+    """Récupère un élément d'un dictionnaire"""
+    if dictionary:
+        return dictionary.get(key)
+    return None

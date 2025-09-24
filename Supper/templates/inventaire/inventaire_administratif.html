@@ -1,0 +1,41 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>Inventaire Administratif</h2>
+    <p>Saisie d'inventaire multi-postes par l'administrateur</p>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5>Étape 1 : Sélection du poste et de la date</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <label>Poste :</label>
+                        <select name="poste_id" class="form-select" required>
+                            <option value="">-- Sélectionner un poste --</option>
+                            {% for poste in postes %}
+                            <option value="{{ poste.id }}">
+                                {{ poste.nom }} ({{ poste.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label>Date :</label>
+                        <input type="date" name="date" class="form-control" 
+                               value="{{ today|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                <button type="submit" name="select_poste" class="btn btn-primary mt-3">
+                    Continuer vers la saisie
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

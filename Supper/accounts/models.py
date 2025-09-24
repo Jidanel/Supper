@@ -260,13 +260,12 @@ class UtilisateurSUPPER(AbstractUser):
         max_length=20,
         unique=True,
         verbose_name=_("Matricule"),
-        help_text=_("Matricule unique de l'agent (ex: INV001, ADM001)"),
-        validators=[
-            RegexValidator(
-                regex=r'^[A-Z]{2,4}[0-9]{3,4}$',
-                message=_("Format: 2-4 lettres + 3-4 chiffres (ex: INV001)")
-            )
-        ]
+        help_text=_("Matricule unique de l'agent (ex: 1052105M)")
+        #     RegexValidator(
+        #         regex=r'^[A-Z]{2,4}[0-9]{3,4}$',
+        #         message=_("Format: 2-4 lettres + 3-4 chiffres (ex: INV001)")
+        #     )
+        # ]
     )
     
     first_name = None  # Supprimer first_name

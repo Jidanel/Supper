@@ -84,6 +84,19 @@ def calculer_stats_par_periode(periode, annee, filters):
     from django.db.models import Avg, Count, Sum
     from calendar import monthrange
     
+    # Exclure les recettes sans inventaire associé
+    filters &= Q(inventaire_associe__isnull=False)
+    
+    # Exclure les taux > -5% (impertinents)
+    filters &= Q(taux_deperdition__lte=-5)
+    
+    jours_impertinents = ConfigurationJour.objects.filter(
+        statut='impertinent'
+    ).values_list('date', flat=True)
+    
+    # Ajouter au filtre principal
+    filters &= ~Q(date__in=jours_impertinents)
+    
     stats = []
     
     if periode == 'hebdomadaire':
@@ -496,6 +509,14 @@ def calculer_stats_recettes(periode, annee, filters, type_stat):
             stat['evolution_n2'] = evolution['evolution_n2']
             stat['montant_n1'] = evolution['annee_n1']
             stat['montant_n2'] = evolution['annee_n2']
+    
+    for stat in stats:
+        # Valeurs par défaut si manquantes
+        if 'montant_total' not in stat:
+            stat['montant_total'] = 0
+        if 'moyenne_journaliere' not in stat:
+            stat['moyenne_journaliere'] = stat['montant_total'] / stat.get('nombre_jours', 1) if stat.get('nombre_jours', 0) > 0 else 0
+
     
     return stats
 

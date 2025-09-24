@@ -2,6 +2,7 @@
 {% load static i18n %}
 {% load inventaire_extras %}
 
+
 {% block title %}Statistiques Recettes - SUPPER{% endblock %}
 
 {% block extra_css %}
@@ -121,7 +122,7 @@
         {% with first_stat=stats.0 last_stat=stats|last %}
         <div class="summary-card montant">
             <h6 class="text-muted mb-2">Total Période</h6>
-            <h3 class="mb-0">{{ stat.montant_total|floatformat:0|default:"0" }} FCFA</h3>
+            <h3 class="mb-0">{{ stat.montant_total|floatformat:0|default:"0"|format_milliers  }} FCFA</h3>
         </div>
         
         
@@ -147,28 +148,16 @@
                     <th>Montant Déclaré</th>
                     <th>Jours</th>
                     <th>Moyenne/Jour</th>
-                    <th>Évolution</th>
                 </tr>
             </thead>
             <tbody>
                 {% for stat in stats %}
                 <tr>
                     <td><strong>{{ stat.periode }}</strong></td>
-                    <td class="h5">{{ stat.montant_total|floatformat:0 }} FCFA</td>
+                    <td class="h5">{{ stat.montant_total|floatformat:0|format_milliers  }} FCFA</td>
                     <td>{{ stat.nombre_jours }}</td>
-                    <td>{{ stat.moyenne_journaliere|default:stat.montant_total|div:stat.nombre_jours|floatformat:0 }} FCFA</td>
-                    <td>
-                        {% if forloop.counter > 1 %}
-                            {% with prev=stats|get_item:forloop.counter0|add:-1 %}
-                            {% with evolution=stat.montant_total|sub:prev.montant_total|div:prev.montant_total|mul:100 %}
-                            <span class="evolution-indicator {% if evolution > 0 %}positive{% else %}negative{% endif %}">
-                                {% if evolution > 0 %}+{% endif %}{{ evolution|floatformat:1 }}%
-                            </span>
-                            {% endwith %}
-                            {% endwith %}
-                        {% else %}
-                            -
-                        {% endif %}
+                    <td>{{ stat.moyenne_journaliere|format_milliers |default:stat.montant_total|format_milliers |div:stat.nombre_jours|floatformat:0 }} FCFA
+                        
                     </td>
                 </tr>
                 {% empty %}
@@ -201,7 +190,7 @@
                     <td>{{ forloop.counter }}</td>
                     <td>{{ poste.poste__nom }}</td>
                     <td>{{ poste.poste__code }}</td>
-                    <td class="fw-bold">{{ poste.total|floatformat:0 }} FCFA</td>
+                    <td class="fw-bold">{{ poste.total|floatformat:0|format_milliers  }} FCFA</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -1,5 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
+{% load inventaire_extras %}
 
 {% block title %}{% trans "Liste des Recettes" %} - SUPPER{% endblock %}
 
@@ -184,7 +185,7 @@
             <div class="stat-label">{% trans "Total Recettes" %}</div>
         </div>
         <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <div class="stat-value">{{ stats.total_montant|floatformat:0|default:"0" }} FCFA</div>
+            <div class="stat-value">{{ stats.total_montant|floatformat:0|default:"0"|format_milliers  }} FCFA</div>
             <div class="stat-label">{% trans "Montant Total (FCFA)" %}</div>
         </div>
         <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
@@ -341,7 +342,7 @@
                     </td>
                     <td>
                         <strong class="text-success">{% if recette.montant_declare != None %}
-                                            {{ recette.montant_declare|floatformat:0 }} FCFA
+                                            {{ recette.montant_declare|floatformat:0|format_milliers  }} FCFA
                                         {% else %}
                                             -
                                         {% endif %}</strong>
@@ -349,7 +350,7 @@
                     {% if user.voir_recettes_potentielles %}
                     <td>
                         {% if recette.recette_potentielle %}
-                        {{ recette.recette_potentielle|floatformat:0 }} FCFA
+                        {{ recette.recette_potentielle|floatformat:0|format_milliers  }} FCFA
                         {% else %}
                         <span class="text-muted">-</span>
                         {% endif %}
@@ -381,11 +382,14 @@
                                class="btn-action btn-edit" title="{% trans 'Modifier' %}">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <button onclick="supprimerRecette({{ recette.pk }})" 
-                                    class="btn-action btn-delete" title="{% trans 'Supprimer' %}">
+                            
+                            <a href="{% url 'inventaire:redirect_delete_recette_admin' recette.id %}" 
+                            class="btn btn-sm btn-danger"
+                            onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette recette ?');">
                                 <i class="fas fa-trash"></i>
-                            </button>
-                            {% endif %}
+                            </a>
+
+                                                            {% endif %}
                         </div>
                     </td>
                 </tr>

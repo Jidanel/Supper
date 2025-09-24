@@ -3,7 +3,9 @@
 from django.urls import path
 from . import views
 from .views_stats import *
-
+from .views_evolution import *
+from . import views_evolution
+from . import views_admin
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -13,12 +15,13 @@ urlpatterns = [
     path('', views.InventaireListView.as_view(), name='inventaire_list'),
     path('<int:pk>/', views.InventaireDetailView.as_view(), name='inventaire_detail'),
     #path('saisie/<int:poste_id>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_poste'),
-    path('inventaire/supprimer/<int:poste_id>/', views.supprimer_inventaire, name='supprimer_inventaire_poste'),
+    path('inventaire/supprimer/<int:pk>/', views.supprimer_inventaire, name='supprimer_inventaire_poste'),
     # Ajouter ces lignes dans inventaire/urls.py
     path('saisie/', views.selection_date_inventaire, name='saisie_inventaire'),  # Redirige vers sélection
     path('saisie/<int:poste_id>/', views.selection_date_inventaire, name='saisie_inventaire_poste'),  # Redirige vers sélection
     path('saisie/<int:poste_id>/<str:date_str>/', views.SaisieInventaireView.as_view(), name='saisie_inventaire_avec_date'),  # Saisie réelle
-    
+    path('check-inventaire-exists/', views.check_inventaire_exists, name='check_inventaire_exists'),
+    path('jours-impertinents/', views.jours_impertinents_view, name='jours_impertinents'),
     # ================================================================
     # PROGRAMMATION INVENTAIRES (NOUVELLES)
     # ================================================================
@@ -45,10 +48,12 @@ urlpatterns = [
     # ================================================================
     path('recettes/saisie/', views.saisir_recette, name='saisie_recette'),
     path('recettes/saisie/<int:poste_id>/', views.saisir_recette, name='saisie_recette_poste'),
-    path('recettes/supprimer/<int:poste_id>/', views.supprimer_recette, name='supprimer_recette_poste'),
+    #path('recettes/supprimer/<int:poste_id>/', views.supprimer_recette, name='supprimer_recette_poste'),
+    path('recettes/<int:recette_id>/delete-admin/', views.redirect_to_delete_recette_admin, name='redirect_delete_recette_admin'),
     path('recettes/', views.RecetteListView.as_view(), name='liste_recettes'),
     path('recettes/<int:pk>/', views.RecetteDetailView.as_view(), name='recette_detail'),
     path('recettes/<int:pk>/modifier/', views.modifier_recette, name='modifier_recette'),
+    path('taux-evolution/', views_evolution.taux_evolution_view, name='taux_evolution'),
 
     
     # ================================================================
@@ -56,6 +61,13 @@ urlpatterns = [
     # ================================================================
     path('admin/<int:inventaire_id>/modifier/', views.modifier_inventaire, name='modifier_inventaire_admin'),
     path('recettes/admin/<int:recette_id>/modifier/', views.modifier_recette, name='modifier_recette_admin'),
+    # Ajouter après les imports
+     
+
+     # Inventaire administratif
+    path('admin-saisie/', views_admin.inventaire_administratif, name='inventaire_administratif'),
+    path('admin-saisie/<int:poste_id>/<str:date_str>/', views_admin.inventaire_admin_saisie, name='inventaire_admin_saisie'),
+    path('admin/liste/', views_admin.liste_inventaires_administratifs, name='liste_inventaires_administratifs'),
     
     # ================================================================
     # CONSOLIDATION MENSUELLE

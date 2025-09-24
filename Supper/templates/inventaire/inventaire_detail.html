@@ -1,6 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
 {% load i18n %}
+{% load inventaire_extras %}
 
 {% block title %}{% trans "Inventaire" %} {{ inventaire.poste.nom }} - {{ inventaire.date|date:"d/m/Y" }} - SUPPER{% endblock %}
 
@@ -323,7 +324,7 @@
                 </h6>
                 <div class="mb-2">
                     <strong>{% trans "Montant déclaré:" %}</strong>
-                    <div class="recette-value">{{ recette.montant_declare|floatformat:0 }} FCFA</div>
+                    <div class="recette-value">{{ recette.montant_declare|floatformat:0|format_milliers  }} FCFA</div>
                 </div>
                 {% if recette.recette_potentielle %}
                 <div class="mb-2">

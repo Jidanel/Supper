@@ -250,6 +250,11 @@
                         <i class="fas fa-keyboard me-2"></i>{% trans "Saisir Inventaire" %}
                     </a>
                 </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:inventaire_administratif' %}">
+                        <i class="fas fa-keyboard me-2"></i>{% trans "Inventaire Administratif" %}
+                    </a>
+                </li>
                 
                 <li><hr class="dropdown-divider"></li>
                 
@@ -287,10 +292,11 @@
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_mensuels' %}">
-                        <i class="fas fa-calendar-alt me-2"></i>{% trans "Vue Mensuelle" %}
+                    <a class="dropdown-item" href="{% url 'inventaire:jours_impertinents' %}">
+                        <i class="fas fa-calendar-day me-2"></i>{% trans "Liste Jours Impertinents" %}
                     </a>
                 </li>
+        
                 {% if user.is_admin %}
                 <li>
                                 
@@ -342,6 +348,12 @@
                     <a href="{% url 'inventaire:statistiques_recettes' %}" class="dropdown-item">
                         <i class="fas fa-chart-bar me-2"></i>
                         {% trans "Statistiques Recettes" %}
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'inventaire:taux_evolution' %}" class="dropdown-item">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        {% trans "Taux D'Évolution" %}
                     </a>
                 </li>
                 
@@ -599,7 +611,7 @@
         <div class="row">
             <div class="col-md-6">
                 <small class="text-muted">
-                    © {% now "Y" %} SUPPER - {% trans "Système de Suivi des Péages et Pesages Routiers" %}
+                    © {% now "Y" %} SUPPER - {% trans "Système de Suivi des Péages et Pesages Routiers" %}-SI/PSRR
                 </small>
             </div>
             <div class="col-md-6 text-end">

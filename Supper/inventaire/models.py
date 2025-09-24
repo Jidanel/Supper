@@ -41,6 +41,7 @@ class MotifInventaire(models.TextChoices):
     TAUX_DEPERDITION = 'taux_deperdition', _('Taux de déperdition élevé')
     RISQUE_BAISSE = 'risque_baisse', _('Risque de baisse annuel')
     GRAND_STOCK = 'grand_stock', _('Risque de grand stock')
+    PRESENCE_ADMINISTRATIVE = 'presence_admin', _('Présence administrative')
 
 class ProgrammationInventaire(models.Model):
     """
@@ -345,28 +346,57 @@ class ProgrammationInventaire(models.Model):
         
         return postes_taux
     
-    def save(self, *args, **kwargs):
-        """Calculs automatiques avant sauvegarde"""
-        # Si c'est un risque de baisse annuel, calculer automatiquement
-        if self.motif == MotifInventaire.RISQUE_BAISSE:
-            self.calculer_risque_baisse_annuel()
+    @classmethod
+    def get_postes_taux_automatique(cls):
+        """
+        Retourne les postes à sélectionner automatiquement selon leur taux de déperdition
+        Sélectionne automatiquement si taux < -10%
+        """
+        postes_auto = []
         
-        # Si c'est un risque de grand stock, calculer la date d'épuisement
-        if self.motif == MotifInventaire.GRAND_STOCK:
-            self.calculer_date_epuisement_stock()
-        
-        # Si c'est pour taux de déperdition et qu'il n'y a pas de taux précédent
-        if self.motif == MotifInventaire.TAUX_DEPERDITION and not self.taux_deperdition_precedent:
-            # Récupérer le dernier taux de déperdition calculé pour ce poste
+        for poste in Poste.objects.filter(is_active=True):
             derniere_recette = RecetteJournaliere.objects.filter(
-                poste=self.poste,
+                poste=poste,
                 taux_deperdition__isnull=False
             ).order_by('-date').first()
             
-            if derniere_recette:
-                self.taux_deperdition_precedent = derniere_recette.taux_deperdition
+            if derniere_recette and derniere_recette.taux_deperdition < -10:
+                postes_auto.append({
+                    'poste': poste,
+                    'taux_deperdition': derniere_recette.taux_deperdition,
+                    'date_calcul': derniere_recette.date,
+                    'selection_auto': True
+                })
         
-        super().save(*args, **kwargs)
+        return postes_auto
+
+    @classmethod
+    def get_tous_postes_presence_admin(cls):
+        """Retourne TOUS les postes pour la présence administrative"""
+        return Poste.objects.filter(is_active=True).order_by('nom')
+        
+    def save(self, *args, **kwargs):
+            """Calculs automatiques avant sauvegarde"""
+            # Si c'est un risque de baisse annuel, calculer automatiquement
+            if self.motif == MotifInventaire.RISQUE_BAISSE:
+                self.calculer_risque_baisse_annuel()
+            
+            # Si c'est un risque de grand stock, calculer la date d'épuisement
+            if self.motif == MotifInventaire.GRAND_STOCK:
+                self.calculer_date_epuisement_stock()
+            
+            # Si c'est pour taux de déperdition et qu'il n'y a pas de taux précédent
+            if self.motif == MotifInventaire.TAUX_DEPERDITION and not self.taux_deperdition_precedent:
+                # Récupérer le dernier taux de déperdition calculé pour ce poste
+                derniere_recette = RecetteJournaliere.objects.filter(
+                    poste=self.poste,
+                    taux_deperdition__isnull=False
+                ).order_by('-date').first()
+                
+                if derniere_recette:
+                    self.taux_deperdition_precedent = derniere_recette.taux_deperdition
+            
+            super().save(*args, **kwargs)
 class InventaireMensuel(models.Model):
     """
     Modèle pour organiser les inventaires par mois
@@ -1561,24 +1591,27 @@ class RecetteJournaliere(models.Model):
         from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
         
         if not self.inventaire_associe:
-            try:
-                self.inventaire_associe = InventaireJournalier.objects.get(
-                    poste=self.poste,
-                    date=self.date
-                )
-            except InventaireJournalier.DoesNotExist:
-                self.recette_potentielle = Decimal('0')
-                self.ecart = Decimal('0')
-                self.taux_deperdition = Decimal('0')
-                return
+            self.recette_potentielle = None
+            self.ecart = None
+            self.taux_deperdition = None
+            # try:
+            #     self.inventaire_associe = InventaireJournalier.objects.get(
+            #         poste=self.poste,
+            #         date=self.date
+            #     )
+            # except InventaireJournalier.DoesNotExist:
+            #     self.recette_potentielle = Decimal('0')
+            #     self.ecart = Decimal('0')
+            #     self.taux_deperdition = Decimal('0')
+            return
         
         inventaire = self.inventaire_associe
         details_periodes = inventaire.details_periodes.all()
         
         if not details_periodes.exists():
-            self.recette_potentielle = Decimal('0')
-            self.ecart = Decimal('0')
-            self.taux_deperdition = Decimal('0')
+            self.recette_potentielle = None
+            self.ecart = None
+            self.taux_deperdition = None
             return
         
         try:

@@ -90,7 +90,7 @@
                                 {% if jour_data.recette %}
                                     <small class="d-block text-success">
                                         <i class="fas fa-coins"></i> 
-                                        {{ jour_data.recette.montant_declare|floatformat:0 }} F
+                                        {{ jour_data.recette.montant_declare|floatformat:0|format_milliers  }} FCFA
                                     </small>
                                     {% if jour_data.taux_deperdition %}
                                     <small class="d-block">
@@ -131,7 +131,6 @@
                             <th>Recette déclarée</th>
                             <th>Recette potentielle</th>
                             <th>Taux déperdition</th>
-                            <th>Stock restant</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -148,14 +147,14 @@
                             </td>
                             <td>
                                 {% if data.recette %}
-                                    {{ data.recette.montant_declare|floatformat:0 }} FCFA
+                                    {{ data.recette.montant_declare|floatformat:0|format_milliers }} FCFA
                                 {% else %}
                                     -
                                 {% endif %}
                             </td>
                             <td>
                                 {% if data.recette and data.recette.recette_potentielle %}
-                                    {{ data.recette.recette_potentielle|floatformat:0 }} FCFA
+                                    {{ data.recette.recette_potentielle|floatformat:0|format_milliers }} FCFA
                                 {% else %}
                                     -
                                 {% endif %}
@@ -165,13 +164,6 @@
                                     <span class="badge bg-{{ data.couleur_alerte }}">
                                         {{ data.taux_deperdition|floatformat:2 }}%
                                     </span>
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if data.stock_restant %}
-                                    {{ data.stock_restant }} tickets
                                 {% else %}
                                     -
                                 {% endif %}

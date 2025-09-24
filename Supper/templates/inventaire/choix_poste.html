@@ -1,0 +1,129 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Choisir un poste - Inventaire{% endblock %}
+
+{% block extra_css %}
+<style>
+    .poste-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border: 2px solid transparent;
+    }
+    .poste-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        border-color: #007bff;
+    }
+    .poste-info {
+        padding: 15px;
+    }
+    .search-box {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-map-marker-alt"></i> Sélectionner un poste pour l'inventaire</h2>
+            {% if date_str %}
+            <p class="text-muted">Date de l'inventaire : {{ date_str }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Barre de recherche -->
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="search-box">
+                <input type="text" id="searchPoste" class="form-control form-control-lg" 
+                       placeholder="Rechercher un poste par nom ou code...">
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des postes -->
+    <div class="row" id="postesContainer">
+        {% for poste in postes %}
+        <div class="col-md-4 col-lg-3 mb-3 poste-item" data-nom="{{ poste.nom|lower }}" data-code="{{ poste.code|lower }}">
+            <div class="card poste-card" onclick="selectPoste({{ poste.id }})">
+                <div class="poste-info">
+                    <h5 class="card-title">{{ poste.nom }}</h5>
+                    <p class="card-text">
+                        <small class="text-muted">Code: {{ poste.code }}</small><br>
+                        <small class="text-muted">{{ poste.get_region_display }}</small>
+                        {% if poste.type_poste %}
+                        <br><span class="badge badge-info">{{ poste.get_type_poste_display }}</span>
+                        {% endif %}
+                    </p>
+                    
+                    <!-- Indicateur si inventaire existe déjà -->
+                    {% if date_str %}
+                    <div class="mt-2">
+                        <small id="status-{{ poste.id }}"></small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-warning">
+                Aucun poste actif disponible.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+// Fonction de recherche
+document.getElementById('searchPoste').addEventListener('keyup', function(e) {
+    const searchValue = e.target.value.toLowerCase();
+    const postes = document.querySelectorAll('.poste-item');
+    
+    postes.forEach(function(poste) {
+        const nom = poste.dataset.nom;
+        const code = poste.dataset.code;
+        
+        if (nom.includes(searchValue) || code.includes(searchValue)) {
+            poste.style.display = 'block';
+        } else {
+            poste.style.display = 'none';
+        }
+    });
+});
+
+// Fonction de sélection du poste
+function selectPoste(posteId) {
+    let url = "{% url 'inventaire:saisie_inventaire' %}?poste_id=" + posteId;
+    {% if date_str %}
+    url += "&date={{ date_str }}";
+    {% endif %}
+    window.location.href = url;
+}
+
+// Vérifier si des inventaires existent déjà (optionnel)
+{% if date_str %}
+document.addEventListener('DOMContentLoaded', function() {
+    {% for poste in postes %}
+    // Faire une requête AJAX pour vérifier l'existence d'inventaires
+    fetch("{% url 'inventaire:check_inventaire_exists' %}?poste_id={{ poste.id }}&date={{ date_str }}")
+        .then(response => response.json())
+        .then(data => {
+            const statusEl = document.getElementById('status-{{ poste.id }}');
+            if (data.exists) {
+                statusEl.innerHTML = '<span class="badge badge-success">Inventaire existant</span>';
+            } else {
+                statusEl.innerHTML = '<span class="badge badge-secondary">À saisir</span>';
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    {% endfor %}
+});
+{% endif %}
+</script>
+{% endblock %}

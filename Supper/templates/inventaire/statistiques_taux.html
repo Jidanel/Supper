@@ -1,5 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
+{% load inventaire_extras %}
 
 {% block title %}Statistiques Taux de Déperdition - SUPPER{% endblock %}
 
@@ -70,7 +71,7 @@
             Statistiques des Taux de Déperdition
         </h2>
         <div class="row text-white-50">
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <strong>Taux Moyen de Déperdition :</strong> 
                 <span class="h4 text-white">{{ stats_globales.taux_moyen|floatformat:2 }}%</span>
             </div>
@@ -78,9 +79,9 @@
                 <strong>Nombre de Jours :</strong> 
                 <span class="h4 text-white">{{ stats_globales.total_recettes }}</span>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-5">
                 <strong>Montant Total déclaré:</strong> 
-                <span class="h4 text-white">{{ stats_globales.montant_total|floatformat:0 }} FCFA</span>
+                <span class="h4 text-white">{{ stats_globales.montant_total|floatformat:0|format_milliers }} FCFA</span>
             </div>
         </div>
     </div>
@@ -154,7 +155,7 @@
                         <span class="h5">{{ stat.taux_moyen|floatformat:2 }}%</span>
                     </td>
                     <td>{{ stat.nombre_jours }} jours</td>
-                    <td>{{ stat.montant_total|floatformat:0 }} FCFA</td>
+                    <td>{{ stat.montant_total|floatformat:0 |format_milliers }} FCFA</td>
                     <td>
                         <span class="stat-badge {{ stat.couleur }}">
                             {% if stat.couleur == 'success' %}

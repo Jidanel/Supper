@@ -1,0 +1,147 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}Taux d'Évolution - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .evolution-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .stat-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    
+    .evolution-positive {
+        color: #10B981;
+        font-weight: bold;
+    }
+    
+    .evolution-negative {
+        color: #EF4444;
+        font-weight: bold;
+    }
+    
+    .period-comparison {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-chart-line me-2"></i>
+        {% trans "Taux d'Évolution des Recettes" %}
+    </h2>
+
+    <!-- Formulaire de sélection -->
+    <div class="evolution-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Date début" %}</label>
+                <input type="date" name="date_debut" class="form-control" 
+                       value="{{ date_debut|date:'Y-m-d' }}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Date fin" %}</label>
+                <input type="date" name="date_fin" class="form-control" 
+                       value="{{ date_fin|date:'Y-m-d' }}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{% trans "Poste" %}</label>
+                <select name="poste" class="form-select">
+                    <option value="tous">{% trans "Tous les postes" %}</option>
+                    {% for poste in postes %}
+                    <option value="{{ poste.id }}" {% if poste.id|stringformat:"s" == poste_selectionne %}selected{% endif %}>
+                        {{ poste.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i>{% trans "Calculer" %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Résultats -->
+    <div class="period-comparison">
+        <!-- Année en cours -->
+        <div class="stat-box">
+            <h5>{% trans "Période actuelle" %}</h5>
+            <h3>{{ montant_n|floatformat:0|default:"0"|format_milliers  }} FCFA</h3>
+            <small>{{ date_debut|date:"d/m/Y" }} - {{ date_fin|date:"d/m/Y" }}</small>
+        </div>
+
+        <!-- Année N-1 -->
+        <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <h5>{% trans "Année N-1" %}</h5>
+            <h3>{{ montant_n1|floatformat:0|default:"0"|format_milliers  }} FCFA</h3>
+            {% if taux_evolution_n1 %}
+            <div class="mt-2">
+                <span class="{% if taux_evolution_n1 > 0 %}evolution-positive{% else %}evolution-negative{% endif %}">
+                    {% if taux_evolution_n1 > 0 %}+{% endif %}{{ taux_evolution_n1|floatformat:2 }}%
+                </span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Année N-2 -->
+        <div class="stat-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <h5>{% trans "Année N-2" %}</h5>
+            <h3>{{ montant_n2|floatformat:0|default:"0"|format_milliers  }} FCFA</h3>
+            {% if taux_evolution_n2 %}
+            <div class="mt-2">
+                <span class="{% if taux_evolution_n2 > 0 %}evolution-positive{% else %}evolution-negative{% endif %}">
+                    {% if taux_evolution_n2 > 0 %}+{% endif %}{{ taux_evolution_n2|floatformat:2 }}%
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Graphique -->
+    <div class="evolution-card">
+        <canvas id="evolutionChart" height="100"></canvas>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('evolutionChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Période actuelle', 'N-1', 'N-2'],
+            datasets: [{
+                label: 'Montant (FCFA)',
+                data: [{{ montant_n|default:0|format_milliers  }}, {{ montant_n1|default:0|format_milliers  }}, {{ montant_n2|default:0|format_milliers  }}],
+                backgroundColor: ['rgba(102, 126, 234, 0.8)', 'rgba(240, 147, 251, 0.8)', 'rgba(79, 172, 254, 0.8)']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load i18n %}
+{% load inventaire_extras %}
+
+
+
+{% block content %}
+<div class="container-fluid">
+    <h2>Saisie Inventaire - {{ poste.nom }}</h2>
+    <p>Date : {{ date_inventaire|date:"d/m/Y" }}</p>
+    
+    <form method="post" onsubmit="return calculerTotaux()">
+        {% csrf_token %}
+        
+        <div class="card">
+            <div class="card-header">Périodes horaires</div>
+            <div class="card-body">
+                <div class="row">
+                    {% for periode_code, periode_display in periodes %}
+                    <div class="col-md-3 mb-3">
+                        <label>{{ periode_display }}</label>
+                        <input type="number" 
+                               name="periode_{{ periode_code }}" 
+                               class="form-control periode-input"
+                               value="{{ details|default_if_none:''|get_item:periode_code|default:'' }}"
+                               min="0" max="1000"
+                               onchange="calculerTotaux()">
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <strong>Total véhicules :</strong> <span id="totalVehicules">0</span><br>
+                    <strong>Recette potentielle :</strong> <span id="recettePotentielle">0</span> FCFA
+                </div>
+                
+                <div class="mb-3">
+                    <label>Observations :</label>
+                    <textarea name="observations" class="form-control">{{ inventaire.observations }}</textarea>
+                </div>
+                
+                <button type="submit" name="save_inventaire" class="btn btn-success">
+                    Sauvegarder l'inventaire
+                </button>
+                <a href="{% url 'inventaire:inventaire_administratif' %}" class="btn btn-secondary">
+                    Retour
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function calculerTotaux() {
+    let total = 0;
+    document.querySelectorAll('.periode-input').forEach(input => {
+        let val = parseInt(input.value) || 0;
+        total += val;
+    });
+    
+    let periodes = document.querySelectorAll('.periode-input[value]:not([value=""])').length;
+    let moyenne = periodes > 0 ? total / periodes : 0;
+    let estimation24h = moyenne * 24;
+    let recette = (estimation24h * 75 * 500) / 100;
+    
+    document.getElementById('totalVehicules').textContent = total;
+    document.getElementById('recettePotentielle').textContent = Math.round(recette).toLocaleString();
+    
+    return true;
+}
+</script>
+{% endblock %}
