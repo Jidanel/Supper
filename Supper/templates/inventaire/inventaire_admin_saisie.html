@@ -1,12 +1,13 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
-{% load i18n %}
-{% load inventaire_extras %}
-
-
 
 {% block content %}
 <div class="container-fluid">
+    <div class="alert alert-info mb-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Inventaire Administratif</strong> - Saisie réservée aux administrateurs
+    </div>
+    
     <h2>Saisie Inventaire - {{ poste.nom }}</h2>
     <p>Date : {{ date_inventaire|date:"d/m/Y" }}</p>
     
@@ -14,16 +15,18 @@
         {% csrf_token %}
         
         <div class="card">
-            <div class="card-header">Périodes horaires</div>
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Périodes horaires</h5>
+            </div>
             <div class="card-body">
                 <div class="row">
-                    {% for periode_code, periode_display in periodes %}
+                    {% for periode in periodes_data %}
                     <div class="col-md-3 mb-3">
-                        <label>{{ periode_display }}</label>
+                        <label>{{ periode.display }}</label>
                         <input type="number" 
-                               name="periode_{{ periode_code }}" 
+                               name="periode_{{ periode.code }}" 
                                class="form-control periode-input"
-                               value="{{ details|default_if_none:''|get_item:periode_code|default:'' }}"
+                               value="{{ periode.value }}"
                                min="0" max="1000"
                                onchange="calculerTotaux()">
                     </div>
@@ -31,20 +34,20 @@
                 </div>
                 
                 <div class="alert alert-info mt-3">
-                    <strong>Total véhicules :</strong> <span id="totalVehicules">0</span><br>
-                    <strong>Recette potentielle :</strong> <span id="recettePotentielle">0</span> FCFA
+                    <strong>Total véhicules :</strong> <span id="totalVehicules">{{ total_vehicules }}</span><br>
+                    <strong>Recette potentielle :</strong> <span id="recettePotentielle">{{ recette_potentielle|floatformat:0 }}</span> FCFA
                 </div>
                 
                 <div class="mb-3">
                     <label>Observations :</label>
-                    <textarea name="observations" class="form-control">{{ inventaire.observations }}</textarea>
+                    <textarea name="observations" class="form-control" rows="3">{{ inventaire.observations }}</textarea>
                 </div>
                 
                 <button type="submit" name="save_inventaire" class="btn btn-success">
-                    Sauvegarder l'inventaire
+                    <i class="fas fa-save me-2"></i>Sauvegarder l'inventaire administratif
                 </button>
-                <a href="{% url 'inventaire:inventaire_administratif' %}" class="btn btn-secondary">
-                    Retour
+                <a href="{% url 'inventaire:liste_inventaires_administratifs' %}" class="btn btn-secondary">
+                    <i class="fas fa-list me-2"></i>Retour à la liste
                 </a>
             </div>
         </div>
@@ -54,13 +57,17 @@
 <script>
 function calculerTotaux() {
     let total = 0;
+    let nbPeriodes = 0;
+    
     document.querySelectorAll('.periode-input').forEach(input => {
         let val = parseInt(input.value) || 0;
-        total += val;
+        if (val > 0) {
+            total += val;
+            nbPeriodes++;
+        }
     });
     
-    let periodes = document.querySelectorAll('.periode-input[value]:not([value=""])').length;
-    let moyenne = periodes > 0 ? total / periodes : 0;
+    let moyenne = nbPeriodes > 0 ? total / nbPeriodes : 0;
     let estimation24h = moyenne * 24;
     let recette = (estimation24h * 75 * 500) / 100;
     
@@ -69,5 +76,8 @@ function calculerTotaux() {
     
     return true;
 }
+
+// Calculer au chargement
+window.onload = calculerTotaux;
 </script>
 {% endblock %}

@@ -4,7 +4,7 @@ from django.contrib import messages
 from datetime import datetime
 from .models import *
 from accounts.models import Poste
-
+from django.db.models import Sum, Avg, Count, Q
 def is_admin(user):
     return user.is_authenticated and (user.is_superuser or user.habilitation == 'admin_principal')
 
@@ -41,7 +41,11 @@ def inventaire_admin_saisie(request, poste_id, date_str):
     inventaire, created = InventaireJournalier.objects.get_or_create(
         poste=poste,
         date=date_inventaire,
-        defaults={'agent_saisie': request.user}
+        type_inventaire='administratif',
+        defaults={
+            'agent_saisie': request.user,
+            'type_inventaire': 'administratif',
+            }
     )
     
     if request.method == 'POST' and 'save_inventaire' in request.POST:
@@ -81,28 +85,37 @@ def inventaire_admin_saisie(request, poste_id, date_str):
         messages.success(request, f"Inventaire sauvegardé. Recette potentielle: {recette_potentielle} FCFA")
         return redirect('inventaire:inventaire_administratif')
     
-    # Récupérer les détails existants
+    periodes_data = []
     details = {d.periode: d.nombre_vehicules 
               for d in inventaire.details_periodes.all()}
+    
+    for periode_code, periode_display in PeriodeHoraire.choices:
+        periodes_data.append({
+            'code': periode_code,
+            'display': periode_display,
+            'value': details.get(periode_code, '')
+        })
     
     context = {
         'poste': poste,
         'date_inventaire': date_inventaire,
         'inventaire': inventaire,
-        'periodes': PeriodeHoraire.choices,
-        'details': details,
-        'total_vehicules': 0,
-        'recette_potentielle': 0
+        'periodes_data': periodes_data,
+        'total_vehicules': inventaire.total_vehicules,
+        'recette_potentielle': inventaire.calculer_recette_potentielle()
     }
     
     return render(request, 'inventaire/inventaire_admin_saisie.html', context)
+
 @login_required
 @user_passes_test(is_admin)
 def liste_inventaires_administratifs(request):
     """Liste des inventaires saisis par les administrateurs"""
     
     # Récupérer tous les inventaires
-    queryset = InventaireJournalier.objects.select_related(
+    queryset = InventaireJournalier.objects.filter(
+        type_inventaire='administratif'  # Seulement les inventaires administratifs
+    ).select_related(
         'poste', 'agent_saisie'
     ).prefetch_related('details_periodes')
     
@@ -120,9 +133,29 @@ def liste_inventaires_administratifs(request):
     date_debut = request.GET.get('date_debut')
     date_fin = request.GET.get('date_fin')
     if date_debut:
-        queryset = queryset.filter(date__gte=date_debut)
+        try:
+            date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__gte=date_debut)
+        except ValueError:
+            pass
+    
     if date_fin:
-        queryset = queryset.filter(date__lte=date_fin)
+        try:
+            date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__lte=date_fin)
+        except ValueError:
+            pass
+    # Recherche
+    search = request.GET.get('search')
+    if search:
+        queryset = queryset.filter(
+            Q(poste__nom__icontains=search) |
+            Q(poste__code__icontains=search) |
+            Q(agent_saisie__nom_complet__icontains=search)
+        )
+    
+    # Tri
+    queryset = queryset.order_by('-date', 'poste__nom')
     
     # Pagination
     from django.core.paginator import Paginator
@@ -160,10 +193,26 @@ def liste_inventaires_administratifs(request):
             inv.taux_deperdition = None
             inv.couleur_alerte = 'secondary'
     
+    stats = {
+        'total': queryset.count(),
+        'today': queryset.filter(date=timezone.now().date()).count(),
+        'this_month': queryset.filter(
+            date__month=timezone.now().month,
+            date__year=timezone.now().year
+        ).count()
+    }
+    
     context = {
         'inventaires': inventaires,
         'postes': Poste.objects.filter(is_active=True).order_by('nom'),
-        'title': 'Inventaires Administratifs'
+        'stats': stats,
+        'title': 'Inventaires Administratifs',
+        'current_filters': {
+            'poste': request.GET.get('poste', ''),
+            'date_debut': request.GET.get('date_debut', ''),
+            'date_fin': request.GET.get('date_fin', ''),
+            'search': request.GET.get('search', ''),
+        }
     }
     
     return render(request, 'inventaire/liste_inventaires_administratifs.html', context)

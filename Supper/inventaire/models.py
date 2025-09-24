@@ -1161,7 +1161,15 @@ class InventaireJournalier(models.Model):
         related_name='inventaires',
         verbose_name=_("Poste")
     )
-    
+    type_inventaire = models.CharField(
+        max_length=20,
+        choices=[
+            ('normal', 'Inventaire Normal'),
+            ('administratif', 'Inventaire Administratif')
+        ],
+        default='normal',
+        verbose_name=_("Type d'inventaire")
+    )
     date = models.DateField(
         verbose_name=_("Date de l'inventaire"),
         help_text=_("Date pour laquelle l'inventaire est effectué")

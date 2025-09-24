@@ -1,0 +1,356 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{% trans "Inventaires Administratifs" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+    
+    .stats-card h5 {
+        color: #6B46C1;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #1f2937;
+    }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .taux-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .taux-danger { background: #fee2e2; color: #dc2626; }
+    .taux-success { background: #d1fae5; color: #065f46; }
+    .taux-secondary { background: #e5e7eb; color: #6b7280; }
+    
+    .table-inventaires {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .table-inventaires thead {
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        color: white;
+    }
+    
+    .table-inventaires th {
+        border: none;
+        padding: 1rem;
+        font-weight: 600;
+    }
+    
+    .table-inventaires td {
+        padding: 0.75rem 1rem;
+        vertical-align: middle;
+    }
+    
+    .btn-action {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.85rem;
+        border-radius: 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="mb-0">
+                <i class="fas fa-clipboard-list me-2" style="color: #6B46C1;"></i>
+                {% trans "Inventaires Administratifs" %}
+            </h2>
+            <p class="text-muted mt-2">
+                {% trans "Liste des inventaires saisis par les administrateurs" %}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'inventaire:inventaire_administratif' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>
+                {% trans "Nouvelle Saisie" %}
+            </a>
+            <button class="btn btn-success ms-2" onclick="exportExcel()">
+                <i class="fas fa-file-excel me-2"></i>
+                {% trans "Export Excel" %}
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h5>{% trans "Total Inventaires" %}</h5>
+                <div class="stats-value">{{ inventaires.paginator.count }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h5>{% trans "Aujourd'hui" %}</h5>
+                <div class="stats-value" id="todayCount">0</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h5>{% trans "Taux Moyen" %}</h5>
+                <div class="stats-value" id="avgRate">-</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h5>{% trans "Alertes" %}</h5>
+                <div class="stats-value text-danger" id="alertCount">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-section">
+        <form method="get" id="filterForm">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Poste" %}</label>
+                    <select name="poste" class="form-select">
+                        <option value="">{% trans "Tous les postes" %}</option>
+                        {% for poste in postes %}
+                        <option value="{{ poste.id }}" {% if request.GET.poste == poste.id|stringformat:"s" %}selected{% endif %}>
+                            {{ poste.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Date début" %}</label>
+                    <input type="date" name="date_debut" class="form-control" 
+                           value="{{ request.GET.date_debut }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Date fin" %}</label>
+                    <input type="date" name="date_fin" class="form-control" 
+                           value="{{ request.GET.date_fin }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Type" %}</label>
+                    <select name="admin_only" class="form-select">
+                        <option value="">{% trans "Tous" %}</option>
+                        <option value="1" {% if request.GET.admin_only %}selected{% endif %}>
+                            {% trans "Admin seulement" %}
+                        </option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="mt-3 text-center">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-2"></i>{% trans "Filtrer" %}
+                </button>
+                <a href="{% url 'inventaire:liste_inventaires_administratifs' %}" class="btn btn-secondary ms-2">
+                    <i class="fas fa-undo me-2"></i>{% trans "Réinitialiser" %}
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau des inventaires -->
+    <div class="table-inventaires">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>{% trans "Date" %}</th>
+                    <th>{% trans "Poste" %}</th>
+                    <th>{% trans "Agent" %}</th>
+                    <th>{% trans "Total Véhicules" %}</th>
+                    <th>{% trans "Recette Potentielle" %}</th>
+                    <th>{% trans "Montant Déclaré" %}</th>
+                    <th>{% trans "Taux Déperdition" %}</th>
+                    <th>{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inventaire in inventaires %}
+                <tr>
+                    <td>
+                        <strong>{{ inventaire.date|date:"d/m/Y" }}</strong>
+                    </td>
+                    <td>
+                        <span class="fw-bold">{{ inventaire.poste.nom }}</span>
+                        <br>
+                        <small class="text-muted">{{ inventaire.poste.code }}</small>
+                    </td>
+                    <td>
+                        {{ inventaire.agent_saisie.nom_complet|default:"-" }}
+                        <br>
+                        <small class="text-muted">
+                            {% if inventaire.agent_saisie.habilitation == 'admin_principal' %}
+                                <span class="badge bg-purple">Admin</span>
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td class="text-center">
+                        <strong>{{ inventaire.total_vehicules }}</strong>
+                        <br>
+                        <small>{{ inventaire.nombre_periodes_saisies }} périodes</small>
+                    </td>
+                    <td class="text-end">
+                        {% if inventaire.recette_potentielle %}
+                            {{ inventaire.recette_potentielle|floatformat:0|format_milliers }} FCFA
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if inventaire.montant_declare %}
+                            <strong>{{ inventaire.montant_declare|floatformat:0|format_milliers  }} FCFA</strong>
+                        {% else %}
+                            <span class="text-warning">Non saisi</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if inventaire.taux_deperdition %}
+                            <span class="taux-badge taux-{{ inventaire.couleur_alerte }}">
+                                {{ inventaire.taux_deperdition|floatformat:2 }}%
+                            </span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'inventaire:inventaire_detail' inventaire.id %}" 
+                           class="btn btn-sm btn-info btn-action">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if user.is_admin %}
+                        <a href="{% url 'inventaire:inventaire_admin_saisie' inventaire.poste.id inventaire.date|date:'Y-m-d' %}" 
+                           class="btn btn-sm btn-warning btn-action">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">{% trans "Aucun inventaire trouvé" %}</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if inventaires.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if inventaires.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ inventaires.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {% trans "Précédent" %}
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in inventaires.paginator.page_range %}
+                {% if inventaires.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if inventaires.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ inventaires.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {% trans "Suivant" %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<script>
+// Calculer les statistiques
+document.addEventListener('DOMContentLoaded', function() {
+    let todayCount = 0;
+    let alertCount = 0;
+    let totalTaux = 0;
+    let countTaux = 0;
+    const today = new Date().toISOString().split('T')[0];
+    
+    document.querySelectorAll('tbody tr').forEach(row => {
+        // Compter inventaires du jour
+        const dateCell = row.cells[0]?.textContent.trim();
+        if (dateCell && dateCell.includes(today)) {
+            todayCount++;
+        }
+        
+        // Compter alertes (taux < -30%)
+        const tauxElement = row.querySelector('.taux-danger');
+        if (tauxElement) {
+            alertCount++;
+        }
+        
+        // Calculer moyenne
+        const tauxText = row.querySelector('.taux-badge')?.textContent;
+        if (tauxText) {
+            const taux = parseFloat(tauxText.replace('%', ''));
+            if (!isNaN(taux)) {
+                totalTaux += taux;
+                countTaux++;
+            }
+        }
+    });
+    
+    document.getElementById('todayCount').textContent = todayCount;
+    document.getElementById('alertCount').textContent = alertCount;
+    
+    if (countTaux > 0) {
+        const avgTaux = (totalTaux / countTaux).toFixed(2);
+        document.getElementById('avgRate').textContent = avgTaux + '%';
+    }
+});
+
+// Export Excel (simulation)
+function exportExcel() {
+    const params = new URLSearchParams(window.location.search);
+    params.append('export', 'excel');
+    window.location.href = window.location.pathname + '?' + params.toString();
+}
+</script>
+{% endblock %}

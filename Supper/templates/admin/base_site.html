@@ -291,6 +291,11 @@
                         <i class="fas fa-list-alt me-2"></i>{% trans "Liste Inventaires" %}
                     </a>
                 </li>
+                 <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_administratifs' %}">
+                        <i class="fas fa-list-alt me-2"></i>{% trans "Liste Inventaires Administratifs" %}
+                    </a>
+                </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:jours_impertinents' %}">
                         <i class="fas fa-calendar-day me-2"></i>{% trans "Liste Jours Impertinents" %}

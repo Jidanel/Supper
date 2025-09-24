@@ -112,7 +112,9 @@ class InventaireListView(InventaireMixin, ListView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        queryset = InventaireJournalier.objects.select_related(
+        queryset = InventaireJournalier.objects.filter(
+            type_inventaire='normal'  # Exclure les inventaires administratifs
+        ).select_related(
             'poste', 'agent_saisie',
         ).prefetch_related('details_periodes')
         
@@ -465,7 +467,11 @@ class SaisieInventaireView(InventaireMixin, View):
             inventaire, created = InventaireJournalier.objects.get_or_create(
                 poste=poste,
                 date=target_date,
-                defaults={'agent_saisie': request.user}
+                type_inventaire='normal',  # Spécifier le type
+                defaults={
+                    'agent_saisie': request.user,
+                    'type_inventaire': 'normal'  # Inventaire normal
+                }
             )
             
             # Vérifier si peut être modifié
