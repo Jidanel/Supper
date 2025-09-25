@@ -13,9 +13,23 @@ def is_admin(user):
 def inventaire_administratif(request):
     """Vue administrative pour saisie d'inventaire tous postes"""
     
+    # Récupérer tous les postes actifs
+    postes = Poste.objects.filter(is_active=True).order_by('nom')
+    
+    # Récupérer les inventaires existants pour aujourd'hui
+    today = timezone.now().date()
+    inventaires_existants = InventaireJournalier.objects.filter(
+        date=today
+    ).values_list('poste_id', flat=True)
+    
+    # Marquer les postes qui ont déjà un inventaire
+    for poste in postes:
+        poste.has_inventaire_today = poste.id in inventaires_existants
+    
     context = {
-        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
-        'today': timezone.now().date()
+        'postes': postes,
+        'today': today,
+        'inventaires_existants_count': len(inventaires_existants)
     }
     
     # Étape 1: Sélection du poste
@@ -24,11 +38,26 @@ def inventaire_administratif(request):
         date_str = request.POST.get('date')
         
         if poste_id and date_str:
+            # Vérifier si un inventaire existe déjà
+            try:
+                poste = Poste.objects.get(id=poste_id)
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                
+                inventaire_existe = InventaireJournalier.objects.filter(
+                    poste=poste,
+                    date=date_obj
+                ).exists()
+                
+                if inventaire_existe:
+                    messages.info(request, f"Un inventaire existe déjà pour {poste.nom} le {date_obj.strftime('%d/%m/%Y')}. Vous allez le modifier.")
+                
+            except (Poste.DoesNotExist, ValueError):
+                pass
+            
             return redirect('inventaire:inventaire_admin_saisie', 
                           poste_id=poste_id, date_str=date_str)
     
     return render(request, 'inventaire/inventaire_administratif.html', context)
-
 @login_required
 @user_passes_test(is_admin)
 def inventaire_admin_saisie(request, poste_id, date_str):
@@ -37,18 +66,30 @@ def inventaire_admin_saisie(request, poste_id, date_str):
     poste = get_object_or_404(Poste, id=poste_id)
     date_inventaire = datetime.strptime(date_str, '%Y-%m-%d').date()
     
-    # Récupérer ou créer l'inventaire
+    # CORRECTION : Retirer type_inventaire de la recherche get_or_create
+    # Car la contrainte unique est seulement sur ['poste', 'date']
     inventaire, created = InventaireJournalier.objects.get_or_create(
         poste=poste,
         date=date_inventaire,
-        type_inventaire='administratif',
+        # ❌ NE PAS mettre type_inventaire ici
         defaults={
             'agent_saisie': request.user,
             'type_inventaire': 'administratif',
-            }
+        }
     )
     
+    # Si l'inventaire existait déjà, mettre à jour le type si nécessaire
+    if not created and inventaire.type_inventaire != 'administratif':
+        inventaire.type_inventaire = 'administratif'
+        inventaire.derniere_modification_par = request.user
+        inventaire.save(update_fields=['type_inventaire', 'derniere_modification_par'])
+    
     if request.method == 'POST' and 'save_inventaire' in request.POST:
+        # Vérifier les permissions de modification
+        if not created and not request.user.is_admin:
+            messages.error(request, "Seuls les administrateurs peuvent modifier un inventaire existant.")
+            return redirect('inventaire:inventaire_administratif')
+        
         # Traiter les périodes
         total_vehicules = 0
         nombre_periodes = 0
@@ -73,18 +114,25 @@ def inventaire_admin_saisie(request, poste_id, date_str):
                     except ValueError:
                         pass
         
-        # Mettre à jour les totaux
+        # Mettre à jour les totaux et tracer la modification
         inventaire.total_vehicules = total_vehicules
         inventaire.nombre_periodes_saisies = nombre_periodes
         inventaire.observations = request.POST.get('observations', '')
+        inventaire.derniere_modification_par = request.user
         inventaire.save()
         
         # Calculer automatiquement la recette potentielle
         recette_potentielle = inventaire.calculer_recette_potentielle()
         
-        messages.success(request, f"Inventaire sauvegardé. Recette potentielle: {recette_potentielle} FCFA")
+        # Message différencié selon création ou modification
+        if created:
+            messages.success(request, f"Inventaire créé avec succès. Recette potentielle: {recette_potentielle} FCFA")
+        else:
+            messages.success(request, f"Inventaire modifié avec succès. Recette potentielle: {recette_potentielle} FCFA")
+        
         return redirect('inventaire:inventaire_administratif')
     
+    # Préparer les données pour l'affichage
     periodes_data = []
     details = {d.periode: d.nombre_vehicules 
               for d in inventaire.details_periodes.all()}
@@ -102,11 +150,13 @@ def inventaire_admin_saisie(request, poste_id, date_str):
         'inventaire': inventaire,
         'periodes_data': periodes_data,
         'total_vehicules': inventaire.total_vehicules,
-        'recette_potentielle': inventaire.calculer_recette_potentielle()
+        'recette_potentielle': inventaire.calculer_recette_potentielle(),
+        'is_modification': not created,  # Indiquer si c'est une modification
+        'created_by': inventaire.agent_saisie if inventaire.agent_saisie else None,
+        'last_modified_by': inventaire.derniere_modification_par if hasattr(inventaire, 'derniere_modification_par') else None
     }
     
     return render(request, 'inventaire/inventaire_admin_saisie.html', context)
-
 @login_required
 @user_passes_test(is_admin)
 def liste_inventaires_administratifs(request):

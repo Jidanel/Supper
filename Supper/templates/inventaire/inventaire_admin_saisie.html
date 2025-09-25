@@ -3,52 +3,88 @@
 
 {% block content %}
 <div class="container-fluid">
+    {% if is_modification %}
+    <div class="alert alert-warning mb-4">
+        <i class="fas fa-edit me-2"></i>
+        <strong>Mode Modification</strong> - Un inventaire existe déjà pour ce poste à cette date
+        {% if created_by %}
+        <br><small>Créé par : {{ created_by.nom_complet }} ({{ created_by.username }})</small>
+        {% endif %}
+        {% if last_modified_by %}
+        <br><small>Dernière modification par : {{ last_modified_by.nom_complet }}</small>
+        {% endif %}
+    </div>
+    {% else %}
     <div class="alert alert-info mb-4">
         <i class="fas fa-info-circle me-2"></i>
-        <strong>Inventaire Administratif</strong> - Saisie réservée aux administrateurs
+        <strong>Nouvel Inventaire Administratif</strong> - Saisie réservée aux administrateurs
     </div>
+    {% endif %}
     
-    <h2>Saisie Inventaire - {{ poste.nom }}</h2>
-    <p>Date : {{ date_inventaire|date:"d/m/Y" }}</p>
+    <h2>{% if is_modification %}Modification{% else %}Saisie{% endif %} Inventaire - {{ poste.nom }}</h2>
+    <p class="lead">Date : {{ date_inventaire|date:"d/m/Y" }}</p>
     
     <form method="post" onsubmit="return calculerTotaux()">
         {% csrf_token %}
         
         <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Périodes horaires</h5>
+            <div class="card-header {% if is_modification %}bg-warning{% else %}bg-primary{% endif %} text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Périodes horaires
+                </h5>
             </div>
             <div class="card-body">
                 <div class="row">
                     {% for periode in periodes_data %}
                     <div class="col-md-3 mb-3">
-                        <label>{{ periode.display }}</label>
+                        <label for="periode_{{ periode.code }}">{{ periode.display }}</label>
                         <input type="number" 
+                               id="periode_{{ periode.code }}"
                                name="periode_{{ periode.code }}" 
                                class="form-control periode-input"
                                value="{{ periode.value }}"
                                min="0" max="1000"
+                               placeholder="0"
                                onchange="calculerTotaux()">
                     </div>
                     {% endfor %}
                 </div>
                 
                 <div class="alert alert-info mt-3">
-                    <strong>Total véhicules :</strong> <span id="totalVehicules">{{ total_vehicules }}</span><br>
-                    <strong>Recette potentielle :</strong> <span id="recettePotentielle">{{ recette_potentielle|floatformat:0 }}</span> FCFA
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Total véhicules :</strong> 
+                            <span id="totalVehicules" class="badge bg-primary fs-6">{{ total_vehicules }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Recette potentielle :</strong> 
+                            <span id="recettePotentielle" class="badge bg-success fs-6">{{ recette_potentielle|floatformat:0 }}</span> FCFA
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="mb-3">
-                    <label>Observations :</label>
-                    <textarea name="observations" class="form-control" rows="3">{{ inventaire.observations }}</textarea>
+                    <label for="observations">Observations :</label>
+                    <textarea id="observations" 
+                              name="observations" 
+                              class="form-control" 
+                              rows="3" 
+                              placeholder="Ajoutez vos observations ici...">{{ inventaire.observations }}</textarea>
                 </div>
                 
-                <button type="submit" name="save_inventaire" class="btn btn-success">
-                    <i class="fas fa-save me-2"></i>Sauvegarder l'inventaire administratif
-                </button>
-                <a href="{% url 'inventaire:liste_inventaires_administratifs' %}" class="btn btn-secondary">
-                    <i class="fas fa-list me-2"></i>Retour à la liste
-                </a>
+                <div class="d-grid gap-2 d-md-block">
+                    <button type="submit" name="save_inventaire" class="btn {% if is_modification %}btn-warning{% else %}btn-success{% endif %} btn-lg">
+                        <i class="fas fa-save me-2"></i>
+                        {% if is_modification %}Mettre à jour{% else %}Sauvegarder{% endif %} l'inventaire
+                    </button>
+                    <a href="{% url 'inventaire:inventaire_administratif' %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-arrow-left me-2"></i>Retour
+                    </a>
+                    <a href="{% url 'inventaire:liste_inventaires_administratifs' %}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-list me-2"></i>Liste des inventaires
+                    </a>
+                </div>
             </div>
         </div>
     </form>
@@ -67,17 +103,39 @@ function calculerTotaux() {
         }
     });
     
+    // Calcul selon la formule exacte
     let moyenne = nbPeriodes > 0 ? total / nbPeriodes : 0;
     let estimation24h = moyenne * 24;
-    let recette = (estimation24h * 75 * 500) / 100;
+    let vehiculesEffectifs = estimation24h * 0.75;
+    let recette = vehiculesEffectifs * 500;
     
-    document.getElementById('totalVehicules').textContent = total;
+    document.getElementById('totalVehicules').textContent = total.toLocaleString();
     document.getElementById('recettePotentielle').textContent = Math.round(recette).toLocaleString();
+    
+    // Changer la couleur selon le montant
+    let recetteBadge = document.getElementById('recettePotentielle');
+    if (recette > 1000000) {
+        recetteBadge.className = 'badge bg-success fs-6';
+    } else if (recette > 500000) {
+        recetteBadge.className = 'badge bg-warning fs-6';
+    } else {
+        recetteBadge.className = 'badge bg-danger fs-6';
+    }
     
     return true;
 }
 
 // Calculer au chargement
-window.onload = calculerTotaux;
+window.onload = function() {
+    calculerTotaux();
+    {% if is_modification %}
+    // Mettre en surbrillance les champs modifiés
+    document.querySelectorAll('.periode-input').forEach(input => {
+        input.addEventListener('change', function() {
+            this.classList.add('border-warning');
+        });
+    });
+    {% endif %}
+}
 </script>
 {% endblock %}
