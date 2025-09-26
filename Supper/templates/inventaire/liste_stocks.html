@@ -1,0 +1,189 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Gestion des Stocks - Vue d'ensemble{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stock-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+    }
+    
+    .stock-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .stock-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .stock-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .stock-tickets {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .stock-danger { border-left: 4px solid #dc3545; }
+    .stock-warning { border-left: 4px solid #ffc107; }
+    .stock-info { border-left: 4px solid #17a2b8; }
+    .stock-success { border-left: 4px solid #28a745; }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+    
+    .date-epuisement {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .vente-moyenne {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-boxes"></i> Gestion des Stocks - Tous les Postes</h2>
+        <a href="{% url 'inventaire:charger_stock_selection' %}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i> Charger un stock
+        </a>
+    </div>
+    
+    <!-- Statistiques globales -->
+    <div class="stats-grid">
+        <div class="stat-box">
+            <h4>{{ total_stock|floatformat:0|default:"0" }} FCFA</h4>
+            <p>Stock total</p>
+        </div>
+        <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <h4>{{ total_tickets|default:"0" }}</h4>
+            <p>Tickets totaux</p>
+        </div>
+        <div class="stat-box" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+            <h4>{{ stocks_critiques }}</h4>
+            <p>Stocks critiques</p>
+        </div>
+        <div class="stat-box" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
+            <h4>{{ stocks_faibles }}</h4>
+            <p>Stocks faibles</p>
+        </div>
+    </div>
+    
+    <!-- Liste des stocks -->
+    <div class="stocks-list">
+        {% for item in page_obj %}
+        <div class="stock-card stock-{{ item.alerte }}">
+            <div class="stock-header">
+                <div>
+                    <h5 class="mb-1">
+                        <i class="fas fa-map-marker-alt"></i> 
+                        {{ item.poste.nom }}
+                    </h5>
+                    <span class="text-muted">Code: {{ item.poste.code }}</span>
+                </div>
+                <div class="text-end">
+                    <div class="stock-value">{{ item.valeur_monetaire|floatformat:0|default:"0" }} FCFA</div>
+                    <div class="stock-tickets">{{ item.nombre_tickets }} tickets</div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <small class="text-muted">Vente moyenne journalière:</small><br>
+                    <span class="vente-moyenne">{{ item.vente_moyenne|floatformat:0|default:"0" }} FCFA/jour</span>
+                </div>
+                <div class="col-md-4">
+                    {% if item.date_epuisement %}
+                    <small class="text-muted">Date d'épuisement prévue:</small><br>
+                    <span class="date-epuisement bg-{{ item.alerte }} text-white">
+                        {{ item.date_epuisement|date:"d/m/Y" }}
+                        {% if item.jours_restants %}
+                        ({{ item.jours_restants }} jours)
+                        {% endif %}
+                    </span>
+                    {% else %}
+                    <small class="text-muted">Pas de ventes récentes</small>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{% url 'inventaire:charger_stock' item.poste.id %}" 
+                       class="btn btn-sm btn-success">
+                        <i class="fas fa-plus"></i> Charger
+                    </a>
+                    <a href="{% url 'inventaire:historique_stock' item.poste.id %}" 
+                       class="btn btn-sm btn-info">
+                        <i class="fas fa-history"></i> Historique
+                    </a>
+                </div>
+            </div>
+            
+            <div class="mt-2">
+                <small class="text-muted">
+                    Dernière mise à jour: {{ item.derniere_mise_a_jour|date:"d/m/Y H:i" }}
+                </small>
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Aucun stock configuré pour le moment
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Précédent</a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Suivant</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

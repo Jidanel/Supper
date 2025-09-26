@@ -384,6 +384,42 @@
             </ul>
         </li>
         {% endif %}
+        <!-- Menu STOCKS -->
+            {% if user.is_admin or user.is_chef_poste %}
+            <li class="dropdown">
+                <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="fas fa-boxes me-1"></i>
+                    {% trans "Stocks" %}
+                </a>
+                <ul class="dropdown-menu">
+                    {% if user.is_admin %}
+                    <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:liste_postes_stocks' %}">
+                            <i class="fas fa-list me-2"></i>{% trans "Tous les stocks" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:charger_stock_selection' %}">
+                            <i class="fas fa-plus-circle me-2"></i>{% trans "Charger stock" %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% if user.poste_affectation %}
+                    <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:mon_stock' %}">
+                            <i class="fas fa-box me-2"></i>{% trans "Mon stock" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:historique_stock' user.poste_affectation.id %}">
+                            <i class="fas fa-history me-2"></i>{% trans "Historique" %}
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </li>
+            {% endif %}
 
         <!-- Menu GESTION -->
         {% if user.peut_gerer_personnel or user.is_admin %}

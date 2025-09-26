@@ -817,10 +817,12 @@ def supprimer_inventaire(request, pk):
 def saisir_recette(request):
     """
     Interface de saisie de recette pour les chefs de poste
-    Version corrigée avec gestion des erreurs Decimal
+    Version complète avec confirmation et gestion des stocks
     """
+    from django.db import transaction
     from decimal import Decimal, InvalidOperation
-     # Vérifier que l'utilisateur peut saisir des recettes
+    
+    # Vérifier que l'utilisateur peut saisir des recettes
     if not (request.user.is_chef_poste or request.user.is_admin):
         messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
         return HttpResponseForbidden("Accès non autorisé")
@@ -829,7 +831,6 @@ def saisir_recette(request):
     if hasattr(request.user, 'get_postes_accessibles'):
         postes = request.user.get_postes_accessibles()
     else:
-        # Fallback si la méthode n'existe pas encore
         if request.user.acces_tous_postes or request.user.is_admin:
             postes = Poste.objects.filter(is_active=True)
         elif request.user.poste_affectation:
@@ -837,72 +838,138 @@ def saisir_recette(request):
         else:
             postes = Poste.objects.none()
     
-    # Déterminer les postes accessibles
-    postes = request.user.get_postes_accessibles()
-    
     if request.method == 'POST':
-        form = RecetteJournaliereForm(request.POST, user=request.user)
-        
-        if form.is_valid():
-            recette = form.save(commit=False)
-            recette.chef_poste = request.user
-            recette.derniere_modification_par = request.user
-            
-            # Vérifier qu'une recette n'existe pas déjà
-            existing = RecetteJournaliere.objects.filter(
-                poste=recette.poste,
-                date=recette.date
-            ).first()
-            
-            if existing:
-                messages.warning(request, f"Une recette existe déjà pour {recette.poste.nom} le {recette.date}")
-                return redirect('modifier_recette', pk=existing.pk)
-            
-            # Chercher l'inventaire associé automatiquement
-            if form.cleaned_data.get('lier_inventaire', True):
-                try:
-                    inventaire = InventaireJournalier.objects.get(
-                        poste=recette.poste,
-                        date=recette.date
-                    )
-                    recette.inventaire_associe = inventaire
-                except InventaireJournalier.DoesNotExist:
-                    messages.info(request, "Aucun inventaire trouvé pour cette date.")
-            
-            # Sauvegarder (les calculs se font automatiquement)
-            recette.save()
-            
-            # Journaliser l'action
-            log_user_action(
-                request.user,
-                "Saisie recette",
-                f"Recette saisie: {recette.montant_declare} FCFA pour {recette.poste.nom} - {recette.date}",
-                request
-            )
-            
-            # Messages selon le taux de déperdition
-            if recette.taux_deperdition is not None:
-                statut = recette.get_statut_deperdition()
-                couleur = recette.get_couleur_alerte()
+        # Vérifier si c'est une confirmation
+        if request.POST.get('action') == 'confirmer':
+            # Récupérer les données du formulaire de confirmation
+            try:
+                poste_id = request.POST.get('poste_id')
+                date_str = request.POST.get('date')
+                montant_str = request.POST.get('montant')
+                observations = request.POST.get('observations', '')
+                lier_inventaire = request.POST.get('lier_inventaire') == 'true'
                 
-                if statut == 'Impertinent':
-                    messages.warning(request, f"Journée marquée comme impertinente (TD: {recette.taux_deperdition:.2f}%)")
-                elif couleur == 'danger':
-                    messages.warning(request, f"Attention: Taux de déperdition mauvais ({recette.taux_deperdition:.2f}%)")
-                else:
-                    messages.success(request, f"Bon taux de déperdition ({recette.taux_deperdition:.2f}%)")
-            else:
-                messages.success(request, f"Recette enregistrée avec succès. Montant: {recette.montant_declare} FCFA")
-
-            if request.user.is_admin:
+                # Validation des données
+                poste = Poste.objects.get(id=poste_id)
+                date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                montant = Decimal(montant_str)
+                
+                # Vérifier qu'une recette n'existe pas déjà
+                if RecetteJournaliere.objects.filter(poste=poste, date=date).exists():
+                    messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date}")
                     return redirect('inventaire:liste_recettes')
-            else:
-                    # Rediriger vers la liste filtrée sur son poste
-                    return redirect(f"{reverse('inventaire:liste_recettes')}?poste={recette.poste.id}")
-    
-
+                
+                with transaction.atomic():
+                    # Créer la recette
+                    recette = RecetteJournaliere.objects.create(
+                        poste=poste,
+                        date=date,
+                        montant_declare=montant,
+                        chef_poste=request.user,
+                        modifiable_par_chef=False,  # Non modifiable après validation
+                        observations=observations
+                    )
+                    
+                    # Chercher l'inventaire associé si demandé
+                    if lier_inventaire:
+                        try:
+                            inventaire = InventaireJournalier.objects.get(
+                                poste=poste,
+                                date=date
+                            )
+                            recette.inventaire_associe = inventaire
+                            recette.save()
+                        except InventaireJournalier.DoesNotExist:
+                            pass
+                    
+                    # Gérer le stock
+                    from inventaire.models import GestionStock, HistoriqueStock
+                    
+                    stock, created = GestionStock.objects.get_or_create(
+                        poste=poste,
+                        defaults={'valeur_monetaire': Decimal('0')}
+                    )
+                    
+                    stock_avant = stock.valeur_monetaire
+                    
+                    # Vérifier si stock suffisant
+                    if stock.valeur_monetaire < montant:
+                        messages.warning(request, 
+                            f"Stock insuffisant ({stock.valeur_monetaire:.0f} FCFA disponible). "
+                            f"La recette est enregistrée mais le stock est négatif.")
+                    
+                    # Déduire du stock (peut devenir négatif)
+                    stock.valeur_monetaire -= montant
+                    stock.save()
+                    
+                    # Créer l'historique
+                    HistoriqueStock.objects.create(
+                        poste=poste,
+                        type_mouvement='DEBIT',
+                        montant=montant,
+                        nombre_tickets=int(montant / 500),
+                        stock_avant=stock_avant,
+                        stock_apres=stock.valeur_monetaire,
+                        effectue_par=request.user,
+                        reference_recette=recette,
+                        commentaire=f"Vente du {date.strftime('%d/%m/%Y')}"
+                    )
+                    
+                    # Journaliser
+                    log_user_action(
+                        request.user,
+                        "Saisie recette confirmée",
+                        f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date}",
+                        request
+                    )
+                    
+                    messages.success(request, 
+                        f"Recette enregistrée avec succès. "
+                        f"Stock restant: {stock.valeur_monetaire:.0f} FCFA")
+                    
+                    if request.user.is_admin:
+                        return redirect('inventaire:liste_recettes')
+                    else:
+                        return redirect(f"{reverse('inventaire:liste_recettes')}?poste={poste.id}")
+                        
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'enregistrement: {str(e)}")
+                return redirect('inventaire:saisie_recette')
+        
+        else:
+            # Premier POST : validation du formulaire
+            form = RecetteJournaliereForm(request.POST, user=request.user)
+            
+            if form.is_valid():
+                # Préparer les données pour la confirmation
+                poste = form.cleaned_data['poste']
+                date = form.cleaned_data['date']
+                montant = form.cleaned_data['montant_declare']
+                observations = form.cleaned_data.get('observations', '')
+                lier_inventaire = form.cleaned_data.get('lier_inventaire', True)
+                
+                # Vérifier le stock actuel
+                from inventaire.models import GestionStock
+                stock_actuel = Decimal('0')
+                try:
+                    stock = GestionStock.objects.get(poste=poste)
+                    stock_actuel = stock.valeur_monetaire
+                except GestionStock.DoesNotExist:
+                    pass
+                
+                # Afficher la page de confirmation
+                return render(request, 'inventaire/confirmer_recette.html', {
+                    'poste': poste,
+                    'date': date,
+                    'montant': montant,
+                    'observations': observations,
+                    'lier_inventaire': lier_inventaire,
+                    'stock_actuel': stock_actuel,
+                    'stock_apres': stock_actuel - montant,
+                    'stock_suffisant': stock_actuel >= montant
+                })
     else:
-        # Pré-remplir avec la date du jour et le poste
+        # GET : afficher le formulaire
         initial_data = {
             'date': timezone.now().date(),
             'lier_inventaire': True
@@ -912,6 +979,7 @@ def saisir_recette(request):
             
         form = RecetteJournaliereForm(initial=initial_data, user=request.user)
     
+    # Statistiques pour l'affichage
     recettes_query = RecetteJournaliere.objects.filter(
         chef_poste=request.user
     ).select_related('poste', 'inventaire_associe').order_by('-date')
@@ -921,49 +989,29 @@ def saisir_recette(request):
         'moyenne_taux': 0
     }
     
-    if request.method == 'GET':
-        recettes_query = RecetteJournaliere.objects.filter(
-            chef_poste=request.user
-        ).select_related('poste', 'inventaire_associe').order_by('-date')
+    if recettes_query.exists():
+        recettes_mois = recettes_query.filter(
+            date__month=timezone.now().month,
+            date__year=timezone.now().year
+        )
         
-        if recettes_query.exists():
-            # Total du mois avec gestion sécurisée
-            recettes_mois = recettes_query.filter(
-                date__month=timezone.now().month,
-                date__year=timezone.now().year
-            )
-            
-            total_result = recettes_mois.aggregate(total=Sum('montant_declare'))['total']
-            
-            # Conversion sécurisée en nombre
-            if total_result is not None:
+        total_result = recettes_mois.aggregate(total=Sum('montant_declare'))['total']
+        if total_result:
+            stats['total_mois'] = float(total_result)
+        
+        taux_values = []
+        for recette in recettes_query.filter(taux_deperdition__isnull=False):
+            if recette.taux_deperdition is not None:
                 try:
-                    if isinstance(total_result, Decimal):
-                        stats['total_mois'] = float(str(total_result))
-                    else:
-                        stats['total_mois'] = float(total_result) if total_result else 0
+                    val = float(recette.taux_deperdition)
+                    taux_values.append(val)
                 except (TypeError, ValueError, InvalidOperation):
-                    stats['total_mois'] = 0
-            
-            # Moyenne des taux avec gestion sécurisée
-            taux_values = []
-            for recette in recettes_query.filter(taux_deperdition__isnull=False):
-                if recette.taux_deperdition is not None:
-                    try:
-                        if isinstance(recette.taux_deperdition, Decimal):
-                            val = float(str(recette.taux_deperdition))
-                        else:
-                            val = float(recette.taux_deperdition)
-                        taux_values.append(val)
-                    except (TypeError, ValueError, InvalidOperation):
-                        continue
-            
-            if taux_values:
-                stats['moyenne_taux'] = sum(taux_values) / len(taux_values)
+                    continue
         
-        recettes_recentes = recettes_query[:10]
-    else:
-        recettes_recentes = []
+        if taux_values:
+            stats['moyenne_taux'] = sum(taux_values) / len(taux_values)
+    
+    recettes_recentes = recettes_query[:10]
     
     context = {
         'form': form,
@@ -973,27 +1021,38 @@ def saisir_recette(request):
         'title': 'Saisir une recette journalière'
     }
     
-    return render(request, 'inventaire/saisir_recette.html', context)
+    return render(request, 'inventaire/saisir_recette.html', context)@login_required
 @login_required
 def modifier_recette(request, pk):
     """
     Permet de modifier une recette existante
+    Bloque les modifications par admin et après validation
     """
     recette = get_object_or_404(RecetteJournaliere, pk=pk)
     
-    # Vérifier les permissions
-   
-    is_admin = request.user.is_admin
-    can_access_poste = request.user.peut_acceder_poste(recette.poste)
+    # BLOQUER modification pour les administrateurs
+    if request.user.is_admin:
+        messages.error(request, 
+            "Les administrateurs ne peuvent pas modifier les recettes. "
+            "Seuls les chefs de poste peuvent modifier leurs propres recettes non validées.")
+        return redirect('inventaire:recette_detail', pk=pk)
     
-    # Vérifier si peut modifier
-    can_modify = False
-    if is_admin:
-        can_modify = True
+    # Vérifier que c'est bien le chef qui a saisi
+    if recette.chef_poste != request.user:
+        messages.error(request, "Vous ne pouvez modifier que vos propres recettes.")
+        return redirect('inventaire:recette_detail', pk=pk)
     
-    if not can_modify:
-        messages.error(request, "Vous n'avez pas la permission de modifier cette recette.")
-        return HttpResponseForbidden("Permission insuffisante")
+    # Vérifier si la recette est encore modifiable
+    if not recette.modifiable_par_chef:
+        messages.error(request, 
+            "Cette recette a été validée et ne peut plus être modifiée. "
+            "Les recettes validées sont définitives pour garantir l'intégrité des données.")
+        return redirect('inventaire:recette_detail', pk=pk)
+    
+    # Vérifier l'accès au poste
+    if not request.user.peut_acceder_poste(recette.poste):
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return HttpResponseForbidden("Accès non autorisé")
     
     if request.method == 'POST':
         form = RecetteJournaliereForm(
@@ -1003,6 +1062,16 @@ def modifier_recette(request, pk):
         )
         
         if form.is_valid():
+            # Empêcher la modification du montant si déjà déduit du stock
+            ancien_montant = recette.montant_declare
+            nouveau_montant = form.cleaned_data['montant_declare']
+            
+            if ancien_montant != nouveau_montant:
+                messages.error(request, 
+                    "Le montant ne peut pas être modifié après validation. "
+                    "Veuillez contacter un administrateur si nécessaire.")
+                return redirect('inventaire:modifier_recette', pk=pk)
+            
             recette = form.save(commit=False)
             recette.derniere_modification_par = request.user
             
@@ -1028,11 +1097,11 @@ def modifier_recette(request, pk):
             )
             
             messages.success(request, "La recette a été modifiée avec succès.")
+            
             if request.user.is_admin:
-                    return redirect('inventaire:liste_recettes')
+                return redirect('inventaire:liste_recettes')
             else:
-                    # Rediriger vers la liste filtrée sur son poste
-                    return redirect(f"{reverse('inventaire:liste_recettes')}?poste={recette.poste.id}")
+                return redirect(f"{reverse('inventaire:liste_recettes')}?poste={recette.poste.id}")
     else:
         form = RecetteJournaliereForm(
             instance=recette,
@@ -1042,11 +1111,12 @@ def modifier_recette(request, pk):
     context = {
         'form': form,
         'recette': recette,
-        'title': f'Modifier recette du {recette.date}'
+        'title': f'Modifier recette du {recette.date}',
+        'is_modifiable': recette.modifiable_par_chef,
+        'warning_message': "Attention : Les modifications sont limitées après validation."
     }
     
     return render(request, 'inventaire/modifier_recette.html', context)
-
 @login_required
 def supprimer_recette(request, pk):
     """

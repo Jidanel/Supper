@@ -1948,3 +1948,115 @@ class HistoriqueAffectation(models.Model):
             type_affectation=type_affectation,
             date_debut__lte=date
         ).first()
+
+class GestionStock(models.Model):
+    """Modèle pour la gestion des stocks de tickets par poste"""
+    
+    poste = models.OneToOneField(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='stock',
+        verbose_name=_("Poste")
+    )
+    
+    valeur_monetaire = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name=_("Valeur monétaire (FCFA)")
+    )
+    
+    nombre_tickets = models.IntegerField(
+        default=0,
+        verbose_name=_("Nombre de tickets"),
+        help_text=_("Calculé automatiquement : valeur / 500")
+    )
+    
+    derniere_mise_a_jour = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Dernière mise à jour")
+    )
+    
+    def save(self, *args, **kwargs):
+        # Calcul automatique du nombre de tickets
+        if self.valeur_monetaire:
+            self.nombre_tickets = int(self.valeur_monetaire / 500)
+        super().save(*args, **kwargs)
+    
+    class Meta:
+        verbose_name = _("Gestion du stock")
+        verbose_name_plural = _("Gestion des stocks")
+
+
+class HistoriqueStock(models.Model):
+    """Historique des mouvements de stock"""
+    
+    TYPE_MOUVEMENT = [
+        ('CREDIT', 'Crédit/Approvisionnement'),
+        ('DEBIT', 'Débit/Vente')
+    ]
+    
+    poste = models.ForeignKey(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='historique_stocks',
+        verbose_name=_("Poste")
+    )
+    
+    type_mouvement = models.CharField(
+        max_length=10,
+        choices=TYPE_MOUVEMENT,
+        verbose_name=_("Type de mouvement")
+    )
+    
+    montant = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_("Montant (FCFA)")
+    )
+    
+    nombre_tickets = models.IntegerField(
+        verbose_name=_("Nombre de tickets")
+    )
+    
+    stock_avant = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Stock avant (FCFA)")
+    )
+    
+    stock_apres = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Stock après (FCFA)")
+    )
+    
+    effectue_par = models.ForeignKey(
+        UtilisateurSUPPER,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name=_("Effectué par")
+    )
+    
+    date_mouvement = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date du mouvement")
+    )
+    
+    reference_recette = models.ForeignKey(
+        'RecetteJournaliere',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Recette associée")
+    )
+    
+    commentaire = models.TextField(
+        blank=True,
+        verbose_name=_("Commentaire")
+    )
+    
+    class Meta:
+        verbose_name = _("Historique stock")
+        verbose_name_plural = _("Historiques stocks")
+        ordering = ['-date_mouvement']

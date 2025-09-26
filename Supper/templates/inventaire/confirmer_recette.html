@@ -1,0 +1,82 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Confirmer la recette{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Confirmation de la recette</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-lock"></i> ATTENTION - ACTION IRRÉVERSIBLE
+                        </h5>
+                        <p class="mb-0">
+                            <strong>Une fois validée, cette recette ne pourra plus être modifiée.</strong>
+                        </p>
+                    </div>
+                    
+                    <h5>Récapitulatif de la recette :</h5>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Poste :</th>
+                            <td>{{ poste.nom }} ({{ poste.code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Date :</th>
+                            <td>{{ date|date:"d/m/Y" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Montant déclaré :</th>
+                            <td class="fw-bold text-primary">{{ montant|floatformat:0 }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <th>Stock actuel :</th>
+                            <td>{{ stock_actuel|floatformat:0 }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <th>Stock après déduction :</th>
+                            <td class="{% if not stock_suffisant %}text-danger{% endif %}">
+                                {{ stock_apres|floatformat:0 }} FCFA
+                                {% if not stock_suffisant %}
+                                <br><small class="text-danger">⚠️ Stock insuffisant</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if observations %}
+                        <tr>
+                            <th>Observations :</th>
+                            <td>{{ observations }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                    
+                    <form method="post" action="{% url 'inventaire:saisie_recette' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="confirmer">
+                        <input type="hidden" name="poste_id" value="{{ poste.id }}">
+                        <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+                        <input type="hidden" name="montant" value="{{ montant }}">
+                        <input type="hidden" name="observations" value="{{ observations }}">
+                        <input type="hidden" name="lier_inventaire" value="{{ lier_inventaire|yesno:'true,false' }}">
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'inventaire:saisie_recette' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Retour
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-check"></i> Confirmer et valider définitivement
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
