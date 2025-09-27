@@ -11,6 +11,7 @@ from django.core.validators import RegexValidator
 from django.urls import reverse
 from django.utils import timezone
 import logging
+from decimal import Decimal
 
 # Configuration du logger pour l'application
 logger = logging.getLogger('supper')
@@ -170,6 +171,14 @@ class Poste(models.Model):
         auto_now=True,  # CORRIGÉ : auto_now au lieu de auto_now_add
         verbose_name=_("Date de modification")
     )
+    objectif_annuel = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Objectif annuel (FCFA)"),
+        help_text=_("Objectif de recettes annuelles pour ce poste")
+    )
     
     class Meta:
         verbose_name = _("Poste")
@@ -189,7 +198,31 @@ class Poste(models.Model):
     def get_nom_complet(self):
         """Retourne le nom complet du poste pour l'affichage détaillé"""
         return f"{self.nom} ({self.get_type_display()}) - {self.region}"
-
+    
+    def get_realisation_annee(self, annee=None):
+        """Calcule le total réalisé pour une année donnée"""
+        from inventaire.models import RecetteJournaliere
+        from django.db.models import Sum
+        
+        if annee is None:
+            annee = timezone.now().year
+            
+        total = RecetteJournaliere.objects.filter(
+            poste=self,
+            date__year=annee
+        ).aggregate(total=Sum('montant_declare'))['total']
+        
+        return Decimal(str(total or 0))
+    
+    def get_taux_realisation(self, annee=None):
+        """Calcule le taux de réalisation par rapport à l'objectif"""
+        if not self.objectif_annuel:
+            return None
+        realise = self.get_realisation_annee(annee)
+        if self.objectif_annuel > 0:
+            return (realise / self.objectif_annuel * 100)
+        return 0
+    
     def get_nom_court(self):
         """Nom court pour l'administration"""
         return f"{self.code} - {self.nom[:25]}{'...' if len(self.nom) > 25 else ''}"

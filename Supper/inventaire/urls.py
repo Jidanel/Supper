@@ -54,7 +54,10 @@ urlpatterns = [
     path('recettes/', views.RecetteListView.as_view(), name='liste_recettes'),
     path('recettes/<int:pk>/', views.RecetteDetailView.as_view(), name='recette_detail'),
     path('recettes/<int:pk>/modifier/', views.modifier_recette, name='modifier_recette'),
-    path('taux-evolution/', views_evolution.taux_evolution_view, name='taux_evolution'),
+    #path('taux-evolution/', views_evolution.taux_evolution_view, name='taux_evolution'),
+    # Dans la section des statistiques/évolution
+    path('evolution/', views_evolution.taux_evolution_view, name='taux_evolution_avance'),
+    #path('evolution/avance/', views_evolution.taux_evolution_avance_view, name='taux_evolution_avance'),
 
     
     # ================================================================

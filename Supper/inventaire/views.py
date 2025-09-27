@@ -3104,7 +3104,27 @@ def programmer_inventaire(request):
         try:
             # MOTIF 1: RISQUE DE BAISSE ANNUEL
             if motif == 'risque_baisse':
-                postes_data = ProgrammationInventaire.get_postes_avec_risque_baisse()
+                # NOUVELLE VERSION utilisant le service
+                from inventaire.services.evolution_service import EvolutionService
+                
+                postes_data = EvolutionService.identifier_postes_en_baisse(
+                    type_analyse='annuel',
+                    seuil_baisse=-5  # Seuil de baisse à -5%
+                )
+                
+                # Enrichir les données pour le template
+                for item in postes_data:
+                    # Vérifier si déjà programmé
+                    item['deja_programme'] = ProgrammationInventaire.objects.filter(
+                        poste=item['poste'],
+                        mois=mois,
+                        motif=motif,
+                        actif=True
+                    ).exists()
+                    
+                    # Calculer le pourcentage de baisse pour l'affichage
+                    item['pourcentage_baisse'] = abs(item['taux_evolution'])
+                    
                 context['postes_risque_baisse'] = postes_data
                 logger.debug(f"[DEBUG] Postes risque baisse trouvés: {len(postes_data)}")
                 

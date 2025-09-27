@@ -1,0 +1,229 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Taux d'Évolution et Estimations - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .evolution-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .stat-box {
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+    }
+    
+    .baisse { background: #fee2e2; color: #dc2626; }
+    .hausse { background: #dcfce7; color: #16a34a; }
+    .neutre { background: #f3f4f6; color: #6b7280; }
+    
+    .table-evolution th {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    
+    .objectif-card {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="fas fa-chart-line me-2"></i>
+        Taux d'Évolution et Estimations
+    </h2>
+    
+    <!-- Formulaire de sélection -->
+    <div class="evolution-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Type d'analyse</label>
+                <select name="type_analyse" class="form-select">
+                    <option value="mensuel" {% if type_analyse == 'mensuel' %}selected{% endif %}>Mensuel</option>
+                    <option value="annuel" {% if type_analyse == 'annuel' %}selected{% endif %}>Annuel</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">Mois</label>
+                <select name="mois" class="form-select">
+                    {% for i in '123456789'|make_list %}
+                    <option value="{{ forloop.counter }}" {% if forloop.counter == mois_selectionne %}selected{% endif %}>
+                        {{ forloop.counter|date:"F" }}
+                    </option>
+                    {% endfor %}
+                    {% for i in '012'|make_list %}
+                    <option value="{{ forloop.counter|add:9 }}" {% if forloop.counter|add:9 == mois_selectionne %}selected{% endif %}>
+                        {{ forloop.counter|add:9|date:"F" }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">Année</label>
+                <input type="number" name="annee" class="form-control" 
+                       value="{{ annee_selectionnee }}" min="2020" max="2030">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Poste</label>
+                <select name="poste" class="form-select">
+                    <option value="tous">Tous les postes</option>
+                    {% for poste in postes %}
+                    <option value="{{ poste.id }}">{{ poste.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i>Analyser
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Objectifs globaux -->
+    <div class="objectif-card">
+        <div class="row text-center">
+            <div class="col-md-3">
+                <h5>Objectif Global</h5>
+                <h3>{{ totaux.objectif_global|floatformat:0|default:"0" }} FCFA</h3>
+            </div>
+            <div class="col-md-3">
+                <h5>Réalisé</h5>
+                <h3>{{ totaux.realise_global|floatformat:0|default:"0" }} FCFA</h3>
+            </div>
+            <div class="col-md-3">
+                <h5>Reste à Réaliser</h5>
+                <h3>{{ totaux.reste_global|floatformat:0|default:"0" }} FCFA</h3>
+            </div>
+            <div class="col-md-3">
+                <h5>Taux de Réalisation</h5>
+                <h3>{{ totaux.taux_global|floatformat:2 }}%</h3>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tableau des résultats -->
+    <div class="evolution-card">
+        <h4 class="mb-3">Analyse Détaillée par Poste</h4>
+        <div class="table-responsive">
+            <table class="table table-evolution">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Poste</th>
+                        <th colspan="4" class="text-center">Estimations</th>
+                        <th colspan="2" class="text-center">Évolution</th>
+                        <th colspan="3" class="text-center">Objectifs</th>
+                    </tr>
+                    <tr>
+                        <th>Mensuelle</th>
+                        <th>Trimestrielle</th>
+                        <th>Semestrielle</th>
+                        <th>Annuelle</th>
+                        <th>vs N-1</th>
+                        <th>vs N-2</th>
+                        <th>Objectif</th>
+                        <th>Réalisé</th>
+                        <th>Taux</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resultat in resultats %}
+                    <tr>
+                        <td><strong>{{ resultat.poste.nom }}</strong></td>
+                        <td>{{ resultat.estimations.mensuelle|floatformat:0 }}</td>
+                        <td>{{ resultat.estimations.trimestrielle|floatformat:0 }}</td>
+                        <td>{{ resultat.estimations.semestrielle|floatformat:0 }}</td>
+                        <td>{{ resultat.estimations.annuelle|floatformat:0 }}</td>
+                        <td>
+                            <span class="badge {% if resultat.evolution.en_baisse_n1 %}bg-danger{% else %}bg-success{% endif %}">
+                                {% if resultat.evolution.taux_n1 %}
+                                    {{ resultat.evolution.taux_n1|floatformat:2 }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if resultat.evolution.en_baisse_n2 %}bg-danger{% else %}bg-success{% endif %}">
+                                {% if resultat.evolution.taux_n2 %}
+                                    {{ resultat.evolution.taux_n2|floatformat:2 }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>{{ resultat.objectifs.objectif_annuel|floatformat:0|default:"-" }}</td>
+                        <td>{{ resultat.objectifs.realise|floatformat:0 }}</td>
+                        <td>
+                            {% if resultat.objectifs.taux_realisation %}
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ resultat.objectifs.taux_realisation }}%">
+                                        {{ resultat.objectifs.taux_realisation|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Postes en baisse -->
+    {% if postes_baisse_mensuelle %}
+    <div class="evolution-card">
+        <h4 class="text-danger mb-3">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Postes en Baisse Mensuelle
+        </h4>
+        <ul>
+            {% for item in postes_baisse_mensuelle %}
+            <li>
+                <strong>{{ item.poste.nom }}</strong> : 
+                {{ item.evolution.taux_n1|floatformat:2 }}% par rapport à N-1
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    
+    {% if postes_baisse_annuelle %}
+    <div class="evolution-card">
+        <h4 class="text-warning mb-3">
+            <i class="fas fa-chart-down me-2"></i>
+            Risque de Baisse Annuelle
+        </h4>
+        <ul>
+            {% for item in postes_baisse_annuelle %}
+            <li>
+                <strong>{{ item.poste.nom }}</strong> : 
+                Estimation {{ item.risque_annuel.recettes_estimees|floatformat:0 }} FCFA
+                ({{ item.risque_annuel.taux_evolution|floatformat:2 }}% vs N-1)
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

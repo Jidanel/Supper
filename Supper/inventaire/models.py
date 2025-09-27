@@ -244,41 +244,13 @@ class ProgrammationInventaire(models.Model):
     
     @classmethod
     def get_postes_avec_risque_baisse(cls):
-        """Retourne les postes avec risque de baisse annuel"""
-        from datetime import date
-        from django.db.models import Sum
+        """Version améliorée utilisant le service d'évolution"""
+        from inventaire.services.evolution_service import EvolutionService
         
-        postes_risque = []
-        annee_actuelle = date.today().year
-        debut_annee = date(annee_actuelle, 1, 1)
-        fin_periode = date.today()
-        
-        # Même période l'année précédente
-        annee_precedente = annee_actuelle - 1
-        debut_annee_prec = date(annee_precedente, 1, 1)
-        fin_periode_prec = date(annee_precedente, fin_periode.month, fin_periode.day)
-        
-        for poste in Poste.objects.filter(is_active=True):
-            # Recettes actuelles
-            recettes_actuelles = RecetteJournaliere.objects.filter(
-                poste=poste,
-                date__range=[debut_annee, fin_periode]
-            ).aggregate(total=Sum('montant_declare'))['total'] or 0
-            
-            # Recettes précédentes
-            recettes_precedentes = RecetteJournaliere.objects.filter(
-                poste=poste,
-                date__range=[debut_annee_prec, fin_periode_prec]
-            ).aggregate(total=Sum('montant_declare'))['total'] or 0
-            
-            if recettes_precedentes > 0 and recettes_actuelles < recettes_precedentes:
-                pourcentage_baisse = ((recettes_precedentes - recettes_actuelles) / recettes_precedentes) * 100
-                postes_risque.append({
-                    'poste': poste,
-                    'recettes_actuelles': recettes_actuelles,
-                    'recettes_precedentes': recettes_precedentes,
-                    'pourcentage_baisse': pourcentage_baisse
-                })
+        postes_risque = EvolutionService.identifier_postes_en_baisse(
+            type_analyse='annuel',
+            seuil_baisse=-5
+        )
         
         return postes_risque
     
