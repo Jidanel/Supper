@@ -1,5 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
+{% load inventaire_extras %}
 
 {% block title %}{% trans "Programmer Inventaire" %} - SUPPER{% endblock %}
 
@@ -256,21 +257,55 @@
                     </div>
                     {% endfor %}
                     
-                {% elif postes_grand_stock %}
-                    {% for item in postes_grand_stock %}
-                    <div class="poste-item">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="postes" 
-                                   value="{{ item.poste.id }}" checked>
-                            <input type="hidden" name="stock_{{ item.poste.id }}" value="{{ item.stock_restant }}">
-                            <label class="form-check-label">
-                                {{ item.poste.nom }} - Stock: {{ item.stock_restant }}
-                            </label>
+                <!-- GRAND STOCK -->
+                    {% elif postes_grand_stock %}
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>{{ postes_grand_stock|length }}</strong> poste(s) avec stock excédentaire
+                            <br><small>Date d'épuisement prévue après le 31 décembre {{ mois.year }}</small>
                         </div>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-                
+                        
+                        {% for item in postes_grand_stock %}
+                        <div class="poste-item {% if item.deja_programme %}disabled{% endif %}">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="postes" 
+                                    value="{{ item.poste.id }}" id="stock_{{ item.poste.id }}"
+                                    {% if not item.deja_programme %}checked{% endif %}
+                                    {% if item.deja_programme %}disabled{% endif %}>
+                                <input type="hidden" name="stock_{{ item.poste.id }}" value="{{ item.stock_restant }}">
+                                <label class="form-check-label d-flex justify-content-between" for="stock_{{ item.poste.id }}">
+                                    <div>
+                                        <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
+                                        {% if item.deja_programme %}
+                                        <span class="badge bg-secondary ms-2">Déjà programmé</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <span class="indicator-badge indicator-info me-2">
+                                            Stock: {{ item.stock_restant|floatformat:0|format_milliers }} FCFA
+                                        </span>
+                                        <span class="indicator-badge indicator-warning">
+                                            Épuisement: {{ item.date_epuisement_formatee }}
+                                        </span>
+                                        <small class="text-muted ms-2">
+                                            ({{ item.jours_restants }} jours)
+                                        </small>
+                                    </div>
+                                </label>
+                                <small class="text-muted d-block mt-1 ms-4">
+                                    Vente moyenne: {{ item.vente_moyenne|floatformat:0|format_milliers }} FCFA/jour
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if not postes_grand_stock %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Aucun poste n'a de stock avec une date d'épuisement après le 31 décembre.
+                        </div>
+                        {% endif %}
+                    {% endif %}
                 <div class="text-center mt-4">
                     <button type="submit" name="programmer" class="btn btn-primary btn-lg">
                         <i class="fas fa-save me-2"></i>Programmer

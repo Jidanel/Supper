@@ -377,19 +377,6 @@
                                class="btn-action btn-view" title="{% trans 'Voir' %}">
                                 <i class="fas fa-eye"></i>
                             </a>
-                            {% if user.is_admin %}
-                            <a href="{% url 'inventaire:modifier_recette' recette.pk %}" 
-                               class="btn-action btn-edit" title="{% trans 'Modifier' %}">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            
-                            <a href="{% url 'inventaire:redirect_delete_recette_admin' recette.id %}" 
-                            class="btn btn-sm btn-danger"
-                            onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette recette ?');">
-                                <i class="fas fa-trash"></i>
-                            </a>
-
-                                                            {% endif %}
                         </div>
                     </td>
                 </tr>

@@ -370,12 +370,6 @@
                     </h6>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}?taux_filtre=mauvais">
-                        <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
-                        {% trans "Recettes à Risque" %}
-                    </a>
-                </li>
-                <li>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}?periode=mois">
                         <i class="fas fa-chart-bar me-2"></i>{% trans "Analyse Mensuelle" %}
                     </a>
@@ -396,11 +390,6 @@
                     <li>
                         <a class="dropdown-item" href="{% url 'inventaire:liste_postes_stocks' %}">
                             <i class="fas fa-list me-2"></i>{% trans "Tous les stocks" %}
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="{% url 'inventaire:charger_stock_selection' %}">
-                            <i class="fas fa-plus-circle me-2"></i>{% trans "Charger stock" %}
                         </a>
                     </li>
                     {% endif %}

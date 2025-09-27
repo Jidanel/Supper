@@ -284,46 +284,61 @@ class ProgrammationInventaire(models.Model):
     
     @classmethod
     def get_postes_avec_grand_stock(cls):
-        """Retourne les postes avec risque de grand stock"""
+        """
+        Retourne les postes dont la date d'épuisement du stock dépasse le 1er décembre
+        de l'année en cours
+        """
+        from inventaire.models import GestionStock
         from datetime import date, timedelta
-        from django.db.models import Avg
+        from django.db.models import Sum, Count
         
-        postes_stock = []
-        fin_annee = date(date.today().year, 12, 31)
+        postes_grand_stock = []
+
+        # Date limite : 31 décembre de l'année en cours
+        date_limite = date(date.today().year, 12, 31)
+        date_fin = date.today()
+        date_debut = date_fin - timedelta(days=30)
         
+        # Parcourir tous les postes actifs
         for poste in Poste.objects.filter(is_active=True):
-            # Récupérer le dernier stock connu
-            derniere_recette = RecetteJournaliere.objects.filter(
-                poste=poste,
-                stock_tickets_restant__isnull=False
-            ).order_by('-date').first()
-            
-            if derniere_recette and derniere_recette.stock_tickets_restant > 0:
-                # Calculer la moyenne journalière
-                fin = date.today()
-                debut = fin - timedelta(days=30)
-                
-                moyenne_journaliere = RecetteJournaliere.objects.filter(
+            # Récupérer le stock actuel
+            try:
+                stock = GestionStock.objects.get(poste=poste)
+                if stock.valeur_monetaire <= 0:
+                    continue
+                    
+                # Calculer la vente moyenne journalière
+                ventes_mois = RecetteJournaliere.objects.filter(
                     poste=poste,
-                    date__range=[debut, fin]
-                ).aggregate(moyenne=Avg('montant_declare'))['moyenne'] or 0
+                    date__range=[date_debut, date_fin]
+                ).aggregate(
+                    total=Sum('montant_declare'),
+                    nombre_jours=Count('id')
+                )
                 
-                if moyenne_journaliere > 0:
-                    tickets_par_jour = moyenne_journaliere / 500
-                    if tickets_par_jour > 0:
-                        jours_restants = derniere_recette.stock_tickets_restant / tickets_par_jour
-                        date_epuisement = date.today() + timedelta(days=int(jours_restants))
+                if ventes_mois['total'] and ventes_mois['nombre_jours'] > 0:
+                    vente_moyenne = ventes_mois['total'] / ventes_mois['nombre_jours']
+                    
+                    # Calculer les jours restants et la date d'épuisement
+                    jours_restants = int(stock.valeur_monetaire / vente_moyenne)
+                    date_epuisement = date_fin + timedelta(days=jours_restants)
+                    
+                    # Si la date d'épuisement dépasse le 1er décembre, l'ajouter à la liste
+                    if date_epuisement > date_limite:
+                        postes_grand_stock.append({
+                            'poste': poste,
+                            'stock_restant': int(stock.valeur_monetaire),
+                            'date_epuisement': date_epuisement,
+                            'jours_restants': jours_restants,
+                            'vente_moyenne': float(vente_moyenne),
+                            'depasse_limite': True
+                        })
                         
-                        if date_epuisement > fin_annee:
-                            postes_stock.append({
-                                'poste': poste,
-                                'stock_restant': derniere_recette.stock_tickets_restant,
-                                'date_epuisement': date_epuisement,
-                                'jours_restants': int(jours_restants)
-                            })
+            except GestionStock.DoesNotExist:
+                continue
         
-        return postes_stock
-    
+        return postes_grand_stock
+        
     @classmethod
     def get_postes_avec_taux_deperdition(cls):
         """Retourne les postes avec leur dernier taux de déperdition"""
@@ -1567,12 +1582,17 @@ class RecetteJournaliere(models.Model):
         auto_now=True,
         verbose_name=_("Dernière modification")
     )
-    
+    prolongation_accordee = models.BooleanField(
+        default=False,
+        verbose_name="Prolongation accordée",
+        help_text="Indique si une prolongation a été accordée pour ce poste"
+    )
     observations = models.TextField(
         blank=True,
         verbose_name=_("Observations"),
         help_text=_("Commentaires sur cette recette")
     )
+    
     
     class Meta:
         verbose_name = _("Recette journalière")

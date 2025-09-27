@@ -821,6 +821,7 @@ def saisir_recette(request):
     """
     from django.db import transaction
     from decimal import Decimal, InvalidOperation
+    from django.urls import reverse
     
     # Vérifier que l'utilisateur peut saisir des recettes
     if not (request.user.is_chef_poste or request.user.is_admin):
@@ -841,7 +842,6 @@ def saisir_recette(request):
     if request.method == 'POST':
         # Vérifier si c'est une confirmation
         if request.POST.get('action') == 'confirmer':
-            # Récupérer les données du formulaire de confirmation
             try:
                 poste_id = request.POST.get('poste_id')
                 date_str = request.POST.get('date')
@@ -851,23 +851,51 @@ def saisir_recette(request):
                 
                 # Validation des données
                 poste = Poste.objects.get(id=poste_id)
-                date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                date_recette = datetime.strptime(date_str, '%Y-%m-%d').date()
                 montant = Decimal(montant_str)
                 
                 # Vérifier qu'une recette n'existe pas déjà
-                if RecetteJournaliere.objects.filter(poste=poste, date=date).exists():
-                    messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date}")
+                if RecetteJournaliere.objects.filter(poste=poste, date=date_recette).exists():
+                    messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
                     return redirect('inventaire:liste_recettes')
                 
+                # Vérifier le stock AVANT de créer la recette
+                from inventaire.models import GestionStock, HistoriqueStock
+                
+                stock, created = GestionStock.objects.get_or_create(
+                    poste=poste,
+                    defaults={'valeur_monetaire': Decimal('0')}
+                )
+                
+                stock_avant = stock.valeur_monetaire
+                
+                # Si stock insuffisant, différencier admin et chef de poste
+                if stock.valeur_monetaire < montant:
+                    messages.warning(
+                        request, 
+                        f"Stock insuffisant ({stock.valeur_monetaire:.0f} FCFA disponible). "
+                        f"Il faut {montant:.0f} FCFA."
+                    )
+                    
+                    # DIFFÉRENCIATION : Admin vers charger stock, Chef vers nouvelle saisie
+                    if request.user.is_admin:
+                        messages.info(request, "Veuillez d'abord approvisionner le stock.")
+                        return redirect('inventaire:charger_stock', poste_id=poste.id)
+                    else:
+                        messages.info(request, "Veuillez saisir une recette avec un montant inférieur ou contacter l'administrateur.")
+                        return redirect('inventaire:saisie_recette')
+                
+                # Si stock suffisant, procéder à l'enregistrement
                 with transaction.atomic():
                     # Créer la recette
                     recette = RecetteJournaliere.objects.create(
                         poste=poste,
-                        date=date,
+                        date=date_recette,
                         montant_declare=montant,
                         chef_poste=request.user,
-                        modifiable_par_chef=False,  # Non modifiable après validation
-                        observations=observations
+                        modifiable_par_chef=False,
+                        observations=observations,
+                        prolongation_accordee=False
                     )
                     
                     # Chercher l'inventaire associé si demandé
@@ -875,30 +903,14 @@ def saisir_recette(request):
                         try:
                             inventaire = InventaireJournalier.objects.get(
                                 poste=poste,
-                                date=date
+                                date=date_recette
                             )
                             recette.inventaire_associe = inventaire
                             recette.save()
                         except InventaireJournalier.DoesNotExist:
                             pass
                     
-                    # Gérer le stock
-                    from inventaire.models import GestionStock, HistoriqueStock
-                    
-                    stock, created = GestionStock.objects.get_or_create(
-                        poste=poste,
-                        defaults={'valeur_monetaire': Decimal('0')}
-                    )
-                    
-                    stock_avant = stock.valeur_monetaire
-                    
-                    # Vérifier si stock suffisant
-                    if stock.valeur_monetaire < montant:
-                        messages.warning(request, 
-                            f"Stock insuffisant ({stock.valeur_monetaire:.0f} FCFA disponible). "
-                            f"La recette est enregistrée mais le stock est négatif.")
-                    
-                    # Déduire du stock (peut devenir négatif)
+                    # Déduire du stock
                     stock.valeur_monetaire -= montant
                     stock.save()
                     
@@ -912,21 +924,23 @@ def saisir_recette(request):
                         stock_apres=stock.valeur_monetaire,
                         effectue_par=request.user,
                         reference_recette=recette,
-                        commentaire=f"Vente du {date.strftime('%d/%m/%Y')}"
+                        commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')}"
                     )
                     
                     # Journaliser
                     log_user_action(
                         request.user,
                         "Saisie recette confirmée",
-                        f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date}",
+                        f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date_recette}",
                         request
                     )
                     
-                    messages.success(request, 
-                        f"Recette enregistrée avec succès. "
-                        f"Stock restant: {stock.valeur_monetaire:.0f} FCFA")
+                    messages.success(
+                        request, 
+                        f"Recette enregistrée avec succès. Stock restant: {stock.valeur_monetaire:.0f} FCFA"
+                    )
                     
+                    # Redirection selon le type d'utilisateur
                     if request.user.is_admin:
                         return redirect('inventaire:liste_recettes')
                     else:
@@ -941,9 +955,8 @@ def saisir_recette(request):
             form = RecetteJournaliereForm(request.POST, user=request.user)
             
             if form.is_valid():
-                # Préparer les données pour la confirmation
                 poste = form.cleaned_data['poste']
-                date = form.cleaned_data['date']
+                date_recette = form.cleaned_data['date']
                 montant = form.cleaned_data['montant_declare']
                 observations = form.cleaned_data.get('observations', '')
                 lier_inventaire = form.cleaned_data.get('lier_inventaire', True)
@@ -957,16 +970,18 @@ def saisir_recette(request):
                 except GestionStock.DoesNotExist:
                     pass
                 
-                # Afficher la page de confirmation
+                # Afficher la page de confirmation même si stock insuffisant
+                # L'alerte sera affichée sur la page de confirmation
                 return render(request, 'inventaire/confirmer_recette.html', {
                     'poste': poste,
-                    'date': date,
+                    'date': date_recette,
                     'montant': montant,
                     'observations': observations,
                     'lier_inventaire': lier_inventaire,
                     'stock_actuel': stock_actuel,
                     'stock_apres': stock_actuel - montant,
-                    'stock_suffisant': stock_actuel >= montant
+                    'stock_suffisant': stock_actuel >= montant,
+                    'is_admin': request.user.is_admin
                 })
     else:
         # GET : afficher le formulaire
@@ -979,7 +994,7 @@ def saisir_recette(request):
             
         form = RecetteJournaliereForm(initial=initial_data, user=request.user)
     
-    # Statistiques pour l'affichage
+    # Reste du code pour les statistiques...
     recettes_query = RecetteJournaliere.objects.filter(
         chef_poste=request.user
     ).select_related('poste', 'inventaire_associe').order_by('-date')
@@ -1021,7 +1036,7 @@ def saisir_recette(request):
         'title': 'Saisir une recette journalière'
     }
     
-    return render(request, 'inventaire/saisir_recette.html', context)@login_required
+    return render(request, 'inventaire/saisir_recette.html', context)
 @login_required
 def modifier_recette(request, pk):
     """
@@ -3096,6 +3111,24 @@ def programmer_inventaire(request):
             # MOTIF 2: GRAND STOCK
             elif motif == 'grand_stock':
                 postes_data = ProgrammationInventaire.get_postes_avec_grand_stock()
+                # Enrichir avec des informations supplémentaires
+                for item in postes_data:
+                    # Vérifier si déjà programmé
+                    item['deja_programme'] = ProgrammationInventaire.objects.filter(
+                        poste=item['poste'],
+                        mois=mois,
+                        motif=motif,
+                        actif=True
+                    ).exists()
+                    
+                    # Formater la date pour l'affichage
+                    item['date_epuisement_formatee'] = item['date_epuisement'].strftime('%d/%m/%Y')
+                    
+                    # Calculer le nombre de mois restants
+                    mois_restants = (item['date_epuisement'].year - date.today().year) * 12 + \
+                                (item['date_epuisement'].month - date.today().month)
+                    item['mois_restants'] = max(0, mois_restants)
+                
                 context['postes_grand_stock'] = postes_data
                 logger.debug(f"[DEBUG] Postes grand stock trouvés: {len(postes_data)}")
                 
@@ -3124,22 +3157,22 @@ def programmer_inventaire(request):
                             'alerte': derniere_recette.get_couleur_alerte()
                         }
                         
-                        # Sélection automatique si taux < -10%
-                        if derniere_recette.taux_deperdition < -10:
+                        # Sélection automatique si taux < -30%
+                        if derniere_recette.taux_deperdition < -30:
                             poste_data['selection_auto'] = True
                             postes_auto_selectionnes.append(poste_data)
-                        else:
-                            poste_data['selection_auto'] = False
-                            postes_non_selectionnes.append(poste_data)
-                    else:
-                        # Pas de taux disponible, non sélectionné par défaut
-                        postes_non_selectionnes.append({
-                            'poste': poste,
-                            'taux_deperdition': None,
-                            'date_calcul': None,
-                            'alerte': 'secondary',
-                            'selection_auto': False
-                        })
+                        # else:
+                        #     poste_data['selection_auto'] = False
+                        #     postes_non_selectionnes.append(poste_data)
+                    # # else:
+                    # #     # Pas de taux disponible, non sélectionné par défaut
+                    # #     postes_non_selectionnes.append({
+                    # #         'poste': poste,
+                    # #         'taux_deperdition': None,
+                    # #         'date_calcul': None,
+                    # #         'alerte': 'secondary',
+                    # #         'selection_auto': False
+                    #     })
                 
                 context['postes_taux_auto'] = postes_auto_selectionnes
                 context['postes_taux_manuel'] = postes_non_selectionnes

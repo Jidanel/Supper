@@ -266,10 +266,12 @@ def historique_stock(request, poste_id):
     """Vue complète de l'historique d'un poste"""
     poste = get_object_or_404(Poste, id=poste_id)
     
-    # Vérifier les permissions
-    if not (is_admin(request.user) or request.user.peut_acceder_poste(poste)):
-        messages.error(request, "Accès non autorisé")
-        return redirect('inventaire:inventaire_list')
+    # CORRECTION : Les admins peuvent voir tous les historiques
+    if not request.user.is_admin:
+        # Pour les non-admins, vérifier les permissions
+        if not request.user.peut_acceder_poste(poste):
+            messages.error(request, "Accès non autorisé")
+            return redirect('inventaire:inventaire_list')
     
     # Filtres
     type_mouvement = request.GET.get('type', 'tous')
@@ -301,6 +303,11 @@ def historique_stock(request, poste_id):
     # Stock actuel
     stock = GestionStock.objects.filter(poste=poste).first()
     
+    # AJOUT : Liste de tous les postes pour le filtre admin
+    postes_liste = None
+    if request.user.is_admin:
+        postes_liste = Poste.objects.filter(is_active=True).order_by('nom')
+    
     context = {
         'poste': poste,
         'page_obj': page_obj,
@@ -314,7 +321,9 @@ def historique_stock(request, poste_id):
             'date_debut': date_debut,
             'date_fin': date_fin
         },
-        'title': f'Historique stock - {poste.nom}'
+        'title': f'Historique stock - {poste.nom}',
+        'postes_liste': postes_liste,  # Pour le sélecteur de poste
+        'is_admin': request.user.is_admin
     }
     
     return render(request, 'inventaire/historique_stock.html', context)

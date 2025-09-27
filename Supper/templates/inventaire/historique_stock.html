@@ -1,0 +1,152 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}Historique stock - {{ poste.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2><i class="fas fa-history"></i> Historique du stock - {{ poste.nom }}</h2>
+    
+    <div class="alert alert-info">
+        Stock actuel : <strong>{{ stock.valeur_monetaire|floatformat:0|format_milliers }} FCFA</strong>
+    </div>
+    
+    <!-- Filtres -->
+      {% if is_admin and postes_liste %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <form method="get" action="{% url 'inventaire:liste_postes_stocks' %}">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label>Changer de poste</label>
+                                    <select class="form-control" onchange="window.location.href='{% url 'inventaire:historique_stock' 0 %}'.replace('0', this.value)">
+                                        <option value="">-- Sélectionner un poste --</option>
+                                        {% for p in postes_liste %}
+                                        <option value="{{ p.id }}" {% if p.id == poste.id %}selected{% endif %}>
+                                            {{ p.nom }} ({{ p.code }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row">
+                <div class="col-md-3">
+                    <label>Type de mouvement</label>
+                    <select name="type" class="form-control">
+                        <option value="tous">Tous</option>
+                        <option value="CREDIT" {% if filters.type == 'CREDIT' %}selected{% endif %}>Approvisionnements/Credits</option>
+                        <option value="DEBIT" {% if filters.type == 'DEBIT' %}selected{% endif %}>Débits/Ventes</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Date début</label>
+                    <input type="date" name="date_debut" class="form-control" value="{{ filters.date_debut }}">
+                </div>
+                <div class="col-md-3">
+                    <label>Date fin</label>
+                    <input type="date" name="date_fin" class="form-control" value="{{ filters.date_fin }}">
+                </div>
+                <!-- Ajouter après le titre et avant les filtres existants -->
+               
+                <div class="col-md-3">
+                    <label>&nbsp;</label><br>
+                    <button type="submit" class="btn btn-primary">Filtrer</button>
+                    <a href="{% url 'inventaire:historique_stock' poste.id %}" class="btn btn-secondary">Réinitialiser</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5>Approvisionnements</h5>
+                    <h3 class="text-success">{{ total_approvisionnements|floatformat:0|format_milliers }} FCFA</h3>
+                    <small>{{ nombre_approvisionnements }} opération(s)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5>Débit</h5>
+                    <h3 class="text-danger">{{ total_destockages|floatformat:0|format_milliers }} FCFA</h3>
+                    <small>{{ nombre_destockages }} opération(s)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Montant</th>
+                <th>Stock avant</th>
+                <th>Stock après</th>
+                <th>Effectué par</th>
+                <th>Observations</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in page_obj %}
+            <tr>
+                <td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td>
+                <td>
+                    {% if h.type_mouvement == 'CREDIT' %}
+                        <span class="badge bg-success text-white">Crédit</span>
+                    {% else %}
+                        <span class="badge bg-danger text-white">Débit</span>
+                    {% endif %}
+                </td>
+                <td>{{ h.montant|floatformat:0|format_milliers }} FCFA</td>
+                <td>{{ h.stock_avant|floatformat:0|format_milliers }}</td>
+                <td>{{ h.stock_apres|floatformat:0|format_milliers }}</td>
+                <td>{{ h.effectue_par.nom_complet }}</td>
+                <td>{{ h.commentaire }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Navigation">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Début</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Précédent</a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Suivant</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Fin</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
