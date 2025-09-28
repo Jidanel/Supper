@@ -361,7 +361,12 @@
                         {% trans "Taux D'Évolution et Estimations" %}
                     </a>
                 </li>
-                
+                <li>
+                    <a href="{% url 'inventaire:gestion_objectifs_annuels' %}" class="dropdown-item">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        {% trans "Gestion des Objectifs Annuels" %}
+                    </a>
+                </li>
                 {% if user.voir_taux_deperdition %}
                 <li><hr class="dropdown-divider"></li>
                 <li>

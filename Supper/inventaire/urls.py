@@ -115,4 +115,12 @@ urlpatterns = [
     path('stocks/charger/<int:poste_id>/', views_stocks.charger_stock, name='charger_stock'),
     path('stocks/historique/<int:poste_id>/', views_stocks.historique_stock, name='historique_stock'),
     path('stocks/mon-stock/', views_stocks.mon_stock, name='mon_stock'),
+
+    # Gestion des objectifs annuels
+    path('objectifs-annuels/', 
+         views.gestion_objectifs_annuels, 
+         name='gestion_objectifs_annuels'),
+    path('objectifs-annuels/dupliquer/', 
+         views.dupliquer_objectifs_annee, 
+         name='dupliquer_objectifs'),
 ]

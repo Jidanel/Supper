@@ -1,0 +1,250 @@
+<!-- templates/inventaire/gestion_objectifs_annuels.html -->
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}Gestion des Objectifs Annuels - {{ annee }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .objectifs-container {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .year-selector {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+    
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+    }
+    
+    .table-objectifs th {
+        background: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .input-objectif {
+        width: 150px;
+        text-align: right;
+    }
+    
+    .progress-cell {
+        min-width: 150px;
+    }
+    
+    .btn-duplicate {
+        background: #28a745;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="fas fa-bullseye me-2"></i>
+        Gestion des Objectifs Annuels
+    </h2>
+    
+    <!-- Sélecteur d'année -->
+    <div class="year-selector">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h4>Année sélectionnée : {{ annee }}</h4>
+                <p class="mb-0">Définissez ou modifiez les objectifs pour chaque poste</p>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="btn-group">
+                    {% for year in annees_disponibles %}
+                    <a href="?annee={{ year }}" 
+                       class="btn {% if year == annee %}btn-light{% else %}btn-outline-light{% endif %}">
+                        {{ year }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistiques globales -->
+    <div class="stats-summary">
+        <div class="stat-card">
+            <h5>Objectif Global</h5>
+            <h3>{{ total_global|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
+        </div>
+        <div class="stat-card">
+            <h5>Réalisé Global</h5>
+            <h3>{{ total_realise|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
+        </div>
+        <div class="stat-card">
+            <h5>Taux Global</h5>
+            <h3>{{ taux_global|floatformat:1 }}%</h3>
+        </div>
+        <!-- Dans la section Actions, remplacer le bouton par -->
+{% comment %} <div class="stat-card">
+    <h5>Actions</h5>
+    <form method="POST" action="{% url 'inventaire:dupliquer_objectifs' %}" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="annee_source" value="{{ annee|add:"-1" }}">
+        <input type="hidden" name="annee_cible" value="{{ annee }}">
+        <button type="submit" class="btn btn-sm btn-success" 
+                onclick="return confirm('Dupliquer les objectifs de {{ annee|add:"-1" }} vers {{ annee }} ?')">
+            <i class="fas fa-copy"></i> Dupliquer depuis {{ annee|add:"-1" }}
+        </button>
+    </form>
+</div> {% endcomment %}
+    </div>
+    
+    <!-- Formulaire des objectifs -->
+    <div class="objectifs-container">
+        <form method="POST" id="objectifsForm">
+            {% csrf_token %}
+            
+            <div class="table-responsive">
+                <table class="table table-objectifs">
+                    <thead>
+                        <tr>
+                            <th>Poste</th>
+                            <th>Région</th>
+                            <th>Type</th>
+                            <th>Objectif (FCFA)</th>
+                            <th>Réalisé</th>
+                            <th>Reste</th>
+                            <th>Progression</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in objectifs_data %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.poste.nom }}</strong><br>
+                                <small class="text-muted">{{ item.poste.code }}</small>
+                            </td>
+                            <td>{{ item.poste.region }}</td>
+                            <td>
+                                <span class="badge bg-{% if item.poste.type == 'peage' %}success{% else %}info{% endif %}">
+                                    {{ item.poste.get_type_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <input type="number" 
+                                       name="objectif_{{ item.poste.id }}"
+                                       class="form-control input-objectif"
+                                       value="{{ item.montant_objectif|floatformat:0 }}"
+                                       min="0"
+                                       step="1000000">
+                            </td>
+                            <td class="text-end">
+                                {{ item.realise|floatformat:0|format_milliers }}
+                            </td>
+                            <td class="text-end">
+                                <span class="{% if item.reste < 0 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ item.reste|floatformat:0|format_milliers }}
+                                </span>
+                            </td>
+                            <td class="progress-cell">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if item.taux >= 100 %}bg-success{% elif item.taux >= 75 %}bg-warning{% else %}bg-danger{% endif %}"
+                                         style="width: {% if item.taux > 100 %}100{% else %}{{ item.taux }}{% endif %}%">
+                                        {{ item.taux|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-3 text-end">
+                <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+                    <i class="fas fa-arrow-left"></i> Retour
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Enregistrer les objectifs
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de duplication -->
+<div class="modal fade" id="duplicateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'inventaire:dupliquer_objectifs' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Dupliquer les objectifs</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Année source</label>
+                        <select name="annee_source" class="form-select">
+                            {% for year in annees_disponibles %}
+                            <option value="{{ year }}" {% if year == annee|add:"-1" %}selected{% endif %}>
+                                {{ year }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Année cible</label>
+                        <select name="annee_cible" class="form-select">
+                            {% for year in annees_disponibles %}
+                            <option value="{{ year }}" {% if year == annee %}selected{% endif %}>
+                                {{ year }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-copy"></i> Dupliquer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-formatage des montants
+document.querySelectorAll('.input-objectif').forEach(input => {
+    input.addEventListener('blur', function() {
+        const value = parseFloat(this.value) || 0;
+        this.value = Math.round(value);
+    });
+});
+
+// Confirmation avant soumission
+document.getElementById('objectifsForm').addEventListener('submit', function(e) {
+    if (!confirm('Confirmer l\'enregistrement des objectifs pour {{ annee }} ?')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

@@ -1,10 +1,10 @@
+# inventaire/services/evolution_service.py
 from decimal import Decimal
 from datetime import date, timedelta
-from django.db.models import Sum, Avg
+from django.db.models import Sum, Count
 from inventaire.models import RecetteJournaliere
 from accounts.models import Poste
-from django.db import models
-from django.db.models import Count
+import calendar
 
 class EvolutionService:
     
@@ -17,7 +17,7 @@ class EvolutionService:
             date__lte=date_fin
         ).aggregate(
             total=Sum('montant_declare'),
-            count=models.Count('id')
+            count=Count('id')
         )
         
         if recettes['count'] > 0:
@@ -25,146 +25,233 @@ class EvolutionService:
         return Decimal('0')
     
     @staticmethod
-    def estimer_recettes_periode(poste, type_periode='mensuel'):
-        """Estime les recettes pour une période basée sur les ventes récentes"""
-        today = date.today()
-        
-        # Calculer la moyenne sur les jours disponibles
-        if type_periode == 'mensuel':
-            # Prendre les jours du mois en cours
-            debut_mois = today.replace(day=1)
-            moyenne = EvolutionService.calculer_vente_moyenne_journaliere(
-                poste, debut_mois, today
-            )
-            # Estimer pour le mois complet (30 jours)
-            return moyenne * 30
-            
-        elif type_periode == 'trimestriel':
-            # Prendre les données disponibles du trimestre
-            trimestre = (today.month - 1) // 3
-            debut_trim = date(today.year, trimestre * 3 + 1, 1)
-            moyenne = EvolutionService.calculer_vente_moyenne_journaliere(
-                poste, debut_trim, today
-            )
-            return moyenne * 90
-            
-        elif type_periode == 'semestriel':
-            semestre = 1 if today.month <= 6 else 2
-            debut_sem = date(today.year, 1 if semestre == 1 else 7, 1)
-            moyenne = EvolutionService.calculer_vente_moyenne_journaliere(
-                poste, debut_sem, today
-            )
-            return moyenne * 180
-            
-        elif type_periode == 'annuel':
-            debut_annee = date(today.year, 1, 1)
-            moyenne = EvolutionService.calculer_vente_moyenne_journaliere(
-                poste, debut_annee, today
-            )
-            return moyenne * 365
-    
-    @staticmethod
     def calculer_taux_evolution_mensuel(poste, mois, annee, annee_ref):
-        """Calcule le taux d'évolution d'un mois par rapport à une année de référence"""
-        # Recettes du mois de l'année en cours
+        """Calcule l'évolution pour UN SEUL mois spécifique"""
+        # Recettes du mois actuel
         recettes_actuel = RecetteJournaliere.objects.filter(
             poste=poste,
             date__year=annee,
             date__month=mois
-        ).aggregate(total=Sum('montant_declare'))['total'] or 0
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
         
-        # Recettes du même mois de l'année de référence
+        # Recettes du même mois de référence
         recettes_ref = RecetteJournaliere.objects.filter(
             poste=poste,
             date__year=annee_ref,
             date__month=mois
-        ).aggregate(total=Sum('montant_declare'))['total'] or 0
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
         
         if recettes_ref > 0:
-            taux = ((Decimal(str(recettes_actuel)) - Decimal(str(recettes_ref))) 
-                   / Decimal(str(recettes_ref)) * 100)
+            taux = ((recettes_actuel - recettes_ref) / recettes_ref * 100)
             return float(taux)
         return None
     
     @staticmethod
-    def calculer_risque_baisse_annuel(poste, date_reference=None):
-        """
-        Calcule le risque de baisse annuel en comparant avec N-1
-        Utilise les recettes réelles + estimation du reste du mois en cours
-        """
-        if date_reference is None:
-            date_reference = date.today()
-            
-        annee = date_reference.year
-        
-        # Calculer pour l'année en cours jusqu'à aujourd'hui
-        debut_annee = date(annee, 1, 1)
-        recettes_realisees = RecetteJournaliere.objects.filter(
+    def calculer_evolution_annuelle_cumulee(poste, mois, annee, annee_ref):
+        """Calcule l'évolution CUMULÉE du 1er janvier au mois spécifié"""
+        # Du 1er janvier au dernier jour du mois pour l'année actuelle
+        recettes_cumul_actuel = RecetteJournaliere.objects.filter(
             poste=poste,
-            date__gte=debut_annee,
-            date__lte=date_reference
-        ).aggregate(total=Sum('montant_declare'))['total'] or 0
+            date__year=annee,
+            date__month__lte=mois
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
         
-        # Estimer le reste du mois en cours
-        fin_mois = date_reference.replace(day=1) + timedelta(days=32)
-        fin_mois = fin_mois.replace(day=1) - timedelta(days=1)
-        
-        jours_restants = (fin_mois - date_reference).days
-        if jours_restants > 0:
-            moyenne_jour = EvolutionService.calculer_vente_moyenne_journaliere(
-                poste, 
-                date_reference.replace(day=1), 
-                date_reference
-            )
-            estimation_reste_mois = moyenne_jour * jours_restants
-        else:
-            estimation_reste_mois = 0
-        
-        total_estime = Decimal(str(recettes_realisees)) + estimation_reste_mois
-        
-        # Comparer avec la même période N-1
-        recettes_n1 = RecetteJournaliere.objects.filter(
+        # Du 1er janvier au dernier jour du mois pour l'année de référence
+        recettes_cumul_ref = RecetteJournaliere.objects.filter(
             poste=poste,
-            date__year=annee - 1,
-            date__month__lte=date_reference.month,
-            date__day__lte=date_reference.day if date_reference.month == date_reference.month else 31
-        ).aggregate(total=Sum('montant_declare'))['total'] or 0
+            date__year=annee_ref,
+            date__month__lte=mois
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
         
-        if recettes_n1 > 0:
-            taux_evolution = ((total_estime - Decimal(str(recettes_n1))) 
-                            / Decimal(str(recettes_n1)) * 100)
-            return {
-                'poste': poste,
-                'recettes_estimees': float(total_estime),
-                'recettes_n1': float(recettes_n1),
-                'taux_evolution': float(taux_evolution),
-                'en_baisse': taux_evolution < 0
-            }
+        if recettes_cumul_ref > 0:
+            taux = ((recettes_cumul_actuel - recettes_cumul_ref) / recettes_cumul_ref * 100)
+            return float(taux)
         return None
     
     @staticmethod
-    def identifier_postes_en_baisse(type_analyse='mensuel', seuil_baisse=-5):
+    def calculer_risque_baisse_mensuel(poste, mois=None, annee=None):
+        """
+        Calcule le risque de baisse mensuel avec estimation si mois non clos
+        """
+        if mois is None:
+            mois = date.today().month
+        if annee is None:
+            annee = date.today().year
+            
+        aujourd_hui = date.today()
+        debut_mois = date(annee, mois, 1)
+        dernier_jour = calendar.monthrange(annee, mois)[1]
+        fin_mois = date(annee, mois, dernier_jour)
+        
+        # Si mois en cours non terminé
+        if annee == aujourd_hui.year and mois == aujourd_hui.month and aujourd_hui < fin_mois:
+            # Recettes réalisées
+            recettes_realisees = RecetteJournaliere.objects.filter(
+                poste=poste,
+                date__gte=debut_mois,
+                date__lte=aujourd_hui
+            ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+            
+            # Estimation pour jours restants
+            if recettes_realisees > 0:
+                jours_ecoules = (aujourd_hui - debut_mois).days + 1
+                moyenne_jour = recettes_realisees / jours_ecoules
+                jours_restants = (fin_mois - aujourd_hui).days
+                estimation_reste = moyenne_jour * jours_restants
+                total_estime = recettes_realisees + estimation_reste
+            else:
+                total_estime = Decimal('0')
+        else:
+            # Mois complet
+            total_estime = RecetteJournaliere.objects.filter(
+                poste=poste,
+                date__year=annee,
+                date__month=mois
+            ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+        
+        # Comparaison avec N-1
+        total_n1 = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__year=annee - 1,
+            date__month=mois
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+        
+        taux = None
+        if total_n1 > 0:
+            taux = float(((total_estime - total_n1) / total_n1) * 100)
+        
+        return {
+            'total_estime': float(total_estime),
+            'total_n1': float(total_n1),
+            'taux': taux,
+            'en_baisse': taux < -5 if taux is not None else False
+        }
+    
+    @staticmethod
+    def calculer_risque_baisse_annuel(poste, date_analyse=None):
+        """
+        Calcule le risque de baisse annuel du 1er janvier à la date d'analyse
+        """
+        if date_analyse is None:
+            date_analyse = date.today()
+            
+        annee = date_analyse.year
+        debut_annee = date(annee, 1, 1)
+        
+        # Fin de période = fin du mois en cours
+        dernier_jour = calendar.monthrange(annee, date_analyse.month)[1]
+        fin_periode = date(annee, date_analyse.month, dernier_jour)
+        
+        # Recettes réalisées
+        recettes_realisees = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__gte=debut_annee,
+            date__lte=date_analyse
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+        
+        # Estimation si mois non clos
+        if date_analyse < fin_periode:
+            debut_mois = date(annee, date_analyse.month, 1)
+            if recettes_realisees > 0:
+                # Moyenne du mois en cours
+                recettes_mois = RecetteJournaliere.objects.filter(
+                    poste=poste,
+                    date__gte=debut_mois,
+                    date__lte=date_analyse
+                ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+                
+                if recettes_mois > 0:
+                    jours_ecoules = (date_analyse - debut_mois).days + 1
+                    moyenne_jour = recettes_mois / jours_ecoules
+                    jours_restants = (fin_periode - date_analyse).days
+                    estimation_reste = moyenne_jour * jours_restants
+                else:
+                    estimation_reste = Decimal('0')
+            else:
+                estimation_reste = Decimal('0')
+                
+            total_estime = recettes_realisees + estimation_reste
+        else:
+            total_estime = recettes_realisees
+        
+        # Comparaison avec même période N-1
+        total_n1 = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__year=annee - 1,
+            date__month__lte=date_analyse.month
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+        
+        taux = None
+        if total_n1 > 0:
+            taux = float(((total_estime - total_n1) / total_n1) * 100)
+        
+        return {
+            'poste': poste,
+            'total_estime': float(total_estime),
+            'total_n1': float(total_n1),
+            'taux': taux,
+            'en_baisse': taux < -5 if taux is not None else False
+        }
+    
+    @staticmethod
+    def identifier_postes_en_baisse(type_analyse='annuel', seuil_baisse=-5):
         """Identifie tous les postes en baisse selon le critère"""
         postes_en_baisse = []
+        aujourd_hui = date.today()
         
         for poste in Poste.objects.filter(is_active=True):
             if type_analyse == 'mensuel':
-                today = date.today()
-                # Comparer avec N-1 et N-2
-                for annee_ref in [today.year - 1, today.year - 2]:
-                    taux = EvolutionService.calculer_taux_evolution_mensuel(
-                        poste, today.month, today.year, annee_ref
-                    )
-                    if taux is not None and taux < seuil_baisse:
-                        postes_en_baisse.append({
-                            'poste': poste,
-                            'taux_evolution': taux,
-                            'annee_reference': annee_ref
-                        })
-            
+                # Analyse mensuelle
+                resultat = EvolutionService.calculer_risque_baisse_mensuel(
+                    poste, aujourd_hui.month, aujourd_hui.year
+                )
+                if resultat['taux'] is not None and resultat['taux'] < seuil_baisse:
+                    postes_en_baisse.append({
+                        'poste': poste,
+                        'taux_evolution': resultat['taux'],
+                        'type': 'mensuel',
+                        'total_estime': resultat['total_estime'],
+                        'total_n1': resultat['total_n1']
+                    })
+                    
             elif type_analyse == 'annuel':
+                # Analyse annuelle cumulée
                 resultat = EvolutionService.calculer_risque_baisse_annuel(poste)
-                if resultat and resultat['en_baisse']:
-                    postes_en_baisse.append(resultat)
+                if resultat['taux'] is not None and resultat['taux'] < seuil_baisse:
+                    postes_en_baisse.append({
+                        'poste': poste,
+                        'taux_evolution': resultat['taux'],
+                        'type': 'annuel',
+                        'total_estime': resultat['total_estime'],
+                        'total_n1': resultat['total_n1']
+                    })
         
         return postes_en_baisse
+    
+    @classmethod
+    def estimer_recettes_periode(cls, poste, type_periode, annee=None):
+        """Estime les recettes pour une période donnée"""
+        if annee is None:
+            annee = date.today().year
+        
+        recettes = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__year=annee
+        ).aggregate(
+            total=Sum('montant_declare'),
+            count=Count('id')
+        )
+        
+        if not recettes['count']:
+            return Decimal('0')
+        
+        moyenne_jour = Decimal(str(recettes['total'] or 0)) / recettes['count']
+        
+        multipliers = {
+            'mensuel': 30,
+            'trimestriel': 90,
+            'semestriel': 180,
+            'annuel': 365
+        }
+        
+        return moyenne_jour * multipliers.get(type_periode, 30)

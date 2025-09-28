@@ -171,14 +171,6 @@ class Poste(models.Model):
         auto_now=True,  # CORRIGÉ : auto_now au lieu de auto_now_add
         verbose_name=_("Date de modification")
     )
-    objectif_annuel = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name=_("Objectif annuel (FCFA)"),
-        help_text=_("Objectif de recettes annuelles pour ce poste")
-    )
     
     class Meta:
         verbose_name = _("Poste")

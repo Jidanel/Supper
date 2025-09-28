@@ -3,6 +3,7 @@
 # Application SUPPER - Suivi des Péages et Pesages Routiers
 # ===================================================================
 
+from math import e
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required,user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -20,6 +21,7 @@ import decimal
 from django.db.models import Sum, Avg, Count, Q
 from django.utils import timezone
 from django.db import models
+from django.db import transaction
 from datetime import datetime, date, timedelta
 import json
 from django.views.decorators.csrf import csrf_exempt
@@ -1264,6 +1266,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
                 
         # Ajouter les filtres actuels
         context['current_filters'] = self.request.GET.dict()
+        context['jours_non_declares'] = self.calculer_jours_non_declares()
         
         # Statistiques globales
         all_recettes = self.get_queryset()
@@ -1316,6 +1319,78 @@ class RecetteListView(LoginRequiredMixin, ListView):
         ]
         
         return context
+    def calculer_jours_non_declares(self):
+        """Calcule les jours sans déclaration de recettes"""
+        from django.db.models import Q
+        from datetime import datetime, timedelta
+        import calendar
+        
+        filters = self.request.GET
+        periode = filters.get('periode', 'mois')
+        poste_id = filters.get('poste')
+        
+        # Déterminer la période d'analyse
+        if periode == 'jour':
+            date_str = filters.get('date')
+            if date_str:
+                date_debut = date_fin = datetime.strptime(date_str, '%Y-%m-%d').date()
+            else:
+                date_debut = date_fin = date.today()
+        elif periode == 'semaine':
+            date_fin = date.today()
+            date_debut = date_fin - timedelta(days=7)
+        elif periode == 'mois':
+            mois = int(filters.get('mois', date.today().month))
+            annee = int(filters.get('annee', date.today().year))
+            date_debut = date(annee, mois, 1)
+            date_fin = date(annee, mois, calendar.monthrange(annee, mois)[1])
+        else:  # all
+            date_fin = date.today()
+            date_debut = date_fin - timedelta(days=30)
+        
+        # Filtrer par poste si spécifié
+        postes_query = Poste.objects.filter(is_active=True)
+        if poste_id:
+            postes_query = postes_query.filter(id=poste_id)
+        
+        resultats = []
+        
+        for poste in postes_query:
+            # Jours avec recettes déclarées
+            jours_declares = set(
+                RecetteJournaliere.objects.filter(
+                    poste=poste,
+                    date__range=[date_debut, date_fin]
+                ).values_list('date', flat=True)
+            )
+            
+            # Générer tous les jours de la période
+            jours_periode = set()
+            current_date = date_debut
+            while current_date <= date_fin:
+                jours_periode.add(current_date)
+                current_date += timedelta(days=1)
+            
+            # Calculer les jours manquants
+            jours_manquants = jours_periode - jours_declares
+            
+            if jours_manquants:
+                resultats.append({
+                    'poste': poste,
+                    'nombre_jours': len(jours_manquants),
+                    'jours': sorted(jours_manquants),
+                    'pourcentage': (len(jours_manquants) / len(jours_periode)) * 100
+                })
+        
+        # Trier par nombre de jours manquants (décroissant)
+        resultats.sort(key=lambda x: x['nombre_jours'], reverse=True)
+        
+        return {
+            'par_poste': resultats,
+            'total_jours_manquants': sum(r['nombre_jours'] for r in resultats),
+            'periode_debut': date_debut,
+            'periode_fin': date_fin
+        }
 
 
 class RecetteDetailView(LoginRequiredMixin, DetailView):
@@ -3954,3 +4029,138 @@ def redirect_to_delete_recette_admin(request, recette_id):
     except RecetteJournaliere.DoesNotExist:
         messages.error(request, "Recette non trouvée.")
         return redirect('inventaire:liste_recettes')
+
+@login_required
+@user_passes_test(lambda u: u.is_admin)
+def gestion_objectifs_annuels(request):
+    """Vue pour gérer tous les objectifs annuels"""
+    
+    from django.db.models import Sum
+    from inventaire.models import RecetteJournaliere
+    
+    # Récupérer l'année depuis les paramètres ou utiliser l'année courante
+    annee = int(request.GET.get('annee', date.today().year))
+    
+    # Liste des années disponibles (5 ans avant et après)
+    annee_actuelle = date.today().year
+    annees_disponibles = list(range(annee_actuelle - 5, annee_actuelle + 6))
+    
+    # Récupérer tous les postes actifs
+    postes = Poste.objects.filter(is_active=True).order_by('region', 'nom')
+    
+    if request.method == 'POST':
+        # Traitement du formulaire
+        with transaction.atomic():
+            objectifs_crees = 0
+            objectifs_modifies = 0
+            
+            for poste in postes:
+                montant_key = f'objectif_{poste.id}'
+                if montant_key in request.POST:
+                    montant_str = request.POST[montant_key].replace(' ', '').replace(',', '')
+                    
+                    try:
+                        montant = Decimal(montant_str) if montant_str else Decimal('0')
+                        
+                        if montant > 0:
+                            objectif, was_created = ObjectifAnnuel.objects.update_or_create(
+                                poste=poste,
+                                annee=annee,
+                                defaults={
+                                    'montant_objectif': montant,
+                                    'cree_par': request.user  # Toujours définir cree_par
+                                }
+                            )
+                            
+                            if was_created:
+                                objectifs_crees += 1
+                            else:
+                                objectifs_modifies += 1
+                    
+                    except (ValueError, TypeError) as e:
+                        continue
+            
+            messages.success(
+                request, 
+                f"✓ {objectifs_crees} objectifs créés, {objectifs_modifies} modifiés pour {annee}"
+            )
+            return redirect(f"{request.path}?annee={annee}")
+    
+    # Préparer les données pour l'affichage
+    objectifs_data = []
+    total_global = Decimal('0')
+    
+    for poste in postes:
+        # Récupérer l'objectif existant
+        try:
+            objectif = ObjectifAnnuel.objects.get(poste=poste, annee=annee)
+            montant_objectif = objectif.montant_objectif
+        except ObjectifAnnuel.DoesNotExist:
+            # Essayer de copier depuis l'année précédente
+            try:
+                objectif_precedent = ObjectifAnnuel.objects.get(
+                    poste=poste, 
+                    annee=annee-1
+                )
+                montant_objectif = objectif_precedent.montant_objectif
+            except ObjectifAnnuel.DoesNotExist:
+                montant_objectif = Decimal('0')
+        
+        # Calculer le réalisé et le taux
+        realise = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__year=annee
+        ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+        
+        taux = (realise / montant_objectif * 100) if montant_objectif > 0 else 0
+        
+        objectifs_data.append({
+            'poste': poste,
+            'montant_objectif': montant_objectif,
+            'realise': realise,
+            'reste': montant_objectif - realise,
+            'taux': taux
+        })
+        
+        total_global += montant_objectif
+    
+    # Calculer les totaux
+    total_realise = sum(o['realise'] for o in objectifs_data)
+    
+    context = {
+        'annee': annee,
+        'annees_disponibles': annees_disponibles,
+        'objectifs_data': objectifs_data,
+        'total_global': total_global,
+        'total_realise': total_realise,
+        'taux_global': (total_realise / total_global * 100) if total_global > 0 else 0
+    }
+    
+    return render(request, 'inventaire/gestion_objectifs_annuels.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.is_admin)
+def dupliquer_objectifs_annee(request):
+    """Duplique les objectifs d'une année vers une autre"""
+    if request.method == 'POST':
+        annee_source = int(request.POST.get('annee_source'))
+        annee_cible = int(request.POST.get('annee_cible'))
+        
+        objectifs_source = ObjectifAnnuel.objects.filter(annee=annee_source)
+        count = 0
+        
+        for obj in objectifs_source:
+            _, created = ObjectifAnnuel.objects.get_or_create(
+                poste=obj.poste,
+                annee=annee_cible,
+                defaults={
+                    'montant_objectif': obj.montant_objectif,
+                    'cree_par': request.user
+                }
+            )
+            if created:
+                count += 1
+        
+        messages.success(request, f"✓ {count} objectifs dupliqués de {annee_source} vers {annee_cible}")
+    
+    return redirect('inventaire:gestion_objectifs_annuels')

@@ -203,6 +203,42 @@
             <div class="stat-label">{% trans "Aujourd'hui" %}</div>
         </div>
     </div>
+    <!-- Section Journées Non Déclarées -->
+    {% if jours_non_declares.par_poste %}
+    <div class="alert alert-warning mt-4">
+        <h5><i class="fas fa-exclamation-triangle me-2"></i>Journées Non Déclarées</h5>
+        <p>Période : {{ jours_non_declares.periode_debut|date:"d/m/Y" }} - {{ jours_non_declares.periode_fin|date:"d/m/Y" }}</p>
+        <p><strong>Total : {{ jours_non_declares.total_jours_manquants }} jour(s) sans déclaration</strong></p>
+        
+        <div class="accordion mt-3" id="accordionJoursManquants">
+            {% for item in jours_non_declares.par_poste %}
+            <div class="accordion-item">
+                <h6 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#collapse{{ forloop.counter }}">
+                        {{ item.poste.nom }} - 
+                        <span class="badge bg-danger ms-2">{{ item.nombre_jours }} jour(s)</span>
+                        <span class="badge bg-warning ms-2">{{ item.pourcentage|floatformat:1 }}%</span>
+                    </button>
+                </h6>
+                <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <strong>Dates manquantes :</strong>
+                        <ul class="list-inline">
+                            {% for jour in item.jours %}
+                            <li class="list-inline-item">
+                                <span class="badge bg-secondary">{{ jour|date:"d/m/Y" }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Section Filtres -->
     <div class="filter-section">
