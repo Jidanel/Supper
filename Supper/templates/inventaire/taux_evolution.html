@@ -39,6 +39,42 @@
         gap: 1rem;
         margin-top: 2rem;
     }
+        /* Styles pour le formulaire d'analyse */
+    .analyse-form select {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 8px 12px;
+        transition: all 0.3s ease;
+    }
+
+    .analyse-form select:focus {
+        background-color: #fff;
+        border-color: #6B46C1;
+        box-shadow: 0 0 0 0.2rem rgba(107, 70, 193, 0.25);
+        outline: none;
+    }
+
+    /* Style spécifique pour le sélecteur de mois */
+    select[name="mois"] {
+        background-color: #f8f9fa !important;
+        color: #495057;
+        min-width: 200px;
+    }
+
+    select[name="mois"]:hover {
+        background-color: #e9ecef !important;
+    }
+
+    /* Correction pour le dropdown ouvert */
+    select[name="mois"] option {
+        background-color: white;
+        color: #212529;
+    }
+
+    select[name="mois"] option:hover {
+        background-color: #f8f9fa;
+    }
 </style>
 {% endblock %}
 

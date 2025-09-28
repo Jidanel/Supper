@@ -220,7 +220,7 @@ class PosteAdmin(admin.ModelAdmin):
     list_display = (
         'nom', 'code', 'type_badge', 
         'region_display', 'departement', 
-        'actif_badge'
+        'actif_badge', 'objectif_annuel'
     )
     
     list_filter = ('type', 'region', 'is_active')
@@ -229,7 +229,7 @@ class PosteAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Informations générales', {
-            'fields': ('nom', 'code', 'type', 'is_active')
+            'fields': ('nom', 'code', 'type', 'is_active','objectif_annuel')
         }),
         ('Localisation', {
             'fields': ('region', 'departement', 'axe_routier')

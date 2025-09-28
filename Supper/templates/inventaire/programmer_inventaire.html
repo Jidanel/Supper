@@ -162,190 +162,182 @@
     {% endif %}
 
     <!-- Étape 3: Sélection des postes -->
-    {% if motif_selectionne %}
-    <div class="card mb-4">
-        <div class="card-header" style="background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%); color: white;">
-            <h5 class="mb-0">{% trans "Étape 3: Sélection des postes" %}</h5>
-        </div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="mois" value="{{ mois_selectionne }}">
-                <input type="hidden" name="motif" value="{{ motif_selectionne }}">
-                
-                <!-- TAUX DE DÉPERDITION AUTOMATIQUE -->
-                {% if motif_selectionne == 'taux_deperdition' %}
-                    {% if postes_taux_auto %}
-                        <div class="alert alert-success mb-3">
-                            <i class="fas fa-magic me-2"></i>
-                            <strong>{{ postes_taux_auto|length }}</strong> poste(s) auto-sélectionné(s) (taux < -10%)
-                            <br><small>Vous pouvez décocher si nécessaire</small>
-                        </div>
-                        <h6>Postes auto-sélectionnés :</h6>
-                        {% for item in postes_taux_auto %}
-                        <div class="poste-item">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="postes" 
-                                       value="{{ item.poste.id }}" id="poste_auto_{{ item.poste.id }}" checked>
-                                <input type="hidden" name="taux_{{ item.poste.id }}" value="{{ item.taux_deperdition|default:'0' }}">
-                                <label class="form-check-label d-flex justify-content-between" for="poste_auto_{{ item.poste.id }}">
-                                    <div>
-                                        <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
-                                    </div>
-                                    <div>
-                                        <span class="indicator-badge indicator-danger">
-                                            {{ item.taux_deperdition|floatformat:2 }}%
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                    
-                    {% if postes_taux_manuel %}
-                        <hr>
-                        <h6>Autres postes :</h6>
-                        {% for item in postes_taux_manuel %}
-                        <div class="poste-item">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="postes" 
-                                       value="{{ item.poste.id }}" id="poste_man_{{ item.poste.id }}">
-                                {% if item.taux_deperdition %}
-                                <input type="hidden" name="taux_{{ item.poste.id }}" value="{{ item.taux_deperdition|default:'0' }}">
-                                {% endif %}
-                                <label class="form-check-label" for="poste_man_{{ item.poste.id }}">
-                                    <strong>{{ item.poste.nom }}</strong>
-                                    {% if item.taux_deperdition %}
-                                    <span class="badge bg-info">{{ item.taux_deperdition|floatformat:2 }}%</span>
-                                    {% endif %}
-                                </label>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                
-                <!-- PRÉSENCE ADMINISTRATIVE -->
-                {% elif motif_selectionne == 'presence_admin' %}
-                    <div class="mb-3">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="selectAll()">Tout cocher</button>
-                        <button type="button" class="btn btn-sm btn-secondary ms-2" onclick="deselectAll()">Tout décocher</button>
+   {% if motif_selectionne %}
+
+<div class="card mb-4">
+    <div class="card-header" style="background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%); color: white;">
+        <h5 class="mb-0">{% trans "Étape 3: Sélection des postes" %}</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="mois" value="{{ mois_selectionne }}">
+            <input type="hidden" name="motif" value="{{ motif_selectionne }}">
+            
+            {% if motif_selectionne == 'taux_deperdition' %}
+                {% if postes_taux_auto %}
+                    <div class="alert alert-success mb-3">
+                        <i class="fas fa-magic me-2"></i>
+                        <strong>{{ postes_taux_auto|length }}</strong> poste(s) auto-sélectionné(s) (taux < -10%)
+                        <br><small>Vous pouvez décocher si nécessaire</small>
                     </div>
-                    {% for poste in postes_presence_admin %}
+                    <h6>Postes auto-sélectionnés :</h6>
+                    {% for item in postes_taux_auto %}
                     <div class="poste-item">
                         <div class="form-check">
-                            <input class="form-check-input poste-checkbox" type="checkbox" 
-                                   name="postes" value="{{ poste.id }}" id="admin_{{ poste.id }}">
-                            <label class="form-check-label" for="admin_{{ poste.id }}">
-                                <strong>{{ poste.nom }}</strong> ({{ poste.code }}) - {{ poste.get_region_display }}
+                            <input class="form-check-input" type="checkbox" name="postes" value="{{ item.poste.id }}" id="poste_auto_{{ item.poste.id }}" checked>
+                            <input type="hidden" name="taux_{{ item.poste.id }}" value="{{ item.taux_deperdition|default:'0' }}">
+                            <label class="form-check-label d-flex justify-content-between" for="poste_auto_{{ item.poste.id }}">
+                                <div>
+                                    <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
+                                </div>
+                                <div>
+                                    <span class="indicator-badge indicator-danger">
+                                        {{ item.taux_deperdition|floatformat:2 }}%
+                                    </span>
+                                </div>
                             </label>
                         </div>
                     </div>
                     {% endfor %}
-                    {% endif %}
-                    
-                <!-- RISQUE DE BAISSE ANNUEL -->
-                    {% elif postes_risque_baisse %}
-                        <div class="alert alert-warning mb-3">
-                            <i class="fas fa-arrow-down me-2"></i>
-                            <strong>{{ postes_risque_baisse|length }}</strong> poste(s) avec risque de baisse annuelle détecté
-                            <br><small>Comparaison avec la même période de l'année N-1</small>
+                {% endif %}
+                
+                {% if postes_taux_manuel %}
+                    <hr>
+                    <h6>Autres postes :</h6>
+                    {% for item in postes_taux_manuel %}
+                    <div class="poste-item">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="postes" value="{{ item.poste.id }}" id="poste_man_{{ item.poste.id }}">
+                            {% if item.taux_deperdition %}
+                            <input type="hidden" name="taux_{{ item.poste.id }}" value="{{ item.taux_deperdition|default:'0' }}">
+                            {% endif %}
+                            <label class="form-check-label" for="poste_man_{{ item.poste.id }}">
+                                <strong>{{ item.poste.nom }}</strong>
+                                {% if item.taux_deperdition %}
+                                <span class="badge bg-info">{{ item.taux_deperdition|floatformat:2 }}%</span>
+                                {% endif %}
+                            </label>
                         </div>
-                        
-                        {% for item in postes_risque_baisse %}
-                        <div class="poste-item {% if item.deja_programme %}disabled{% endif %}">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="postes" 
-                                    value="{{ item.poste.id }}" id="baisse_{{ item.poste.id }}"
-                                    {% if not item.deja_programme %}checked{% endif %}
-                                    {% if item.deja_programme %}disabled{% endif %}>
-                                <label class="form-check-label d-flex justify-content-between" for="baisse_{{ item.poste.id }}">
-                                    <div>
-                                        <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
-                                        {% if item.deja_programme %}
-                                        <span class="badge bg-secondary ms-2">Déjà programmé</span>
-                                        {% endif %}
-                                    </div>
-                                    <div>
-                                        <span class="indicator-badge indicator-danger">
-                                            <i class="fas fa-arrow-down"></i> {{ item.pourcentage_baisse|floatformat:1 }}%
-                                        </span>
-                                        <small class="text-muted ms-2">
-                                            N: {{ item.recettes_estimees|floatformat:0 }} FCFA | 
-                                            N-1: {{ item.recettes_n1|floatformat:0 }} FCFA
-                                        </small>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        
-                        {% if not postes_risque_baisse %}
-                        <div class="alert alert-success">
-                            <i class="fas fa-check-circle me-2"></i>
-                            Aucun poste en baisse annuelle détecté. Tous les postes sont stables ou en hausse.
-                        </div>
-                        {% endif %}
-                    {% endif %}
-                    
-                <!-- GRAND STOCK -->
-                    {% elif postes_grand_stock %}
-                        <div class="alert alert-info mb-3">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>{{ postes_grand_stock|length }}</strong> poste(s) avec stock excédentaire
-                            <br><small>Date d'épuisement prévue après le 31 décembre {{ mois.year }}</small>
-                        </div>
-                        
-                        {% for item in postes_grand_stock %}
-                        <div class="poste-item {% if item.deja_programme %}disabled{% endif %}">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="postes" 
-                                    value="{{ item.poste.id }}" id="stock_{{ item.poste.id }}"
-                                    {% if not item.deja_programme %}checked{% endif %}
-                                    {% if item.deja_programme %}disabled{% endif %}>
-                                <input type="hidden" name="stock_{{ item.poste.id }}" value="{{ item.stock_restant }}">
-                                <label class="form-check-label d-flex justify-content-between" for="stock_{{ item.poste.id }}">
-                                    <div>
-                                        <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
-                                        {% if item.deja_programme %}
-                                        <span class="badge bg-secondary ms-2">Déjà programmé</span>
-                                        {% endif %}
-                                    </div>
-                                    <div>
-                                        <span class="indicator-badge indicator-info me-2">
-                                            Stock: {{ item.stock_restant|floatformat:0|format_milliers }} FCFA
-                                        </span>
-                                        <span class="indicator-badge indicator-warning">
-                                            Épuisement: {{ item.date_epuisement_formatee }}
-                                        </span>
-                                        <small class="text-muted ms-2">
-                                            ({{ item.jours_restants }} jours)
-                                        </small>
-                                    </div>
-                                </label>
-                                <small class="text-muted d-block mt-1 ms-4">
-                                    Vente moyenne: {{ item.vente_moyenne|floatformat:0|format_milliers }} FCFA/jour
-                                </small>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        
-                        {% if not postes_grand_stock %}
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Aucun poste n'a de stock avec une date d'épuisement après le 31 décembre.
-                        </div>
-                        {% endif %}
-                    {% endif %}
-                <div class="text-center mt-4">
-                    <button type="submit" name="programmer" class="btn btn-primary btn-lg">
-                        <i class="fas fa-save me-2"></i>Programmer
-                    </button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            
+            {% elif motif_selectionne == 'presence_admin' %}
+                <div class="mb-3">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="selectAll()">Tout cocher</button>
+                    <button type="button" class="btn btn-sm btn-secondary ms-2" onclick="deselectAll()">Tout décocher</button>
                 </div>
-            </form>
-        </div>
+                {% for poste in postes_presence_admin %}
+                <div class="poste-item">
+                    <div class="form-check">
+                        <input class="form-check-input poste-checkbox" type="checkbox" name="postes" value="{{ poste.id }}" id="admin_{{ poste.id }}">
+                        <label class="form-check-label" for="admin_{{ poste.id }}">
+                            <strong>{{ poste.nom }}</strong> ({{ poste.code }}) - {{ poste.get_region_display }}
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+            
+            {% elif motif_selectionne == 'risque_baisse' %}
+                {% if postes_risque_baisse %}
+                    <div class="alert alert-warning mb-3">
+                        <i class="fas fa-arrow-down me-2"></i>
+                        <strong>{{ postes_risque_baisse|length }}</strong> poste(s) avec risque de baisse annuelle détecté
+                        <br><small>Comparaison avec la même période de l'année N-1</small>
+                    </div>
+                    {% for item in postes_risque_baisse %}
+                    <div class="poste-item {% if item.deja_programme %}disabled{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="postes" value="{{ item.poste.id }}" id="baisse_{{ item.poste.id }}"
+                            {% if not item.deja_programme %}checked{% endif %}
+                            {% if item.deja_programme %}disabled{% endif %}>
+                            <label class="form-check-label d-flex justify-content-between" for="baisse_{{ item.poste.id }}">
+                                <div>
+                                    <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
+                                    {% if item.deja_programme %}
+                                    <span class="badge bg-secondary ms-2">Déjà programmé</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <span class="indicator-badge indicator-danger">
+                                        <i class="fas fa-arrow-down"></i> {{ item.pourcentage_baisse|floatformat:1 }}%
+                                    </span>
+                                    <small class="text-muted ms-2">
+                                        N: {{ item.recettes_estimees|floatformat:0|format_milliers }} FCFA | 
+                                        N-1: {{ item.recettes_n1|floatformat:0|format_milliers }} FCFA
+                                    </small>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Aucun poste en baisse annuelle détecté. Tous les postes sont stables ou en hausse.
+                    </div>
+                {% endif %}
+            
+            {% elif motif_selectionne == 'grand_stock' %}
+                {% if postes_grand_stock %}
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>{{ postes_grand_stock|length }}</strong> poste(s) avec stock excédentaire
+                        <br><small>Date d'épuisement prévue après le 31 décembre {{ mois.year }}</small>
+                    </div>
+                    {% for item in postes_grand_stock %}
+                    <div class="poste-item {% if item.deja_programme %}disabled{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="postes" value="{{ item.poste.id }}" id="stock_{{ item.poste.id }}"
+                            {% if not item.deja_programme %}checked{% endif %}
+                            {% if item.deja_programme %}disabled{% endif %}>
+                            <input type="hidden" name="stock_{{ item.poste.id }}" value="{{ item.stock_restant }}">
+                            <label class="form-check-label d-flex justify-content-between" for="stock_{{ item.poste.id }}">
+                                <div>
+                                    <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
+                                    {% if item.deja_programme %}
+                                    <span class="badge bg-secondary ms-2">Déjà programmé</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <span class="indicator-badge indicator-info me-2">
+                                        Stock: {{ item.stock_restant|floatformat:0|format_milliers }} FCFA
+                                    </span>
+                                    <span class="indicator-badge indicator-warning">
+                                        Épuisement: {{ item.date_epuisement_formatee }}
+                                    </span>
+                                    <small class="text-muted ms-2">
+                                        ({{ item.jours_restants }} jours)
+                                    </small>
+                                </div>
+                            </label>
+                            <small class="text-muted d-block mt-1 ms-4">
+                                Vente moyenne: {{ item.vente_moyenne|floatformat:0|format_milliers }} FCFA/jour
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Aucun poste n'a de stock avec une date d'épuisement après le 31 décembre.
+                    </div>
+                {% endif %}
+
+            {% endif %}  <!-- fin du if motif_selectionne -->
+
+            <div class="text-center mt-4">
+                <button type="submit" name="programmer" class="btn btn-primary btn-lg">
+                    <i class="fas fa-save me-2"></i>Programmer
+                </button>
+            </div>
+        </form>
     </div>
-    {% endif %}
+</div>
+
+{% endif %}
+
 </div>
 
 <script>

@@ -215,12 +215,21 @@ class Poste(models.Model):
         return Decimal(str(total or 0))
     
     def get_taux_realisation(self, annee=None):
-        """Calcule le taux de réalisation par rapport à l'objectif"""
-        if not self.objectif_annuel:
+        """Calcule le taux de réalisation par rapport à l'objectif de l'année"""
+        from inventaire.models import ObjectifAnnuel
+        
+        if annee is None:
+            annee = timezone.now().year
+        
+        try:
+            objectif = ObjectifAnnuel.objects.get(poste=self, annee=annee)
+            objectif_annuel = objectif.montant_objectif
+        except ObjectifAnnuel.DoesNotExist:
             return None
-        realise = self.get_realisation_annee(annee)
-        if self.objectif_annuel > 0:
-            return (realise / self.objectif_annuel * 100)
+        
+        if objectif_annuel and objectif_annuel > 0:
+            realise = self.get_realisation_annee(annee)
+            return (realise / objectif_annuel * 100)
         return 0
     
     def get_nom_court(self):

@@ -1751,7 +1751,60 @@ class RecetteJournaliere(models.Model):
         
         super().save(*args, **kwargs)
 
-
+class ObjectifAnnuel(models.Model):
+    """Modèle pour gérer les objectifs annuels par poste"""
+    
+    poste = models.ForeignKey(
+        'accounts.Poste',
+        on_delete=models.CASCADE,
+        related_name='objectifs_annuels',
+        verbose_name=_("Poste")
+    )
+    
+    annee = models.IntegerField(
+        verbose_name=_("Année"),
+        validators=[
+            MinValueValidator(2020),
+            MaxValueValidator(2099)
+        ]
+    )
+    
+    montant_objectif = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name=_("Montant objectif annuel (FCFA)")
+    )
+    
+    cree_par = models.ForeignKey(
+        'accounts.UtilisateurSUPPER',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='objectifs_crees',
+        verbose_name=_("Créé par")
+    )
+    
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+    
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Dernière modification")
+    )
+    
+    class Meta:
+        verbose_name = _("Objectif annuel")
+        verbose_name_plural = _("Objectifs annuels")
+        unique_together = [['poste', 'annee']]
+        ordering = ['-annee', 'poste__nom']
+        indexes = [
+            models.Index(fields=['poste', '-annee']),
+        ]
+    
+    def __str__(self):
+        return f"Objectif {self.poste.nom} - {self.annee}: {self.montant_objectif} FCFA"
 class StatistiquesPeriodiques(models.Model):
     """
     Modèle pour stocker les statistiques calculées par période

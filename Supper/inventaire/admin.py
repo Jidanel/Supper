@@ -1458,4 +1458,57 @@ class StatistiquesPeriodiquesAdmin(admin.ModelAdmin):
         )
     taux_moyen_badge.short_description = 'Taux moyen'
 
+@admin.register(ObjectifAnnuel)
+class ObjectifAnnuelAdmin(admin.ModelAdmin):
+    list_display = ['poste', 'annee', 'montant_objectif_formatted', 'cree_par', 'date_creation']
+    list_filter = ['annee', 'poste__region', 'poste__type']
+    search_fields = ['poste__nom', 'poste__code']
+    
+    fieldsets = (
+        (_('Objectif'), {
+            'fields': ('poste', 'annee', 'montant_objectif')
+        }),
+        (_('Métadonnées'), {
+            'fields': ('cree_par', 'date_creation', 'date_modification'),
+            'classes': ('collapse',)
+        }),
+    )
+        
+    readonly_fields = ['cree_par', 'date_creation', 'date_modification']
+    # Ajouter une action pour dupliquer les objectifs d'une année à l'autre
+    actions = ['dupliquer_objectifs_annee_suivante']
+    
+    def dupliquer_objectifs_annee_suivante(self, request, queryset):
+        """Duplique les objectifs sélectionnés pour l'année suivante"""
+        count = 0
+        for objectif in queryset:
+            nouvelle_annee = objectif.annee + 1
+            # Vérifier si l'objectif n'existe pas déjà
+            if not ObjectifAnnuel.objects.filter(
+                poste=objectif.poste, 
+                annee=nouvelle_annee
+            ).exists():
+                ObjectifAnnuel.objects.create(
+                    poste=objectif.poste,
+                    annee=nouvelle_annee,
+                    montant_objectif=objectif.montant_objectif,
+                    cree_par=request.user
+                )
+                count += 1
+        
+        self.message_user(request, f"{count} objectif(s) dupliqué(s) pour l'année suivante")
+    dupliquer_objectifs_annee_suivante.short_description = "Dupliquer pour l'année suivante"
+
+    
+    def montant_objectif_formatted(self, obj):
+        """Formatage du montant"""
+        if obj.montant_objectif:
+            return f"{float(obj.montant_objectif):,.0f}".replace(",", " ")
+        return "0"
+    montant_objectif_formatted.short_description = 'Objectif (FCFA)'
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.cree_par = request.user
+        super().save_model(request, obj, form, change)
 

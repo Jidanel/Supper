@@ -1,5 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
+{% load inventaire_extras %}
 
 {% block title %}Taux d'Évolution et Estimations - SUPPER{% endblock %}
 
@@ -58,17 +59,19 @@
             
             <div class="col-md-2">
                 <label class="form-label">Mois</label>
-                <select name="mois" class="form-select">
-                    {% for i in '123456789'|make_list %}
-                    <option value="{{ forloop.counter }}" {% if forloop.counter == mois_selectionne %}selected{% endif %}>
-                        {{ forloop.counter|date:"F" }}
-                    </option>
-                    {% endfor %}
-                    {% for i in '012'|make_list %}
-                    <option value="{{ forloop.counter|add:9 }}" {% if forloop.counter|add:9 == mois_selectionne %}selected{% endif %}>
-                        {{ forloop.counter|add:9|date:"F" }}
-                    </option>
-                    {% endfor %}
+                <select name="mois" class="form-select form-select-lg">
+                    <option value="1" {% if mois_selectionne == 1 %}selected{% endif %}>Janvier</option>
+                    <option value="2" {% if mois_selectionne == 2 %}selected{% endif %}>Février</option>
+                    <option value="3" {% if mois_selectionne == 3 %}selected{% endif %}>Mars</option>
+                    <option value="4" {% if mois_selectionne == 4 %}selected{% endif %}>Avril</option>
+                    <option value="5" {% if mois_selectionne == 5 %}selected{% endif %}>Mai</option>
+                    <option value="6" {% if mois_selectionne == 6 %}selected{% endif %}>Juin</option>
+                    <option value="7" {% if mois_selectionne == 7 %}selected{% endif %}>Juillet</option>
+                    <option value="8" {% if mois_selectionne == 8 %}selected{% endif %}>Août</option>
+                    <option value="9" {% if mois_selectionne == 9 %}selected{% endif %}>Septembre</option>
+                    <option value="10" {% if mois_selectionne == 10 %}selected{% endif %}>Octobre</option>
+                    <option value="11" {% if mois_selectionne == 11 %}selected{% endif %}>Novembre</option>
+                    <option value="12" {% if mois_selectionne == 12 %}selected{% endif %}>Décembre</option>
                 </select>
             </div>
             
@@ -102,15 +105,15 @@
         <div class="row text-center">
             <div class="col-md-3">
                 <h5>Objectif Global</h5>
-                <h3>{{ totaux.objectif_global|floatformat:0|default:"0" }} FCFA</h3>
+                <h3>{{ totaux.objectif_global|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
             </div>
             <div class="col-md-3">
                 <h5>Réalisé</h5>
-                <h3>{{ totaux.realise_global|floatformat:0|default:"0" }} FCFA</h3>
+                <h3>{{ totaux.realise_global|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
             </div>
             <div class="col-md-3">
                 <h5>Reste à Réaliser</h5>
-                <h3>{{ totaux.reste_global|floatformat:0|default:"0" }} FCFA</h3>
+                <h3>{{ totaux.reste_global|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
             </div>
             <div class="col-md-3">
                 <h5>Taux de Réalisation</h5>
@@ -147,10 +150,10 @@
                     {% for resultat in resultats %}
                     <tr>
                         <td><strong>{{ resultat.poste.nom }}</strong></td>
-                        <td>{{ resultat.estimations.mensuelle|floatformat:0 }}</td>
-                        <td>{{ resultat.estimations.trimestrielle|floatformat:0 }}</td>
-                        <td>{{ resultat.estimations.semestrielle|floatformat:0 }}</td>
-                        <td>{{ resultat.estimations.annuelle|floatformat:0 }}</td>
+                        <td>{{ resultat.estimations.mensuelle|floatformat:0|format_milliers }}</td>
+                        <td>{{ resultat.estimations.trimestrielle|floatformat:0|format_milliers }}</td>
+                        <td>{{ resultat.estimations.semestrielle|floatformat:0|format_milliers }}</td>
+                        <td>{{ resultat.estimations.annuelle|floatformat:0|format_milliers }}</td>
                         <td>
                             <span class="badge {% if resultat.evolution.en_baisse_n1 %}bg-danger{% else %}bg-success{% endif %}">
                                 {% if resultat.evolution.taux_n1 %}
@@ -169,8 +172,8 @@
                                 {% endif %}
                             </span>
                         </td>
-                        <td>{{ resultat.objectifs.objectif_annuel|floatformat:0|default:"-" }}</td>
-                        <td>{{ resultat.objectifs.realise|floatformat:0 }}</td>
+                        <td>{{ resultat.objectifs.objectif_annuel|floatformat:0|default:"-"|format_milliers }}</td>
+                        <td>{{ resultat.objectifs.realise|floatformat:0|format_milliers }}</td>
                         <td>
                             {% if resultat.objectifs.taux_realisation %}
                                 <div class="progress" style="height: 20px;">
@@ -218,7 +221,7 @@
             {% for item in postes_baisse_annuelle %}
             <li>
                 <strong>{{ item.poste.nom }}</strong> : 
-                Estimation {{ item.risque_annuel.recettes_estimees|floatformat:0 }} FCFA
+                Estimation {{ item.risque_annuel.recettes_estimees|floatformat:0|format_milliers }} FCFA
                 ({{ item.risque_annuel.taux_evolution|floatformat:2 }}% vs N-1)
             </li>
             {% endfor %}
