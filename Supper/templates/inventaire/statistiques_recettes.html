@@ -28,6 +28,29 @@
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         border-left: 4px solid;
+        transition: transform 0.2s;
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    
+    .summary-card h6 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .summary-card h4 {
+        color: #2c3e50;
+        font-weight: bold;
+    }
+    
+    .summary-card small {
+        display: block;
+        margin-top: 0.5rem;
     }
     
     .summary-card.montant { border-left-color: #4facfe; }
@@ -117,22 +140,38 @@
     </div>
 
     <!-- Cartes de résumé -->
-    <div class="summary-cards">
-        {% for stat in stats %}
-        {% with first_stat=stats.0 last_stat=stats|last %}
-        <div class="summary-card montant">
-            <h6 class="text-muted mb-2">Total Période</h6>
-            <h3 class="mb-0">{{ stat.montant_total|floatformat:0|default:"0"|format_milliers  }} FCFA</h3>
+   <!-- Cartes de résumé -->
+<div class="summary-cards">
+    {% for stat in stats %}
+    <div class="summary-card montant">
+        <h6 class="text-muted mb-2">
+            {% if periode == 'mensuel' %}
+                {{ stat.periode }}
+            {% elif periode == 'hebdomadaire' %}
+                Semaine du {{ stat.date_debut|date:"d/m" }}
+            {% elif periode == 'trimestriel' %}
+                {{ stat.trimestre }}
+            {% elif periode == 'semestriel' %}
+                {{ stat.semestre }}
+            {% else %}
+                {{ stat.periode }}
+            {% endif %}
+        </h6>
+        <h4 class="mb-1">{{ stat.montant_total|floatformat:0|default:"0"|format_milliers }} FCFA</h4>
+        <small class="text-muted">
+            {{ stat.nombre_jours }} jour{% if stat.nombre_jours > 1 %}s{% endif %} avec données
+        </small>
+        {% if stat.moyenne_journaliere %}
+        <div class="mt-2">
+            <small class="text-info">
+                <i class="fas fa-chart-line"></i> 
+                Moyenne : {{ stat.moyenne_journaliere|floatformat:0|format_milliers }} FCFA/jour
+            </small>
         </div>
-        
-        
-        <div class="summary-card jours">
-            <h6 class="text-muted mb-2">Jours avec données</h6>
-            <h3 class="mb-0">{{ stat.nombre_jours|default:"0" }}</h3>
-        </div>
-        {% endwith %}
-        {% endfor %}
+        {% endif %}
     </div>
+    {% endfor %}
+</div>
 
     <!-- Graphique principal -->
     <div class="bg-white p-4 rounded mb-4">
@@ -146,8 +185,7 @@
                 <tr>
                     <th>Période</th>
                     <th>Montant Déclaré</th>
-                    <th>Jours</th>
-                    <th>Moyenne/Jour</th>
+                    <th>Nombre de Journées</th>
                 </tr>
             </thead>
             <tbody>
@@ -155,9 +193,7 @@
                 <tr>
                     <td><strong>{{ stat.periode }}</strong></td>
                     <td class="h5">{{ stat.montant_total|floatformat:0|format_milliers  }} FCFA</td>
-                    <td>{{ stat.nombre_jours }}</td>
-                    <td>{{ stat.moyenne_journaliere|format_milliers |default:stat.montant_total|format_milliers |div:stat.nombre_jours|floatformat:0 }} FCFA
-                        
+                    <td>{{ stat.nombre_jours }}</td>                       
                     </td>
                 </tr>
                 {% empty %}

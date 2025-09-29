@@ -1,53 +1,43 @@
-from django.shortcuts import render
+# inventaire/views.py - Version corrigée complète
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Sum, Count, Q
 from django.http import JsonResponse
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
+import calendar
 from django.contrib import messages
-from django.shortcuts import render, redirect
 from .models import *
+from inventaire.services.evolution_service import EvolutionService
 
 @login_required
 def statistiques_taux_deperdition(request):
     """Vue principale pour les statistiques de taux de déperdition"""
     
-    # Récupération des paramètres
     periode = request.GET.get('periode', 'mensuel')
-    annee = request.GET.get('annee', date.today().year)
+    annee = int(request.GET.get('annee', date.today().year))
     poste_id = request.GET.get('poste', 'tous')
     
-    # Vérifier les permissions
     if not request.user.is_admin:
-        # Les chefs ne voient que le dimanche
         if request.user.is_chef_poste and date.today().weekday() != 6:
             messages.warning(request, "Les statistiques de taux sont disponibles uniquement le dimanche")
             return redirect('inventaire:liste_recettes')
     
-    # Préparer les filtres
     filters = Q(taux_deperdition__isnull=False)
     
-    # Exclure les jours impertinents
     jours_impertinents = ConfigurationJour.objects.filter(
         statut='impertinent'
     ).values_list('date', flat=True)
     filters &= ~Q(date__in=jours_impertinents)
-    
-    # Filtre par année
     filters &= Q(date__year=annee)
     
-    # Filtre par poste
     if poste_id != 'tous':
         filters &= Q(poste_id=poste_id)
     
-    # Calculer les statistiques selon la période
     stats = calculer_stats_par_periode(periode, annee, filters)
-    
-    # Données pour le graphique
     graph_data = preparer_donnees_graphique(stats, periode)
     
-    # Statistiques globales
     stats_globales = RecetteJournaliere.objects.filter(filters).aggregate(
         taux_moyen=Avg('taux_deperdition'),
         total_recettes=Count('id'),
@@ -55,7 +45,6 @@ def statistiques_taux_deperdition(request):
         montant_potentiel_total=Sum('recette_potentielle')
     )
     
-    # Calculer l'écart global
     if stats_globales['montant_potentiel_total']:
         ecart_global = (
             (stats_globales['montant_total'] - stats_globales['montant_potentiel_total']) 
@@ -67,7 +56,7 @@ def statistiques_taux_deperdition(request):
     context = {
         'periode': periode,
         'annee': annee,
-        'annees_disponibles': range(2020, date.today().year + 1),
+        'annees_disponibles': range(2020, date.today().year + 2),
         'poste_selectionne': poste_id,
         'postes': Poste.objects.filter(is_active=True),
         'stats': stats,
@@ -81,26 +70,17 @@ def statistiques_taux_deperdition(request):
 
 def calculer_stats_par_periode(periode, annee, filters):
     """Calcule les statistiques selon la période demandée"""
-    from django.db.models import Avg, Count, Sum
-    from calendar import monthrange
-    
-    # Exclure les recettes sans inventaire associé
     filters &= Q(inventaire_associe__isnull=False)
-    
-    # Exclure les taux > -5% (impertinents)
     filters &= Q(taux_deperdition__lte=-5)
     
     jours_impertinents = ConfigurationJour.objects.filter(
         statut='impertinent'
     ).values_list('date', flat=True)
-    
-    # Ajouter au filtre principal
     filters &= ~Q(date__in=jours_impertinents)
     
     stats = []
     
     if periode == 'hebdomadaire':
-        # Stats par semaine
         date_debut = date(annee, 1, 1)
         date_fin = date(annee, 12, 31)
         current = date_debut
@@ -121,7 +101,7 @@ def calculer_stats_par_periode(periode, annee, filters):
             
             if week_stats['nombre_jours'] > 0:
                 stats.append({
-                    'periode': f'Semaine {semaine_num}',
+                    'periode': f'Semaine {semaine_num} ({current.strftime("%d/%m")} - {fin_semaine.strftime("%d/%m")})',
                     'date_debut': current,
                     'date_fin': fin_semaine,
                     'taux_moyen': float(week_stats['taux_moyen'] or 0),
@@ -134,7 +114,12 @@ def calculer_stats_par_periode(periode, annee, filters):
             semaine_num += 1
     
     elif periode == 'mensuel':
-        # Stats par mois
+        mois_noms = {
+            1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
+            5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
+            9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
+        }
+        
         for mois in range(1, 13):
             month_stats = RecetteJournaliere.objects.filter(
                 filters,
@@ -147,7 +132,7 @@ def calculer_stats_par_periode(periode, annee, filters):
             
             if month_stats['nombre_jours'] > 0:
                 stats.append({
-                    'periode': get_month_name(mois),
+                    'periode': f'{mois_noms[mois]} {annee}',
                     'mois': mois,
                     'taux_moyen': float(month_stats['taux_moyen'] or 0),
                     'nombre_jours': month_stats['nombre_jours'],
@@ -156,12 +141,11 @@ def calculer_stats_par_periode(periode, annee, filters):
                 })
     
     elif periode == 'trimestriel':
-        # Stats par trimestre
         trimestres = [
-            (1, 'Q1', [1, 2, 3]),
-            (2, 'Q2', [4, 5, 6]),
-            (3, 'Q3', [7, 8, 9]),
-            (4, 'Q4', [10, 11, 12])
+            (1, 'T1 (Janvier-Mars)', [1, 2, 3]),
+            (2, 'T2 (Avril-Juin)', [4, 5, 6]),
+            (3, 'T3 (Juillet-Septembre)', [7, 8, 9]),
+            (4, 'T4 (Octobre-Décembre)', [10, 11, 12])
         ]
         
         for num, nom, mois_list in trimestres:
@@ -176,7 +160,7 @@ def calculer_stats_par_periode(periode, annee, filters):
             
             if trim_stats['nombre_jours'] > 0:
                 stats.append({
-                    'periode': nom,
+                    'periode': f'{nom} {annee}',
                     'trimestre': num,
                     'taux_moyen': float(trim_stats['taux_moyen'] or 0),
                     'nombre_jours': trim_stats['nombre_jours'],
@@ -185,10 +169,9 @@ def calculer_stats_par_periode(periode, annee, filters):
                 })
     
     elif periode == 'semestriel':
-        # Stats par semestre
         semestres = [
-            (1, 'S1', [1, 2, 3, 4, 5, 6]),
-            (2, 'S2', [7, 8, 9, 10, 11, 12])
+            (1, 'S1 (Janvier-Juin)', [1, 2, 3, 4, 5, 6]),
+            (2, 'S2 (Juillet-Décembre)', [7, 8, 9, 10, 11, 12])
         ]
         
         for num, nom, mois_list in semestres:
@@ -203,7 +186,7 @@ def calculer_stats_par_periode(periode, annee, filters):
             
             if sem_stats['nombre_jours'] > 0:
                 stats.append({
-                    'periode': nom,
+                    'periode': f'{nom} {annee}',
                     'semestre': num,
                     'taux_moyen': float(sem_stats['taux_moyen'] or 0),
                     'nombre_jours': sem_stats['nombre_jours'],
@@ -212,7 +195,6 @@ def calculer_stats_par_periode(periode, annee, filters):
                 })
     
     elif periode == 'annuel':
-        # Stats annuelles (comparaison sur plusieurs années)
         for year in range(annee - 2, annee + 1):
             year_stats = RecetteJournaliere.objects.filter(
                 filters,
@@ -225,7 +207,7 @@ def calculer_stats_par_periode(periode, annee, filters):
             
             if year_stats['nombre_jours'] > 0:
                 stats.append({
-                    'periode': str(year),
+                    'periode': f'Année {year}',
                     'annee': year,
                     'taux_moyen': float(year_stats['taux_moyen'] or 0),
                     'nombre_jours': year_stats['nombre_jours'],
@@ -241,11 +223,11 @@ def get_couleur_taux(taux):
         return 'secondary'
     taux = float(taux)
     if taux > -5:
-        return 'secondary'  # Impertinent
+        return 'secondary'
     elif -5 >= taux >= -29.99:
-        return 'success'    # Bon
+        return 'success'
     else:
-        return 'danger'     # Mauvais
+        return 'danger'
 
 def get_month_name(month):
     """Retourne le nom du mois en français"""
@@ -264,15 +246,14 @@ def preparer_donnees_graphique(stats, periode):
     labels = [s['periode'] for s in stats]
     data = [s['taux_moyen'] for s in stats]
     
-    # Couleurs pour le graphique
     colors = []
     for taux in data:
         if taux > -5:
-            colors.append('rgba(108, 117, 125, 0.8)')  # Gris
+            colors.append('rgba(108, 117, 125, 0.8)')
         elif -5 >= taux >= -29.99:
-            colors.append('rgba(40, 167, 69, 0.8)')     # Vert
+            colors.append('rgba(40, 167, 69, 0.8)')
         else:
-            colors.append('rgba(220, 53, 69, 0.8)')     # Rouge
+            colors.append('rgba(220, 53, 69, 0.8)')
     
     return {
         'labels': labels,
@@ -283,29 +264,23 @@ def preparer_donnees_graphique(stats, periode):
 
 @login_required
 def statistiques_recettes(request):
-    """Vue pour les statistiques détaillées des recettes"""
+    """Vue améliorée pour les statistiques détaillées des recettes avec identification des périodes"""
     
-    # Paramètres de filtrage
     periode = request.GET.get('periode', 'mensuel')
     annee = int(request.GET.get('annee', date.today().year))
     poste_id = request.GET.get('poste', 'tous')
-    type_stat = request.GET.get('type_stat', 'montants')  # montants ou comparaison
+    type_stat = request.GET.get('type_stat', 'montants')
     
-    # Vérification permissions pour chefs de poste
     if request.user.is_chef_poste and not request.user.is_admin:
-        if date.today().weekday() != 6:  # Pas dimanche
-            type_stat = 'montants'  # Peuvent voir montants mais pas taux
+        if date.today().weekday() != 6:
+            type_stat = 'montants'
     
-    # Préparer les filtres de base
     filters = Q(date__year=annee)
-    
     if poste_id != 'tous':
         filters &= Q(poste_id=poste_id)
     
-    # Calculer les statistiques
     stats = calculer_stats_recettes(periode, annee, filters, type_stat)
     
-    # Comparaison année précédente
     stats_comparaison = None
     if type_stat == 'comparaison':
         filters_precedent = Q(date__year=annee-1)
@@ -313,7 +288,6 @@ def statistiques_recettes(request):
             filters_precedent &= Q(poste_id=poste_id)
         stats_comparaison = calculer_stats_recettes(periode, annee-1, filters_precedent, 'montants')
     
-    # Top postes
     top_postes = RecetteJournaliere.objects.filter(
         date__year=annee
     ).values('poste__nom', 'poste__code').annotate(
@@ -323,7 +297,7 @@ def statistiques_recettes(request):
     context = {
         'periode': periode,
         'annee': annee,
-        'annees_disponibles': range(2020, date.today().year + 1),
+        'annees_disponibles': range(2020, date.today().year + 2),
         'poste_selectionne': poste_id,
         'postes': Poste.objects.filter(is_active=True).order_by('nom'),
         'type_stat': type_stat,
@@ -337,22 +311,30 @@ def statistiques_recettes(request):
     return render(request, 'inventaire/statistiques_recettes.html', context)
 
 def calculer_stats_recettes(periode, annee, filters, type_stat):
-    """Calcule les statistiques de recettes par période"""
+    """Calcule les statistiques de recettes par période avec identification claire"""
     stats = []
     
+    mois_noms = {
+        1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
+        5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
+        9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
+    }
+    
     if periode == 'hebdomadaire':
-        # 52 semaines dans l'année
-        for semaine in range(1, 53):
-            date_debut = date(annee, 1, 1) + timedelta(weeks=semaine-1)
-            date_fin = date_debut + timedelta(days=6)
-            
-            if date_debut.year != annee:
-                continue
+        date_debut = date(annee, 1, 1)
+        date_fin = date(annee, 12, 31)
+        current = date_debut
+        semaine_num = 1
+        
+        while current <= date_fin:
+            fin_semaine = current + timedelta(days=6)
+            if fin_semaine > date_fin:
+                fin_semaine = date_fin
                 
             week_data = RecetteJournaliere.objects.filter(
                 filters,
-                date__gte=date_debut,
-                date__lte=date_fin
+                date__gte=current,
+                date__lte=fin_semaine
             ).aggregate(
                 montant_total=Sum('montant_declare'),
                 montant_potentiel=Sum('recette_potentielle'),
@@ -361,27 +343,24 @@ def calculer_stats_recettes(periode, annee, filters, type_stat):
             )
             
             if week_data['nombre_jours'] > 0:
-                ecart = 0
-                if week_data['montant_potentiel']:
-                    ecart = ((week_data['montant_total'] - week_data['montant_potentiel']) 
-                            / week_data['montant_potentiel'] * 100)
+                moyenne_jour = float(week_data['montant_total'] or 0) / week_data['nombre_jours']
                 
                 stats.append({
-                    'periode': f'S{semaine}',
-                    'semaine': semaine,
-                    'date_debut': date_debut,
-                    'date_fin': date_fin,
+                    'periode': f'Semaine {semaine_num} ({current.strftime("%d/%m")} - {fin_semaine.strftime("%d/%m")})',
+                    'semaine': semaine_num,
+                    'date_debut': current,
+                    'date_fin': fin_semaine,
                     'montant_total': float(week_data['montant_total'] or 0),
                     'montant_potentiel': float(week_data['montant_potentiel'] or 0),
-                    'ecart': ecart,
                     'taux_moyen': float(week_data['taux_moyen'] or 0),
-                    'nombre_jours': week_data['nombre_jours']
+                    'nombre_jours': week_data['nombre_jours'],
+                    'moyenne_journaliere': moyenne_jour
                 })
+            
+            current = fin_semaine + timedelta(days=1)
+            semaine_num += 1
     
     elif periode == 'mensuel':
-        mois_noms = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-                     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
-        
         for mois in range(1, 13):
             month_data = RecetteJournaliere.objects.filter(
                 filters,
@@ -394,31 +373,30 @@ def calculer_stats_recettes(periode, annee, filters, type_stat):
             )
             
             if month_data['nombre_jours'] > 0:
-                ecart = 0
-                if month_data['montant_potentiel']:
-                    ecart = ((month_data['montant_total'] - month_data['montant_potentiel']) 
-                            / month_data['montant_potentiel'] * 100)
+                moyenne_jour = float(month_data['montant_total'] or 0) / month_data['nombre_jours']
                 
                 stats.append({
-                    'periode': mois_noms[mois-1],
+                    'periode': f'{mois_noms[mois]} {annee}',
                     'mois': mois,
+                    'mois_num': mois,
                     'montant_total': float(month_data['montant_total'] or 0),
                     'montant_potentiel': float(month_data['montant_potentiel'] or 0),
-                    'ecart': ecart,
                     'taux_moyen': float(month_data['taux_moyen'] or 0),
                     'nombre_jours': month_data['nombre_jours'],
-                    'moyenne_journaliere': float(month_data['montant_total'] or 0) / month_data['nombre_jours']
+                    'moyenne_journaliere': moyenne_jour,
+                    'date_debut': date(annee, mois, 1),
+                    'date_fin': date(annee, mois, calendar.monthrange(annee, mois)[1])
                 })
     
     elif periode == 'trimestriel':
         trimestres = [
-            ('Q1', [1, 2, 3]),
-            ('Q2', [4, 5, 6]),
-            ('Q3', [7, 8, 9]),
-            ('Q4', [10, 11, 12])
+            ('T1', 'Janvier-Mars', [1, 2, 3]),
+            ('T2', 'Avril-Juin', [4, 5, 6]),
+            ('T3', 'Juillet-Septembre', [7, 8, 9]),
+            ('T4', 'Octobre-Décembre', [10, 11, 12])
         ]
         
-        for nom, mois_list in trimestres:
+        for code, nom_periode, mois_list in trimestres:
             trim_data = RecetteJournaliere.objects.filter(
                 filters,
                 date__month__in=mois_list
@@ -430,49 +408,49 @@ def calculer_stats_recettes(periode, annee, filters, type_stat):
             )
             
             if trim_data['nombre_jours'] > 0:
-                ecart = 0
-                if trim_data['montant_potentiel']:
-                    ecart = ((trim_data['montant_total'] - trim_data['montant_potentiel']) 
-                            / trim_data['montant_potentiel'] * 100)
+                moyenne_jour = float(trim_data['montant_total'] or 0) / trim_data['nombre_jours']
                 
                 stats.append({
-                    'periode': nom,
+                    'periode': f'{code} {annee}',
+                    'trimestre': f'{nom_periode} {annee}',
                     'montant_total': float(trim_data['montant_total'] or 0),
+                    'montant_potentiel': float(trim_data['montant_potentiel'] or 0),
                     'taux_moyen': float(trim_data['taux_moyen'] or 0),
-                    'nombre_jours': trim_data['nombre_jours']
+                    'nombre_jours': trim_data['nombre_jours'],
+                    'moyenne_journaliere': moyenne_jour
                 })
     
     elif periode == 'semestriel':
         semestres = [
-            ('Semestre 1', [1, 2, 3, 4, 5, 6]),
-            ('Semestre 2', [7, 8, 9, 10, 11, 12])
+            ('S1', 'Janvier-Juin', [1, 2, 3, 4, 5, 6]),
+            ('S2', 'Juillet-Décembre', [7, 8, 9, 10, 11, 12])
         ]
         
-        for nom, mois_list in semestres:
+        for code, nom_periode, mois_list in semestres:
             sem_data = RecetteJournaliere.objects.filter(
                 filters,
                 date__month__in=mois_list
             ).aggregate(
                 montant_total=Sum('montant_declare'),
+                montant_potentiel=Sum('recette_potentielle'),
                 nombre_jours=Count('id'),
                 taux_moyen=Avg('taux_deperdition')
             )
             
             if sem_data['nombre_jours'] > 0:
-                ecart = 0
-                if sem_data['montant_potentiel']:
-                    ecart = ((sem_data['montant_total'] - sem_data['montant_potentiel']) 
-                            / sem_data['montant_potentiel'] * 100)
+                moyenne_jour = float(sem_data['montant_total'] or 0) / sem_data['nombre_jours']
                 
                 stats.append({
-                    'periode': nom,
+                    'periode': f'{code} {annee}',
+                    'semestre': f'{nom_periode} {annee}',
                     'montant_total': float(sem_data['montant_total'] or 0),
+                    'montant_potentiel': float(sem_data['montant_potentiel'] or 0),
                     'taux_moyen': float(sem_data['taux_moyen'] or 0),
-                    'nombre_jours': sem_data['nombre_jours']
+                    'nombre_jours': sem_data['nombre_jours'],
+                    'moyenne_journaliere': moyenne_jour
                 })
     
     elif periode == 'annuel':
-        # Comparaison sur 3 ans
         for year in range(annee - 2, annee + 1):
             year_data = RecetteJournaliere.objects.filter(
                 date__year=year
@@ -484,39 +462,17 @@ def calculer_stats_recettes(periode, annee, filters, type_stat):
             )
             
             if year_data['nombre_jours'] > 0:
-                ecart = 0
-                if year_data['montant_potentiel']:
-                    ecart = ((year_data['montant_total'] - year_data['montant_potentiel']) 
-                            / year_data['montant_potentiel'] * 100)
+                moyenne_jour = float(year_data['montant_total'] or 0) / year_data['nombre_jours']
                 
                 stats.append({
-                    'periode': str(year),
+                    'periode': f'Année {year}',
                     'annee': year,
                     'montant_total': float(year_data['montant_total'] or 0),
+                    'montant_potentiel': float(year_data['montant_potentiel'] or 0),
                     'taux_moyen': float(year_data['taux_moyen'] or 0),
-                    'nombre_jours': year_data['nombre_jours']
+                    'nombre_jours': year_data['nombre_jours'],
+                    'moyenne_journaliere': moyenne_jour
                 })
-    for stat in stats:
-        # Calculer l'évolution pour chaque période
-        if 'date_debut' in stat:
-            evolution = calculer_evolution_recettes(
-                periode='cumul_annuel' if periode == 'annuel' else periode,
-                date_reference=stat.get('date_fin', stat.get('date_debut')),
-                poste_id=filters.get('poste_id')
-            )
-            
-            stat['evolution_n1'] = evolution['evolution_n1']
-            stat['evolution_n2'] = evolution['evolution_n2']
-            stat['montant_n1'] = evolution['annee_n1']
-            stat['montant_n2'] = evolution['annee_n2']
-    
-    for stat in stats:
-        # Valeurs par défaut si manquantes
-        if 'montant_total' not in stat:
-            stat['montant_total'] = 0
-        if 'moyenne_journaliere' not in stat:
-            stat['moyenne_journaliere'] = stat['montant_total'] / stat.get('nombre_jours', 1) if stat.get('nombre_jours', 0) > 0 else 0
-
     
     return stats
 
@@ -535,17 +491,6 @@ def preparer_donnees_recettes_graph(stats, stats_comparaison=None):
         'borderWidth': 2
     }]
     
-    # Ajouter montants potentiels si disponibles
-    # if any(s.get('montant_potentiel') for s in stats):
-    #     datasets.append({
-    #         'label': 'Montants potentiels',
-    #         'data': [s['montant_potentiel'] for s in stats],
-    #         'backgroundColor': 'rgba(255, 159, 64, 0.5)',
-    #         'borderColor': 'rgba(255, 159, 64, 1)',
-    #         'borderWidth': 2
-    #     })
-    
-    # Ajouter comparaison année précédente si disponible
     if stats_comparaison:
         datasets.append({
             'label': 'Année précédente',
@@ -561,14 +506,8 @@ def preparer_donnees_recettes_graph(stats, stats_comparaison=None):
         'datasets': datasets
     }
 
-# Dans inventaire/views.py - Nouvelle fonction pour calculer l'évolution
 def calculer_evolution_recettes(periode, date_reference, poste_id=None):
-    """
-    Calcule l'évolution des recettes par rapport aux années précédentes
-    """
-    from django.db.models import Sum
-    from datetime import timedelta
-    
+    """Calcule l'évolution des recettes par rapport aux années précédentes"""
     evolution = {
         'annee_n': 0,
         'annee_n1': 0,
@@ -577,38 +516,40 @@ def calculer_evolution_recettes(periode, date_reference, poste_id=None):
         'evolution_n2': None
     }
     
-    # Filtres de base
     base_filter = Q()
     if poste_id and poste_id != 'tous':
         base_filter &= Q(poste_id=poste_id)
     
-    # Calcul selon la période
     if periode == 'jour':
-        dates = {
-            'n': date_reference,
-            'n1': date_reference.replace(year=date_reference.year - 1),
-            'n2': date_reference.replace(year=date_reference.year - 2)
-        }
-        
-        for key, date_calc in dates.items():
+        for year_offset in [0, 1, 2]:
+            try:
+                date_calc = date_reference.replace(year=date_reference.year - year_offset)
+            except ValueError:
+                continue
+                
             result = RecetteJournaliere.objects.filter(
                 base_filter,
                 date=date_calc
             ).aggregate(total=Sum('montant_declare'))
             
-            if key == 'n':
-                evolution['annee_n'] = float(result['total'] or 0)
-            elif key == 'n1':
-                evolution['annee_n1'] = float(result['total'] or 0)
-            elif key == 'n2':
-                evolution['annee_n2'] = float(result['total'] or 0)
+            total = float(result['total'] or 0)
+            
+            if year_offset == 0:
+                evolution['annee_n'] = total
+            elif year_offset == 1:
+                evolution['annee_n1'] = total
+            elif year_offset == 2:
+                evolution['annee_n2'] = total
     
     elif periode == 'cumul_annuel':
-        # Du 1er janvier à la date de référence
         for year_offset in [0, 1, 2]:
             year = date_reference.year - year_offset
             date_debut = date(year, 1, 1)
-            date_fin = date_reference.replace(year=year)
+            try:
+                date_fin = date_reference.replace(year=year)
+            except ValueError:
+                date_fin = date(year, date_reference.month, 
+                              calendar.monthrange(year, date_reference.month)[1])
             
             result = RecetteJournaliere.objects.filter(
                 base_filter,
@@ -626,7 +567,6 @@ def calculer_evolution_recettes(periode, date_reference, poste_id=None):
                 evolution['annee_n2'] = total
     
     elif periode == 'mois':
-        # Même mois des années précédentes
         for year_offset in [0, 1, 2]:
             year = date_reference.year - year_offset
             result = RecetteJournaliere.objects.filter(
@@ -644,7 +584,6 @@ def calculer_evolution_recettes(periode, date_reference, poste_id=None):
             elif year_offset == 2:
                 evolution['annee_n2'] = total
     
-    # Calcul des taux d'évolution
     if evolution['annee_n1'] > 0:
         evolution['evolution_n1'] = ((evolution['annee_n'] - evolution['annee_n1']) / evolution['annee_n1']) * 100
     
@@ -652,4 +591,3 @@ def calculer_evolution_recettes(periode, date_reference, poste_id=None):
         evolution['evolution_n2'] = ((evolution['annee_n'] - evolution['annee_n2']) / evolution['annee_n2']) * 100
     
     return evolution
-
