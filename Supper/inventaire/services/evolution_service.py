@@ -195,39 +195,68 @@ class EvolutionService:
     
     @staticmethod
     def identifier_postes_en_baisse(type_analyse='annuel', seuil_baisse=-5):
-        """Identifie tous les postes en baisse selon le critère"""
+        """Version corrigée pour calculer le risque de baisse cumulé de janvier au mois actuel-1"""
+        from datetime import date
+        from django.db.models import Sum
+        
         postes_en_baisse = []
-        aujourd_hui = date.today()
+        postes = Poste.objects.filter(is_active=True)
         
-        for poste in Poste.objects.filter(is_active=True):
-            if type_analyse == 'mensuel':
-                # Analyse mensuelle
-                resultat = EvolutionService.calculer_risque_baisse_mensuel(
-                    poste, aujourd_hui.month, aujourd_hui.year
-                )
-                if resultat['taux'] is not None and resultat['taux'] < seuil_baisse:
-                    postes_en_baisse.append({
-                        'poste': poste,
-                        'taux_evolution': resultat['taux'],
-                        'type': 'mensuel',
-                        'total_estime': resultat['total_estime'],
-                        'total_n1': resultat['total_n1']
-                    })
+        # Déterminer la période d'analyse
+        today = date.today()
+        mois_actuel = today.month
+        annee = today.year
+        
+        # Calculer du 1er janvier au dernier jour du mois précédent
+        date_debut = date(annee, 1, 1)
+        
+        # Si on est en janvier, on ne peut pas calculer
+        if mois_actuel == 1:
+            return postes_en_baisse
+        
+        # Sinon, on calcule jusqu'au dernier jour du mois précédent
+        import calendar
+        mois_precedent = mois_actuel - 1
+        dernier_jour = calendar.monthrange(annee, mois_precedent)[1]
+        date_fin = date(annee, mois_precedent, dernier_jour)
+        
+        # Même période l'année dernière
+        date_debut_n1 = date(annee - 1, 1, 1)
+        date_fin_n1 = date(annee - 1, mois_precedent, dernier_jour)
+        
+        for poste in postes:
+            # Recettes cumulées année N (janvier à mois-1)
+            recettes_n = RecetteJournaliere.objects.filter(
+                poste=poste,
+                date__range=[date_debut, date_fin]
+            ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+            
+            # Recettes cumulées année N-1 (janvier à mois-1)
+            recettes_n1 = RecetteJournaliere.objects.filter(
+                poste=poste,
+                date__range=[date_debut_n1, date_fin_n1]
+            ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+            
+            if recettes_n1 > 0:
+                taux_evolution = ((recettes_n - recettes_n1) / recettes_n1) * 100
+                
+                if taux_evolution < seuil_baisse:
+                    # Estimer les recettes annuelles en extrapolant
+                    nb_mois_ecoules = mois_precedent
+                    recettes_estimees = (recettes_n / nb_mois_ecoules) * 12 if nb_mois_ecoules > 0 else recettes_n
                     
-            elif type_analyse == 'annuel':
-                # Analyse annuelle cumulée
-                resultat = EvolutionService.calculer_risque_baisse_annuel(poste)
-                if resultat['taux'] is not None and resultat['taux'] < seuil_baisse:
                     postes_en_baisse.append({
                         'poste': poste,
-                        'taux_evolution': resultat['taux'],
-                        'type': 'annuel',
-                        'total_estime': resultat['total_estime'],
-                        'total_n1': resultat['total_n1']
+                        'taux_evolution': float(taux_evolution),
+                        'recettes_actuelles': float(recettes_n),
+                        'recettes_precedentes': float(recettes_n1),
+                        'pourcentage_baisse': abs(float(taux_evolution)),
+                        'recettes_estimees': float(recettes_estimees),
+                        'recettes_n1': float(recettes_n1),
+                        'periode_analyse': f"Janvier à {calendar.month_name[mois_precedent]} {annee}"
                     })
         
-        return postes_en_baisse
-    
+        return sorted(postes_en_baisse, key=lambda x: x['taux_evolution'])
     @classmethod
     def estimer_recettes_periode(cls, poste, type_periode, annee=None):
         """Estime les recettes pour une période donnée"""

@@ -1,0 +1,202 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}Simulateur de Commandes - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .simulator-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 2rem;
+    }
+    .result-item {
+        padding: 1rem;
+        border-left: 4px solid #6B46C1;
+        background: #f8f9fa;
+        margin-bottom: 0.5rem;
+    }
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        text-align: center;
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-calculator" style="color: #6B46C1;"></i>
+        Simulateur de Commandes de Tickets
+    </h2>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="simulator-card">
+                <h5>Sélection du Poste</h5>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Choisir un poste :</label>
+                        <select name="poste_id" class="form-select" required>
+                            <option value="">-- Sélectionner --</option>
+                            {% for poste in postes %}
+                            <option value="{{ poste.id }}">
+                                {{ poste.nom }} ({{ poste.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-chart-line me-2"></i>Calculer
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        {% if resultats %}
+        <div class="col-md-8">
+            <div class="simulator-card">
+                <h5 class="mb-4">Résultats pour {{ resultats.poste.nom }}</h5>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="metric-card">
+                            <div>Montant à Commander</div>
+                            <div class="metric-value">
+                                {{ resultats.montant_a_commander|floatformat:0|format_milliers }} FCFA
+                            </div>
+                            <div>{{ resultats.nombre_tickets|format_milliers }} tickets</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <div>Jours Restants</div>
+                            <div class="metric-value">{{ resultats.jours_restants }}</div>
+                            <div>jusqu'au {{ resultats.date_cible|date:"d/m/Y" }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="details">
+                    <div class="result-item">
+                        <strong>Vente Moyenne Journalière :</strong>
+                        <span class="float-end">{{ resultats.vente_moyenne_jour|floatformat:0|format_milliers }} FCFA</span>
+                    </div>
+                    <div class="result-item">
+                        <strong>Recettes Cumulées ({{ today.year }}) :</strong>
+                        <span class="float-end">{{ resultats.recettes_annee|floatformat:0|format_milliers }} FCFA</span>
+                    </div>
+                    <div class="result-item">
+                        <strong>Stock Actuel :</strong>
+                        <span class="float-end">{{ resultats.stock_actuel|floatformat:0|format_milliers }} FCFA</span>
+                    </div>
+                    <div class="result-item">
+                        <strong>Ventes Estimées (jusqu'au 24/12) :</strong>
+                        <span class="float-end">{{ resultats.ventes_estimees_restantes|floatformat:0|format_milliers }} FCFA</span>
+                    </div>
+                    <div class="result-item">
+                        <strong>Total Estimé Année :</strong>
+                        <span class="float-end">{{ resultats.total_estime_annee|floatformat:0 | format_milliers }} FCFA</span>
+                    </div>
+                    <div class="result-item" style="border-color: #10b981; background: #d1fae5;">
+                        <strong>Stock Final Estimé (31/12) :</strong>
+                        <span class="float-end">{{ resultats.stock_final_estime|floatformat:0 |format_milliers }} FCFA</span>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle"></i>
+                    La commande est calculée pour couvrir les besoins jusqu'au 24 décembre 
+                    (1 semaine avant la fin d'année pour marge de sécurité).
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if resultats.qualite_prevision %}
+<div class="col-md-12 mt-4">
+    <div class="simulator-card">
+        <h5 class="mb-3">Qualité des Prévisions</h5>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="result-item">
+                    <strong>AIC (Critère d'Information):</strong>
+                    <span class="float-end">{{ resultats.qualite_prevision.aic|floatformat:2 }}</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="result-item">
+                    <strong>Erreur Quadratique Moyenne:</strong>
+                    <span class="float-end">{{ resultats.qualite_prevision.mse|floatformat:2 }}</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="result-item">
+                    <strong>Fiabilité du Modèle:</strong>
+                    <span class="float-end">
+                        {% if resultats.qualite_prevision.mse < 1000000 %}
+                            <span class="badge bg-success">Élevée</span>
+                        {% elif resultats.qualite_prevision.mse < 5000000 %}
+                            <span class="badge bg-warning">Moyenne</span>
+                        {% else %}
+                            <span class="badge bg-danger">Faible</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="simulator-card">
+        <h5 class="mb-3">Scénarios de Commande</h5>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Scénario</th>
+                    <th>Montant à Commander</th>
+                    <th>Nombre de Tickets</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="table-success">
+                    <td><strong>Optimiste</strong></td>
+                    <td>{{ resultats.scenarios.optimiste.montant|floatformat:0|format_milliers }} FCFA</td>
+                    <td>{{ resultats.scenarios.optimiste.tickets|format_milliers }}</td>
+                    <td>Commande minimale (borne inférieure)</td>
+                </tr>
+                <tr class="table-info">
+                    <td><strong>Moyen (Recommandé)</strong></td>
+                    <td>{{ resultats.scenarios.moyen.montant|floatformat:0|format_milliers }} FCFA</td>
+                    <td>{{ resultats.scenarios.moyen.tickets|format_milliers }}</td>
+                    <td>Prévision la plus probable</td>
+                </tr>
+                <tr class="table-warning">
+                    <td><strong>Conservateur</strong></td>
+                    <td>{{ resultats.scenarios.conservateur.montant|floatformat:0|format_milliers }} FCFA</td>
+                    <td>{{ resultats.scenarios.conservateur.tickets|format_milliers }}</td>
+                    <td>Commande sécurisée (borne supérieure)</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-lightbulb"></i>
+            <strong>Recommandation :</strong> Le scénario moyen est calculé avec un modèle statistique avancé 
+            tenant compte des tendances et de la saisonnalité. Pour plus de sécurité, envisagez le scénario conservateur.
+        </div>
+    </div>
+</div>
+{% endif %}
+    </div>
+</div>
+{% endblock %}

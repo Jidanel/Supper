@@ -1,0 +1,125 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Résultats Import - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .result-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    .stat-box {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="fas fa-check-circle text-success me-2"></i>
+        Résultats de l'Import
+    </h2>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stat-box" style="background: #d1fae5; color: #065f46;">
+                <div class="stat-number">{{ resultats.nb_crees }}</div>
+                <div>Recettes créées</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box" style="background: #dbeafe; color: #1e40af;">
+                <div class="stat-number">{{ resultats.nb_modifiees }}</div>
+                <div>Recettes modifiées</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box" style="background: #fef3c7; color: #92400e;">
+                <div class="stat-number">{{ resultats.nb_sautes }}</div>
+                <div>Recettes sautées</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box" style="background: #fee2e2; color: #991b1b;">
+                <div class="stat-number">{{ resultats.nb_erreurs }}</div>
+                <div>Erreurs</div>
+            </div>
+        </div>
+    </div>
+    
+    {% if resultats.postes_non_trouves %}
+    <div class="result-card">
+        <h5 class="text-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Postes non trouvés ({{ resultats.postes_non_trouves|length }})
+        </h5>
+        <p class="text-muted">Ces postes n'ont pas été reconnus dans la base de données :</p>
+        <ul>
+            {% for poste in resultats.postes_non_trouves %}
+            <li>{{ poste }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% if resultats.dates_invalides %}
+        <div class="result-card">
+            <h5 class="text-warning">
+                <i class="fas fa-calendar-times me-2"></i>
+                Dates invalides ({{ resultats.dates_invalides|length }})
+            </h5>
+            <p class="text-muted">Ces en-têtes de colonnes n'ont pas été reconnus comme des dates :</p>
+            <ul>
+                {% for date in resultats.dates_invalides %}
+                <li>{{ date }}</li>
+                {% endfor %}
+            </ul>
+            <p class="text-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Format attendu : JJ/MM/AA (ex: 01/04/25)
+            </p>
+        </div>
+        {% endif %}
+    
+    {% if resultats.erreurs_detail %}
+    <div class="result-card">
+        <h5 class="text-danger">
+            <i class="fas fa-times-circle me-2"></i>
+            Détails des erreurs
+        </h5>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <tbody>
+                    {% for erreur in resultats.erreurs_detail %}
+                    <tr>
+                        <td><i class="fas fa-exclamation-circle text-danger me-2"></i>{{ erreur }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="text-center mt-4">
+        <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-primary">
+            <i class="fas fa-list me-2"></i>Voir les recettes importées
+        </a>
+        <a href="{% url 'inventaire:import_recettes' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-redo me-2"></i>Nouvel import
+        </a>
+    </div>
+</div>
+{% endblock %}

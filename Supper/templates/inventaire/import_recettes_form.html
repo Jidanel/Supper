@@ -1,0 +1,226 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Import Recettes Excel - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .import-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .file-drop-zone {
+        border: 2px dashed #6B46C1;
+        border-radius: 8px;
+        padding: 3rem;
+        text-align: center;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .file-drop-zone:hover {
+        background: #e9ecef;
+        border-color: #553C9A;
+    }
+    .file-drop-zone.dragover {
+        background: #e9ecef;
+        border-color: #553C9A;
+        transform: scale(1.02);
+    }
+    .format-example {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="fas fa-file-excel me-2" style="color: #6B46C1;"></i>
+        Import de Recettes depuis Excel (Format Matriciel)
+    </h2>
+    
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="import-card">
+                <form method="post" enctype="multipart/form-data" id="importForm">
+                    {% csrf_token %}
+                    
+                    <!-- Upload fichier -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Chargez votre fichier Excel</h5>
+                        <div class="file-drop-zone" id="dropZone">
+                            <i class="fas fa-cloud-upload-alt fs-1 text-primary mb-3"></i>
+                            <p class="mb-2">Glissez-déposez votre fichier Excel ici</p>
+                            <p class="text-muted mb-3">ou</p>
+                            <label for="fichier_excel" class="btn btn-primary">
+                                <i class="fas fa-folder-open me-2"></i>Parcourir
+                            </label>
+                            <input type="file" 
+                                   name="fichier_excel" 
+                                   id="fichier_excel" 
+                                   accept=".xlsx,.xls"
+                                   class="d-none"
+                                   required>
+                            <p class="text-muted mt-3 mb-0">
+                                <small>Formats acceptés : .xlsx, .xls</small>
+                            </p>
+                        </div>
+                        <div id="fileInfo" class="mt-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-file-excel me-2"></i>
+                                <span id="fileName"></span>
+                                <button type="button" class="btn-close float-end" id="removeFile"></button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <a href="{% url 'inventaire:telecharger_modele_excel' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-download me-2"></i>Télécharger le modèle Excel
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Options -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Options d'import</h5>
+                        <div class="form-check">
+                            <input class="form-check-input" 
+                                   type="radio" 
+                                   name="action_doublon" 
+                                   id="sauter" 
+                                   value="sauter" 
+                                   checked>
+                            <label class="form-check-label" for="sauter">
+                                <strong>Sauter les doublons</strong>
+                                <small class="d-block text-muted">
+                                    Ignorer les recettes déjà existantes pour ces dates
+                                </small>
+                            </label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" 
+                                   type="radio" 
+                                   name="action_doublon" 
+                                   id="ecraser" 
+                                   value="ecraser">
+                            <label class="form-check-label" for="ecraser">
+                                <strong>Écraser les doublons</strong>
+                                <small class="d-block text-muted text-warning">
+                                    ⚠️ Remplacer les recettes existantes par les nouvelles valeurs
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Bouton -->
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                            <i class="fas fa-upload me-2"></i>Lancer l'import
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Format attendu -->
+            <div class="alert alert-info mt-4">
+                <h6 class="alert-heading">
+                    <i class="fas fa-info-circle me-2"></i>Format attendu du fichier Excel
+                </h6>
+                <div class="format-example">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>POSTE DE PEAGE</th>
+                                <th>01/04/25</th>
+                                <th>02/04/25</th>
+                                <th>03/04/25</th>
+                                <th>...</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>BEKAZIKI</td>
+                                <td>20000</td>
+                                <td>24000</td>
+                                <td>22500</td>
+                                <td>...</td>
+                            </tr>
+                            <tr>
+                                <td>BIMBA LOKOTI</td>
+                                <td>27000</td>
+                                <td>28600</td>
+                                <td>27800</td>
+                                <td>...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ul class="mt-3 mb-0">
+                    <li>Ligne 1, Colonne A : "POSTE DE PEAGE"</li>
+                    <li>Ligne 1, à partir de Colonne B : dates au format JJ/MM/AA (ex: 01/04/25)</li>
+                    <li>À partir de ligne 2, Colonne A : noms exacts des postes</li>
+                    <li>Données : montants des recettes (nombres positifs)</li>
+                    <li>Les cellules vides sont ignorées</li>
+                    <li><strong>Important</strong> : L'import ne modifie PAS le stock de tickets</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fichier_excel');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const submitBtn = document.getElementById('submitBtn');
+const removeFile = document.getElementById('removeFile');
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        showFileInfo(e.dataTransfer.files[0]);
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        showFileInfo(e.target.files[0]);
+    }
+});
+
+removeFile.addEventListener('click', () => {
+    fileInput.value = '';
+    fileInfo.style.display = 'none';
+    submitBtn.disabled = true;
+});
+
+function showFileInfo(file) {
+    fileName.textContent = file.name;
+    fileInfo.style.display = 'block';
+    submitBtn.disabled = false;
+}
+
+document.getElementById('importForm').addEventListener('submit', function() {
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Import en cours...';
+    submitBtn.disabled = true;
+});
+</script>
+{% endblock %}

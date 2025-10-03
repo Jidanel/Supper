@@ -7,6 +7,7 @@ from .views_evolution import *
 from . import views_evolution
 from . import views_admin
 from . import views_stocks
+from . import views_import
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -123,4 +124,9 @@ urlpatterns = [
     path('objectifs-annuels/dupliquer/', 
          views.dupliquer_objectifs_annee, 
          name='dupliquer_objectifs'),
-]
+     path('simulateur-commandes/', views.simulateur_commandes, name='simulateur_commandes'),
+
+     # IMPORT/EXPORT
+     path('import/recettes/', views_import.import_recettes_excel, name='import_recettes'),
+     path('import/modele/', views_import.telecharger_modele_excel, name='telecharger_modele_excel'),
+     ]

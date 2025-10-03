@@ -1,3 +1,4 @@
+#inventaire/views_evolution.py
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Sum
@@ -7,13 +8,12 @@ from decimal import Decimal
 from .models import Poste, RecetteJournaliere
 from inventaire.services.evolution_service import EvolutionService
 from inventaire.models import ObjectifAnnuel
+from inventaire.services.forecasting_service import ForecastingService
 
-
-# inventaire/views.py - Remplacer taux_evolution_view
 @login_required
 @user_passes_test(lambda u: u.is_admin)
 def taux_evolution_view(request):
-    """Vue corrigée avec distinction entre évolution mensuelle et annuelle"""
+    """Vue améliorée avec prévisions statistiques"""
     
     type_analyse = request.GET.get('type_analyse', 'mensuel')
     poste_id = request.GET.get('poste', 'tous')
@@ -41,27 +41,31 @@ def taux_evolution_view(request):
             date__year=annee
         ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
         
-        # Calculs objectifs
-        reste_a_realiser = objectif_annee - realise_annee if objectif_annee else None
-        taux_realisation = (realise_annee / objectif_annee * 100) if objectif_annee and objectif_annee > 0 else 0
+        # Utiliser les nouvelles estimations
+        estimations_result = ForecastingService.calculer_estimations_periodes(poste)
         
-        # Estimations
-        estimations = {
-            'mensuelle': float(EvolutionService.estimer_recettes_periode(poste, 'mensuel', annee)),
-            'trimestrielle': float(EvolutionService.estimer_recettes_periode(poste, 'trimestriel', annee)),
-            'semestrielle': float(EvolutionService.estimer_recettes_periode(poste, 'semestriel', annee)),
-            'annuelle': float(EvolutionService.estimer_recettes_periode(poste, 'annuel', annee)),
-        }
+        if estimations_result:
+            estimations = estimations_result['estimations_simples']
+        else:
+            # Fallback sur anciennes estimations si pas assez de données
+            estimations = {
+                'mensuelle': 0,
+                'trimestrielle': 0,
+                'semestrielle': 0,
+                'annuelle': 0
+            }
         
-        # Évolutions selon le type d'analyse
+        # Évolutions
         if type_analyse == 'mensuel':
-            # Évolution mensuelle uniquement
             taux_n1 = EvolutionService.calculer_taux_evolution_mensuel(poste, mois, annee, annee - 1)
             taux_n2 = EvolutionService.calculer_taux_evolution_mensuel(poste, mois, annee, annee - 2)
         else:
-            # Évolution annuelle cumulée
             taux_n1 = EvolutionService.calculer_evolution_annuelle_cumulee(poste, mois, annee, annee - 1)
             taux_n2 = EvolutionService.calculer_evolution_annuelle_cumulee(poste, mois, annee, annee - 2)
+        
+        # Calculs objectifs
+        reste_a_realiser = objectif_annee - realise_annee if objectif_annee else None
+        taux_realisation = (realise_annee / objectif_annee * 100) if objectif_annee and objectif_annee > 0 else 0
         
         resultats.append({
             'poste': poste,

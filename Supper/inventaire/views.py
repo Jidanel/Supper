@@ -4164,3 +4164,47 @@ def dupliquer_objectifs_annee(request):
         messages.success(request, f"✓ {count} objectifs dupliqués de {annee_source} vers {annee_cible}")
     
     return redirect('inventaire:gestion_objectifs_annuels')
+
+
+from inventaire.services.forecasting_service import ForecastingService
+
+@login_required
+@user_passes_test(is_admin)
+def simulateur_commandes(request):
+    """Simulateur de commandes amélioré avec prévisions statistiques"""
+    
+    postes = Poste.objects.filter(is_active=True).order_by('nom')
+    resultats = None
+    erreur = None
+    
+    if request.method == 'POST':
+        poste_id = request.POST.get('poste_id')
+        
+        if poste_id:
+            poste = get_object_or_404(Poste, id=poste_id)
+            
+            # Utiliser le nouveau service de prévisions
+            resultats_prevision = ForecastingService.calculer_commande_tickets_optimale(poste)
+            
+            if resultats_prevision['success']:
+                resultats = resultats_prevision
+                
+                # Log l'action
+                log_user_action(
+                    request.user,
+                    "Simulation commande (prévisions avancées)",
+                    f"Poste: {poste.nom}, Scénario moyen: {resultats['scenarios']['moyen']['montant']:.0f} FCFA",
+                    request
+                )
+            else:
+                erreur = resultats_prevision.get('error', 'Erreur inconnue')
+                messages.error(request, erreur)
+    
+    context = {
+        'postes': postes,
+        'resultats': resultats,
+        'erreur': erreur,
+        'title': 'Simulateur de Commandes de Tickets (Prévisions Avancées)'
+    }
+    
+    return render(request, 'inventaire/simulateur_commandes.html', context)

@@ -355,6 +355,11 @@
                         {% trans "Statistiques Recettes" %}
                     </a>
                 </li>
+                 <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:import_recettes'%}">
+                            <i class="fas fa-check me-2"></i>{% trans "Importer les Recettes" %}
+                        </a>
+                    </li>
                 <li>
                     <a href="{% url 'inventaire:taux_evolution_avance' %}" class="dropdown-item">
                         <i class="fas fa-chart-bar me-2"></i>
@@ -410,6 +415,12 @@
                             <i class="fas fa-history me-2"></i>{% trans "Historique" %}
                         </a>
                     </li>
+                     <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:simulateur_commandes'%}">
+                            <i class="fas fa-chart-line me-2"></i>{% trans "Simulateur de Commandes" %}
+                        </a>
+                    </li>
+                   
                     {% endif %}
                 </ul>
             </li>
