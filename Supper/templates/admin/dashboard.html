@@ -577,663 +577,318 @@
 
 {% block content %}
 <div class="dashboard-container">
-    <!-- Header du Dashboard -->
+    <!-- En-tête avec actions rapides -->
     <div class="dashboard-header">
         <div class="header-content">
             <div>
                 <h1>
                     <div class="header-icon">
-                        <i class="fas fa-tachometer-alt"></i>
+                        <i class="fas fa-chart-line"></i>
                     </div>
-                    {{ title|default:"Tableau de Bord SUPPER" }}
+                    {% trans "Tableau de Bord SUPPER" %}
                 </h1>
-                <div class="subtitle" style="font-size: 1rem; margin-top: 0.5rem; opacity: 0.9;">
-                    {{ subtitle|default:"Administration - Suivi des Péages et Pesages Routiers" }}
-                </div>
-                <div style="font-size: 0.85rem; margin-top: 0.5rem; opacity: 0.8;">
-                    <i class="fas fa-user me-1"></i>{{ user.nom_complet }} - {{ user.get_habilitation_display }}
-                    {% if user.poste_affectation %} | {{ user.poste_affectation.nom }}{% endif %}
+                <div class="subtitle">
+                    {% trans "Vue d'ensemble du système - Données en temps réel" %}
                 </div>
             </div>
             
             <div class="header-actions">
-                <button class="header-btn" onclick="refreshDashboard()" id="refresh-btn">
-                    <i class="fas fa-sync-alt"></i> 
-                    {% trans "Actualiser" %}
+                <button class="header-btn" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i> {% trans "Actualiser" %}
                 </button>
-                
-                <a href="/django-admin/inventaire/inventairejournalier/add/" class="header-btn">
-                    <i class="fas fa-plus"></i> 
-                    {% trans "Inventaire" %}
-                </a>
-                
-                <a href="/django-admin/" class="header-btn primary" onclick="return confirmAdvancedPanel()">
-                    <i class="fas fa-cogs"></i> 
-                    {% trans "Panel Avancé" %}
+                <a href="{% url 'inventaire:saisie_inventaire' %}" class="header-btn primary">
+                    <i class="fas fa-plus"></i> {% trans "Nouvel Inventaire" %}
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- NOUVEAU: Section Actions Administratives avec redirections Django Admin -->
-    <div class="admin-actions-section">
-        <div class="admin-actions-header">
-            <i class="fas fa-tools"></i>
-            <h2>{% trans "Actions Administratives" %}</h2>
-        </div>
-        
-        
-        <div class="admin-actions-grid">
-            <!-- Panel Avancé Principal -->
-            <a href="#" class="admin-action-btn advanced-panel-btn" onclick="return confirmAdvancedPanel()">
-                <i class="fas fa-crown"></i>
-                {% trans "Panel Administrateur Avancé" %}
-            </a>
-            
-            <!-- Gestion Utilisateurs -->
-            <a href="/django-admin/accounts/utilisateursupper/" class="admin-action-btn">
-                <i class="fas fa-users"></i>
-                {% trans "Gérer Utilisateurs" %}
-            </a>
-            
-            <!-- Gestion Postes -->
-            <a href="/django-admin/accounts/poste/" class="admin-action-btn">
-                <i class="fas fa-map-marker-alt"></i>
-                {% trans "Gérer Postes" %}
-            </a>
-            
-            <!-- Gestion Inventaires -->
-            <a href="/django-admin/inventaire/inventairejournalier/" class="admin-action-btn">
-                <i class="fas fa-clipboard-list"></i>
-                {% trans "Gérer Inventaires" %}
-            </a>
-            
-            <!-- Gestion Recettes -->
-            <a href="/django-admin/inventaire/recettejournaliere/" class="admin-action-btn">
-                <i class="fas fa-euro-sign"></i>
-                {% trans "Gérer Recettes" %}
-            </a>
-            
-            <!-- Journal d'Audit -->
-            <a href="/django-admin/accounts/journalaudit/" class="admin-action-btn">
-                <i class="fas fa-file-alt"></i>
-                {% trans "Journal d'Audit" %}
-            </a>
-            
-            <!-- Ajouter Utilisateur -->
-            <a href="/django-admin/accounts/utilisateursupper/add/" class="admin-action-btn">
-                <i class="fas fa-user-plus"></i>
-                {% trans "Ajouter Utilisateur" %}
-            </a>
-            
-            <!-- Configuration Jours -->
-            <a href="/django-admin/inventaire/configurationjour/" class="admin-action-btn">
-                <i class="fas fa-calendar-alt"></i>
-                {% trans "Configuration Jours" %}
-            </a>
-        </div>
-    </div>
-
-    <!-- CONSERVÉ: Statistiques -->
-    {% if stats %}
+    <!-- KPI Cards -->
     <div class="stats-grid">
+        <!-- Utilisateurs -->
         <div class="stat-card">
             <div class="stat-card-header">
-                <div class="stat-card-title">{% trans "Utilisateurs Total" %}</div>
+                <div class="stat-card-title">{% trans "Utilisateurs" %}</div>
                 <div class="stat-card-icon users">
                     <i class="fas fa-users"></i>
                 </div>
             </div>
-            <div class="stat-card-value" id="total-users">{{ stats.users_total|default:0 }}</div>
+            <div class="stat-card-value">{{ stats_generales.total_utilisateurs|default:0 }}</div>
             <div class="stat-card-change">
-                <i class="fas fa-user-check"></i> 
-                {{ stats.users_active|default:0 }} {% trans "actifs" %} | 
-                {{ stats.users_this_week|default:0 }} {% trans "cette semaine" %}
+                <span class="badge bg-success">
+                    {{ stats_generales.utilisateurs_actifs|default:0 }} actifs
+                </span>
             </div>
         </div>
 
+        <!-- Postes -->
         <div class="stat-card">
             <div class="stat-card-header">
                 <div class="stat-card-title">{% trans "Postes Réseau" %}</div>
                 <div class="stat-card-icon posts">
-                    <i class="fas fa-map-marker-alt"></i>
+                    <i class="fas fa-road"></i>
                 </div>
             </div>
-            <div class="stat-card-value" id="total-postes">{{ stats.postes_total|default:0 }}</div>
+            <div class="stat-card-value">{{ stats_generales.total_postes|default:0 }}</div>
             <div class="stat-card-change">
-                <i class="fas fa-road"></i> 
-                {{ stats.postes_peage|default:0 }} {% trans "Péages" %} + 
-                {{ stats.postes_pesage|default:0 }} {% trans "Pesages" %}
+                <span class="badge bg-info">{{ stats_generales.postes_peage }} péages</span>
+                <span class="badge bg-warning"> pesages</span>
             </div>
         </div>
 
+        <!-- Inventaires -->
         <div class="stat-card">
             <div class="stat-card-header">
-                <div class="stat-card-title">{% trans "Inventaires Aujourd'hui" %}</div>
+                <div class="stat-card-title">{% trans "Inventaires (7j)" %}</div>
                 <div class="stat-card-icon inventory">
                     <i class="fas fa-clipboard-list"></i>
                 </div>
             </div>
-            <div class="stat-card-value" id="inventaires-today">{{ stats.inventaires_today|default:0 }}</div>
+            <div class="stat-card-value">{{ stats_generales.inventaires_recents|default:0 }}</div>
             <div class="stat-card-change">
-                <i class="fas fa-calendar-week"></i> 
-                {{ stats.inventaires_week|default:0 }} {% trans "cette semaine" %} | 
-                {{ stats.inventaires_locked|default:0 }} {% trans "verrouillés" %}
+                <i class="fas fa-arrow-up text-success"></i>
+                <span>{% trans "Cette semaine" %}</span>
             </div>
         </div>
 
+        <!-- Recettes -->
         <div class="stat-card">
             <div class="stat-card-header">
-                <div class="stat-card-title">{% trans "Recettes Aujourd'hui" %}</div>
+                <div class="stat-card-title">{% trans "Recettes (7j)" %}</div>
                 <div class="stat-card-icon revenue">
-                    <i class="fas fa-money-bill-wave"></i>
+                    <i class="fas fa-coins"></i>
                 </div>
             </div>
-            <div class="stat-card-value" id="recettes-today">{{ stats.recettes_today|default:0 }}</div>
+            <div class="stat-card-value">{{ stats_generales.recettes_recentes|default:0 }}</div>
             <div class="stat-card-change">
-                <i class="fas fa-calendar-week"></i> 
-                {{ stats.recettes_week|default:0 }} {% trans "cette semaine" %}
+                <i class="fas fa-chart-line text-primary"></i>
+                <span>{% trans "Déclarées" %}</span>
             </div>
         </div>
     </div>
-    {% endif %}
 
-    <!-- CONSERVÉ: Actions Rapides avec redirections mises à jour -->
-    <div class="quick-actions">
-        <a href="/django-admin/inventaire/inventairejournalier/add/" class="quick-action-btn">
-            <i class="fas fa-plus-circle"></i>
-            <span>{% trans "Nouvel Inventaire" %}</span>
-        </a>
-        
-        <a href="/django-admin/inventaire/configurationjour/" class="quick-action-btn">
-            <i class="fas fa-calendar-plus"></i>
-            <span>{% trans "Configuration Jours" %}</span>
-        </a>
-        
-        <a href="/django-admin/accounts/utilisateursupper/add/" class="quick-action-btn">
-            <i class="fas fa-user-plus"></i>
-            <span>{% trans "Nouvel Utilisateur" %}</span>
-        </a>
-        
-        <a href="/django-admin/accounts/poste/" class="quick-action-btn">
-            <i class="fas fa-map-marker-alt"></i>
-            <span>{% trans "Gérer Postes" %}</span>
-        </a>
-        
-        <a href="/django-admin/inventaire/recettejournaliere/" class="quick-action-btn">
-            <i class="fas fa-coins"></i>
-            <span>{% trans "Voir Recettes" %}</span>
-        </a>
-        
-        <a href="/django-admin/" class="quick-action-btn" onclick="return confirmAdvancedPanel()">
-            <i class="fas fa-cogs"></i>
-            <span>{% trans "Panel Avancé" %}</span>
-        </a>
+    <!-- Graphiques principaux -->
+    <div class="dashboard-widgets">
+        <!-- Évolution hebdomadaire -->
+        <div class="widget chart-widget">
+            <div class="widget-header">
+                <h3 class="widget-title">
+                    <i class="fas fa-chart-area"></i>
+                    {% trans "Évolution des Taux (7 derniers jours)" %}
+                </h3>
+            </div>
+            <canvas id="chartEvolution" height="80"></canvas>
+        </div>
+
+        <!-- Répartition par région -->
+        <div class="widget chart-widget">
+            <div class="widget-header">
+                <h3 class="widget-title">
+                    <i class="fas fa-map"></i>
+                    {% trans "Répartition Postes par Région" %}
+                </h3>
+            </div>
+            <canvas id="chartRegions" height="80"></canvas>
+        </div>
     </div>
 
-    <!-- CONSERVÉ: Widgets Dashboard -->
+    <!-- Activités et alertes -->
     <div class="dashboard-widgets">
-        <!-- Activité Récente -->
+        <!-- Activités récentes -->
         <div class="widget">
             <div class="widget-header">
                 <h3 class="widget-title">
                     <i class="fas fa-history"></i>
                     {% trans "Activité Récente" %}
                 </h3>
-                {% if recent_actions %}
-                <a href="/django-admin/accounts/journalaudit/" class="btn btn-sm btn-outline-primary">
-                    <i class="fas fa-list me-1"></i> 
-                    {% trans "Voir tout" %} ({{ stats.total_logs|default:0 }})
+                <a href="{% url 'accounts:journal_audit' %}" class="btn btn-sm btn-outline-primary">
+                    {% trans "Voir tout" %}
                 </a>
-                {% endif %}
             </div>
-            
-            {% if recent_actions %}
-            <div class="activity-list">
-                {% for action in recent_actions %}
-                <div class="activity-item">
-                    <div class="activity-avatar">
-                        {{ action.utilisateur.nom_complet.0|upper|default:"?" }}
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-action">{{ action.action }}</div>
-                        <div class="activity-user">{{ action.utilisateur.nom_complet|default:"Utilisateur inconnu" }}</div>
-                        <div class="activity-time">
-                            <i class="fas fa-clock me-1"></i>
-                            {{ action.timestamp|timesince }} {% trans "ago" %}
-                            {% if action.adresse_ip %}
-                                | <i class="fas fa-map-marker-alt me-1"></i>{{ action.adresse_ip }}
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div style="width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.7rem; background: {% if action.succes %}#28a745{% else %}#dc3545{% endif %};">
-                        <i class="fas fa-{% if action.succes %}check{% else %}times{% endif %}"></i>
-                    </div>
+            <div id="activitesRecentes" class="activity-list">
+                <!-- Chargé dynamiquement -->
+                <div class="text-center py-3">
+                    <i class="fas fa-spinner fa-spin text-primary"></i>
+                    <p class="text-muted mt-2">{% trans "Chargement..." %}</p>
                 </div>
-                {% endfor %}
             </div>
-            {% else %}
-            <div class="no-data">
-                <i class="fas fa-clock"></i>
-                <p>{% trans "Aucune activité récente" %}</p>
-            </div>
-            {% endif %}
         </div>
 
-        <!-- Santé du Système -->
+        <!-- Alertes et notifications -->
         <div class="widget">
             <div class="widget-header">
                 <h3 class="widget-title">
-                    <i class="fas fa-heart"></i>
-                    {% trans "Santé du Système" %}
+                    <i class="fas fa-bell"></i>
+                    {% trans "Alertes Système" %}
                 </h3>
             </div>
-            
-            <div class="system-health">
-                <div class="health-status-header">
-                    <div class="health-indicator"></div>
-                    <h4 class="health-title">{% trans "Système Opérationnel" %}</h4>
-                </div>
-                
-                <div class="health-metrics">
-                    <div class="health-metric">
-                        <span class="health-metric-label">{% trans "Base de Données" %}</span>
-                        <span class="health-metric-value">{{ stats.db_tables|default:0 }} {% trans "tables" %}</span>
-                    </div>
-                    <div class="health-metric">
-                        <span class="health-metric-label">{% trans "Utilisateurs" %}</span>
-                        <span class="health-metric-value">{{ stats.users_online|default:0 }} {% trans "en ligne" %}</span>
-                    </div>
-                    <div class="health-metric">
-                        <span class="health-metric-label">{% trans "Actions Aujourd'hui" %}</span>
-                        <span class="health-metric-value">{{ stats.actions_today|default:0 }}</span>
-                    </div>
-                    <div class="health-metric">
-                        <span class="health-metric-label">{% trans "Postes" %}</span>
-                        <span class="health-metric-value">
-                            {% if stats.postes_inactive > 0 %}
-                                {{ stats.postes_inactive }} {% trans "inactifs" %}
-                            {% else %}
-                                {% trans "Tous actifs" %}
-                            {% endif %}
-                        </span>
-                    </div>
-                </div>
+            <div id="alertesSysteme">
+                <!-- Chargé dynamiquement -->
             </div>
+        </div>
+    </div>
 
-            <!-- Actions de Configuration -->
-            <div style="margin-top: 1.5rem;">
-                <h5 style="font-size: 1rem; font-weight: 600; color: var(--gris-fonce); margin-bottom: 1rem;">
-                    <i class="fas fa-cog me-1"></i>
-                    {% trans "Configuration Rapide" %}
-                </h5>
-                
-                <div style="display: grid; gap: 0.5rem;">
-                    <button type="button" class="btn btn-success btn-sm" onclick="openDay()">
-                        <i class="fas fa-calendar-check me-1"></i>
-                        {% trans "Ouvrir Jour Actuel" %}
-                    </button>
-                    
-                    <a href="/django-admin/accounts/create-users/" class="btn btn-info btn-sm">
-                        <i class="fas fa-users-cog me-1"></i>
-                        {% trans "Création en Masse" %}
-                    </a>
-                </div>
-                
-                <hr style="margin: 1rem 0;">
-                
-                <div class="mb-2">
-                    <label for="impertinent-date" class="form-label" style="font-size: 0.9rem; font-weight: 500;">
-                        {% trans "Marquer jour impertinent:" %}
-                    </label>
-                    <input type="date" class="form-control form-control-sm" id="impertinent-date" name="date" required>
-                </div>
-                <button type="button" class="btn btn-warning btn-sm w-100" onclick="markImpertinent()">
-                    <i class="fas fa-exclamation-triangle me-1"></i>
-                    {% trans "Marquer Impertinent" %}
-                </button>
-            </div>
+    <!-- Top postes performance -->
+    <div class="widget">
+        <div class="widget-header">
+            <h3 class="widget-title">
+                <i class="fas fa-trophy"></i>
+                {% trans "Top 10 Postes - Performance" %}
+            </h3>
+        </div>
+        <div id="topPostes" class="table-responsive">
+            <!-- Chargé dynamiquement -->
         </div>
     </div>
 </div>
 
-<!-- Scripts JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Variables globales
-let refreshInterval = null;
-
-// Initialisation au chargement de la page
+// Chargement des données
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 SUPPER Dashboard chargé - Version avec redirections admin Django');
-    startAutoRefresh();
+    chargerGraphiques();
+    chargerActivites();
+    chargerAlertes();
+    chargerTopPostes();
     
-    // Définir la date d'aujourd'hui par défaut
-    const today = new Date().toISOString().split('T')[0];
-    const dateInput = document.getElementById('impertinent-date');
-    if (dateInput) {
-        dateInput.value = today;
-    }
+    // Actualisation auto toutes les 2 minutes
+    setInterval(() => {
+        chargerActivites();
+        chargerAlertes();
+    }, 120000);
 });
 
-// NOUVEAU: Confirmation pour l'accès au panel avancé
-function confirmAdvancedPanel() {
-    return confirm(
-        '{% trans "Vous allez être redirigé vers le panel d\'administration Django natif." %}\n\n' +
-        '{% trans "Ce panel offre des fonctionnalités avancées de gestion des données." %}\n\n' +
-        '{% trans "Continuer ?" %}'
-    );
-}
-
-// Actualisation complète du dashboard
-function refreshDashboard() {
-    const btn = document.getElementById('refresh-btn');
-    const originalHtml = btn.innerHTML;
-    
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {% trans "Actualisation..." %}';
-    btn.disabled = true;
-    
-    // Simuler une actualisation
-    setTimeout(() => {
-        // Recharger la page pour récupérer les vraies données
-        window.location.reload();
-    }, 1000);
-}
-
-// Ouvrir un jour pour la saisie
-function openDay() {
-    if (confirm('{% trans "Ouvrir le jour actuel pour la saisie ?" %}')) {
-        fetch('{% url "admin:open_day" %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/x-www-form-urlencoded',
-            }
-        })
-        .then(response => {
-            if (response.ok) {
-                showToast('{% trans "Jour ouvert pour la saisie" %}', 'success');
-                setTimeout(() => refreshDashboard(), 1500);
-            } else {
-                showToast('{% trans "Erreur lors de l\'ouverture du jour" %}', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            showToast('{% trans "Erreur système" %}', 'error');
+function chargerGraphiques() {
+    // Graphique d'évolution
+    fetch('{% url "inventaire:api_graphique_evolution" %}')
+        .then(r => r.json())
+        .then(data => {
+            const ctx = document.getElementById('chartEvolution');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [{
+                        label: 'Taux Déperdition',
+                        data: data.taux_deperdition,
+                        borderColor: '#6B46C1',
+                        backgroundColor: 'rgba(107, 70, 193, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Recettes (K FCFA)',
+                        data: data.recettes.map(r => r/1000),
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
         });
-    }
-}
-
-// Marquer jour impertinent
-function markImpertinent() {
-    const date = document.getElementById('impertinent-date').value;
-    if (!date) {
-        alert('{% trans "Veuillez sélectionner une date" %}');
-        return;
-    }
     
-    if (confirm(`{% trans "Marquer le" %} ${date} {% trans "comme jour impertinent ?" %}`)) {
-        fetch('{% url "admin:mark_impertinent" %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `date=${date}`
-        })
-        .then(response => {
-            if (response.ok) {
-                showToast('{% trans "Jour marqué comme impertinent" %}', 'warning');
-                document.getElementById('impertinent-date').value = '';
-            } else {
-                showToast('{% trans "Erreur lors du marquage" %}', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            showToast('{% trans "Erreur système" %}', 'error');
+    // Graphique régions
+    fetch('{% url "inventaire:api_statistiques_postes_ordonnes" %}?tri=region')
+        .then(r => r.json())
+        .then(data => {
+            const regions = {};
+            data.postes_ordonnes.forEach(p => {
+                regions[p.region] = (regions[p.region] || 0) + 1;
+            });
+            
+            const ctx = document.getElementById('chartRegions');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(regions),
+                    datasets: [{
+                        data: Object.values(regions),
+                        backgroundColor: [
+                            '#6B46C1', '#8B5CF6', '#A78BFA',
+                            '#C4B5FD', '#DDD6FE', '#F59E0B',
+                            '#FBBF24', '#FCD34D', '#FDE68A', '#FEF3C7'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
         });
-    }
 }
 
-// Démarrer l'actualisation automatique
-function startAutoRefresh() {
-    refreshInterval = setInterval(() => {
-        // Actualisation silencieuse toutes les 5 minutes
-        console.log('🔄 Actualisation automatique des données...');
-    }, 5 * 60 * 1000); // 5 minutes
+function chargerActivites() {
+    fetch('{% url "inventaire:api_inventaire_stats" %}')
+        .then(r => r.json())
+        .then(data => {
+            const html = (data.activites_recentes || []).map(a => `
+                <div class="activity-item">
+                    <div class="activity-avatar">${a.user[0]}</div>
+                    <div class="activity-content">
+                        <div class="activity-action">${a.action}</div>
+                        <div class="activity-time">
+                            <i class="fas fa-clock me-1"></i>${a.time}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('activitesRecentes').innerHTML = html || '<p class="text-muted text-center">Aucune activité récente</p>';
+        });
 }
 
-// Notification toast
-function showToast(message, type = 'info') {
-    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+function chargerAlertes() {
+    // Logique pour charger les alertes
+    const alertes = [
+        { type: 'warning', message: 'Inventaires en attente de validation: 3' },
+        { type: 'info', message: 'Nouveaux utilisateurs: 2 cette semaine' }
+    ];
     
-    const toast = document.createElement('div');
-    toast.className = `alert alert-${type} toast-item`;
-    toast.style.cssText = `
-        margin-bottom: 10px;
-        border-radius: 12px;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        animation: slideInRight 0.4s ease-out;
-        border: none;
-        padding: 1rem 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-width: 320px;
-    `;
-    
-    const icons = {
-        success: 'check-circle',
-        error: 'exclamation-circle',
-        warning: 'exclamation-triangle',
-        info: 'info-circle'
-    };
-    
-    const colors = {
-        success: 'linear-gradient(135deg, #10B981, #047857)',
-        error: 'linear-gradient(135deg, #EF4444, #DC2626)',
-        warning: 'linear-gradient(135deg, #F59E0B, #D97706)',
-        info: 'linear-gradient(135deg, #3B82F6, #1D4ED8)'
-    };
-    
-    toast.style.background = colors[type] || colors.info;
-    toast.style.color = 'white';
-    
-    toast.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <i class="fas fa-${icons[type] || 'info-circle'}" style="font-size: 1.2rem;"></i>
-            <span style="font-weight: 500;">${message}</span>
+    const html = alertes.map(a => `
+        <div class="alert alert-${a.type} alert-sm">
+            <i class="fas fa-${a.type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+            ${a.message}
         </div>
-        <button type="button" style="background: none; border: none; color: white; opacity: 0.8; cursor: pointer; font-size: 1.2rem; padding: 0; margin-left: 1rem;" onclick="this.parentElement.remove()">
-            <i class="fas fa-times"></i>
-        </button>
-    `;
-    
-    toastContainer.appendChild(toast);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-        if (toast.parentElement) {
-            toast.style.animation = 'slideOutRight 0.4s ease-in';
-            setTimeout(() => toast.remove(), 400);
-        }
-    }, 5000);
+    `).join('');
+    document.getElementById('alertesSysteme').innerHTML = html;
 }
 
-// Créer le conteneur de toast
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toast-container';
-    container.style.cssText = `
-        position: fixed;
-        top: 100px;
-        right: 20px;
-        z-index: 9999;
-        max-width: 400px;
-    `;
-    document.body.appendChild(container);
-    return container;
+function chargerTopPostes() {
+    fetch('{% url "inventaire:api_statistiques_postes_ordonnes" %}?tri=taux&limite=10')
+        .then(r => r.json())
+        .then(data => {
+            const html = `
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Poste</th>
+                            <th>Région</th>
+                            <th>Taux Moyen</th>
+                            <th>Performance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(data.postes_ordonnes || []).slice(0, 10).map((p, i) => `
+                            <tr>
+                                <td>${i+1}</td>
+                                <td>${p.nom}</td>
+                                <td>${p.region}</td>
+                                <td><span class="badge bg-${p.statistiques.taux_moyen > -10 ? 'success' : 'warning'}">${p.statistiques.taux_moyen}%</span></td>
+                                <td>${p.performance.niveau}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('topPostes').innerHTML = html;
+        });
 }
-
-// Fonction utilitaire pour récupérer le cookie CSRF
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-// Nettoyage à la fermeture de la page
-window.addEventListener('beforeunload', function() {
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-    }
-});
-
-// NOUVEAU: Log pour vérifier les redirections
-console.log('📊 SUPPER Dashboard - Version avec redirections Django Admin');
-console.log('🔗 Toutes les actions administratives redirigent vers /django-admin/');
-console.log('👤 Utilisateur:', '{{ user.username }}');
-{% if stats %}
-console.log('📈 Statistiques disponibles:', {
-    users: {{ stats.users_total|default:0 }},
-    postes: {{ stats.postes_total|default:0 }},
-    inventaires: {{ stats.inventaires_today|default:0 }},
-    recettes: {{ stats.recettes_today|default:0 }}
-});
-{% endif %}
 </script>
-
-<!-- Styles CSS pour les animations -->
-<style>
-@keyframes slideInRight {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-@keyframes slideOutRight {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-}
-
-.toast-item {
-    transition: all 0.3s ease;
-}
-
-.toast-item:hover {
-    transform: translateX(-5px);
-}
-
-/* Amélioration de l'accessibilité */
-.quick-action-btn:focus,
-.header-btn:focus,
-.stat-card:focus,
-.admin-action-btn:focus {
-    outline: 2px solid var(--violet-principal);
-    outline-offset: 2px;
-}
-
-/* Animation au survol des cartes statistiques */
-.stat-card-value {
-    transition: all 0.3s ease;
-}
-
-.stat-card:hover .stat-card-value {
-    color: var(--violet-principal);
-    transform: scale(1.05);
-}
-
-/* Amélioration de l'indicateur de santé */
-@keyframes healthPulse {
-    0%, 100% { 
-        opacity: 1; 
-        transform: scale(1);
-    }
-    50% { 
-        opacity: 0.7; 
-        transform: scale(1.2);
-    }
-}
-
-.health-indicator {
-    animation: healthPulse 2s ease-in-out infinite;
-}
-
-/* Styles pour les états de chargement */
-.loading {
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-.loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 20px;
-    height: 20px;
-    margin: -10px 0 0 -10px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid var(--violet-principal);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* NOUVEAU: Styles pour l'effet de confirmation */
-.admin-action-btn.confirming {
-    background: linear-gradient(135deg, #059669, #047857) !important;
-    transform: scale(0.98);
-}
-
-.advanced-panel-btn.confirming {
-    background: linear-gradient(135deg, #DC2626, #B91C1C) !important;
-}
-
-/* Effet de survol amélioré pour les boutons d'action admin */
-.admin-action-btn:active {
-    transform: translateY(-1px) scale(0.98);
-}
-
-/* Styles pour l'alerte de redirection */
-.redirect-info {
-    animation: fadeInUp 0.6s ease-out;
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-</style>
 {% endblock %}

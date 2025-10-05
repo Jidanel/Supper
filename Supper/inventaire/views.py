@@ -1320,9 +1320,13 @@ class RecetteListView(LoginRequiredMixin, ListView):
         
         return context
     def calculer_jours_non_declares(self):
-        """Calcule les jours sans déclaration de recettes"""
+        """
+        Calcule les jours sans déclaration ET estime les recettes manquantes
+        UNIQUEMENT pour les jours PASSÉS (jusqu'à aujourd'hui)
+        """
         from django.db.models import Q
         from datetime import datetime, timedelta
+        from inventaire.services.forecasting_service import ForecastingService
         import calendar
         
         filters = self.request.GET
@@ -1343,17 +1347,24 @@ class RecetteListView(LoginRequiredMixin, ListView):
             mois = int(filters.get('mois', date.today().month))
             annee = int(filters.get('annee', date.today().year))
             date_debut = date(annee, mois, 1)
-            date_fin = date(annee, mois, calendar.monthrange(annee, mois)[1])
+            # IMPORTANT : Ne pas dépasser aujourd'hui
+            date_fin_mois = date(annee, mois, calendar.monthrange(annee, mois)[1])
+            date_fin = min(date_fin_mois, date.today())
         else:  # all
             date_fin = date.today()
             date_debut = date_fin - timedelta(days=30)
         
-        # Filtrer par poste si spécifié
+        # S'assurer qu'on ne dépasse jamais la date du jour
+        if date_fin > date.today():
+            date_fin = date.today()
+        
+        # Filtrer par poste
         postes_query = Poste.objects.filter(is_active=True)
         if poste_id:
             postes_query = postes_query.filter(id=poste_id)
         
         resultats = []
+        total_estimation_manquante = Decimal('0')
         
         for poste in postes_query:
             # Jours avec recettes déclarées
@@ -1364,34 +1375,125 @@ class RecetteListView(LoginRequiredMixin, ListView):
                 ).values_list('date', flat=True)
             )
             
-            # Générer tous les jours de la période
+            # Tous les jours de la période (UNIQUEMENT jusqu'à aujourd'hui)
             jours_periode = set()
             current_date = date_debut
             while current_date <= date_fin:
                 jours_periode.add(current_date)
                 current_date += timedelta(days=1)
             
-            # Calculer les jours manquants
-            jours_manquants = jours_periode - jours_declares
+            # Jours manquants (seulement les jours passés)
+            jours_manquants = sorted(jours_periode - jours_declares)
             
             if jours_manquants:
+                estimation_manquante = Decimal('0')
+                details_estimations = []
+                
+                try:
+                    # Générer des prévisions RÉTROACTIVES pour les jours manquants
+                    # On utilise les données historiques AVANT la période manquante
+                    
+                    # Date de référence : jour avant le premier jour manquant
+                    date_reference = min(jours_manquants) - timedelta(days=1)
+                    
+                    # Nombre de jours à "prévoir" (en réalité, reconstituer)
+                    nb_jours = (max(jours_manquants) - min(jours_manquants)).days + 1
+                    
+                    resultats_forecast = ForecastingService.prevoir_recettes(
+                        poste,
+                        nb_jours_future=nb_jours,
+                        date_reference=date_reference
+                    )
+                    
+                    if resultats_forecast['success']:
+                        df_prev = resultats_forecast['predictions']
+                        
+                        # Pour chaque jour manquant, récupérer l'estimation
+                        for jour_manquant in jours_manquants:
+                            prev_jour = df_prev[df_prev['date'].dt.date == jour_manquant]
+                            
+                            if not prev_jour.empty:
+                                montant_estime = Decimal(str(prev_jour['montant_prevu'].values[0]))
+                                estimation_manquante += montant_estime
+                                
+                                details_estimations.append({
+                                    'date': jour_manquant,
+                                    'montant_estime': float(montant_estime)
+                                })
+                            else:
+                                # Si pas trouvé, utiliser la moyenne des prévisions
+                                moyenne_prev = Decimal(str(df_prev['montant_prevu'].mean()))
+                                estimation_manquante += moyenne_prev
+                                
+                                details_estimations.append({
+                                    'date': jour_manquant,
+                                    'montant_estime': float(moyenne_prev)
+                                })
+                    
+                    # Fallback : si forecasting ne marche pas
+                    if estimation_manquante == 0:
+                        from django.db.models import Avg
+                        
+                        # Calculer la moyenne sur les 30 jours AVANT la période
+                        fin_moyenne = date_debut - timedelta(days=1)
+                        debut_moyenne = fin_moyenne - timedelta(days=30)
+                        
+                        moyenne = RecetteJournaliere.objects.filter(
+                            poste=poste,
+                            date__range=[debut_moyenne, fin_moyenne]
+                        ).aggregate(moy=Avg('montant_declare'))['moy'] or Decimal('0')
+                        
+                        estimation_manquante = moyenne * len(jours_manquants)
+                        
+                        for jour_manquant in jours_manquants:
+                            details_estimations.append({
+                                'date': jour_manquant,
+                                'montant_estime': float(moyenne)
+                            })
+                        
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger('supper')
+                    logger.error(f"Erreur estimation recettes manquantes {poste.nom}: {str(e)}")
+                    
+                    # Fallback final : moyenne simple
+                    from django.db.models import Avg
+                    moyenne = RecetteJournaliere.objects.filter(
+                        poste=poste,
+                        date__lt=date_debut
+                    ).order_by('-date')[:30].aggregate(moy=Avg('montant_declare'))['moy'] or Decimal('0')
+                    
+                    estimation_manquante = moyenne * len(jours_manquants)
+                    
+                    for jour_manquant in jours_manquants:
+                        details_estimations.append({
+                            'date': jour_manquant,
+                            'montant_estime': float(moyenne)
+                        })
+                
+                total_estimation_manquante += estimation_manquante
+                
                 resultats.append({
                     'poste': poste,
                     'nombre_jours': len(jours_manquants),
-                    'jours': sorted(jours_manquants),
-                    'pourcentage': (len(jours_manquants) / len(jours_periode)) * 100
+                    'jours': jours_manquants,
+                    'pourcentage': (len(jours_manquants) / len(jours_periode)) * 100 if len(jours_periode) > 0 else 0,
+                    'estimation_manquante': float(estimation_manquante),
+                    'details_estimations': details_estimations,
+                    'methode_calcul': 'forecasting' if details_estimations else 'moyenne'
                 })
         
-        # Trier par nombre de jours manquants (décroissant)
-        resultats.sort(key=lambda x: x['nombre_jours'], reverse=True)
+        # Trier par estimation décroissante
+        resultats.sort(key=lambda x: x['estimation_manquante'], reverse=True)
         
         return {
             'par_poste': resultats,
             'total_jours_manquants': sum(r['nombre_jours'] for r in resultats),
+            'total_estimation_manquante': float(total_estimation_manquante),
             'periode_debut': date_debut,
-            'periode_fin': date_fin
+            'periode_fin': date_fin,
+            'date_limite': date.today()  # Pour afficher clairement la limite
         }
-
 
 class RecetteDetailView(LoginRequiredMixin, DetailView):
     """Vue pour afficher le détail d'une recette"""
@@ -3179,17 +3281,16 @@ def programmer_inventaire(request):
         try:
             # MOTIF 1: RISQUE DE BAISSE ANNUEL
             if motif == 'risque_baisse':
-                # NOUVELLE VERSION utilisant le service
                 from inventaire.services.evolution_service import EvolutionService
                 
+                # Utiliser EXACTEMENT la même méthode que dans ProgrammationInventaire
                 postes_data = EvolutionService.identifier_postes_en_baisse(
                     type_analyse='annuel',
-                    seuil_baisse=-5  # Seuil de baisse à -5%
+                    seuil_baisse=-5
                 )
                 
-                # Enrichir les données pour le template
+                # Enrichir avec vérification des programmations existantes
                 for item in postes_data:
-                    # Vérifier si déjà programmé
                     item['deja_programme'] = ProgrammationInventaire.objects.filter(
                         poste=item['poste'],
                         mois=mois,
@@ -3197,9 +3298,11 @@ def programmer_inventaire(request):
                         actif=True
                     ).exists()
                     
-                    # Calculer le pourcentage de baisse pour l'affichage
+                    # IMPORTANT : Utiliser les mêmes clés que calculer_risque_baisse_annuel
                     item['pourcentage_baisse'] = abs(item['taux_evolution'])
-                    
+                    item['recettes_estimees'] = item.get('recettes_estimees', 0)
+                    item['recettes_n1'] = item.get('recettes_precedentes', 0)
+                
                 context['postes_risque_baisse'] = postes_data
                 logger.debug(f"[DEBUG] Postes risque baisse trouvés: {len(postes_data)}")
                 
@@ -4033,20 +4136,19 @@ def redirect_to_delete_recette_admin(request, recette_id):
 @login_required
 @user_passes_test(lambda u: u.is_admin)
 def gestion_objectifs_annuels(request):
-    """Vue pour gérer tous les objectifs annuels"""
+    """Vue pour gérer tous les objectifs annuels - CORRIGÉE"""
     
-    from django.db.models import Sum
-    from inventaire.models import RecetteJournaliere
+    from inventaire.services.objectifs_service import ObjectifsService
+    from django.db import transaction
+    from decimal import Decimal
     
-    # Récupérer l'année depuis les paramètres ou utiliser l'année courante
+    # Année sélectionnée
     annee = int(request.GET.get('annee', date.today().year))
-    
-    # Liste des années disponibles (5 ans avant et après)
     annee_actuelle = date.today().year
     annees_disponibles = list(range(annee_actuelle - 5, annee_actuelle + 6))
     
-    # Récupérer tous les postes actifs
-    postes = Poste.objects.filter(is_active=True).order_by('region', 'nom')
+    # CORRECTION : Récupérer TOUS les postes actifs (pas seulement ceux avec objectifs)
+    postes = Poste.objects.filter(is_active=True).select_related('region').order_by('region', 'nom')
     
     if request.method == 'POST':
         # Traitement du formulaire
@@ -4068,7 +4170,7 @@ def gestion_objectifs_annuels(request):
                                 annee=annee,
                                 defaults={
                                     'montant_objectif': montant,
-                                    'cree_par': request.user  # Toujours définir cree_par
+                                    'cree_par': request.user
                                 }
                             )
                             
@@ -4077,7 +4179,7 @@ def gestion_objectifs_annuels(request):
                             else:
                                 objectifs_modifies += 1
                     
-                    except (ValueError, TypeError) as e:
+                    except (ValueError, TypeError):
                         continue
             
             messages.success(
@@ -4086,17 +4188,16 @@ def gestion_objectifs_annuels(request):
             )
             return redirect(f"{request.path}?annee={annee}")
     
-    # Préparer les données pour l'affichage
+    # CORRECTION : Construire les données pour TOUS les postes
     objectifs_data = []
-    total_global = Decimal('0')
     
     for poste in postes:
-        # Récupérer l'objectif existant
+        # Récupérer l'objectif existant pour cette année
         try:
             objectif = ObjectifAnnuel.objects.get(poste=poste, annee=annee)
             montant_objectif = objectif.montant_objectif
         except ObjectifAnnuel.DoesNotExist:
-            # Essayer de copier depuis l'année précédente
+            # Pas d'objectif : essayer de copier depuis l'année précédente
             try:
                 objectif_precedent = ObjectifAnnuel.objects.get(
                     poste=poste, 
@@ -4106,12 +4207,13 @@ def gestion_objectifs_annuels(request):
             except ObjectifAnnuel.DoesNotExist:
                 montant_objectif = Decimal('0')
         
-        # Calculer le réalisé et le taux
+        # Calculer le réalisé pour cette année
         realise = RecetteJournaliere.objects.filter(
             poste=poste,
             date__year=annee
         ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
         
+        # Calculer le taux
         taux = (realise / montant_objectif * 100) if montant_objectif > 0 else 0
         
         objectifs_data.append({
@@ -4119,21 +4221,22 @@ def gestion_objectifs_annuels(request):
             'montant_objectif': montant_objectif,
             'realise': realise,
             'reste': montant_objectif - realise,
-            'taux': taux
+            'taux': float(taux)
         })
-        
-        total_global += montant_objectif
     
-    # Calculer les totaux
-    total_realise = sum(o['realise'] for o in objectifs_data)
+    # UTILISER LE SERVICE pour les totaux globaux
+    stats_globales = ObjectifsService.calculer_objectifs_annuels(
+        annee=annee,
+        inclure_postes_inactifs=False
+    )
     
     context = {
         'annee': annee,
         'annees_disponibles': annees_disponibles,
-        'objectifs_data': objectifs_data,
-        'total_global': total_global,
-        'total_realise': total_realise,
-        'taux_global': (total_realise / total_global * 100) if total_global > 0 else 0
+        'objectifs_data': objectifs_data,  # TOUS LES POSTES
+        'total_global': stats_globales['total_objectif'],
+        'total_realise': stats_globales['total_realise'],
+        'taux_global': stats_globales['taux_realisation']
     }
     
     return render(request, 'inventaire/gestion_objectifs_annuels.html', context)
@@ -4208,3 +4311,183 @@ def simulateur_commandes(request):
     }
     
     return render(request, 'inventaire/simulateur_commandes.html', context)
+
+@login_required
+def api_graphique_evolution(request):
+    """API pour graphique d'évolution (7 derniers jours)"""
+    from datetime import date, timedelta
+    from django.db.models import Avg, Sum
+    
+    today = date.today()
+    jours = [(today - timedelta(days=i)) for i in range(6, -1, -1)]
+    
+    dates = []
+    taux_deperdition = []
+    recettes = []
+    
+    for jour in jours:
+        dates.append(jour.strftime('%d/%m'))
+        
+        stats = RecetteJournaliere.objects.filter(date=jour).aggregate(
+            taux_moyen=Avg('taux_deperdition'),
+            recettes_total=Sum('montant_declare')
+        )
+        
+        taux_deperdition.append(round(float(stats['taux_moyen'] or 0), 1))
+        recettes.append(float(stats['recettes_total'] or 0))
+    
+    return JsonResponse({
+        'dates': dates,
+        'taux_deperdition': taux_deperdition,
+        'recettes': recettes
+    })
+
+
+@login_required
+def api_statistiques_postes_ordonnes(request):
+    """API pour statistiques postes ordonnées"""
+    from django.db.models import Avg, Sum, Count
+    
+    tri = request.GET.get('tri', 'taux')
+    region_filter = request.GET.get('region', '')
+    limite = int(request.GET.get('limite', 100))
+    
+    # Construction requête
+    queryset = RecetteJournaliere.objects.filter(
+        date__gte=timezone.now().date() - timedelta(days=30)
+    ).values(
+        'poste__id',
+        'poste__nom',
+        'poste__code',
+        'poste__region__nom'
+    ).annotate(
+        taux_moyen=Avg('taux_deperdition'),
+        recettes_total=Sum('montant_declare'),
+        nb_jours=Count('date', distinct=True)
+    )
+    
+    if region_filter:
+        queryset = queryset.filter(poste__region__nom=region_filter)
+    
+    # Tri
+    if tri == 'recettes':
+        queryset = queryset.order_by('-recettes_total')
+    else:
+        queryset = queryset.order_by('taux_moyen')
+    
+    queryset = queryset[:limite]
+    
+    # Formater les données
+    postes_ordonnes = []
+    for idx, item in enumerate(queryset):
+        taux = float(item['taux_moyen'] or 0)
+        
+        postes_ordonnes.append({
+            'rang': idx + 1,
+            'nom': item['poste__nom'],
+            'code': item['poste__code'],
+            'region': item['poste__region__nom'] or 'Non défini',
+            'statistiques': {
+                'taux_moyen': round(taux, 1),
+                'recettes_total': float(item['recettes_total'] or 0),
+                'nb_jours_actifs': item['nb_jours']
+            },
+            'performance': {
+                'score': 100 if taux >= -5 else 80 if taux >= -10 else 60 if taux >= -20 else 40 if taux >= -30 else 20,
+                'niveau': 'Excellent' if taux >= -10 else 'Bon' if taux >= -20 else 'Moyen' if taux >= -30 else 'Critique'
+            }
+        })
+    
+    return JsonResponse({
+        'postes_ordonnes': postes_ordonnes,
+        'statistiques_globales': {
+            'nb_postes_total': len(postes_ordonnes),
+            'taux_global': round(sum([p['statistiques']['taux_moyen'] for p in postes_ordonnes]) / len(postes_ordonnes) if postes_ordonnes else 0, 1)
+        }
+    })
+
+
+@login_required
+def api_inventaire_stats(request):
+    """API pour statistiques inventaires"""
+    from django.db.models import Count
+    
+    today = timezone.now().date()
+    
+    # Activités récentes
+    activites = JournalAudit.objects.select_related('utilisateur').filter(
+        timestamp__gte=timezone.now() - timedelta(days=7)
+    ).order_by('-timestamp')[:10]
+    
+    activites_recentes = []
+    for act in activites:
+        activites_recentes.append({
+            'user': act.utilisateur.nom_complet,
+            'action': act.action,
+            'time': act.timestamp.strftime('%d/%m %H:%M')
+        })
+    
+    return JsonResponse({
+        'activites_recentes': activites_recentes,
+        'stats': {
+            'inventaires_today': InventaireJournalier.objects.filter(date=today).count(),
+            'recettes_today': RecetteJournaliere.objects.filter(date=today).count()
+        }
+    })
+
+
+# inventaire/views.py (ou dans le fichier approprié)
+
+@login_required
+@user_passes_test(lambda u: u.is_admin)
+def calculer_objectifs_automatique(request):
+    """
+    Vue pour calculer automatiquement les objectifs d'une année
+    en appliquant un pourcentage sur l'année précédente
+    """
+    from inventaire.services.objectifs_service import ObjectifsService
+    
+    if request.method == 'POST':
+        annee_source = int(request.POST.get('annee_source'))
+        annee_cible = int(request.POST.get('annee_cible'))
+        pourcentage = float(request.POST.get('pourcentage', 0))
+        
+        # Validation
+        if annee_cible <= annee_source:
+            messages.error(request, "L'année cible doit être supérieure à l'année source.")
+            return redirect('inventaire:gestion_objectifs')
+        
+        if pourcentage < -100 or pourcentage > 500:
+            messages.error(request, "Le pourcentage doit être entre -100% et +500%.")
+            return redirect('inventaire:gestion_objectifs')
+        
+        # Appliquer le calcul
+        resultats = ObjectifsService.appliquer_objectifs_calcules(
+            annee_source, annee_cible, pourcentage, request.user
+        )
+        
+        if resultats['success']:
+            messages.success(
+                request,
+                f"✓ Objectifs {annee_cible} calculés avec succès : "
+                f"{resultats['objectifs_crees']} créés, {resultats['objectifs_modifies']} modifiés. "
+                f"Total : {resultats['total_objectif_cible']:,.0f} FCFA "
+                f"({pourcentage:+.1f}% par rapport à {annee_source})"
+            )
+        else:
+            messages.error(request, resultats.get('message', 'Erreur lors du calcul'))
+        
+        return redirect(f"/inventaire/objectifs-annuels/?annee={annee_cible}")
+    
+    # GET : afficher le formulaire de calcul
+    annee_actuelle = date.today().year
+    annees = list(range(annee_actuelle - 5, annee_actuelle + 6))
+    
+    context = {
+        'annees': annees,
+        'annee_defaut_source': annee_actuelle - 1,
+        'annee_defaut_cible': annee_actuelle,
+        'title': 'Calculer Objectifs Automatiquement'
+    }
+    
+    return render(request, 'inventaire/calculer_objectifs.html', context)

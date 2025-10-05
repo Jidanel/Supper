@@ -6,6 +6,7 @@ from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from django.shortcuts import redirect
 from inventaire import views as inventaire_views
+from common.views import index_dashboard
 
 # Configuration des pages d'erreur personnalisées
 handler404 = 'Supper.views.handler404'
@@ -57,7 +58,7 @@ urlpatterns = [
     # ================================================================
     # PAGE D'ACCUEIL AVEC REDIRECTION INTELLIGENTE
     # ================================================================
-    path('', accueil_intelligent, name='accueil'),
+    path('', index_dashboard, name='index'),
     
     # ================================================================
     # ADMINISTRATION

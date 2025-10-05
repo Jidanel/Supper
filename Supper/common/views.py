@@ -8,6 +8,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+
+from common.utils import log_user_action
 from .mixins import AdminRequiredMixin
 from django.views.generic import TemplateView
 from django.http import JsonResponse
@@ -33,6 +35,388 @@ logger = logging.getLogger('supper')
 # DASHBOARD ADMINISTRATEUR - ACCÈS COMPLET AVEC REDIRECTIONS ADMIN
 # ===================================================================
 
+# ===================================================================
+# common/views.py - Vue Dashboard Index Complète
+# Vue principale pour la vitrine de l'application SUPPER
+# ===================================================================
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum, Avg, Count, Q
+from django.utils import timezone
+from datetime import date, timedelta
+from decimal import Decimal
+import calendar
+
+from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
+from inventaire.models import (
+    InventaireJournalier, RecetteJournaliere, 
+    ConfigurationJour, ProgrammationInventaire,
+    GestionStock, ObjectifAnnuel
+)
+
+
+# common/views.py
+
+@login_required
+def index_dashboard(request):
+        """
+        Dashboard principal SUPPER avec statistiques complètes et cohérentes
+        Utilise les services centralisés pour garantir la cohérence des données
+        """
+        
+        from inventaire.services.objectifs_service import ObjectifsService
+        from datetime import timedelta
+        from django.db.models import Sum, Avg, Count
+        import json
+        import calendar
+        
+        user = request.user
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
+        current_year = today.year
+        
+        # ================================================================
+        # 1. INFORMATIONS UTILISATEUR
+        # ================================================================
+        user_stats = {
+            'nom_complet': user.nom_complet,
+            'habilitation': user.get_habilitation_display(),
+            'poste_affectation': user.poste_affectation,
+            'is_admin': user.is_admin,
+            'is_chef': user.is_chef_poste,
+            'derniere_connexion': user.last_login,
+        }
+        
+        # ================================================================
+        # 2. DÉTERMINER LES POSTES ACCESSIBLES
+        # ================================================================
+        if user.acces_tous_postes or user.is_admin:
+            postes_accessibles = Poste.objects.filter(is_active=True)
+        elif user.poste_affectation:
+            postes_accessibles = Poste.objects.filter(id=user.poste_affectation.id)
+        else:
+            postes_accessibles = Poste.objects.none()
+        
+        # ================================================================
+        # 3. STATISTIQUES GLOBALES (ADMINS UNIQUEMENT)
+        # ================================================================
+        stats_globales = None
+        
+        if user.is_admin:
+            stats_globales = {
+                'total_utilisateurs': UtilisateurSUPPER.objects.count(),
+                'utilisateurs_actifs': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+                'total_postes': Poste.objects.filter(is_active=True).count(),
+                'postes_peage': Poste.objects.filter(type='peage', is_active=True).count(),
+                'postes_pesage': Poste.objects.filter(type='pesage', is_active=True).count(),
+            }
+        
+        # ================================================================
+        # 4. STATISTIQUES INVENTAIRES
+        # ================================================================
+        stats_inventaires = None
+        
+        if postes_accessibles.exists():
+            stats_inventaires = {
+                'total_inventaires': InventaireJournalier.objects.filter(
+                    poste__in=postes_accessibles
+                ).count(),
+                'inventaires_today': InventaireJournalier.objects.filter(
+                    poste__in=postes_accessibles,
+                    date=today
+                ).count(),
+                'inventaires_semaine': InventaireJournalier.objects.filter(
+                    poste__in=postes_accessibles,
+                    date__gte=week_ago
+                ).count(),
+                'inventaires_mois': InventaireJournalier.objects.filter(
+                    poste__in=postes_accessibles,
+                    date__gte=month_ago
+                ).count(),
+            }
+        
+        # ================================================================
+        # 5. STATISTIQUES RECETTES
+        # ================================================================
+        stats_recettes = None
+        
+        if postes_accessibles.exists():
+            # Recettes du mois
+            recettes_mois = RecetteJournaliere.objects.filter(
+                poste__in=postes_accessibles,
+                date__month=today.month,
+                date__year=today.year
+            )
+            
+            # Agrégations
+            aggregations = recettes_mois.aggregate(
+                total_montant=Sum('montant_declare'),
+                total_potentiel=Sum('recette_potentielle'),
+                taux_moyen=Avg('taux_deperdition'),
+                nombre_recettes=Count('id')
+            )
+            
+            montant_mois = float(aggregations['total_montant'] or 0)
+            montant_potentiel = float(aggregations['total_potentiel'] or 0)
+            
+            stats_recettes = {
+                'total_recettes': RecetteJournaliere.objects.filter(
+                    poste__in=postes_accessibles
+                ).count(),
+                'recettes_today': RecetteJournaliere.objects.filter(
+                    poste__in=postes_accessibles,
+                    date=today
+                ).count(),
+                'montant_mois': montant_mois,
+                'montant_potentiel_mois': montant_potentiel,
+                'taux_moyen_mois': float(aggregations['taux_moyen'] or 0),
+                'nombre_recettes_mois': aggregations['nombre_recettes'],
+                'ecart_mois': montant_mois - montant_potentiel,
+            }
+        
+        # ================================================================
+        # 6. OBJECTIFS ANNUELS - UTILISATION DU SERVICE CENTRALISÉ
+        # ================================================================
+        stats_objectifs = None
+        
+        if user.is_admin:
+            try:
+                stats_objectifs = ObjectifsService.calculer_objectifs_annuels(
+                    annee=current_year,
+                    inclure_postes_inactifs=False
+                )
+            except Exception as e:
+                logger.error(f"Erreur calcul objectifs dashboard: {str(e)}")
+                stats_objectifs = None
+        
+        # ================================================================
+        # 7. ACTIVITÉS RÉCENTES
+        # ================================================================
+        if user.is_admin:
+            activites_recentes = JournalAudit.objects.select_related(
+                'utilisateur'
+            ).order_by('-timestamp')[:10]
+        else:
+            activites_recentes = JournalAudit.objects.filter(
+                utilisateur=user
+            ).order_by('-timestamp')[:10]
+        
+        # ================================================================
+        # 8. ALERTES CONTEXTUELLES
+        # ================================================================
+        alertes = []
+        
+        # Alertes stocks faibles
+        if user.is_admin or user.is_chef_poste:
+            stocks_faibles = GestionStock.objects.select_related('poste').filter(
+                poste__is_active=True,
+                valeur_monetaire__lt=50000
+            )[:5]
+            
+            for stock in stocks_faibles:
+                alertes.append({
+                    'type': 'warning',
+                    'titre': f'Stock faible - {stock.poste.nom}',
+                    'message': f'Stock: {stock.valeur_monetaire:,.0f} FCFA',
+                    'icon': 'fas fa-exclamation-triangle',
+                    'date': stock.derniere_mise_a_jour,
+                })
+        
+        # Alertes jours non configurés
+        if user.is_admin:
+            jours_futurs = [today + timedelta(days=i) for i in range(1, 8)]
+            jours_non_configures = []
+            
+            for jour in jours_futurs:
+                if not ConfigurationJour.objects.filter(date=jour).exists():
+                    jours_non_configures.append(jour)
+            
+            if jours_non_configures:
+                alertes.append({
+                    'type': 'info',
+                    'titre': 'Configuration manquante',
+                    'message': f'{len(jours_non_configures)} jour(s) non configuré(s)',
+                    'icon': 'fas fa-calendar-times',
+                    'date': today,
+                })
+        
+        # Alertes inventaires en attente
+        if user.peut_gerer_inventaire and user.poste_affectation:
+            inventaire_today = InventaireJournalier.objects.filter(
+                poste=user.poste_affectation,
+                date=today
+            ).exists()
+            
+            if not inventaire_today:
+                alertes.append({
+                    'type': 'warning',
+                    'titre': 'Inventaire en attente',
+                    'message': f'Aucun inventaire saisi aujourd\'hui',
+                    'icon': 'fas fa-clipboard-check',
+                    'date': today,
+                })
+        
+        # ================================================================
+        # 9. GRAPHIQUES - DONNÉES POUR CHART.JS
+        # ================================================================
+        graph_data = {}
+        
+        if postes_accessibles.exists():
+            # Évolution 7 derniers jours
+            jours = [(today - timedelta(days=i)) for i in range(6, -1, -1)]
+            
+            labels = []
+            recettes = []
+            taux = []
+            
+            for jour in jours:
+                labels.append(jour.strftime('%d/%m'))
+                
+                stats_jour = RecetteJournaliere.objects.filter(
+                    poste__in=postes_accessibles,
+                    date=jour
+                ).aggregate(
+                    total=Sum('montant_declare'),
+                    taux_moyen=Avg('taux_deperdition')
+                )
+                
+                recettes.append(float(stats_jour['total'] or 0))
+                taux.append(float(stats_jour['taux_moyen'] or 0))
+            
+            graph_data['evolution_7j'] = {
+                'labels': labels,
+                'recettes': recettes,
+                'taux': taux
+            }
+        
+        # ================================================================
+        # 10. TOP POSTES (ADMINS)
+        # ================================================================
+        top_postes = []
+        
+        if user.is_admin:
+            top_query = RecetteJournaliere.objects.filter(
+                date__gte=month_ago
+            ).values(
+                'poste__nom', 'poste__code'
+            ).annotate(
+                total_recettes=Sum('montant_declare')
+            ).order_by('-total_recettes')[:5]
+            
+            for idx, item in enumerate(top_query):
+                top_postes.append({
+                    'rang': idx + 1,
+                    'nom': item['poste__nom'],
+                    'code': item['poste__code'],
+                    'total': float(item['total_recettes'])
+                })
+        
+        # ================================================================
+        # 11. ACTIONS RAPIDES CONTEXTUELLES
+        # ================================================================
+        actions_rapides = []
+        
+        # Agent inventaire
+        if user.peut_gerer_inventaire and user.poste_affectation:
+            actions_rapides.append({
+                'titre': 'Saisir Inventaire',
+                'url': reverse('inventaire:saisie_inventaire'),
+                'icon': 'fas fa-clipboard-list',
+                'class': 'primary'
+            })
+        
+        # Chef de poste
+        if user.is_chef_poste and user.poste_affectation:
+            actions_rapides.append({
+                'titre': 'Saisir Recette',
+                'url': reverse('inventaire:saisie_recette'),
+                'icon': 'fas fa-coins',
+                'class': 'warning'
+            })
+        
+        # Admin
+        if user.is_admin:
+            actions_rapides.extend([
+                {
+                    'titre': 'Gérer Utilisateurs',
+                    'url': reverse('accounts:user_list'),
+                    'icon': 'fas fa-users',
+                    'class': 'primary'
+                },
+                {
+                    'titre': 'Gérer Postes',
+                    'url': reverse('accounts:liste_postes'),
+                    'icon': 'fas fa-map-marker-alt',
+                    'class': 'info'
+                },
+                {
+                    'titre': 'Programmer Inventaires',
+                    'url': reverse('inventaire:programmer_inventaire'),
+                    'icon': 'fas fa-calendar-plus',
+                    'class': 'success'
+                },
+                {
+                    'titre': 'Gérer Objectifs',
+                    'url': reverse('inventaire:gestion_objectifs_annuels'),
+                    'icon': 'fas fa-bullseye',
+                    'class': 'danger'
+                }
+            ])
+        
+        # ================================================================
+        # 12. STATISTIQUES SYSTÈME (ADMINS)
+        # ================================================================
+        stats_systeme = None
+        
+        if user.is_admin:
+            stats_systeme = {
+                'actions_today': JournalAudit.objects.filter(
+                    timestamp__date=today
+                ).count(),
+                'actions_succes': JournalAudit.objects.filter(
+                    timestamp__date=today,
+                    succes=True
+                ).count(),
+                'derniere_saisie': InventaireJournalier.objects.order_by(
+                    '-date_creation'
+                ).first(),
+                'derniere_recette': RecetteJournaliere.objects.order_by(
+                    '-date_saisie'
+                ).first()
+            }
+        
+        # ================================================================
+        # CONTEXTE FINAL
+        # ================================================================
+        context = {
+            'user_stats': user_stats,
+            'stats_globales': stats_globales,
+            'stats_inventaires': stats_inventaires,
+            'stats_recettes': stats_recettes,
+            'stats_objectifs': stats_objectifs,  # DONNÉES CENTRALISÉES
+            'activites_recentes': activites_recentes,
+            'alertes': alertes[:5],
+            'graph_data_json': json.dumps(graph_data, default=str),
+            'top_postes': top_postes,
+            'actions_rapides': actions_rapides,
+            'stats_systeme': stats_systeme,
+            'today': today,
+            'current_month': calendar.month_name[today.month],
+            'current_year': current_year,
+            'title': 'Tableau de Bord SUPPER'
+        }
+        
+        # Journalisation
+        log_user_action(
+            user,
+            "Consultation dashboard",
+            f"Dashboard consulté - {len(alertes)} alertes affichées",
+            request
+        )
+        
+        return render(request, 'admin/index.html', context)
 class DashboardAdminView(LoginRequiredMixin, TemplateView):
     """
     Dashboard complet pour administrateurs avec redirections vers admin Django
@@ -98,7 +482,7 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
             redirections = {
                 'admin_panel': '/django-admin/',
                 'manage_users': reverse('admin:accounts_utilisateursupper_changelist'),
-                'manage_postes': reverse('admin:accounts_poste_changelist'),
+                'manage_postes': reverse('accounts:liste_postes'),
                 'manage_inventaires': '/django-admin/inventaire/inventairejournalier/',
                 'manage_recettes': '/django-admin/inventaire/recettejournaliere/',
                 'view_journal': reverse('admin:accounts_journalaudit_changelist'),
@@ -212,7 +596,7 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
                 # URLs directes pour l'admin Django (backup)
                 'direct_admin': '/django-admin/',
                 'direct_users': reverse('admin:accounts_utilisateursupper_changelist'),
-                'direct_postes': reverse('admin:accounts_poste_changelist'),
+                'direct_postes': reverse('accounts:liste_postes'),
                 'direct_journal': reverse('admin:accounts_journalaudit_changelist'),
             }
             
@@ -302,17 +686,17 @@ def redirect_to_users_admin(request):
     return redirect(reverse('admin:accounts_utilisateursupper_changelist'))
 
 
-@login_required
-def redirect_to_postes_admin(request):
-    """Redirection vers la gestion des postes dans l'admin Django"""
-    user = request.user
+# @login_required
+# def redirect_to_postes_admin(request):
+#     """Redirection vers la gestion des postes dans l'admin Django"""
+#     user = request.user
     
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé."))
-        return redirect('common:dashboard_general')
+#     if not _check_admin_permission(user):
+#         messages.error(request, _("Accès non autorisé."))
+#         return redirect('common:dashboard_general')
     
-    _log_admin_access(request, "Gestion postes")
-    return redirect(reverse('admin:accounts_poste_changelist'))
+#     _log_admin_access(request, "Gestion postes")
+#     return redirect(reverse('accounts:liste_postes'))
 
 
 @login_required
@@ -1507,7 +1891,7 @@ def gerer_jours(request, inventaire_id):
         return redirect('admin:index')
     
     # Vérifier les permissions
-    if not request.user.is_admin():
+    if not request.user.is_admin:
         messages.error(request, "Accès refusé - Permission administrateur requise")
         return redirect('admin:index')
     

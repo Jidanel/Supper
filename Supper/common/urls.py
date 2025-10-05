@@ -20,6 +20,7 @@ def accueil_intelligent(request):
 urlpatterns = [
     # Dashboard principal (redirection intelligente selon rôle)
      path('dashboard/', accueil_intelligent, name='dashboard'),
+     path('', views.index_dashboard, name='dashboard'),
     
     # Dashboards spécialisés par rôle
     path('dashboard/admin/', views.DashboardAdminView.as_view(), name='admin_dashboard'),

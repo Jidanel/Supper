@@ -100,7 +100,12 @@
             <h5>Taux Global</h5>
             <h3>{{ taux_global|floatformat:1 }}%</h3>
         </div>
-        <!-- Dans la section Actions, remplacer le bouton par -->
+        <div class="stat-card">
+            <a href="{% url 'inventaire:calculer_objectifs' %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-calculator"></i> Calcul Automatique
+            </a>
+        </div>
+                <!-- Dans la section Actions, remplacer le bouton par -->
 {% comment %} <div class="stat-card">
     <h5>Actions</h5>
     <form method="POST" action="{% url 'inventaire:dupliquer_objectifs' %}" class="d-inline">
@@ -152,7 +157,7 @@
                                        class="form-control input-objectif"
                                        value="{{ item.montant_objectif|floatformat:0 }}"
                                        min="0"
-                                       step="1000000">
+                                       step="500">
                             </td>
                             <td class="text-end">
                                 {{ item.realise|floatformat:0|format_milliers }}

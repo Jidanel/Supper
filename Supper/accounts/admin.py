@@ -224,7 +224,7 @@ class PosteAdmin(admin.ModelAdmin):
     )
     
     list_filter = ('type', 'region', 'is_active')
-    search_fields = ('nom', 'code', 'localisation', 'departement')
+    search_fields = ('nom', 'code', 'region', 'departement')
     ordering = ('region', 'nom')
     
     fieldsets = (

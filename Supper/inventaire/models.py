@@ -2,6 +2,7 @@
 # inventaire/models.py - Modèles pour la gestion des inventaires SUPPER
 # ===================================================================
 
+from datetime import timedelta
 import decimal
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -208,16 +209,63 @@ class ProgrammationInventaire(models.Model):
     
     def calculer_date_epuisement_stock(self):
         """
-        Calcule la date d'épuisement prévue du stock
-        Basé sur la moyenne des ventes journalières
+        Calcule la date d'épuisement prévue du stock en utilisant le forecasting
         """
         from datetime import date, timedelta
-        from django.db.models import Avg
+        from inventaire.services.forecasting_service import ForecastingService
         
         if not self.stock_restant:
             return None
         
-        # Calculer la moyenne des recettes journalières sur les 30 derniers jours
+        try:
+            # Calculer les prévisions pour les 365 prochains jours
+            resultats_prevision = ForecastingService.prevoir_recettes(
+                self.poste,
+                nb_jours_future=365
+            )
+            
+            if not resultats_prevision['success']:
+                # Fallback sur l'ancienne méthode si échec
+                return self._calculer_date_epuisement_moyenne_simple()
+            
+            df_prev = resultats_prevision['predictions']
+            
+            # Parcourir les prévisions jour par jour
+            stock_restant_simule = float(self.stock_restant)
+            date_actuelle = date.today()
+            
+            for index, row in df_prev.iterrows():
+                vente_prevue_jour = row['montant_prevu']
+                stock_restant_simule -= vente_prevue_jour
+                
+                if stock_restant_simule <= 0:
+                    # Stock épuisé à cette date
+                    self.date_epuisement_prevu = row['date'].date()
+                    
+                    # Vérifier si ça dépasse le 31 décembre
+                    fin_annee = date(date_actuelle.year, 12, 31)
+                    self.risque_grand_stock = self.date_epuisement_prevu > fin_annee
+                    
+                    return self.date_epuisement_prevu
+            
+            # Si on arrive ici, le stock dure plus d'un an
+            self.date_epuisement_prevu = date_actuelle + timedelta(days=365)
+            self.risque_grand_stock = True
+            
+            return self.date_epuisement_prevu
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger('supper')
+            logger.error(f"Erreur calcul épuisement stock forecasting: {str(e)}")
+            # Fallback sur l'ancienne méthode
+            return self._calculer_date_epuisement_moyenne_simple()
+
+    def _calculer_date_epuisement_moyenne_simple(self):
+        """Méthode de fallback avec moyenne simple"""
+        from datetime import date, timedelta
+        from django.db.models import Avg
+        
         fin = date.today()
         debut = fin - timedelta(days=30)
         
@@ -227,20 +275,91 @@ class ProgrammationInventaire(models.Model):
         ).aggregate(moyenne=Avg('montant_declare'))['moyenne'] or 0
         
         if moyenne_journaliere > 0:
-            # Estimer le nombre de tickets vendus par jour (approximation)
-            tickets_par_jour = moyenne_journaliere / 500  # Assumant 500 FCFA par ticket
-            
+            tickets_par_jour = moyenne_journaliere / 500
             if tickets_par_jour > 0:
                 jours_restants = self.stock_restant / tickets_par_jour
                 self.date_epuisement_prevu = date.today() + timedelta(days=int(jours_restants))
                 
-                # Vérifier si ça dépasse le 31 décembre
                 fin_annee = date(date.today().year, 12, 31)
                 self.risque_grand_stock = self.date_epuisement_prevu > fin_annee
                 
                 return self.date_epuisement_prevu
         
         return None
+
+    @classmethod
+    def get_postes_avec_grand_stock(cls):
+        """
+        Retourne les postes dont la date d'épuisement dépasse le 31 décembre
+        en utilisant le forecasting
+        """
+        from inventaire.models import GestionStock
+        from inventaire.services.forecasting_service import ForecastingService
+        from datetime import date
+        
+        postes_grand_stock = []
+        date_limite = date(date.today().year, 12, 31)
+        
+        for poste in Poste.objects.filter(is_active=True):
+            try:
+                stock = GestionStock.objects.get(poste=poste)
+                if stock.valeur_monetaire <= 0:
+                    continue
+                
+                # Utiliser le forecasting pour calculer l'épuisement
+                resultats = ForecastingService.prevoir_recettes(
+                    poste,
+                    nb_jours_future=365
+                )
+                
+                if not resultats['success']:
+                    continue
+                
+                df_prev = resultats['predictions']
+                stock_restant_simule = float(stock.valeur_monetaire)
+                date_epuisement = None
+                vente_moyenne_calculee = 0
+                
+                # Simuler l'épuisement du stock
+                for index, row in df_prev.iterrows():
+                    vente_prevue = row['montant_prevu']
+                    stock_restant_simule -= vente_prevue
+                    
+                    if stock_restant_simule <= 0:
+                        date_epuisement = row['date'].date()
+                        # Calculer la vente moyenne sur la période
+                        jours_ecoules = (date_epuisement - date.today()).days
+                        if jours_ecoules > 0:
+                            vente_moyenne_calculee = float(stock.valeur_monetaire) / jours_ecoules
+                        break
+                
+                # Si le stock n'est pas épuisé en 365 jours
+                if date_epuisement is None:
+                    date_epuisement = date.today() + timedelta(days=365)
+                    vente_moyenne_calculee = df_prev['montant_prevu'].mean()
+                
+                # Vérifier si dépasse la date limite
+                if date_epuisement > date_limite:
+                    jours_restants = (date_epuisement - date.today()).days
+                    
+                    postes_grand_stock.append({
+                        'poste': poste,
+                        'stock_restant': int(stock.valeur_monetaire),
+                        'date_epuisement': date_epuisement,
+                        'jours_restants': jours_restants,
+                        'vente_moyenne': vente_moyenne_calculee,
+                        'depasse_limite': True,
+                        'methode_calcul': 'forecasting'
+                    })
+                    
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('supper')
+                logger.error(f"Erreur calcul grand stock pour {poste.nom}: {str(e)}")
+                continue
+        
+        return postes_grand_stock
+
     
     @classmethod
     def get_postes_avec_risque_baisse(cls):

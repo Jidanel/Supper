@@ -1,329 +1,148 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
-{% load i18n %}
+{% load static i18n %}
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
-{% block extrahead %}
-<style>
-    .form-container {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e0e0e0;
-    }
-    
-    .header-section {
-        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-    }
-    
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: #334155;
-        margin-bottom: 0.5rem;
-    }
-    
-    .form-control, .form-select {
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        transition: all 0.3s ease;
-    }
-    
-    .form-control:focus, .form-select:focus {
-        border-color: #6B46C1;
-        box-shadow: 0 0 0 0.2rem rgba(107, 70, 193, 0.25);
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(107, 70, 193, 0.3);
-    }
-    
-    .btn-secondary {
-        background: #64748B;
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-secondary:hover {
-        background: #475569;
-        transform: translateY(-2px);
-    }
-    
-    .section-title {
-        color: #6B46C1;
-        border-bottom: 2px solid #e0e0e0;
-        padding-bottom: 0.5rem;
-        margin-bottom: 1.5rem;
-        font-weight: 600;
-    }
-    
-    .help-text {
-        font-size: 0.875rem;
-        color: #64748B;
-        margin-top: 0.25rem;
-    }
-    
-    .required {
-        color: #dc3545;
-    }
-    
-    .info-box {
-        background: #F8FAFC;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid">
-    <!-- En-tête -->
-    <div class="header-section">
-        <div class="d-flex align-items-center">
-            <div class="flex-grow-1">
-                <h1 class="h3 mb-0">
-                    <i class="fas fa-user-plus me-2"></i>
-                    {{ title }}
-                </h1>
-                <p class="mb-0 mt-2 opacity-75">
-                    {% trans "Création d'un nouveau compte utilisateur SUPPER" %}
-                </p>
-            </div>
-            <div>
-                <a href="{% url 'accounts:liste_utilisateurs' %}" class="btn btn-light">
-                    <i class="fas fa-arrow-left me-2"></i>
-                    {% trans "Retour à la liste" %}
-                </a>
-            </div>
-        </div>
-    </div>
-
+<div class="container-fluid py-4">
     <div class="row justify-content-center">
-        <div class="col-xl-8 col-lg-10">
-            <div class="form-container">
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    
-                    <!-- Messages d'erreur -->
-                    {% if messages %}
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-
-                    <!-- Informations personnelles -->
-                    <div class="section-title">
-                        <i class="fas fa-user me-2"></i>
-                        {% trans "Informations personnelles" %}
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="username" class="form-label">
-                                    {% trans "Matricule" %} <span class="required">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="username" name="username"
-                                       required pattern="[A-Z0-9]{6,20}" style="text-transform: uppercase;"
-                                       placeholder="{% trans 'Ex: SUP001' %}">
-                                <div class="help-text">
-                                    {% trans "6-20 caractères alphanumériques majuscules" %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="nom_complet" class="form-label">
-                                    {% trans "Nom complet" %} <span class="required">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="nom_complet" name="nom_complet"
-                                       required placeholder="{% trans 'Nom et prénom(s)' %}">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="telephone" class="form-label">
-                                    {% trans "Téléphone" %} <span class="required">*</span>
-                                </label>
-                                <input type="tel" class="form-control" id="telephone" name="telephone"
-                                       required pattern="^\\+?237?[0-9]{8,9}$"
-                                       placeholder="{% trans 'Ex: +237600000000' %}">
-                                <div class="help-text">
-                                    {% trans "Format camerounais: +237XXXXXXXXX" %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="email" class="form-label">
-                                    {% trans "Email" %} <small class="text-muted">({% trans "optionnel" %})</small>
-                                </label>
-                                <input type="email" class="form-control" id="email" name="email"
-                                       placeholder="{% trans 'adresse@example.com' %}">
-                                <div class="help-text">
-                                    {% trans "Pour la réinitialisation de mot de passe" %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Affectation professionnelle -->
-                    <div class="section-title">
-                        <i class="fas fa-briefcase me-2"></i>
-                        {% trans "Affectation professionnelle" %}
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="habilitation" class="form-label">
-                                    {% trans "Habilitation" %} <span class="required">*</span>
-                                </label>
-                                <select class="form-select" id="habilitation" name="habilitation" required>
-                                    <option value="">{% trans "Sélectionner une habilitation..." %}</option>
-                                    {% for value, label in habilitations %}
-                                    <option value="{{ value }}">{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                                <div class="help-text">
-                                    {% trans "Rôle de l'utilisateur dans le système" %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="poste_affectation" class="form-label">
-                                    {% trans "Poste d'affectation" %}
-                                </label>
-                                <select class="form-select" id="poste_affectation" name="poste_affectation">
-                                    <option value="">{% trans "Aucun poste spécifique" %}</option>
-                                    {% for poste in postes %}
-                                    <option value="{{ poste.id }}">
-                                        {{ poste.nom }} ({{ poste.get_type_poste_display }})
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                                <div class="help-text">
-                                    {% trans "Laisser vide pour un accès global" %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Authentification -->
-                    <div class="section-title">
-                        <i class="fas fa-key me-2"></i>
-                        {% trans "Authentification" %}
-                    </div>
-
-                    <div class="info-box">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-info-circle text-primary me-2"></i>
-                            <div>
-                                <strong>{% trans "Mot de passe par défaut :" %}</strong> supper2025
-                                <br>
-                                <small class="text-muted">
-                                    {% trans "L'utilisateur pourra le modifier lors de sa première connexion." %}
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password" class="form-label">
-                            {% trans "Mot de passe" %}
-                        </label>
-                        <input type="password" class="form-control" id="password" name="password"
-                               value="supper2025" readonly>
-                        <div class="help-text">
-                            {% trans "Mot de passe par défaut pour tous les nouveaux comptes" %}
-                        </div>
-                    </div>
-
-                    <!-- Boutons d'action -->
-                    <div class="d-flex justify-content-between pt-3">
-                        <a href="{% url 'accounts:liste_utilisateurs' %}" class="btn btn-secondary">
-                            <i class="fas fa-times me-2"></i>
-                            {% trans "Annuler" %}
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="mb-0">
+                            <i class="fas fa-user-plus text-primary me-2"></i>
+                            {{ title }}
+                        </h2>
+                        <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Retour
                         </a>
-                        
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>
-                            {% trans "Créer l'utilisateur" %}
-                        </button>
                     </div>
-                </form>
+                </div>
+                
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Section Identification -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2">
+                                <i class="fas fa-id-card me-2"></i>Identification
+                            </h5>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Matricule <span class="text-danger">*</span></label>
+                                    <input type="text" name="username" class="form-control" 
+                                           required pattern="[A-Z0-9]{3,20}" 
+                                           style="text-transform: uppercase;"
+                                           placeholder="Ex: ADM001">
+                                    <div class="form-text">3-20 caractères alphanumériques majuscules</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Nom Complet <span class="text-danger">*</span></label>
+                                    <input type="text" name="nom_complet" class="form-control" 
+                                           required placeholder="Nom et prénom(s)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section Contact -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2">
+                                <i class="fas fa-phone me-2"></i>Contact
+                            </h5>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Téléphone <span class="text-danger">*</span></label>
+                                    <input type="tel" name="telephone" class="form-control" 
+                                           required pattern="(\+237)?[0-9]{8,9}"
+                                           placeholder="+237XXXXXXXXX">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email (optionnel)</label>
+                                    <input type="email" name="email" class="form-control" 
+                                           placeholder="email@exemple.com">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section Affectation -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2">
+                                <i class="fas fa-building me-2"></i>Affectation
+                            </h5>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Habilitation <span class="text-danger">*</span></label>
+                                    <select name="habilitation" class="form-select" required>
+                                        {% for value, label in habilitations %}
+                                        <option value="{{ value }}" {% if value == 'agent_inventaire' %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Poste d'affectation</label>
+                                    <select name="poste_affectation" class="form-select">
+                                        <option value="">-- Aucun --</option>
+                                        {% for poste in postes %}
+                                        <option value="{{ poste.id }}">{{ poste.nom }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section Mot de passe -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2">
+                                <i class="fas fa-key me-2"></i>Mot de passe
+                            </h5>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-12">
+                                    <label class="form-label">Mot de passe initial</label>
+                                    <input type="text" name="password" class="form-control" 
+                                           value="supper2025" 
+                                           placeholder="Minimum 4 caractères">
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle"></i>
+                                        L'utilisateur devra changer ce mot de passe à sa première connexion
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Créer l'utilisateur
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-uppercase pour le matricule
-    const usernameInput = document.getElementById('username');
-    usernameInput.addEventListener('input', function(e) {
-        e.target.value = e.target.value.toUpperCase();
+// Validation Bootstrap
+(function() {
+    'use strict';
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
     });
-    
-    // Validation téléphone en temps réel
-    const phoneInput = document.getElementById('telephone');
-    phoneInput.addEventListener('input', function(e) {
-        const value = e.target.value;
-        const pattern = /^(\+?237?)?[0-9]{0,9}$/;
-        
-        if (!pattern.test(value) && value !== '') {
-            e.target.setCustomValidity('{% trans "Format de téléphone invalide" %}');
-        } else {
-            e.target.setCustomValidity('');
-        }
-    });
-    
-    // Validation matricule en temps réel
-    usernameInput.addEventListener('input', function(e) {
-        const value = e.target.value;
-        const pattern = /^[A-Z0-9]{6,20}$/;
-        
-        if (!pattern.test(value) && value !== '') {
-            e.target.setCustomValidity('{% trans "Le matricule doit contenir 6-20 caractères alphanumériques majuscules" %}');
-        } else {
-            e.target.setCustomValidity('');
-        }
-    });
-});
+})();
 </script>
 {% endblock %}

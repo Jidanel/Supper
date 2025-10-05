@@ -1,0 +1,208 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Modifier" %} {{ poste.nom }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Mêmes styles que creer_poste.html */
+    body { margin: 0 !important; padding: 0 !important; }
+    #content.main-content { background: transparent !important; padding: 0 !important; }
+    .content-wrapper { padding: 0 !important; max-width: none !important; }
+    
+    .form-section { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .form-group { margin-bottom: 1.5rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; color: #475569; font-weight: 500; font-size: 0.9rem; }
+    .required-field::after { content: " *"; color: #ef4444; }
+    .form-control, .form-select { width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; transition: all 0.2s; }
+    .form-control:focus, .form-select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    .form-help { display: block; margin-top: 0.25rem; font-size: 0.85rem; color: #64748B; }
+    .section-title { font-size: 1.125rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid #f1f5f9; }
+    .section-icon { color: #764ba2; margin-right: 0.5rem; }
+    .readonly-field { background: #f8fafc !important; cursor: not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="fas fa-edit me-2" style="color: #764ba2;"></i>
+                {% trans "Modifier le Poste" %} : {{ poste.nom }}
+            </h2>
+            <p class="text-muted mt-2">
+                {% trans "Code" %}: <strong>{{ poste.code }}</strong>
+            </p>
+        </div>
+        <a href="{% url 'accounts:detail_poste' poste.id %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>
+            {% trans "Retour au détail" %}
+        </a>
+    </div>
+
+    <!-- Formulaire -->
+    <div class="form-section">
+        <form method="post" action="{% url 'accounts:modifier_poste' poste.id %}">
+            {% csrf_token %}
+            
+            <!-- Section Identification -->
+            <h3 class="section-title">
+                <i class="fas fa-id-card section-icon"></i>
+                {% trans "Identification du Poste" %}
+            </h3>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>{% trans "Code du Poste" %}</label>
+                        <input type="text" name="code" class="form-control readonly-field" 
+                               value="{{ poste.code }}" readonly>
+                        <small class="form-help">{% trans "Le code ne peut pas être modifié" %}</small>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="required-field">{% trans "Type de Poste" %}</label>
+                        <select name="type" class="form-select" required>
+                            <option value="peage" {% if poste.type == 'peage' %}selected{% endif %}>
+                                {% trans "Poste de Péage" %}
+                            </option>
+                            <option value="pesage" {% if poste.type == 'pesage' %}selected{% endif %}>
+                                {% trans "Poste de Pesage" %}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="is_active" {% if poste.is_active %}checked{% endif %} class="me-2">
+                            {% trans "Poste actif" %}
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="required-field">{% trans "Nom du Poste" %}</label>
+                <input type="text" name="nom" class="form-control" required value="{{ poste.nom }}">
+            </div>
+            
+            <!-- Section Localisation -->
+            <h3 class="section-title mt-4">
+                <i class="fas fa-map-marker-alt section-icon"></i>
+                {% trans "Localisation" %}
+            </h3>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="required-field">{% trans "Région" %}</label>
+                        <select name="region" id="id_region" class="form-select" required>
+                            <option value="">-- {% trans "Sélectionner" %} --</option>
+                            {% for region in regions %}
+                            <option value="{{ region.id }}" {% if poste.region.id == region.id %}selected{% endif %}>
+                                {{ region.nom }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>{% trans "Département" %}</label>
+                        <select name="departement" id="id_departement" class="form-select">
+                            <option value="">-- {% trans "Sélectionner" %} --</option>
+                            {% if poste.departement %}
+                            <option value="{{ poste.departement.id }}" selected>{{ poste.departement.nom }}</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>{% trans "Axe Routier" %}</label>
+                <input type="text" name="axe_routier" class="form-control" value="{{ poste.axe_routier|default:'' }}">
+            </div>
+            
+            <!-- Section Coordonnées GPS -->
+            <h3 class="section-title mt-4">
+                <i class="fas fa-globe section-icon"></i>
+                {% trans "Coordonnées GPS" %}
+            </h3>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>{% trans "Latitude" %}</label>
+                        <input type="number" name="latitude" class="form-control" 
+                               step="0.000001" value="{{ poste.latitude|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>{% trans "Longitude" %}</label>
+                        <input type="number" name="longitude" class="form-control" 
+                               step="0.000001" value="{{ poste.longitude|default:'' }}">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section Description -->
+            <h3 class="section-title mt-4">
+                <i class="fas fa-align-left section-icon"></i>
+                {% trans "Description" %}
+            </h3>
+            
+            <div class="form-group">
+                <textarea name="description" class="form-control" rows="4">{{ poste.description|default:'' }}</textarea>
+            </div>
+            
+            <!-- Actions -->
+            <div class="d-flex gap-2 justify-content-end mt-4 pt-4" style="border-top: 1px solid #f1f5f9;">
+                <a href="{% url 'accounts:detail_poste' poste.id %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i>
+                    {% trans "Annuler" %}
+                </a>
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-save me-1"></i>
+                    {% trans "Enregistrer" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Script identique à creer_poste.html
+document.getElementById('id_region').addEventListener('change', function() {
+    const regionId = this.value;
+    const departementSelect = document.getElementById('id_departement');
+    
+    if (!regionId) {
+        departementSelect.innerHTML = '<option value="">-- {% trans "Sélectionner une région d\'abord" %} --</option>';
+        return;
+    }
+    
+    fetch(`/accounts/api/departements/?region=${regionId}`)
+        .then(response => response.json())
+        .then(data => {
+            departementSelect.innerHTML = '<option value="">-- {% trans "Sélectionner" %} --</option>';
+            data.departements.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.nom;
+                departementSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Erreur:', error));
+});
+</script>
+{% endblock %}

@@ -1,29 +1,155 @@
+# ===================================================================
+# inventaire/templatetags/inventaire_extras.py
+# Template tags et filtres personnalisés pour SUPPER - VERSION COMPLÈTE
+# ===================================================================
+
 from django import template
+from django.contrib.humanize.templatetags.humanize import intcomma
+from decimal import Decimal, InvalidOperation
+import locale
 
 register = template.Library()
 
-@register.filter
-def get_item(dictionary, key):
-    """Récupère un élément d'un dictionnaire dans un template"""
-    if dictionary:
-        return dictionary.get(key)
-    return None
+# ===================================================================
+# FILTRES HUMANIZE (Réexportés et améliorés)
+# ===================================================================
 
-@register.filter
-def mul(value, arg):
-    """Multiplie la valeur par l'argument."""
+@register.filter(name='intcomma')
+def intcomma_filter(value):
+    """
+    Formate un nombre avec des espaces comme séparateurs de milliers
+    Exemple: 1000000 -> 1 000 000
+    """
     try:
-        return int(value) * int(arg)
+        # Convertir en entier si c'est un Decimal
+        if isinstance(value, Decimal):
+            value = int(value)
+        elif isinstance(value, float):
+            value = int(value)
+        
+        # Formater avec des espaces
+        return "{:,}".format(int(value)).replace(',', ' ')
     except (ValueError, TypeError):
-        return 0
-
-from django import template
-from decimal import Decimal, InvalidOperation
+        return value
 
 
-@register.filter
+@register.filter(name='floatformat')
+def floatformat_filter(value, arg=2):
+    """
+    Formate un nombre décimal avec un nombre de décimales spécifié
+    Exemple: 123.456789 avec arg=2 -> 123.46
+    """
+    try:
+        if value is None:
+            return ''
+        
+        # Convertir en float
+        value = float(value)
+        
+        # Appliquer le format
+        if arg == 0:
+            return "{:.0f}".format(value)
+        else:
+            return "{:.{}f}".format(value, int(arg))
+    except (ValueError, TypeError):
+        return value
+
+
+@register.filter(name='format_milliers')
+def format_milliers(value):
+    """
+    Formate un nombre avec séparateurs de milliers (espaces)
+    Exemple: 1500000 -> 1 500 000
+    """
+    try:
+        value = float(value)
+        return f"{value:,.0f}".replace(",", " ")
+    except (ValueError, TypeError):
+        return value
+
+
+# ===================================================================
+# FILTRES PERSONNALISÉS SUPPER - FORMATAGE
+# ===================================================================
+
+@register.filter(name='format_fcfa')
+def format_fcfa(value):
+    """
+    Formate un montant en FCFA avec séparateurs de milliers
+    Exemple: 1500000 -> 1 500 000 FCFA
+    """
+    try:
+        if value is None:
+            return "0 FCFA"
+        
+        # Convertir en entier
+        montant = int(float(value))
+        
+        # Formater avec espaces
+        formatted = "{:,}".format(montant).replace(',', ' ')
+        
+        return f"{formatted} FCFA"
+    except (ValueError, TypeError):
+        return "0 FCFA"
+
+
+@register.filter(name='format_percentage')
+def format_percentage(value, decimals=2):
+    """
+    Formate un nombre en pourcentage
+    Exemple: -15.5678 -> -15.57%
+    """
+    try:
+        if value is None:
+            return "0.00%"
+        
+        value = float(value)
+        
+        return "{:.{}f}%".format(value, decimals)
+    except (ValueError, TypeError):
+        return "0.00%"
+
+
+@register.filter(name='format_date_fr')
+def format_date_fr(date_obj):
+    """
+    Formate une date au format français
+    Exemple: 2025-01-15 -> 15/01/2025
+    """
+    try:
+        if not date_obj:
+            return ''
+        
+        return date_obj.strftime('%d/%m/%Y')
+    except:
+        return str(date_obj)
+
+
+@register.filter(name='format_datetime_fr')
+def format_datetime_fr(datetime_obj):
+    """
+    Formate une date-heure au format français
+    Exemple: 2025-01-15 14:30:00 -> 15/01/2025 14:30
+    """
+    try:
+        if not datetime_obj:
+            return ''
+        
+        return datetime_obj.strftime('%d/%m/%Y %H:%M')
+    except:
+        return str(datetime_obj)
+
+
+# ===================================================================
+# FILTRES DE SÉCURITÉ - CONVERSIONS SÛRES
+# ===================================================================
+
+@register.filter(name='safe_decimal')
 def safe_decimal(value, default=0):
-    """Convertit une valeur en nombre sûr pour l'affichage"""
+    """
+    Convertit une valeur en nombre sûr pour l'affichage
+    Exemple: safe_decimal(None, 0) -> 0
+    """
     if value is None:
         return default
     
@@ -34,9 +160,13 @@ def safe_decimal(value, default=0):
     except (TypeError, ValueError, InvalidOperation):
         return default
 
-@register.filter
+
+@register.filter(name='safe_int')
 def safe_int(value, default=0):
-    """Convertit une valeur en entier sûr pour l'affichage"""
+    """
+    Convertit une valeur en entier sûr pour l'affichage
+    Exemple: safe_int("abc", 0) -> 0
+    """
     if value is None:
         return default
     
@@ -47,59 +177,423 @@ def safe_int(value, default=0):
     except (TypeError, ValueError, InvalidOperation):
         return default
 
-from django import template
 
-register = template.Library()
+# ===================================================================
+# FILTRES MATHÉMATIQUES - OPÉRATIONS DE BASE
+# ===================================================================
 
-@register.filter
-def sum_attribute(queryset, attribute):
-    """Somme un attribut d'une liste d'objets"""
-    return sum(getattr(item, attribute, 0) for item in queryset)
-
-@register.filter
-def average_attribute(queryset, attribute):
-    """Moyenne d'un attribut d'une liste d'objets"""
-    values = [getattr(item, attribute, 0) for item in queryset if getattr(item, attribute, None) is not None]
-    return sum(values) / len(values) if values else 0
-
-@register.filter
-def div(value, divisor):
-    """Division sécurisée"""
+@register.filter(name='abs')
+def absolute_value(value):
+    """
+    Retourne la valeur absolue d'un nombre
+    Exemple: abs(-15) -> 15
+    """
     try:
-        return float(value) / float(divisor)
-    except (ValueError, ZeroDivisionError):
+        return abs(float(value))
+    except (ValueError, TypeError):
         return 0
 
-@register.filter
-def sub(value, arg):
-    """Soustraction"""
-    return float(value) - float(arg)
 
-@register.filter
-def mul(value, arg):
-    """Multiplication"""
-    return float(value) * float(arg)
-
-@register.filter
-def get_item(lst, index):
-    """Récupère un élément de liste par index"""
+@register.filter(name='multiply')
+@register.filter(name='mul')
+def multiply(value, arg):
+    """
+    Multiplie une valeur par un argument
+    Exemple: {{ 5|multiply:3 }} -> 15
+    Alias: mul
+    """
     try:
-        return lst[index]
-    except (IndexError, TypeError):
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return 0
+
+
+@register.filter(name='divide')
+@register.filter(name='div')
+@register.filter(name='dividedby')
+def divide(value, arg):
+    """
+    Divise une valeur par un argument
+    Exemple: {{ 10|divide:2 }} -> 5.0
+    Alias: div, dividedby
+    """
+    try:
+        divisor = float(arg)
+        if divisor == 0:
+            return 0
+        return float(value) / divisor
+    except (ValueError, TypeError, ZeroDivisionError):
+        return 0
+
+
+@register.filter(name='sub')
+@register.filter(name='subtract')
+def subtract(value, arg):
+    """
+    Soustrait arg de value
+    Exemple: {{ 10|sub:3 }} -> 7
+    """
+    try:
+        return float(value) - float(arg)
+    except (ValueError, TypeError):
+        return 0
+
+
+@register.filter(name='add')
+def add_filter(value, arg):
+    """
+    Additionne value et arg
+    Exemple: {{ 5|add:3 }} -> 8
+    """
+    try:
+        return float(value) + float(arg)
+    except (ValueError, TypeError):
+        return 0
+
+
+# ===================================================================
+# FILTRES DE COLLECTION - LISTES ET DICTIONNAIRES
+# ===================================================================
+
+@register.filter(name='get_item')
+def get_item(container, key):
+    """
+    Récupère un élément d'un dictionnaire ou d'une liste
+    Exemple dict: {{ my_dict|get_item:"key" }}
+    Exemple list: {{ my_list|get_item:0 }}
+    """
+    if container is None:
         return None
     
-@register.filter
-def format_milliers(value):
-    """Formate un nombre avec séparateurs de milliers"""
+    try:
+        # Si c'est un dictionnaire
+        if isinstance(container, dict):
+            return container.get(key)
+        # Si c'est une liste ou tuple
+        elif isinstance(container, (list, tuple)):
+            return container[int(key)]
+        else:
+            return None
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
+
+@register.filter(name='sum_attribute')
+def sum_attribute(queryset, attribute):
+    """
+    Somme un attribut d'une liste d'objets
+    Exemple: {{ inventaires|sum_attribute:"total_vehicules" }}
+    """
+    try:
+        return sum(getattr(item, attribute, 0) for item in queryset)
+    except (TypeError, AttributeError):
+        return 0
+
+
+@register.filter(name='average_attribute')
+def average_attribute(queryset, attribute):
+    """
+    Moyenne d'un attribut d'une liste d'objets
+    Exemple: {{ recettes|average_attribute:"taux_deperdition" }}
+    """
+    try:
+        values = [
+            getattr(item, attribute, 0) 
+            for item in queryset 
+            if getattr(item, attribute, None) is not None
+        ]
+        return sum(values) / len(values) if values else 0
+    except (TypeError, AttributeError, ZeroDivisionError):
+        return 0
+
+
+# ===================================================================
+# FILTRES DE COMPARAISON
+# ===================================================================
+
+@register.filter(name='gt')
+def greater_than(value, arg):
+    """
+    Vérifie si value > arg
+    Exemple: {% if taux|gt:-10 %}Bon{% endif %}
+    """
+    try:
+        return float(value) > float(arg)
+    except (ValueError, TypeError):
+        return False
+
+
+@register.filter(name='gte')
+def greater_than_equal(value, arg):
+    """
+    Vérifie si value >= arg
+    """
+    try:
+        return float(value) >= float(arg)
+    except (ValueError, TypeError):
+        return False
+
+
+@register.filter(name='lt')
+def less_than(value, arg):
+    """
+    Vérifie si value < arg
+    """
+    try:
+        return float(value) < float(arg)
+    except (ValueError, TypeError):
+        return False
+
+
+@register.filter(name='lte')
+def less_than_equal(value, arg):
+    """
+    Vérifie si value <= arg
+    """
+    try:
+        return float(value) <= float(arg)
+    except (ValueError, TypeError):
+        return False
+
+
+# ===================================================================
+# FILTRES MÉTIER SUPPER - STYLES ET CLASSES CSS
+# ===================================================================
+
+@register.filter(name='couleur_taux')
+def couleur_taux(taux):
+    """
+    Retourne la classe CSS Bootstrap selon le taux de déperdition
+    Vert: > -10%, Orange: -10% à -30%, Rouge: < -30%
+    """
+    try:
+        if taux is None:
+            return 'secondary'
+        
+        taux = float(taux)
+        
+        if taux > -10:
+            return 'success'  # Vert
+        elif taux >= -30:
+            return 'warning'  # Orange
+        else:
+            return 'danger'   # Rouge
+    except (ValueError, TypeError):
+        return 'secondary'
+
+
+@register.filter(name='badge_statut')
+def badge_statut(statut):
+    """
+    Retourne la classe CSS Bootstrap pour les badges de statut
+    Exemple: {{ jour.statut|badge_statut }} -> 'success'
+    """
+    badges = {
+        'ouvert': 'success',
+        'ferme': 'danger',
+        'impertinent': 'warning',
+        'actif': 'success',
+        'inactif': 'secondary',
+        'valide': 'success',
+        'en_attente': 'warning',
+        'verrouille': 'info',
+    }
+    
+    statut_lower = str(statut).lower() if statut else ''
+    return badges.get(statut_lower, 'secondary')
+
+
+@register.filter(name='icon_habilitation')
+def icon_habilitation(habilitation):
+    """
+    Retourne l'icône Font Awesome selon l'habilitation
+    Exemple: {{ user.habilitation|icon_habilitation }} -> 'fa-user-shield'
+    """
+    icons = {
+        'admin_principal': 'fa-user-shield',
+        'chef_peage': 'fa-user-tie',
+        'chef_pesage': 'fa-user-tie',
+        'focal_regional': 'fa-map-marked-alt',
+        'agent_inventaire': 'fa-clipboard-list',
+        'caissier': 'fa-cash-register',
+        'coord_psrr': 'fa-project-diagram',
+        'serv_info': 'fa-laptop-code',
+        'serv_emission': 'fa-file-invoice-dollar',
+        'chef_service': 'fa-user-cog',
+        'regisseur': 'fa-coins',
+        'comptable_mat': 'fa-archive',
+        'chef_ordre': 'fa-tasks',
+        'chef_controle': 'fa-check-double',
+        'imprimerie': 'fa-print',
+    }
+    
+    return icons.get(habilitation, 'fa-user')
+
+
+@register.filter(name='icon_type_poste')
+def icon_type_poste(type_poste):
+    """
+    Retourne l'icône Font Awesome selon le type de poste
+    Exemple: {{ poste.type|icon_type_poste }} -> 'fa-road'
+    """
+    icons = {
+        'peage': 'fa-road',
+        'pesage': 'fa-weight',
+    }
+    
+    return icons.get(type_poste, 'fa-map-marker-alt')
+
+
+# ===================================================================
+# FILTRES DE TEXTE
+# ===================================================================
+
+@register.filter(name='truncate_words')
+def truncate_words(value, length=3):
+    """
+    Tronque un texte à un nombre de mots spécifié
+    Exemple: "Péage de Yaoundé Nord" avec length=3 -> "Péage de Yaoundé..."
+    """
+    try:
+        if not value:
+            return ''
+        
+        words = str(value).split()
+        
+        if len(words) <= length:
+            return value
+        
+        return ' '.join(words[:int(length)]) + '...'
+    except:
+        return value
+
+
+# ===================================================================
+# TEMPLATE TAGS (fonctions appelables dans les templates)
+# ===================================================================
+
+@register.simple_tag
+def get_setting(name, default=''):
+    """
+    Récupère une valeur de configuration Django settings
+    Exemple: {% get_setting 'DEBUG' %}
+    """
+    from django.conf import settings
+    return getattr(settings, name, default)
+
+
+@register.simple_tag
+def query_transform(request, **kwargs):
+    """
+    Transforme les paramètres de requête pour la pagination
+    Exemple: <a href="?{% query_transform page=2 %}">Page 2</a>
+    """
+    updated = request.GET.copy()
+    for key, value in kwargs.items():
+        if value is not None:
+            updated[key] = value
+        else:
+            updated.pop(key, None)
+    
+    return updated.urlencode()
+
+
+@register.inclusion_tag('partials/badge_taux.html', takes_context=False)
+def badge_taux_deperdition(taux):
+    """
+    Affiche un badge coloré selon le taux de déperdition
+    Usage: {% badge_taux_deperdition recette.taux_deperdition %}
+    
+    Note: Nécessite le template partials/badge_taux.html
+    """
+    if taux is None:
+        classe = 'secondary'
+        texte = 'N/A'
+    else:
+        try:
+            taux_float = float(taux)
+            if taux_float > -10:
+                classe = 'success'
+                texte = f"{taux_float:.2f}%"
+            elif taux_float >= -30:
+                classe = 'warning'
+                texte = f"{taux_float:.2f}%"
+            else:
+                classe = 'danger'
+                texte = f"{taux_float:.2f}%"
+        except (ValueError, TypeError):
+            classe = 'secondary'
+            texte = 'N/A'
+    
+    return {
+        'classe': classe,
+        'texte': texte,
+        'taux': taux
+    }
+
+
+@register.simple_tag
+def calculate_percentage(value, total):
+    """
+    Calcule le pourcentage de value par rapport à total
+    Exemple: {% calculate_percentage 25 100 %} -> 25.00
+    """
     try:
         value = float(value)
-        return f"{value:,.0f}".replace(",", " ")
-    except (ValueError, TypeError):
-        return value 
+        total = float(total)
+        
+        if total == 0:
+            return 0
+        
+        return (value / total) * 100
+    except (ValueError, TypeError, ZeroDivisionError):
+        return 0
 
-@register.filter
-def get_item(dictionary, key):
-    """Récupère un élément d'un dictionnaire"""
-    if dictionary:
-        return dictionary.get(key)
-    return None
+
+@register.simple_tag
+def get_month_name(month_number):
+    """
+    Retourne le nom du mois en français
+    Exemple: {% get_month_name 1 %} -> Janvier
+    """
+    months = {
+        1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
+        5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
+        9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
+    }
+    
+    try:
+        return months.get(int(month_number), '')
+    except (ValueError, TypeError):
+        return ''
+
+
+# ===================================================================
+# FILTRES SPÉCIAUX POUR DEBUG
+# ===================================================================
+
+@register.filter(name='type')
+def get_type(value):
+    """
+    Retourne le type d'une variable (utile pour le debug)
+    Exemple: {{ my_var|type }}
+    """
+    return type(value).__name__
+
+
+@register.filter(name='dir')
+def get_dir(value):
+    """
+    Retourne les attributs d'un objet (utile pour le debug)
+    Exemple: {{ my_object|dir }}
+    """
+    return dir(value)
+
+
+@register.filter(name='pprint')
+def pretty_print(value):
+    """
+    Affichage formaté pour le debug
+    """
+    import pprint
+    return pprint.pformat(value)

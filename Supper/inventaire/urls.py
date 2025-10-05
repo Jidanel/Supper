@@ -125,8 +125,12 @@ urlpatterns = [
          views.dupliquer_objectifs_annee, 
          name='dupliquer_objectifs'),
      path('simulateur-commandes/', views.simulateur_commandes, name='simulateur_commandes'),
+     path('objectifs-calculer/', views.calculer_objectifs_automatique, name='calculer_objectifs'),
 
      # IMPORT/EXPORT
      path('import/recettes/', views_import.import_recettes_excel, name='import_recettes'),
      path('import/modele/', views_import.telecharger_modele_excel, name='telecharger_modele_excel'),
+     path('api/graphique-evolution/', views.api_graphique_evolution, name='api_graphique_evolution'),
+     path('api/statistiques-postes/', views.api_statistiques_postes_ordonnes, name='api_statistiques_postes_ordonnes'),
+     path('api/stats/', views.api_inventaire_stats, name='api_inventaire_stats'),
      ]

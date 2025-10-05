@@ -1,376 +1,354 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static %}
+{% load static %}
+{% load i18n %}
+{% load inventaire_extras %}
 
-{% block title %}{{ title }} - SUPPER Administration{% endblock %}
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extrastyle %}
+<style>
+    /* Force le reset complet */
+    body { margin: 0 !important; padding: 0 !important; }
+    #content.main-content { background: transparent !important; padding: 0 !important; min-height: auto !important; }
+    .content-wrapper { padding: 0 !important; max-width: none !important; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="dashboard-supper">
-    <!-- Header du dashboard -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body bg-gradient text-white" style="background: linear-gradient(135deg, #6B46C1, #553C9A);">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h1 class="h3 mb-2">
-                                <i class="fas fa-tachometer-alt me-2"></i>
-                                {% trans "Tableau de Bord SUPPER" %}
-                            </h1>
-                            <p class="mb-0 opacity-90">
-                                {% trans "Bienvenue" %} <strong>{{ user.nom_complet|default:user.username }}</strong> - 
-                                {{ user.get_habilitation_display }}
-                            </p>
-                        </div>
-                        <div class="col-md-4 text-end">
-                            <div class="text-white-50">
-                                <small>{% trans "Dernière connexion" %}</small><br>
-                                <strong>{{ user.last_login|date:"d/m/Y H:i"|default:"N/A" }}</strong>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Statistiques principales -->
-    {% if stats %}
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-primary mb-2">
-                        <i class="fas fa-users fa-2x"></i>
-                    </div>
-                    <h3 class="h4 mb-1">{{ stats.users_total|default:0 }}</h3>
-                    <p class="text-muted mb-0">{% trans "Utilisateurs Total" %}</p>
-                    <small class="text-success">
-                        <i class="fas fa-check-circle me-1"></i>
-                        {{ stats.users_active|default:0 }} {% trans "actifs" %}
-                    </small>
-                </div>
-            </div>
-        </div>
+<!-- WRAPPER avec fond bleu en inline pour priorité maximale -->
+<div style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); min-height: calc(100vh - 80px); padding: 2rem; margin: 0; width: 100%;">
+    <div style="max-width: 1400px; margin: 0 auto;">
         
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-success mb-2">
-                        <i class="fas fa-map-marker-alt fa-2x"></i>
-                    </div>
-                    <h3 class="h4 mb-1">{{ stats.postes_total|default:0 }}</h3>
-                    <p class="text-muted mb-0">{% trans "Postes Total" %}</p>
-                    <small class="text-success">
-                        <i class="fas fa-check-circle me-1"></i>
-                        {{ stats.postes_active|default:0 }} {% trans "actifs" %}
-                    </small>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-warning mb-2">
-                        <i class="fas fa-clipboard-list fa-2x"></i>
-                    </div>
-                    <h3 class="h4 mb-1">{{ stats.inventaires_today|default:0 }}</h3>
-                    <p class="text-muted mb-0">{% trans "Inventaires Aujourd'hui" %}</p>
-                    <small class="text-info">
-                        <i class="fas fa-calendar-week me-1"></i>
-                        {{ stats.inventaires_week|default:0 }} {% trans "cette semaine" %}
-                    </small>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-info mb-2">
-                        <i class="fas fa-history fa-2x"></i>
-                    </div>
-                    <h3 class="h4 mb-1">{{ stats.actions_today|default:0 }}</h3>
-                    <p class="text-muted mb-0">{% trans "Actions Aujourd'hui" %}</p>
-                    <small class="text-info">
-                        <i class="fas fa-calendar-week me-1"></i>
-                        {{ stats.actions_week|default:0 }} {% trans "cette semaine" %}
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Message pour accès limité -->
-    {% if has_limited_access %}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="alert alert-info border-0">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>{% trans "Information" %}:</strong>
-                {% trans "Vous avez un accès limité au panel d'administration. Certaines fonctionnalités peuvent ne pas être disponibles selon votre rôle" %} 
-                (<strong>{{ user_habilitation|default:"Non défini" }}</strong>).
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Actions rapides -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-bolt me-2 text-primary"></i>
-                        {% trans "Actions Rapides" %}
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {% if user.peut_gerer_inventaire %}
-                        <div class="col-md-4 mb-3">
-                            <a href="/inventaire/saisie/" class="btn btn-outline-primary w-100 py-3">
-                                <i class="fas fa-clipboard-list fa-2x d-block mb-2"></i>
-                                <strong>{% trans "Saisie Inventaire" %}</strong><br>
-                                <small class="text-muted">{% trans "Enregistrer un nouvel inventaire" %}</small>
-                            </a>
-                        </div>
-                        {% endif %}
-
-                        {% if user.peut_gerer_peage or user.peut_gerer_pesage %}
-                        <div class="col-md-4 mb-3">
-                            <a href="#" class="btn btn-outline-success w-100 py-3">
-                                <i class="fas fa-money-bill-wave fa-2x d-block mb-2"></i>
-                                <strong>{% trans "Saisie Recette" %}</strong><br>
-                                <small class="text-muted">{% trans "Enregistrer une recette" %}</small>
-                            </a>
-                        </div>
-                        {% endif %}
-
-                        {% if user.peut_gerer_personnel %}
-                        <div class="col-md-4 mb-3">
-                            <a href="/accounts/users/create/" class="btn btn-outline-info w-100 py-3">
-                                <i class="fas fa-user-plus fa-2x d-block mb-2"></i>
-                                <strong>{% trans "Créer Utilisateur" %}</strong><br>
-                                <small class="text-muted">{% trans "Ajouter un nouvel agent" %}</small>
-                            </a>
-                        </div>
-                        {% endif %}
-
-                        {% if user.is_superuser %}
-                        <div class="col-md-4 mb-3">
-                            <a href="/django-admin/" class="btn btn-outline-warning w-100 py-3">
-                                <i class="fas fa-cogs fa-2x d-block mb-2"></i>
-                                <strong>{% trans "Panel Avancé" %}</strong><br>
-                                <small class="text-muted">{% trans "Administration Django" %}</small>
-                            </a>
-                        </div>
-
-                        <div class="col-md-4 mb-3">
-                            <a href="/inventaire/config-jours/" class="btn btn-outline-secondary w-100 py-3">
-                                <i class="fas fa-calendar-alt fa-2x d-block mb-2"></i>
-                                <strong>{% trans "Configuration Jours" %}</strong><br>
-                                <small class="text-muted">{% trans "Ouvrir/fermer des jours" %}</small>
-                            </a>
-                        </div>
-
-                        <div class="col-md-4 mb-3">
-                            <a href="/accounts/users/" class="btn btn-outline-dark w-100 py-3">
-                                <i class="fas fa-users-cog fa-2x d-block mb-2"></i>
-                                <strong>{% trans "Gestion Utilisateurs" %}</strong><br>
-                                <small class="text-muted">{% trans "Administrer les comptes" %}</small>
-                            </a>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Activité récente et informations -->
-    <div class="row">
-        <!-- Activité récente -->
-        <div class="col-md-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-clock me-2 text-success"></i>
-                        {% trans "Activité Récente" %}
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_actions %}
-                    <div class="list-group list-group-flush">
-                        {% for action in recent_actions %}
-                        <div class="list-group-item border-0 px-0">
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    {% if action.succes %}
-                                        <div class="badge bg-success rounded-circle p-2">
-                                            <i class="fas fa-check"></i>
-                                        </div>
-                                    {% else %}
-                                        <div class="badge bg-danger rounded-circle p-2">
-                                            <i class="fas fa-times"></i>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <div class="flex-fill">
-                                    <div class="fw-bold">{{ action.action }}</div>
-                                    <div class="text-muted small">
-                                        {{ action.utilisateur.nom_complet|default:action.utilisateur.username }} - 
-                                        {{ action.timestamp|date:"d/m/Y H:i" }}
-                                    </div>
-                                    {% if action.details %}
-                                    <div class="text-muted small">
-                                        {{ action.details|truncatechars:100 }}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-history fa-3x mb-3 opacity-50"></i>
-                        <p>{% trans "Aucune activité récente" %}</p>
-                    </div>
-                    {% endif %}
-                </div>
-                {% if user.is_superuser %}
-                <div class="card-footer bg-transparent">
-                    <a href="#" class="btn btn-sm btn-outline-primary">
-                        <i class="fas fa-list me-1"></i>
-                        {% trans "Voir tout le journal" %}
-                    </a>
-                </div>
+        <!-- EN-TÊTE avec fond blanc -->
+        <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px); border-radius: 20px; padding: 2.5rem; margin-bottom: 2rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); position: relative; overflow: hidden; border-top: 5px solid #2563eb;">
+            <h1 style="margin: 0 0 0.5rem 0; font-size: 2.5rem; font-weight: 800; color: #0F172A; line-height: 1.2;">
+                {% trans "Tableau de Bord" %} SUPPER
+            </h1>
+            <div style="color: #475569; font-size: 1.125rem; margin: 0;">
+                {% trans "Bienvenue," %} <strong style="color: #2563eb;">{{ user_stats.nom_complet }}</strong> 
+                ({{ user_stats.habilitation }})
+                {% if user_stats.poste_affectation %}
+                    - {{ user_stats.poste_affectation.nom }}
                 {% endif %}
             </div>
         </div>
 
-        <!-- Informations système -->
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-info-circle me-2 text-info"></i>
-                        {% trans "Informations" %}
-                    </h5>
+        <!-- ACTIONS RAPIDES -->
+        {% if actions_rapides %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+            {% for action in actions_rapides %}
+            <a href="{{ action.url }}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; background: white; border-radius: 16px; text-decoration: none; color: #1E293B; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: all 0.3s; border: 2px solid transparent;">
+                <div style="width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin-bottom: 1rem; color: white; 
+                    {% if 'primary' in action.class %}background: linear-gradient(135deg, #2563eb, #3b82f6);
+                    {% elif 'success' in action.class %}background: linear-gradient(135deg, #10B981, #6EE7B7);
+                    {% elif 'warning' in action.class %}background: linear-gradient(135deg, #F59E0B, #FCD34D);
+                    {% elif 'danger' in action.class %}background: linear-gradient(135deg, #EF4444, #FCA5A5);
+                    {% else %}background: linear-gradient(135deg, #2563eb, #3b82f6);{% endif %}">
+                    <i class="{{ action.icon }}"></i>
                 </div>
-                <div class="card-body">
-                    <!-- Informations utilisateur -->
-                    <div class="mb-4">
-                        <h6 class="text-muted mb-2">{% trans "Votre Compte" %}</h6>
-                        <div class="small">
-                            <div class="row mb-1">
-                                <div class="col-5 text-muted">{% trans "Matricule" %}:</div>
-                                <div class="col-7">{{ user.username }}</div>
-                            </div>
-                            <div class="row mb-1">
-                                <div class="col-5 text-muted">{% trans "Rôle" %}:</div>
-                                <div class="col-7">{{ user.get_habilitation_display }}</div>
-                            </div>
-                            {% if user.poste_affectation %}
-                            <div class="row mb-1">
-                                <div class="col-5 text-muted">{% trans "Poste" %}:</div>
-                                <div class="col-7">{{ user.poste_affectation.nom }}</div>
-                            </div>
-                            {% endif %}
-                            <div class="row">
-                                <div class="col-5 text-muted">{% trans "Créé le" %}:</div>
-                                <div class="col-7">{{ user.date_creation|date:"d/m/Y" }}</div>
-                            </div>
-                        </div>
-                    </div>
+                <div style="font-weight: 600; font-size: 1rem; text-align: center; color: #1E293B;">
+                    {{ action.titre }}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
 
-                    <!-- Statut système -->
-                    <div class="mb-3">
-                        <h6 class="text-muted mb-2">{% trans "Statut Système" %}</h6>
-                        <div class="d-flex align-items-center mb-2">
-                            <div class="badge bg-success me-2">
-                                <i class="fas fa-circle"></i>
-                            </div>
-                            <span class="small">{% trans "Système opérationnel" %}</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <div class="badge bg-success me-2">
-                                <i class="fas fa-database"></i>
-                            </div>
-                            <span class="small">{% trans "Base de données connectée" %}</span>
-                        </div>
+        <!-- STATISTIQUES PRINCIPALES -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+            {% if stats_globales %}
+            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #2563eb;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
+                        {% trans "Utilisateurs" %}
                     </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #2563eb, #3b82f6);">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                    {{ stats_globales.total_utilisateurs }}
+                </div>
+                <div style="color: #64748B; font-size: 0.875rem;">
+                    {{ stats_globales.utilisateurs_actifs }} {% trans "actifs" %}
+                </div>
+            </div>
 
-                    <!-- Actions admin -->
-                    {% if user.is_superuser %}
-                    <div class="d-grid gap-2">
-                        <a href="/django-admin/" class="btn btn-sm btn-primary">
-                            <i class="fas fa-tools me-1"></i>
-                            {% trans "Panel Avancé" %}
-                        </a>
-                        <a href="/common/export/logs/" class="btn btn-sm btn-outline-secondary">
-                            <i class="fas fa-download me-1"></i>
-                            {% trans "Exporter Logs" %}
-                        </a>
+            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #0ea5e9;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
+                        {% trans "Postes" %}
                     </div>
-                    {% endif %}
+                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #0ea5e9, #38bdf8);">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                </div>
+                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                    {{ stats_globales.total_postes }}
+                </div>
+                <div style="color: #64748B; font-size: 0.875rem;">
+                    {{ stats_globales.postes_peage }} péage | {{ stats_globales.postes_pesage }} pesage
+                </div>
+            </div>
+            {% endif %}
+
+            {% if stats_inventaires %}
+            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #10B981;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
+                        {% trans "Inventaires Aujourd'hui" %}
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #10B981, #6EE7B7);">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                </div>
+                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                    {{ stats_inventaires.inventaires_today }}
+                </div>
+                <div style="color: #64748B; font-size: 0.875rem;">
+                    {{ stats_inventaires.inventaires_semaine }} {% trans "cette semaine" %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if stats_recettes %}
+            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #F59E0B;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
+                        {% trans "Recettes du Mois" %}
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #F59E0B, #FCD34D);">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                </div>
+                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                    {{ stats_recettes.montant_mois|floatformat:0|intcomma }} FCFA
+                </div>
+                <div style="color: #64748B; font-size: 0.875rem;">
+                    {{ stats_recettes.nombre_recettes_mois }} {% trans "recettes saisies" %}
+                </div>
+            </div>
+
+            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid {% if stats_recettes.taux_moyen_mois > -10 %}#10B981{% elif stats_recettes.taux_moyen_mois > -30 %}#F59E0B{% else %}#EF4444{% endif %};">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
+                        {% trans "Taux Moyen Déperdition" %}
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, {% if stats_recettes.taux_moyen_mois > -10 %}#10B981, #6EE7B7{% elif stats_recettes.taux_moyen_mois > -30 %}#F59E0B, #FCD34D{% else %}#EF4444, #FCA5A5{% endif %});">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                    {{ stats_recettes.taux_moyen_mois|floatformat:2 }}%
+                </div>
+                <div style="color: #64748B; font-size: 0.875rem;">
+                    {% trans "Écart:" %} {{ stats_recettes.ecart_mois|floatformat:0|intcomma }} FCFA
+                </div>
+            </div>
+
+            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #2563eb;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
+                        {% trans "Recettes Aujourd'hui" %}
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #2563eb, #3b82f6);">
+                        <i class="fas fa-euro-sign"></i>
+                    </div>
+                </div>
+                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
+                    {{ stats_recettes.recettes_today }}
+                </div>
+                <div style="color: #64748B; font-size: 0.875rem;">
+                    {{ stats_recettes.total_recettes }} {% trans "total" %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- OBJECTIFS (si présents) -->
+{% if stats_objectifs %}
+        <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #F1F5F9; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-bullseye" style="color: #2563eb;"></i> 
+                {% trans "Objectifs" %} {{ stats_objectifs.annee }}
+                <span style="font-size: 0.875rem; color: #64748B; font-weight: 400; margin-left: auto;">
+                    ({{ stats_objectifs.nombre_postes }} postes actifs)
+                </span>
+            </h2>
+            
+            <!-- Barre de progression -->
+            <div style="background: #E2E8F0; height: 32px; border-radius: 16px; overflow: hidden; margin: 1.5rem 0;">
+                <div style="height: 100%; width: {{ stats_objectifs.taux_realisation }}%; background: linear-gradient(90deg, #2563eb, #3b82f6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.875rem; transition: width 1.5s ease;">
+                    {{ stats_objectifs.taux_realisation|floatformat:1 }}%
+                </div>
+            </div>
+
+            <!-- Cartes statistiques -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
+                <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
+                    <div style="color: #64748B; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                        {% trans "Objectif" %}
+                    </div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #2563eb;">
+                        {{ stats_objectifs.total_objectif|floatformat:0|intcomma }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">FCFA</div>
+                </div>
+                
+                <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
+                    <div style="color: #64748B; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                        {% trans "Réalisé" %}
+                    </div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #10B981;">
+                        {{ stats_objectifs.total_realise|floatformat:0|intcomma }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">FCFA</div>
+                </div>
+                
+                <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
+                    <div style="color: #64748B; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                        {% trans "Reste" %}
+                    </div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #F59E0B;">
+                        {{ stats_objectifs.reste_a_realiser|floatformat:0|intcomma }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">FCFA</div>
+                </div>
+            </div>
+            
+            <!-- Lien vers la gestion détaillée -->
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <a href="{% url 'inventaire:gestion_objectifs_annuels' %}?annee={{ stats_objectifs.annee }}" 
+                class="btn btn-outline-primary">
+                    <i class="fas fa-cog me-2"></i>
+                    Gérer les objectifs détaillés
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- GRAPHIQUES -->
+        {% if graph_data_json %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fas fa-chart-area" style="color: #2563eb;"></i> 
+                    {% trans "Évolution des Recettes (7 jours)" %}
+                </h2>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="chartRecettes"></canvas>
+                </div>
+            </div>
+
+            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fas fa-chart-line" style="color: #2563eb;"></i> 
+                    {% trans "Taux de Déperdition (7 jours)" %}
+                </h2>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="chartTaux"></canvas>
                 </div>
             </div>
         </div>
+        {% endif %}
+
     </div>
 </div>
 
-<style>
-.dashboard-supper .card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.dashboard-supper .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
-}
-
-.btn:hover {
-    transform: translateY(-1px);
-}
-
-.badge {
-    font-size: 0.7rem;
-}
-</style>
-{% endblock %}
-
-{% block extra_js %}
+<!-- JAVASCRIPT POUR LES GRAPHIQUES -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
-// Actualisation automatique des stats toutes les 30 secondes
-function updateStats() {
-    fetch('/common/api/stats/')
-        .then(response => response.json())
-        .then(data => {
-            if (data.users_online !== undefined) {
-                console.log('Stats mises à jour:', data);
-            }
-        })
-        .catch(error => console.log('Erreur stats:', error));
-}
-
-// Démarrer l'actualisation automatique
-setInterval(updateStats, 30000);
-
-// Animation d'entrée pour les cartes
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.card').forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.5s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
-    });
+    const graphData = {{ graph_data_json|safe }};
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    Chart.defaults.color = '#475569';
+
+    {% if graph_data_json %}
+    if (graphData.evolution_7j && document.getElementById('chartRecettes')) {
+        const ctxRecettes = document.getElementById('chartRecettes').getContext('2d');
+        new Chart(ctxRecettes, {
+            type: 'line',
+            data: {
+                labels: graphData.evolution_7j.labels,
+                datasets: [{
+                    label: 'Recettes (FCFA)',
+                    data: graphData.evolution_7j.recettes,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#2563eb',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        cornerRadius: 8
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    if (graphData.evolution_7j && document.getElementById('chartTaux')) {
+        const ctxTaux = document.getElementById('chartTaux').getContext('2d');
+        const backgroundColors = graphData.evolution_7j.taux.map(taux => {
+            if (taux > -10) return 'rgba(16, 185, 129, 0.6)';
+            if (taux >= -30) return 'rgba(245, 158, 11, 0.6)';
+            return 'rgba(239, 68, 68, 0.6)';
+        });
+        const borderColors = graphData.evolution_7j.taux.map(taux => {
+            if (taux > -10) return '#10B981';
+            if (taux >= -30) return '#F59E0B';
+            return '#EF4444';
+        });
+
+        new Chart(ctxTaux, {
+            type: 'bar',
+            data: {
+                labels: graphData.evolution_7j.labels,
+                datasets: [{
+                    label: 'Taux de Déperdition (%)',
+                    data: graphData.evolution_7j.taux,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        cornerRadius: 8
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: false, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+    {% endif %}
 });
 </script>
 {% endblock %}

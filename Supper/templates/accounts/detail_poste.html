@@ -1,0 +1,221 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{{ poste.nom }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { margin: 0 !important; padding: 0 !important; }
+    #content.main-content { background: transparent !important; padding: 0 !important; }
+    .content-wrapper { padding: 0 !important; max-width: none !important; }
+    
+    .detail-section {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    
+    .section-icon {
+        color: #764ba2;
+        margin-right: 0.5rem;
+    }
+    
+    .info-row {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        padding: 1rem 0;
+        border-bottom: 1px solid #f8fafc;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #64748B;
+        font-size: 0.9rem;
+    }
+    
+    .info-value {
+        color: #0F172A;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-card.success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .stat-card.warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .badge {
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="detail-section mb-4">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <h2 class="mb-0">{{ poste.nom }}</h2>
+                    {% if poste.is_active %}
+                    <span class="badge" style="background: #dcfce7; color: #166534;">
+                        <i class="fas fa-check"></i> {% trans "Actif" %}
+                    </span>
+                    {% else %}
+                    <span class="badge" style="background: #fee2e2; color: #991b1b;">
+                        <i class="fas fa-times"></i> {% trans "Inactif" %}
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-muted mb-0">
+                    <strong>{% trans "Code" %}:</strong> {{ poste.code }} | 
+                    <strong>{% trans "Type" %}:</strong> {{ poste.get_type_display }}
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'accounts:modifier_poste' poste.id %}" class="btn btn-warning">
+                    <i class="fas fa-edit me-1"></i> {% trans "Modifier" %}
+                </a>
+                <a href="{% url 'accounts:liste_postes' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> {% trans "Retour" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations principales -->
+        <div class="col-md-8">
+            <div class="detail-section">
+                <h3 class="section-title">
+                    <i class="fas fa-info-circle section-icon"></i>
+                    {% trans "Informations Générales" %}
+                </h3>
+                
+                <div class="info-row">
+                    <div class="info-label">{% trans "Code Poste" %}</div>
+                    <div class="info-value"><strong>{{ poste.code }}</strong></div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-label">{% trans "Nom Complet" %}</div>
+                    <div class="info-value">{{ poste.nom }}</div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-label">{% trans "Type" %}</div>
+                    <div class="info-value">
+                        {% if poste.type == 'peage' %}
+                        <span class="badge" style="background: #dbeafe; color: #1e40af;">{% trans "Péage" %}</span>
+                        {% else %}
+                        <span class="badge" style="background: #f1f5f9; color: #64748b;">{% trans "Pesage" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-label">{% trans "Région" %}</div>
+                    <div class="info-value">{{ poste.region.nom }}</div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-label">{% trans "Département" %}</div>
+                    <div class="info-value">{{ poste.departement.nom|default:"-" }}</div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-label">{% trans "Axe Routier" %}</div>
+                    <div class="info-value">{{ poste.axe_routier|default:"-" }}</div>
+                </div>
+                
+                {% if poste.latitude and poste.longitude %}
+                <div class="info-row">
+                    <div class="info-label">{% trans "GPS" %}</div>
+                    <div class="info-value">
+                        <i class="fas fa-map-marker-alt text-danger"></i>
+                        {{ poste.latitude }}, {{ poste.longitude }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if poste.description %}
+                <div class="info-row">
+                    <div class="info-label">{% trans "Description" %}</div>
+                    <div class="info-value">{{ poste.description }}</div>
+                </div>
+                {% endif %}
+                
+                <div class="info-row">
+                    <div class="info-label">{% trans "Création" %}</div>
+                    <div class="info-value">{{ poste.date_creation|date:"d/m/Y H:i" }}</div>
+                </div>
+                
+                <div class="info-row" style="border-bottom: none;">
+                    <div class="info-label">{% trans "Modification" %}</div>
+                    <div class="info-value">{{ poste.date_modification|date:"d/m/Y H:i" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="col-md-4">
+            <div class="detail-section">
+                <h3 class="section-title">
+                    <i class="fas fa-chart-bar section-icon"></i>
+                    {% trans "Statistiques du Mois" %}
+                </h3>
+                
+                <div class="stat-card">
+                    <div class="stat-value">{{ stats_poste.nb_inventaires_mois|default:0 }}</div>
+                    <div class="stat-label">{% trans "Inventaires" %}</div>
+                </div>
+                
+                <div class="stat-card success">
+                    <div class="stat-value">{{ stats_poste.nb_recettes_mois|default:0 }}</div>
+                    <div class="stat-label">{% trans "Recettes" %}</div>
+                </div>
+                
+                <div class="stat-card warning">
+                    <div class="stat-value">{{ stats_poste.nb_agents|default:0 }}</div>
+                    <div class="stat-label">{% trans "Agents Affectés" %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

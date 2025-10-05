@@ -1,0 +1,408 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Gestion des Postes" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Reset des marges */
+    body { margin: 0 !important; padding: 0 !important; }
+    #content.main-content { background: transparent !important; padding: 0 !important; }
+    .content-wrapper { padding: 0 !important; max-width: none !important; }
+    
+    /* Section filtres */
+    .filter-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    /* Grille de statistiques */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    /* Cartes statistiques avec dégradés */
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+    
+    .stat-card.success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .stat-card.warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .stat-card.info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    /* Container du tableau */
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    /* En-tête du tableau avec dégradé */
+    .table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .table thead th {
+        padding: 1rem;
+        font-weight: 600;
+        border: none;
+    }
+    
+    /* Corps du tableau */
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .table tbody tr:hover {
+        background: #f9fafb;
+    }
+    
+    /* Badges */
+    .badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .badge-success { 
+        background: #d4edda; 
+        color: #155724; 
+    }
+    
+    .badge-danger { 
+        background: #f8d7da; 
+        color: #721c24; 
+    }
+    
+    .badge-primary { 
+        background: #dbeafe; 
+        color: #1e40af; 
+    }
+    
+    .badge-secondary { 
+        background: #f1f5f9; 
+        color: #64748b; 
+    }
+    
+    /* Boutons d'action */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-action {
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        border: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-view {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+    
+    .btn-edit {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Rangée de filtres */
+    .filter-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: end;
+    }
+    
+    .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    /* État vide */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6b7280;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: #9ca3af;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="fas fa-map-marker-alt me-2" style="color: #764ba2;"></i>
+                {% trans "Gestion des Postes" %}
+            </h2>
+            <p class="text-muted mt-2">
+                {% trans "Gérez tous les postes de péage et de pesage du réseau routier" %}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'accounts:creer_poste' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>
+                {% trans "Nouveau Poste" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">{% trans "Total Postes" %}</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-value">{{ stats.actifs }}</div>
+            <div class="stat-label">{% trans "Actifs" %}</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-value">{{ stats.peages }}</div>
+            <div class="stat-label">{% trans "Péages" %}</div>
+        </div>
+        <div class="stat-card info">
+            <div class="stat-value">{{ stats.pesages }}</div>
+            <div class="stat-label">{% trans "Pesages" %}</div>
+        </div>
+    </div>
+
+    <!-- Section Filtres -->
+    <div class="filter-section">
+        <h5 class="mb-3">
+            <i class="fas fa-filter me-2"></i>
+            {% trans "Filtres" %}
+        </h5>
+        
+        <form method="get" action="">
+            <div class="filter-row">
+                <!-- Recherche -->
+                <div class="filter-group">
+                    <label class="form-label">{% trans "Recherche" %}</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="{% trans 'Nom ou code...' %}" 
+                           value="{{ search }}">
+                </div>
+
+                <!-- Filtre Type -->
+                <div class="filter-group">
+                    <label class="form-label">{% trans "Type" %}</label>
+                    <select name="type" class="form-select">
+                        <option value="">{% trans "Tous" %}</option>
+                        {% for value, label in types %}
+                        <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtre Région -->
+                <div class="filter-group">
+                    <label class="form-label">{% trans "Région" %}</label>
+                    <select name="region" class="form-select">
+                        <option value="">{% trans "Toutes" %}</option>
+                        {% for region in regions %}
+                        <option value="{{ region.nom }}" {% if region_filter == region.nom %}selected{% endif %}>
+                            {{ region.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtre Statut -->
+                <div class="filter-group">
+                    <label class="form-label">{% trans "Statut" %}</label>
+                    <select name="actif" class="form-select">
+                        <option value="">{% trans "Tous" %}</option>
+                        <option value="true" {% if actif_filter == 'true' %}selected{% endif %}>
+                            {% trans "Actifs" %}
+                        </option>
+                        <option value="false" {% if actif_filter == 'false' %}selected{% endif %}>
+                            {% trans "Inactifs" %}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Boutons -->
+                <div class="filter-group">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i>
+                            {% trans "Filtrer" %}
+                        </button>
+                        <a href="{% url 'accounts:liste_postes' %}" class="btn btn-secondary">
+                            <i class="fas fa-redo me-1"></i>
+                            {% trans "Réinitialiser" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau des postes -->
+    {% if page_obj %}
+    <div class="table-container">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>{% trans "Code" %}</th>
+                    <th>{% trans "Nom du Poste" %}</th>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Région" %}</th>
+                    <th>{% trans "Département" %}</th>
+                    <th>{% trans "Statut" %}</th>
+                    <th>{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for poste in page_obj %}
+                <tr>
+                    <td><strong>{{ poste.code }}</strong></td>
+                    <td>
+                        <strong>{{ poste.nom }}</strong>
+                    </td>
+                    <td>
+                        {% if poste.type == 'peage' %}
+                        <span class="badge badge-primary">{% trans "Péage" %}</span>
+                        {% else %}
+                        <span class="badge badge-secondary">{% trans "Pesage" %}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ poste.region.nom }}</td>
+                    <td>{{ poste.departement.nom|default:"-" }}</td>
+                    <td>
+                        {% if poste.is_active %}
+                        <span class="badge badge-success">
+                            <i class="fas fa-check"></i> {% trans "Actif" %}
+                        </span>
+                        {% else %}
+                        <span class="badge badge-danger">
+                            <i class="fas fa-times"></i> {% trans "Inactif" %}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <a href="{% url 'accounts:detail_poste' poste.id %}" 
+                               class="btn-action btn-view" 
+                               title="{% trans 'Voir' %}">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'accounts:modifier_poste' poste.id %}" 
+                               class="btn-action btn-edit" 
+                               title="{% trans 'Modifier' %}">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if actif_filter %}&actif={{ actif_filter }}{% endif %}">
+                    {% trans "Début" %}
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if actif_filter %}&actif={{ actif_filter }}{% endif %}">
+                    {% trans "Précédent" %}
+                </a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if actif_filter %}&actif={{ actif_filter }}{% endif %}">
+                    {% trans "Suivant" %}
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if actif_filter %}&actif={{ actif_filter }}{% endif %}">
+                    {% trans "Fin" %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- État vide -->
+    <div class="empty-state">
+        <i class="fas fa-inbox empty-state-icon"></i>
+        <h4>{% trans "Aucun poste trouvé" %}</h4>
+        <p>{% trans "Aucun poste ne correspond aux filtres sélectionnés" %}</p>
+        <a href="{% url 'accounts:creer_poste' %}" class="btn btn-primary mt-3">
+            <i class="fas fa-plus me-2"></i>
+            {% trans "Créer un poste" %}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

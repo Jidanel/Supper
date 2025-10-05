@@ -28,7 +28,7 @@ import logging
 import json
 
 # Import des modèles SUPPER
-from .models import UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur
+from .models import *
 from .forms import *
 
 # Import des utilitaires communs avec journalisation
@@ -165,54 +165,54 @@ class CustomLogoutView(View):
         return redirect('accounts:login')
 
 
-# ===================================================================
-# VUES DE REDIRECTION VERS ADMIN DJANGO
-# ===================================================================
+# # ===================================================================
+# # VUES DE REDIRECTION VERS ADMIN DJANGO
+# # ===================================================================
 
-@login_required
-def redirect_to_django_admin(request):
-    """Redirection générale vers l'admin Django principal"""
-    user = request.user
+# @login_required
+# def redirect_to_django_admin(request):
+#     """Redirection générale vers l'admin Django principal"""
+#     user = request.user
     
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé au panel d'administration Django."))
-        logger.warning(f"ACCÈS REFUSÉ ADMIN DJANGO - {user.username}")
-        return redirect('accounts:dashboard_redirect')
+#     if not _check_admin_permission(user):
+#         messages.error(request, _("Accès non autorisé au panel d'administration Django."))
+#         logger.warning(f"ACCÈS REFUSÉ ADMIN DJANGO - {user.username}")
+#         return redirect('accounts:dashboard_redirect')
     
-    _log_admin_access(request, "Panel administrateur principal")
-    messages.success(request, _("Accès autorisé au panel d'administration Django."))
+#     _log_admin_access(request, "Panel administrateur principal")
+#     messages.success(request, _("Accès autorisé au panel d'administration Django."))
     
-    return redirect('/admin/')
-
-
-@login_required
-def redirect_to_users_admin(request):
-    """Redirection vers la gestion des utilisateurs dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la gestion des utilisateurs."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Gestion utilisateurs")
-    messages.info(request, _("Redirection vers la gestion des utilisateurs."))
-    
-    return redirect('/admin/accounts/utilisateursupper/')
+#     return redirect('/admin/')
 
 
-@login_required
-def redirect_to_postes_admin(request):
-    """Redirection vers la gestion des postes dans l'admin Django"""
-    user = request.user
+# @login_required
+# def redirect_to_users_admin(request):
+#     """Redirection vers la gestion des utilisateurs dans l'admin Django"""
+#     user = request.user
     
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la gestion des postes."))
-        return redirect('accounts:dashboard_redirect')
+#     if not _check_admin_permission(user):
+#         messages.error(request, _("Accès non autorisé à la gestion des utilisateurs."))
+#         return redirect('accounts:dashboard_redirect')
     
-    _log_admin_access(request, "Gestion postes")
-    messages.info(request, _("Redirection vers la gestion des postes."))
+#     _log_admin_access(request, "Gestion utilisateurs")
+#     messages.info(request, _("Redirection vers la gestion des utilisateurs."))
     
-    return redirect('/admin/accounts/poste/')
+#     return redirect('/admin/accounts/utilisateursupper/')
+
+
+# @login_required
+# def redirect_to_postes_admin(request):
+#     """Redirection vers la gestion des postes dans l'admin Django"""
+#     user = request.user
+    
+#     if not _check_admin_permission(user):
+#         messages.error(request, _("Accès non autorisé à la gestion des postes."))
+#         return redirect('accounts:dashboard_redirect')
+    
+#     _log_admin_access(request, "Gestion postes")
+#     messages.info(request, _("Redirection vers la gestion des postes."))
+    
+#     return redirect('/admin/accounts/poste/')
 
 
 @login_required
@@ -327,7 +327,7 @@ def liste_utilisateurs(request):
         'search': search,
         'habilitation_filter': habilitation_filter,
         'actif_filter': actif_filter,
-        'habilitations': UtilisateurSUPPER.Habilitation.choices,
+        'habilitations': Habilitation.choices,
         'title': 'Gestion des Utilisateurs'
     }
     
@@ -395,7 +395,7 @@ def creer_utilisateur(request):
     
     context = {
         'postes': Poste.objects.filter(is_active=True).order_by('nom'),
-        'habilitations': UtilisateurSUPPER.Habilitation.choices,
+        'habilitations': Habilitation.choices,
         'title': 'Créer un Utilisateur'
     }
     
@@ -494,7 +494,7 @@ def modifier_utilisateur(request, user_id):
     context = {
         'user_edit': user,
         'postes': Poste.objects.filter(is_active=True).order_by('nom'),
-        'habilitations': UtilisateurSUPPER.Habilitation.choices,
+        'habilitations': Habilitation.choices,
         'title': f'Modifier - {user.nom_complet}'
     }
     
@@ -526,26 +526,26 @@ def redirect_to_edit_user_admin(request, user_id):
         return redirect('/admin/accounts/utilisateursupper/')
 
 
-@login_required
-def redirect_to_edit_poste_admin(request, poste_id):
-    """Redirection vers l'édition d'un poste spécifique dans l'admin Django"""
-    user = request.user
+# @login_required
+# def redirect_to_edit_poste_admin(request, poste_id):
+#     """Redirection vers l'édition d'un poste spécifique dans l'admin Django"""
+#     user = request.user
     
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à l'édition des postes."))
-        return redirect('accounts:dashboard_redirect')
+#     if not _check_admin_permission(user):
+#         messages.error(request, _("Accès non autorisé à l'édition des postes."))
+#         return redirect('accounts:dashboard_redirect')
     
-    # Vérifier que le poste existe
-    try:
-        poste = Poste.objects.get(id=poste_id)
-        _log_admin_access(request, f"Édition poste {poste.nom}")
-        messages.info(request, f"Redirection vers l'édition du poste {poste.nom}.")
+#     # Vérifier que le poste existe
+#     try:
+#         poste = Poste.objects.get(id=poste_id)
+#         _log_admin_access(request, f"Édition poste {poste.nom}")
+#         messages.info(request, f"Redirection vers l'édition du poste {poste.nom}.")
         
-        return redirect(f'/admin/accounts/poste/{poste_id}/change/')
+#         return redirect(f'/admin/accounts/poste/{poste_id}/change/')
         
-    except Poste.DoesNotExist:
-        messages.error(request, _("Poste non trouvé."))
-        return redirect('/admin/accounts/poste/')
+#     except Poste.DoesNotExist:
+#         messages.error(request, _("Poste non trouvé."))
+#         return redirect('/admin/accounts/poste/')
 
 
 # ===================================================================
@@ -1289,3 +1289,269 @@ def custom_403(request, exception=None):
         'title': 'Accès interdit',
         'message': 'Vous n\'avez pas les permissions nécessaires.',
     }, status=403)
+
+@login_required
+def liste_postes(request):
+    """Liste des postes - remplace l'admin Django"""
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('/admin/')
+    
+    # Filtres
+    search = request.GET.get('search', '')
+    type_filter = request.GET.get('type', '')
+    region_filter = request.GET.get('region', '')
+    actif_filter = request.GET.get('actif', '')
+    
+    # Construction de la requête
+    postes = Poste.objects.all()
+    
+    if search:
+        postes = postes.filter(
+            Q(nom__icontains=search) |
+            Q(code__icontains=search)
+        )
+    
+    if type_filter:
+        postes = postes.filter(type=type_filter)
+    
+    if region_filter:
+        postes = postes.filter(region__nom=region_filter)
+    
+    if actif_filter:
+        postes = postes.filter(is_active=actif_filter == 'true')
+    
+    postes = postes.select_related('region', 'departement').order_by('nom')
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(postes, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Statistiques
+    stats = {
+        'total': Poste.objects.count(),
+        'actifs': Poste.objects.filter(is_active=True).count(),
+        'peages': Poste.objects.filter(type='peage').count(),
+        'pesages': Poste.objects.filter(type='pesage').count(),
+    }
+    
+    # Régions disponibles
+    from accounts.models import Region
+    regions = Region.objects.all()
+    
+    # CORRECTION : Récupérer les choix de type depuis la classe TypePoste
+    # Au lieu de 'types': Poste.type (incorrect - c'est un champ, pas une liste)
+    from accounts.models import TypePoste  # Import de la classe Enum
+    
+    context = {
+        'page_obj': page_obj,
+        'stats': stats,
+        'search': search,
+        'type_filter': type_filter,
+        'region_filter': region_filter,
+        'actif_filter': actif_filter,
+        'regions': regions,
+        'types': TypePoste.choices,  # ✅ CORRECTION : Utiliser .choices de l'enum
+        'title': 'Gestion des Postes'
+    }
+    
+    log_user_action(request.user, "Consultation liste postes", "", request)
+    
+    return render(request, 'accounts/liste_postes.html', context)
+
+@login_required
+def detail_poste(request, poste_id):
+    """Détails d'un poste"""
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('accounts:liste_postes')
+    
+    # Statistiques du poste
+    from inventaire.models import InventaireJournalier, RecetteJournaliere
+    from datetime import date
+    
+    stats_poste = {
+        'nb_inventaires_mois': InventaireJournalier.objects.filter(
+            poste=poste,
+            date__gte=date.today().replace(day=1)
+        ).count(),
+        'nb_recettes_mois': RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__gte=date.today().replace(day=1)
+        ).count(),
+        'nb_agents': UtilisateurSUPPER.objects.filter(
+            poste_affectation=poste
+        ).count()
+    }
+    
+    context = {
+        'poste': poste,
+        'stats_poste': stats_poste,
+        'title': f'Poste - {poste.nom}'
+    }
+    
+    return render(request, 'accounts/detail_poste.html', context)
+
+
+@login_required
+def creer_poste(request):
+    """Créer un nouveau poste"""
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('accounts:liste_postes')
+    
+    if request.method == 'POST':
+        from accounts.forms import PosteForm
+        form = PosteForm(request.POST)
+        
+        if form.is_valid():
+            poste = form.save()
+            
+            log_user_action(
+                request.user,
+                "Création poste",
+                f"Poste créé: {poste.code} - {poste.nom}",
+                request
+            )
+            
+            messages.success(request, f"Poste {poste.nom} créé avec succès.")
+            return redirect('accounts:detail_poste', poste_id=poste.id)
+    else:
+        from accounts.forms import PosteForm
+        form = PosteForm()
+    
+    from accounts.models import Region
+    context = {
+        'form': form,
+        'regions': Region.objects.all(),
+        'title': 'Créer un Poste'
+    }
+    
+    return render(request, 'accounts/creer_poste.html', context)
+
+
+@login_required
+def modifier_poste(request, poste_id):
+    """Modifier un poste"""
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('accounts:detail_poste', poste_id=poste.id)
+    
+    if request.method == 'POST':
+        from accounts.forms import PosteForm
+        form = PosteForm(request.POST, instance=poste)
+        
+        if form.is_valid():
+            poste = form.save()
+            
+            log_user_action(
+                request.user,
+                "Modification poste",
+                f"Poste modifié: {poste.code} - {poste.nom}",
+                request
+            )
+            
+            messages.success(request, f"Poste {poste.nom} modifié avec succès.")
+            return redirect('accounts:detail_poste', poste_id=poste.id)
+    else:
+        from accounts.forms import PosteForm
+        form = PosteForm(instance=poste)
+    
+    from accounts.models import Region
+    context = {
+        'form': form,
+        'poste': poste,
+        'regions': Region.objects.all(),
+        'title': f'Modifier - {poste.nom}'
+    }
+    
+    return render(request, 'accounts/modifier_poste.html', context)
+
+@login_required
+def journal_audit(request):
+    """Liste complète du journal d'audit - remplace l'admin Django"""
+    if not _check_admin_permission(request.user):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('/admin/')
+    
+    # Filtres
+    search = request.GET.get('search', '')
+    action_filter = request.GET.get('action', '')
+    user_filter = request.GET.get('user', '')
+    succes_filter = request.GET.get('succes', '')
+    date_debut = request.GET.get('date_debut', '')
+    date_fin = request.GET.get('date_fin', '')
+    
+    # Construction requête
+    logs = JournalAudit.objects.select_related('utilisateur').all()
+    
+    if search:
+        logs = logs.filter(
+            Q(action__icontains=search) |
+            Q(details__icontains=search) |
+            Q(utilisateur__username__icontains=search) |
+            Q(utilisateur__nom_complet__icontains=search)
+        )
+    
+    if action_filter:
+        logs = logs.filter(action__icontains=action_filter)
+    
+    if user_filter:
+        logs = logs.filter(utilisateur__username=user_filter)
+    
+    if succes_filter:
+        logs = logs.filter(succes=succes_filter == 'true')
+    
+    if date_debut:
+        from datetime import datetime
+        logs = logs.filter(timestamp__gte=datetime.strptime(date_debut, '%Y-%m-%d'))
+    
+    if date_fin:
+        from datetime import datetime
+        logs = logs.filter(timestamp__lte=datetime.strptime(date_fin, '%Y-%m-%d'))
+    
+    logs = logs.order_by('-timestamp')
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(logs, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Stats
+    stats = {
+        'total': JournalAudit.objects.count(),
+        'today': JournalAudit.objects.filter(timestamp__date=timezone.now().date()).count(),
+        'success': JournalAudit.objects.filter(succes=True).count(),
+        'errors': JournalAudit.objects.filter(succes=False).count(),
+    }
+    
+    # Actions uniques
+    actions_uniques = JournalAudit.objects.values_list('action', flat=True).distinct()[:20]
+    
+    # Utilisateurs actifs
+    users_actifs = UtilisateurSUPPER.objects.filter(
+        actions_journal__timestamp__gte=timezone.now() - timedelta(days=7)
+    ).distinct()
+    
+    context = {
+        'page_obj': page_obj,
+        'stats': stats,
+        'search': search,
+        'action_filter': action_filter,
+        'user_filter': user_filter,
+        'succes_filter': succes_filter,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'actions_uniques': actions_uniques,
+        'users_actifs': users_actifs,
+        'title': 'Journal d\'Audit'
+    }
+    
+    return render(request, 'accounts/journal_audit.html', context)

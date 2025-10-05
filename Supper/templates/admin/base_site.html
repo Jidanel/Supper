@@ -226,7 +226,7 @@
     <ul class="nav-links">
         <!-- Dashboard -->
         <li>
-            <a href="{% url 'admin:index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+            <a href="{% url 'common:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                 <i class="fas fa-tachometer-alt me-1"></i>
                 {% trans "Dashboard" %}
             </a>
@@ -252,7 +252,7 @@
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:inventaire_administratif' %}">
-                        <i class="fas fa-keyboard me-2"></i>{% trans "Inventaire Administratif" %}
+                        <i class="fas fa-keyboard me-2"></i>{% trans "Inventaire Automatique" %}
                     </a>
                 </li>
                 
@@ -440,13 +440,18 @@
                     </h6>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'admin:accounts_poste_changelist' %}">
+                   <a class="dropdown-item" href="{% url 'accounts:liste_postes' %}">
                         <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion des Postes" %}
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'admin:accounts_poste_add' %}">
+                    <a class="dropdown-item" href="{% url 'accounts:creer_poste' %}">
                         <i class="fas fa-plus me-2"></i>{% trans "Ajouter un Poste" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'accounts:import_postes' %}">
+                        <i class="fas fa-plus me-2"></i>{% trans "Creer peage en masses" %}
                     </a>
                 </li>
                 
@@ -458,12 +463,12 @@
                     </h6>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_changelist' %}">
+                    <a class="dropdown-item" href="{% url 'accounts:user_list' %}">
                         <i class="fas fa-users-cog me-2"></i>{% trans "Gestion des Utilisateurs" %}
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'admin:accounts_utilisateursupper_add' %}">
+                    <a class="dropdown-item" href="{% url 'accounts:user_create' %}">
                         <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
                     </a>
                 </li>
@@ -476,7 +481,7 @@
                     </h6>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'admin:accounts_journalaudit_changelist' %}">
+                   <a class="dropdown-item" href="{% url 'accounts:journal_audit' %}">
                         <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
                     </a>
                 </li>
