@@ -7,6 +7,7 @@ from .views_evolution import *
 from . import views_evolution
 from . import views_admin
 from . import views_stocks
+from . import views_rapports
 from . import views_import
 app_name = 'inventaire'
 
@@ -133,4 +134,15 @@ urlpatterns = [
      path('api/graphique-evolution/', views.api_graphique_evolution, name='api_graphique_evolution'),
      path('api/statistiques-postes/', views.api_statistiques_postes_ordonnes, name='api_statistiques_postes_ordonnes'),
      path('api/stats/', views.api_inventaire_stats, name='api_inventaire_stats'),
+     path('stocks/chargement/confirmation/', 
+     views_stocks.confirmation_chargement_stock, 
+     name='confirmation_chargement_stock'),
+     path('compte-emploi/',views_rapports.selection_compte_emploi, name='selection_compte_emploi'),
+     path('compte-emploi/<int:poste_id>/<str:mois>/', 
+     views_rapports.generer_compte_emploi_pdf, 
+     name='generer_compte_emploi'),
+
+     path('parametrage-global/', 
+     views_rapports.parametrage_global, 
+     name='parametrage_global'),
      ]

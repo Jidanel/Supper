@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmation Chargement Stock{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-check-circle text-warning me-2"></i>Confirmation du Chargement de Stock</h2>
+            <p class="text-muted">Veuillez vérifier les informations avant de confirmer</p>
+        </div>
+    </div>
+    
+    <!-- Carte de confirmation -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg border-0">
+                
+                <!-- TYPE DE STOCK EN GRAND -->
+                <div class="card-header text-center py-5" 
+                     style="background: {% if type_stock == 'regularisation' %}linear-gradient(135deg, #667eea 0%, #764ba2 100%){% else %}linear-gradient(135deg, #f093fb 0%, #f5576c 100%){% endif %};">
+                    <h1 class="text-white mb-3" style="font-size: 3rem; font-weight: 700;">
+                        {% if type_stock == 'regularisation' %}
+                            <i class="fas fa-sync-alt me-3"></i>RÉGULARISATION
+                        {% else %}
+                            <i class="fas fa-print me-3"></i>IMPRIMERIE NATIONALE
+                        {% endif %}
+                    </h1>
+                    <p class="text-white-50 mb-0" style="font-size: 1.2rem;">
+                        Type d'approvisionnement
+                    </p>
+                </div>
+                
+                <div class="card-body p-5">
+                    
+                    <!-- Informations du chargement -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <div class="info-box p-3 rounded" style="background: #f8f9fa;">
+                                <label class="text-muted small mb-1">Poste</label>
+                                <h5 class="mb-0">{{ poste.nom }}</h5>
+                                <small class="text-muted">{{ poste.code }}</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="info-box p-3 rounded" style="background: #f8f9fa;">
+                                <label class="text-muted small mb-1">Montant</label>
+                                <h5 class="mb-0 text-success">{{ montant|floatformat:0 }} FCFA</h5>
+                                <small class="text-muted">{{ nombre_tickets }} tickets</small>
+                            </div>
+                        </div>
+                        
+                        {% if commentaire %}
+                        <div class="col-12">
+                            <div class="info-box p-3 rounded" style="background: #fff3cd;">
+                                <label class="text-muted small mb-1">Commentaire</label>
+                                <p class="mb-0">{{ commentaire }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Récapitulatif -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Attention :</strong> Cette opération va créditer le stock de 
+                        <strong>{{ montant|floatformat:0 }} FCFA</strong> 
+                        ({{ nombre_tickets }} tickets) de type 
+                        <strong>{% if type_stock == 'regularisation' %}Régularisation{% else %}Imprimerie Nationale{% endif %}</strong>.
+                    </div>
+                    
+                    <!-- Boutons d'action -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="submit" name="action" value="annuler" 
+                                    class="btn btn-lg btn-outline-secondary px-5">
+                                <i class="fas fa-times me-2"></i>Annuler
+                            </button>
+                            <button type="submit" name="action" value="confirmer" 
+                                    class="btn btn-lg btn-success px-5">
+                                <i class="fas fa-check me-2"></i>Confirmer le Chargement
+                            </button>
+                        </div>
+                    </form>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

@@ -24,6 +24,39 @@
     
     <form method="post" class="mt-4">
         {% csrf_token %}
+        <div class="mb-4">
+                <label class="form-label fw-bold">Type de stock *</label>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-check form-check-lg">
+                            <input class="form-check-input" type="radio" 
+                                name="type_stock" id="type_regularisation" 
+                                value="regularisation" required>
+                            <label class="form-check-label" for="type_regularisation">
+                                <i class="fas fa-sync-alt me-2 text-primary"></i>
+                                <strong>Régularisation</strong>
+                                <small class="d-block text-muted">
+                                    Stock de régularisation administrative
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-check-lg">
+                            <input class="form-check-input" type="radio" 
+                                name="type_stock" id="type_imprimerie" 
+                                value="imprimerie_nationale" required>
+                            <label class="form-check-label" for="type_imprimerie">
+                                <i class="fas fa-print me-2 text-success"></i>
+                                <strong>Imprimerie Nationale</strong>
+                                <small class="d-block text-muted">
+                                    Approvisionnement officiel en tickets
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
         <div class="row">
             <div class="col-md-6">
                 <div class="form-group">

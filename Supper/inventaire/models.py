@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from accounts.models import UtilisateurSUPPER, Poste
 from django.urls import reverse
 import calendar
+from .models_config import ConfigurationGlobale
 import logging
 
 logger = logging.getLogger('supper')
@@ -2159,6 +2160,11 @@ class HistoriqueStock(models.Model):
         ('CREDIT', 'Crédit/Approvisionnement'),
         ('DEBIT', 'Débit/Vente')
     ]
+
+    TYPE_STOCK = [
+        ('regularisation', 'Régularisation'),
+        ('imprimerie_nationale', 'Imprimerie Nationale')
+    ]
     
     poste = models.ForeignKey(
         Poste,
@@ -2218,6 +2224,15 @@ class HistoriqueStock(models.Model):
     commentaire = models.TextField(
         blank=True,
         verbose_name=_("Commentaire")
+    )
+
+    type_stock = models.CharField(
+        max_length=30,
+        choices=TYPE_STOCK,
+        null=True,  
+        blank=True,
+        verbose_name=_("Type de stock"),
+        help_text=_("Type d'approvisionnement")
     )
     
     class Meta:

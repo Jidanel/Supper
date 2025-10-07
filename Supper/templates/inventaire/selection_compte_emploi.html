@@ -1,0 +1,74 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+
+{% block title %}Compte d'Emploi{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-file-invoice me-2"></i>Compte d'Emploi des Tickets</h2>
+            <p class="text-muted">Génération du compte d'emploi mensuel</p>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Sélection</h5>
+                </div>
+                
+                <div class="card-body p-4">
+                    
+                    <!-- Règle d'accès -->
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Règle :</strong> Les comptes d'emploi sont disponibles à partir du 2 de chaque mois.
+                        Vous pouvez imprimer pour le mois en cours (si date ≥ 2) et tous les mois précédents.
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Sélection du poste -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Poste *</label>
+                            <select name="poste_id" class="form-select form-select-lg" required>
+                                <option value="">-- Sélectionnez un poste --</option>
+                                {% for poste in postes %}
+                                <option value="{{ poste.id }}">{{ poste.nom }} ({{ poste.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Sélection du mois -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Mois *</label>
+                            <select name="mois" class="form-select form-select-lg" required>
+                                <option value="">-- Sélectionnez un mois --</option>
+                                {% for mois in mois_disponibles %}
+                                <option value="{{ mois.valeur }}">{{ mois.affichage }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'common:dashboard' %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>Retour
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-file-pdf me-2"></i>Générer le PDF
+                            </button>
+                        </div>
+                        
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

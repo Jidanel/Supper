@@ -1,15 +1,18 @@
+#inventaire/views_stocks.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Sum, Avg, Q
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.db import models
 from datetime import date, timedelta
 from inventaire.models import GestionStock, HistoriqueStock, RecetteJournaliere
 from accounts.models import NotificationUtilisateur, Poste, UtilisateurSUPPER
 from common.utils import log_user_action
+import logging
+logger = logging.getLogger('supper')
 
 def is_admin(user):
     """Fonction de test pour vérifier si l'utilisateur est admin"""
@@ -142,7 +145,7 @@ def charger_stock_selection(request):
 @login_required
 @user_passes_test(is_admin)
 def charger_stock(request, poste_id):
-    """Vue pour charger/créditer le stock d'un poste"""
+    """Vue pour charger/créditer le stock d'un poste avec choix du type"""
     poste = get_object_or_404(Poste, id=poste_id)
     
     # Récupérer le stock actuel
@@ -152,63 +155,41 @@ def charger_stock(request, poste_id):
     )
     
     if request.method == 'POST':
-        montant = Decimal(request.POST.get('montant', '0'))
+        # Récupération des données du formulaire
+        type_stock = request.POST.get('type_stock')
+        montant = request.POST.get('montant', '0')
         commentaire = request.POST.get('commentaire', '')
         
-        if montant <= 0:
-            messages.error(request, "Le montant doit être positif")
+        # Validation du type de stock
+        if not type_stock or type_stock not in ['regularisation', 'imprimerie_nationale']:
+            messages.error(request, "Veuillez sélectionner un type de stock valide")
             return redirect('inventaire:charger_stock', poste_id=poste_id)
         
-        with transaction.atomic():
-            stock_avant = stock.valeur_monetaire
-            
-            # Mettre à jour le stock
-            stock.valeur_monetaire += montant
-            stock.save()
-            
-            # Créer l'historique
-            HistoriqueStock.objects.create(
-                poste=poste,
-                type_mouvement='CREDIT',
-                montant=montant,
-                nombre_tickets=int(montant / 500),
-                stock_avant=stock_avant,
-                stock_apres=stock.valeur_monetaire,
-                effectue_par=request.user,
-                commentaire=commentaire or f"Approvisionnement du {date.today().strftime('%d/%m/%Y')}"
-            )
-            
-            # Envoyer notification au chef de poste
-            chefs = UtilisateurSUPPER.objects.filter(
-                poste_affectation=poste,
-                habilitation__in=['chef_peage', 'chef_pesage']
-            )
-            
-            for chef in chefs:
-                NotificationUtilisateur.objects.create(
-                    destinataire=chef,
-                    expediteur=request.user,
-                    titre="Nouveau stock disponible",
-                    message=f"Un stock de {montant:,.0f} FCFA ({int(montant/500)} tickets) a été crédité pour votre poste",
-                    type_notification='info'
-                )
-            
-            # Journaliser
-            log_user_action(
-                request.user,
-                "Chargement stock",
-                f"Stock crédité: {montant:,.0f} FCFA pour {poste.nom}",
-                request
-            )
-            
-            messages.success(request, f"Stock crédité avec succès : {montant:,.0f} FCFA ({int(montant/500)} tickets)")
-            return redirect('inventaire:liste_postes_stocks')
+        # Validation du montant
+        try:
+            montant = Decimal(montant)
+            if montant <= 0:
+                messages.error(request, "Le montant doit être positif")
+                return redirect('inventaire:charger_stock', poste_id=poste_id)
+        except (ValueError, InvalidOperation):
+            messages.error(request, "Montant invalide")
+            return redirect('inventaire:charger_stock', poste_id=poste_id)
+        
+        # Stocker les données en session pour la page de confirmation
+        request.session['chargement_stock'] = {
+            'poste_id': poste_id,
+            'type_stock': type_stock,
+            'montant': str(montant),
+            'commentaire': commentaire
+        }
+        
+        return redirect('inventaire:confirmation_chargement_stock')
     
-    # Historique récent
+    # Historique récent avec type de stock
     historique_recent = HistoriqueStock.objects.filter(
         poste=poste,
         type_mouvement='CREDIT'
-    ).order_by('-date_mouvement')[:5]
+    ).select_related('effectue_par').order_by('-date_mouvement')[:5]
     
     context = {
         'poste': poste,
@@ -219,6 +200,118 @@ def charger_stock(request, poste_id):
     
     return render(request, 'inventaire/charger_stock.html', context)
 
+
+@login_required
+@user_passes_test(is_admin)
+def confirmation_chargement_stock(request):
+    """Page de confirmation du chargement de stock avec affichage du type"""
+    
+    # Récupérer les données de session
+    chargement_data = request.session.get('chargement_stock')
+    
+    if not chargement_data:
+        messages.error(request, "Aucune donnée de chargement en attente")
+        return redirect('inventaire:liste_postes_stocks')
+    
+    poste = get_object_or_404(Poste, id=chargement_data['poste_id'])
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'confirmer':
+            try:
+                with transaction.atomic():
+                    # Récupérer ou créer le stock
+                    stock, _ = GestionStock.objects.get_or_create(
+                        poste=poste,
+                        defaults={'valeur_monetaire': Decimal('0')}
+                    )
+                    
+                    stock_avant = stock.valeur_monetaire
+                    montant = Decimal(chargement_data['montant'])
+                    
+                    # Mettre à jour le stock
+                    stock.valeur_monetaire += montant
+                    stock.save()
+                    
+                    # Créer l'historique avec le type de stock
+                    type_stock_label = "Régularisation" if chargement_data['type_stock'] == 'regularisation' else "Imprimerie Nationale"
+                    
+                    HistoriqueStock.objects.create(
+                        poste=poste,
+                        type_mouvement='CREDIT',
+                        type_stock=chargement_data['type_stock'],
+                        montant=montant,
+                        nombre_tickets=int(montant / 500),
+                        stock_avant=stock_avant,
+                        stock_apres=stock.valeur_monetaire,
+                        effectue_par=request.user,
+                        commentaire=chargement_data['commentaire'] or f"Approvisionnement {type_stock_label} du {date.today().strftime('%d/%m/%Y')}"
+                    )
+                    
+                    # Envoyer notification aux chefs de poste
+                    chefs = UtilisateurSUPPER.objects.filter(
+                        poste_affectation=poste,
+                        habilitation__in=['chef_peage', 'chef_pesage'],
+                        is_active=True
+                    )
+                    
+                    for chef in chefs:
+                        NotificationUtilisateur.objects.create(
+                            destinataire=chef,
+                            expediteur=request.user,
+                            titre="Nouveau stock disponible",
+                            message=f"Stock {type_stock_label} crédité : {montant:,.0f} FCFA ({int(montant/500)} tickets) pour {poste.nom}",
+                            type_notification='info'
+                        )
+                    
+                    # Journaliser l'action
+                    log_user_action(
+                        request.user,
+                        f"Chargement stock {type_stock_label}",
+                        f"Stock crédité: {montant:,.0f} FCFA pour {poste.nom}",
+                        request
+                    )
+                    
+                    # Nettoyer la session
+                    del request.session['chargement_stock']
+                    
+                    messages.success(
+                        request, 
+                        f"Stock {type_stock_label} crédité avec succès : {montant:,.0f} FCFA ({int(montant/500)} tickets)"
+                    )
+                    return redirect('inventaire:liste_postes_stocks')
+                    
+            except Exception as e:
+                logger.error(f"Erreur lors du chargement de stock: {str(e)}")
+                messages.error(request, f"Erreur lors du chargement : {str(e)}")
+                return redirect('inventaire:charger_stock', poste_id=poste.id)
+        
+        elif action == 'annuler':
+            # Supprimer les données de session
+            del request.session['chargement_stock']
+            messages.info(request, "Chargement annulé")
+            return redirect('inventaire:charger_stock', poste_id=poste.id)
+    
+    # Préparer les données pour l'affichage
+    try:
+        montant = Decimal(chargement_data['montant'])
+    except (ValueError, InvalidOperation):
+        del request.session['chargement_stock']
+        messages.error(request, "Données invalides")
+        return redirect('inventaire:charger_stock', poste_id=poste.id)
+    
+    context = {
+        'poste': poste,
+        'type_stock': chargement_data['type_stock'],
+        'type_stock_label': 'Régularisation' if chargement_data['type_stock'] == 'regularisation' else 'Imprimerie Nationale',
+        'montant': montant,
+        'nombre_tickets': int(montant / 500),
+        'commentaire': chargement_data['commentaire'],
+        'title': 'Confirmation du chargement de stock'
+    }
+    
+    return render(request, 'inventaire/confirmation_chargement_stock.html', context)
 @login_required
 def mon_stock(request):
     """Vue pour qu'un chef de poste consulte son stock"""
