@@ -1,0 +1,116 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Montant du Transfert{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-calculator me-2"></i>
+        Définir le Montant du Transfert
+    </h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <i class="fas fa-arrow-circle-left me-2"></i>
+                    Poste d'Origine (CESSION)
+                </div>
+                <div class="card-body">
+                    <h5>{{ poste_origine.nom }}</h5>
+                    <p class="mb-1"><strong>Code :</strong> {{ poste_origine.code }}</p>
+                    <p class="mb-1"><strong>Stock actuel :</strong> 
+                        {{ stock_origine.valeur_monetaire|floatformat:0|format_milliers }} FCFA
+                    </p>
+                    <p class="mb-0"><strong>Tickets :</strong> {{ stock_origine.nombre_tickets }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-arrow-circle-right me-2"></i>
+                    Poste de Destination (RÉCEPTION)
+                </div>
+                <div class="card-body">
+                    <h5>{{ poste_destination.nom }}</h5>
+                    <p class="mb-1"><strong>Code :</strong> {{ poste_destination.code }}</p>
+                    <p class="mb-1"><strong>Stock actuel :</strong> 
+                        {{ stock_destination.valeur_monetaire|floatformat:0|format_milliers }} FCFA
+                    </p>
+                    <p class="mb-0"><strong>Tickets :</strong> {{ stock_destination.nombre_tickets }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <form method="post" class="card">
+        {% csrf_token %}
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-coins me-2"></i>
+                        Montant à Transférer (FCFA)
+                    </label>
+                    <input type="number" 
+                           name="montant" 
+                           class="form-control form-control-lg" 
+                           required
+                           min="500"
+                           max="{{ stock_origine.valeur_monetaire }}"
+                           step="500"
+                           id="montantInput">
+                    <small class="form-text text-muted">
+                        Montant maximum : {{ stock_origine.valeur_monetaire|floatformat:0|format_milliers }} FCFA
+                    </small>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-ticket-alt me-2"></i>
+                        Nombre de Tickets
+                    </label>
+                    <input type="text" 
+                           class="form-control form-control-lg" 
+                           id="ticketsDisplay" 
+                           readonly
+                           value="0">
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">
+                    <i class="fas fa-comment me-2"></i>
+                    Commentaire / Justification
+                </label>
+                <textarea name="commentaire" 
+                          class="form-control" 
+                          rows="3"
+                          placeholder="Raison du transfert..."></textarea>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{% url 'inventaire:selection_transfert_stock' %}" 
+                   class="btn btn-secondary me-2">
+                    <i class="fas fa-arrow-left me-2"></i>Retour
+                </a>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-check me-2"></i>
+                    Valider le Transfert
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('montantInput').addEventListener('input', function() {
+    const montant = parseFloat(this.value) || 0;
+    const tickets = Math.floor(montant / 500);
+    document.getElementById('ticketsDisplay').value = tickets.toLocaleString() + ' tickets';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Liste des Bordereaux{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bordereau-card {
+        border-left: 4px solid #667eea;
+        transition: all 0.3s;
+    }
+    
+    .bordereau-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .badge-transfert {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="fas fa-file-invoice me-2"></i>
+                Liste des Bordereaux de Transfert
+            </h2>
+            <p class="text-muted">
+                Consultation de tous les transferts de stock inter-postes
+            </p>
+        </div>
+        {% if user.is_admin %}
+        <a href="{% url 'inventaire:selection_transfert_stock' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Nouveau Transfert
+        </a>
+        {% endif %}
+    </div>
+    
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.total_transferts|default:0 }}</h3>
+                    <p class="mb-0">Transferts Effectués</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.montant_total|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
+                    <p class="mb-0">Montant Total Transféré</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                {% if user.is_admin %}
+                <div class="col-md-4">
+                    <label class="form-label">Poste</label>
+                    <select name="poste" class="form-select">
+                        <option value="">Tous les postes</option>
+                        {% for poste in postes %}
+                        <option value="{{ poste.id }}" {% if filters.poste == poste.id|stringformat:"s" %}selected{% endif %}>
+                            {{ poste.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-3">
+                    <label class="form-label">Date Début</label>
+                    <input type="date" name="date_debut" class="form-control" value="{{ filters.date_debut }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Date Fin</label>
+                    <input type="date" name="date_fin" class="form-control" value="{{ filters.date_fin }}">
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-2"></i>Filtrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Liste des bordereaux -->
+    {% if page_obj %}
+        {% for bordereau in page_obj %}
+        <div class="card bordereau-card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-2">
+                        <strong class="text-primary">{{ bordereau.numero_bordereau }}</strong>
+                        <br>
+                        <small class="text-muted">{{ bordereau.date_mouvement|date:"d/m/Y H:i" }}</small>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="text-danger">
+                            <i class="fas fa-arrow-circle-left me-2"></i>
+                            <strong>{{ bordereau.poste_origine.nom }}</strong>
+                        </div>
+                        <small class="text-muted">{{ bordereau.poste_origine.code }}</small>
+                    </div>
+                    
+                    <div class="col-md-1 text-center">
+                        <i class="fas fa-arrow-right fa-2x text-muted"></i>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="text-success">
+                            <i class="fas fa-arrow-circle-right me-2"></i>
+                            <strong>{{ bordereau.poste_destination.nom }}</strong>
+                        </div>
+                        <small class="text-muted">{{ bordereau.poste_destination.code }}</small>
+                    </div>
+                    
+                    <div class="col-md-2 text-center">
+                        <span class="badge-transfert bg-primary">
+                            {{ bordereau.montant|floatformat:0|format_milliers }} FCFA
+                        </span>
+                        <br>
+                        <small class="text-muted">{{ bordereau.nombre_tickets }} tickets</small>
+                    </div>
+                    
+                    <div class="col-md-1 text-end">
+                        <a href="{% url 'inventaire:bordereaux_transfert' bordereau.numero_bordereau %}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">Début</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Précédent</a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Suivant</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Fin</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle me-2"></i>
+            Aucun bordereau de transfert pour le moment
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

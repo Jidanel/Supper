@@ -1,0 +1,125 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Bordereau N°{{ numero_bordereau }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="text-end mb-3">
+        <a href="{% url 'inventaire:bordereau_pdf' numero_bordereau 'cession' %}" 
+           class="btn btn-danger me-2" target="_blank">
+            <i class="fas fa-file-pdf me-2"></i>Bordereau de Cession (PDF)
+        </a>
+        <a href="{% url 'inventaire:bordereau_pdf' numero_bordereau 'reception' %}" 
+           class="btn btn-success" target="_blank">
+            <i class="fas fa-file-pdf me-2"></i>Bordereau de Réception (PDF)
+        </a>
+    </div>
+    
+    <div class="row">
+        <!-- Bordereau de Cession -->
+        <div class="col-md-6 mb-4">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-minus-circle me-2"></i>
+                        BORDEREAU DE CESSION
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>N° Bordereau :</th>
+                            <td><strong>{{ numero_bordereau }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Date :</th>
+                            <td>{{ date_transfert|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Poste Émetteur :</th>
+                            <td><strong>{{ poste_origine.nom }}</strong> ({{ poste_origine.code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Poste Destinataire :</th>
+                            <td>{{ poste_destination.nom }} ({{ poste_destination.code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Montant Cédé :</th>
+                            <td><strong class="text-danger">{{ montant|floatformat:0|format_milliers }} FCFA</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Nombre de Tickets :</th>
+                            <td><strong>{{ nombre_tickets }} tickets</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Stock Avant :</th>
+                            <td>{{ hist_cession.stock_avant|floatformat:0|format_milliers }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <th>Stock Après :</th>
+                            <td>{{ hist_cession.stock_apres|floatformat:0|format_milliers }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <th>Effectué par :</th>
+                            <td>{{ effectue_par.nom_complet }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bordereau de Réception -->
+        <div class="col-md-6 mb-4">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        BORDEREAU DE RÉCEPTION
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>N° Bordereau :</th>
+                            <td><strong>{{ numero_bordereau }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Date :</th>
+                            <td>{{ date_transfert|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Poste Bénéficiaire :</th>
+                            <td><strong>{{ poste_destination.nom }}</strong> ({{ poste_destination.code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Poste Émetteur :</th>
+                            <td>{{ poste_origine.nom }} ({{ poste_origine.code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Montant Reçu :</th>
+                            <td><strong class="text-success">{{ montant|floatformat:0|format_milliers }} FCFA</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Nombre de Tickets :</th>
+                            <td><strong>{{ nombre_tickets }} tickets</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Stock Avant :</th>
+                            <td>{{ hist_reception.stock_avant|floatformat:0|format_milliers }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <th>Stock Après :</th>
+                            <td>{{ hist_reception.stock_apres|floatformat:0|format_milliers }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <th>Effectué par :</th>
+                            <td>{{ effectue_par.nom_complet }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -9,6 +9,9 @@ from . import views_admin
 from . import views_stocks
 from . import views_rapports
 from . import views_import
+from . import views_classement
+from . import views_transferts
+from . import views_bordereaux_pdf
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -134,15 +137,30 @@ urlpatterns = [
      path('api/graphique-evolution/', views.api_graphique_evolution, name='api_graphique_evolution'),
      path('api/statistiques-postes/', views.api_statistiques_postes_ordonnes, name='api_statistiques_postes_ordonnes'),
      path('api/stats/', views.api_inventaire_stats, name='api_inventaire_stats'),
-     path('stocks/chargement/confirmation/', 
-     views_stocks.confirmation_chargement_stock, 
-     name='confirmation_chargement_stock'),
+     path('stocks/chargement/confirmation/', views_stocks.confirmation_chargement_stock, name='confirmation_chargement_stock'),
      path('compte-emploi/',views_rapports.selection_compte_emploi, name='selection_compte_emploi'),
-     path('compte-emploi/<int:poste_id>/<str:mois>/', 
-     views_rapports.generer_compte_emploi_pdf, 
-     name='generer_compte_emploi'),
-
-     path('parametrage-global/', 
-     views_rapports.parametrage_global, 
-     name='parametrage_global'),
+     path('compte-emploi/<int:poste_id>/<str:mois>/', views_rapports.generer_compte_emploi_pdf, name='generer_compte_emploi'),
+     path('parametrage-global/', views_rapports.parametrage_global, name='parametrage_global'),
+     path('classement-rendement/', views_classement.classement_postes_rendement, name='classement_rendement'),
+     path('stocks/transfert/selection/', 
+         views_transferts.selection_transfert_stock, 
+         name='selection_transfert_stock'),
+    
+    path('stocks/transfert/formulaire/<int:origine_id>/<int:destination_id>/', 
+         views_transferts.formulaire_transfert_stock, 
+         name='formulaire_transfert_stock'),
+    
+    path('stocks/transfert/confirmation/', 
+         views_transferts.confirmation_transfert_stock, 
+         name='confirmation_transfert_stock'),
+    
+    path('stocks/transfert/bordereaux/<str:numero_bordereau>/', 
+         views_transferts.bordereaux_transfert, 
+         name='bordereaux_transfert'),
+    
+    path('stocks/transfert/bordereau-pdf/<str:numero_bordereau>/<str:type_bordereau>/', 
+         views_bordereaux_pdf.bordereau_transfert_pdf, 
+         name='bordereau_pdf'),
+     path('stocks/transfert/bordereaux/', views_transferts.liste_bordereaux, name='liste_bordereaux'),
+     
      ]

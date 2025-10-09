@@ -1,0 +1,69 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Transfert de Stock{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-exchange-alt me-2"></i>
+        Transférer du Stock Entre Postes
+    </h2>
+    
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Réapprovisionnement Inter-Postes :</strong> 
+        Permet de transférer des tickets d'un poste vers un autre. 
+        Un bordereau de transmission sera généré automatiquement.
+    </div>
+    
+    <form method="post" class="card">
+        {% csrf_token %}
+        <div class="card-body">
+            <div class="row">
+                <!-- Poste Origine -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        Poste d'Origine (Cession)
+                    </label>
+                    <select name="poste_origine_id" class="form-select" required>
+                        <option value="">-- Sélectionner le poste qui cède --</option>
+                        {% for p in postes %}
+                        <option value="{{ p.poste.id }}">
+                            {{ p.poste.nom }} ({{ p.poste.code }}) - 
+                            Stock: {{ p.stock_actuel|floatformat:0|format_milliers }} FCFA
+                            ({{ p.tickets_actuels }} tickets)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Poste Destination -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        Poste de Destination (Réception)
+                    </label>
+                    <select name="poste_destination_id" class="form-select" required>
+                        <option value="">-- Sélectionner le poste qui reçoit --</option>
+                        {% for p in postes %}
+                        <option value="{{ p.poste.id }}">
+                            {{ p.poste.nom }} ({{ p.poste.code }}) - 
+                            Stock: {{ p.stock_actuel|floatformat:0|format_milliers }} FCFA
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-arrow-right me-2"></i>
+                    Continuer
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

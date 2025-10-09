@@ -1,3 +1,4 @@
+#inventaire/views_rapports.py
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -110,8 +111,9 @@ def generer_compte_emploi_pdf(request, poste_id, mois):
         messages.error(request, "Ce mois n'est pas encore disponible pour impression")
         return redirect('inventaire:selection_compte_emploi')
     
-    # Récupérer la configuration du poste
+    # Récupérer la configuration
     config = ConfigurationGlobale.get_config()
+    
     # Calculer les données du compte d'emploi
     donnees = calculer_donnees_compte_emploi(poste, date_debut, date_fin)
     
@@ -119,7 +121,7 @@ def generer_compte_emploi_pdf(request, poste_id, mois):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="compte_emploi_{poste.code}_{mois}.pdf"'
     
-    # Créer le PDF en paysage
+    # ✅ Créer le PDF en paysage (landscape déjà importé en haut)
     doc = SimpleDocTemplate(
         response,
         pagesize=landscape(A4),
@@ -132,7 +134,7 @@ def generer_compte_emploi_pdf(request, poste_id, mois):
     elements = []
     styles = getSampleStyleSheet()
     
-    # En-tête bilingue - PASSER LE POSTE EN PARAMÈTRE
+    # En-tête bilingue
     elements.append(creer_entete_bilingue(config, poste))
     elements.append(Spacer(1, 0.5*cm))
     
@@ -166,16 +168,20 @@ def generer_compte_emploi_pdf(request, poste_id, mois):
     elements.append(titre)
     elements.append(Spacer(1, 0.3*cm))
     
-    # Tableau
+    # Tableau avec toutes les colonnes (y compris réapprovisionnements)
     table_data = [
-        ['MOIS', 'STOCK DEBUT DU MOIS', '', 'APPROV', '', 'Vente du mois', '', 'STOCK REMIS EN CIRCULATION', ''],
-        ['', 'Qté', 'valeur', 'Qté', 'valeur', 'Qté', 'valeur', 'Qté', 'valeur'],
+        ['MOIS', 'STOCK DEBUT', '', 'APPROV IMP.NAT', '', 'REAPPROV REÇU', '', 'REAPPROV CÉDÉ', '', 'VENTE', '', 'STOCK FINAL(RESTANT)', ''],
+        ['', 'Qté', 'valeur', 'Qté', 'valeur', 'Qté', 'valeur', 'Qté', 'valeur', 'Qté', 'valeur', 'Qté', 'valeur'],
         [
             mois_abrege[mois_num],
             str(donnees['stock_debut_qte']),
             f"{donnees['stock_debut_valeur']:,.0f}".replace(',', '.'),
-            str(donnees['approv_qte']),
-            f"{donnees['approv_valeur']:,.0f}".replace(',', '.'),
+            str(donnees['approv_imprimerie_qte']),
+            f"{donnees['approv_imprimerie_valeur']:,.0f}".replace(',', '.'),
+            str(donnees['reapprov_recu_qte']),
+            f"{donnees['reapprov_recu_valeur']:,.0f}".replace(',', '.'),
+            str(donnees['reapprov_cede_qte']),
+            f"{donnees['reapprov_cede_valeur']:,.0f}".replace(',', '.'),
             str(donnees['vente_qte']),
             f"{donnees['vente_valeur']:,.0f}".replace(',', '.'),
             str(donnees['stock_final_qte']),
@@ -185,37 +191,44 @@ def generer_compte_emploi_pdf(request, poste_id, mois):
             'TOTAL',
             str(donnees['stock_debut_qte']),
             f"{donnees['stock_debut_valeur']:,.0f}".replace(',', '.'),
-            str(donnees['approv_qte']),
-            f"{donnees['approv_valeur']:,.0f}".replace(',', '.'),
+            str(donnees['approv_imprimerie_qte']),
+            f"{donnees['approv_imprimerie_valeur']:,.0f}".replace(',', '.'),
+            str(donnees['reapprov_recu_qte']),
+            f"{donnees['reapprov_recu_valeur']:,.0f}".replace(',', '.'),
+            str(donnees['reapprov_cede_qte']),
+            f"{donnees['reapprov_cede_valeur']:,.0f}".replace(',', '.'),
             str(donnees['vente_qte']),
             f"{donnees['vente_valeur']:,.0f}".replace(',', '.'),
             str(donnees['stock_final_qte']),
             f"{donnees['stock_final_valeur']:,.0f}".replace(',', '.')
         ]
     ]
-    
-    col_widths = [1.5*cm, 1.8*cm, 2.5*cm, 1.8*cm, 2.5*cm, 1.8*cm, 2.5*cm, 2*cm, 2.5*cm]
-    
+
+    # Largeurs des colonnes ajustées
+    col_widths = [1.2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm]
+
     table = Table(table_data, colWidths=col_widths)
-    
+
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a5568')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
         ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#e2e8f0')),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
         ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#cbd5e0')),
         ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('SPAN', (0, 0), (0, 1)),
-        ('SPAN', (1, 0), (2, 0)),
-        ('SPAN', (3, 0), (4, 0)),
-        ('SPAN', (5, 0), (6, 0)),
-        ('SPAN', (7, 0), (8, 0)),
+        ('SPAN', (0, 0), (0, 1)),  # MOIS
+        ('SPAN', (1, 0), (2, 0)),  # STOCK DEBUT
+        ('SPAN', (3, 0), (4, 0)),  # APPROV IMP.NAT
+        ('SPAN', (5, 0), (6, 0)),  # REAPPROV REÇU
+        ('SPAN', (7, 0), (8, 0)),  # REAPPROV CÉDÉ
+        ('SPAN', (9, 0), (10, 0)), # VENTE
+        ('SPAN', (11, 0), (12, 0)), # STOCK FINAL
     ]))
     
     elements.append(table)
@@ -224,14 +237,18 @@ def generer_compte_emploi_pdf(request, poste_id, mois):
     # Pied de page
     elements.append(creer_pied_page(poste, config, request.user))
     
+    # ✅ Générer le PDF
     doc.build(elements)
     
     return response
 
-
 def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
-    """Calcule toutes les données nécessaires pour le compte d'emploi"""
+    """
+    Calcule toutes les données nécessaires pour le compte d'emploi
+    MISE À JOUR : Inclut maintenant les réapprovisionnements inter-postes
+    """
     
+    # Stock début
     stock_debut_hist = HistoriqueStock.objects.filter(
         poste=poste,
         date_mouvement__lt=date_debut
@@ -240,16 +257,40 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
     stock_debut_valeur = stock_debut_hist.stock_apres if stock_debut_hist else Decimal('0')
     stock_debut_qte = int(stock_debut_valeur / 500)
     
-    approvs = HistoriqueStock.objects.filter(
+    # Approvisionnements Imprimerie Nationale (CREDIT imprimerie_nationale)
+    approvs_imprimerie = HistoriqueStock.objects.filter(
         poste=poste,
         type_mouvement='CREDIT',
         type_stock='imprimerie_nationale',
         date_mouvement__range=[date_debut, date_fin]
     ).aggregate(total=Sum('montant'))
     
-    approv_valeur = approvs['total'] or Decimal('0')
-    approv_qte = int(approv_valeur / 500)
+    approv_imprimerie_valeur = approvs_imprimerie['total'] or Decimal('0')
+    approv_imprimerie_qte = int(approv_imprimerie_valeur / 500)
     
+    # NOUVEAU : Réapprovisionnements REÇUS (CREDIT reapprovisionnement)
+    reapprovs_recus = HistoriqueStock.objects.filter(
+        poste=poste,
+        type_mouvement='CREDIT',
+        type_stock='reapprovisionnement',
+        date_mouvement__range=[date_debut, date_fin]
+    ).aggregate(total=Sum('montant'))
+    
+    reapprov_recu_valeur = reapprovs_recus['total'] or Decimal('0')
+    reapprov_recu_qte = int(reapprov_recu_valeur / 500)
+    
+    # NOUVEAU : Réapprovisionnements CÉDÉS (DEBIT reapprovisionnement)
+    reapprovs_cedes = HistoriqueStock.objects.filter(
+        poste=poste,
+        type_mouvement='DEBIT',
+        type_stock='reapprovisionnement',
+        date_mouvement__range=[date_debut, date_fin]
+    ).aggregate(total=Sum('montant'))
+    
+    reapprov_cede_valeur = reapprovs_cedes['total'] or Decimal('0')
+    reapprov_cede_qte = int(reapprov_cede_valeur / 500)
+    
+    # Ventes du mois
     ventes = RecetteJournaliere.objects.filter(
         poste=poste,
         date__range=[date_debut, date_fin]
@@ -258,21 +299,37 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
     vente_valeur = ventes['total'] or Decimal('0')
     vente_qte = int(vente_valeur / 500)
     
-    # Stock final = stock début + approv - vente
-    stock_final_valeur = stock_debut_valeur + approv_valeur - vente_valeur
-    stock_final_qte = stock_debut_qte + approv_qte - vente_qte
+    # CALCUL DU STOCK FINAL
+    # Stock final = stock début + approv imprimerie + reapprov reçu - reapprov cédé - vente
+    stock_final_valeur = (
+        stock_debut_valeur + 
+        approv_imprimerie_valeur + 
+        reapprov_recu_valeur - 
+        reapprov_cede_valeur - 
+        vente_valeur
+    )
+    stock_final_qte = (
+        stock_debut_qte + 
+        approv_imprimerie_qte + 
+        reapprov_recu_qte - 
+        reapprov_cede_qte - 
+        vente_qte
+    )
     
     return {
         'stock_debut_qte': stock_debut_qte,
         'stock_debut_valeur': stock_debut_valeur,
-        'approv_qte': approv_qte,
-        'approv_valeur': approv_valeur,
+        'approv_imprimerie_qte': approv_imprimerie_qte,
+        'approv_imprimerie_valeur': approv_imprimerie_valeur,
+        'reapprov_recu_qte': reapprov_recu_qte,
+        'reapprov_recu_valeur': reapprov_recu_valeur,
+        'reapprov_cede_qte': reapprov_cede_qte,
+        'reapprov_cede_valeur': reapprov_cede_valeur,
         'vente_qte': vente_qte,
         'vente_valeur': vente_valeur,
         'stock_final_qte': stock_final_qte,
         'stock_final_valeur': stock_final_valeur
     }
-
 
 def creer_entete_bilingue(config, poste):
     """Crée l'en-tête bilingue du document"""

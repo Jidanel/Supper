@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Confirmer le Transfert{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4 text-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        Confirmation du Transfert
+    </h2>
+    
+    <div class="alert alert-warning">
+        <strong><i class="fas fa-info-circle me-2"></i>Attention :</strong> 
+        Cette opération est irréversible. Veuillez vérifier attentivement les informations avant de confirmer.
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Récapitulatif du Transfert</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <tr>
+                    <th width="30%">Poste d'Origine (Cède)</th>
+                    <td>{{ poste_origine.nom }} ({{ poste_origine.code }})</td>
+                </tr>
+                <tr>
+                    <th>Poste de Destination (Reçoit)</th>
+                    <td>{{ poste_destination.nom }} ({{ poste_destination.code }})</td>
+                </tr>
+                <tr>
+                    <th>Montant Transféré</th>
+                    <td><strong class="text-primary">{{ montant|floatformat:0|format_milliers }} FCFA</strong></td>
+                </tr>
+                <tr>
+                    <th>Nombre de Tickets</th>
+                    <td><strong>{{ nombre_tickets }} tickets</strong></td>
+                </tr>
+                <tr>
+                    <th>Commentaire</th>
+                    <td>{{ commentaire|default:"Aucun" }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <form method="post" class="text-center">
+        {% csrf_token %}
+        <button type="submit" name="action" value="annuler" class="btn btn-secondary btn-lg me-3">
+            <i class="fas fa-times me-2"></i>Annuler
+        </button>
+        <button type="submit" name="action" value="confirmer" class="btn btn-success btn-lg">
+            <i class="fas fa-check me-2"></i>Confirmer le Transfert
+        </button>
+    </form>
+</div>
+{% endblock %}

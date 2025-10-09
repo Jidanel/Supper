@@ -15,9 +15,9 @@
     <!-- Variables CSS pour le thème -->
     <style>
         :root {
-            --primary-color: #2563eb;
-            --primary-dark: #1e40af;
-            --primary-light: #3b82f6;
+            --primary-color: #3b82f6;
+            --primary-dark: #2563eb;
+            --primary-light: #1e40af;
             --success-color: #10B981;
             --warning-color: #F59E0B;
             --danger-color: #EF4444;
@@ -402,6 +402,16 @@
                             <i class="fas fa-list me-2"></i>{% trans "Tous les stocks" %}
                         </a>
                     </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:selection_transfert_stock' %}">
+                            <i class="fas fa-exchange-alt me-2"></i>{% trans "Transférer Stock" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:liste_bordereaux' %}">
+                            <i class="fas fa-list me-2"></i>{% trans "Liste des Bordereaux" %}
+                        </a>
+                    </li>
                     {% endif %}
                     
                     {% if user.poste_affectation %}
@@ -504,6 +514,11 @@
                 {% trans "Rapports" %}
             </a>
             <ul class="dropdown-menu">
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:classement_rendement' %}">
+                        <i class="fas fa-trophy me-2"></i>{% trans "Classement Postes" %}
+                    </a>
+                </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
                         <i class="fas fa-file-export me-2"></i>{% trans "Générer Rapports" %}

@@ -1,0 +1,224 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Classement des Postes par Rendement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .classement-container {
+        background: #f8fafc;
+        padding: 2rem;
+    }
+    
+    .filters-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+    
+    .classement-table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .classement-table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .rang-badge {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        line-height: 40px;
+        border-radius: 50%;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    
+    .rang-1 { background: #ffd700; color: #000; }
+    .rang-2 { background: #c0c0c0; color: #000; }
+    .rang-3 { background: #cd7f32; color: #fff; }
+    .rang-other { background: #e2e8f0; color: #334155; }
+    
+    .top-performers {
+        background: #d1fae5;
+        border-left: 4px solid #10b981;
+    }
+    
+    .bottom-performers {
+        background: #fee2e2;
+        border-left: 4px solid #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="classement-container">
+    <h2 class="mb-4">
+        <i class="fas fa-trophy me-2" style="color: #ffd700;"></i>
+        Classement des Postes par Rendement
+    </h2>
+    
+    <!-- Filtres -->
+    <div class="filters-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Période</label>
+                <select name="periode" class="form-select" id="periodeSelect">
+                    <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mois</option>
+                    <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestre</option>
+                    <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestre</option>
+                    <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Année</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">Année</label>
+                <select name="annee" class="form-select">
+                    {% for y in annees_disponibles %}
+                    <option value="{{ y }}" {% if y == annee %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Filtres conditionnels -->
+            <div class="col-md-2" id="moisFilter" style="display:none;">
+                <label class="form-label">Mois</label>
+                <select name="mois" class="form-select">
+                    {% for m in mois_liste %}
+                    <option value="{{ m }}">{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2" id="trimestreFilter" style="display:none;">
+                <label class="form-label">Trimestre</label>
+                <select name="trimestre" class="form-select">
+                    {% for t in trimestres %}
+                    <option value="{{ t }}">T{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2" id="semestreFilter" style="display:none;">
+                <label class="form-label">Semestre</label>
+                <select name="semestre" class="form-select">
+                    {% for s in semestres %}
+                    <option value="{{ s }}">S{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i>Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Statistiques globales -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>{{ nombre_postes }}</h3>
+            <p>Postes Actifs</p>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <h3>{{ total_global|floatformat:0|format_milliers }} FCFA</h3>
+            <p>Recettes Totales</p>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <h3>{{ moyenne_globale|floatformat:0|format_milliers }} FCFA</h3>
+            <p>Moyenne par Poste</p>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+            <h3>{{ periode_label }}</h3>
+            <p>Période Analysée</p>
+        </div>
+    </div>
+    
+    <!-- Top 3 -->
+    {% if top_3 %}
+    <div class="alert alert-success">
+        <h5><i class="fas fa-star me-2"></i>Top 3 Performers</h5>
+        <ul class="mb-0">
+            {% for poste in top_3 %}
+            <li>
+                <strong>{{ poste.rang }}. {{ poste.poste.nom }}</strong> - 
+                {{ poste.total_recettes|floatformat:0|format_milliers }} FCFA
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    
+    <!-- Tableau de classement -->
+    <div class="classement-table">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Rang</th>
+                    <th>Poste</th>
+                    <th>Région</th>
+                    <th>Type</th>
+                    <th>Total Recettes</th>
+                    <th>Jours de Saisie</th>
+                    <th>Moyenne Journalière</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in classement %}
+                <tr class="{% if item.rang <= 3 %}top-performers{% elif item.rang > nombre_postes|add:'-3' %}bottom-performers{% endif %}">
+                    <td>
+                        <span class="rang-badge {% if item.rang == 1 %}rang-1{% elif item.rang == 2 %}rang-2{% elif item.rang == 3 %}rang-3{% else %}rang-other{% endif %}">
+                            {{ item.rang }}
+                        </span>
+                    </td>
+                    <td>
+                        <strong>{{ item.poste.nom }}</strong><br>
+                        <small class="text-muted">{{ item.poste.code }}</small>
+                    </td>
+                    <td>{{ item.region }}</td>
+                    <td>{{ item.type_poste }}</td>
+                    <td><strong>{{ item.total_recettes|floatformat:0|format_milliers }} FCFA</strong></td>
+                    <td>{{ item.nombre_jours }}</td>
+                    <td>{{ item.moyenne_journaliere|floatformat:0|format_milliers }} FCFA</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+document.getElementById('periodeSelect').addEventListener('change', function() {
+    const periode = this.value;
+    document.getElementById('moisFilter').style.display = periode === 'mois' ? 'block' : 'none';
+    document.getElementById('trimestreFilter').style.display = periode === 'trimestre' ? 'block' : 'none';
+    document.getElementById('semestreFilter').style.display = periode === 'semestre' ? 'block' : 'none';
+});
+
+// Trigger au chargement
+document.getElementById('periodeSelect').dispatchEvent(new Event('change'));
+</script>
+{% endblock %}

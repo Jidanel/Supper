@@ -2163,7 +2163,8 @@ class HistoriqueStock(models.Model):
 
     TYPE_STOCK = [
         ('regularisation', 'Régularisation'),
-        ('imprimerie_nationale', 'Imprimerie Nationale')
+        ('imprimerie_nationale', 'Imprimerie Nationale'),
+        ('reapprovisionnement', 'Réapprovisionnement Inter-Postes') 
     ]
     
     poste = models.ForeignKey(
@@ -2177,6 +2178,32 @@ class HistoriqueStock(models.Model):
         max_length=10,
         choices=TYPE_MOUVEMENT,
         verbose_name=_("Type de mouvement")
+    )
+    
+    poste_origine = models.ForeignKey(
+        Poste,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transferts_sortants',
+        verbose_name=_("Poste d'origine (transfert)")
+    )
+    
+    poste_destination = models.ForeignKey(
+        Poste,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transferts_entrants',
+        verbose_name=_("Poste de destination (transfert)")
+    )
+    
+    numero_bordereau = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name=_("Numéro de bordereau"),
+        help_text=_("Généré automatiquement pour les transferts")
     )
     
     montant = models.DecimalField(
