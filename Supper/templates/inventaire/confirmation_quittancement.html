@@ -1,0 +1,71 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Confirmation Quittancement{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-check-circle me-2" style="color: #10b981;"></i>
+        Confirmation des Quittancements
+    </h2>
+
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5>Étape 3/3 : Vérification et Confirmation</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Attention :</strong> Une fois enregistrés, les quittancements ne pourront plus être modifiés.
+            </div>
+
+            <h5 class="mb-3">Récapitulatif des Quittancements</h5>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° Quittance</th>
+                            <th>Poste Comptable</th>
+                            <th>Période</th>
+                            <th class="text-end">Montant (FCFA)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for quitt in quittancements %}
+                        <tr>
+                            <td><strong>{{ quitt.numero_quittance }}</strong></td>
+                            <td>{{ quitt.poste_comptable }}</td>
+                            <td>{{ quitt.periode }}</td>
+                            <td class="text-end">{{ quitt.montant|floatformat:0 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-secondary">
+                        <tr>
+                            <th colspan="3" class="text-end">TOTAL :</th>
+                            <th class="text-end">{{ total_montant|floatformat:0 }} FCFA</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="confirmer" value="oui">
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'inventaire:saisie_quittancement' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Retour
+                    </a>
+                    
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-save me-1"></i>Confirmer et Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

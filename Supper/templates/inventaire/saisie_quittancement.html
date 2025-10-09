@@ -1,0 +1,177 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Saisie Quittancement{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-receipt me-2" style="color: #6B46C1;"></i>
+        Saisie des Quittancements
+    </h2>
+
+    {% if etape == 1 %}
+    <!-- ÉTAPE 1 : Sélection Exercice et Type -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5>Étape 1/3 : Paramètres Globaux</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="etape" value="1">
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Exercice (Année) *</label>
+                        <select name="exercice" class="form-select" required>
+                            {% for annee in annees %}
+                            <option value="{{ annee }}">{{ annee }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Type de Déclaration *</label>
+                        <select name="type_declaration_global" class="form-select" required id="typeDeclarationSelect">
+                            <option value="">-- Sélectionner --</option>
+                            {% for value, label in types_declaration %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-arrow-right me-1"></i>Suivant
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% elif etape == 2 %}
+    <!-- ÉTAPE 2 : Saisie des Quittancements -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5>Étape 2/3 : Saisie des Quittancements</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <strong>Exercice :</strong> {{ exercice }} | 
+                <strong>Type :</strong> {{ type_declaration }}
+            </div>
+
+            <form method="post" enctype="multipart/form-data" id="quittancementForm">
+                {% csrf_token %}
+                <input type="hidden" name="etape" value="2">
+                <input type="hidden" name="exercice" value="{{ exercice }}">
+                <input type="hidden" name="type_declaration" value="{{ type_declaration }}">
+                
+                <div id="quittancementContainer">
+                    {{ formset.management_form }}
+                    
+                    {% for form in formset %}
+                    <div class="quittancement-item border p-3 mb-3 rounded position-relative">
+                        <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-quittancement" style="display: none;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Numéro Quittance *</label>
+                                {{ form.numero_quittance }}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Date Quittancement *</label>
+                                {{ form.date_quittancement }}
+                            </div>
+                        </div>
+
+                        <!-- SELON TYPE : JOUR -->
+                        {% if type_declaration == 'jour' %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Date de la Recette *</label>
+                                {{ form.date_recette }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- SELON TYPE : DECADE -->
+                        {% if type_declaration == 'decade' %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Date Début Décade *</label>
+                                {{ form.date_debut_decade }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Date Fin Décade *</label>
+                                {{ form.date_fin_decade }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Montant (FCFA) *</label>
+                                {{ form.montant }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Image Quittance *</label>
+                                {{ form.image_quittance }}
+                                <small class="text-muted d-block">Formats acceptés : JPG, PNG, PDF</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex justify-content-between mt-3">
+                    <button type="button" class="btn btn-success" id="addQuittancement">
+                        <i class="fas fa-plus me-1"></i>Ajouter un Quittancement
+                    </button>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check me-1"></i>Valider et Confirmer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    let formCount = {{ formset.total_form_count }};
+    
+    document.getElementById('addQuittancement').addEventListener('click', function() {
+        const container = document.getElementById('quittancementContainer');
+        const lastForm = container.querySelector('.quittancement-item:last-child');
+        const newForm = lastForm.cloneNode(true);
+        
+        // Réinitialiser les valeurs
+        newForm.querySelectorAll('input:not([type="hidden"])').forEach(input => {
+            input.value = '';
+        });
+        
+        // Afficher le bouton supprimer
+        newForm.querySelector('.remove-quittancement').style.display = 'block';
+        
+        container.appendChild(newForm);
+        formCount++;
+        document.querySelector('[name="form-TOTAL_FORMS"]').value = formCount;
+    });
+
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-quittancement')) {
+            e.target.closest('.quittancement-item').remove();
+            formCount--;
+            document.querySelector('[name="form-TOTAL_FORMS"]').value = formCount;
+        }
+    });
+    </script>
+    {% endif %}
+</div>
+{% endblock %}

@@ -26,6 +26,7 @@ from datetime import datetime, date, timedelta
 import json
 from django.views.decorators.csrf import csrf_exempt
 import logging
+from django.forms import formset_factory
 
 logger = logging.getLogger('supper')
 
@@ -4491,3 +4492,442 @@ def calculer_objectifs_automatique(request):
     }
     
     return render(request, 'inventaire/calculer_objectifs.html', context)
+
+
+
+@login_required
+def saisie_quittancement(request):
+    """Vue pour saisir des quittancements (multi-enregistrements)"""
+    
+    # Vérifier permissions : admin ou chef de poste
+    if not (request.user.is_admin or request.user.is_chef_poste):
+        messages.error(request, "Accès non autorisé.")
+        return redirect('common:dashboard')
+    
+    # Formset pour plusieurs enregistrements
+    QuittancementFormSet = formset_factory(
+        QuittancementForm,
+        extra=1,
+        can_delete=True
+    )
+    
+    if request.method == 'POST':
+        # Étape 1 : Sélection paramètres globaux
+        if 'etape' not in request.POST or request.POST.get('etape') == '1':
+            exercice = request.POST.get('exercice')
+            type_declaration = request.POST.get('type_declaration_global')
+            
+            context = {
+                'exercice': exercice,
+                'type_declaration': type_declaration,
+                'etape': 2,
+                'formset': QuittancementFormSet(
+                    form_kwargs={'user': request.user}
+                )
+            }
+            return render(request, 'inventaire/saisie_quittancement.html', context)
+        
+        # Étape 2 : Saisie des quittancements
+        elif request.POST.get('etape') == '2' and 'confirmer' not in request.POST:
+            formset = QuittancementFormSet(
+                request.POST,
+                request.FILES,
+                form_kwargs={'user': request.user}
+            )
+            
+            if formset.is_valid():
+                # Préparer les données pour confirmation
+                quittancements_data = []
+                total_montant = Decimal('0')
+                
+                for form in formset:
+                    if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                        data = form.cleaned_data
+                        quittancements_data.append(data)
+                        total_montant += data['montant']
+                
+                # Stocker en session pour confirmation
+                request.session['quittancements_temp'] = [
+                    {
+                        'numero_quittance': q['numero_quittance'],
+                        'montant': str(q['montant']),
+                        'periode': q.get('date_recette') or f"{q.get('date_debut_decade')} au {q.get('date_fin_decade')}"
+                    }
+                    for q in quittancements_data
+                ]
+                
+                context = {
+                    'etape': 3,
+                    'quittancements': quittancements_data,
+                    'total_montant': total_montant
+                }
+                return render(request, 'inventaire/confirmation_quittancement.html', context)
+        
+        # Étape 3 : Enregistrement final après confirmation
+        elif request.POST.get('confirmer') == 'oui':
+            formset = QuittancementFormSet(
+                request.POST,
+                request.FILES,
+                form_kwargs={'user': request.user}
+            )
+            
+            if formset.is_valid():
+                count = 0
+                
+                with transaction.atomic():
+                    for form in formset:
+                        if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                            quittancement = form.save(commit=False)
+                            quittancement.saisi_par = request.user
+                            
+                            # Attribuer le poste
+                            if not request.user.is_admin:
+                                quittancement.poste = request.user.poste_affectation
+                            
+                            quittancement.save()
+                            count += 1
+                
+                messages.success(request, f"✓ {count} quittancement(s) enregistré(s) avec succès.")
+                return redirect('inventaire:liste_quittancements')
+    
+    else:
+        # GET : Afficher le formulaire initial
+        context = {
+            'etape': 1,
+            'annees': range(timezone.now().year - 5, timezone.now().year + 1),
+            'types_declaration': TypeDeclaration.choices
+        }
+        return render(request, 'inventaire/saisie_quittancement.html', context)
+
+
+@login_required
+def comptabilisation_quittancements(request):
+    """Vue pour afficher la comptabilisation avec filtres"""
+    
+    # Filtres
+    periode = request.GET.get('periode', 'mois')  # mois, trimestre, semestre, annee
+    poste_id = request.GET.get('poste')
+    annee = int(request.GET.get('annee', timezone.now().year))
+    mois = request.GET.get('mois')
+    
+    # Déterminer les dates selon la période
+    if periode == 'mois' and mois:
+        mois_int = int(mois)
+        date_debut = date(annee, mois_int, 1)
+        date_fin = date(annee, mois_int, calendar.monthrange(annee, mois_int)[1])
+    
+    elif periode == 'trimestre':
+        trimestre = int(request.GET.get('trimestre', 1))
+        date_debut = date(annee, (trimestre - 1) * 3 + 1, 1)
+        date_fin = date(annee, trimestre * 3, calendar.monthrange(annee, trimestre * 3)[1])
+    
+    elif periode == 'semestre':
+        semestre = int(request.GET.get('semestre', 1))
+        date_debut = date(annee, 1 if semestre == 1 else 7, 1)
+        date_fin = date(annee, 6 if semestre == 1 else 12, 
+                       calendar.monthrange(annee, 6 if semestre == 1 else 12)[1])
+    
+    else:  # annee
+        date_debut = date(annee, 1, 1)
+        date_fin = date(annee, 12, 31)
+    
+    # Filtrer postes selon permissions
+    if request.user.is_admin:
+        if poste_id:
+            postes = Poste.objects.filter(id=poste_id)
+        else:
+            postes = Poste.objects.filter(is_active=True)
+    else:
+        postes = Poste.objects.filter(id=request.user.poste_affectation.id)
+    
+    # Calculs par poste
+    resultats = []
+    
+    for poste in postes:
+        # Total quittancé
+        total_quittance = Quittancement.objects.filter(
+            poste=poste,
+            date_quittancement__range=[date_debut, date_fin]
+        ).aggregate(Sum('montant'))['montant__sum'] or Decimal('0')
+        
+        # Total déclaré
+        total_declare = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__range=[date_debut, date_fin]
+        ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+        
+        # Écart
+        ecart = total_quittance - total_declare
+        
+        # Vérifier si justification existe
+        justification_existe = JustificationEcart.objects.filter(
+            poste=poste,
+            date_debut=date_debut,
+            date_fin=date_fin
+        ).exists()
+        
+        resultats.append({
+            'poste': poste,
+            'total_quittance': total_quittance,
+            'total_declare': total_declare,
+            'ecart': ecart,
+            'ecart_pourcent': (ecart / total_declare * 100) if total_declare > 0 else 0,
+            'justification_existe': justification_existe
+        })
+    
+    context = {
+        'resultats': resultats,
+        'periode': periode,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'postes': Poste.objects.filter(is_active=True) if request.user.is_admin else None
+    }
+    
+    return render(request, 'inventaire/comptabilisation_quittancements.html', context)
+
+
+@login_required
+def justifier_ecart(request, poste_id, date_debut, date_fin):
+    """Vue pour justifier un écart de comptabilisation"""
+    
+    poste = get_object_or_404(Poste, id=poste_id)
+    date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
+    date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
+    
+    # Calculer l'écart
+    total_quittance = Quittancement.objects.filter(
+        poste=poste,
+        date_quittancement__range=[date_debut_obj, date_fin_obj]
+    ).aggregate(Sum('montant'))['montant__sum'] or Decimal('0')
+    
+    total_declare = RecetteJournaliere.objects.filter(
+        poste=poste,
+        date__range=[date_debut_obj, date_fin_obj]
+    ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+    
+    ecart = total_quittance - total_declare
+    
+    if request.method == 'POST':
+        form = JustificationEcartForm(request.POST)
+        
+        if form.is_valid():
+            justification = form.save(commit=False)
+            justification.poste = poste
+            justification.date_debut = date_debut_obj
+            justification.date_fin = date_fin_obj
+            justification.montant_quittance = total_quittance
+            justification.montant_declare = total_declare
+            justification.ecart = ecart
+            justification.justifie_par = request.user
+            justification.save()
+            
+            messages.success(request, "Justification enregistrée avec succès.")
+            return redirect('inventaire:comptabilisation_quittancements')
+    else:
+        form = JustificationEcartForm()
+    
+    context = {
+        'form': form,
+        'poste': poste,
+        'date_debut': date_debut_obj,
+        'date_fin': date_fin_obj,
+        'total_quittance': total_quittance,
+        'total_declare': total_declare,
+        'ecart': ecart
+    }
+    
+    return render(request, 'inventaire/justifier_ecart.html', context)
+
+
+@login_required
+def detail_quittancements(request, poste_id, date_debut, date_fin):
+    """Vue pour afficher le détail des quittancements d'une période"""
+    
+    poste = get_object_or_404(Poste, id=poste_id)
+    date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
+    date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
+    
+    quittancements = Quittancement.objects.filter(
+        poste=poste,
+        date_quittancement__range=[date_debut_obj, date_fin_obj]
+    ).order_by('date_quittancement')
+    
+    # Justifications
+    justifications = JustificationEcart.objects.filter(
+        poste=poste,
+        date_debut=date_debut_obj,
+        date_fin=date_fin_obj
+    )
+    
+    context = {
+        'poste': poste,
+        'quittancements': quittancements,
+        'justifications': justifications,
+        'date_debut': date_debut_obj,
+        'date_fin': date_fin_obj
+    }
+    
+    return render(request, 'inventaire/detail_quittancements.html', context)
+
+# À AJOUTER dans inventaire/views.py
+
+@login_required
+def authentifier_document(request):
+    """
+    Vue pour authentifier un document (quittance ou bordereau)
+    Accessible à tous les utilisateurs connectés
+    """
+    
+    resultat = None
+    type_document = None
+    
+    if request.method == 'POST':
+        numero = request.POST.get('numero', '').strip()
+        type_recherche = request.POST.get('type_recherche', 'auto')
+        
+        if not numero:
+            messages.error(request, "Veuillez saisir un numéro de document.")
+        else:
+            # Recherche automatique ou spécifique
+            if type_recherche == 'auto':
+                # Chercher dans les deux types
+                
+                # 1. Chercher dans les quittancements
+                try:
+                    quittancement = Quittancement.objects.select_related(
+                        'poste', 'saisi_par'
+                    ).get(numero_quittance=numero)
+                    
+                    resultat = {
+                        'trouve': True,
+                        'type': 'quittance',
+                        'document': quittancement,
+                        'details': {
+                            'numero': quittancement.numero_quittance,
+                            'poste': quittancement.poste.nom,
+                            'montant': quittancement.montant,
+                            'date_quittancement': quittancement.date_quittancement,
+                            'periode': quittancement.get_periode_display(),
+                            'saisi_par': quittancement.saisi_par.nom_complet if quittancement.saisi_par else 'Non défini',
+                            'date_saisie': quittancement.date_saisie,
+                            'image_url': quittancement.image_quittance.url if quittancement.image_quittance else None
+                        }
+                    }
+                    type_document = 'quittance'
+                    
+                except Quittancement.DoesNotExist:
+                    # 2. Chercher dans les bordereaux (HistoriqueStock)
+                    try:
+                        bordereau = HistoriqueStock.objects.select_related(
+                            'poste', 'effectue_par', 'poste_origine', 'poste_destination'
+                        ).get(numero_bordereau=numero)
+                        
+                        resultat = {
+                            'trouve': True,
+                            'type': 'bordereau',
+                            'document': bordereau,
+                            'details': {
+                                'numero': bordereau.numero_bordereau,
+                                'poste': bordereau.poste.nom,
+                                'type_mouvement': bordereau.get_type_mouvement_display(),
+                                'montant': bordereau.montant,
+                                'nombre_tickets': bordereau.nombre_tickets,
+                                'date_mouvement': bordereau.date_mouvement,
+                                'poste_origine': bordereau.poste_origine.nom if bordereau.poste_origine else None,
+                                'poste_destination': bordereau.poste_destination.nom if bordereau.poste_destination else None,
+                                'effectue_par': bordereau.effectue_par.nom_complet if bordereau.effectue_par else 'Non défini',
+                                'stock_avant': bordereau.stock_avant,
+                                'stock_apres': bordereau.stock_apres,
+                                'commentaire': bordereau.commentaire
+                            }
+                        }
+                        type_document = 'bordereau'
+                        
+                    except HistoriqueStock.DoesNotExist:
+                        resultat = {
+                            'trouve': False,
+                            'message': f"Aucun document trouvé avec le numéro : {numero}"
+                        }
+                        messages.warning(request, f"Aucun document trouvé avec le numéro : {numero}")
+            
+            elif type_recherche == 'quittance':
+                # Recherche spécifique quittance
+                try:
+                    quittancement = Quittancement.objects.select_related(
+                        'poste', 'saisi_par'
+                    ).get(numero_quittance=numero)
+                    
+                    resultat = {
+                        'trouve': True,
+                        'type': 'quittance',
+                        'document': quittancement,
+                        'details': {
+                            'numero': quittancement.numero_quittance,
+                            'poste': quittancement.poste.nom,
+                            'montant': quittancement.montant,
+                            'date_quittancement': quittancement.date_quittancement,
+                            'periode': quittancement.get_periode_display(),
+                            'saisi_par': quittancement.saisi_par.nom_complet if quittancement.saisi_par else 'Non défini',
+                            'date_saisie': quittancement.date_saisie,
+                            'image_url': quittancement.image_quittance.url if quittancement.image_quittance else None
+                        }
+                    }
+                    type_document = 'quittance'
+                    
+                except Quittancement.DoesNotExist:
+                    resultat = {
+                        'trouve': False,
+                        'message': f"Aucune quittance trouvée avec le numéro : {numero}"
+                    }
+                    messages.warning(request, f"Aucune quittance trouvée avec le numéro : {numero}")
+            
+            elif type_recherche == 'bordereau':
+                # Recherche spécifique bordereau
+                try:
+                    bordereau = HistoriqueStock.objects.select_related(
+                        'poste', 'effectue_par', 'poste_origine', 'poste_destination'
+                    ).get(numero_bordereau=numero)
+                    
+                    resultat = {
+                        'trouve': True,
+                        'type': 'bordereau',
+                        'document': bordereau,
+                        'details': {
+                            'numero': bordereau.numero_bordereau,
+                            'poste': bordereau.poste.nom,
+                            'type_mouvement': bordereau.get_type_mouvement_display(),
+                            'montant': bordereau.montant,
+                            'nombre_tickets': bordereau.nombre_tickets,
+                            'date_mouvement': bordereau.date_mouvement,
+                            'poste_origine': bordereau.poste_origine.nom if bordereau.poste_origine else None,
+                            'poste_destination': bordereau.poste_destination.nom if bordereau.poste_destination else None,
+                            'effectue_par': bordereau.effectue_par.nom_complet if bordereau.effectue_par else 'Non défini',
+                            'stock_avant': bordereau.stock_avant,
+                            'stock_apres': bordereau.stock_apres,
+                            'commentaire': bordereau.commentaire
+                        }
+                    }
+                    type_document = 'bordereau'
+                    
+                except HistoriqueStock.DoesNotExist:
+                    resultat = {
+                        'trouve': False,
+                        'message': f"Aucun bordereau trouvé avec le numéro : {numero}"
+                    }
+                    messages.warning(request, f"Aucun bordereau trouvé avec le numéro : {numero}")
+            
+            # Journaliser la recherche
+            log_user_action(
+                request.user,
+                "Authentification document",
+                f"Recherche : {numero} | Type: {type_recherche} | Résultat: {'Trouvé' if resultat and resultat['trouve'] else 'Non trouvé'}",
+                request
+            )
+    
+    context = {
+        'resultat': resultat,
+        'type_document': type_document,
+        'title': 'Authentification de Documents'
+    }
+    
+    return render(request, 'inventaire/authentifier_document.html', context)

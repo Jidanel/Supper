@@ -1,0 +1,146 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load inventaire_extras %}
+
+{% block title %}Comptabilisation Quittancements{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-calculator me-2" style="color: #6B46C1;"></i>
+        Comptabilisation des Quittancements
+    </h2>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5>Filtres</h5>
+        </div>
+        <div class="card-body">
+            <form method="get">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Période</label>
+                        <select name="periode" class="form-select" onchange="this.form.submit()">
+                            <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mois</option>
+                            <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestre</option>
+                            <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestre</option>
+                            <option value="annee" {% if periode == 'annee' %}selected{% endif %}>Année</option>
+                        </select>
+                    </div>
+
+                    {% if periode == 'mois' %}
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Mois</label>
+                        <select name="mois" class="form-select" onchange="this.form.submit()">
+                            {% for i in "123456789012"|make_list %}
+                            <option value="{{ forloop.counter }}">{{ forloop.counter|date:"F" }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif periode == 'trimestre' %}
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Trimestre</label>
+                        <select name="trimestre" class="form-select" onchange="this.form.submit()">
+                            <option value="1">T1</option>
+                            <option value="2">T2</option>
+                            <option value="3">T3</option>
+                            <option value="4">T4</option>
+                        </select>
+                    </div>
+                    {% elif periode == 'semestre' %}
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Semestre</label>
+                        <select name="semestre" class="form-select" onchange="this.form.submit()">
+                            <option value="1">S1</option>
+                            <option value="2">S2</option>
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Année</label>
+                        <input type="number" name="annee" class="form-control" value="{{ date_debut.year }}">
+                    </div>
+
+                    {% if postes %}
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Poste</label>
+                        <select name="poste" class="form-select">
+                            <option value="">Tous</option>
+                            {% for poste in postes %}
+                            <option value="{{ poste.id }}">{{ poste.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-1"></i>Filtrer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Résultats -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5>Résultats : {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Poste</th>
+                            <th class="text-end">Total Quittancé</th>
+                            <th class="text-end">Total Déclaré</th>
+                            <th class="text-end">Écart</th>
+                            <th class="text-end">Écart %</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in resultats %}
+                        <tr>
+                            <td><strong>{{ result.poste.nom }}</strong></td>
+                            <td class="text-end">{{ result.total_quittance|floatformat:0 }}</td>
+                            <td class="text-end">{{ result.total_declare|floatformat:0 }}</td>
+                            <td class="text-end {% if result.ecart < 0 %}text-danger{% elif result.ecart > 0 %}text-success{% endif %}">
+                                {{ result.ecart|floatformat:0 }}
+                            </td>
+                            <td class="text-end">
+                                <span class="badge {% if result.ecart_pourcent|abs > 10 %}bg-danger{% elif result.ecart_pourcent|abs > 5 %}bg-warning{% else %}bg-success{% endif %}">
+                                    {{ result.ecart_pourcent|floatformat:1 }}%
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'inventaire:detail_quittancements' result.poste.id date_debut date_fin %}" 
+                                   class="btn btn-sm btn-info" title="Détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                
+                                {% if not result.justification_existe %}
+                                <a href="{% url 'inventaire:justifier_ecart' result.poste.id date_debut date_fin %}" 
+                                   class="btn btn-sm btn-warning" title="Justifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% else %}
+                                <span class="badge bg-success">Justifié</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                Aucun quittancement trouvé pour cette période
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

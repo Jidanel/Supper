@@ -1,0 +1,259 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Authentification de Documents{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-shield-alt me-2" style="color: #6B46C1;"></i>
+        Authentification de Documents
+    </h2>
+
+    <!-- Formulaire de recherche -->
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%); color: white;">
+            <h5 class="mb-0">Rechercher un Document</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Numéro du Document *</label>
+                        <input type="text" name="numero" class="form-control form-control-lg" 
+                               placeholder="Ex: QUI-2025-001 ou BOR-2025-001" required autofocus>
+                        <small class="text-muted">Saisissez le numéro exact de la quittance ou du bordereau</small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Type de Document</label>
+                        <select name="type_recherche" class="form-select form-select-lg">
+                            <option value="auto">Automatique (Rechercher dans tous)</option>
+                            <option value="quittance">Quittance uniquement</option>
+                            <option value="bordereau">Bordereau uniquement</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-search me-2"></i>Authentifier
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Résultat de la recherche -->
+    {% if resultat %}
+    <div class="card">
+        {% if resultat.trouve %}
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-check-circle me-2"></i>
+                Document Authentifié
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if type_document == 'quittance' %}
+            <!-- Affichage Quittance -->
+            <div class="alert alert-success mb-4">
+                <h6><i class="fas fa-receipt me-2"></i>Type : QUITTANCE</h6>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th class="bg-light" style="width: 40%;">Numéro Quittance</th>
+                            <td><strong>{{ resultat.details.numero }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Poste</th>
+                            <td>{{ resultat.details.poste }}</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Montant</th>
+                            <td><strong class="text-success">{{ resultat.details.montant|floatformat:0 }} FCFA</strong></td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Date Quittancement</th>
+                            <td>{{ resultat.details.date_quittancement|date:"d/m/Y" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Période</th>
+                            <td>{{ resultat.details.periode }}</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Poste Comptable</th>
+                            <td>{{ resultat.details.poste_comptable }}</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Saisi par</th>
+                            <td>{{ resultat.details.saisi_par }}</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Date de Saisie</th>
+                            <td>{{ resultat.details.date_saisie|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="col-md-6">
+                    {% if resultat.details.image_url %}
+                    <div class="text-center">
+                        <p class="mb-2"><strong>Image de la Quittance :</strong></p>
+                        <a href="{{ resultat.details.image_url }}" target="_blank">
+                            <img src="{{ resultat.details.image_url }}" 
+                                 class="img-fluid border rounded shadow-sm" 
+                                 style="max-height: 400px;" 
+                                 alt="Quittance">
+                        </a>
+                        <p class="mt-2">
+                            <a href="{{ resultat.details.image_url }}" target="_blank" class="btn btn-sm btn-primary">
+                                <i class="fas fa-download me-1"></i>Télécharger
+                            </a>
+                        </p>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-image me-2"></i>
+                        Aucune image disponible
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Statut :</strong> Document authentique et enregistré dans le système SUPPER
+            </div>
+
+            {% elif type_document == 'bordereau' %}
+            <!-- Affichage Bordereau -->
+            <div class="alert alert-info mb-4">
+                <h6><i class="fas fa-file-invoice me-2"></i>Type : BORDEREAU DE TRANSFERT</h6>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <tr>
+                        <th class="bg-light" style="width: 30%;">Numéro Bordereau</th>
+                        <td><strong>{{ resultat.details.numero }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light">Poste</th>
+                        <td>{{ resultat.details.poste }}</td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light">Type de Mouvement</th>
+                        <td>
+                            <span class="badge {% if resultat.details.type_mouvement == 'CREDIT' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ resultat.details.type_mouvement }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light">Montant</th>
+                        <td><strong class="text-primary">{{ resultat.details.montant|floatformat:0 }} FCFA</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light">Nombre de Tickets</th>
+                        <td>{{ resultat.details.nombre_tickets }}</td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light">Date du Mouvement</th>
+                        <td>{{ resultat.details.date_mouvement|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% if resultat.details.poste_origine %}
+                    <tr>
+                        <th class="bg-light">Poste Origine</th>
+                        <td>{{ resultat.details.poste_origine }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if resultat.details.poste_destination %}
+                    <tr>
+                        <th class="bg-light">Poste Destination</th>
+                        <td>{{ resultat.details.poste_destination }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th class="bg-light">Stock Avant</th>
+                        <td>{{ resultat.details.stock_avant|floatformat:0 }} FCFA</td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light">Stock Après</th>
+                        <td><strong>{{ resultat.details.stock_apres|floatformat:0 }} FCFA</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light">Effectué par</th>
+                        <td>{{ resultat.details.effectue_par }}</td>
+                    </tr>
+                    {% if resultat.details.commentaire %}
+                    <tr>
+                        <th class="bg-light">Commentaire</th>
+                        <td>{{ resultat.details.commentaire }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Statut :</strong> Bordereau authentique et enregistré dans le système SUPPER
+            </div>
+            {% endif %}
+
+            <!-- Badge de vérification -->
+            <div class="text-center mt-4">
+                <div class="badge bg-success p-3" style="font-size: 1.2rem;">
+                    <i class="fas fa-certificate me-2"></i>
+                    DOCUMENT AUTHENTIFIÉ
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- Document non trouvé -->
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-times-circle me-2"></i>
+                Document Non Trouvé
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-danger">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>Attention !</h5>
+                <p class="mb-0">{{ resultat.message }}</p>
+            </div>
+
+            <div class="alert alert-warning">
+                <h6>Vérifications :</h6>
+                <ul class="mb-0">
+                    <li>Le numéro saisi est-il correct ?</li>
+                    <li>Le document a-t-il bien été enregistré dans le système ?</li>
+                    <li>Contactez un administrateur en cas de doute</li>
+                </ul>
+            </div>
+
+            <div class="text-center mt-4">
+                <div class="badge bg-danger p-3" style="font-size: 1.2rem;">
+                    <i class="fas fa-ban me-2"></i>
+                    DOCUMENT NON AUTHENTIFIÉ
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.table th {
+    font-weight: 600;
+}
+.badge {
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}

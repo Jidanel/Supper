@@ -372,6 +372,16 @@
                         {% trans "Gestion des Objectifs Annuels" %}
                     </a>
                 </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:saisie_quittancement' %}">
+                        <i class="fas fa-plus-circle me-2"></i>{% trans "Saisir Quittance" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:comptabilisation_quittancements' %}">
+                        <i class="fas fa-plus-circle me-2"></i>{% trans "Comptabilisation et Justifications" %}
+                    </a>
+                </li>
                 {% if user.voir_taux_deperdition %}
                 <li><hr class="dropdown-divider"></li>
                 <li>
@@ -565,6 +575,11 @@
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:selection_compte_emploi' %}">
                         <i class="fas fa-shield-alt me-2"></i>{% trans "Compte d'emploi" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:authentifier_document' %}">
+                        <i class="fas fa-lock me-2"></i>{% trans "Authentifier un document" %}
                     </a>
                 </li>
                 <li><hr class="dropdown-divider"></li>

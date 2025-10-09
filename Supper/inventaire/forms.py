@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from datetime import date, datetime
 from decimal import Decimal
-from accounts.models import Poste, UtilisateurSUPPER
+from accounts.models import *
 
 class InventaireJournalierForm(forms.ModelForm):
     """Formulaire personnalisé pour la saisie d'inventaire"""
@@ -825,5 +825,78 @@ class InventaireMensuelForm(forms.ModelForm):
             }),
             'actif': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
+            })
+        }
+
+
+class QuittancementForm(forms.ModelForm):
+    """Formulaire pour saisir un quittancement"""
+    
+    class Meta:
+        model = Quittancement
+        fields = [
+            'exercice', 'type_declaration', 'date_quittancement',
+            'date_recette', 'date_debut_decade', 'date_fin_decade',
+            'montant', 'image_quittance', 'numero_quittance'
+        ]
+        widgets = {
+            'exercice': forms.NumberInput(attrs={'class': 'form-control'}),
+            'type_declaration': forms.Select(attrs={'class': 'form-select', 'onchange': 'toggleDeclarationType()'}),
+            'date_quittancement': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'date_recette': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'date_debut_decade': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'date_fin_decade': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'montant': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'image_quittance': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'numero_quittance': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: H63968155'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Déterminer le poste selon le rôle
+        if self.user:
+            if not self.user.is_admin:
+                # Chef de poste : son poste uniquement
+                if self.user.poste_affectation:
+                    self.fields['poste'] = forms.ModelChoiceField(
+                        queryset=Poste.objects.filter(id=self.user.poste_affectation.id),
+                        widget=forms.Select(attrs={'class': 'form-select', 'readonly': 'readonly'})
+                    )
+            else:
+                # Admin : tous les postes
+                self.fields['poste'] = forms.ModelChoiceField(
+                    queryset=Poste.objects.filter(is_active=True).order_by('nom'),
+                    widget=forms.Select(attrs={'class': 'form-select'})
+                )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        type_declaration = cleaned_data.get('type_declaration')
+        
+        # Validation selon type
+        if type_declaration == TypeDeclaration.JOUR:
+            if not cleaned_data.get('date_recette'):
+                raise forms.ValidationError("Date de recette obligatoire pour type JOUR")
+        
+        elif type_declaration == TypeDeclaration.DECADE:
+            if not cleaned_data.get('date_debut_decade') or not cleaned_data.get('date_fin_decade'):
+                raise forms.ValidationError("Dates début et fin obligatoires pour type DECADE")
+        
+        return cleaned_data
+
+
+class JustificationEcartForm(forms.ModelForm):
+    """Formulaire pour justifier un écart"""
+    
+    class Meta:
+        model = JustificationEcart
+        fields = ['justification']
+        widgets = {
+            'justification': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 5,
+                'placeholder': 'Expliquez en détail les raisons de l\'écart constaté...'
             })
         }

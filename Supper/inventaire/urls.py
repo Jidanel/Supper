@@ -179,4 +179,11 @@ urlpatterns = [
          views_classement.detail_performance_agent, 
          name='detail_performance_agent'),
      
-     ]
+     # Quittancements
+    path('quittancements/saisie/', views.saisie_quittancement, name='saisie_quittancement'),
+    path('quittancements/comptabilisation/', views.comptabilisation_quittancements, name='comptabilisation_quittancements'),
+    path('quittancements/detail/<int:poste_id>/<str:date_debut>/<str:date_fin>/', views.detail_quittancements, name='detail_quittancements'),
+    path('quittancements/justifier/<int:poste_id>/<str:date_debut>/<str:date_fin>/', views.justifier_ecart, name='justifier_ecart'),
+    path('authentifier-document/', views.authentifier_document, name='authentifier_document'),
+
+]

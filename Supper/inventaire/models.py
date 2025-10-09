@@ -2266,3 +2266,254 @@ class HistoriqueStock(models.Model):
         verbose_name = _("Historique stock")
         verbose_name_plural = _("Historiques stocks")
         ordering = ['-date_mouvement']
+
+
+class TypeDeclaration(models.TextChoices):
+    """Types de déclaration pour quittancement"""
+    JOUR = 'jour', _('Par Jour')
+    DECADE = 'decade', _('Par Décade')
+
+
+class Quittancement(models.Model):
+    """
+    Modèle pour gérer les quittancements des recettes
+    RÈGLES MÉTIER :
+    - Un seul quittancement par jour si type_declaration = JOUR
+    - Pas de chevauchement de périodes si type_declaration = DECADE
+    - Non modifiable après création
+    """
+    
+    # Identification
+    numero_quittance = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name=_("Numéro de quittance"),
+        help_text=_("Numéro unique de la quittance")
+    )
+    
+    poste = models.ForeignKey(
+        'accounts.Poste',
+        on_delete=models.CASCADE,
+        related_name='quittancements',
+        verbose_name=_("Poste")
+    )
+    
+    # Période
+    exercice = models.IntegerField(
+        verbose_name=_("Exercice (Année)"),
+        validators=[MinValueValidator(2020), MaxValueValidator(2099)]
+    )
+    
+    type_declaration = models.CharField(
+        max_length=10,
+        choices=TypeDeclaration.choices,
+        default=TypeDeclaration.JOUR,
+        verbose_name=_("Type de déclaration")
+    )
+    
+    # Dates selon le type
+    date_quittancement = models.DateField(
+        verbose_name=_("Date de quittancement"),
+        help_text=_("Date du jour du quittancement")
+    )
+    
+    # Pour JOUR
+    date_recette = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de la recette"),
+        help_text=_("Si type = JOUR")
+    )
+    
+    # Pour DECADE
+    date_debut_decade = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date début décade"),
+        help_text=_("Si type = DECADE")
+    )
+    
+    date_fin_decade = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date fin décade"),
+        help_text=_("Si type = DECADE")
+    )
+    
+    # Données financières
+    montant = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name=_("Montant quittancé (FCFA)")
+    )
+    
+    # Document
+    image_quittance = models.ImageField(
+        upload_to='quittances/%Y/%m/',
+        verbose_name=_("Image de la quittance"),
+        help_text=_("Scan ou photo de la quittance")
+    )
+    
+    # Métadonnées
+    saisi_par = models.ForeignKey(
+        'accounts.UtilisateurSUPPER',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='quittancements_saisis',
+        verbose_name=_("Saisi par")
+    )
+    
+    date_saisie = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de saisie")
+    )
+    
+    # Verrouillage (non modifiable)
+    verrouille = models.BooleanField(
+        default=True,
+        verbose_name=_("Verrouillé"),
+        help_text=_("Les quittancements sont verrouillés dès leur création")
+    )
+    
+    class Meta:
+        verbose_name = _("Quittancement")
+        verbose_name_plural = _("Quittancements")
+        ordering = ['-date_quittancement', 'poste__nom']
+        indexes = [
+            models.Index(fields=['poste', 'exercice']),
+            models.Index(fields=['numero_quittance']),
+            models.Index(fields=['date_quittancement']),
+        ]
+        # Contraintes métier
+        constraints = [
+            # Un seul quittancement par jour pour un poste si type = JOUR
+            models.UniqueConstraint(
+                fields=['poste', 'date_quittancement', 'date_recette'],
+                condition=models.Q(type_declaration='jour'),
+                name='unique_quittancement_jour'
+            )
+        ]
+    
+    def __str__(self):
+        return f"Quittance {self.numero_quittance} - {self.poste.nom}"
+    
+    def clean(self):
+        """Validation métier stricte"""
+        from django.core.exceptions import ValidationError
+        
+        # Date future interdite
+        if self.date_quittancement > timezone.now().date():
+            raise ValidationError("Les quittancements ne peuvent pas être sur des dates futures.")
+        
+        # Validation selon type
+        if self.type_declaration == TypeDeclaration.JOUR:
+            if not self.date_recette:
+                raise ValidationError("Date de recette obligatoire pour type JOUR.")
+            if self.date_recette > timezone.now().date():
+                raise ValidationError("La date de recette ne peut pas être future.")
+                
+        elif self.type_declaration == TypeDeclaration.DECADE:
+            if not self.date_debut_decade or not self.date_fin_decade:
+                raise ValidationError("Dates début et fin obligatoires pour type DECADE.")
+            
+            if self.date_debut_decade > self.date_fin_decade:
+                raise ValidationError("Date début ne peut être après date fin.")
+            
+            # Vérifier les chevauchements de décades
+            chevauchements = Quittancement.objects.filter(
+                poste=self.poste,
+                type_declaration=TypeDeclaration.DECADE,
+                date_debut_decade__lte=self.date_fin_decade,
+                date_fin_decade__gte=self.date_debut_decade
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            if chevauchements.exists():
+                raise ValidationError(
+                    f"Cette période chevauche des quittancements existants : "
+                    f"{', '.join([q.numero_quittance for q in chevauchements])}"
+                )
+    
+    def save(self, *args, **kwargs):
+        """Sauvegarde avec validation et verrouillage automatique"""
+        self.full_clean()
+        self.verrouille = True  # Toujours verrouillé
+        super().save(*args, **kwargs)
+    
+    def get_periode_display(self):
+        """Affichage de la période"""
+        if self.type_declaration == TypeDeclaration.JOUR:
+            return f"Jour : {self.date_recette.strftime('%d/%m/%Y')}"
+        else:
+            return f"Décade : {self.date_debut_decade.strftime('%d/%m/%Y')} au {self.date_fin_decade.strftime('%d/%m/%Y')}"
+
+
+class JustificationEcart(models.Model):
+    """
+    Modèle pour justifier les écarts de comptabilisation
+    """
+    
+    poste = models.ForeignKey(
+        'accounts.Poste',
+        on_delete=models.CASCADE,
+        related_name='justifications_ecart',
+        verbose_name=_("Poste")
+    )
+    
+    # Période de justification
+    date_debut = models.DateField(
+        verbose_name=_("Date début période")
+    )
+    
+    date_fin = models.DateField(
+        verbose_name=_("Date fin période")
+    )
+    
+    # Montants calculés
+    montant_quittance = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant total quittancé")
+    )
+    
+    montant_declare = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant total déclaré")
+    )
+    
+    ecart = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Écart"),
+        help_text=_("Quittancé - Déclaré")
+    )
+    
+    # Justification
+    justification = models.TextField(
+        verbose_name=_("Justification de l'écart"),
+        help_text=_("Explication détaillée de l'écart constaté")
+    )
+    
+    # Métadonnées
+    justifie_par = models.ForeignKey(
+        'accounts.UtilisateurSUPPER',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='justifications_effectuees',
+        verbose_name=_("Justifié par")
+    )
+    
+    date_justification = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de justification")
+    )
+    
+    class Meta:
+        verbose_name = _("Justification d'écart")
+        verbose_name_plural = _("Justifications d'écarts")
+        ordering = ['-date_justification']
+        unique_together = [['poste', 'date_debut', 'date_fin']]
+    
+    def __str__(self):
+        return f"Justification {self.poste.nom} - {self.date_debut} au {self.date_fin}"
