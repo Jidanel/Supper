@@ -162,5 +162,21 @@ urlpatterns = [
          views_bordereaux_pdf.bordereau_transfert_pdf, 
          name='bordereau_pdf'),
      path('stocks/transfert/bordereaux/', views_transferts.liste_bordereaux, name='liste_bordereaux'),
+
+     path('classement/postes/', 
+         views_classement.classement_postes_performances, 
+         name='classement_postes_performances'),
+    
+    path('classement/agents/', 
+         views_classement.classement_agents_performances, 
+         name='classement_agents_performances'),
+    
+    path('classement/poste/<int:poste_id>/', 
+         views_classement.detail_performance_poste, 
+         name='detail_performance_poste'),
+    
+    path('classement/agent/<int:agent_id>/', 
+         views_classement.detail_performance_agent, 
+         name='detail_performance_agent'),
      
      ]

@@ -122,14 +122,6 @@
                                    placeholder="Nombre de véhicules"
                                    {% if inventaire.verrouille %}readonly{% endif %}>
                         </div>
-                        <div class="col-md-5">
-                            <input type="text" 
-                                   name="observations_{{ periode.code }}"
-                                   class="form-control"
-                                   placeholder="Observations (optionnel)"
-                                   value="{{ periode.observations }}"
-                                   {% if inventaire.verrouille %}readonly{% endif %}>
-                        </div>
                     </div>
                 </div>
                 {% endfor %}

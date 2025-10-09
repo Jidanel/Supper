@@ -137,7 +137,7 @@
                     {{ title }}
                 </h1>
                 <p class="mb-0 mt-2 opacity-75">
-                    {% trans "Modification du compte utilisateur" %} {{ user_edit.nom_complet }}
+                    {% trans "Modification du compte utilisateur" %} {{ modifier_utilisateur.nom_complet }}
                 </p>
             </div>
             <div>
@@ -189,7 +189,7 @@
                                     {% trans "Matricule" %}
                                 </label>
                                 <input type="text" class="form-control readonly-field" id="username" 
-                                       value="{{ user_edit.username }}" readonly>
+                                       value="{{ modifier_utilisateur.username }}" readonly>
                                 <div class="help-text">
                                     {% trans "Le matricule ne peut pas être modifié" %}
                                 </div>
@@ -202,7 +202,7 @@
                                     {% trans "Nom complet" %} <span class="required">*</span>
                                 </label>
                                 <input type="text" class="form-control" id="nom_complet" name="nom_complet"
-                                       required value="{{ user_edit.nom_complet }}">
+                                       required value="{{ modifier_utilisateur.nom_complet }}">
                             </div>
                         </div>
                     </div>
@@ -214,7 +214,7 @@
                                     {% trans "Téléphone" %} <span class="required">*</span>
                                 </label>
                                 <input type="tel" class="form-control" id="telephone" name="telephone"
-                                       required value="{{ user_edit.telephone }}">
+                                       required value="{{ modifier_utilisateur.telephone }}">
                             </div>
                         </div>
                         
@@ -224,7 +224,7 @@
                                     {% trans "Email" %}
                                 </label>
                                 <input type="email" class="form-control" id="email" name="email"
-                                       value="{{ user_edit.email|default:'' }}">
+                                       value="{{ modifier_utilisateur.email|default:'' }}">
                             </div>
                         </div>
                     </div>
@@ -243,7 +243,7 @@
                                 </label>
                                 <select class="form-select" id="habilitation" name="habilitation" required>
                                     {% for value, label in habilitations %}
-                                    <option value="{{ value }}" {% if value == user_edit.habilitation %}selected{% endif %}>
+                                    <option value="{{ value }}" {% if value == modifier_utilisateur.habilitation %}selected{% endif %}>
                                         {{ label }}
                                     </option>
                                     {% endfor %}
@@ -260,7 +260,7 @@
                                     <option value="">{% trans "Aucun poste spécifique" %}</option>
                                     {% for poste in postes %}
                                     <option value="{{ poste.id }}" 
-                                            {% if user_edit.poste_affectation.id == poste.id %}selected{% endif %}>
+                                            {% if modifier_utilisateur.poste_affectation.id == poste.id %}selected{% endif %}>
                                         {{ poste.nom }} ({{ poste.get_type_poste_display }})
                                     </option>
                                     {% endfor %}
@@ -273,7 +273,7 @@
                         <div class="col-md-6">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
-                                       {% if user_edit.is_active %}checked{% endif %}>
+                                       {% if modifier_utilisateur.is_active %}checked{% endif %}>
                                 <label class="form-check-label" for="is_active">
                                     {% trans "Compte actif" %}
                                 </label>
@@ -320,7 +320,7 @@
                             <div class="form-group">
                                 <label class="form-label">{% trans "Créé le" %}</label>
                                 <input type="text" class="form-control readonly-field" 
-                                       value="{{ user_edit.date_creation|date:'d/m/Y H:i' }}" readonly>
+                                       value="{{ modifier_utilisateur.date_creation|date:'d/m/Y H:i' }}" readonly>
                             </div>
                         </div>
                         
@@ -328,7 +328,7 @@
                             <div class="form-group">
                                 <label class="form-label">{% trans "Modifié le" %}</label>
                                 <input type="text" class="form-control readonly-field" 
-                                       value="{{ user_edit.date_modification|date:'d/m/Y H:i' }}" readonly>
+                                       value="{{ modifier_utilisateur.date_modification|date:'d/m/Y H:i' }}" readonly>
                             </div>
                         </div>
                         
@@ -336,7 +336,7 @@
                             <div class="form-group">
                                 <label class="form-label">{% trans "Créé par" %}</label>
                                 <input type="text" class="form-control readonly-field" 
-                                       value="{% if user_edit.cree_par %}{{ user_edit.cree_par.nom_complet }}{% else %}{% trans 'Système' %}{% endif %}" readonly>
+                                       value="{% if modifier_utilisateur.cree_par %}{{ modifier_utilisateur.cree_par.nom_complet }}{% else %}{% trans 'Système' %}{% endif %}" readonly>
                             </div>
                         </div>
                     </div>
@@ -358,7 +358,7 @@
                                     {% trans "Remet le mot de passe à 'supper2025'" %}
                                 </p>
                                 <button type="button" class="btn btn-warning btn-sm" 
-                                        onclick="resetPassword('{{ user_edit.id }}')">
+                                        onclick="resetPassword('{{ modifier_utilisateur.id }}')">
                                     <i class="fas fa-redo me-1"></i>
                                     {% trans "Réinitialiser" %}
                                 </button>
@@ -375,7 +375,7 @@
                                     {% trans "Notifier l'utilisateur des modifications" %}
                                 </p>
                                 <button type="button" class="btn btn-info btn-sm" 
-                                        onclick="sendNotification('{{ user_edit.id }}')">
+                                        onclick="sendNotification('{{ modifier_utilisateur.id }}')">
                                     <i class="fas fa-paper-plane me-1"></i>
                                     {% trans "Notifier" %}
                                 </button>

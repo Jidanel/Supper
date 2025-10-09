@@ -1,0 +1,309 @@
+{% extends 'admin/base_site.html' %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-performance {
+        border-left: 4px solid #6B46C1;
+        transition: all 0.3s;
+    }
+    
+    .card-performance:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .badge-rang {
+        font-size: 1.5rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .rang-1 { background: linear-gradient(135deg, #FFD700, #FFA500); }
+    .rang-2 { background: linear-gradient(135deg, #C0C0C0, #A8A8A8); }
+    .rang-3 { background: linear-gradient(135deg, #CD7F32, #B87333); }
+    
+    .metric-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    .taux-bon { color: #10B981; font-weight: bold; }
+    .taux-moyen { color: #F59E0B; font-weight: bold; }
+    .taux-mauvais { color: #EF4444; font-weight: bold; }
+    
+    .agent-item {
+        border-left: 3px solid #e5e7eb;
+        padding-left: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    .agent-item.meilleur {
+        border-left-color: #10B981;
+        background: rgba(16, 185, 129, 0.05);
+    }
+    
+    .agent-item.pire {
+        border-left-color: #EF4444;
+        background: rgba(239, 68, 68, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5">
+                <i class="fas fa-trophy text-warning"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted">
+                Période : <strong>{{ date_debut|date:"d/m/Y" }}</strong> au <strong>{{ date_fin|date:"d/m/Y" }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Période</label>
+                    <select name="periode" class="form-select" onchange="this.form.submit()">
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mensuel</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestriel</option>
+                        <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestriel</option>
+                        <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Année</label>
+                    <select name="annee" class="form-select" onchange="this.form.submit()">
+                        {% for year in annees_disponibles %}
+                            <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% if periode == 'mois' %}
+                <div class="col-md-3">
+                    <label class="form-label">Mois</label>
+                    <select name="mois" class="form-select" onchange="this.form.submit()">
+                        <option value="">Mois en cours</option>
+                        {% for m in mois_liste %}
+                            <option value="{{ m }}" {% if request.GET.mois == m|stringformat:"d" %}selected{% endif %}>
+                                {{ m|date:"F" }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                {% if periode == 'trimestre' %}
+                <div class="col-md-3">
+                    <label class="form-label">Trimestre</label>
+                    <select name="trimestre" class="form-select" onchange="this.form.submit()">
+                        <option value="">Trimestre en cours</option>
+                        {% for t in trimestres %}
+                            <option value="{{ t }}" {% if request.GET.trimestre == t|stringformat:"d" %}selected{% endif %}>
+                                Trimestre {{ t }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{% url 'inventaire:classement_agents_performances' %}" class="btn btn-primary w-100">
+                        <i class="fas fa-users"></i> Classement Agents
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Classement des postes -->
+    <div class="row">
+        {% for item in classement_postes %}
+        <div class="col-md-6 mb-4">
+            <div class="card card-performance h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge badge-rang {% if item.rang <= 3 %}rang-{{ item.rang }}{% else %}bg-secondary{% endif %}">
+                            #{{ item.rang }}
+                        </span>
+                        <strong class="ms-2">{{ item.poste.nom }}</strong>
+                    </div>
+                    <a href="{% url 'inventaire:detail_performance_poste' item.poste.id %}?periode={{ periode }}&annee={{ annee }}" 
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-chart-line"></i> Détails
+                    </a>
+                </div>
+
+                <div class="card-body">
+                    <!-- Motifs -->
+                    <div class="mb-3">
+                        <small class="text-muted">Motifs:</small>
+                        <div class="mt-1">
+                            {% if item.performance.motifs %}
+                                {% for motif in item.performance.motifs %}
+                                    <span class="badge bg-info me-1">
+                                        {% if motif == 'taux_deperdition' %}
+                                            <i class="fas fa-chart-line"></i> Taux déperdition
+                                        {% elif motif == 'grand_stock' %}
+                                            <i class="fas fa-boxes"></i> Grand stock
+                                        {% elif motif == 'risque_baisse' %}
+                                            <i class="fas fa-arrow-down"></i> Risque baisse
+                                        {% else %}
+                                            {{ motif }}
+                                        {% endif %}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="badge bg-secondary">Présence Administrative</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Métriques principales -->
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="metric-card">
+                                <small class="text-muted d-block">Taux Moyen</small>
+                                <span class="{% if item.taux_moyen >= -30 %}taux-bon{% elif item.taux_moyen >= -50 %}taux-moyen{% else %}taux-mauvais{% endif %}">
+                                    {{ item.taux_moyen|floatformat:2 }}%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="col-6">
+                            <div class="metric-card">
+                                <small class="text-muted d-block">Évol. Recettes</small>
+                                <span class="{% if item.taux_evolution_recettes > 0 %}taux-bon{% else %}taux-mauvais{% endif %}">
+                                    {{ item.taux_evolution_recettes|floatformat:2 }}%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="col-6">
+                            <div class="metric-card">
+                                <small class="text-muted d-block">Taux Plus Elevé</small>
+                                <strong>{{ item.taux_plus_bas|floatformat:2 }}%</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-6">
+                            <div class="metric-card">
+                                <small class="text-muted d-block">Taux Plus Bas</small>
+                                <strong>{{ item.taux_plus_eleve|floatformat:2 }}%</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="metric-card">
+                                <small class="text-muted d-block">Évolution Stock</small>
+                                <strong class="{% if item.evolution_stock > 0 %}text-success{% elif item.evolution_stock < 0 %}text-danger{% endif %}">
+                                    {% if item.evolution_stock > 0 %}
+                                        <i class="fas fa-arrow-down"></i> Rapproché de {{ item.evolution_stock }} jours
+                                    {% elif item.evolution_stock < 0 %}
+                                        <i class="fas fa-arrow-up"></i> Éloigné de {{ item.evolution_stock|add:0|abs }} jours
+                                    {% else %}
+                                        <i class="fas fa-equals"></i> Stable
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="metric-card">
+                                <small class="text-muted d-block">Jours Impertinents</small>
+                                <strong class="{% if item.nb_jours_impertinents > 5 %}text-warning{% endif %}">
+                                    {{ item.nb_jours_impertinents }}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agents -->
+                    <div class="mt-3">
+                        <small class="text-muted d-block mb-2">
+                            <strong>Agents d'inventaire ({{ item.agents|length }})</strong>
+                        </small>
+
+                        {% if item.meilleur_agent %}
+                        <div class="agent-item meilleur">
+                            <i class="fas fa-star text-success"></i>
+                            <strong>Meilleur:</strong> {{ item.meilleur_agent.agent.nom_complet }}
+                            <span class="badge bg-success ms-2">{{ item.meilleur_agent.performance.note_moyenne|floatformat:2 }}/20</span>
+                        </div>
+                        {% endif %}
+
+                        {% if item.pire_agent %}
+                        <div class="agent-item pire">
+                            <i class="fas fa-arrow-down text-danger"></i>
+                            <strong>À améliorer:</strong> {{ item.pire_agent.agent.nom_complet }}
+                            <span class="badge bg-danger ms-2">{{ item.pire_agent.performance.note_moyenne|floatformat:2 }}/20</span>
+                        </div>
+                        {% endif %}
+
+                        {% if item.agents|length > 2 %}
+                        <div class="text-center mt-2">
+                            <button class="btn btn-sm btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#agents-{{ forloop.counter }}">
+                                Voir tous les agents ({{ item.agents|length }})
+                            </button>
+                        </div>
+
+                        <div class="collapse" id="agents-{{ forloop.counter }}">
+                            {% for agent_data in item.agents %}
+                            <div class="agent-item">
+                                {{ agent_data.agent.nom_complet }}
+                                <span class="badge bg-secondary ms-2">{{ agent_data.performance.note_moyenne|floatformat:2 }}/20</span>
+                                <small class="text-muted d-block">
+                                    Jours impertinents: {{ agent_data.performance.nombre_jours_impertinents }}
+                                </small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Aucune donnée disponible pour cette période.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Animation au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.card-performance');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 50);
+            }, index * 100);
+        });
+    });
+</script>
+{% endblock %}

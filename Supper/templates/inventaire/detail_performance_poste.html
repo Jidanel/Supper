@@ -1,0 +1,423 @@
+{% extends 'admin/base_site.html' %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .metric-box.success {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .metric-box.warning {
+        background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+    }
+
+    .metric-box.danger {
+        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    }
+
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .agent-performance-card {
+        border-left: 4px solid #6B46C1;
+        transition: all 0.3s;
+    }
+
+    .agent-performance-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+
+    .badge-motif {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin: 0.25rem;
+    }
+
+    .evolution-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .evolution-positive {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+    }
+
+    .evolution-negative {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+    }
+
+    .evolution-neutral {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6B7280;
+    }
+
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e5e7eb;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 2rem;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -2.5rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background: #6B46C1;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #6B46C1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    {% if error %}
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> {{ error }}
+        </div>
+        <a href="{% url 'inventaire:classement_postes_performances' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour au classement
+        </a>
+    {% else %}
+
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'inventaire:classement_postes_performances' %}">Classement Postes</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ poste.nom }}</li>
+                </ol>
+            </nav>
+
+            <h1 class="display-5 mb-2">
+                <i class="fas fa-building text-primary"></i>
+                Performance - {{ poste.nom }}
+            </h1>
+            <p class="text-muted">
+                <strong>Code:</strong> {{ poste.code }} | 
+                <strong>Type:</strong> {{ poste.get_type_poste_display }} | 
+                <strong>Région:</strong> {{ poste.get_region_display }}
+            </p>
+            <p class="text-muted">
+                Période analysée : <strong>{{ date_debut|date:"d/m/Y" }}</strong> au <strong>{{ date_fin|date:"d/m/Y" }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Métriques principales -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="metric-box {% if performance.taux_moyen_deperdition >= -30 %}success{% elif performance.taux_moyen_deperdition >= -50 %}warning{% else %}danger{% endif %}">
+                <div class="metric-label">Taux Moyen</div>
+                <div class="metric-value">{{ performance.taux_moyen_deperdition|floatformat:2 }}%</div>
+                <small>Sur la période</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="metric-box">
+                <div class="metric-label">Taux Plus Bas</div>
+                <div class="metric-value">{{ performance.taux_plus_bas|floatformat:2 }}%</div>
+                <small>Meilleur jour</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="metric-box danger">
+                <div class="metric-label">Taux Plus Élevé</div>
+                <div class="metric-value">{{ performance.taux_plus_eleve|floatformat:2 }}%</div>
+                <small>Jour critique</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="metric-box warning">
+                <div class="metric-label">Jours Impertinents</div>
+                <div class="metric-value">{{ performance.nombre_jours_impertinents }}</div>
+                <small>À exclure</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Motifs identifiés -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-flag"></i> Motifs Identifiés</h5>
+        </div>
+        <div class="card-body">
+            {% if performance.motifs %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for motif in performance.motifs %}
+                        <span class="badge-motif 
+                            {% if motif == 'taux_deperdition' %}bg-danger
+                            {% elif motif == 'grand_stock' %}bg-warning
+                            {% elif motif == 'risque_baisse' %}bg-info
+                            {% else %}bg-secondary{% endif %}">
+                            {% if motif == 'taux_deperdition' %}
+                                <i class="fas fa-chart-line"></i> Taux de déperdition élevé
+                            {% elif motif == 'grand_stock' %}
+                                <i class="fas fa-boxes"></i> Risque de grand stock
+                            {% elif motif == 'risque_baisse' %}
+                                <i class="fas fa-arrow-down"></i> Risque de baisse annuel
+                            {% elif motif == 'presence_admin' %}
+                                <i class="fas fa-user-shield"></i> Présence administrative
+                            {% else %}
+                                {{ motif }}
+                            {% endif %}
+                        </span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">
+                    <i class="fas fa-check-circle text-success"></i> 
+                    Aucun motif critique identifié pour cette période
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Évolutions -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Évolution des Recettes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Période actuelle</small>
+                            <h4 class="text-primary">{{ performance.recettes_periode|format_fcfa }}</h4>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Période précédente</small>
+                            <h4>{{ performance.recettes_periode_precedente|format_fcfa }}</h4>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="text-center">
+                        {% if performance.taux_evolution_recettes %}
+                            <div class="evolution-indicator 
+                                {% if performance.taux_evolution_recettes > 0 %}evolution-positive
+                                {% elif performance.taux_evolution_recettes < 0 %}evolution-negative
+                                {% else %}evolution-neutral{% endif %}">
+                                {% if performance.taux_evolution_recettes > 0 %}
+                                    <i class="fas fa-arrow-up me-2"></i>
+                                {% elif performance.taux_evolution_recettes < 0 %}
+                                    <i class="fas fa-arrow-down me-2"></i>
+                                {% else %}
+                                    <i class="fas fa-equals me-2"></i>
+                                {% endif %}
+                                {{ performance.taux_evolution_recettes|floatformat:2 }}%
+                            </div>
+                        {% else %}
+                            <span class="text-muted">Données insuffisantes</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Évolution du Stock</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Date épuisement début</small>
+                            <h5>
+                                {% if performance.date_epuisement_debut %}
+                                    {{ performance.date_epuisement_debut|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </h5>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Date épuisement fin</small>
+                            <h5>
+                                {% if performance.date_epuisement_fin %}
+                                    {{ performance.date_epuisement_fin|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </h5>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="text-center">
+                        {% if performance.evolution_stock_jours != 0 %}
+                            <div class="evolution-indicator 
+                                {% if performance.evolution_stock_jours > 0 %}evolution-positive
+                                {% else %}evolution-negative{% endif %}">
+                                {% if performance.evolution_stock_jours > 0 %}
+                                    <i class="fas fa-arrow-down me-2"></i>
+                                    Rapproché de {{ performance.evolution_stock_jours }} jours
+                                {% else %}
+                                    <i class="fas fa-arrow-up me-2"></i>
+                                    Éloigné de {{ performance.evolution_stock_jours|abs }} jours
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="evolution-indicator evolution-neutral">
+                                <i class="fas fa-equals me-2"></i> Stock stable
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des agents -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-users"></i> 
+                Performances des Agents d'Inventaire ({{ agents|length }})
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if agents %}
+                <div class="timeline">
+                    {% for agent_data in agents %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="agent-performance-card card">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-4">
+                                        <h5 class="mb-1">
+                                            {% if forloop.first %}
+                                                <i class="fas fa-star text-warning"></i>
+                                            {% endif %}
+                                            {{ agent_data.agent.nom_complet }}
+                                        </h5>
+                                        <small class="text-muted">{{ agent_data.agent.username }}</small>
+                                    </div>
+
+                                    <div class="col-md-2 text-center">
+                                        <div class="badge bg-primary fs-6">
+                                            {{ agent_data.note_moyenne|floatformat:2 }}/20
+                                        </div>
+                                        <small class="d-block text-muted">Note Moyenne</small>
+                                    </div>
+
+                                    <div class="col-md-2 text-center">
+                                        <strong class="{{ agent_data.taux_apres|couleur_taux }}">
+                                            {{ agent_data.taux_apres|floatformat:2 }}%
+                                        </strong>
+                                        <small class="d-block text-muted">Taux après passage</small>
+                                    </div>
+
+                                    <div class="col-md-2 text-center">
+                                        <strong class="{% if agent_data.jours_impertinents > 3 %}text-warning{% else %}text-success{% endif %}">
+                                            {{ agent_data.jours_impertinents }}
+                                        </strong>
+                                        <small class="d-block text-muted">J. Impertinents</small>
+                                    </div>
+
+                                    <div class="col-md-2 text-end">
+                                        <a href="{% url 'inventaire:detail_performance_agent' agent_data.agent.id %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-user-chart"></i> Détails
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- Détails des notes -->
+                                <div class="row mt-3">
+                                    <div class="col-4">
+                                        <span class="badge bg-info">Stock: {{ agent_data.note_stock|floatformat:2 }}/20</span>
+                                    </div>
+                                    <div class="col-4">
+                                        <span class="badge bg-success">Recettes: {{ agent_data.note_recettes|floatformat:2 }}/20</span>
+                                    </div>
+                                    <div class="col-4">
+                                        <span class="badge bg-warning">Taux: {{ agent_data.note_taux|floatformat:2 }}/20</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle"></i>
+                    Aucun agent d'inventaire n'a travaillé sur ce poste pendant cette période
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <a href="{% url 'inventaire:classement_postes_performances' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour au classement
+            </a>
+            <a href="{% url 'inventaire:historique_stock' poste.id %}" class="btn btn-primary">
+                <i class="fas fa-history"></i> Historique du stock
+            </a>
+            <a href="{% url 'inventaire:liste_recettes' %}?poste={{ poste.id }}" class="btn btn-success">
+                <i class="fas fa-coins"></i> Voir les recettes
+            </a>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

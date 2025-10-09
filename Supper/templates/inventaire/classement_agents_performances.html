@@ -1,0 +1,322 @@
+{% extends 'admin/base_site.html' %}
+{% load static i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .podium {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+    
+    .podium-place {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 12px;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .podium-place:hover {
+        transform: translateY(-10px);
+    }
+    
+    .podium-1 {
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        min-height: 250px;
+        width: 200px;
+    }
+    
+    .podium-2 {
+        background: linear-gradient(135deg, #C0C0C0, #A8A8A8);
+        min-height: 200px;
+        width: 180px;
+    }
+    
+    .podium-3 {
+        background: linear-gradient(135deg, #CD7F32, #B87333);
+        min-height: 180px;
+        width: 180px;
+    }
+    
+    .agent-card {
+        border-left: 4px solid #6B46C1;
+        transition: all 0.3s;
+    }
+    
+    .agent-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .note-excellente { color: #10B981; font-weight: bold; }
+    .note-bonne { color: #3B82F6; font-weight: bold; }
+    .note-moyenne { color: #F59E0B; font-weight: bold; }
+    .note-faible { color: #EF4444; font-weight: bold; }
+    
+    .poste-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5">
+                <i class="fas fa-medal text-warning"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted">
+                Période : <strong>{{ date_debut|date:"d/m/Y" }}</strong> au <strong>{{ date_fin|date:"d/m/Y" }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Période</label>
+                    <select name="periode" class="form-select" onchange="this.form.submit()">
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mensuel</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestriel</option>
+                        <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestriel</option>
+                        <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Année</label>
+                    <select name="annee" class="form-select" onchange="this.form.submit()">
+                        {% for year in annees_disponibles %}
+                            <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% if periode == 'mois' %}
+                <div class="col-md-3">
+                    <label class="form-label">Mois</label>
+                    <select name="mois" class="form-select" onchange="this.form.submit()">
+                        <option value="">Mois en cours</option>
+                        {% for m in mois_liste %}
+                            <option value="{{ m }}" {% if request.GET.mois == m|stringformat:"d" %}selected{% endif %}>
+                                Mois {{ m }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{% url 'inventaire:classement_postes_performances' %}" class="btn btn-secondary w-100">
+                        <i class="fas fa-building"></i> Classement Postes
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Podium Top 3 -->
+    {% if classement_agents|length >= 3 %}
+    <div class="podium mb-5">
+        <!-- 2ème place -->
+        <div class="podium-place podium-2" onclick="window.location='{% url 'inventaire:detail_performance_agent' classement_agents.1.agent.id %}'">
+            <div class="display-1 mb-3">🥈</div>
+            <h4 class="text-white mb-2">2ème</h4>
+            <strong class="text-white d-block mb-2">{{ classement_agents.1.agent.nom_complet }}</strong>
+            <div class="badge bg-white text-dark fs-5">{{ classement_agents.1.moyenne_globale|floatformat:2 }}/20</div>
+            <small class="text-white d-block mt-2">{{ classement_agents.1.nombre_postes }} poste(s)</small>
+        </div>
+
+        <!-- 1ère place -->
+        <div class="podium-place podium-1" onclick="window.location='{% url 'inventaire:detail_performance_agent' classement_agents.0.agent.id %}'">
+            <div class="display-1 mb-3">🥇</div>
+            <h3 class="text-white mb-2">1er</h3>
+            <strong class="text-white d-block mb-2">{{ classement_agents.0.agent.nom_complet }}</strong>
+            <div class="badge bg-white text-dark fs-4">{{ classement_agents.0.moyenne_globale|floatformat:2 }}/20</div>
+            <small class="text-white d-block mt-2">{{ classement_agents.0.nombre_postes }} poste(s)</small>
+        </div>
+
+        <!-- 3ème place -->
+        <div class="podium-place podium-3" onclick="window.location='{% url 'inventaire:detail_performance_agent' classement_agents.2.agent.id %}'">
+            <div class="display-1 mb-3">🥉</div>
+            <h4 class="text-white mb-2">3ème</h4>
+            <strong class="text-white d-block mb-2">{{ classement_agents.2.agent.nom_complet }}</strong>
+            <div class="badge bg-white text-dark fs-5">{{ classement_agents.2.moyenne_globale|floatformat:2 }}/20</div>
+            <small class="text-white d-block mt-2">{{ classement_agents.2.nombre_postes }} poste(s)</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Liste complète -->
+    <div class="row">
+        <div class="col-12">
+            <h3 class="mb-3">Classement Complet</h3>
+        </div>
+
+        {% for item in classement_agents %}
+        <div class="col-12 mb-3">
+            <div class="card agent-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-1 text-center">
+                            <div class="fs-3 fw-bold text-primary">#{{ item.rang }}</div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <h5 class="mb-1">{{ item.agent.nom_complet }}</h5>
+                            <small class="text-muted">{{ item.agent.username }}</small>
+                        </div>
+
+                        <div class="col-md-2 text-center">
+                            <div class="mb-1">
+                                <strong class="
+                                    {% if item.moyenne_globale >= 15 %}note-excellente
+                                    {% elif item.moyenne_globale >= 12 %}note-bonne
+                                    {% elif item.moyenne_globale >= 10 %}note-moyenne
+                                    {% else %}note-faible{% endif %}
+                                ">
+                                    {{ item.moyenne_globale|floatformat:2 }}/20
+                                </strong>
+                            </div>
+                            <small class="text-muted">Note Moyenne</small>
+                        </div>
+
+                        <div class="col-md-2 text-center">
+                            <div class="mb-1">
+                                <strong>{{ item.nombre_postes }}</strong>
+                            </div>
+                            <small class="text-muted">Poste(s) visité(s)</small>
+                        </div>
+
+                        <div class="col-md-2 text-center">
+                            <div class="mb-1">
+                                <strong class="{% if item.total_jours_impertinents > 5 %}text-warning{% endif %}">
+                                    {{ item.total_jours_impertinents }}
+                                </strong>
+                            </div>
+                            <small class="text-muted">Jours impertinents</small>
+                        </div>
+
+                        <div class="col-md-2 text-end">
+                            <button class="btn btn-sm btn-outline-primary" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#details-{{ forloop.counter }}">
+                                <i class="fas fa-chevron-down"></i> Détails
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Détails par poste (collapsible) -->
+                    <div class="collapse mt-3" id="details-{{ forloop.counter }}">
+                        <hr>
+                        <h6 class="text-muted mb-3">Détail par poste :</h6>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Poste</th>
+                                        <th>Période</th>
+                                        <th class="text-center">Note Stock</th>
+                                        <th class="text-center">Note Recettes</th>
+                                        <th class="text-center">Note Taux</th>
+                                        <th class="text-center">Note Moyenne</th>
+                                        <th class="text-center">J. Impertinents</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for poste_detail in item.details_postes %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ poste_detail.poste.nom }}</strong>
+                                        </td>
+                                        <td>
+                                            <small>
+                                                {{ poste_detail.date_debut|date:"d/m/Y" }} - 
+                                                {{ poste_detail.date_fin|date:"d/m/Y" }}
+                                            </small>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-info">{{ poste_detail.note_stock|floatformat:2 }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-success">{{ poste_detail.note_recettes|floatformat:2 }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-warning">{{ poste_detail.note_taux|floatformat:2 }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <strong class="
+                                                {% if poste_detail.note_moyenne >= 15 %}note-excellente
+                                                {% elif poste_detail.note_moyenne >= 12 %}note-bonne
+                                                {% elif poste_detail.note_moyenne >= 10 %}note-moyenne
+                                                {% else %}note-faible{% endif %}
+                                            ">
+                                                {{ poste_detail.note_moyenne|floatformat:2 }}/20
+                                            </strong>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="{% if poste_detail.jours_impertinents > 3 %}text-warning fw-bold{% endif %}">
+                                                {{ poste_detail.jours_impertinents }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="text-end mt-2">
+                            <a href="{% url 'inventaire:detail_performance_agent' item.agent.id %}?periode={{ periode }}&annee={{ annee }}" 
+                               class="btn btn-sm btn-primary">
+                                <i class="fas fa-chart-line"></i> Voir analyse complète
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Aucune donnée disponible pour cette période.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Animation des cartes
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.agent-card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateX(-20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateX(0)';
+                }, 50);
+            }, index * 50);
+        });
+    });
+</script>
+{% endblock %}

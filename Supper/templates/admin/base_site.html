@@ -516,9 +516,19 @@
             <ul class="dropdown-menu">
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:classement_rendement' %}">
-                        <i class="fas fa-trophy me-2"></i>{% trans "Classement Postes" %}
+                        <i class="fas fa-trophy me-2"></i>{% trans "Classement Postes Rendement" %}
                     </a>
                 </li>
+                <li>
+                <a class="dropdown-item" href="{% url 'inventaire:classement_postes_performances' %}">
+                    <i class="fas fa-trophy me-2"></i>{% trans "Classement Postes Deperdition" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{% url 'inventaire:classement_agents_performances' %}">
+                    <i class="fas fa-medal me-2"></i>{% trans "Classement Agents Inventaires" %}
+                </a>
+            </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
                         <i class="fas fa-file-export me-2"></i>{% trans "Générer Rapports" %}

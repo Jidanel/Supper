@@ -1,0 +1,475 @@
+{% extends 'admin/base_site.html' %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .agent-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+    }
+
+    .stat-label {
+        color: #6B7280;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .poste-card {
+        border-left: 4px solid;
+        transition: all 0.3s;
+        margin-bottom: 1rem;
+    }
+
+    .poste-card.excellent {
+        border-left-color: #10B981;
+    }
+
+    .poste-card.bon {
+        border-left-color: #3B82F6;
+    }
+
+    .poste-card.moyen {
+        border-left-color: #F59E0B;
+    }
+
+    .poste-card.faible {
+        border-left-color: #EF4444;
+    }
+
+    .poste-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .note-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0 auto;
+    }
+
+    .note-circle.excellent {
+        background: linear-gradient(135deg, #11998e, #38ef7d);
+        color: white;
+    }
+
+    .note-circle.bon {
+        background: linear-gradient(135deg, #3B82F6, #60A5FA);
+        color: white;
+    }
+
+    .note-circle.moyen {
+        background: linear-gradient(135deg, #F59E0B, #FBBF24);
+        color: white;
+    }
+
+    .note-circle.faible {
+        background: linear-gradient(135deg, #EF4444, #F87171);
+        color: white;
+    }
+
+    .comparison-box {
+        background: #F9FAFB;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+
+    .badge-large {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    {% if error %}
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> {{ error }}
+        </div>
+        <a href="{% url 'inventaire:classement_agents_performances' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour au classement
+        </a>
+    {% else %}
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'inventaire:classement_agents_performances' %}">Classement Agents</a>
+            </li>
+            <li class="breadcrumb-item active">{{ agent.nom_complet }}</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête Agent -->
+    <div class="agent-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-5 mb-2">
+                    <i class="fas fa-user-tie"></i>
+                    {{ agent.nom_complet }}
+                </h1>
+                <p class="mb-0">
+                    <strong>Matricule:</strong> {{ agent.username }} | 
+                    <strong>Poste actuel:</strong> {{ agent.poste_affectation.nom|default:"Non affecté" }}
+                </p>
+                <p class="mb-0">
+                    <small>Période analysée : {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}</small>
+                </p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="note-circle {% if moyenne_globale >= 15 %}excellent{% elif moyenne_globale >= 12 %}bon{% elif moyenne_globale >= 10 %}moyen{% else %}faible{% endif %}">
+                    {{ moyenne_globale|floatformat:2 }}/20
+                </div>
+                <div class="mt-2"><strong>Note Globale</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques globales -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Postes Visités</div>
+                <div class="stat-value text-primary">{{ nombre_postes }}</div>
+                <small class="text-muted">Sur la période</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Note Moyenne</div>
+                <div class="stat-value {% if moyenne_globale >= 15 %}text-success{% elif moyenne_globale >= 12 %}text-info{% elif moyenne_globale >= 10 %}text-warning{% else %}text-danger{% endif %}">
+                    {{ moyenne_globale|floatformat:2 }}
+                </div>
+                <small class="text-muted">Sur 20</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Meilleure Note</div>
+                <div class="stat-value text-success">
+                    {% if postes %}
+                        {% with meilleure=postes.0 %}
+                            {{ meilleure.note_moyenne|floatformat:2 }}
+                        {% endwith %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+                <small class="text-muted">Performance max</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Note la Plus Basse</div>
+                <div class="stat-value text-danger">
+                    {% if postes %}
+                        {% with derniere=postes|last %}
+                    {{ derniere.note_moyenne|floatformat:2 }}
+                {% endwith %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+                <small class="text-muted">À améliorer</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Détail par poste -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-building"></i>
+                Détail des Performances par Poste
+            </h5>
+        </div>
+        <div class="card-body">
+            {% for poste_data in postes %}
+            <div class="poste-card card {% if poste_data.note_moyenne >= 15 %}excellent{% elif poste_data.note_moyenne >= 12 %}bon{% elif poste_data.note_moyenne >= 10 %}moyen{% else %}faible{% endif %}">
+                <div class="card-body">
+                    <!-- En-tête du poste -->
+                    <div class="row align-items-center mb-3">
+                        <div class="col-md-6">
+                            <h5 class="mb-1">
+                                {% if forloop.first %}
+                                    <i class="fas fa-trophy text-warning"></i>
+                                {% endif %}
+                                {{ poste_data.poste.nom }}
+                            </h5>
+                            <small class="text-muted">
+                                <i class="fas fa-calendar"></i>
+                                {{ poste_data.date_debut|date:"d/m/Y" }} - {{ poste_data.date_fin|date:"d/m/Y" }}
+                            </small>
+                        </div>
+
+                        <div class="col-md-6 text-end">
+                            <span class="badge-large {% if poste_data.note_moyenne >= 15 %}bg-success{% elif poste_data.note_moyenne >= 12 %}bg-info{% elif poste_data.note_moyenne >= 10 %}bg-warning{% else %}bg-danger{% endif %}">
+                                Note Finale : {{ poste_data.note_moyenne|floatformat:2 }}/20
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Notes par critère -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <div class="comparison-box">
+                                <small class="text-muted d-block">Note Stock</small>
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar bg-info" role="progressbar" 
+                                         style="width: {{ poste_data.note_stock|floatformat:0 }}%;">
+                                        {{ poste_data.note_stock|floatformat:2 }}/20
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="comparison-box">
+                                <small class="text-muted d-block">Note Recettes</small>
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar bg-success" role="progressbar" 
+                                         style="width: {{ poste_data.note_recettes|floatformat:0 }}%;">
+                                        {{ poste_data.note_recettes|floatformat:2 }}/20
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="comparison-box">
+                                <small class="text-muted d-block">Note Taux</small>
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar bg-warning" role="progressbar" 
+                                         style="width: {{ poste_data.note_taux|floatformat:0 }}%;">
+                                        {{ poste_data.note_taux|floatformat:2 }}/20
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparaison Avant/Après -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="comparison-box">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-arrow-left"></i> Avant Passage
+                                </h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Taux moyen</small>
+                                        <strong class="{{ poste_data.taux_avant|couleur_taux }}">
+                                            {{ poste_data.taux_avant|floatformat:2 }}%
+                                        </strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Évol. stock</small>
+                                        <strong>{{ poste_data.evolution_stock }} jours</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="comparison-box">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-arrow-right"></i> Après Passage
+                                </h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Taux moyen</small>
+                                        <strong class="{{ poste_data.taux_apres|couleur_taux }}">
+                                            {{ poste_data.taux_apres|floatformat:2 }}%
+                                        </strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">J. Impertinents</small>
+                                        <strong class="{% if poste_data.jours_impertinents > 5 %}text-danger{% elif poste_data.jours_impertinents > 3 %}text-warning{% else %}text-success{% endif %}">
+                                            {{ poste_data.jours_impertinents }}
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analyse qualitative -->
+                    <div class="mt-3 p-3" style="background: {% if poste_data.note_moyenne >= 15 %}rgba(16, 185, 129, 0.1){% elif poste_data.note_moyenne >= 12 %}rgba(59, 130, 246, 0.1){% elif poste_data.note_moyenne >= 10 %}rgba(245, 158, 11, 0.1){% else %}rgba(239, 68, 68, 0.1){% endif %}; border-radius: 8px;">
+                        <small>
+                            <strong>Analyse :</strong>
+                            {% if poste_data.note_moyenne >= 15 %}
+                                <span class="text-success">
+                                    <i class="fas fa-check-circle"></i>
+                                    Excellente performance. L'agent a su améliorer significativement les indicateurs du poste.
+                                </span>
+                            {% elif poste_data.note_moyenne >= 12 %}
+                                <span class="text-info">
+                                    <i class="fas fa-thumbs-up"></i>
+                                    Bonne performance. L'agent a contribué positivement aux objectifs du poste.
+                                </span>
+                            {% elif poste_data.note_moyenne >= 10 %}
+                                <span class="text-warning">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    Performance moyenne. Quelques points d'amélioration identifiés.
+                                </span>
+                            {% else %}
+                                <span class="text-danger">
+                                    <i class="fas fa-times-circle"></i>
+                                    Performance faible. Des actions correctives sont nécessaires.
+                                </span>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Aucune donnée de performance disponible pour cet agent sur la période sélectionnée.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recommandations -->
+    {% if postes %}
+    <div class="card mt-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-lightbulb"></i>
+                Recommandations
+            </h5>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                {% if moyenne_globale >= 15 %}
+                    <li class="text-success">
+                        <strong>Félicitations !</strong> Cet agent démontre une excellente maîtrise des inventaires. 
+                        Considérer pour des formations de pairs ou des responsabilités accrues.
+                    </li>
+                {% elif moyenne_globale >= 12 %}
+                    <li class="text-info">
+                        Performance solide. Encourager la continuité et identifier les bonnes pratiques à partager.
+                    </li>
+                {% elif moyenne_globale >= 10 %}
+                    <li class="text-warning">
+                        Performance acceptable mais perfectible. Recommander :
+                        <ul>
+                            <li>Formation sur les techniques d'inventaire</li>
+                            <li>Suivi rapproché sur les prochains postes</li>
+                        </ul>
+                    </li>
+                {% else %}
+                    <li class="text-danger">
+                        Performance nécessitant une action immédiate :
+                        <ul>
+                            <li>Évaluation approfondie des méthodes de travail</li>
+                            <li>Formation intensive recommandée</li>
+                            <li>Supervision renforcée sur les prochaines missions</li>
+                        </ul>
+                    </li>
+                {% endif %}
+
+                {% for poste_data in postes %}
+                    {% if poste_data.jours_impertinents > 5 %}
+                        <li class="text-warning">
+                            Nombre élevé de jours impertinents à <strong>{{ poste_data.poste.nom }}</strong> ({{ poste_data.jours_impertinents }}). 
+                            Nécessite une révision des pratiques de saisie.
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="row mt-4 mb-4">
+        <div class="col-12">
+            <a href="{% url 'inventaire:classement_agents_performances' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour au classement
+            </a>
+            {% if postes %}
+                <button class="btn btn-primary" onclick="window.print()">
+                    <i class="fas fa-print"></i> Imprimer le rapport
+                </button>
+                <a href="#" class="btn btn-success" onclick="exporterRapport()">
+                    <i class="fas fa-file-excel"></i> Exporter en Excel
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function exporterRapport() {
+        alert('Fonctionnalité d\'export en développement');
+        // TODO: Implémenter l'export Excel
+    }
+
+    // Style d'impression
+    window.addEventListener('beforeprint', function() {
+        document.querySelector('.agent-header').style.pageBreakAfter = 'avoid';
+    });
+</script>
+
+<style media="print">
+    .btn, nav, .card-header button {
+        display: none !important;
+    }
+
+    .poste-card {
+        page-break-inside: avoid;
+    }
+
+    body {
+        font-size: 12pt;
+    }
+
+    .stat-card, .comparison-box {
+        border: 1px solid #e5e7eb;
+    }
+</style>
+{% endblock %}

@@ -30,10 +30,12 @@
                 <div class="card-body">
                     <p>Total : {{ ventes_mois.total|floatformat:0|default:"0"|format_milliers }} FCFA</p>
                     <p>Nombre : {{ ventes_mois.nombre|default:"0"|format_milliers }} transaction(s)</p>
+                    <p>Date d'épuisement du stock :  {{ date_epuisement|date:"d/m/Y" }}</p>
                 </div>
             </div>
         </div>
     </div>
+    
     
     <h4 class="mt-4">Historique récent</h4>
     <table class="table table-striped">

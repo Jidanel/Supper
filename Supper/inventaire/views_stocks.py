@@ -339,6 +339,17 @@ def mon_stock(request):
         nombre=models.Count('id')
     )
     
+    # Calcul vente moyenne journalière
+    vente_moyenne_journaliere = Decimal('0')
+    if ventes_mois['total'] and ventes_mois['nombre'] > 0:
+        vente_moyenne_journaliere = ventes_mois['total'] / ventes_mois['nombre']
+    
+    # Calcul date d'épuisement
+    date_epuisement = None
+    if vente_moyenne_journaliere > 0:
+        jours_restants = int(stock.valeur_monetaire / vente_moyenne_journaliere)
+        date_epuisement = date_fin + timedelta(days=jours_restants - 7)  # en retirant 7 jours de sécurité
+    
     # Historique récent
     historique = HistoriqueStock.objects.filter(
         poste=poste
@@ -348,11 +359,13 @@ def mon_stock(request):
         'poste': poste,
         'stock': stock,
         'ventes_mois': ventes_mois,
+        'date_epuisement': date_epuisement,
         'historique': historique,
-        'title': f'Mon stock - {poste.nom}'
+        'title': f'Mon stock - {poste.nom}',
     }
     
     return render(request, 'inventaire/mon_stock.html', context)
+
 
 @login_required
 def historique_stock(request, poste_id):

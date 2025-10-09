@@ -13,6 +13,16 @@ register = template.Library()
 # ===================================================================
 # FILTRES HUMANIZE (Réexportés et améliorés)
 # ===================================================================
+@register.filter(name='abs')
+def absolute_value(value):
+    """
+    Retourne la valeur absolue d'un nombre
+    Usage: {{ my_number|abs }}
+    """
+    try:
+        return abs(int(value))
+    except (ValueError, TypeError):
+        return 0
 
 @register.filter(name='intcomma')
 def intcomma_filter(value):
@@ -54,6 +64,19 @@ def floatformat_filter(value, arg=2):
     except (ValueError, TypeError):
         return value
 
+@register.filter(name='format_motif')
+def format_motif(value):
+    """
+    Formate l'affichage des motifs
+    Usage: {{ motif|format_motif }}
+    """
+    motifs_dict = {
+        'taux_deperdition': 'Taux de déperdition élevé',
+        'grand_stock': 'Risque de grand stock',
+        'risque_baisse': 'Risque de baisse annuel',
+        'presence_admin': 'Présence administrative'
+    }
+    return motifs_dict.get(value, value)
 
 @register.filter(name='format_milliers')
 def format_milliers(value):
@@ -381,6 +404,24 @@ def couleur_taux(taux):
     except (ValueError, TypeError):
         return 'secondary'
 
+@register.filter(name='couleur_note')
+def couleur_note(note):
+    """
+    Retourne la classe CSS selon la note /20
+    Usage: {{ note|couleur_note }}
+    """
+    try:
+        note = float(note)
+        if note >= 15:
+            return 'note-excellente'
+        elif note >= 12:
+            return 'note-bonne'
+        elif note >= 10:
+            return 'note-moyenne'
+        else:
+            return 'note-faible'
+    except (ValueError, TypeError):
+        return 'text-muted'
 
 @register.filter(name='badge_statut')
 def badge_statut(statut):

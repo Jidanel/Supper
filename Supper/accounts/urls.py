@@ -37,8 +37,8 @@ urlpatterns = [
     path('users/list/', views.liste_utilisateurs, name='user_list'),
     path('users/create/', views.creer_utilisateur, name='user_create'),
     path('users/bulk-create/', views.CreateBulkUsersView.as_view(), name='user_bulk_create'),
-    path('users/<int:pk>/', views.UserDetailView.as_view(), name='user_detail'),
-    path('users/<int:pk>/edit/', views.UserUpdateView.as_view(), name='user_edit'),
+    #path('users/<int:pk>/', views.UserDetailView.as_view(), name='user_detail'),
+    path('users/<int:user_id>/', views.detail_utilisateur, name='detail_utilisateur'),
     path('users/<int:user_id>/edit-admin/', views.redirect_to_edit_user_admin, name='edit_user_admin'),
     path('users/<int:pk>/reset-password/', views.PasswordResetView.as_view(), name='password_reset'),
     
@@ -58,7 +58,10 @@ urlpatterns = [
     
     # MODIFIER UN POSTE - Template: accounts/modifier_poste.html
     path('postes/<int:poste_id>/modifier/', views.modifier_poste, name='modifier_poste'),
-    
+
+    # MODIFIER UN utilisateur - Template: accounts/modifier_utilisateur.html
+    path('utilisateurs/<int:user_id>/modifier/', views.modifier_utilisateur, name='modifier_utilisateur'),
+
     # IMPORT EXCEL POSTES
     path('postes/import/', views_import.import_postes_excel, name='import_postes'),
     path('postes/modele-excel/', views_import.telecharger_modele_postes_excel, name='telecharger_modele_postes'),
