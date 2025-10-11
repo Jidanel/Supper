@@ -1,0 +1,372 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Détails Quittancements" %} - {{ poste.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    
+    .detail-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .stat-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        text-align: center;
+    }
+    
+    .stat-card.success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .stat-card.warning {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    
+    .stat-card.danger {
+        background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);
+    }
+    
+    .stat-card h3 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .table-quittances th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .btn-action {
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .comparison-table td {
+        vertical-align: middle;
+    }
+    
+    .ecart-positif {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .ecart-negatif {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    @media print {
+        .btn, .alert-info { display: none; }
+        .detail-header { print-color-adjust: exact; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête avec informations principales -->
+    <div class="detail-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-3">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>
+                    {% trans "Détails des Quittancements" %}
+                </h2>
+                <h4>{{ poste.nom }}</h4>
+                <p class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    {% trans "Période" %} : {{ date_debut|date:"d/m/Y" }} {% trans "au" %} {{ date_fin|date:"d/m/Y" }}
+                </p>
+            </div>
+            <div>
+                <button onclick="window.print()" class="btn btn-light">
+                    <i class="fas fa-print me-2"></i>
+                    {% trans "Imprimer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartes de statistiques -->
+    <div class="stat-row">
+        <div class="stat-card success">
+            <p class="mb-2">{% trans "Total Déclaré" %}</p>
+            <h3>{{ total_declare|floatformat:0 }}</h3>
+            <small>FCFA</small>
+        </div>
+        
+        <div class="stat-card">
+            <p class="mb-2">{% trans "Total Quittancé" %}</p>
+            <h3>{{ total_quittance|floatformat:0 }}</h3>
+            <small>FCFA</small>
+        </div>
+        
+        <div class="stat-card {% if ecart < 0 %}danger{% elif ecart > 0 %}warning{% else %}success{% endif %}">
+            <p class="mb-2">{% trans "Écart" %}</p>
+            <h3>{{ ecart|floatformat:0 }}</h3>
+            <small>FCFA ({% if ecart != 0 %}{{ ecart|div:total_declare|mul:100|floatformat:2 }}%{% else %}0%{% endif %})</small>
+        </div>
+        
+        <div class="stat-card">
+            <p class="mb-2">{% trans "Nombre Quittances" %}</p>
+            <h3>{{ quittancements.count }}</h3>
+            <small>{% trans "Document(s)" %}</small>
+        </div>
+    </div>
+
+    <!-- Justification si existante -->
+    {% if justifications %}
+    <div class="detail-card">
+        <h5 class="text-success mb-3">
+            <i class="fas fa-check-circle me-2"></i>
+            {% trans "Justification de l'écart" %}
+        </h5>
+        {% for justification in justifications %}
+        <div class="alert alert-success">
+            <p><strong>{% trans "Date" %} :</strong> {{ justification.date_justification|date:"d/m/Y H:i" }}</p>
+            <p><strong>{% trans "Par" %} :</strong> {{ justification.justifie_par.nom_complet }}</p>
+            <p><strong>{% trans "Justification" %} :</strong></p>
+            <p>{{ justification.justification }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif ecart != 0 %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>{% trans "Écart non justifié" %}</strong> - 
+        <a href="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" 
+           class="btn btn-sm btn-warning ms-2">
+            <i class="fas fa-edit me-1"></i>
+            {% trans "Justifier l'écart" %}
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Tableau comparatif Quittances / Recettes -->
+    <div class="detail-card">
+        <h5 class="mb-3">
+            <i class="fas fa-balance-scale me-2"></i>
+            {% trans "Comparaison Quittancements / Déclarations" %}
+        </h5>
+        
+        <div class="table-responsive">
+            <table class="table table-hover comparison-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans "Date" %}</th>
+                        <th class="text-end">{% trans "Montant Déclaré" %}</th>
+                        <th class="text-end">{% trans "Montant Quittancé" %}</th>
+                        <th class="text-end">{% trans "Écart Journalier" %}</th>
+                        <th class="text-center">{% trans "Statut" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recette in recettes %}
+                    <tr>
+                        <td>{{ recette.date|date:"d/m/Y" }}</td>
+                        <td class="text-end">{{ recette.montant_declare|floatformat:0 }} FCFA</td>
+                        <td class="text-end">
+                            {% with quittance=quittancements|dictsort:"date_quittancement"|first %}
+                                {% if quittance and quittance.date_quittancement == recette.date %}
+                                    {{ quittance.montant|floatformat:0 }} FCFA
+                                {% else %}
+                                    <span class="text-muted">0 FCFA</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="text-end">
+                            {% with quittance=quittancements|dictsort:"date_quittancement"|first %}
+                                {% if quittance and quittance.date_quittancement == recette.date %}
+                                    <span class="{% if quittance.montant < recette.montant_declare %}ecart-negatif{% else %}ecart-positif{% endif %}">
+                                        {{ quittance.montant|sub:recette.montant_declare|floatformat:0 }} FCFA
+                                    </span>
+                                {% else %}
+                                    <span class="ecart-negatif">-{{ recette.montant_declare|floatformat:0 }} FCFA</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="text-center">
+                            {% with quittance=quittancements|dictsort:"date_quittancement"|first %}
+                                {% if quittance and quittance.date_quittancement == recette.date %}
+                                    {% if quittance.montant == recette.montant_declare %}
+                                        <span class="badge bg-success">{% trans "OK" %}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">{% trans "Écart" %}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-danger">{% trans "Non quittancé" %}</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <th>{% trans "TOTAL" %}</th>
+                        <th class="text-end">{{ total_declare|floatformat:0 }} FCFA</th>
+                        <th class="text-end">{{ total_quittance|floatformat:0 }} FCFA</th>
+                        <th class="text-end {% if ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
+                            {{ ecart|floatformat:0 }} FCFA
+                        </th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Liste détaillée des quittancements -->
+    <div class="detail-card">
+        <h5 class="mb-3">
+            <i class="fas fa-list-alt me-2"></i>
+            {% trans "Liste des Quittancements" %}
+        </h5>
+        
+        <div class="table-responsive">
+            <table class="table table-hover table-quittances">
+                <thead>
+                    <tr>
+                        <th>{% trans "N° Quittance" %}</th>
+                        <th>{% trans "Date Quittancement" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Période Couverte" %}</th>
+                        <th class="text-end">{% trans "Montant" %}</th>
+                        <th>{% trans "Saisi par" %}</th>
+                        <th>{% trans "Date Saisie" %}</th>
+                        <th class="text-center">{% trans "Document" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quittancement in quittancements %}
+                    <tr>
+                        <td><strong>{{ quittancement.numero_quittance }}</strong></td>
+                        <td>{{ quittancement.date_quittancement|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="badge bg-info">
+                                {{ quittancement.get_type_declaration_display }}
+                            </span>
+                        </td>
+                        <td>{{ quittancement.get_periode_display }}</td>
+                        <td class="text-end">
+                            <strong>{{ quittancement.montant|floatformat:0 }}</strong> FCFA
+                        </td>
+                        <td>
+                            {% if quittancement.saisi_par %}
+                                {{ quittancement.saisi_par.nom_complet }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ quittancement.date_saisie|date:"d/m/Y H:i" }}</td>
+                        <td class="text-center">
+                            {% if quittancement.image_quittance %}
+                            <a href="{{ quittancement.image_quittance.url }}" 
+                               target="_blank" 
+                               class="btn btn-sm btn-primary btn-action">
+                                <i class="fas fa-file-image"></i>
+                            </a>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-3">
+                            {% trans "Aucun quittancement pour cette période" %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Actions en bas de page -->
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <a href="{% url 'inventaire:comptabilisation_quittancements' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>
+            {% trans "Retour à la comptabilisation" %}
+        </a>
+        
+        <div>
+            {% if ecart != 0 and not justifications %}
+            <a href="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" 
+               class="btn btn-warning">
+                <i class="fas fa-edit me-2"></i>
+                {% trans "Justifier l'écart" %}
+            </a>
+            {% endif %}
+            
+            <button onclick="exportToExcel()" class="btn btn-success">
+                <i class="fas fa-file-excel me-2"></i>
+                {% trans "Exporter Excel" %}
+            </button>
+            
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="fas fa-print me-2"></i>
+                {% trans "Imprimer" %}
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation des cartes au chargement
+    const cards = document.querySelectorAll('.stat-card, .detail-card');
+    cards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 50);
+        }, index * 100);
+    });
+});
+
+function exportToExcel() {
+    const params = new URLSearchParams({
+        format: 'excel',
+        poste: '{{ poste.id }}',
+        date_debut: '{{ date_debut|date:"Y-m-d" }}',
+        date_fin: '{{ date_fin|date:"Y-m-d" }}'
+    });
+    window.location.href = "{% url 'inventaire:export_quittancements' %}?" + params.toString();
+}
+</script>
+{% endblock %}

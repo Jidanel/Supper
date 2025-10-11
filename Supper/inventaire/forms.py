@@ -830,51 +830,139 @@ class InventaireMensuelForm(forms.ModelForm):
 
 
 class QuittancementForm(forms.ModelForm):
-    """Formulaire pour saisir un quittancement"""
+    """
+    Formulaire pour la saisie d'un quittancement
+    
+    CORRECTION : Les champs exercice et type_declaration sont EXCLUS
+    car ils sont définis globalement à l'étape 1
+    """
     
     class Meta:
         model = Quittancement
         fields = [
-            'exercice', 'type_declaration', 'date_quittancement',
-            'date_recette', 'date_debut_decade', 'date_fin_decade',
-            'montant', 'image_quittance', 'numero_quittance'
+            'poste',
+            'numero_quittance',
+            'date_quittancement',
+            'montant',
+            'date_recette',           # Pour type journalière
+            'date_debut_decade',      # Pour type décade
+            'date_fin_decade',        # Pour type décade
+            'image_quittance',
         ]
+        # IMPORTANT : exercice et type_declaration sont EXCLUS
+        
         widgets = {
-            'exercice': forms.NumberInput(attrs={'class': 'form-control'}),
-            'type_declaration': forms.Select(attrs={'class': 'form-select', 'onchange': 'toggleDeclarationType()'}),
-            'date_quittancement': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'date_recette': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'date_debut_decade': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'date_fin_decade': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'montant': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'image_quittance': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
-            'numero_quittance': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: H63968155'}),
+            'poste': forms.Select(attrs={
+                'class': 'form-select',
+                'required': True
+            }),
+            'numero_quittance': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Ex: H6398859'),
+                'required': True
+            }),
+            'date_quittancement': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True
+            }),
+            'montant': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0',
+                'min': '0',
+                'step': '0.01',
+                'required': True
+            }),
+            'date_recette': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }),
+            'date_debut_decade': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }),
+            'date_fin_decade': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }),
+            'mois': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'month',
+            }),
+            'image_quittance': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*,application/pdf'
+            }),
+            'observations': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': _('Notes ou commentaires (optionnel)')
+            }),
+        }
+        
+        labels = {
+            'poste': _('Poste'),
+            'numero_quittance': _('Numéro de quittance'),
+            'date_quittancement': _('Date de quittancement'),
+            'montant': _('Montant quittancé (FCFA)'),
+            'date_recette': _('Date de la recette'),
+            'date_debut_decade': _('Date début décade'),
+            'date_fin_decade': _('Date fin décade'),
+            'mois': _('Mois'),
+            'image_quittance': _('Image de la quittance'),
+            'observations': _('Observations'),
+        }
+        
+        help_texts = {
+            'numero_quittance': _('Numéro unique du document de quittancement'),
+            'date_quittancement': _('Date du jour du quittancement'),
+            'montant': _('Montant en FCFA'),
+            'date_recette': _('Si type = JOUR'),
+            'date_debut_decade': _('Si type = DÉCADE'),
+            'date_fin_decade': _('Si type = DÉCADE'),
+            'mois': _('Si type = MENSUELLE'),
+            'image_quittance': _('Document scanné (optionnel)'),
         }
     
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)
+        """
+        Personnalisation du formulaire à l'initialisation
+        """
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Déterminer le poste selon le rôle
-        if self.user:
-            if not self.user.is_admin:
-                # Chef de poste : son poste uniquement
-                if self.user.poste_affectation:
-                    self.fields['poste'] = forms.ModelChoiceField(
-                        queryset=Poste.objects.filter(id=self.user.poste_affectation.id),
-                        widget=forms.Select(attrs={'class': 'form-select', 'readonly': 'readonly'})
-                    )
-            else:
-                # Admin : tous les postes
-                self.fields['poste'] = forms.ModelChoiceField(
-                    queryset=Poste.objects.filter(is_active=True).order_by('nom'),
-                    widget=forms.Select(attrs={'class': 'form-select'})
+        # Filtrer les postes selon les permissions
+        if user:
+            if user.is_admin:
+                self.fields['poste'].queryset = Poste.objects.filter(is_active=True)
+            elif user.poste_affectation:
+                # Chef de poste : seulement son poste
+                self.fields['poste'].queryset = Poste.objects.filter(
+                    id=user.poste_affectation.id
                 )
-    
+                # Pré-remplir et désactiver le champ
+                self.fields['poste'].initial = user.poste_affectation
+                self.fields['poste'].disabled = True
+            else:
+                self.fields['poste'].queryset = Poste.objects.none()
+        
+        # Rendre certains champs non requis par défaut
+        # Ils seront requis conditionnellement selon le type de déclaration
+        self.fields['date_recette'].required = False
+        self.fields['date_debut_decade'].required = False
+        self.fields['date_fin_decade'].required = False
+        self.fields['image_quittance'].required = False
+
     def clean(self):
         cleaned_data = super().clean()
         type_declaration = cleaned_data.get('type_declaration')
-        
+        montant = cleaned_data.get('montant')
+
+
+        if montant is not None and montant <= 0:
+            raise forms.ValidationError(
+                _('Le montant doit être supérieur à zéro')
+            )
         # Validation selon type
         if type_declaration == TypeDeclaration.JOUR:
             if not cleaned_data.get('date_recette'):

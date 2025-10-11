@@ -130,79 +130,82 @@
             </div>
 
             {% elif type_document == 'bordereau' %}
-            <!-- Affichage Bordereau -->
-            <div class="alert alert-info mb-4">
-                <h6><i class="fas fa-file-invoice me-2"></i>Type : BORDEREAU DE TRANSFERT</h6>
-            </div>
+                <!-- Affichage Bordereaux -->
+                <div class="alert alert-info mb-4">
+                    <h6><i class="fas fa-file-invoice me-2"></i>Type : BORDEREAUX DE TRANSFERT</h6>
+                </div>
 
-            <div class="table-responsive">
-                <table class="table table-bordered">
-                    <tr>
-                        <th class="bg-light" style="width: 30%;">Numéro Bordereau</th>
-                        <td><strong>{{ resultat.details.numero }}</strong></td>
-                    </tr>
-                    <tr>
-                        <th class="bg-light">Poste</th>
-                        <td>{{ resultat.details.poste }}</td>
-                    </tr>
-                    <tr>
-                        <th class="bg-light">Type de Mouvement</th>
-                        <td>
-                            <span class="badge {% if resultat.details.type_mouvement == 'CREDIT' %}bg-success{% else %}bg-danger{% endif %}">
-                                {{ resultat.details.type_mouvement }}
-                            </span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th class="bg-light">Montant</th>
-                        <td><strong class="text-primary">{{ resultat.details.montant|floatformat:0 }} FCFA</strong></td>
-                    </tr>
-                    <tr>
-                        <th class="bg-light">Nombre de Tickets</th>
-                        <td>{{ resultat.details.nombre_tickets }}</td>
-                    </tr>
-                    <tr>
-                        <th class="bg-light">Date du Mouvement</th>
-                        <td>{{ resultat.details.date_mouvement|date:"d/m/Y H:i" }}</td>
-                    </tr>
-                    {% if resultat.details.poste_origine %}
-                    <tr>
-                        <th class="bg-light">Poste Origine</th>
-                        <td>{{ resultat.details.poste_origine }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if resultat.details.poste_destination %}
-                    <tr>
-                        <th class="bg-light">Poste Destination</th>
-                        <td>{{ resultat.details.poste_destination }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr>
-                        <th class="bg-light">Stock Avant</th>
-                        <td>{{ resultat.details.stock_avant|floatformat:0 }} FCFA</td>
-                    </tr>
-                    <tr>
-                        <th class="bg-light">Stock Après</th>
-                        <td><strong>{{ resultat.details.stock_apres|floatformat:0 }} FCFA</strong></td>
-                    </tr>
-                    <tr>
-                        <th class="bg-light">Effectué par</th>
-                        <td>{{ resultat.details.effectue_par }}</td>
-                    </tr>
-                    {% if resultat.details.commentaire %}
-                    <tr>
-                        <th class="bg-light">Commentaire</th>
-                        <td>{{ resultat.details.commentaire }}</td>
-                    </tr>
-                    {% endif %}
-                </table>
-            </div>
+                {% for bordereau in resultat.documents %}
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th class="bg-light" style="width: 30%;">Numéro Bordereau</th>
+                            <td><strong>{{ bordereau.numero_bordereau }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Poste</th>
+                            <td>{{ bordereau.poste.nom }}</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Type de Mouvement</th>
+                            <td>
+                                <span class="badge {% if bordereau.get_type_mouvement_display == 'CREDIT' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ bordereau.get_type_mouvement_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Montant</th>
+                            <td><strong class="text-primary">{{ bordereau.montant|floatformat:0 }} FCFA</strong></td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Nombre de Tickets</th>
+                            <td>{{ bordereau.nombre_tickets }}</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Date du Mouvement</th>
+                            <td>{{ bordereau.date_mouvement|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% if bordereau.poste_origine %}
+                        <tr>
+                            <th class="bg-light">Poste Origine</th>
+                            <td>{{ bordereau.poste_origine.nom }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if bordereau.poste_destination %}
+                        <tr>
+                            <th class="bg-light">Poste Destination</th>
+                            <td>{{ bordereau.poste_destination.nom }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th class="bg-light">Stock Avant</th>
+                            <td>{{ bordereau.stock_avant|floatformat:0 }} FCFA</td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Stock Après</th>
+                            <td><strong>{{ bordereau.stock_apres|floatformat:0 }} FCFA</strong></td>
+                        </tr>
+                        <tr>
+                            <th class="bg-light">Effectué par</th>
+                            <td>{{ bordereau.effectue_par.nom_complet }}</td>
+                        </tr>
+                        {% if bordereau.commentaire %}
+                        <tr>
+                            <th class="bg-light">Commentaire</th>
+                            <td>{{ bordereau.commentaire }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+                {% endfor %}
 
-            <div class="alert alert-info mt-3">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Statut :</strong> Bordereau authentique et enregistré dans le système SUPPER
-            </div>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Statut :</strong> Bordereaux authentiques et enregistrés dans le système SUPPER
+                </div>
             {% endif %}
+
 
             <!-- Badge de vérification -->
             <div class="text-center mt-4">

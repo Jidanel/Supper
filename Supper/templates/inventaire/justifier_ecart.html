@@ -1,0 +1,224 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Justifier l'écart" %} - {{ poste.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ecart-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    
+    .ecart-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .justification-form textarea {
+        min-height: 150px;
+        font-size: 1.1rem;
+    }
+    
+    .btn-valider {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 12px 30px;
+        font-size: 1.1rem;
+    }
+    
+    .btn-valider:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- En-tête -->
+            <div class="ecart-info">
+                <h2 class="mb-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {% trans "Justification d'écart nécessaire" %}
+                </h2>
+                <div class="row">
+                    <div class="col-md-4">
+                        <h5>{% trans "Poste" %}</h5>
+                        <p class="mb-0">{{ poste.nom }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>{% trans "Période" %}</h5>
+                        <p class="mb-0">{{ date_debut|date:"d/m/Y" }} {% trans "au" %} {{ date_fin|date:"d/m/Y" }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>{% trans "Écart constaté" %}</h5>
+                        <p class="mb-0 fs-4">
+                            <strong class="{% if ecart < 0 %}text-danger{% else %}text-warning{% endif %}">
+                                {{ ecart|floatformat:0 }} FCFA
+                            </strong>
+                            ({{ ecart_pourcentage|floatformat:2 }}%)
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Détails de l'écart -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="ecart-card">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-calculator me-2"></i>
+                            {% trans "Détails financiers" %}
+                        </h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>{% trans "Total déclaré" %}:</strong></td>
+                                <td class="text-end">{{ total_declare|floatformat:0 }} FCFA</td>
+                            </tr>
+                            <tr>
+                                <td><strong>{% trans "Total quittancé" %}:</strong></td>
+                                <td class="text-end">{{ total_quittance|floatformat:0 }} FCFA</td>
+                            </tr>
+                            <tr class="{% if ecart < 0 %}table-danger{% else %}table-warning{% endif %}">
+                                <td><strong>{% trans "Écart" %}:</strong></td>
+                                <td class="text-end">
+                                    <strong>{{ ecart|floatformat:0 }} FCFA</strong>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="ecart-card">
+                        <h5 class="text-info mb-3">
+                            <i class="fas fa-chart-line me-2"></i>
+                            {% trans "Analyse" %}
+                        </h5>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% if ecart < 0 %}
+                                {% trans "Le total quittancé est inférieur au total déclaré. Une justification est requise pour expliquer cet écart." %}
+                            {% else %}
+                                {% trans "Le total quittancé dépasse le total déclaré. Veuillez vérifier les données et justifier cet écart." %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire de justification -->
+            <div class="ecart-card justification-form">
+                <h5 class="text-primary mb-4">
+                    <i class="fas fa-file-alt me-2"></i>
+                    {% trans "Justification de l'écart" %}
+                </h5>
+
+                {# CORRECTION : Utiliser les variables correctes passées par la vue #}
+                <form method="post" action="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="justification" class="form-label">
+                            {% trans "Veuillez expliquer les raisons de cet écart" %} *
+                        </label>
+                        <textarea 
+                            class="form-control" 
+                            id="justification" 
+                            name="justification" 
+                            required
+                            placeholder="{% trans 'Ex: Erreur de saisie, tickets endommagés, ajustement comptable, etc.' %}"
+                        >{% if justification_existante %}{{ justification_existante.justification }}{% endif %}</textarea>
+                        <small class="form-text text-muted">
+                            {% trans "Minimum 20 caractères - Soyez précis et détaillé" %}
+                        </small>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'inventaire:comptabilisation_quittancements' %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            {% trans "Retour" %}
+                        </a>
+                        
+                        <button type="submit" class="btn btn-primary btn-valider">
+                            <i class="fas fa-check me-2"></i>
+                            {% trans "Valider la justification" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Historique des justifications -->
+            {% if justification_existante %}
+            <div class="ecart-card mt-4">
+                <h5 class="text-success mb-3">
+                    <i class="fas fa-history me-2"></i>
+                    {% trans "Justification actuelle" %}
+                </h5>
+                <div class="alert alert-success">
+                    <p class="mb-2">
+                        <strong>{% trans "Date" %}:</strong> 
+                        {{ justification_existante.date_justification|date:"d/m/Y H:i" }}
+                    </p>
+                    <p class="mb-2">
+                        <strong>{% trans "Par" %}:</strong> 
+                        {{ justification_existante.justifie_par.nom_complet }}
+                    </p>
+                    <p class="mb-0"><strong>{% trans "Justification" %}:</strong></p>
+                    <p class="mt-2">{{ justification_existante.justification }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validation du formulaire
+    const form = document.querySelector('form');
+    const textarea = document.getElementById('justification');
+    
+    form.addEventListener('submit', function(e) {
+        const text = textarea.value.trim();
+        
+        if (text.length < 20) {
+            e.preventDefault();
+            alert('{% trans "La justification doit contenir au moins 20 caractères" %}');
+            textarea.focus();
+            return false;
+        }
+    });
+    
+    // Compteur de caractères
+    textarea.addEventListener('input', function() {
+        const length = this.value.trim().length;
+        const color = length < 20 ? 'text-danger' : 'text-success';
+        
+        let counter = document.getElementById('char-counter');
+        if (!counter) {
+            counter = document.createElement('small');
+            counter.id = 'char-counter';
+            counter.className = 'form-text';
+            this.parentElement.appendChild(counter);
+        }
+        
+        counter.className = `form-text ${color}`;
+        counter.textContent = `${length} / 20 caractères minimum`;
+    });
+});
+</script>
+{% endblock %}

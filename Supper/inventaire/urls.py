@@ -179,11 +179,24 @@ urlpatterns = [
          views_classement.detail_performance_agent, 
          name='detail_performance_agent'),
      
-     # Quittancements
-    path('quittancements/saisie/', views.saisie_quittancement, name='saisie_quittancement'),
-    path('quittancements/comptabilisation/', views.comptabilisation_quittancements, name='comptabilisation_quittancements'),
-    path('quittancements/detail/<int:poste_id>/<str:date_debut>/<str:date_fin>/', views.detail_quittancements, name='detail_quittancements'),
-    path('quittancements/justifier/<int:poste_id>/<str:date_debut>/<str:date_fin>/', views.justifier_ecart, name='justifier_ecart'),
-    path('authentifier-document/', views.authentifier_document, name='authentifier_document'),
+# Quittancements - URLs CORRIGÉES
+path('quittancements/saisie/', views.saisie_quittancement, name='saisie_quittancement'),
+path('quittancements/', views.liste_quittancements, name='liste_quittancements'),
+path('quittancements/comptabilisation/', views.comptabilisation_quittancements, name='comptabilisation_quittancements'),
 
+# CORRECTION : Changer le nom de la route pour correspondre à la vue
+path('quittancements/detail/<int:poste_id>/<str:date_debut>/<str:date_fin>/', 
+     views.detail_quittancements_periode,  # ← Nom de vue corrigé
+     name='detail_quittancements_periode'),  # ← Nom de route cohérent
+
+# CORRECTION : URL justifier_ecart avec paramètres corrects
+path('quittancements/justifier/<int:poste_id>/<str:date_debut>/<str:date_fin>/', 
+     views.justifier_ecart_periode,  # ← Renommé pour cohérence
+     name='justifier_ecart_periode'),
+
+# Authentification documents
+path('authentifier-document/', views.authentifier_document, name='authentifier_document'),
+
+# Export
+path('quittancements/export/', views.export_quittancements, name='export_quittancements'),
 ]

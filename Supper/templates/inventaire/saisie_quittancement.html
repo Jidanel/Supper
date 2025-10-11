@@ -1,177 +1,835 @@
-{% extends "admin/base_site.html" %}
+{% extends 'admin/base_site.html' %}
 {% load static %}
+{% load i18n %}
 
-{% block title %}Saisie Quittancement{% endblock %}
+{% block title %}{% trans "Saisie des Quittancements" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+
+    .step {
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+
+    .step-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+
+    .step.active .step-circle {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .step.completed .step-circle {
+        background: #28a745;
+        color: white;
+    }
+
+    .step-line {
+        width: 100px;
+        height: 2px;
+        background: #e9ecef;
+        margin: 0 1rem;
+    }
+
+    .step.completed .step-line {
+        background: #28a745;
+    }
+
+    .quittancement-form {
+        transition: all 0.3s ease;
+        border-left: 4px solid #667eea;
+        margin-bottom: 1.5rem;
+    }
+
+    .quittancement-form:hover {
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .quittancement-form .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .delete-form-btn {
+        transition: all 0.3s ease;
+    }
+
+    .delete-form-btn:hover {
+        transform: scale(1.1);
+    }
+
+    #add-form-btn {
+        border: 2px dashed #667eea;
+        transition: all 0.3s ease;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+    }
+
+    #add-form-btn:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+        transform: translateY(-2px);
+    }
+
+    .is-invalid {
+        border-color: #dc3545 !important;
+        animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0;
+        color: #dc3545;
+        font-size: 0.875rem;
+    }
+
+    .errorlist li:before {
+        content: "⚠️ ";
+    }
+
+    .total-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        position: sticky;
+        top: 20px;
+    }
+
+    .form-control.is-invalid,
+    .form-select.is-invalid {
+        border-color: #dc3545;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    <h2 class="mb-4">
-        <i class="fas fa-receipt me-2" style="color: #6B46C1;"></i>
-        Saisie des Quittancements
-    </h2>
 
-    {% if etape == 1 %}
-    <!-- ÉTAPE 1 : Sélection Exercice et Type -->
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h5>Étape 1/3 : Paramètres Globaux</h5>
+    <!-- En-tête -->
+    <div class="page-header">
+        <h2 class="mb-2">
+            <i class="fas fa-file-invoice-dollar me-2"></i>
+            {% trans "Saisie des Quittancements" %}
+        </h2>
+        <p class="mb-0">{% trans "Enregistrement multiple des quittancements de recettes" %}</p>
+    </div>
+
+    <!-- Indicateur d'étapes -->
+    <div class="step-indicator">
+        <div class="step {% if etape == 1 %}active{% elif etape > 1 %}completed{% endif %}">
+            <div class="step-circle">1</div>
+            <span class="ms-2">{% trans "Paramètres" %}</span>
         </div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="etape" value="1">
+        <div class="step-line"></div>
+        <div class="step {% if etape == 2 %}active{% elif etape > 2 %}completed{% endif %}">
+            <div class="step-circle">2</div>
+            <span class="ms-2">{% trans "Saisie" %}</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step {% if etape == 3 %}active{% endif %}">
+            <div class="step-circle">3</div>
+            <span class="ms-2">{% trans "Confirmation" %}</span>
+        </div>
+    </div>
+
+    <!-- Affichage des erreurs -->
+    {% if erreurs %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {% trans "Erreurs de validation détectées" %}
+        </h5>
+        <hr>
+        <ul class="mb-0">
+            {% for erreur in erreurs %}
+            <li>{{ erreur }}</li>
+            {% endfor %}
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 1 : PARAMÈTRES GLOBAUX -->
+    <!-- ============================================================ -->
+    {% if etape == 1 %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h4 class="card-title mb-4">
+                    <i class="fas fa-cog me-2"></i>
+                    {% trans "Configuration de la saisie" %}
+                </h4>
                 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Exercice (Année) *</label>
-                        <select name="exercice" class="form-select" required>
+                <form method="post" action="{% url 'inventaire:saisie_quittancement' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="etape" value="1">
+                    
+                    <!-- Exercice -->
+                    <div class="mb-4">
+                        <label for="exercice" class="form-label fw-bold">
+                            {% trans "Exercice" %} *
+                        </label>
+                        <select name="exercice" id="exercice" class="form-select form-select-lg" required>
+                            <option value="">{% trans "Sélectionnez l'exercice" %}</option>
                             {% for annee in annees %}
-                            <option value="{{ annee }}">{{ annee }}</option>
+                            <option value="{{ annee }}" {% if annee == annee_courante %}selected{% endif %}>
+                                {{ annee }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
                     
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Type de Déclaration *</label>
-                        <select name="type_declaration_global" class="form-select" required id="typeDeclarationSelect">
-                            <option value="">-- Sélectionner --</option>
+                    <!-- NOUVEAU : Mois -->
+                    <div class="mb-4">
+                        <label for="mois_global" class="form-label fw-bold">
+                            {% trans "Mois concerné" %} *
+                        </label>
+                        <input type="month" 
+                               name="mois_global" 
+                               id="mois_global" 
+                               class="form-control form-control-lg" 
+                               required>
+                        <small class="form-text text-muted">
+                            {% trans "Tous les quittancements seront associés à ce mois" %}
+                        </small>
+                    </div>
+                    
+                    <!-- Type de déclaration -->
+                    <div class="mb-4">
+                        <label for="type_declaration_global" class="form-label fw-bold">
+                            {% trans "Type de déclaration" %} *
+                        </label>
+                        <select name="type_declaration_global" id="type_declaration_global" 
+                                class="form-select form-select-lg" required>
+                            <option value="">{% trans "Sélectionnez le type" %}</option>
                             {% for value, label in types_declaration %}
                             <option value="{{ value }}">{{ label }}</option>
                             {% endfor %}
                         </select>
+                        <small class="form-text text-muted">
+                            {% trans "Détermine les champs à remplir pour chaque quittancement" %}
+                        </small>
                     </div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-arrow-right me-1"></i>Suivant
-                </button>
-            </form>
+                    
+                    <!-- Boutons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'inventaire:liste_quittancements' %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            {% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            {% trans "Suivant" %}
+                            <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
+</div>
+{% endif %}
 
-    {% elif etape == 2 %}
-    <!-- ÉTAPE 2 : Saisie des Quittancements -->
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h5>Étape 2/3 : Saisie des Quittancements</h5>
-        </div>
-        <div class="card-body">
-            <div class="alert alert-info">
-                <strong>Exercice :</strong> {{ exercice }} | 
-                <strong>Type :</strong> {{ type_declaration }}
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 2 : SAISIE DES QUITTANCEMENTS -->
+    <!-- ============================================================ -->
+    {% if etape == 2 %}
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Récapitulatif paramètres - EN LECTURE SEULE -->
+            <div class="alert alert-info mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>{% trans "Exercice" %} :</strong> {{ exercice }} | 
+                        <strong>{% trans "Type de déclaration" %} :</strong> {{ type_declaration_label }}
+                    </div>
+                    <small class="text-muted">
+                        <i class="fas fa-lock me-1"></i>
+                        {% trans "Défini à l'étape 1 - Non modifiable" %}
+                    </small>
+                </div>
             </div>
 
-            <form method="post" enctype="multipart/form-data" id="quittancementForm">
+            <form method="post" action="{% url 'inventaire:saisie_quittancement' %}" 
+                  enctype="multipart/form-data" id="formset-form">
                 {% csrf_token %}
                 <input type="hidden" name="etape" value="2">
-                <input type="hidden" name="exercice" value="{{ exercice }}">
-                <input type="hidden" name="type_declaration" value="{{ type_declaration }}">
                 
-                <div id="quittancementContainer">
-                    {{ formset.management_form }}
-                    
+                <!-- Management form -->
+                {{ formset.management_form }}
+                
+                <!-- Container pour les formulaires -->
+                <div id="formset-container">
                     {% for form in formset %}
-                    <div class="quittancement-item border p-3 mb-3 rounded position-relative">
-                        <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-quittancement" style="display: none;">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Numéro Quittance *</label>
-                                {{ form.numero_quittance }}
+                    <div class="quittancement-form card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 form-number">
+                                {% trans "Quittancement" %} {{ forloop.counter }}
+                            </h5>
+                            <button type="button" class="btn btn-sm btn-danger delete-form-btn">
+                                <i class="fas fa-trash-alt me-1"></i>
+                                {% trans "Supprimer" %}
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Afficher les erreurs du formulaire -->
+                            {% if form.errors %}
+                            <div class="alert alert-danger">
+                                {{ form.errors }}
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Champs du formulaire -->
+                            <div class="row">
+                                {% for field in form %}
+                                    {% if field.name != 'DELETE' %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ field.id_for_label }}" class="form-label">
+                                            {{ field.label }}
+                                            {% if field.field.required %}*{% endif %}
+                                        </label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                        <div class="errorlist">
+                                            {% for error in field.errors %}
+                                            <li>{{ error }}</li>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        {% if field.help_text %}
+                                        <small class="form-text text-muted">{{ field.help_text }}</small>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
                             
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Date Quittancement *</label>
-                                {{ form.date_quittancement }}
-                            </div>
-                        </div>
-
-                        <!-- SELON TYPE : JOUR -->
-                        {% if type_declaration == 'jour' %}
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Date de la Recette *</label>
-                                {{ form.date_recette }}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <!-- SELON TYPE : DECADE -->
-                        {% if type_declaration == 'decade' %}
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Date Début Décade *</label>
-                                {{ form.date_debut_decade }}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Date Fin Décade *</label>
-                                {{ form.date_fin_decade }}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                            
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Montant (FCFA) *</label>
-                                {{ form.montant }}
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
-                                <label class="form-label">Image Quittance *</label>
-                                {{ form.image_quittance }}
-                                <small class="text-muted d-block">Formats acceptés : JPG, PNG, PDF</small>
+                            <!-- Champ DELETE caché -->
+                            <div class="d-none">
+                                {{ form.DELETE }}
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
 
-                <div class="d-flex justify-content-between mt-3">
-                    <button type="button" class="btn btn-success" id="addQuittancement">
-                        <i class="fas fa-plus me-1"></i>Ajouter un Quittancement
+                <!-- Bouton Ajouter -->
+                <div class="text-center mb-4">
+                    <button type="button" id="add-form-btn" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        {% trans "Ajouter un quittancement" %}
                     </button>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-check me-1"></i>Valider et Confirmer
+                </div>
+
+                <!-- Boutons navigation -->
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'inventaire:saisie_quittancement' %}" 
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        {% trans "Retour" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        {% trans "Valider et confirmer" %}
+                        <i class="fas fa-check ms-2"></i>
                     </button>
                 </div>
             </form>
         </div>
-    </div>
 
-    <script>
-    let formCount = {{ formset.total_form_count }};
+        <!-- Colonne latérale : Totaux -->
+        <div class="col-lg-4">
+            <div class="total-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-calculator me-2"></i>
+                    {% trans "Récapitulatif" %}
+                </h5>
+                
+                <div class="mb-4">
+                    <p class="text-muted mb-1">{% trans "Nombre de quittancements" %}</p>
+                    <h3 class="text-primary mb-0" id="count-display">0</h3>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-muted mb-1">{% trans "Montant total" %}</p>
+                    <h3 class="text-success mb-0" id="total-display">0 FCFA</h3>
+                </div>
+
+                <hr>
+
+                <div class="alert alert-info mb-0">
+                    <small>
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "Les totaux se calculent automatiquement lors de la saisie" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 3 : CONFIRMATION (géré par un autre template) -->
+    <!-- ============================================================ -->
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
     
-    document.getElementById('addQuittancement').addEventListener('click', function() {
-        const container = document.getElementById('quittancementContainer');
-        const lastForm = container.querySelector('.quittancement-item:last-child');
-        const newForm = lastForm.cloneNode(true);
+    // ================================================================
+    // GESTION DU FORMSET DYNAMIQUE
+    // ================================================================
+    
+    const formsetContainer = document.getElementById('formset-container');
+    const addFormBtn = document.getElementById('add-form-btn');
+    const totalFormsInput = document.getElementById('id_form-TOTAL_FORMS');
+    
+    if (!formsetContainer || !addFormBtn || !totalFormsInput) {
+        console.warn('Éléments formset non trouvés');
+        return;
+    }
+    
+    let formCount = parseInt(totalFormsInput.value);
+    
+    // ================================================================
+    // FONCTION : AJOUTER UN FORMULAIRE
+    // ================================================================
+    function addForm() {
+        const firstForm = formsetContainer.querySelector('.quittancement-form');
+        if (!firstForm) {
+            console.error('Formulaire template non trouvé');
+            return;
+        }
+        
+        const newForm = firstForm.cloneNode(true);
+        
+        // Mettre à jour les indices
+        const formRegex = /form-(\d+)-/g;
+        newForm.innerHTML = newForm.innerHTML.replace(formRegex, `form-${formCount}-`);
         
         // Réinitialiser les valeurs
-        newForm.querySelectorAll('input:not([type="hidden"])').forEach(input => {
-            input.value = '';
+        newForm.querySelectorAll('input, select, textarea').forEach(input => {
+            if (input.type === 'checkbox') {
+                input.checked = false;
+            } else if (input.type !== 'hidden') {
+                input.value = '';
+            }
+            
+            if (input.name) {
+                input.name = input.name.replace(/form-\d+-/, `form-${formCount}-`);
+            }
+            if (input.id) {
+                input.id = input.id.replace(/id_form-\d+-/, `id_form-${formCount}-`);
+            }
+            
+            // Enlever la classe d'erreur
+            input.classList.remove('is-invalid');
         });
         
-        // Afficher le bouton supprimer
-        newForm.querySelector('.remove-quittancement').style.display = 'block';
+        // Mettre à jour les labels
+        newForm.querySelectorAll('label').forEach(label => {
+            if (label.getAttribute('for')) {
+                label.setAttribute('for', 
+                    label.getAttribute('for').replace(/id_form-\d+-/, `id_form-${formCount}-`)
+                );
+            }
+        });
         
-        container.appendChild(newForm);
+        // Supprimer les messages d'erreur
+        newForm.querySelectorAll('.errorlist, .alert-danger').forEach(el => el.remove());
+        
+        // Mettre à jour le numéro
+        const formNumber = newForm.querySelector('.form-number');
+        if (formNumber) {
+            formNumber.textContent = `{% trans "Quittancement" %} ${formCount + 1}`;
+        }
+        
+        formsetContainer.appendChild(newForm);
         formCount++;
-        document.querySelector('[name="form-TOTAL_FORMS"]').value = formCount;
-    });
-
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.remove-quittancement')) {
-            e.target.closest('.quittancement-item').remove();
+        totalFormsInput.value = formCount;
+        
+        attachFormEvents(newForm);
+        
+        // Animation
+        newForm.style.opacity = '0';
+        newForm.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            newForm.style.transition = 'all 0.3s ease';
+            newForm.style.opacity = '1';
+            newForm.style.transform = 'translateY(0)';
+        }, 10);
+        
+        newForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        updateTotal();
+    }
+    
+    // ================================================================
+    // FONCTION : SUPPRIMER UN FORMULAIRE
+    // ================================================================
+    function removeForm(form) {
+        const forms = formsetContainer.querySelectorAll('.quittancement-form');
+        if (forms.length <= 1) {
+            alert('{% trans "Vous devez conserver au moins un formulaire" %}');
+            return;
+        }
+        
+        form.style.transition = 'all 0.3s ease';
+        form.style.opacity = '0';
+        form.style.transform = 'translateX(-20px)';
+        
+        setTimeout(() => {
+            form.remove();
             formCount--;
-            document.querySelector('[name="form-TOTAL_FORMS"]').value = formCount;
+            totalFormsInput.value = formCount;
+            renumberForms();
+            updateTotal();
+        }, 300);
+    }
+    
+    // ================================================================
+    // FONCTION : RENUMÉROTER LES FORMULAIRES
+    // ================================================================
+    function renumberForms() {
+        const forms = formsetContainer.querySelectorAll('.quittancement-form');
+        forms.forEach((form, index) => {
+            const formNumber = form.querySelector('.form-number');
+            if (formNumber) {
+                formNumber.textContent = `{% trans "Quittancement" %} ${index + 1}`;
+            }
+            
+            form.querySelectorAll('input, select, textarea').forEach(input => {
+                if (input.name) {
+                    input.name = input.name.replace(/form-\d+-/, `form-${index}-`);
+                }
+                if (input.id) {
+                    input.id = input.id.replace(/id_form-\d+-/, `id_form-${index}-`);
+                }
+            });
+            
+            form.querySelectorAll('label').forEach(label => {
+                if (label.getAttribute('for')) {
+                    label.setAttribute('for', 
+                        label.getAttribute('for').replace(/id_form-\d+-/, `id_form-${index}-`)
+                    );
+                }
+            });
+        });
+        
+        formCount = forms.length;
+        totalFormsInput.value = formCount;
+    }
+    
+    // ================================================================
+    // FONCTION : ATTACHER LES ÉVÉNEMENTS
+    // ================================================================
+    function attachFormEvents(form) {
+        // Bouton supprimer
+        const deleteBtn = form.querySelector('.delete-form-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (confirm('{% trans "Voulez-vous vraiment supprimer ce quittancement ?" %}')) {
+                    removeForm(form);
+                }
+            });
+        }
+        
+        // Validation du montant
+        const montantInput = form.querySelector('input[name*="montant"]');
+        if (montantInput) {
+            montantInput.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                if (value && value < 0) {
+                    this.setCustomValidity('{% trans "Le montant doit être positif" %}');
+                    this.classList.add('is-invalid');
+                } else {
+                    this.setCustomValidity('');
+                    this.classList.remove('is-invalid');
+                }
+                updateTotal();
+            });
+        }
+        
+        // Validation du numéro de quittance
+        const numeroInput = form.querySelector('input[name*="numero_quittance"]');
+        if (numeroInput) {
+            numeroInput.addEventListener('blur', function() {
+                const numero = this.value.trim();
+                if (numero) {
+                    const allNumeros = Array.from(
+                        formsetContainer.querySelectorAll('input[name*="numero_quittance"]')
+                    ).filter(input => input !== this);
+                    
+                    const duplicate = allNumeros.some(input => input.value.trim() === numero);
+                    
+                    if (duplicate) {
+                        this.setCustomValidity('{% trans "Ce numéro existe déjà dans la saisie" %}');
+                        this.classList.add('is-invalid');
+                        alert('{% trans "Attention : Ce numéro de quittance existe déjà !" %}');
+                    } else {
+                        this.setCustomValidity('');
+                        this.classList.remove('is-invalid');
+                    }
+                }
+            });
+        }
+    }
+    
+    // ================================================================
+    // FONCTION : METTRE À JOUR LES TOTAUX
+    // ================================================================
+    function updateTotal() {
+        let total = 0;
+        let count = 0;
+        
+        formsetContainer.querySelectorAll('.quittancement-form').forEach(form => {
+            const deleteCheckbox = form.querySelector('input[name*="DELETE"]');
+            if (deleteCheckbox && deleteCheckbox.checked) {
+                return;
+            }
+            
+            const montantInput = form.querySelector('input[name*="montant"]');
+            if (montantInput && montantInput.value) {
+                const montant = parseFloat(montantInput.value);
+                if (!isNaN(montant) && montant > 0) {
+                    total += montant;
+                    count++;
+                }
+            }
+        });
+        
+        const totalDisplay = document.getElementById('total-display');
+        if (totalDisplay) {
+            totalDisplay.textContent = total.toLocaleString('fr-FR', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }) + ' FCFA';
+        }
+        
+        const countDisplay = document.getElementById('count-display');
+        if (countDisplay) {
+            countDisplay.textContent = count;
+        }
+    }
+    
+    // ================================================================
+    // INITIALISATION
+    // ================================================================
+    
+    // Attacher événements aux formulaires existants
+    formsetContainer.querySelectorAll('.quittancement-form').forEach(form => {
+        attachFormEvents(form);
+    });
+    
+    // Événement bouton ajouter
+    addFormBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const maxForms = parseInt(document.getElementById('id_form-MAX_NUM_FORMS').value);
+        if (formCount >= maxForms) {
+            alert(`{% trans "Vous ne pouvez pas ajouter plus de" %} ${maxForms} {% trans "quittancements" %}`);
+            return;
+        }
+        
+        addForm();
+    });
+    
+    // Écouter les changements pour mettre à jour le total
+    formsetContainer.addEventListener('input', function(e) {
+        if (e.target.name && e.target.name.includes('montant')) {
+            updateTotal();
         }
     });
-    </script>
-    {% endif %}
-</div>
+    
+    formsetContainer.addEventListener('change', function(e) {
+        if (e.target.name && e.target.name.includes('DELETE')) {
+            updateTotal();
+        }
+    });
+    
+    // Calcul initial
+    updateTotal();
+    
+    // ================================================================
+    // VALIDATION GLOBALE DU FORMULAIRE
+    // ================================================================
+    
+    const mainForm = document.getElementById('formset-form');
+    if (mainForm) {
+        mainForm.addEventListener('submit', function(e) {
+            let hasValidForm = false;
+            const errorMessages = [];
+            
+            formsetContainer.querySelectorAll('.quittancement-form').forEach((formDiv, index) => {
+                const deleteCheckbox = formDiv.querySelector('input[name*="DELETE"]');
+                if (deleteCheckbox && deleteCheckbox.checked) return;
+                
+                const numeroInput = formDiv.querySelector('input[name*="numero_quittance"]');
+                if (!numeroInput || !numeroInput.value.trim()) {
+                    errorMessages.push(`{% trans "Ligne" %} ${index + 1}: {% trans "Numéro de quittance requis" %}`);
+                }
+                
+                const montantInput = formDiv.querySelector('input[name*="montant"]');
+                if (!montantInput || !montantInput.value || parseFloat(montantInput.value) <= 0) {
+                    errorMessages.push(`{% trans "Ligne" %} ${index + 1}: {% trans "Montant invalide" %}`);
+                }
+                
+                if (numeroInput && numeroInput.value.trim() && montantInput && montantInput.value && parseFloat(montantInput.value) > 0) {
+                    hasValidForm = true;
+                }
+            });
+            
+            if (!hasValidForm) {
+                e.preventDefault();
+                alert('{% trans "Veuillez remplir au moins un quittancement valide" %}');
+                return false;
+            }
+            
+            if (errorMessages.length > 0) {
+                e.preventDefault();
+                let errorHtml = '<div class="alert alert-danger alert-dismissible fade show"><strong>{% trans "Erreurs de validation" %}:</strong><ul>';
+                errorMessages.forEach(msg => {
+                    errorHtml += `<li>${msg}</li>`;
+                });
+                errorHtml += '</ul><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+                
+                const container = document.querySelector('.container-fluid');
+                if (container) {
+                    const existingAlert = container.querySelector('.alert-danger');
+                    if (existingAlert) existingAlert.remove();
+                    
+                    container.insertAdjacentHTML('afterbegin', errorHtml);
+                    container.scrollIntoView({ behavior: 'smooth' });
+                }
+                
+                return false;
+            }
+        });
+    }
+    
+    console.log('✅ Formset dynamique initialisé');
+});
+// Gérer l'affichage conditionnel des champs selon le type de déclaration
+document.addEventListener('DOMContentLoaded', function() {
+    const typeDeclaration = '{{ type_declaration }}';
+    
+    // Fonction pour montrer/cacher les champs selon le type
+    function toggleFieldsByType() {
+        document.querySelectorAll('.quittancement-form').forEach(form => {
+            // Champs pour type JOUR
+            const dateRecette = form.querySelector('[name*="date_recette"]');
+            const dateRecetteContainer = dateRecette ? dateRecette.closest('.col-md-6') : null;
+            
+            // Champs pour type DÉCADE
+            const dateDebutDecade = form.querySelector('[name*="date_debut_decade"]');
+            const dateFinDecade = form.querySelector('[name*="date_fin_decade"]');
+            const dateDebutContainer = dateDebutDecade ? dateDebutDecade.closest('.col-md-6') : null;
+            const dateFinContainer = dateFinDecade ? dateFinDecade.closest('.col-md-6') : null;
+            
+            // Champ mois (toujours caché car défini globalement)
+            const moisField = form.querySelector('[name*="mois"]');
+            const moisContainer = moisField ? moisField.closest('.col-md-6') : null;
+            if (moisContainer) {
+                moisContainer.style.display = 'none';
+            }
+            
+            if (typeDeclaration === 'journaliere') {
+                // Type JOUR : Afficher date_recette, cacher décades
+                if (dateRecetteContainer) {
+                    dateRecetteContainer.style.display = 'block';
+                    if (dateRecette) dateRecette.required = true;
+                }
+                if (dateDebutContainer) {
+                    dateDebutContainer.style.display = 'none';
+                    if (dateDebutDecade) dateDebutDecade.required = false;
+                }
+                if (dateFinContainer) {
+                    dateFinContainer.style.display = 'none';
+                    if (dateFinDecade) dateFinDecade.required = false;
+                }
+            } else if (typeDeclaration === 'decade') {
+                // Type DÉCADE : Cacher date_recette, afficher décades
+                if (dateRecetteContainer) {
+                    dateRecetteContainer.style.display = 'none';
+                    if (dateRecette) dateRecette.required = false;
+                }
+                if (dateDebutContainer) {
+                    dateDebutContainer.style.display = 'block';
+                    if (dateDebutDecade) dateDebutDecade.required = true;
+                }
+                if (dateFinContainer) {
+                    dateFinContainer.style.display = 'block';
+                    if (dateFinDecade) dateFinDecade.required = true;
+                }
+            }
+        });
+    }
+    
+    // Appliquer au chargement
+    toggleFieldsByType();
+    
+    // Réappliquer lors de l'ajout d'un nouveau formulaire
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.classList && node.classList.contains('quittancement-form')) {
+                        toggleFieldsByType();
+                    }
+                });
+            }
+        });
+    });
+    
+    const formsetContainer = document.getElementById('formset-container');
+    if (formsetContainer) {
+        observer.observe(formsetContainer, { childList: true });
+    }
+});
+</script>
 {% endblock %}
