@@ -7,6 +7,14 @@
 
 {% block extra_css %}
 <style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    
     .filter-card {
         background: white;
         border-radius: 10px;
@@ -15,31 +23,57 @@
         margin-bottom: 2rem;
     }
     
-    .stats-row {
-        display: flex;
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
     }
     
     .stat-card {
-        flex: 1;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        text-align: center;
-    }
-    
-    .stat-card h3 {
-        font-size: 2rem;
-        margin: 0;
-    }
-    
-    .table-responsive {
         background: white;
         border-radius: 10px;
         padding: 1.5rem;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card.primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .stat-card.info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
+    .stat-card.warning {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        color: white;
+    }
+    
+    .stat-card.success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+    }
+    
+    .stat-card h3 {
+        font-size: 2rem;
+        margin: 0.5rem 0;
+    }
+    
+    .table-comptabilisation {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .table-comptabilisation thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
     }
     
     .ecart-negatif {
@@ -52,8 +86,9 @@
         font-weight: bold;
     }
     
-    .btn-action {
-        padding: 0.25rem 0.5rem;
+    .badge-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
         font-size: 0.875rem;
     }
 </style>
@@ -61,17 +96,80 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- En-tête avec bouton d'ajout -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            <i class="fas fa-calculator me-2"></i>
-            {% trans "Comptabilisation des Quittancements" %}
-        </h2>
-        <a href="{% url 'inventaire:saisie_quittancement' %}" class="btn btn-primary">
-            <i class="fas fa-plus me-2"></i>
-            {% trans "Ajouter un Quittancement" %}
-        </a>
+    
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-2">
+                    <i class="fas fa-calculator me-2"></i>
+                    {% trans "Comptabilisation des Quittancements" %}
+                </h2>
+                <p class="mb-0">
+                    {% trans "Comparaison entre montants quittancés et montants déclarés" %}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'inventaire:saisie_quittancement' %}" class="btn btn-light btn-lg">
+                    <i class="fas fa-plus-circle me-2"></i>
+                    {% trans "Nouveau Quittancement" %}
+                </a>
+            </div>
+        </div>
     </div>
+
+    <!-- Statistiques globales -->
+    {% if statistiques %}
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <p class="mb-2">{% trans "Total Déclaré" %}</p>
+            <h3>{{ statistiques.total_declare|floatformat:0 }}</h3>
+            <small>FCFA</small>
+        </div>
+        
+        <div class="stat-card info">
+            <p class="mb-2">{% trans "Total Quittancé" %}</p>
+            <h3>{{ statistiques.total_quittance|floatformat:0 }}</h3>
+            <small>FCFA</small>
+        </div>
+        
+        <div class="stat-card {% if statistiques.ecart_total|abs < 100 %}success{% else %}warning{% endif %}">
+            <p class="mb-2">{% trans "Écart Total" %}</p>
+            <h3 class="{% if statistiques.ecart_total|abs < 1 %}text-white{% elif statistiques.ecart_total < 0 %}text-danger{% else %}text-warning{% endif %}">
+                {{ statistiques.ecart_total|floatformat:0 }}
+            </h3>
+            <small>FCFA ({{ statistiques.ecart_pourcentage|floatformat:2 }}%)</small>
+        </div>
+        
+        <div class="stat-card {% if statistiques.nombre_conformes == statistiques.nombre_postes %}success{% else %}warning{% endif %}">
+            <p class="mb-2">{% trans "Postes Conformes" %}</p>
+            <h3>{{ statistiques.nombre_conformes }}</h3>
+            <small>sur {{ statistiques.nombre_postes }} poste(s)</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alerte si écarts non justifiés -->
+    {% if statistiques and statistiques.nombre_ecarts > 0 %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {% trans "Attention : Écarts non justifiés détectés" %}
+        </h5>
+        <p class="mb-0">
+            <strong>{{ statistiques.nombre_ecarts }}</strong> poste(s) présentent des écarts non justifiés.
+            {% trans "Tout écart (excédent ou déficit) doit être justifié." %}
+        </p>
+        <hr>
+        <p class="mb-0">
+            <small>
+                <i class="fas fa-info-circle me-1"></i>
+                {% trans "Un écart acceptable est un écart nul (0 FCFA). Toute différence nécessite une justification." %}
+            </small>
+        </p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
 
     <!-- Filtres -->
     <div class="filter-card">
@@ -81,62 +179,44 @@
         </h5>
         
         <form method="get" action="{% url 'inventaire:comptabilisation_quittancements' %}">
-            <div class="row">
-                <!-- Filtre Période -->
+            <div class="row g-3">
                 <div class="col-md-3">
                     <label for="periode" class="form-label">{% trans "Période" %}</label>
-                    <select name="periode" id="periode" class="form-select" onchange="this.form.submit()">
-                        <option value="mois" {% if request.GET.periode == 'mois' %}selected{% endif %}>{% trans "Mois" %}</option>
-                        <option value="trimestre" {% if request.GET.periode == 'trimestre' %}selected{% endif %}>{% trans "Trimestre" %}</option>
-                        <option value="semestre" {% if request.GET.periode == 'semestre' %}selected{% endif %}>{% trans "Semestre" %}</option>
-                        <option value="annee" {% if request.GET.periode == 'annee' %}selected{% endif %}>{% trans "Année" %}</option>
+                    <select name="periode" id="periode" class="form-select">
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>{% trans "Mensuelle" %}</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>{% trans "Trimestrielle" %}</option>
+                        <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>{% trans "Semestrielle" %}</option>
+                        <option value="annee" {% if periode == 'annee' %}selected{% endif %}>{% trans "Annuelle" %}</option>
                     </select>
                 </div>
-
-                <!-- Filtre Mois -->
-                <div class="col-md-3">
-                    <label for="mois" class="form-label">{% trans "Mois" %}</label>
-                    <select name="mois" id="mois" class="form-select" onchange="this.form.submit()">
-                        <option value="">{% trans "Tous les mois" %}</option>
-                        <option value="1" {% if request.GET.mois == '1' %}selected{% endif %}>{% trans "Janvier" %}</option>
-                        <option value="2" {% if request.GET.mois == '2' %}selected{% endif %}>{% trans "Février" %}</option>
-                        <option value="3" {% if request.GET.mois == '3' %}selected{% endif %}>{% trans "Mars" %}</option>
-                        <option value="4" {% if request.GET.mois == '4' %}selected{% endif %}>{% trans "Avril" %}</option>
-                        <option value="5" {% if request.GET.mois == '5' %}selected{% endif %}>{% trans "Mai" %}</option>
-                        <option value="6" {% if request.GET.mois == '6' %}selected{% endif %}>{% trans "Juin" %}</option>
-                        <option value="7" {% if request.GET.mois == '7' %}selected{% endif %}>{% trans "Juillet" %}</option>
-                        <option value="8" {% if request.GET.mois == '8' %}selected{% endif %}>{% trans "Août" %}</option>
-                        <option value="9" {% if request.GET.mois == '9' %}selected{% endif %}>{% trans "Septembre" %}</option>
-                        <option value="10" {% if request.GET.mois == '10' %}selected{% endif %}>{% trans "Octobre" %}</option>
-                        <option value="11" {% if request.GET.mois == '11' %}selected{% endif %}>{% trans "Novembre" %}</option>
-                        <option value="12" {% if request.GET.mois == '12' %}selected{% endif %}>{% trans "Décembre" %}</option>
-                    </select>
-                </div>
-
-                <!-- Filtre Année -->
-                <div class="col-md-3">
+                    
+                <div class="col-md-2">
                     <label for="annee" class="form-label">{% trans "Année" %}</label>
-                    <input type="number" name="annee" id="annee" class="form-control" 
-                           value="{{ request.GET.annee|default:annee_courante }}" 
-                           min="2020" max="2030" onchange="this.form.submit()">
-                </div>
-
-                <!-- Filtre Poste -->
-                <div class="col-md-3">
-                    <label for="poste" class="form-label">{% trans "Poste" %}</label>
-                    <select name="poste" id="poste" class="form-select" onchange="this.form.submit()">
-                        <option value="">{% trans "Tous les postes" %}</option>
-                        {% for poste in postes %}
-                        <option value="{{ poste.id }}" {% if request.GET.poste == poste.id|stringformat:"s" %}selected{% endif %}>
-                            {{ poste.nom }}
-                        </option>
+                    <select name="annee" id="annee" class="form-select">
+                        {% for y in annees_disponibles %}
+                        <option value="{{ y }}" {% if annee == y %}selected{% endif %}>{{ y }}</option>
                         {% endfor %}
                     </select>
                 </div>
-            </div>
-
-            <div class="row mt-3">
-                <div class="col-12">
+                    
+                <div class="col-md-3" id="mois-container">
+                    <label for="mois" class="form-label">{% trans "Mois" %}</label>
+                    <input type="month" name="mois" id="mois" class="form-control" value="{{ mois }}" max="{% now 'Y-m' %}">
+                </div>
+                
+                {% if postes %}
+                <div class="col-md-3">
+                    <label for="poste" class="form-label">{% trans "Poste" %}</label>
+                    <select name="poste" id="poste" class="form-select">
+                        <option value="">{% trans "Tous les postes" %}</option>
+                        {% for p in postes %}
+                        <option value="{{ p.id }}" {% if request.GET.poste == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-12 mt-3">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-search me-2"></i>
                         {% trans "Filtrer" %}
@@ -150,185 +230,155 @@
         </form>
     </div>
 
-    <!-- Statistiques globales -->
-    {% if statistiques %}
-    <div class="stats-row">
-        <div class="stat-card">
-            <p class="mb-2">{% trans "Total Déclaré" %}</p>
-            <h3>{{ statistiques.total_declare|floatformat:0 |format_milliers }}</h3>
-            <small>{% trans "FCFA" %}</small>
-        </div>
-        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <p class="mb-2">{% trans "Total Quittancé" %}</p>
-            <h3>{{ statistiques.total_quittance|floatformat:0 |format_milliers }}</h3>
-            <small>{% trans "FCFA" %}</small>
-        </div>
-        <div class="stat-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-            <p class="mb-2">{% trans "Écart Total" %}</p>
-            <h3>{{ statistiques.ecart_total|floatformat:0|format_milliers }}</h3>
-            <small>{% trans "FCFA" %}</small>
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Période affichée -->
     <div class="alert alert-info">
         <i class="fas fa-calendar me-2"></i>
-        <strong>{% trans "Résultats" %} :</strong>
-        {% if date_debut and date_fin %}
-            {{ date_debut|date:"d/m/Y" }} {% trans "au" %} {{ date_fin|date:"d/m/Y" }}
-        {% else %}
-            {% trans "Toutes les périodes" %}
-        {% endif %}
+        <strong>{% trans "Période analysée :" %}</strong>
+        {{ date_debut|date:"d/m/Y" }} {% trans "au" %} {{ date_fin|date:"d/m/Y" }}
     </div>
 
     <!-- Tableau des résultats -->
     <div class="table-responsive">
-        <table class="table table-hover">
-            <thead class="table-light">
+        <table class="table table-hover table-comptabilisation">
+            <thead>
                 <tr>
                     <th>{% trans "Poste" %}</th>
-                    <th class="text-end">{% trans "Total Déclaré" %}</th>
+                    <th class="text-end">{% trans "Montant Déclaré" %}</th>
+                    <th class="text-end">{% trans "Montant Quittancé" %}</th>
                     <th class="text-end">{% trans "Écart" %}</th>
                     <th class="text-center">{% trans "Écart %" %}</th>
+                    <th class="text-center">{% trans "Statut" %}</th>
                     <th class="text-center">{% trans "Actions" %}</th>
                 </tr>
             </thead>
             <tbody>
                 {% for resultat in resultats %}
                 <tr>
-                    <td>
-                        <strong>{{ resultat.poste__nom }}</strong>
-                    </td>
-                    <td class="text-end">
-                        {{ resultat.total_declare|floatformat:0|format_milliers }} FCFA
-                    </td>
-                    <td class="text-end {% if resultat.ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
-                        {{ resultat.ecart|floatformat:0|format_milliers }} FCFA
+                    <td><strong>{{ resultat.poste_nom }}</strong></td>
+                    <td class="text-end">{{ resultat.total_declare|floatformat:0 }} FCFA</td>
+                    <td class="text-end">{{ resultat.total_quittance|floatformat:0 }} FCFA</td>
+                    <td class="text-end {% if resultat.ecart|abs >= 1 %}{% if resultat.ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}{% else %}text-success{% endif %}">
+                        {{ resultat.ecart|floatformat:0 }} FCFA
                     </td>
                     <td class="text-center">
-                        {% if resultat.ecart_pourcentage %}
-                            <span class="badge {% if resultat.ecart_pourcentage < -30 %}bg-danger{% elif resultat.ecart_pourcentage < -10 %}bg-warning{% else %}bg-success{% endif %}">
-                                {{ resultat.ecart_pourcentage|floatformat:2 }}%
+                        <span class="badge {% if resultat.ecart|abs < 1 %}bg-success{% else %}bg-danger{% endif %}">{{ resultat.ecart_pourcentage|floatformat:2 }}%</span>
+                    </td>
+                    <td class="text-center">
+                        {% if resultat.statut == 'conforme' %}
+                            <span class="badge badge-status bg-success">
+                                <i class="fas fa-check-circle"></i> {{ resultat.statut_label }}
+                            </span>
+                        {% elif resultat.statut == 'justifie' %}
+                            <span class="badge badge-status bg-warning">
+                                <i class="fas fa-check"></i> {{ resultat.statut_label }}
+                            </span>
+                        {% elif resultat.statut == 'incomplet' %}
+                            <span class="badge badge-status bg-info">
+                                <i class="fas fa-info-circle"></i> {{ resultat.statut_label }}
                             </span>
                         {% else %}
-                            <span class="badge bg-secondary">-100.00%</span>
+                            <span class="badge badge-status bg-danger">
+                                <i class="fas fa-exclamation-triangle"></i> {{ resultat.statut_label }}
+                            </span>
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        <a href="{% url 'inventaire:detail_quittancements' resultat.poste date_debut date_fin %}?periode={{ request.GET.periode }}&mois={{ request.GET.mois }}&annee={{ request.GET.annee }}" 
-                            class="btn btn-sm btn-info btn-action" 
-                            title="{% trans 'Voir les détails' %}">
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'inventaire:detail_quittancements_periode' resultat.poste_id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" class="btn btn-sm btn-info" title="{% trans 'Voir les détails' %}">
                                 <i class="fas fa-eye"></i>
                             </a>
-                        {% if resultat.a_ecart and not resultat.justifie %}
-                        <a href="{% url 'inventaire:justifier_ecart_poste' resultat.poste date_debut date_fin %}?periode={{ request.GET.periode }}&mois={{ request.GET.mois }}&annee={{ request.GET.annee }}" 
-                           class="btn btn-sm btn-warning btn-action" 
-                           title="{% trans 'Justifier l écart' %}">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        {% endif %}
+                            {% if resultat.ecart|abs >= 1 and not resultat.justifie %}
+                            <a href="{% url 'inventaire:justifier_ecart_periode' resultat.poste_id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" class="btn btn-sm btn-warning" title="{% trans 'Justifier l écart' %}">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center text-muted py-4">
-                        <i class="fas fa-inbox fa-3x mb-3"></i>
-                        <p>{% trans "Aucun quittancement trouvé pour cette période" %}</p>
-                        <a href="{% url 'inventaire:saisie_quittancement' %}" class="btn btn-primary">
-                            <i class="fas fa-plus me-2"></i>
-                            {% trans "Saisir un quittancement" %}
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        <p class="mb-0">{% trans "Aucune donnée trouvée pour cette période" %}</p>
+                        <a href="{% url 'inventaire:saisie_quittancement' %}" class="btn btn-primary mt-2">
+                            <i class="fas fa-plus me-2"></i> {% trans "Saisir un quittancement" %}
                         </a>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
             {% if resultats %}
-            <tfoot class="table-primary">
+            <tfoot class="table-light">
                 <tr>
                     <th>{% trans "TOTAL" %}</th>
-                    <th class="text-end">{{ statistiques.total_declare|floatformat:0|format_milliers }} FCFA</th>
-                    <th class="text-end">{{ statistiques.ecart_total|floatformat:0|format_milliers }} FCFA</th>
-                    <th class="text-center">
-                        {% if statistiques.ecart_pourcentage %}
-                            {{ statistiques.ecart_pourcentage|floatformat:2 }}%
-                        {% else %}
-                            -
-                        {% endif %}
+                    <th class="text-end">{{ statistiques.total_declare|floatformat:0 }} FCFA</th>
+                    <th class="text-end">{{ statistiques.total_quittance|floatformat:0 }} FCFA</th>
+                    <th class="text-end {% if statistiques.ecart_total|abs >= 1 %}{% if statistiques.ecart_total < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}{% else %}text-success{% endif %}">
+                        {{ statistiques.ecart_total|floatformat:0 }} FCFA
                     </th>
-                    <th></th>
+                    <th class="text-center">
+                        <span class="badge {% if statistiques.ecart_total|abs < 1 %}bg-success{% else %}bg-danger{% endif %}">{{ statistiques.ecart_pourcentage|floatformat:2 }}%</span>
+                    </th>
+                    <th colspan="2"></th>
                 </tr>
             </tfoot>
             {% endif %}
         </table>
     </div>
 
-    <!-- Pagination -->
-    {% if is_paginated %}
-    <nav aria-label="{% trans 'Navigation pagination' %}">
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.periode %}&periode={{ request.GET.periode }}{% endif %}{% if request.GET.mois %}&mois={{ request.GET.mois }}{% endif %}{% if request.GET.annee %}&annee={{ request.GET.annee }}{% endif %}{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}">
-                    {% trans "Précédent" %}
-                </a>
-            </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                <li class="page-item active">
-                    <span class="page-link">{{ num }}</span>
-                </li>
-                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}{% if request.GET.periode %}&periode={{ request.GET.periode }}{% endif %}{% if request.GET.mois %}&mois={{ request.GET.mois }}{% endif %}{% if request.GET.annee %}&annee={{ request.GET.annee }}{% endif %}{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}">
-                        {{ num }}
-                    </a>
-                </li>
-                {% endif %}
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.periode %}&periode={{ request.GET.periode }}{% endif %}{% if request.GET.mois %}&mois={{ request.GET.mois }}{% endif %}{% if request.GET.annee %}&annee={{ request.GET.annee }}{% endif %}{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}">
-                    {% trans "Suivant" %}
-                </a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
-
+    <!-- Actions -->
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <a href="{% url 'inventaire:liste_quittancements' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-list me-2"></i> {% trans "Liste des Quittancements" %}
+        </a>
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-primary">
+                <i class="fas fa-print me-2"></i> {% trans "Imprimer" %}
+            </button>
+            <button onclick="exportToExcel()" class="btn btn-success">
+                <i class="fas fa-file-excel me-2"></i> {% trans "Exporter Excel" %}
+            </button>
+        </div>
     </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animation des cartes au chargement
-    const cards = document.querySelectorAll('.stat-card, .filter-card, .table-responsive');
-    cards.forEach((card, index) => {
-        setTimeout(() => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-            setTimeout(() => {
-                card.style.transition = 'all 0.5s ease';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, 50);
-        }, index * 100);
-    });
-
-    // Validation du formulaire
-    const form = document.querySelector('form');
-    form.addEventListener('submit', function(e) {
-        const annee = document.getElementById('annee').value;
-        if (annee && (annee < 2020 || annee > 2030)) {
-            e.preventDefault();
-            alert('{% trans "Veuillez sélectionner une année valide (2020-2030)" %}');
+    const periodeSelect = document.getElementById('periode');
+    const moisContainer = document.getElementById('mois-container');
+    const trimestreContainer = document.getElementById('trimestre-container');
+    const semestreContainer = document.getElementById('semestre-container');
+    
+    function togglePeriodeFields() {
+        const periode = periodeSelect.value;
+        
+        moisContainer.classList.add('d-none');
+        trimestreContainer.classList.add('d-none');
+        semestreContainer.classList.add('d-none');
+        
+        switch(periode) {
+            case 'mois':
+                moisContainer.classList.remove('d-none');
+                break;
+            case 'trimestre':
+                trimestreContainer.classList.remove('d-none');
+                break;
+            case 'semestre':
+                semestreContainer.classList.remove('d-none');
+                break;
         }
-    });
+    }
+    
+    togglePeriodeFields();
+    periodeSelect.addEventListener('change', togglePeriodeFields);
 });
+
+function exportToExcel() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('format', 'excel');
+    window.location.href = "{% url 'inventaire:export_quittancements' %}?" + params.toString();
+}
 </script>
 {% endblock %}

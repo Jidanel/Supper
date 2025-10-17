@@ -4494,439 +4494,385 @@ def calculer_objectifs_automatique(request):
     return render(request, 'inventaire/calculer_objectifs.html', context)
 
 
-
 @login_required
 def saisie_quittancement(request):
     """
-    Vue pour saisir des quittancements multiples
+    Vue pour saisir un quittancement (version simplifiée sans formset)
+    Gestion en 3 étapes sans JavaScript
     
-    Étape 1 : Exercice + Mois + Type déclaration
-    Étape 2 : Saisie formulaires (champs conditionnels selon type)
-    Étape 3 : Confirmation et enregistrement
+    ✅ CORRECTION : Gestion de l'image avec nouvelle approche
     """
     
-    # ============================================================
-    # VÉRIFICATION PERMISSIONS
-    # ============================================================
+    # Vérification permissions
     if not (request.user.is_admin or request.user.is_chef_poste):
         messages.error(request, "❌ Accès non autorisé")
-        log_user_action(request.user, "ACCÈS REFUSÉ - Saisie quittancement", "", request)
         return redirect('common:dashboard')
     
-    # ============================================================
-    # CRÉATION DU FORMSET
-    # ============================================================
-    QuittancementFormSet = formset_factory(
-        QuittancementForm,
-        extra=1,
-        can_delete=True,
-        max_num=50,
-        validate_max=True
-    )
+    # Nettoyer la session au début si nouvelle saisie
+    if request.method == 'GET' and 'etape' not in request.GET:
+        for key in ['exercice_temp', 'mois_temp', 'type_declaration_temp', 
+                   'form_data_temp', 'image_temp_path']:
+            request.session.pop(key, None)
     
-    try:
+    etape = int(request.POST.get('etape', request.GET.get('etape', 1)))
+    
+    # ============================================================
+    # ÉTAPE 1 : Paramètres globaux
+    # ============================================================
+    if etape == 1:
         if request.method == 'POST':
+            exercice = request.POST.get('exercice')
+            mois = request.POST.get('mois')  # Format: YYYY-MM
+            type_declaration = request.POST.get('type_declaration')
             
-            # ========================================================
-            # ÉTAPE 1 → ÉTAPE 2
-            # ========================================================
-            if 'etape' not in request.POST or request.POST.get('etape') == '1':
-                exercice = request.POST.get('exercice')
-                mois_global = request.POST.get('mois_global')  # Format : YYYY-MM
-                type_declaration = request.POST.get('type_declaration_global')
-                
-                # Validation
-                if not exercice:
-                    messages.error(request, "⚠️ Veuillez sélectionner un exercice")
-                    return redirect('inventaire:saisie_quittancement')
-                
-                if not mois_global:
-                    messages.error(request, "⚠️ Veuillez sélectionner un mois")
-                    return redirect('inventaire:saisie_quittancement')
-                
-                if not type_declaration:
-                    messages.error(request, "⚠️ Veuillez sélectionner un type de déclaration")
-                    return redirect('inventaire:saisie_quittancement')
-                
-                # Stocker en session
-                request.session['exercice_temp'] = exercice
-                request.session['mois_global_temp'] = mois_global
-                request.session['type_declaration_temp'] = type_declaration
-                
-                # Postes disponibles
-                if request.user.is_admin:
-                    postes = Poste.objects.filter(is_active=True)
-                elif request.user.poste_affectation:
-                    postes = Poste.objects.filter(id=request.user.poste_affectation.id)
-                else:
-                    postes = Poste.objects.none()
-                
-                # Convertir mois pour affichage
-                from datetime import datetime
-                mois_date = datetime.strptime(mois_global, '%Y-%m')
-                mois_label = mois_date.strftime('%B %Y')
-                
-                context = {
-                    'exercice': exercice,
-                    'mois_global': mois_global,
-                    'mois_label': mois_label,
-                    'type_declaration': type_declaration,
-                    'type_declaration_label': dict(TypeDeclaration.choices).get(type_declaration),
-                    'etape': 2,
-                    'formset': QuittancementFormSet(form_kwargs={'user': request.user}),
-                    'postes': postes,
-                }
-                
-                logger.info(f"Saisie quittancement - Étape 1→2 : {request.user.username}")
-                return render(request, 'inventaire/saisie_quittancement.html', context)
+            # Validation
+            errors = []
+            if not exercice:
+                errors.append("Veuillez sélectionner un exercice")
+            if not mois:
+                errors.append("Veuillez sélectionner un mois")
+            if not type_declaration:
+                errors.append("Veuillez sélectionner un type de déclaration")
             
-            # ========================================================
-            # ÉTAPE 2 → ÉTAPE 3
-            # ========================================================
-            elif request.POST.get('etape') == '2' and 'confirmer' not in request.POST:
-                
-                formset = QuittancementFormSet(
-                    request.POST,
-                    request.FILES,
-                    form_kwargs={'user': request.user}
-                )
-                
-                if formset.is_valid():
-                    quittancements_data = []
-                    total_montant = Decimal('0')
-                    
-                    # Récupérer paramètres globaux
-                    exercice_temp = request.session.get('exercice_temp')
-                    mois_global_temp = request.session.get('mois_global_temp')
-                    type_decl_temp = request.session.get('type_declaration_temp')
-                    
-                    for idx, form in enumerate(formset):
-                        if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
-                            data = form.cleaned_data
-                            
-                            # Déterminer la période selon le type
-                            if type_decl_temp == 'journaliere':
-                                # Type JOUR : utiliser date_recette
-                                date_recette = data.get('date_recette')
-                                if date_recette:
-                                    periode = date_recette.strftime('%d/%m/%Y')
-                                else:
-                                    periode = 'N/A'
-                            else:
-                                # Type DÉCADE : utiliser date_debut_decade et date_fin_decade
-                                date_debut = data.get('date_debut_decade')
-                                date_fin = data.get('date_fin_decade')
-                                if date_debut and date_fin:
-                                    periode = f"{date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')}"
-                                else:
-                                    periode = 'Décade non définie'
-                            
-                            # Préparer les données pour stockage
-                            # CORRECTION : Convertir Decimal en string pour JSON
-                            form_data_safe = {}
-                            for k, v in data.items():
-                                if k != 'DELETE' and v is not None:
-                                    if isinstance(v, Decimal):
-                                        form_data_safe[k] = str(v)
-                                    elif isinstance(v, date):
-                                        form_data_safe[k] = v.strftime('%Y-%m-%d')
-                                    elif hasattr(v, 'id'):  # Pour les ForeignKey
-                                        form_data_safe[k] = v.id
-                                    else:
-                                        form_data_safe[k] = str(v)
-                            
-                            quittancement_info = {
-                                'numero_quittance': data['numero_quittance'],
-                                'montant': float(data['montant']),  # Convertir en float pour JSON
-                                'periode': periode,
-                                'poste_id': data.get('poste').id if data.get('poste') else None,
-                                'poste_nom': data.get('poste').nom if data.get('poste') else '',
-                                'date_quittancement': data.get('date_quittancement').strftime('%Y-%m-%d') if data.get('date_quittancement') else None,
-                                'observations': data.get('observations', ''),
-                                '_form_data': form_data_safe
-                            }
-                            
-                            quittancements_data.append(quittancement_info)
-                            total_montant += data['montant']
-                    
-                    if not quittancements_data:
-                        messages.error(request, "⚠️ Veuillez saisir au moins un quittancement")
-                        
-                        if request.user.is_admin:
-                            postes = Poste.objects.filter(is_active=True)
-                        elif request.user.poste_affectation:
-                            postes = Poste.objects.filter(id=request.user.poste_affectation.id)
-                        else:
-                            postes = Poste.objects.none()
-                        
-                        from datetime import datetime
-                        mois_date = datetime.strptime(mois_global_temp, '%Y-%m')
-                        
-                        context = {
-                            'exercice': exercice_temp,
-                            'mois_global': mois_global_temp,
-                            'mois_label': mois_date.strftime('%B %Y'),
-                            'type_declaration': type_decl_temp,
-                            'type_declaration_label': dict(TypeDeclaration.choices).get(type_decl_temp),
-                            'etape': 2,
-                            'formset': formset,
-                            'postes': postes,
-                        }
-                        return render(request, 'inventaire/saisie_quittancement.html', context)
-                    
-                    # Stocker pour confirmation (JSON serializable)
-                    request.session['quittancements_temp'] = quittancements_data
-                    request.session['total_montant_temp'] = float(total_montant)
-                    request.session['formset_data_dict'] = request.POST.dict()
-                    
-                    # Convertir mois pour affichage
-                    from datetime import datetime
-                    mois_date = datetime.strptime(mois_global_temp, '%Y-%m')
-                    
-                    context = {
-                        'etape': 3,
-                        'quittancements': quittancements_data,
-                        'total_montant': total_montant,
-                        'nombre_quittancements': len(quittancements_data),
-                        'exercice': exercice_temp,
-                        'mois_label': mois_date.strftime('%B %Y'),
-                        'type_declaration': type_decl_temp,
-                        'type_declaration_label': dict(TypeDeclaration.choices).get(type_decl_temp),
-                    }
-                    
-                    logger.info(
-                        f"Saisie quittancement - Étape 2→3 : {request.user.username} - "
-                        f"{len(quittancements_data)} quittancement(s)"
-                    )
-                    
-                    return render(request, 'inventaire/confirmation_quittancement.html', context)
-                
-                else:
-                    # Affichage erreurs
-                    messages.error(request, "⚠️ Veuillez corriger les erreurs")
-                    
-                    erreurs = []
-                    for idx, form in enumerate(formset):
-                        if form.errors:
-                            for field, errors in form.errors.items():
-                                for error in errors:
-                                    if field == '__all__':
-                                        erreurs.append(f"Ligne {idx + 1} : {error}")
-                                    else:
-                                        field_label = form.fields.get(field).label if field in form.fields else field
-                                        erreurs.append(f"Ligne {idx + 1}, {field_label} : {error}")
-                    
-                    for erreur in erreurs[:10]:
-                        messages.warning(request, f"❌ {erreur}")
-                    
-                    if len(erreurs) > 10:
-                        messages.warning(request, f"... et {len(erreurs) - 10} autre(s) erreur(s)")
-                    
-                    if request.user.is_admin:
-                        postes = Poste.objects.filter(is_active=True)
-                    elif request.user.poste_affectation:
-                        postes = Poste.objects.filter(id=request.user.poste_affectation.id)
-                    else:
-                        postes = Poste.objects.none()
-                    
-                    from datetime import datetime
-                    mois_temp = request.session.get('mois_global_temp')
-                    mois_date = datetime.strptime(mois_temp, '%Y-%m') if mois_temp else datetime.now()
-                    
-                    context = {
-                        'exercice': request.session.get('exercice_temp'),
-                        'mois_global': mois_temp,
-                        'mois_label': mois_date.strftime('%B %Y'),
-                        'type_declaration': request.session.get('type_declaration_temp'),
-                        'type_declaration_label': dict(TypeDeclaration.choices).get(
-                            request.session.get('type_declaration_temp')
-                        ),
-                        'etape': 2,
-                        'formset': formset,
-                        'postes': postes,
-                        'erreurs': erreurs,
-                    }
-                    
-                    return render(request, 'inventaire/saisie_quittancement.html', context)
-            
-            # ========================================================
-            # ÉTAPE 3 → ENREGISTREMENT
-            # ========================================================
-            elif request.POST.get('confirmer') == 'oui':
-                
-                quittancements_temp = request.session.get('quittancements_temp', [])
-                
-                if not quittancements_temp:
-                    messages.error(request, "❌ Session expirée")
-                    return redirect('inventaire:saisie_quittancement')
-                
-                # Récupérer paramètres globaux
-                exercice_global = request.session.get('exercice_temp')
-                mois_global = request.session.get('mois_global_temp')
-                type_declaration_global = request.session.get('type_declaration_temp')
-                
-                if not all([exercice_global, mois_global, type_declaration_global]):
-                    messages.error(request, "❌ Paramètres manquants")
-                    return redirect('inventaire:saisie_quittancement')
-                
-                # Recréer formset
-                formset_data = request.session.get('formset_data_dict', {})
-                formset = QuittancementFormSet(
-                    formset_data,
-                    form_kwargs={'user': request.user}
-                )
-                
-                if formset.is_valid():
-                    count_success = 0
-                    erreurs = []
-                    
-                    try:
-                        with transaction.atomic():
-                            for idx, form in enumerate(formset):
-                                if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
-                                    try:
-                                        quittancement = form.save(commit=False)
-                                        
-                                        # Appliquer paramètres globaux
-                                        quittancement.exercice = exercice_global
-                                        quittancement.type_declaration = type_declaration_global
-                                        quittancement.mois = mois_global  # Format YYYY-MM
-                                        quittancement.saisi_par = request.user
-                                        
-                                        if not request.user.is_admin:
-                                            quittancement.poste = request.user.poste_affectation
-                                        
-                                        quittancement.save()
-                                        count_success += 1
-                                        
-                                    except Exception as e:
-                                        erreurs.append(f"Ligne {idx + 1} : {str(e)}")
-                                        logger.error(f"Erreur enregistrement : {str(e)}")
-                            
-                            if erreurs:
-                                raise Exception(f"{len(erreurs)} erreur(s)")
-                        
-                        # Succès
-                        log_user_action(
-                            request.user,
-                            "Saisie quittancements",
-                            f"{count_success} enregistré(s) - Mois: {mois_global}",
-                            request
-                        )
-                        
-                        # Nettoyer session
-                        for key in ['quittancements_temp', 'total_montant_temp', 'formset_data_dict',
-                                    'exercice_temp', 'mois_global_temp', 'type_declaration_temp']:
-                            request.session.pop(key, None)
-                        
-                        messages.success(request, f"✅ {count_success} quittancement(s) enregistré(s)")
-                        return redirect('inventaire:liste_quittancements')
-                    
-                    except Exception as e:
-                        messages.error(request, f"❌ Erreur : {str(e)}")
-                        for erreur in erreurs:
-                            messages.warning(request, erreur)
-                        
-                        context = {
-                            'etape': 3,
-                            'quittancements': quittancements_temp,
-                            'total_montant': Decimal(str(request.session.get('total_montant_temp', 0))),
-                            'erreur': True,
-                        }
-                        return render(request, 'inventaire/confirmation_quittancement.html', context)
-                
-                else:
-                    messages.error(request, "❌ Erreur de validation")
-                    return redirect('inventaire:saisie_quittancement')
-            
-            # Annulation
-            elif request.POST.get('confirmer') == 'non':
-                for key in ['quittancements_temp', 'total_montant_temp', 'formset_data_dict',
-                            'exercice_temp', 'mois_global_temp', 'type_declaration_temp']:
-                    request.session.pop(key, None)
-                
-                messages.info(request, "Saisie annulée")
+            if errors:
+                for error in errors:
+                    messages.error(request, f"⚠️ {error}")
                 return redirect('inventaire:saisie_quittancement')
             
-            else:
-                messages.warning(request, "⚠️ Action non reconnue")
-                return redirect('inventaire:saisie_quittancement')
+            # Stocker en session
+            request.session['exercice_temp'] = exercice
+            request.session['mois_temp'] = mois
+            request.session['type_declaration_temp'] = type_declaration
+            
+            # Rediriger vers étape 2
+            return redirect(f"{reverse('inventaire:saisie_quittancement')}?etape=2")
         
-        # ============================================================
-        # MÉTHODE GET - ÉTAPE 1
-        # ============================================================
-        else:
-            # Nettoyer session
-            for key in ['quittancements_temp', 'total_montant_temp', 'formset_data_dict',
-                        'exercice_temp', 'mois_global_temp', 'type_declaration_temp']:
-                request.session.pop(key, None)
-            
-            # Années disponibles
-            annee_courante = timezone.now().year
-            annees_disponibles = list(range(annee_courante - 5, annee_courante + 1))
-            annees_disponibles.reverse()
-            
-            context = {
-                'etape': 1,
-                'annees': annees_disponibles,
-                'annee_courante': annee_courante,
-                'types_declaration': TypeDeclaration.choices,
+        # GET : Afficher le formulaire
+        from datetime import datetime
+        annee_courante = datetime.now().year
+        annees = list(range(annee_courante - 5, annee_courante + 2))
+        
+        context = {
+            'etape': 1,
+            'annees': annees,
+            'annee_courante': annee_courante,
+            'types_declaration': [
+                ('journaliere', 'Journalière (par jour)'),
+                ('decade', 'Par décade')
+            ],
+        }
+        return render(request, 'inventaire/saisie_quittancement_simple.html', context)
+    
+    # ============================================================
+    # ÉTAPE 2 : Saisie du quittancement + IMAGE
+    # ============================================================
+    elif etape == 2:
+        # Récupérer les paramètres de session
+        exercice = request.session.get('exercice_temp')
+        mois = request.session.get('mois_temp')
+        type_declaration = request.session.get('type_declaration_temp')
+        
+        if not all([exercice, mois, type_declaration]):
+            messages.error(request, "❌ Session expirée, veuillez recommencer")
+            return redirect('inventaire:saisie_quittancement')
+        
+        if request.method == 'POST':
+            # Récupérer les données du formulaire
+            form_data = {
+                'numero_quittance': request.POST.get('numero_quittance'),
+                'date_quittancement': request.POST.get('date_quittancement'),
+                'montant': request.POST.get('montant'),
+                'observations': request.POST.get('observations', ''),
             }
             
-            logger.info(f"Saisie quittancement - Étape 1 : {request.user.username}")
-            return render(request, 'inventaire/saisie_quittancement.html', context)
-    
-    except Exception as e:
-        logger.error(f"Erreur critique : {str(e)}")
-        messages.error(request, f"❌ Erreur : {str(e)}")
-        
-        for key in ['quittancements_temp', 'total_montant_temp', 'formset_data_dict',
-                    'exercice_temp', 'mois_global_temp', 'type_declaration_temp']:
-            request.session.pop(key, None)
-        
-        return redirect('inventaire:liste_quittancements')
+            # Poste
+            if request.user.is_admin:
+                form_data['poste_id'] = request.POST.get('poste')
+            else:
+                form_data['poste_id'] = request.user.poste_affectation.id if request.user.poste_affectation else None
             
+            # Dates selon le type
+            if type_declaration == 'journaliere':
+                form_data['date_recette'] = request.POST.get('date_recette')
+            else:  # decade
+                form_data['date_debut_decade'] = request.POST.get('date_debut_decade')
+                form_data['date_fin_decade'] = request.POST.get('date_fin_decade')
+            
+            # ✅ CORRECTION : Gérer l'image uploadée
+            has_image = False
+            image_name = None
+            if 'image_quittance' in request.FILES:
+                image_file = request.FILES['image_quittance']
+                # Sauvegarder temporairement
+                import os
+                from django.conf import settings
+                from django.core.files.storage import default_storage
+                
+                # Créer un nom unique temporaire
+                temp_name = f"temp_{request.user.id}_{timezone.now().timestamp()}_{image_file.name}"
+                temp_path = os.path.join('temp_quittances', temp_name)
+                
+                # Sauvegarder
+                saved_path = default_storage.save(temp_path, image_file)
+                request.session['image_temp_path'] = saved_path
+                has_image = True
+                image_name = image_file.name
+                
+                logger.info(f"Image temporaire sauvegardée : {saved_path}")
+            
+            form_data['has_image'] = has_image
+            form_data['image_name'] = image_name
+            
+            # Validation basique
+            errors = []
+            
+            if not form_data['numero_quittance']:
+                errors.append("Le numéro de quittance est obligatoire")
+            if not form_data['date_quittancement']:
+                errors.append("La date de quittancement est obligatoire")
+            if not form_data['montant']:
+                errors.append("Le montant est obligatoire")
+            if not form_data['poste_id']:
+                errors.append("Le poste est obligatoire")
+            
+            # Validation dates selon type
+            if type_declaration == 'journaliere':
+                if not form_data.get('date_recette'):
+                    errors.append("La date de recette est obligatoire")
+            else:
+                if not form_data.get('date_debut_decade'):
+                    errors.append("La date de début de décade est obligatoire")
+                if not form_data.get('date_fin_decade'):
+                    errors.append("La date de fin de décade est obligatoire")
+            
+            if errors:
+                for error in errors:
+                    messages.error(request, f"❌ {error}")
+                
+                # Réafficher le formulaire avec les données
+                if request.user.is_admin:
+                    postes = Poste.objects.filter(is_active=True)
+                else:
+                    postes = [request.user.poste_affectation] if request.user.poste_affectation else []
+                
+                context = {
+                    'etape': 2,
+                    'exercice': exercice,
+                    'mois': mois,
+                    'type_declaration': type_declaration,
+                    'postes': postes,
+                    'form_data': form_data,
+                }
+                return render(request, 'inventaire/saisie_quittancement_simple.html', context)
+            
+            # Stocker les données validées en session
+            request.session['form_data_temp'] = form_data
+            
+            # Rediriger vers étape 3
+            return redirect(f"{reverse('inventaire:saisie_quittancement')}?etape=3")
+        
+        # GET : Afficher le formulaire vide
+        if request.user.is_admin:
+            postes = Poste.objects.filter(is_active=True)
+        else:
+            postes = [request.user.poste_affectation] if request.user.poste_affectation else []
+        
+        context = {
+            'etape': 2,
+            'exercice': exercice,
+            'mois': mois,
+            'type_declaration': type_declaration,
+            'postes': postes,
+        }
+        return render(request, 'inventaire/saisie_quittancement_simple.html', context)
+    
+    # ============================================================
+    # ÉTAPE 3 : Confirmation et enregistrement
+    # ============================================================
+    elif etape == 3:
+        # Récupérer toutes les données de session
+        exercice = request.session.get('exercice_temp')
+        mois = request.session.get('mois_temp')
+        type_declaration = request.session.get('type_declaration_temp')
+        form_data = request.session.get('form_data_temp')
+        image_temp_path = request.session.get('image_temp_path')
+        
+        if not all([exercice, mois, type_declaration, form_data]):
+            messages.error(request, "❌ Session expirée")
+            return redirect('inventaire:saisie_quittancement')
+        
+        if request.method == 'POST':
+            action = request.POST.get('action')
+            
+            if action == 'confirmer':
+                try:
+                    # Récupérer le poste
+                    poste = Poste.objects.get(id=form_data['poste_id'])
+                    
+                    # Créer le quittancement
+                    quittancement = Quittancement(
+                        numero_quittance=form_data['numero_quittance'],
+                        poste=poste,
+                        exercice=int(exercice),
+                        mois=mois,
+                        type_declaration=type_declaration,
+                        date_quittancement=form_data['date_quittancement'],
+                        montant=Decimal(form_data['montant']),
+                        observations=form_data.get('observations', ''),
+                        saisi_par=request.user,
+                    )
+                    
+                    # Dates selon le type
+                    if type_declaration == 'journaliere':
+                        quittancement.date_recette = form_data['date_recette']
+                    else:
+                        quittancement.date_debut_decade = form_data['date_debut_decade']
+                        quittancement.date_fin_decade = form_data['date_fin_decade']
+                    
+                    # ✅ CORRECTION : Récupérer l'image temporaire
+                    if image_temp_path:
+                        from django.core.files.storage import default_storage
+                        import os
+                        
+                        # Lire le fichier temporaire
+                        if default_storage.exists(image_temp_path):
+                            temp_file = default_storage.open(image_temp_path, 'rb')
+                            
+                            # Créer le nom final
+                            original_name = os.path.basename(image_temp_path).split('_', 3)[-1]
+                            final_name = f"quittances/{quittancement.exercice}/{quittancement.mois}/{original_name}"
+                            
+                            # Sauvegarder dans le modèle
+                            from django.core.files import File
+                            quittancement.image_quittance.save(final_name, File(temp_file), save=False)
+                            temp_file.close()
+                            
+                            # Supprimer le fichier temporaire
+                            default_storage.delete(image_temp_path)
+                            
+                            logger.info(f"Image déplacée de {image_temp_path} vers {final_name}")
+                    
+                    # Sauvegarder (avec validation automatique)
+                    quittancement.save()
+                    
+                    # Journaliser
+                    log_user_action(
+                        request.user,
+                        "Création quittancement",
+                        f"N°{quittancement.numero_quittance} - {poste.nom} - {quittancement.montant} FCFA"
+                        + (f" | Image: Oui" if quittancement.image_quittance else " | Image: Non"),
+                        request
+                    )
+                    
+                    # Nettoyer la session
+                    for key in ['exercice_temp', 'mois_temp', 'type_declaration_temp', 'form_data_temp', 'image_temp_path']:
+                        request.session.pop(key, None)
+                    
+                    messages.success(
+                        request, 
+                        f"✅ Quittancement {quittancement.numero_quittance} enregistré avec succès"
+                        + (" avec image" if quittancement.image_quittance else "")
+                    )
+                    return redirect('inventaire:liste_quittancements')
+                
+                except ValidationError as e:
+                    messages.error(request, f"❌ Erreur de validation : {e}")
+                except Exception as e:
+                    messages.error(request, f"❌ Erreur : {str(e)}")
+                    logger.error(f"Erreur création quittancement : {str(e)}", exc_info=True)
+            
+            elif action == 'retour':
+                # Retour à l'étape 2
+                return redirect(f"{reverse('inventaire:saisie_quittancement')}?etape=2")
+            
+            else:  # Annuler
+                # Supprimer l'image temporaire si elle existe
+                if image_temp_path:
+                    from django.core.files.storage import default_storage
+                    if default_storage.exists(image_temp_path):
+                        default_storage.delete(image_temp_path)
+                
+                # Nettoyer la session
+                for key in ['exercice_temp', 'mois_temp', 'type_declaration_temp', 'form_data_temp', 'image_temp_path']:
+                    request.session.pop(key, None)
+                messages.info(request, "Saisie annulée")
+                return redirect('inventaire:liste_quittancements')
+        
+        # GET : Afficher la confirmation
+        try:
+            poste = Poste.objects.get(id=form_data['poste_id'])
+        except:
+            poste = None
+        
+        # Formatter la période
+        if type_declaration == 'journaliere':
+            periode = f"Jour : {form_data['date_recette']}"
+        else:
+            periode = f"Décade : du {form_data['date_debut_decade']} au {form_data['date_fin_decade']}"
+        
+        context = {
+            'etape': 3,
+            'exercice': exercice,
+            'mois': mois,
+            'type_declaration': type_declaration,
+            'form_data': form_data,
+            'poste': poste,
+            'periode': periode,
+            'has_image': form_data.get('has_image', False),
+            'image_name': form_data.get('image_name'),
+        }
+        return render(request, 'inventaire/saisie_quittancement_simple.html', context)
+    
 @login_required
 def liste_quittancements(request):
-    """Vue pour afficher la liste des quittancements - NOUVELLE VUE COMPLÈTE"""
-    
-    # Filtrage selon les permissions
     if request.user.is_admin:
         quittancements = Quittancement.objects.all()
     elif request.user.poste_affectation:
         quittancements = Quittancement.objects.filter(poste=request.user.poste_affectation)
     else:
         quittancements = Quittancement.objects.none()
-    
-    # Filtres GET
+
     poste_id = request.GET.get('poste')
     exercice = request.GET.get('exercice')
     type_declaration = request.GET.get('type_declaration')
-    
+    mois = request.GET.get('mois')
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    numero = request.GET.get('numero')
+    montant_min = request.GET.get('montant_min')
+
     if poste_id:
         quittancements = quittancements.filter(poste_id=poste_id)
     if exercice:
         quittancements = quittancements.filter(exercice=exercice)
     if type_declaration:
         quittancements = quittancements.filter(type_declaration=type_declaration)
-    
-    # Ordre et pagination
-    quittancements = quittancements.select_related('poste', 'saisi_par').order_by('-date_quittancement')
-    
-    # Pagination
-    from django.core.paginator import Paginator
-    paginator = Paginator(quittancements, 25)  # 25 par page
+    if mois:
+        quittancements = quittancements.filter(mois=mois)
+    if date_debut:
+        quittancements = quittancements.filter(date_quittancement__gte=date_debut)
+    if date_fin:
+        quittancements = quittancements.filter(date_quittancement__lte=date_fin)
+    if numero:
+        quittancements = quittancements.filter(numero_quittance__icontains=numero)
+    if montant_min:
+        try:
+            quittancements = quittancements.filter(montant__gte=Decimal(montant_min))
+        except:
+            pass
+
+    quittancements = quittancements.select_related('poste', 'saisi_par').order_by('-date_quittancement', '-id')
+
+    paginator = Paginator(quittancements, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
-    # Statistiques
+
     total_montant = quittancements.aggregate(Sum('montant'))['montant__sum'] or Decimal('0')
-    
-    # Générer la liste des années pour le filtre
+
     import datetime
     current_year = datetime.datetime.now().year
-    years_range = range(current_year, current_year - 5, -1)
-    
+    years_range = list(range(current_year, current_year - 5, -1))
+
     context = {
         'page_obj': page_obj,
         'quittancements': page_obj,
@@ -4935,120 +4881,224 @@ def liste_quittancements(request):
         'postes': Poste.objects.filter(is_active=True) if request.user.is_admin else None,
         'exercice_courant': current_year,
         'years_range': years_range,
-        'types_declaration': TypeDeclaration.choices,
+        'types_declaration': [
+            ('journaliere', 'Journalière'),
+            ('decade', 'Par décade')
+        ],
     }
-    
     return render(request, 'inventaire/liste_quittancements.html', context)
+
 
 
 @login_required
 def comptabilisation_quittancements(request):
-    """Vue pour afficher la comptabilisation avec filtres - VERSION CORRIGÉE avec is_active"""
-    
-    # Récupération de l'année courante pour le contexte
+    import calendar
+    from datetime import timedelta
+
     annee_courante = timezone.now().year
-    
-    # Filtres
+    mois_courant = timezone.now().month
+
     periode = request.GET.get('periode', 'mois')
     poste_id = request.GET.get('poste')
     annee = int(request.GET.get('annee', annee_courante))
-    mois = request.GET.get('mois')
-    
-    # Déterminer les dates selon la période
-    if periode == 'mois' and mois:
-        mois_int = int(mois)
+    mois = request.GET.get('mois')  # Expected format: YYYY-MM
+
+    # Calcul période date_debut/date_fin
+    if periode == 'mois':
+        if mois:
+            try:
+                annee_mois = mois.split('-')
+                mois_int = int(annee_mois[1])
+                annee = int(annee_mois[0])
+            except:
+                mois_int = mois_courant
+        else:
+            mois_int = mois_courant
         date_debut = date(annee, mois_int, 1)
-        date_fin = date(annee, mois_int, calendar.monthrange(annee, mois_int)[1])
+        dernier_jour = calendar.monthrange(annee, mois_int)[1]
+        date_fin = date(annee, mois_int, dernier_jour)
     elif periode == 'trimestre':
-        trimestre = int(request.GET.get('trimestre', 1))
-        date_debut = date(annee, (trimestre - 1) * 3 + 1, 1)
-        date_fin = date(annee, trimestre * 3, calendar.monthrange(annee, trimestre * 3)[1])
+        trimestre = int(request.GET.get('trimestre', ((mois_courant - 1) // 3) + 1))
+        mois_debut = (trimestre - 1) * 3 + 1
+        mois_fin = trimestre * 3
+        date_debut = date(annee, mois_debut, 1)
+        dernier_jour = calendar.monthrange(annee, mois_fin)[1]
+        date_fin = date(annee, mois_fin, dernier_jour)
     elif periode == 'semestre':
-        semestre = int(request.GET.get('semestre', 1))
-        date_debut = date(annee, 1 if semestre == 1 else 7, 1)
-        date_fin = date(annee, 6 if semestre == 1 else 12, 
-                       calendar.monthrange(annee, 6 if semestre == 1 else 12)[1])
-    else:  # annee
+        semestre = int(request.GET.get('semestre', 1 if mois_courant <= 6 else 2))
+        if semestre == 1:
+            date_debut = date(annee, 1, 1)
+            date_fin = date(annee, 6, 30)
+        else:
+            date_debut = date(annee, 7, 1)
+            date_fin = date(annee, 12, 31)
+    else:
         date_debut = date(annee, 1, 1)
         date_fin = date(annee, 12, 31)
-    
-    # Filtrer postes selon permissions - CORRECTION avec is_active
+
+    # Filtrer postes selon permissions
     if request.user.is_admin:
         if poste_id:
-            postes = Poste.objects.filter(id=poste_id)
+            postes = Poste.objects.filter(id=poste_id, is_active=True)
         else:
-            postes = Poste.objects.filter(is_active=True)  
+            postes = Poste.objects.filter(is_active=True)
     else:
-        postes = Poste.objects.filter(id=request.user.poste_affectation.id) if request.user.poste_affectation else Poste.objects.none()
-    
-    # Calculs par poste
+        if request.user.poste_affectation:
+            postes = Poste.objects.filter(id=request.user.poste_affectation.id)
+        else:
+            postes = Poste.objects.none()
+
     resultats = []
     total_declare_global = Decimal('0')
     total_quittance_global = Decimal('0')
-    
+
     for poste in postes:
-        # Total quittancé
-        total_quittance = Quittancement.objects.filter(
+
+        # Quittances journalières dans la période
+        quittances_journalieres = Quittancement.objects.filter(
             poste=poste,
-            date_quittancement__range=[date_debut, date_fin]
-        ).aggregate(Sum('montant'))['montant__sum'] or Decimal('0')
-        
-        # Total déclaré
-        total_declare = RecetteJournaliere.objects.filter(
+            type_declaration='journaliere',
+            date_recette__range=[date_debut, date_fin]
+        )
+
+        # Recettes journalières enregistrées dans la période
+        recettes_journalieres = RecetteJournaliere.objects.filter(
             poste=poste,
             date__range=[date_debut, date_fin]
-        ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-        
-        # Écart
-        ecart = total_quittance - total_declare
-        ecart_pourcentage = (ecart / total_declare * 100) if total_declare > 0 else -100
-        
-        # Vérifier si justification existe
-        justification_existe = JustificationEcart.objects.filter(
-            poste=poste,
-            date_debut=date_debut,
-            date_fin=date_fin
-        ).exists()
-        
+        )
+
+        # Calcul des écarts journaliers
+        ecart_journalier_total = Decimal('0')
+        jours_avec_recettes = recettes_journalieres.values_list('date', flat=True).distinct()
+        dates_period = [date_debut + timedelta(days=i) for i in range((date_fin - date_debut).days + 1)]
+
+        # Vérifier que tous les jours ont une recette (pour décade)
+        periode_type = request.GET.get('type_declaration')
+
+        if periode_type == 'decade':
+            # On vérifie si toutes les dates de la décade ont une recette
+            manque_jours = [d for d in dates_period if d not in jours_avec_recettes]
+            if manque_jours:
+                # Si certains jours manquent, écart non calculable, à traiter
+                ecart_decade = None
+                justification_existe = False
+            else:
+                # Somme des montants déclarés journaliers
+                somme_recette_decade = recettes_journalieres.aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+
+                # Récupérer la quittance de la décade pour la période
+                quittance_decade = Quittancement.objects.filter(
+                    poste=poste,
+                    type_declaration='decade',
+                    date_debut_decade__lte=date_fin,
+                    date_fin_decade__gte=date_debut
+                ).aggregate(Sum('montant'))['montant__sum'] or Decimal('0')
+
+                ecart_decade = quittance_decade - somme_recette_decade
+                justification_existe = JustificationEcart.objects.filter(
+                    poste=poste,
+                    date_debut=date_debut,
+                    date_fin=date_fin
+                ).exists()
+        else:  # Journaliere ou autres
+            # Pour chaque jour, calculer l’écart (quittance - recette)
+            ecart_journalier_total = Decimal('0')
+            for q in quittances_journalieres:
+                recette_jour = recettes_journalieres.filter(date=q.date_recette).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+                ecart = q.montant - recette_jour
+                ecart_journalier_total += ecart
+
+            ecart_decade = None
+            justification_existe = False
+            if ecart_journalier_total != 0:
+                justification_existe = JustificationEcart.objects.filter(
+                    poste=poste,
+                    date_debut=date_debut,
+                    date_fin=date_fin
+                ).exists()
+
+        # Déterminer le total quittance (journalière ou décade)
+        total_quittance = (quittance_decade if periode_type == 'decade' and ecart_decade is not None else
+                           quittances_journalieres.aggregate(Sum('montant'))['montant__sum'] or Decimal('0'))
+
+        # Calcul recettes totales déclarés
+        total_declare = recettes_journalieres.aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+
+        # Choisir l’écart à afficher
+        ecart = ecart_decade if periode_type == 'decade' and ecart_decade is not None else ecart_journalier_total
+
+        # Calcul du pourcentage
+        ecart_pourcentage = (ecart / total_declare * 100) if total_declare > 0 else Decimal('0')
+
+        # Déterminer le statut
+        if ecart is None:
+            statut = 'incomplet'
+            statut_label = 'Données incomplètes'
+            statut_class = 'warning'
+        elif abs(ecart) < 1:
+            statut = 'conforme'
+            statut_label = 'Conforme'
+            statut_class = 'success'
+        elif justification_existe:
+            statut = 'justifie'
+            statut_label = 'Justifié'
+            statut_class = 'warning'
+        else:
+            statut = 'ecart'
+            statut_label = 'Non justifié'
+            statut_class = 'danger'
+
         resultats.append({
-            'poste__nom': poste.nom,
-            'poste': poste.id,
+            'poste': poste,
+            'poste_id': poste.id,
+            'poste_nom': poste.nom,
             'total_quittance': total_quittance,
             'total_declare': total_declare,
             'ecart': ecart,
             'ecart_pourcentage': ecart_pourcentage,
             'justifie': justification_existe,
-            'a_ecart': abs(ecart) > 0
+            'statut': statut,
+            'statut_label': statut_label,
+            'statut_class': statut_class
         })
-        
+
         total_declare_global += total_declare
         total_quittance_global += total_quittance
-    
-    # Statistiques globales
+
     ecart_global = total_quittance_global - total_declare_global
+
     statistiques = {
         'total_declare': total_declare_global,
         'total_quittance': total_quittance_global,
         'ecart_total': ecart_global,
-        'ecart_pourcentage': (ecart_global / total_declare_global * 100) if total_declare_global > 0 else 0
+        'ecart_pourcentage': (ecart_global / total_declare_global * 100) if total_declare_global > 0 else Decimal('0'),
+        'nombre_postes': len(resultats),
+        'nombre_conformes': len([r for r in resultats if r['statut'] == 'conforme']),
+        'nombre_justifies': len([r for r in resultats if r['statut'] == 'justifie']),
+        'nombre_ecarts': len([r for r in resultats if r['statut'] == 'ecart']),
+        'nombre_incomplets': len([r for r in resultats if r['statut'] == 'incomplet']),
     }
-    
-    # Liste des postes pour le filtre
-    if request.user.is_admin:
-        postes_filtre = Poste.objects.filter(is_active=True)
-    else:
-        postes_filtre = None
-    
+
+    postes_filtre = Poste.objects.filter(is_active=True).order_by('nom') if request.user.is_admin else None
+
+    log_user_action(
+        request.user,
+        "Consultation comptabilisation quittancements",
+        f"Période: {periode}, Date: {date_debut} au {date_fin}, Postes: {len(resultats)}",
+        request
+    )
+
     context = {
         'resultats': resultats,
+        'statistiques': statistiques,
         'periode': periode,
+        'annee': annee,
+        'mois': f"{annee}-{mois_int:02d}" if periode == 'mois' else None,
         'date_debut': date_debut,
         'date_fin': date_fin,
-        'annee_courante': annee_courante,  
-        'postes': postes_filtre,
-        'statistiques': statistiques,
+        'postes_filtre': postes_filtre,
+        'poste_selectionne': int(poste_id) if poste_id else None,
     }
-    
     return render(request, 'inventaire/comptabilisation_quittancements.html', context)
 
 @login_required
@@ -5268,24 +5318,24 @@ def authentifier_document(request):
 
 
 
+# ===================================================================
+# CORRECTION CRITIQUE : inventaire/views.py
+# Fonction detail_quittancements_periode - Logique de comptabilisation
+# ===================================================================
+
 @login_required
 def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
     """
     Vue pour afficher les détails des quittancements d'un poste sur une période
-    
-    CORRECTION : Accepte maintenant poste_id en paramètre (cohérence avec URLs)
-    
-    Args:
-        request: Requête HTTP
-        poste_id: ID du poste (int)
-        date_debut: Date de début au format 'YYYY-MM-DD' (str)
-        date_fin: Date de fin au format 'YYYY-MM-DD' (str)
+
+    CORRECTION MAJEURE : 
+    - Utiliser date_recette/date_debut_decade/date_fin_decade au lieu de date_quittancement
+    - Calculer correctement les écarts journaliers et par décade
+    - Fournir une structure détaillée par jour pour le template
     """
-    
-    # Récupérer le poste
     poste = get_object_or_404(Poste, id=poste_id)
-    
-    # Vérifier les permissions
+
+    # Vérification permission
     if not request.user.is_admin:
         if not request.user.poste_affectation or request.user.poste_affectation.id != poste.id:
             messages.error(request, "Vous n'avez pas accès aux données de ce poste.")
@@ -5296,66 +5346,129 @@ def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
                 request
             )
             return redirect('inventaire:comptabilisation_quittancements')
-    
-    # Convertir les dates string en objets date
+
+    # Conversion des dates string en objet date
     try:
         date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
     except ValueError as e:
         messages.error(request, f"Format de date invalide : {str(e)}")
         return redirect('inventaire:comptabilisation_quittancements')
-    
-    # Récupérer les quittancements de la période
-    quittancements = Quittancement.objects.filter(
+
+    # Quittancements journaliers et décades
+    quittancements_journaliers = Quittancement.objects.filter(
         poste=poste,
-        date_quittancement__range=[date_debut_obj, date_fin_obj]
-    ).select_related('poste', 'saisi_par').order_by('date_quittancement')
-    
-    # Récupérer les recettes déclarées correspondantes
+        type_declaration='journaliere',
+        date_recette__range=[date_debut_obj, date_fin_obj]
+    ).select_related('poste', 'saisi_par').order_by('date_recette')
+
+    quittancements_decades = Quittancement.objects.filter(
+        poste=poste,
+        type_declaration='decade',
+        date_debut_decade__lte=date_fin_obj,
+        date_fin_decade__gte=date_debut_obj
+    ).select_related('poste', 'saisi_par').order_by('date_debut_decade')
+
+    # Recettes déclarées
     recettes = RecetteJournaliere.objects.filter(
         poste=poste,
         date__range=[date_debut_obj, date_fin_obj]
     ).order_by('date')
-    
-    # Calculer les totaux
-    total_quittance = quittancements.aggregate(
+
+    # Calcul total quittance journalière
+    total_quittance_jour = quittancements_journaliers.aggregate(
         Sum('montant')
     )['montant__sum'] or Decimal('0')
-    
+
+    # Calcul total quittance décade au prorata
+    total_quittance_decade = Decimal('0')
+    for q in quittancements_decades:
+        debut_effectif = max(q.date_debut_decade, date_debut_obj)
+        fin_effective = min(q.date_fin_decade, date_fin_obj)
+
+        if debut_effectif <= fin_effective:
+            jours_chevauchement = (fin_effective - debut_effectif).days + 1
+            jours_total_decade = (q.date_fin_decade - q.date_debut_decade).days + 1
+            if jours_total_decade > 0:
+                montant_prorata = (q.montant * jours_chevauchement) / jours_total_decade
+                total_quittance_decade += montant_prorata
+
+    total_quittance = total_quittance_jour + total_quittance_decade
+
     total_declare = recettes.aggregate(
         Sum('montant_declare')
     )['montant_declare__sum'] or Decimal('0')
-    
+
     ecart = total_quittance - total_declare
-    
-    # Vérifier si une justification existe pour cette période
+
+    # Préparation de la comparaison journalière détaillée
+    comparaison_journaliere = []
+
+    for recette in recettes:
+        quittances_jour = [q for q in quittancements_journaliers if q.date_recette == recette.date]
+        quittances_decade_couvrant = [q for q in quittancements_decades if q.date_debut_decade <= recette.date <= q.date_fin_decade]
+
+        montant_quittance_jour = sum(q.montant for q in quittances_jour)
+
+        montant_quittance_decade = Decimal('0')
+        for q in quittances_decade_couvrant:
+            jours_total = (q.date_fin_decade - q.date_debut_decade).days + 1
+            montant_par_jour = q.montant / jours_total
+            montant_quittance_decade += montant_par_jour
+
+        montant_quittance_total = montant_quittance_jour + montant_quittance_decade
+
+        ecart_jour = montant_quittance_total - recette.montant_declare
+
+        statut = 'ok' if abs(ecart_jour) < 1 else 'ecart'
+        statut_label = 'Conforme' if statut == 'ok' else 'Écart détecté'
+        statut_class = 'success' if statut == 'ok' else 'danger'
+
+        comparaison_journaliere.append({
+            'date': recette.date,
+            'recette': recette,
+            'montant_declare': recette.montant_declare,
+            'montant_quittance': montant_quittance_total,
+            'ecart': ecart_jour,
+            'quittances_jour': quittances_jour,
+            'quittances_decade': quittances_decade_couvrant,
+            'statut': statut,
+            'statut_label': statut_label,
+            'statut_class': statut_class,
+        })
+
+    # Justifications d'écarts
     justifications = JustificationEcart.objects.filter(
         poste=poste,
         date_debut=date_debut_obj,
         date_fin=date_fin_obj
     ).select_related('justifie_par')
-    
-    # Journaliser la consultation
+
+    # Journalisation
     log_user_action(
         request.user,
         "Consultation détails quittancements",
         f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | Écart: {ecart} FCFA",
         request
     )
-    
+
     context = {
         'poste': poste,
         'date_debut': date_debut_obj,
         'date_fin': date_fin_obj,
-        'quittancements': quittancements,
+        'quittancements': list(quittancements_journaliers) + list(quittancements_decades),
+        'quittancements_journaliers': quittancements_journaliers,
+        'quittancements_decades': quittancements_decades,
         'recettes': recettes,
+        'comparaison_journaliere': comparaison_journaliere,
         'total_quittance': total_quittance,
         'total_declare': total_declare,
         'ecart': ecart,
         'justifications': justifications,
     }
-    
+
     return render(request, 'inventaire/detail_quittancements.html', context)
+
 
 @login_required
 def export_quittancements(request):
@@ -5435,3 +5548,109 @@ def export_quittancements(request):
     else:  # PDF
         messages.info(request, "Export PDF en cours de développement")
         return redirect('inventaire:comptabilisation_quittancements')
+
+
+@login_required
+def ajouter_image_quittancement(request, quittancement_id):
+    """
+    Vue pour ajouter/modifier l'image d'un quittancement existant
+    
+    UTILISATION :
+    - Après avoir créé un quittancement sans image (étapes 1-2-3)
+    - L'utilisateur peut cliquer sur "Ajouter une image" dans la liste
+    - Upload simple et direct sans workflow complexe
+    - Permet aussi de modifier/remplacer une image existante
+    
+    AVANTAGES :
+    - Contourne le problème de perte d'image dans les redirections
+    - Interface simple et intuitive
+    - Modifiable à tout moment
+    """
+    
+    # Récupérer le quittancement
+    quittancement = get_object_or_404(Quittancement, id=quittancement_id)
+    
+    # Vérifier permissions
+    # Seuls l'admin ou la personne qui a créé le quittancement peuvent modifier
+    if not (request.user.is_admin or request.user == quittancement.saisi_par):
+        messages.error(
+            request, 
+            "❌ Vous n'avez pas les droits pour modifier ce quittancement"
+        )
+        log_user_action(
+            request.user,
+            "ACCÈS REFUSÉ - Modification image quittancement",
+            f"N°{quittancement.numero_quittance}",
+            request
+        )
+        return redirect('inventaire:liste_quittancements')
+    
+    if request.method == 'POST':
+        # Vérifier qu'une image est uploadée
+        if 'image_quittance' not in request.FILES:
+            messages.error(request, "❌ Aucune image sélectionnée")
+            return redirect('inventaire:ajouter_image_quittancement', quittancement_id=quittancement_id)
+        
+        image_file = request.FILES['image_quittance']
+        
+        # Validation de la taille (5 MB max)
+        max_size = 5 * 1024 * 1024  # 5 MB
+        if image_file.size > max_size:
+            messages.error(
+                request, 
+                f"❌ Fichier trop volumineux ({image_file.size / (1024*1024):.1f} MB). Maximum : 5 MB"
+            )
+            return redirect('inventaire:ajouter_image_quittancement', quittancement_id=quittancement_id)
+        
+        # Validation du type de fichier
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf']
+        if image_file.content_type not in allowed_types:
+            messages.error(
+                request,
+                f"❌ Type de fichier non autorisé. Formats acceptés : JPG, PNG, GIF, PDF"
+            )
+            return redirect('inventaire:ajouter_image_quittancement', quittancement_id=quittancement_id)
+        
+        try:
+            # Supprimer l'ancienne image si elle existe
+            if quittancement.image_quittance:
+                # Sauvegarder l'ancien chemin pour le log
+                old_path = quittancement.image_quittance.name
+                
+                # Supprimer le fichier physique
+                quittancement.image_quittance.delete(save=False)
+                
+                logger.info(f"Ancienne image supprimée : {old_path}")
+            
+            # Ajouter la nouvelle image
+            quittancement.image_quittance = image_file
+            quittancement.save()
+            
+            # Journaliser l'action
+            log_user_action(
+                request.user,
+                "Ajout/Modification image quittancement",
+                f"N°{quittancement.numero_quittance} - Fichier : {image_file.name} ({image_file.size / 1024:.1f} KB)",
+                request
+            )
+            
+            messages.success(
+                request, 
+                f"✅ Image ajoutée avec succès au quittancement {quittancement.numero_quittance}"
+            )
+            
+            return redirect('inventaire:liste_quittancements')
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de l'enregistrement : {str(e)}")
+            logger.error(f"Erreur ajout image quittancement {quittancement_id}: {str(e)}", exc_info=True)
+            return redirect('inventaire:ajouter_image_quittancement', quittancement_id=quittancement_id)
+    
+    # GET : Afficher le formulaire d'upload
+    context = {
+        'quittancement': quittancement,
+        'poste': quittancement.poste,
+        'has_image': bool(quittancement.image_quittance),
+    }
+    
+    return render(request, 'inventaire/ajouter_image_quittancement.html', context)

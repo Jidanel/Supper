@@ -28,30 +28,30 @@ except ImportError:
 def accueil_intelligent(request):
     """Redirection intelligente selon l'état de connexion"""
     if not request.user.is_authenticated:
-        return redirect('/accounts/login/')  # CORRECTION: Rediriger vers accounts/login/
+        return redirect('/accounts/login/')  
     
     # Utilisateur connecté → Dashboard admin pour tous (temporaire)
     return redirect('/admin/')
 
-def panel_avance_redirect(request):
-    """Redirection pour le Panel Avancé vers l'admin Django natif"""
-    if not request.user.is_authenticated:
-        return redirect('/accounts/login/')
+# def panel_avance_redirect(request):
+#     """Redirection pour le Panel Avancé vers l'admin Django natif"""
+#     if not request.user.is_authenticated:
+#         return redirect('/accounts/login/')
     
-    # Vérifier les permissions admin
-    if request.user.is_superuser or request.user.is_staff:
-        return redirect('/django-admin/')
-    elif hasattr(request.user, 'habilitation') and request.user.habilitation in [
-        'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'
-    ]:
-        return redirect('/django-admin/')
-    else:
-        from django.contrib import messages
-        messages.error(request, "Accès non autorisé au panel d'administration avancé.")
-        return redirect('/admin/')
+#     # Vérifier les permissions admin
+#     if request.user.is_superuser or request.user.is_staff:
+#         return redirect('/django-admin/')
+#     elif hasattr(request.user, 'habilitation') and request.user.habilitation in [
+#         'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'
+#     ]:
+#         return redirect('/django-admin/')
+#     else:
+#         from django.contrib import messages
+#         messages.error(request, "Accès non autorisé au panel d'administration avancé.")
+#         return redirect('/admin/')
 
-# ===================================================================
-# CONFIGURATION DES URLS
+# # ===================================================================
+# # CONFIGURATION DES URLS
 # ===================================================================
 
 urlpatterns = [
@@ -74,8 +74,8 @@ urlpatterns = [
     # Admin Django natif (panel avancé)
     path('django-admin/', admin.site.urls, name='django_admin'),
     
-    # Redirection panel avancé avec vérification permissions
-    path('panel-avance/', panel_avance_redirect, name='panel_avance'),
+    # # Redirection panel avancé avec vérification permissions
+    # path('panel-avance/', panel_avance_redirect, name='panel_avance'),
     
     # ================================================================
     # REDIRECTIONS POUR COMPATIBILITÉ
@@ -110,6 +110,7 @@ if settings.DEBUG:
     # Fichiers statiques (CSS, JS, images)
     if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
         urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+        
     
     # Debug Toolbar si installé
     try:

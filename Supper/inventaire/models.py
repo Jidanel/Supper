@@ -2270,17 +2270,14 @@ class HistoriqueStock(models.Model):
 
 class TypeDeclaration(models.TextChoices):
     """Types de déclaration pour quittancement"""
-    JOUR = 'jour', _('Par Jour')
+    JOURNALIERE = 'journaliere', _('Journalière (Par Jour)')
     DECADE = 'decade', _('Par Décade')
+
 
 
 class Quittancement(models.Model):
     """
     Modèle pour gérer les quittancements des recettes
-    RÈGLES MÉTIER :
-    - Un seul quittancement par jour si type_declaration = JOUR
-    - Pas de chevauchement de périodes si type_declaration = DECADE
-    - Non modifiable après création
     """
     
     # Identification
@@ -2304,10 +2301,18 @@ class Quittancement(models.Model):
         validators=[MinValueValidator(2020), MaxValueValidator(2099)]
     )
     
+    # NOUVEAU CHAMP
+    mois = models.CharField(
+        max_length=7,
+        verbose_name=_("Mois concerné"),
+        help_text=_("Format: YYYY-MM"),
+        blank=True
+    )
+    
     type_declaration = models.CharField(
-        max_length=10,
+        max_length=15,
         choices=TypeDeclaration.choices,
-        default=TypeDeclaration.JOUR,
+        default=TypeDeclaration.JOURNALIERE,
         verbose_name=_("Type de déclaration")
     )
     
@@ -2351,6 +2356,8 @@ class Quittancement(models.Model):
     # Document
     image_quittance = models.ImageField(
         upload_to='quittances/%Y/%m/',
+        blank=True,
+        null=True,
         verbose_name=_("Image de la quittance"),
         help_text=_("Scan ou photo de la quittance")
     )
@@ -2369,6 +2376,12 @@ class Quittancement(models.Model):
         verbose_name=_("Date de saisie")
     )
     
+    observations = models.TextField(
+        blank=True,
+        verbose_name=_("Observations"),
+        help_text=_("Observations optionnelles")
+    )
+    
     # Verrouillage (non modifiable)
     verrouille = models.BooleanField(
         default=True,
@@ -2382,57 +2395,87 @@ class Quittancement(models.Model):
         ordering = ['-date_quittancement', 'poste__nom']
         indexes = [
             models.Index(fields=['poste', 'exercice']),
+            models.Index(fields=['poste', 'mois']),
             models.Index(fields=['numero_quittance']),
             models.Index(fields=['date_quittancement']),
-        ]
-        # Contraintes métier
-        constraints = [
-            # Un seul quittancement par jour pour un poste si type = JOUR
-            models.UniqueConstraint(
-                fields=['poste', 'date_quittancement', 'date_recette'],
-                condition=models.Q(type_declaration='jour'),
-                name='unique_quittancement_jour'
-            )
         ]
     
     def __str__(self):
         return f"Quittance {self.numero_quittance} - {self.poste.nom}"
     
     def clean(self):
-        """Validation métier stricte"""
+        """Validation métier stricte améliorée"""
         from django.core.exceptions import ValidationError
+        from django.utils import timezone
         
-        # Date future interdite
-        if self.date_quittancement > timezone.now().date():
-            raise ValidationError("Les quittancements ne peuvent pas être sur des dates futures.")
+        today = timezone.now().date()
+        
+        # Date future interdite pour date_quittancement
+        if self.date_quittancement and self.date_quittancement > today:
+            raise ValidationError({
+                'date_quittancement': "La date de quittancement ne peut pas être dans le futur."
+            })
         
         # Validation selon type
-        if self.type_declaration == TypeDeclaration.JOUR:
+        if self.type_declaration == 'journaliere':
             if not self.date_recette:
-                raise ValidationError("Date de recette obligatoire pour type JOUR.")
-            if self.date_recette > timezone.now().date():
-                raise ValidationError("La date de recette ne peut pas être future.")
-                
-        elif self.type_declaration == TypeDeclaration.DECADE:
-            if not self.date_debut_decade or not self.date_fin_decade:
-                raise ValidationError("Dates début et fin obligatoires pour type DECADE.")
+                raise ValidationError({
+                    'date_recette': "Date de recette obligatoire pour type journalière."
+                })
             
-            if self.date_debut_decade > self.date_fin_decade:
-                raise ValidationError("Date début ne peut être après date fin.")
+            # Date future interdite
+            if self.date_recette > today:
+                raise ValidationError({
+                    'date_recette': "La date de recette ne peut pas être dans le futur."
+                })
             
-            # Vérifier les chevauchements de décades
-            chevauchements = Quittancement.objects.filter(
+            # Vérifier l'unicité pour ce jour et ce poste
+            existing = Quittancement.objects.filter(
                 poste=self.poste,
-                type_declaration=TypeDeclaration.DECADE,
-                date_debut_decade__lte=self.date_fin_decade,
-                date_fin_decade__gte=self.date_debut_decade
+                type_declaration='journaliere',
+                date_recette=self.date_recette
             ).exclude(pk=self.pk if self.pk else None)
             
-            if chevauchements.exists():
-                raise ValidationError(
-                    f"Cette période chevauche des quittancements existants : "
-                    f"{', '.join([q.numero_quittance for q in chevauchements])}"
-                )
+            if existing.exists():
+                raise ValidationError({
+                    'date_recette': f"Un quittancement existe déjà pour le {self.date_recette.strftime('%d/%m/%Y')} sur ce poste."
+                })
+                
+        elif self.type_declaration == 'decade':
+            if not self.date_debut_decade or not self.date_fin_decade:
+                raise ValidationError("Dates début et fin obligatoires pour type décade.")
+            
+            # Dates futures interdites
+            if self.date_debut_decade > today:
+                raise ValidationError({
+                    'date_debut_decade': "La date de début ne peut pas être dans le futur."
+                })
+            
+            if self.date_fin_decade > today:
+                raise ValidationError({
+                    'date_fin_decade': "La date de fin ne peut pas être dans le futur."
+                })
+            
+            if self.date_debut_decade > self.date_fin_decade:
+                raise ValidationError({
+                    'date_fin_decade': "La date de fin doit être après la date de début."
+                })
+            
+            # Vérifier les chevauchements de décades pour ce poste
+            chevauchements = Quittancement.objects.filter(
+                poste=self.poste,
+                type_declaration='decade'
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            for q in chevauchements:
+                # Vérifier si les périodes se chevauchent
+                if (self.date_debut_decade <= q.date_fin_decade and 
+                    self.date_fin_decade >= q.date_debut_decade):
+                    raise ValidationError({
+                        'date_debut_decade': f"Cette période chevauche avec le quittancement {q.numero_quittance} "
+                                           f"({q.date_debut_decade.strftime('%d/%m/%Y')} au "
+                                           f"{q.date_fin_decade.strftime('%d/%m/%Y')})"
+                    })
     
     def save(self, *args, **kwargs):
         """Sauvegarde avec validation et verrouillage automatique"""
@@ -2442,11 +2485,12 @@ class Quittancement(models.Model):
     
     def get_periode_display(self):
         """Affichage de la période"""
-        if self.type_declaration == TypeDeclaration.JOUR:
-            return f"Jour : {self.date_recette.strftime('%d/%m/%Y')}"
+        if self.type_declaration == 'journaliere':
+            return f"Jour : {self.date_recette.strftime('%d/%m/%Y') if self.date_recette else 'N/A'}"
         else:
-            return f"Décade : {self.date_debut_decade.strftime('%d/%m/%Y')} au {self.date_fin_decade.strftime('%d/%m/%Y')}"
-
+            if self.date_debut_decade and self.date_fin_decade:
+                return f"Décade : {self.date_debut_decade.strftime('%d/%m/%Y')} au {self.date_fin_decade.strftime('%d/%m/%Y')}"
+            return "Décade : N/A"
 
 class JustificationEcart(models.Model):
     """
@@ -2517,3 +2561,4 @@ class JustificationEcart(models.Model):
     
     def __str__(self):
         return f"Justification {self.poste.nom} - {self.date_debut} au {self.date_fin}"
+

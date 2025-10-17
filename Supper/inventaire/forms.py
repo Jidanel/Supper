@@ -829,152 +829,334 @@ class InventaireMensuelForm(forms.ModelForm):
         }
 
 
+# class QuittancementForm(forms.ModelForm):
+#     """
+#     Formulaire pour saisir un quittancement
+#     Gère les champs conditionnels selon le type de déclaration
+#     """
+    
+#     class Meta:
+#         model = Quittancement
+#         fields = [
+#             'numero_quittance',
+#             'date_quittancement',
+#             'poste',
+#             'montant',
+#             'date_recette',           # Pour type JOUR
+#             'date_debut_decade',      # Pour type DÉCADE
+#             'date_fin_decade',        # Pour type DÉCADE
+#             'image_quittance',
+#         ]
+#         widgets = {
+#             'numero_quittance': forms.TextInput(attrs={
+#                 'class': 'form-control',
+#                 'placeholder': 'Ex: Q-2025-001',
+#             }),
+#             'date_quittancement': forms.DateInput(attrs={
+#                 'class': 'form-control',
+#                 'type': 'date',
+#             }),
+#             'poste': forms.Select(attrs={
+#                 'class': 'form-select',
+#             }),
+#             'montant': forms.NumberInput(attrs={
+#                 'class': 'form-control',
+#                 'step': '1',
+#                 'min': '0',
+#                 'placeholder': '0',
+#             }),
+#             'date_recette': forms.DateInput(attrs={
+#                 'class': 'form-control date-recette-field',
+#                 'type': 'date',
+#             }),
+#             'date_debut_decade': forms.DateInput(attrs={
+#                 'class': 'form-control date-decade-field',
+#                 'type': 'date',
+#             }),
+#             'date_fin_decade': forms.DateInput(attrs={
+#                 'class': 'form-control date-decade-field',
+#                 'type': 'date',
+#             }),
+#             'observations': forms.Textarea(attrs={
+#                 'class': 'form-control',
+#                 'rows': 3,
+#                 'placeholder': 'Observations (optionnel)',
+#             }),
+#             'fichier_quittance': forms.FileInput(attrs={
+#                 'class': 'form-control',
+#             }),
+#         }
+    
+#     def __init__(self, *args, **kwargs):
+#         user = kwargs.pop('user', None)
+#         type_declaration = kwargs.pop('type_declaration', None)  # NOUVEAU PARAMÈTRE
+#         super().__init__(*args, **kwargs)
+        
+#         # Stocker le type pour validation
+#         self.type_declaration = type_declaration
+        
+#         # Gestion des postes selon permissions
+#         if user:
+#             if user.is_admin:
+#                 self.fields['poste'].queryset = Poste.objects.filter(is_active=True)
+#             elif user.poste_affectation:
+#                 self.fields['poste'].queryset = Poste.objects.filter(
+#                     id=user.poste_affectation.id
+#                 )
+#                 self.fields['poste'].initial = user.poste_affectation
+#                 self.fields['poste'].widget = forms.HiddenInput()
+#             else:
+#                 self.fields['poste'].queryset = Poste.objects.none()
+        
+#         # LOGIQUE CONDITIONNELLE SELON TYPE DE DÉCLARATION
+#         if type_declaration == 'journaliere':
+#             # Type JOUR : date_recette obligatoire, décades désactivées
+#             self.fields['date_recette'].required = True
+#             self.fields['date_debut_decade'].required = False
+#             self.fields['date_fin_decade'].required = False
+            
+#             # Masquer visuellement les champs décade
+#             self.fields['date_debut_decade'].widget.attrs['style'] = 'display:none;'
+#             self.fields['date_fin_decade'].widget.attrs['style'] = 'display:none;'
+            
+#         elif type_declaration == 'decade':
+#             # Type DÉCADE : décades obligatoires, date_recette désactivée
+#             self.fields['date_recette'].required = False
+#             self.fields['date_debut_decade'].required = True
+#             self.fields['date_fin_decade'].required = True
+            
+#             # Masquer visuellement le champ date_recette
+#             self.fields['date_recette'].widget.attrs['style'] = 'display:none;'
+        
+#         else:
+#             # Par défaut : tous optionnels
+#             self.fields['date_recette'].required = False
+#             self.fields['date_debut_decade'].required = False
+#             self.fields['date_fin_decade'].required = False
+    
+#     def clean(self):
+#         cleaned_data = super().clean()
+        
+#         # Validation selon type de déclaration
+#         if self.type_declaration == 'journaliere':
+#             # Vérifier que date_recette est fournie
+#             if not cleaned_data.get('date_recette'):
+#                 raise forms.ValidationError(
+#                     "La date de recette est obligatoire pour une déclaration journalière"
+#                 )
+            
+#             # Nettoyer les champs décade
+#             cleaned_data['date_debut_decade'] = None
+#             cleaned_data['date_fin_decade'] = None
+        
+#         elif self.type_declaration == 'decade':
+#             # Vérifier que les dates de décade sont fournies
+#             date_debut = cleaned_data.get('date_debut_decade')
+#             date_fin = cleaned_data.get('date_fin_decade')
+            
+#             if not date_debut:
+#                 raise forms.ValidationError(
+#                     "La date de début de décade est obligatoire"
+#                 )
+            
+#             if not date_fin:
+#                 raise forms.ValidationError(
+#                     "La date de fin de décade est obligatoire"
+#                 )
+            
+#             # Vérifier cohérence des dates
+#             if date_debut and date_fin and date_debut > date_fin:
+#                 raise forms.ValidationError(
+#                     "La date de début doit être antérieure à la date de fin"
+#                 )
+            
+#             # Nettoyer le champ date_recette
+#             cleaned_data['date_recette'] = None
+        
+#         return cleaned_data
+
+# Dans inventaire/forms.py - Formulaire complet pour Quittancement
+
 class QuittancementForm(forms.ModelForm):
     """
-    Formulaire pour la saisie d'un quittancement
-    
-    CORRECTION : Les champs exercice et type_declaration sont EXCLUS
-    car ils sont définis globalement à l'étape 1
+    Formulaire pour saisir un quittancement
+    Gère les champs conditionnels selon le type de déclaration
     """
     
     class Meta:
         model = Quittancement
         fields = [
-            'poste',
             'numero_quittance',
-            'date_quittancement',
+            'date_quittancement', 
+            'poste',
             'montant',
-            'date_recette',           # Pour type journalière
-            'date_debut_decade',      # Pour type décade
-            'date_fin_decade',        # Pour type décade
+            'date_recette',           # Pour type JOURNALIERE
+            'date_debut_decade',      # Pour type DÉCADE
+            'date_fin_decade',        # Pour type DÉCADE
+            'observations',           # AJOUT du champ observations
             'image_quittance',
         ]
-        # IMPORTANT : exercice et type_declaration sont EXCLUS
-        
         widgets = {
-            'poste': forms.Select(attrs={
-                'class': 'form-select',
-                'required': True
-            }),
             'numero_quittance': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': _('Ex: H6398859'),
-                'required': True
+                'placeholder': 'Ex: H12345678',
             }),
             'date_quittancement': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date',
-                'required': True
+                'max': '9999-12-31',  # Pour éviter les problèmes de validation
+            }),
+            'poste': forms.Select(attrs={
+                'class': 'form-select',
             }),
             'montant': forms.NumberInput(attrs={
                 'class': 'form-control',
-                'placeholder': '0',
+                'step': '1',
                 'min': '0',
-                'step': '0.01',
-                'required': True
+                'placeholder': '0',
             }),
             'date_recette': forms.DateInput(attrs={
-                'class': 'form-control',
+                'class': 'form-control date-recette-field',
                 'type': 'date',
             }),
             'date_debut_decade': forms.DateInput(attrs={
-                'class': 'form-control',
+                'class': 'form-control date-decade-field',
                 'type': 'date',
             }),
             'date_fin_decade': forms.DateInput(attrs={
-                'class': 'form-control',
+                'class': 'form-control date-decade-field',
                 'type': 'date',
-            }),
-            'mois': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'month',
-            }),
-            'image_quittance': forms.FileInput(attrs={
-                'class': 'form-control',
-                'accept': 'image/*,application/pdf'
             }),
             'observations': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
-                'placeholder': _('Notes ou commentaires (optionnel)')
+                'placeholder': 'Observations (optionnel)',
             }),
-        }
-        
-        labels = {
-            'poste': _('Poste'),
-            'numero_quittance': _('Numéro de quittance'),
-            'date_quittancement': _('Date de quittancement'),
-            'montant': _('Montant quittancé (FCFA)'),
-            'date_recette': _('Date de la recette'),
-            'date_debut_decade': _('Date début décade'),
-            'date_fin_decade': _('Date fin décade'),
-            'mois': _('Mois'),
-            'image_quittance': _('Image de la quittance'),
-            'observations': _('Observations'),
-        }
-        
-        help_texts = {
-            'numero_quittance': _('Numéro unique du document de quittancement'),
-            'date_quittancement': _('Date du jour du quittancement'),
-            'montant': _('Montant en FCFA'),
-            'date_recette': _('Si type = JOUR'),
-            'date_debut_decade': _('Si type = DÉCADE'),
-            'date_fin_decade': _('Si type = DÉCADE'),
-            'mois': _('Si type = MENSUELLE'),
-            'image_quittance': _('Document scanné (optionnel)'),
+            'image_quittance': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*,.pdf',
+            }),
         }
     
     def __init__(self, *args, **kwargs):
-        """
-        Personnalisation du formulaire à l'initialisation
-        """
         user = kwargs.pop('user', None)
+        type_declaration = kwargs.pop('type_declaration', None)
         super().__init__(*args, **kwargs)
         
-        # Filtrer les postes selon les permissions
+        # Stocker le type pour validation
+        self.type_declaration = type_declaration
+        
+        # Gestion des postes selon permissions
         if user:
             if user.is_admin:
                 self.fields['poste'].queryset = Poste.objects.filter(is_active=True)
             elif user.poste_affectation:
-                # Chef de poste : seulement son poste
                 self.fields['poste'].queryset = Poste.objects.filter(
                     id=user.poste_affectation.id
                 )
-                # Pré-remplir et désactiver le champ
                 self.fields['poste'].initial = user.poste_affectation
-                self.fields['poste'].disabled = True
             else:
                 self.fields['poste'].queryset = Poste.objects.none()
         
-        # Rendre certains champs non requis par défaut
-        # Ils seront requis conditionnellement selon le type de déclaration
-        self.fields['date_recette'].required = False
-        self.fields['date_debut_decade'].required = False
-        self.fields['date_fin_decade'].required = False
+        # LOGIQUE CONDITIONNELLE SELON TYPE DE DÉCLARATION
+        if type_declaration == 'journaliere':
+            # Type JOUR : date_recette obligatoire, décades désactivées
+            self.fields['date_recette'].required = True
+            self.fields['date_debut_decade'].required = False
+            self.fields['date_fin_decade'].required = False
+            
+        elif type_declaration == 'decade':
+            # Type DÉCADE : décades obligatoires, date_recette désactivée
+            self.fields['date_recette'].required = False
+            self.fields['date_debut_decade'].required = True
+            self.fields['date_fin_decade'].required = True
+        
+        else:
+            # Par défaut : tous optionnels
+            self.fields['date_recette'].required = False
+            self.fields['date_debut_decade'].required = False
+            self.fields['date_fin_decade'].required = False
+        
+        # Le champ observations est toujours optionnel
+        self.fields['observations'].required = False
+        
+        # L'image est optionnelle
         self.fields['image_quittance'].required = False
-
+    
     def clean(self):
         cleaned_data = super().clean()
-        type_declaration = cleaned_data.get('type_declaration')
-        montant = cleaned_data.get('montant')
-
-
-        if montant is not None and montant <= 0:
-            raise forms.ValidationError(
-                _('Le montant doit être supérieur à zéro')
-            )
-        # Validation selon type
-        if type_declaration == TypeDeclaration.JOUR:
-            if not cleaned_data.get('date_recette'):
-                raise forms.ValidationError("Date de recette obligatoire pour type JOUR")
+        from django.utils import timezone
         
-        elif type_declaration == TypeDeclaration.DECADE:
-            if not cleaned_data.get('date_debut_decade') or not cleaned_data.get('date_fin_decade'):
-                raise forms.ValidationError("Dates début et fin obligatoires pour type DECADE")
+        today = timezone.now().date()
+        
+        # Vérifier les dates futures
+        date_quittancement = cleaned_data.get('date_quittancement')
+        if date_quittancement and date_quittancement > today:
+            self.add_error('date_quittancement', "La date de quittancement ne peut pas être dans le futur.")
+        
+        # Validation selon type de déclaration
+        if self.type_declaration == 'journaliere':
+            date_recette = cleaned_data.get('date_recette')
+            
+            if not date_recette:
+                self.add_error('date_recette', "La date de recette est obligatoire pour une déclaration journalière.")
+            elif date_recette > today:
+                self.add_error('date_recette', "La date de recette ne peut pas être dans le futur.")
+            
+            # Vérifier l'unicité pour ce jour et ce poste
+            if date_recette and cleaned_data.get('poste'):
+                existing = Quittancement.objects.filter(
+                    poste=cleaned_data['poste'],
+                    type_declaration='journaliere',
+                    date_recette=date_recette
+                ).exclude(pk=self.instance.pk if self.instance.pk else None)
+                
+                if existing.exists():
+                    self.add_error('date_recette', 
+                        f"Un quittancement existe déjà pour le {date_recette.strftime('%d/%m/%Y')} sur ce poste.")
+            
+            # Nettoyer les champs décade
+            cleaned_data['date_debut_decade'] = None
+            cleaned_data['date_fin_decade'] = None
+        
+        elif self.type_declaration == 'decade':
+            date_debut = cleaned_data.get('date_debut_decade')
+            date_fin = cleaned_data.get('date_fin_decade')
+            
+            if not date_debut:
+                self.add_error('date_debut_decade', "La date de début de décade est obligatoire.")
+            elif date_debut > today:
+                self.add_error('date_debut_decade', "La date de début ne peut pas être dans le futur.")
+            
+            if not date_fin:
+                self.add_error('date_fin_decade', "La date de fin de décade est obligatoire.")
+            elif date_fin > today:
+                self.add_error('date_fin_decade', "La date de fin ne peut pas être dans le futur.")
+            
+            # Vérifier cohérence des dates
+            if date_debut and date_fin and date_debut > date_fin:
+                self.add_error('date_fin_decade', "La date de fin doit être après la date de début.")
+            
+            # Vérifier les chevauchements pour ce poste
+            if date_debut and date_fin and cleaned_data.get('poste'):
+                chevauchements = Quittancement.objects.filter(
+                    poste=cleaned_data['poste'],
+                    type_declaration='decade'
+                ).exclude(pk=self.instance.pk if self.instance.pk else None)
+                
+                for q in chevauchements:
+                    if (date_debut <= q.date_fin_decade and date_fin >= q.date_debut_decade):
+                        self.add_error('date_debut_decade',
+                            f"Cette période chevauche avec le quittancement {q.numero_quittance} "
+                            f"({q.date_debut_decade.strftime('%d/%m/%Y')} au "
+                            f"{q.date_fin_decade.strftime('%d/%m/%Y')})")
+                        break
+            
+            # Nettoyer le champ date_recette
+            cleaned_data['date_recette'] = None
         
         return cleaned_data
-
-
+    
 class JustificationEcartForm(forms.ModelForm):
     """Formulaire pour justifier un écart"""
     

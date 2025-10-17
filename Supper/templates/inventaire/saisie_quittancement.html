@@ -418,40 +418,189 @@
 
 {% block extra_js %}
 <script>
+// ============================================================================
+// SCRIPT COMPLET - SAISIE QUITTANCEMENT
+// Gestion formset dynamique + Affichage conditionnel selon type déclaration
+// ============================================================================
+
 document.addEventListener('DOMContentLoaded', function() {
     
-    // ================================================================
-    // GESTION DU FORMSET DYNAMIQUE
-    // ================================================================
+    // ========================================================================
+    // RÉCUPÉRATION DES ÉLÉMENTS DU DOM
+    // ========================================================================
     
     const formsetContainer = document.getElementById('formset-container');
     const addFormBtn = document.getElementById('add-form-btn');
     const totalFormsInput = document.getElementById('id_form-TOTAL_FORMS');
+    const typeDeclaration = '{{ type_declaration }}';
     
+    // Vérification des éléments essentiels
     if (!formsetContainer || !addFormBtn || !totalFormsInput) {
-        console.warn('Éléments formset non trouvés');
+        console.warn('⚠️ Éléments formset non trouvés - Mode lecture seule');
         return;
     }
     
     let formCount = parseInt(totalFormsInput.value);
     
-    // ================================================================
-    // FONCTION : AJOUTER UN FORMULAIRE
-    // ================================================================
+    console.log('🔧 Configuration:', {
+        typeDeclaration: typeDeclaration,
+        formCount: formCount
+    });
+    
+    // ========================================================================
+    // FONCTION : AFFICHER/MASQUER CHAMPS SELON TYPE DÉCLARATION
+    // ========================================================================
+    
+    function toggleFieldsByType(form) {
+        console.log('🔄 Application de la logique conditionnelle...');
+        
+        // Récupération des champs et leurs conteneurs
+        const dateRecetteInput = form.querySelector('[name*="date_recette"]');
+        const dateDebutInput = form.querySelector('[name*="date_debut_decade"]');
+        const dateFinInput = form.querySelector('[name*="date_fin_decade"]');
+        const moisInput = form.querySelector('[name*="mois"]');
+        
+        // Recherche des conteneurs parents (col-md-6 ou mb-3)
+        const dateRecetteContainer = dateRecetteInput ? 
+            dateRecetteInput.closest('.col-md-6, .mb-3') : null;
+        const dateDebutContainer = dateDebutInput ? 
+            dateDebutInput.closest('.col-md-6, .mb-3') : null;
+        const dateFinContainer = dateFinInput ? 
+            dateFinInput.closest('.col-md-6, .mb-3') : null;
+        const moisContainer = moisInput ? 
+            moisInput.closest('.col-md-6, .mb-3') : null;
+        
+        // ====================================================================
+        // MASQUER LE CHAMP MOIS (toujours caché - défini globalement)
+        // ====================================================================
+        if (moisContainer) {
+            moisContainer.style.display = 'none';
+            if (moisInput) {
+                moisInput.required = false;
+                moisInput.disabled = true;
+            }
+        }
+        
+        // ====================================================================
+        // TYPE JOURNALIÈRE (JOUR)
+        // ====================================================================
+        if (typeDeclaration === 'journaliere') {
+            console.log('✅ Mode JOUR activé');
+            
+            // AFFICHER : date_recette
+            if (dateRecetteContainer) {
+                dateRecetteContainer.style.display = 'block';
+                dateRecetteContainer.style.visibility = 'visible';
+                
+                if (dateRecetteInput) {
+                    dateRecetteInput.required = true;
+                    dateRecetteInput.disabled = false;
+                    dateRecetteInput.style.display = 'block';
+                }
+            }
+            
+            // MASQUER : date_debut_decade
+            if (dateDebutContainer) {
+                dateDebutContainer.style.display = 'none';
+                
+                if (dateDebutInput) {
+                    dateDebutInput.required = false;
+                    dateDebutInput.disabled = true;
+                    dateDebutInput.value = '';
+                }
+            }
+            
+            // MASQUER : date_fin_decade
+            if (dateFinContainer) {
+                dateFinContainer.style.display = 'none';
+                
+                if (dateFinInput) {
+                    dateFinInput.required = false;
+                    dateFinInput.disabled = true;
+                    dateFinInput.value = '';
+                }
+            }
+        }
+        
+        // ====================================================================
+        // TYPE DÉCADE
+        // ====================================================================
+        else if (typeDeclaration === 'decade') {
+            console.log('✅ Mode DÉCADE activé');
+            
+            // MASQUER : date_recette
+            if (dateRecetteContainer) {
+                dateRecetteContainer.style.display = 'none';
+                
+                if (dateRecetteInput) {
+                    dateRecetteInput.required = false;
+                    dateRecetteInput.disabled = true;
+                    dateRecetteInput.value = '';
+                }
+            }
+            
+            // AFFICHER : date_debut_decade
+            if (dateDebutContainer) {
+                dateDebutContainer.style.display = 'block';
+                dateDebutContainer.style.visibility = 'visible';
+                
+                if (dateDebutInput) {
+                    dateDebutInput.required = true;
+                    dateDebutInput.disabled = false;
+                    dateDebutInput.style.display = 'block';
+                }
+            }
+            
+            // AFFICHER : date_fin_decade
+            if (dateFinContainer) {
+                dateFinContainer.style.display = 'block';
+                dateFinContainer.style.visibility = 'visible';
+                
+                if (dateFinInput) {
+                    dateFinInput.required = true;
+                    dateFinInput.disabled = false;
+                    dateFinInput.style.display = 'block';
+                }
+            }
+        }
+        
+        // ====================================================================
+        // TYPE MENSUELLE (si implémenté plus tard)
+        // ====================================================================
+        else if (typeDeclaration === 'mensuelle') {
+            console.log('✅ Mode MENSUELLE activé');
+            
+            // Masquer tous les champs de date
+            [dateRecetteContainer, dateDebutContainer, dateFinContainer].forEach(container => {
+                if (container) container.style.display = 'none';
+            });
+            
+            [dateRecetteInput, dateDebutInput, dateFinInput].forEach(input => {
+                if (input) {
+                    input.required = false;
+                    input.disabled = true;
+                    input.value = '';
+                }
+            });
+        }
+    }
+    
+    // ========================================================================
+    // FONCTION : AJOUTER UN NOUVEAU FORMULAIRE
+    // ========================================================================
+    
     function addForm() {
         const firstForm = formsetContainer.querySelector('.quittancement-form');
         if (!firstForm) {
-            console.error('Formulaire template non trouvé');
+            console.error('❌ Formulaire template non trouvé');
             return;
         }
         
         const newForm = firstForm.cloneNode(true);
-        
-        // Mettre à jour les indices
         const formRegex = /form-(\d+)-/g;
         newForm.innerHTML = newForm.innerHTML.replace(formRegex, `form-${formCount}-`);
         
-        // Réinitialiser les valeurs
+        // Réinitialiser tous les champs
         newForm.querySelectorAll('input, select, textarea').forEach(input => {
             if (input.type === 'checkbox') {
                 input.checked = false;
@@ -466,11 +615,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 input.id = input.id.replace(/id_form-\d+-/, `id_form-${formCount}-`);
             }
             
-            // Enlever la classe d'erreur
             input.classList.remove('is-invalid');
+            input.setCustomValidity('');
         });
         
-        // Mettre à jour les labels
+        // Mise à jour des labels
         newForm.querySelectorAll('label').forEach(label => {
             if (label.getAttribute('for')) {
                 label.setAttribute('for', 
@@ -482,7 +631,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Supprimer les messages d'erreur
         newForm.querySelectorAll('.errorlist, .alert-danger').forEach(el => el.remove());
         
-        // Mettre à jour le numéro
+        // Mise à jour du numéro
         const formNumber = newForm.querySelector('.form-number');
         if (formNumber) {
             formNumber.textContent = `{% trans "Quittancement" %} ${formCount + 1}`;
@@ -492,6 +641,8 @@ document.addEventListener('DOMContentLoaded', function() {
         formCount++;
         totalFormsInput.value = formCount;
         
+        // IMPORTANT : Appliquer la logique conditionnelle au nouveau formulaire
+        toggleFieldsByType(newForm);
         attachFormEvents(newForm);
         
         // Animation
@@ -504,13 +655,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 10);
         
         newForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
         updateTotal();
     }
     
-    // ================================================================
+    // ========================================================================
     // FONCTION : SUPPRIMER UN FORMULAIRE
-    // ================================================================
+    // ========================================================================
+    
     function removeForm(form) {
         const forms = formsetContainer.querySelectorAll('.quittancement-form');
         if (forms.length <= 1) {
@@ -531,11 +682,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     }
     
-    // ================================================================
+    // ========================================================================
     // FONCTION : RENUMÉROTER LES FORMULAIRES
-    // ================================================================
+    // ========================================================================
+    
     function renumberForms() {
         const forms = formsetContainer.querySelectorAll('.quittancement-form');
+        
         forms.forEach((form, index) => {
             const formNumber = form.querySelector('.form-number');
             if (formNumber) {
@@ -564,11 +717,13 @@ document.addEventListener('DOMContentLoaded', function() {
         totalFormsInput.value = formCount;
     }
     
-    // ================================================================
-    // FONCTION : ATTACHER LES ÉVÉNEMENTS
-    // ================================================================
+    // ========================================================================
+    // FONCTION : ATTACHER LES ÉVÉNEMENTS À UN FORMULAIRE
+    // ========================================================================
+    
     function attachFormEvents(form) {
-        // Bouton supprimer
+        
+        // Bouton Supprimer
         const deleteBtn = form.querySelector('.delete-form-btn');
         if (deleteBtn) {
             deleteBtn.addEventListener('click', function(e) {
@@ -579,7 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Validation du montant
+        // Validation du Montant
         const montantInput = form.querySelector('input[name*="montant"]');
         if (montantInput) {
             montantInput.addEventListener('input', function() {
@@ -595,7 +750,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Validation du numéro de quittance
+        // Validation du Numéro de Quittance (unicité)
         const numeroInput = form.querySelector('input[name*="numero_quittance"]');
         if (numeroInput) {
             numeroInput.addEventListener('blur', function() {
@@ -605,7 +760,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         formsetContainer.querySelectorAll('input[name*="numero_quittance"]')
                     ).filter(input => input !== this);
                     
-                    const duplicate = allNumeros.some(input => input.value.trim() === numero);
+                    const duplicate = allNumeros.some(input => 
+                        input.value.trim() === numero
+                    );
                     
                     if (duplicate) {
                         this.setCustomValidity('{% trans "Ce numéro existe déjà dans la saisie" %}');
@@ -618,20 +775,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
+        
+        // Validation Dates Décade (cohérence)
+        const dateDebutInput = form.querySelector('[name*="date_debut_decade"]');
+        const dateFinInput = form.querySelector('[name*="date_fin_decade"]');
+        
+        if (dateDebutInput && dateFinInput) {
+            const validateDates = function() {
+                const debut = dateDebutInput.value;
+                const fin = dateFinInput.value;
+                
+                if (debut && fin && debut > fin) {
+                    dateFinInput.setCustomValidity(
+                        '{% trans "La date de fin doit être postérieure à la date de début" %}'
+                    );
+                    dateFinInput.classList.add('is-invalid');
+                } else {
+                    dateFinInput.setCustomValidity('');
+                    dateFinInput.classList.remove('is-invalid');
+                }
+            };
+            
+            dateDebutInput.addEventListener('change', validateDates);
+            dateFinInput.addEventListener('change', validateDates);
+        }
     }
     
-    // ================================================================
+    // ========================================================================
     // FONCTION : METTRE À JOUR LES TOTAUX
-    // ================================================================
+    // ========================================================================
+    
     function updateTotal() {
         let total = 0;
         let count = 0;
         
         formsetContainer.querySelectorAll('.quittancement-form').forEach(form => {
             const deleteCheckbox = form.querySelector('input[name*="DELETE"]');
-            if (deleteCheckbox && deleteCheckbox.checked) {
-                return;
-            }
+            if (deleteCheckbox && deleteCheckbox.checked) return;
             
             const montantInput = form.querySelector('input[name*="montant"]');
             if (montantInput && montantInput.value) {
@@ -657,16 +837,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ================================================================
+    // ========================================================================
     // INITIALISATION
-    // ================================================================
+    // ========================================================================
     
-    // Attacher événements aux formulaires existants
+    // Appliquer la logique conditionnelle aux formulaires existants
     formsetContainer.querySelectorAll('.quittancement-form').forEach(form => {
+        toggleFieldsByType(form);
         attachFormEvents(form);
     });
     
-    // Événement bouton ajouter
+    // Événement : Bouton Ajouter
     addFormBtn.addEventListener('click', function(e) {
         e.preventDefault();
         
@@ -692,12 +873,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Calcul initial
+    // Calcul initial des totaux
     updateTotal();
     
-    // ================================================================
+    // ========================================================================
+    // OBSERVER : Surveiller l'ajout dynamique de formulaires
+    // ========================================================================
+    
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            mutation.addedNodes.forEach(function(node) {
+                if (node.nodeType === 1 && node.classList && 
+                    node.classList.contains('quittancement-form')) {
+                    toggleFieldsByType(node);
+                }
+            });
+        });
+    });
+    
+    observer.observe(formsetContainer, {
+        childList: true,
+        subtree: false
+    });
+    
+    // ========================================================================
     // VALIDATION GLOBALE DU FORMULAIRE
-    // ================================================================
+    // ========================================================================
     
     const mainForm = document.getElementById('formset-form');
     if (mainForm) {
@@ -709,17 +910,50 @@ document.addEventListener('DOMContentLoaded', function() {
                 const deleteCheckbox = formDiv.querySelector('input[name*="DELETE"]');
                 if (deleteCheckbox && deleteCheckbox.checked) return;
                 
+                // Validation numéro de quittance
                 const numeroInput = formDiv.querySelector('input[name*="numero_quittance"]');
                 if (!numeroInput || !numeroInput.value.trim()) {
-                    errorMessages.push(`{% trans "Ligne" %} ${index + 1}: {% trans "Numéro de quittance requis" %}`);
+                    errorMessages.push(
+                        `{% trans "Ligne" %} ${index + 1}: {% trans "Numéro de quittance requis" %}`
+                    );
                 }
                 
+                // Validation montant
                 const montantInput = formDiv.querySelector('input[name*="montant"]');
                 if (!montantInput || !montantInput.value || parseFloat(montantInput.value) <= 0) {
-                    errorMessages.push(`{% trans "Ligne" %} ${index + 1}: {% trans "Montant invalide" %}`);
+                    errorMessages.push(
+                        `{% trans "Ligne" %} ${index + 1}: {% trans "Montant invalide" %}`
+                    );
                 }
                 
-                if (numeroInput && numeroInput.value.trim() && montantInput && montantInput.value && parseFloat(montantInput.value) > 0) {
+                // Validation conditionnelle selon type de déclaration
+                if (typeDeclaration === 'journaliere') {
+                    const dateRecette = formDiv.querySelector('[name*="date_recette"]');
+                    if (!dateRecette || !dateRecette.value) {
+                        errorMessages.push(
+                            `{% trans "Ligne" %} ${index + 1}: {% trans "Date de recette requise" %}`
+                        );
+                    }
+                } else if (typeDeclaration === 'decade') {
+                    const dateDebut = formDiv.querySelector('[name*="date_debut_decade"]');
+                    const dateFin = formDiv.querySelector('[name*="date_fin_decade"]');
+                    
+                    if (!dateDebut || !dateDebut.value) {
+                        errorMessages.push(
+                            `{% trans "Ligne" %} ${index + 1}: {% trans "Date de début de décade requise" %}`
+                        );
+                    }
+                    
+                    if (!dateFin || !dateFin.value) {
+                        errorMessages.push(
+                            `{% trans "Ligne" %} ${index + 1}: {% trans "Date de fin de décade requise" %}`
+                        );
+                    }
+                }
+                
+                // Compter les formulaires valides
+                if (numeroInput && numeroInput.value.trim() && 
+                    montantInput && montantInput.value && parseFloat(montantInput.value) > 0) {
                     hasValidForm = true;
                 }
             });
@@ -732,11 +966,15 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (errorMessages.length > 0) {
                 e.preventDefault();
-                let errorHtml = '<div class="alert alert-danger alert-dismissible fade show"><strong>{% trans "Erreurs de validation" %}:</strong><ul>';
+                
+                let errorHtml = '<div class="alert alert-danger alert-dismissible fade show">';
+                errorHtml += '<strong>{% trans "Erreurs de validation" %}:</strong><ul>';
                 errorMessages.forEach(msg => {
                     errorHtml += `<li>${msg}</li>`;
                 });
-                errorHtml += '</ul><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+                errorHtml += '</ul>';
+                errorHtml += '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                errorHtml += '</div>';
                 
                 const container = document.querySelector('.container-fluid');
                 if (container) {
@@ -752,84 +990,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    console.log('✅ Formset dynamique initialisé');
-});
-// Gérer l'affichage conditionnel des champs selon le type de déclaration
-document.addEventListener('DOMContentLoaded', function() {
-    const typeDeclaration = '{{ type_declaration }}';
-    
-    // Fonction pour montrer/cacher les champs selon le type
-    function toggleFieldsByType() {
-        document.querySelectorAll('.quittancement-form').forEach(form => {
-            // Champs pour type JOUR
-            const dateRecette = form.querySelector('[name*="date_recette"]');
-            const dateRecetteContainer = dateRecette ? dateRecette.closest('.col-md-6') : null;
-            
-            // Champs pour type DÉCADE
-            const dateDebutDecade = form.querySelector('[name*="date_debut_decade"]');
-            const dateFinDecade = form.querySelector('[name*="date_fin_decade"]');
-            const dateDebutContainer = dateDebutDecade ? dateDebutDecade.closest('.col-md-6') : null;
-            const dateFinContainer = dateFinDecade ? dateFinDecade.closest('.col-md-6') : null;
-            
-            // Champ mois (toujours caché car défini globalement)
-            const moisField = form.querySelector('[name*="mois"]');
-            const moisContainer = moisField ? moisField.closest('.col-md-6') : null;
-            if (moisContainer) {
-                moisContainer.style.display = 'none';
-            }
-            
-            if (typeDeclaration === 'journaliere') {
-                // Type JOUR : Afficher date_recette, cacher décades
-                if (dateRecetteContainer) {
-                    dateRecetteContainer.style.display = 'block';
-                    if (dateRecette) dateRecette.required = true;
-                }
-                if (dateDebutContainer) {
-                    dateDebutContainer.style.display = 'none';
-                    if (dateDebutDecade) dateDebutDecade.required = false;
-                }
-                if (dateFinContainer) {
-                    dateFinContainer.style.display = 'none';
-                    if (dateFinDecade) dateFinDecade.required = false;
-                }
-            } else if (typeDeclaration === 'decade') {
-                // Type DÉCADE : Cacher date_recette, afficher décades
-                if (dateRecetteContainer) {
-                    dateRecetteContainer.style.display = 'none';
-                    if (dateRecette) dateRecette.required = false;
-                }
-                if (dateDebutContainer) {
-                    dateDebutContainer.style.display = 'block';
-                    if (dateDebutDecade) dateDebutDecade.required = true;
-                }
-                if (dateFinContainer) {
-                    dateFinContainer.style.display = 'block';
-                    if (dateFinDecade) dateFinDecade.required = true;
-                }
-            }
-        });
-    }
-    
-    // Appliquer au chargement
-    toggleFieldsByType();
-    
-    // Réappliquer lors de l'ajout d'un nouveau formulaire
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.addedNodes.length) {
-                mutation.addedNodes.forEach(function(node) {
-                    if (node.classList && node.classList.contains('quittancement-form')) {
-                        toggleFieldsByType();
-                    }
-                });
-            }
-        });
-    });
-    
-    const formsetContainer = document.getElementById('formset-container');
-    if (formsetContainer) {
-        observer.observe(formsetContainer, { childList: true });
-    }
+    console.log('✅ Formset dynamique initialisé avec succès');
 });
 </script>
 {% endblock %}

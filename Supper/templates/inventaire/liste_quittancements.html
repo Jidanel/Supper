@@ -53,6 +53,11 @@
         color: white;
     }
     
+    .stat-card.info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
     .stat-card h3 {
         font-size: 2rem;
         margin-bottom: 0.5rem;
@@ -76,7 +81,6 @@
     
     .table-quittances tbody tr:hover {
         background: #f8f9fa;
-        transform: scale(1.01);
     }
     
     .badge-type {
@@ -97,33 +101,6 @@
     .pagination {
         justify-content: center;
         margin-top: 2rem;
-    }
-    
-    .filter-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        color: white;
-        padding: 0.5rem 1.5rem;
-        border-radius: 5px;
-        transition: all 0.3s ease;
-    }
-    
-    .filter-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-    }
-    
-    .reset-btn {
-        background: #6c757d;
-        border: none;
-        color: white;
-        padding: 0.5rem 1.5rem;
-        border-radius: 5px;
-    }
-    
-    @media print {
-        .btn, .filter-card, .page-header { display: none; }
-        .table-quittances { box-shadow: none; }
     }
 </style>
 {% endblock %}
@@ -166,6 +143,12 @@
             <small>FCFA</small>
         </div>
         
+        <div class="stat-card info">
+            <p class="mb-2">{% trans "Mois en cours" %}</p>
+            <h3>{% now "F Y" %}</h3>
+            <small>{% trans "Période actuelle" %}</small>
+        </div>
+        
         <div class="stat-card">
             <p class="mb-2">{% trans "Exercice" %}</p>
             <h3>{{ exercice_courant }}</h3>
@@ -173,7 +156,7 @@
         </div>
     </div>
 
-    <!-- Filtres -->
+    <!-- Filtres améliorés -->
     <div class="filter-card">
         <h5 class="mb-3">
             <i class="fas fa-filter me-2"></i>
@@ -182,6 +165,7 @@
         
         <form method="get" action="{% url 'inventaire:liste_quittancements' %}">
             <div class="row g-3">
+                
                 <!-- Filtre Poste (Admin seulement) -->
                 {% if postes %}
                 <div class="col-md-3">
@@ -198,10 +182,10 @@
                 {% endif %}
                 
                 <!-- Filtre Exercice -->
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">{% trans "Exercice" %}</label>
                     <select name="exercice" class="form-select">
-                        <option value="">{% trans "Tous les exercices" %}</option>
+                        <option value="">{% trans "Tous" %}</option>
                         {% for year in years_range %}
                         <option value="{{ year }}" {% if request.GET.exercice == year|stringformat:"s" %}selected{% endif %}>
                             {{ year }}
@@ -210,33 +194,102 @@
                     </select>
                 </div>
                 
-                <!-- Filtre Type Déclaration -->
+                <!-- NOUVEAU : Filtre par Mois -->
                 <div class="col-md-3">
-                    <label class="form-label">{% trans "Type de déclaration" %}</label>
+                    <label class="form-label">{% trans "Mois" %}</label>
+                    <input type="month" 
+                           name="mois" 
+                           class="form-control"
+                           value="{{ request.GET.mois }}"
+                           max="{% now 'Y-m' %}">
+                </div>
+                
+                <!-- Filtre Type Déclaration -->
+                <div class="col-md-2">
+                    <label class="form-label">{% trans "Type" %}</label>
                     <select name="type_declaration" class="form-select">
-                        <option value="">{% trans "Tous les types" %}</option>
-                        {% for value, label in types_declaration %}
-                        <option value="{{ value }}" {% if request.GET.type_declaration == value %}selected{% endif %}>
-                            {{ label }}
+                        <option value="">{% trans "Tous" %}</option>
+                        <option value="journaliere" {% if request.GET.type_declaration == 'journaliere' %}selected{% endif %}>
+                            {% trans "Journalière" %}
                         </option>
-                        {% endfor %}
+                        <option value="decade" {% if request.GET.type_declaration == 'decade' %}selected{% endif %}>
+                            {% trans "Décade" %}
+                        </option>
                     </select>
                 </div>
                 
                 <!-- Boutons -->
-                <div class="col-md-3 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn filter-btn flex-fill">
-                        <i class="fas fa-search me-1"></i>
+                <div class="col-md-2 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary flex-fill">
+                        <i class="fas fa-search"></i>
                         {% trans "Filtrer" %}
                     </button>
-                    <a href="{% url 'inventaire:liste_quittancements' %}" class="btn reset-btn">
-                        <i class="fas fa-redo me-1"></i>
-                        {% trans "Réinitialiser" %}
+                    <a href="{% url 'inventaire:liste_quittancements' %}" 
+                       class="btn btn-outline-secondary" 
+                       title="{% trans 'Réinitialiser' %}">
+                        <i class="fas fa-redo"></i>
                     </a>
+                </div>
+            </div>
+            
+            <!-- Ligne supplémentaire pour filtres avancés -->
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Date début" %}</label>
+                    <input type="date" 
+                           name="date_debut" 
+                           class="form-control"
+                           value="{{ request.GET.date_debut }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Date fin" %}</label>
+                    <input type="date" 
+                           name="date_fin" 
+                           class="form-control"
+                           value="{{ request.GET.date_fin }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Numéro quittance" %}</label>
+                    <input type="text" 
+                           name="numero" 
+                           class="form-control"
+                           placeholder="Ex: H12345678"
+                           value="{{ request.GET.numero }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Montant min (FCFA)" %}</label>
+                    <input type="number" 
+                           name="montant_min" 
+                           class="form-control"
+                           placeholder="0"
+                           value="{{ request.GET.montant_min }}">
                 </div>
             </div>
         </form>
     </div>
+
+    <!-- Résumé des filtres actifs -->
+    {% if request.GET %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <strong>{% trans "Filtres actifs :" %}</strong>
+        {% if request.GET.poste %}
+            <span class="badge bg-primary ms-2">Poste: {{ request.GET.poste }}</span>
+        {% endif %}
+        {% if request.GET.mois %}
+            <span class="badge bg-primary ms-2">Mois: {{ request.GET.mois }}</span>
+        {% endif %}
+        {% if request.GET.exercice %}
+            <span class="badge bg-primary ms-2">Exercice: {{ request.GET.exercice }}</span>
+        {% endif %}
+        {% if request.GET.type_declaration %}
+            <span class="badge bg-primary ms-2">Type: {{ request.GET.type_declaration }}</span>
+        {% endif %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
 
     <!-- Tableau des quittancements -->
     <div class="table-responsive">
@@ -245,12 +298,12 @@
                 <tr>
                     <th>{% trans "N° Quittance" %}</th>
                     <th>{% trans "Poste" %}</th>
-                    <th>{% trans "Date" %}</th>
+                    <th>{% trans "Date Quittancement" %}</th>
+                    <th>{% trans "Mois" %}</th>
                     <th>{% trans "Type" %}</th>
                     <th>{% trans "Période" %}</th>
                     <th class="text-end">{% trans "Montant" %}</th>
                     <th>{% trans "Saisi par" %}</th>
-                    <th>{% trans "Date Saisie" %}</th>
                     <th class="text-center">{% trans "Document" %}</th>
                     <th class="text-center">{% trans "Actions" %}</th>
                 </tr>
@@ -264,8 +317,15 @@
                     <td>{{ quittancement.poste.nom }}</td>
                     <td>{{ quittancement.date_quittancement|date:"d/m/Y" }}</td>
                     <td>
+                        <span class="badge bg-secondary">{{ quittancement.mois }}</span>
+                    </td>
+                    <td>
                         <span class="badge badge-type bg-info">
-                            {{ quittancement.get_type_declaration_display }}
+                            {% if quittancement.type_declaration == 'journaliere' %}
+                                {% trans "Journalière" %}
+                            {% else %}
+                                {% trans "Décade" %}
+                            {% endif %}
                         </span>
                     </td>
                     <td>{{ quittancement.get_periode_display }}</td>
@@ -274,22 +334,16 @@
                     </td>
                     <td>
                         {% if quittancement.saisi_par %}
-                            <i class="fas fa-user me-1"></i>
-                            {{ quittancement.saisi_par.nom_complet }}
+                            <small>{{ quittancement.saisi_par.nom_complet }}</small>
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
-                    </td>
-                    <td>
-                        <small class="text-muted">
-                            {{ quittancement.date_saisie|date:"d/m/Y H:i" }}
-                        </small>
                     </td>
                     <td class="text-center">
                         {% if quittancement.image_quittance %}
                         <a href="{{ quittancement.image_quittance.url }}" 
                            target="_blank" 
-                           class="btn btn-sm btn-primary btn-action"
+                           class="btn btn-sm btn-outline-primary btn-action"
                            title="{% trans 'Voir le document' %}">
                             <i class="fas fa-file-image"></i>
                         </a>
@@ -312,21 +366,8 @@
                                     </a>
                                 </li>
                                 {% if user.is_admin %}
-                                <li>
-                                    <a class="dropdown-item text-warning" href="#">
-                                        <i class="fas fa-edit me-2"></i>
-                                        {% trans "Modifier" %}
-                                    </a>
-                                </li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item text-danger" 
-                                       href="#"
-                                       onclick="return confirm('{% trans "Voulez-vous vraiment supprimer ce quittancement ?" %}')">
-                                        <i class="fas fa-trash-alt me-2"></i>
-                                        {% trans "Supprimer" %}
-                                    </a>
-                                </li>
+                                
                                 {% endif %}
                             </ul>
                         </div>
@@ -360,12 +401,12 @@
         <ul class="pagination">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page=1{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}{% if request.GET.exercice %}&exercice={{ request.GET.exercice }}{% endif %}{% if request.GET.type_declaration %}&type_declaration={{ request.GET.type_declaration }}{% endif %}">
+                <a class="page-link" href="?page=1{{ request.GET|urlencode }}">
                     <i class="fas fa-angle-double-left"></i>
                 </a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}{% if request.GET.exercice %}&exercice={{ request.GET.exercice }}{% endif %}{% if request.GET.type_declaration %}&type_declaration={{ request.GET.type_declaration }}{% endif %}">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{{ request.GET|urlencode }}">
                     <i class="fas fa-angle-left"></i>
                 </a>
             </li>
@@ -378,7 +419,7 @@
                 </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}{% if request.GET.exercice %}&exercice={{ request.GET.exercice }}{% endif %}{% if request.GET.type_declaration %}&type_declaration={{ request.GET.type_declaration }}{% endif %}">
+                    <a class="page-link" href="?page={{ num }}{{ request.GET|urlencode }}">
                         {{ num }}
                     </a>
                 </li>
@@ -387,12 +428,12 @@
 
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}{% if request.GET.exercice %}&exercice={{ request.GET.exercice }}{% endif %}{% if request.GET.type_declaration %}&type_declaration={{ request.GET.type_declaration }}{% endif %}">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{{ request.GET|urlencode }}">
                     <i class="fas fa-angle-right"></i>
                 </a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.poste %}&poste={{ request.GET.poste }}{% endif %}{% if request.GET.exercice %}&exercice={{ request.GET.exercice }}{% endif %}{% if request.GET.type_declaration %}&type_declaration={{ request.GET.type_declaration }}{% endif %}">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{{ request.GET|urlencode }}">
                     <i class="fas fa-angle-double-right"></i>
                 </a>
             </li>
@@ -410,7 +451,7 @@
 
     <!-- Actions en bas de page -->
     <div class="d-flex justify-content-between align-items-center mt-4">
-        <a href="{% url 'inventaire:comptabilisation_quittancements' %}" class="btn btn-outline-secondary">
+        <a href="{% url 'inventaire:comptabilisation_quittancements' %}" class="btn btn-primary">
             <i class="fas fa-calculator me-2"></i>
             {% trans "Comptabilisation" %}
         </a>
@@ -434,7 +475,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Animation des cartes au chargement
-    const cards = document.querySelectorAll('.stat-card, .filter-card, .table-quittances');
+    const cards = document.querySelectorAll('.stat-card');
     cards.forEach((card, index) => {
         setTimeout(() => {
             card.style.opacity = '0';

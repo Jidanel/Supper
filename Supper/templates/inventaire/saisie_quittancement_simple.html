@@ -1,0 +1,515 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Saisie Quittancement" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+    
+    .step {
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+    
+    .step-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .step.active .step-circle {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .step.completed .step-circle {
+        background: #28a745;
+        color: white;
+    }
+    
+    .step-line {
+        width: 100px;
+        height: 2px;
+        background: #e9ecef;
+        margin: 0 1rem;
+    }
+    
+    .step.completed .step-line {
+        background: #28a745;
+    }
+    
+    .form-card {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .confirmation-card {
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 1.5rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+    
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .detail-value {
+        color: #212529;
+    }
+    
+    .alert-info {
+        background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+        border-left: 4px solid #667eea;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- En-tête -->
+    <div class="page-header">
+        <h2 class="mb-2">
+            <i class="fas fa-file-invoice-dollar me-2"></i>
+            {% trans "Saisie de Quittancement" %}
+        </h2>
+        <p class="mb-0">{% trans "Enregistrement d'un quittancement de recette" %}</p>
+    </div>
+    
+    <!-- Indicateur d'étapes -->
+    <div class="step-indicator">
+        <div class="step {% if etape >= 1 %}{% if etape > 1 %}completed{% else %}active{% endif %}{% endif %}">
+            <div class="step-circle">1</div>
+            <span class="ms-2">{% trans "Paramètres" %}</span>
+        </div>
+        <div class="step-line {% if etape > 1 %}completed{% endif %}"></div>
+        <div class="step {% if etape >= 2 %}{% if etape > 2 %}completed{% else %}active{% endif %}{% endif %}">
+            <div class="step-circle">2</div>
+            <span class="ms-2">{% trans "Saisie" %}</span>
+        </div>
+        <div class="step-line {% if etape > 2 %}completed{% endif %}"></div>
+        <div class="step {% if etape == 3 %}active{% endif %}">
+            <div class="step-circle">3</div>
+            <span class="ms-2">{% trans "Confirmation" %}</span>
+        </div>
+    </div>
+    
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 1 : PARAMÈTRES -->
+    <!-- ============================================================ -->
+    {% if etape == 1 %}
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="form-card">
+                <h4 class="mb-4">
+                    <i class="fas fa-cog me-2"></i>
+                    {% trans "Configuration de la saisie" %}
+                </h4>
+                
+                <form method="post" action="{% url 'inventaire:saisie_quittancement' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="etape" value="1">
+                    
+                    <!-- Exercice -->
+                    <div class="mb-3">
+                        <label for="exercice" class="form-label fw-bold">
+                            {% trans "Exercice" %} *
+                        </label>
+                        <select name="exercice" id="exercice" class="form-select form-select-lg" required>
+                            <option value="">{% trans "-- Sélectionner --" %}</option>
+                            {% for annee in annees %}
+                            <option value="{{ annee }}" {% if annee == annee_courante %}selected{% endif %}>
+                                {{ annee }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Mois -->
+                    <div class="mb-3">
+                        <label for="mois" class="form-label fw-bold">
+                            {% trans "Mois" %} *
+                        </label>
+                        <input type="month" 
+                               name="mois" 
+                               id="mois" 
+                               class="form-control form-control-lg" 
+                               required
+                               max="{% now 'Y-m' %}">
+                        <small class="form-text text-muted">
+                            {% trans "Sélectionnez le mois concerné par le quittancement" %}
+                        </small>
+                    </div>
+                    
+                    <!-- Type de déclaration -->
+                    <div class="mb-4">
+                        <label for="type_declaration" class="form-label fw-bold">
+                            {% trans "Type de déclaration" %} *
+                        </label>
+                        <select name="type_declaration" id="type_declaration" 
+                                class="form-select form-select-lg" required>
+                            <option value="">{% trans "-- Sélectionner --" %}</option>
+                            {% for value, label in types_declaration %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">
+                            {% trans "Journalière : un jour spécifique | Décade : une période de jours" %}
+                        </small>
+                    </div>
+                    
+                    <!-- Boutons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'inventaire:liste_quittancements' %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            {% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            {% trans "Suivant" %}
+                            <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 2 : SAISIE -->
+    <!-- ============================================================ -->
+    {% if etape == 2 %}
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Récapitulatif paramètres -->
+            <div class="alert alert-info mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>{% trans "Exercice" %} :</strong> {{ exercice }} | 
+                        <strong>{% trans "Mois" %} :</strong> {{ mois }} |
+                        <strong>{% trans "Type" %} :</strong> 
+                        {% if type_declaration == 'journaliere' %}
+                            {% trans "Journalière" %}
+                        {% else %}
+                            {% trans "Par décade" %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-card">
+                <h4 class="mb-4">
+                    <i class="fas fa-edit me-2"></i>
+                    {% trans "Informations du quittancement" %}
+                </h4>
+                
+                <form method="post" action="{% url 'inventaire:saisie_quittancement' %}" 
+                      enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="etape" value="2">
+                    
+                    <div class="row">
+                        <!-- Poste -->
+                        <div class="col-md-6 mb-3">
+                            <label for="poste" class="form-label">
+                                {% trans "Poste" %} *
+                            </label>
+                            {% if user.is_admin %}
+                            <select name="poste" id="poste" class="form-select" required>
+                                <option value="">{% trans "-- Sélectionner --" %}</option>
+                                {% for poste in postes %}
+                                <option value="{{ poste.id }}" 
+                                        {% if form_data.poste_id == poste.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ poste.nom }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <input type="hidden" name="poste" value="{{ user.poste_affectation.id }}">
+                            <input type="text" class="form-control" 
+                                   value="{{ user.poste_affectation.nom }}" readonly>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Numéro de quittance -->
+                        <div class="col-md-6 mb-3">
+                            <label for="numero_quittance" class="form-label">
+                                {% trans "Numéro de quittance" %} *
+                            </label>
+                            <input type="text" 
+                                   name="numero_quittance" 
+                                   id="numero_quittance" 
+                                   class="form-control"
+                                   value="{{ form_data.numero_quittance }}"
+                                   placeholder="Ex: H12345678"
+                                   required>
+                        </div>
+                        
+                        <!-- Date de quittancement -->
+                        <div class="col-md-6 mb-3">
+                            <label for="date_quittancement" class="form-label">
+                                {% trans "Date de quittancement" %} *
+                            </label>
+                            <input type="date" 
+                                   name="date_quittancement" 
+                                   id="date_quittancement" 
+                                   class="form-control"
+                                   value="{{ form_data.date_quittancement }}"
+                                   max="{% now 'Y-m-d' %}"
+                                   required>
+                        </div>
+                        
+                        <!-- Montant -->
+                        <div class="col-md-6 mb-3">
+                            <label for="montant" class="form-label">
+                                {% trans "Montant quittancé (FCFA)" %} *
+                            </label>
+                            <input type="number" 
+                                   name="montant" 
+                                   id="montant" 
+                                   class="form-control"
+                                   value="{{ form_data.montant }}"
+                                   step="1"
+                                   min="0"
+                                   placeholder="0"
+                                   required>
+                        </div>
+                        
+                        <!-- Champs conditionnels selon type -->
+                        {% if type_declaration == 'journaliere' %}
+                        <!-- Date de recette (JOUR) -->
+                        <div class="col-md-12 mb-3">
+                            <label for="date_recette" class="form-label">
+                                {% trans "Date de la recette" %} *
+                            </label>
+                            <input type="date" 
+                                   name="date_recette" 
+                                   id="date_recette" 
+                                   class="form-control"
+                                   value="{{ form_data.date_recette }}"
+                                   max="{% now 'Y-m-d' %}"
+                                   required>
+                            <small class="form-text text-muted">
+                                {% trans "Date du jour de la recette concernée" %}
+                            </small>
+                        </div>
+                        {% else %}
+                        <!-- Dates de décade -->
+                        <div class="col-md-6 mb-3">
+                            <label for="date_debut_decade" class="form-label">
+                                {% trans "Date début décade" %} *
+                            </label>
+                            <input type="date" 
+                                   name="date_debut_decade" 
+                                   id="date_debut_decade" 
+                                   class="form-control"
+                                   value="{{ form_data.date_debut_decade }}"
+                                   max="{% now 'Y-m-d' %}"
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="date_fin_decade" class="form-label">
+                                {% trans "Date fin décade" %} *
+                            </label>
+                            <input type="date" 
+                                   name="date_fin_decade" 
+                                   id="date_fin_decade" 
+                                   class="form-control"
+                                   value="{{ form_data.date_fin_decade }}"
+                                   max="{% now 'Y-m-d' %}"
+                                   required>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Image quittance -->
+                        <div class="col-md-12 mb-3">
+                            <label for="image_quittance" class="form-label">
+                                {% trans "Image de la quittance" %}
+                            </label>
+                            <input type="file" 
+                                   name="image_quittance" 
+                                   id="image_quittance" 
+                                   class="form-control"
+                                   accept="image/*,.pdf">
+                            <small class="form-text text-muted">
+                                {% trans "Scan ou photo de la quittance (optionnel)" %}
+                            </small>
+                        </div>
+                        
+                        <!-- Observations -->
+                        <div class="col-md-12 mb-3">
+                            <label for="observations" class="form-label">
+                                {% trans "Observations" %}
+                            </label>
+                            <textarea name="observations" 
+                                      id="observations" 
+                                      class="form-control" 
+                                      rows="3"
+                                      placeholder="{% trans 'Observations optionnelles' %}">{{ form_data.observations }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Boutons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'inventaire:saisie_quittancement' %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            {% trans "Retour" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            {% trans "Continuer" %}
+                            <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 3 : CONFIRMATION -->
+    <!-- ============================================================ -->
+    {% if etape == 3 %}
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="form-card">
+                <h4 class="mb-4 text-center">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    {% trans "Confirmation avant enregistrement" %}
+                </h4>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>{% trans "Important :" %}</strong>
+                    {% trans "Les quittancements ne pourront plus être modifiés après enregistrement." %}
+                </div>
+                
+                <div class="confirmation-card">
+                    <h5 class="mb-3">{% trans "Récapitulatif du quittancement" %}</h5>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Numéro" %} :</span>
+                        <span class="detail-value">{{ form_data.numero_quittance }}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Poste" %} :</span>
+                        <span class="detail-value">{{ poste.nom }}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Exercice" %} :</span>
+                        <span class="detail-value">{{ exercice }}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Mois" %} :</span>
+                        <span class="detail-value">{{ mois }}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Type" %} :</span>
+                        <span class="detail-value">
+                            {% if type_declaration == 'journaliere' %}
+                                {% trans "Journalière" %}
+                            {% else %}
+                                {% trans "Par décade" %}
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Période" %} :</span>
+                        <span class="detail-value">{{ periode }}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Date quittancement" %} :</span>
+                        <span class="detail-value">{{ form_data.date_quittancement }}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Montant" %} :</span>
+                        <span class="detail-value text-primary fw-bold">
+                            {{ form_data.montant }} FCFA
+                        </span>
+                    </div>
+                    
+                    {% if form_data.observations %}
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Observations" %} :</span>
+                        <span class="detail-value">{{ form_data.observations }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <form method="post" action="{% url 'inventaire:saisie_quittancement' %}?etape=3">
+                    {% csrf_token %}
+                    <input type="hidden" name="etape" value="3">
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="submit" name="action" value="retour" 
+                                class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            {% trans "Retour" %}
+                        </button>
+                        
+                        <div>
+                            <button type="submit" name="action" value="annuler" 
+                                    class="btn btn-danger me-2">
+                                <i class="fas fa-times me-2"></i>
+                                {% trans "Annuler" %}
+                            </button>
+                            
+                            <button type="submit" name="action" value="confirmer" 
+                                    class="btn btn-success btn-lg">
+                                <i class="fas fa-check me-2"></i>
+                                {% trans "Confirmer et enregistrer" %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 {% extends 'admin/base_site.html' %}
 {% load static %}
 {% load i18n %}
+{% load inventaire_extras %}
 
 {% block title %}{% trans "Détails Quittancements" %} - {{ poste.nom }}{% endblock %}
 
@@ -74,7 +75,7 @@
     }
     
     .ecart-positif {
-        color: #28a745;
+        color: #dc3545;
         font-weight: bold;
     }
     
@@ -129,15 +130,21 @@
             <small>FCFA</small>
         </div>
         
-        <div class="stat-card {% if ecart < 0 %}danger{% elif ecart > 0 %}warning{% else %}success{% endif %}">
+        <div class="stat-card {% if ecart|abs < 100 %}success{% else %}danger{% endif %}">
             <p class="mb-2">{% trans "Écart" %}</p>
             <h3>{{ ecart|floatformat:0 }}</h3>
-            <small>FCFA ({% if ecart != 0 %}{{ ecart|div:total_declare|mul:100|floatformat:2 }}%{% else %}0%{% endif %})</small>
+            <small>FCFA 
+                ({% if total_declare != 0 %}
+                    {{ ecart|percentage_of:total_declare|floatformat:2 }}%
+                {% else %}
+                    N/A
+                {% endif %})
+            </small>
         </div>
         
         <div class="stat-card">
             <p class="mb-2">{% trans "Nombre Quittances" %}</p>
-            <h3>{{ quittancements.count }}</h3>
+            <h3>{{ quittancements|length }}</h3>
             <small>{% trans "Document(s)" %}</small>
         </div>
     </div>
@@ -158,7 +165,7 @@
         </div>
         {% endfor %}
     </div>
-    {% elif ecart != 0 %}
+    {% elif ecart|abs >= 1 %}
     <div class="alert alert-warning">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>{% trans "Écart non justifié" %}</strong> - 
@@ -185,46 +192,60 @@
                         <th class="text-end">{% trans "Montant Déclaré" %}</th>
                         <th class="text-end">{% trans "Montant Quittancé" %}</th>
                         <th class="text-end">{% trans "Écart Journalier" %}</th>
+                        <th class="text-center">{% trans "Détails Quittancement" %}</th>
                         <th class="text-center">{% trans "Statut" %}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for recette in recettes %}
+                    {% for jour in comparaison_journaliere %}
                     <tr>
-                        <td>{{ recette.date|date:"d/m/Y" }}</td>
-                        <td class="text-end">{{ recette.montant_declare|floatformat:0 }} FCFA</td>
+                        <td><strong>{{ jour.date|date:"d/m/Y" }}</strong></td>
+                        <td class="text-end">{{ jour.montant_declare|floatformat:0 }} FCFA</td>
                         <td class="text-end">
-                            {% with quittance=quittancements|dictsort:"date_quittancement"|first %}
-                                {% if quittance and quittance.date_quittancement == recette.date %}
-                                    {{ quittance.montant|floatformat:0 }} FCFA
-                                {% else %}
-                                    <span class="text-muted">0 FCFA</span>
-                                {% endif %}
-                            {% endwith %}
+                            {% if jour.montant_quittance > 0 %}
+                                {{ jour.montant_quittance|floatformat:0 }} FCFA
+                            {% else %}
+                                <span class="text-muted">0 FCFA</span>
+                            {% endif %}
                         </td>
                         <td class="text-end">
-                            {% with quittance=quittancements|dictsort:"date_quittancement"|first %}
-                                {% if quittance and quittance.date_quittancement == recette.date %}
-                                    <span class="{% if quittance.montant < recette.montant_declare %}ecart-negatif{% else %}ecart-positif{% endif %}">
-                                        {{ quittance.montant|sub:recette.montant_declare|floatformat:0 }} FCFA
-                                    </span>
-                                {% else %}
-                                    <span class="ecart-negatif">-{{ recette.montant_declare|floatformat:0 }} FCFA</span>
-                                {% endif %}
-                            {% endwith %}
+                            {% if jour.ecart|abs < 1 %}
+                                <span class="text-success">0 FCFA</span>
+                            {% else %}
+                                <span class="{% if jour.ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">{{ jour.ecart|floatformat:0 }} FCFA</span>
+                            {% endif %}
                         </td>
                         <td class="text-center">
-                            {% with quittance=quittancements|dictsort:"date_quittancement"|first %}
-                                {% if quittance and quittance.date_quittancement == recette.date %}
-                                    {% if quittance.montant == recette.montant_declare %}
-                                        <span class="badge bg-success">{% trans "OK" %}</span>
-                                    {% else %}
-                                        <span class="badge bg-warning">{% trans "Écart" %}</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="badge bg-danger">{% trans "Non quittancé" %}</span>
-                                {% endif %}
-                            {% endwith %}
+                            {% if jour.quittances_jour %}
+                                <span class="badge bg-info me-1" title="Quittancement journalier">
+                                    <i class="fas fa-calendar-day"></i> {{ jour.quittances_jour|length }}
+                                </span>
+                            {% endif %}
+                            {% if jour.quittances_decade %}
+                                <span class="badge bg-primary" title="Décade(s) couvrant ce jour">
+                                    <i class="fas fa-calendar-week"></i> {{ jour.quittances_decade|length }}
+                                </span>
+                            {% endif %}
+                            {% if not jour.quittances_jour and not jour.quittances_decade %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if jour.statut == 'ok' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i> {% trans "Conforme" %}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> {% trans "Écart" %}
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-3">
+                            {% trans "Aucune donnée pour cette période" %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -234,107 +255,42 @@
                         <th>{% trans "TOTAL" %}</th>
                         <th class="text-end">{{ total_declare|floatformat:0 }} FCFA</th>
                         <th class="text-end">{{ total_quittance|floatformat:0 }} FCFA</th>
-                        <th class="text-end {% if ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
-                            {{ ecart|floatformat:0 }} FCFA
+                        <th class="text-end">
+                            <span class="{% if ecart|abs < 1 %}text-success{% else %}text-danger{% endif %}">
+                                {{ ecart|floatformat:0 }} FCFA
+                            </span>
                         </th>
-                        <th></th>
+                        <th colspan="2"></th>
                     </tr>
                 </tfoot>
             </table>
         </div>
-    </div>
-
-    <!-- Liste détaillée des quittancements -->
-    <div class="detail-card">
-        <h5 class="mb-3">
-            <i class="fas fa-list-alt me-2"></i>
-            {% trans "Liste des Quittancements" %}
-        </h5>
         
-        <div class="table-responsive">
-            <table class="table table-hover table-quittances">
-                <thead>
-                    <tr>
-                        <th>{% trans "N° Quittance" %}</th>
-                        <th>{% trans "Date Quittancement" %}</th>
-                        <th>{% trans "Type" %}</th>
-                        <th>{% trans "Période Couverte" %}</th>
-                        <th class="text-end">{% trans "Montant" %}</th>
-                        <th>{% trans "Saisi par" %}</th>
-                        <th>{% trans "Date Saisie" %}</th>
-                        <th class="text-center">{% trans "Document" %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for quittancement in quittancements %}
-                    <tr>
-                        <td><strong>{{ quittancement.numero_quittance }}</strong></td>
-                        <td>{{ quittancement.date_quittancement|date:"d/m/Y" }}</td>
-                        <td>
-                            <span class="badge bg-info">
-                                {{ quittancement.get_type_declaration_display }}
-                            </span>
-                        </td>
-                        <td>{{ quittancement.get_periode_display }}</td>
-                        <td class="text-end">
-                            <strong>{{ quittancement.montant|floatformat:0 }}</strong> FCFA
-                        </td>
-                        <td>
-                            {% if quittancement.saisi_par %}
-                                {{ quittancement.saisi_par.nom_complet }}
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ quittancement.date_saisie|date:"d/m/Y H:i" }}</td>
-                        <td class="text-center">
-                            {% if quittancement.image_quittance %}
-                            <a href="{{ quittancement.image_quittance.url }}" 
-                               target="_blank" 
-                               class="btn btn-sm btn-primary btn-action">
-                                <i class="fas fa-file-image"></i>
-                            </a>
-                            {% else %}
-                            <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="text-center text-muted py-3">
-                            {% trans "Aucun quittancement pour cette période" %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <!-- Légende explicative -->
+        <div class="alert alert-info mt-3">
+            <h6><i class="fas fa-info-circle me-2"></i>{% trans "Comment lire ce tableau :" %}</h6>
+            <ul class="mb-0">
+                <li><strong>{% trans "Quittancement journalier" %}</strong> : {% trans "Quittance pour un jour spécifique" %}</li>
+                <li><strong>{% trans "Décade" %}</strong> : {% trans "Quittance pour une période de jours (montant réparti au prorata)" %}</li>
+                <li><strong>{% trans "Conforme" %}</strong> : {% trans "Montant quittancé = Montant déclaré (écart = 0)" %}</li>
+                <li><strong class="text-danger">{% trans "Écart" %}</strong> : {% trans "Toute différence entre quittancé et déclaré nécessite justification" %}</li>
+            </ul>
         </div>
     </div>
 
     <!-- Actions en bas de page -->
     <div class="d-flex justify-content-between align-items-center mt-4">
         <a href="{% url 'inventaire:comptabilisation_quittancements' %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-2"></i>
-            {% trans "Retour à la comptabilisation" %}
+            <i class="fas fa-arrow-left me-2"></i> {% trans "Retour à la comptabilisation" %}
         </a>
         
         <div>
-            {% if ecart != 0 and not justifications %}
-            <a href="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" 
-               class="btn btn-warning">
-                <i class="fas fa-edit me-2"></i>
-                {% trans "Justifier l'écart" %}
-            </a>
-            {% endif %}
-            
             <button onclick="exportToExcel()" class="btn btn-success">
-                <i class="fas fa-file-excel me-2"></i>
-                {% trans "Exporter Excel" %}
+                <i class="fas fa-file-excel me-2"></i> {% trans "Exporter Excel" %}
             </button>
             
             <button onclick="window.print()" class="btn btn-primary">
-                <i class="fas fa-print me-2"></i>
-                {% trans "Imprimer" %}
+                <i class="fas fa-print me-2"></i> {% trans "Imprimer" %}
             </button>
         </div>
     </div>
@@ -344,7 +300,6 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animation des cartes au chargement
     const cards = document.querySelectorAll('.stat-card, .detail-card');
     cards.forEach((card, index) => {
         setTimeout(() => {

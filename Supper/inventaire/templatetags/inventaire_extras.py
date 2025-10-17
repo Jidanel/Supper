@@ -234,7 +234,7 @@ def multiply(value, arg):
 @register.filter(name='divide')
 @register.filter(name='div')
 @register.filter(name='dividedby')
-def divide(value, arg):
+def div(value, arg):
     """
     Divise une valeur par un argument
     Exemple: {{ 10|divide:2 }} -> 5.0
@@ -638,3 +638,177 @@ def pretty_print(value):
     """
     import pprint
     return pprint.pformat(value)
+
+@register.filter
+def range_filter(start, end=None):
+    """
+    Retourne un range pour utiliser dans les templates
+    Usage: 
+    - {{ 5|range_filter }} -> range(5) = [0,1,2,3,4]
+    - {{ start|range_filter:end }} -> range(start, end)
+    """
+    try:
+        if end is None:
+            # Si un seul argument, créer range(start)
+            return range(int(start))
+        else:
+            # Si deux arguments, créer range(start, end)
+            return range(int(start), int(end))
+    except (ValueError, TypeError):
+        return []
+    
+@register.filter
+def subtract(value, arg):
+    """
+    Soustraction de deux valeurs
+    """
+    try:
+        return int(value) - int(arg)
+    except (ValueError, TypeError):
+        return value
+
+@register.filter
+def add_years(value, arg):
+    """
+    Ajoute des années à une valeur
+    """
+    try:
+        return int(value) + int(arg)
+    except (ValueError, TypeError):
+        return value
+
+@register.simple_tag
+def year_range(start_year, end_year):
+    """
+    Génère une liste d'années entre start et end
+    """
+    try:
+        return list(range(int(start_year), int(end_year) + 1))
+    except (ValueError, TypeError):
+        return []
+
+@register.filter(name='div')
+@register.filter(name='divide')
+@register.filter(name='dividedby')
+def safe_divide(value, arg):
+    """
+    Divise value par arg de manière sécurisée
+    Retourne 0 si division par zéro ou erreur
+    
+    Usage: {{ 100|div:50 }} -> 2.0
+           {{ ecart|div:total_declare|mul:100 }} -> pourcentage
+    """
+    try:
+        # Convertir en float
+        numerator = float(value) if value is not None else 0
+        denominator = float(arg) if arg is not None else 0
+        
+        # Éviter division par zéro
+        if denominator == 0:
+            return 0
+        
+        return numerator / denominator
+    except (ValueError, TypeError, ZeroDivisionError, InvalidOperation):
+        return 0
+
+
+@register.filter(name='mul')
+@register.filter(name='multiply')
+@register.filter(name='times')
+def safe_multiply(value, arg):
+    """
+    Multiplie value par arg de manière sécurisée
+    
+    Usage: {{ 0.15|mul:100 }} -> 15.0
+    """
+    try:
+        val1 = float(value) if value is not None else 0
+        val2 = float(arg) if arg is not None else 0
+        return val1 * val2
+    except (ValueError, TypeError, InvalidOperation):
+        return 0
+
+
+@register.filter(name='sub')
+@register.filter(name='subtract')
+def safe_subtract(value, arg):
+    """
+    Soustrait arg de value de manière sécurisée
+    
+    Usage: {{ montant1|sub:montant2 }}
+    """
+    try:
+        val1 = float(value) if value is not None else 0
+        val2 = float(arg) if arg is not None else 0
+        return val1 - val2
+    except (ValueError, TypeError, InvalidOperation):
+        return 0
+
+
+# ===================================================================
+# CORRECTION 2 : Filtre pour calcul de pourcentage direct
+# ===================================================================
+
+@register.filter(name='percentage_of')
+def percentage_of(value, total):
+    """
+    Calcule le pourcentage de value par rapport à total
+    Usage directe : {{ ecart|percentage_of:total_declare }}
+    
+    Alternative simplifiée à |div:total|mul:100
+    """
+    try:
+        if total is None or float(total) == 0:
+            return 0
+        
+        val = float(value) if value is not None else 0
+        tot = float(total)
+        
+        return (val / tot) * 100
+    except (ValueError, TypeError, ZeroDivisionError, InvalidOperation):
+        return 0
+
+
+# ===================================================================
+# CORRECTION 3 : Filtre abs (valeur absolue) - sécurisé
+# ===================================================================
+
+@register.filter(name='abs')
+@register.filter(name='absolute')
+def safe_absolute(value):
+    """
+    Retourne la valeur absolue de manière sécurisée
+    Usage: {{ -15.5|abs }} -> 15.5
+    """
+    try:
+        if value is None:
+            return 0
+        return abs(float(value))
+    except (ValueError, TypeError, InvalidOperation):
+        return 0
+
+
+# ===================================================================
+# CORRECTION 4 : Filtre pour détecter si une valeur existe et n'est pas None
+# ===================================================================
+
+@register.filter(name='is_not_none')
+def is_not_none(value):
+    """
+    Vérifie si une valeur n'est pas None
+    Usage: {% if image_quittance|is_not_none %}...{% endif %}
+    """
+    return value is not None
+
+
+@register.filter(name='has_value')
+def has_value(value):
+    """
+    Vérifie si une valeur existe et n'est pas vide
+    Usage: {% if quittancement.image_quittance|has_value %}...{% endif %}
+    """
+    if value is None:
+        return False
+    if isinstance(value, str) and value.strip() == '':
+        return False
+    return True

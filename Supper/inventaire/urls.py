@@ -199,4 +199,9 @@ path('authentifier-document/', views.authentifier_document, name='authentifier_d
 
 # Export
 path('quittancements/export/', views.export_quittancements, name='export_quittancements'),
+path(
+    'quittancements/<int:quittancement_id>/ajouter-image/',
+    views.ajouter_image_quittancement,
+    name='ajouter_image_quittancement'
+),
 ]
