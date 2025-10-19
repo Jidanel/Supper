@@ -1,13 +1,13 @@
 {% extends 'admin/base_site.html' %}
 {% load static %}
 {% load i18n %}
-{% load inventaire_extras %}
+{% load inventaire_extras%}
 
 {% block title %}{% trans "Détails Quittancements" %} - {{ poste.nom }}{% endblock %}
 
 {% block extra_css %}
 <style>
-    .detail-header {
+    .page-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 2rem;
@@ -15,292 +15,550 @@
         margin-bottom: 2rem;
     }
     
-    .detail-card {
-        background: white;
-        border-radius: 10px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        margin-bottom: 1.5rem;
-    }
-    
-    .stat-row {
+    .summary-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
     }
     
-    .stat-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-        padding: 1.5rem;
+    .summary-card {
+        background: white;
         border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         text-align: center;
-    }
-    
-    .stat-card.success {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-    }
-    
-    .stat-card.warning {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-    }
-    
-    .stat-card.danger {
-        background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);
-    }
-    
-    .stat-card h3 {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .table-quittances th {
-        background: #f8f9fa;
-        font-weight: 600;
-        color: #495057;
-    }
-    
-    .btn-action {
         transition: all 0.3s ease;
     }
     
-    .btn-action:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    .summary-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
     }
     
-    .comparison-table td {
-        vertical-align: middle;
+    .summary-card h6 {
+        color: #6c757d;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
     }
     
-    .ecart-positif {
-        color: #dc3545;
-        font-weight: bold;
+    .summary-card h3 {
+        font-size: 2rem;
+        margin: 0;
     }
     
-    .ecart-negatif {
-        color: #dc3545;
-        font-weight: bold;
+    .decade-section {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-left: 5px solid #667eea;
     }
     
-    @media print {
-        .btn, .alert-info { display: none; }
-        .detail-header { print-color-adjust: exact; }
+    .decade-incomplete {
+        border-left-color: #ffc107;
+        background: linear-gradient(to right, #fff8e1, white);
+    }
+    
+    .decade-error {
+        border-left-color: #dc3545;
+        background: linear-gradient(to right, #ffebee, white);
+    }
+    
+    .decade-ok {
+        border-left-color: #28a745;
+        background: linear-gradient(to right, #f1f8e9, white);
+    }
+    
+    .day-comparison {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .day-comparison thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .day-comparison tbody tr {
+        transition: all 0.3s ease;
+    }
+    
+    .day-comparison tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .day-comparison tbody tr.decade-row {
+        background: #f0f4ff;
+    }
+    
+    .ecart-negatif { 
+        color: #dc3545; 
+        font-weight: bold; 
+    }
+    
+    .ecart-positif { 
+        color: #ffc107; 
+        font-weight: bold; 
+    }
+    
+    .ecart-zero { 
+        color: #28a745;
+        font-weight: 600;
+    }
+    
+    .badge-decade {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.35rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.875rem;
+        display: inline-block;
+    }
+    
+    .missing-days {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+    
+    .missing-days .badge {
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .detail-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .detail-info strong {
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .justification-section {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-top: 2rem;
+    }
+    
+    .alert-ecart {
+        background: linear-gradient(135deg, #ff6b6b20 0%, #ff922b20 100%);
+        border-left: 4px solid #ff6b6b;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- En-tête avec informations principales -->
-    <div class="detail-header">
+    
+    <!-- En-tête -->
+    <div class="page-header">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h2 class="mb-3">
+                <h2 class="mb-2">
                     <i class="fas fa-file-invoice-dollar me-2"></i>
                     {% trans "Détails des Quittancements" %}
                 </h2>
-                <h4>{{ poste.nom }}</h4>
                 <p class="mb-0">
-                    <i class="fas fa-calendar-alt me-2"></i>
-                    {% trans "Période" %} : {{ date_debut|date:"d/m/Y" }} {% trans "au" %} {{ date_fin|date:"d/m/Y" }}
+                    <i class="fas fa-building me-2"></i>
+                    <strong>{{ poste.nom }}</strong> | 
+                    <i class="fas fa-calendar me-2 ms-3"></i>
+                    {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}
                 </p>
             </div>
-            <div>
-                <button onclick="window.print()" class="btn btn-light">
-                    <i class="fas fa-print me-2"></i>
-                    {% trans "Imprimer" %}
-                </button>
-            </div>
+            <a href="{% url 'inventaire:comptabilisation_quittancements' %}" 
+               class="btn btn-light btn-lg">
+                <i class="fas fa-arrow-left me-2"></i>
+                {% trans "Retour" %}
+            </a>
         </div>
     </div>
-
-    <!-- Cartes de statistiques -->
-    <div class="stat-row">
-        <div class="stat-card success">
-            <p class="mb-2">{% trans "Total Déclaré" %}</p>
-            <h3>{{ total_declare|floatformat:0 }}</h3>
+    
+    <!-- Cartes de résumé -->
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h6>{% trans "Total Déclaré" %}</h6>
+            <h3 class="text-primary">{{ total_declare|floatformat:0 }}</h3>
             <small>FCFA</small>
         </div>
         
-        <div class="stat-card">
-            <p class="mb-2">{% trans "Total Quittancé" %}</p>
-            <h3>{{ total_quittance|floatformat:0 }}</h3>
+        <div class="summary-card">
+            <h6>{% trans "Total Quittancé" %}</h6>
+            <h3 class="text-info">{{ total_quittance|floatformat:0 }}</h3>
             <small>FCFA</small>
         </div>
         
-        <div class="stat-card {% if ecart|abs < 100 %}success{% else %}danger{% endif %}">
-            <p class="mb-2">{% trans "Écart" %}</p>
-            <h3>{{ ecart|floatformat:0 }}</h3>
-            <small>FCFA 
-                ({% if total_declare != 0 %}
-                    {{ ecart|percentage_of:total_declare|floatformat:2 }}%
-                {% else %}
-                    N/A
-                {% endif %})
-            </small>
+        <div class="summary-card">
+            <h6>{% trans "Écart" %}</h6>
+            <h3 class="{% if ecart|abs < 1 %}ecart-zero{% elif ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
+                {{ ecart|floatformat:0 }}
+            </h3>
+            <small>FCFA</small>
         </div>
         
-        <div class="stat-card">
-            <p class="mb-2">{% trans "Nombre Quittances" %}</p>
-            <h3>{{ quittancements|length }}</h3>
-            <small>{% trans "Document(s)" %}</small>
+        <div class="summary-card">
+            <h6>{% trans "Statut Global" %}</h6>
+            {% if ecart|abs < 1 %}
+                <div class="status-indicator bg-success text-white">
+                    <i class="fas fa-check-circle"></i>
+                    <span>{% trans "Conforme" %}</span>
+                </div>
+            {% elif justifications %}
+                <div class="status-indicator bg-info text-white">
+                    <i class="fas fa-check"></i>
+                    <span>{% trans "Justifié" %}</span>
+                </div>
+            {% else %}
+                <div class="status-indicator bg-danger text-white">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>{% trans "À Justifier" %}</span>
+                </div>
+            {% endif %}
         </div>
     </div>
-
-    <!-- Justification si existante -->
-    {% if justifications %}
-    <div class="detail-card">
-        <h5 class="text-success mb-3">
-            <i class="fas fa-check-circle me-2"></i>
-            {% trans "Justification de l'écart" %}
+    
+    <!-- Alerte si écart non justifié -->
+    {% if ecart|abs >= 1 and not justifications %}
+    <div class="alert alert-ecart alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            {% trans "Action requise" %}
         </h5>
-        {% for justification in justifications %}
-        <div class="alert alert-success">
-            <p><strong>{% trans "Date" %} :</strong> {{ justification.date_justification|date:"d/m/Y H:i" }}</p>
-            <p><strong>{% trans "Par" %} :</strong> {{ justification.justifie_par.nom_complet }}</p>
-            <p><strong>{% trans "Justification" %} :</strong></p>
-            <p>{{ justification.justification }}</p>
+        <p class="mb-0">
+            Un écart de <strong>{{ ecart|floatformat:0 }} FCFA</strong> a été détecté.
+            Cet écart doit être justifié pour la conformité comptable.
+        </p>
+        <hr>
+        <a href="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" 
+           class="btn btn-warning">
+            <i class="fas fa-edit me-2"></i>
+            {% trans "Justifier l'écart" %}
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+    
+    <!-- Section Quittancements par Décade -->
+    {% if decades_details %}
+    <div class="mb-4">
+        <h4 class="mb-3">
+            <i class="fas fa-calendar-week me-2"></i>
+            {% trans "Quittancements par Décade" %}
+        </h4>
+        
+        {% for decade in decades_details %}
+        <div class="decade-section {% if decade.statut == 'incomplet' %}decade-incomplete{% elif decade.statut == 'ok' %}decade-ok{% elif decade.ecart and decade.ecart|abs >= 1 %}decade-error{% endif %}">
+            <div class="row">
+                <div class="col-md-8">
+                    <h5 class="mb-3">
+                        <span class="badge-decade">
+                            <i class="fas fa-calendar-alt me-1"></i>
+                            DÉCADE
+                        </span>
+                        <span class="ms-2">
+                            {{ decade.quittance.date_debut_decade|date:"d/m/Y" }} 
+                            <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                            {{ decade.quittance.date_fin_decade|date:"d/m/Y" }}
+                        </span>
+                    </h5>
+                    
+                    <div class="detail-info">
+                        <span><strong>N° Quittance :</strong> {{ decade.quittance.numero_quittance }}</span>
+                        <span><strong>Montant quittancé :</strong> {{ decade.quittance.montant|floatformat:0 }} FCFA</span>
+                    </div>
+                    
+                    {% if decade.statut != 'incomplet' %}
+                    <div class="detail-info">
+                        <span><strong>Somme des recettes déclarées :</strong> {{ decade.somme_recettes|floatformat:0 }} FCFA</span>
+                        <span>
+                            <strong>Écart :</strong> 
+                            <span class="{% if decade.ecart|abs < 1 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {{ decade.ecart|floatformat:0 }} FCFA
+                            </span>
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if decade.dates_manquantes %}
+                    <div class="missing-days">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        <strong>{% trans "Jours sans recettes déclarées :" %}</strong>
+                        <div class="mt-2">
+                            {% for date in decade.dates_manquantes %}
+                            <span class="badge bg-warning text-dark">
+                                {{ date|date:"d/m/Y" }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            {% trans "L'écart ne peut pas être calculé tant que toutes les recettes ne sont pas saisies." %}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4 text-end d-flex align-items-center justify-content-end">
+                    {% if decade.statut == 'incomplet' %}
+                        <div class="status-indicator bg-warning text-dark">
+                            <i class="fas fa-clock"></i>
+                            <span>{% trans "Incomplète" %}</span>
+                        </div>
+                    {% elif decade.ecart|abs < 1 %}
+                        <div class="status-indicator bg-success text-white">
+                            <i class="fas fa-check-circle"></i>
+                            <span>{% trans "Conforme" %}</span>
+                        </div>
+                    {% else %}
+                        <div class="status-indicator bg-danger text-white">
+                            <i class="fas fa-times-circle"></i>
+                            <span>{% trans "Écart" %}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
         {% endfor %}
     </div>
-    {% elif ecart|abs >= 1 %}
-    <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        <strong>{% trans "Écart non justifié" %}</strong> - 
-        <a href="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" 
-           class="btn btn-sm btn-warning ms-2">
-            <i class="fas fa-edit me-1"></i>
-            {% trans "Justifier l'écart" %}
-        </a>
-    </div>
     {% endif %}
-
-    <!-- Tableau comparatif Quittances / Recettes -->
-    <div class="detail-card">
+    
+    <!-- Tableau de Comparaison Journalière -->
+    <h4 class="mb-3">
+        <i class="fas fa-calendar-day me-2"></i>
+        {% trans "Détail Journalier" %}
+    </h4>
+    
+    <div class="table-responsive">
+        <table class="table table-hover day-comparison">
+            <thead>
+                <tr>
+                    <th>{% trans "Date" %}</th>
+                    <th class="text-end">{% trans "Recette Déclarée" %}</th>
+                    <th class="text-end">{% trans "Montant Quittancé" %}</th>
+                    <th>{% trans "N° Quittance" %}</th>
+                    <th class="text-center">{% trans "Type" %}</th>
+                    <th class="text-end">{% trans "Écart Jour" %}</th>
+                    <th class="text-center">{% trans "Statut" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for jour in comparaison_journaliere %}
+                <tr {% if jour.decade_couvrant %}class="decade-row"{% endif %}>
+                    <td>
+                        <strong>{{ jour.date|date:"d/m/Y" }}</strong>
+                        <small class="text-muted d-block">{{ jour.date|date:"l" }}</small>
+                    </td>
+                    
+                    <td class="text-end">
+                        {% if jour.recette %}
+                            <strong>{{ jour.montant_declare|floatformat:0 }}</strong> FCFA
+                        {% else %}
+                            <span class="badge bg-secondary">Non saisi</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-end">
+                        {% if jour.montant_quittance > 0 %}
+                            <strong>{{ jour.montant_quittance|floatformat:0 }}</strong> FCFA
+                        {% elif jour.decade_couvrant %}
+                            <span class="text-muted">Voir décade</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        {% if jour.quittances_jour %}
+                            {% for q in jour.quittances_jour %}
+                                <span class="badge bg-light text-dark">
+                                    {{ q.numero_quittance }}
+                                </span>
+                            {% endfor %}
+                        {% elif jour.decade_couvrant %}
+                            <span class="badge-decade">
+                                {{ jour.decade_couvrant.quittance.numero_quittance }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-center">
+                        {% if jour.quittances_jour %}
+                            <span class="badge bg-info">Journalière</span>
+                        {% elif jour.decade_couvrant %}
+                            <span class="badge bg-primary">Décade</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-end">
+                        {% if jour.ecart is not None %}
+                            {% if jour.ecart|abs < 1 %}
+                                <span class="ecart-zero">0 FCFA</span>
+                            {% else %}
+                                <span class="{% if jour.ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
+                                    {{ jour.ecart|floatformat:0 }} FCFA
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <small class="text-muted">-</small>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-center">
+                        {% if jour.statut == 'ok' %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check"></i> Conforme
+                            </span>
+                        {% elif jour.statut == 'decade' %}
+                            <span class="badge bg-primary">
+                                <i class="fas fa-calendar"></i> Décade
+                            </span>
+                        {% elif jour.statut == 'manquant' %}
+                            <span class="badge bg-warning">
+                                <i class="fas fa-exclamation"></i> Recette manquante
+                            </span>
+                        {% elif jour.statut == 'ecart' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times"></i> Écart
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        {% trans "Aucune donnée pour cette période" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            
+            <!-- Ligne de total -->
+            {% if comparaison_journaliere %}
+            <tfoot class="table-light">
+                <tr>
+                    <th>{% trans "TOTAL PÉRIODE" %}</th>
+                    <th class="text-end">{{ total_declare|floatformat:0 }} FCFA</th>
+                    <th class="text-end">{{ total_quittance|floatformat:0 }} FCFA</th>
+                    <th colspan="2"></th>
+                    <th class="text-end">
+                        <strong class="{% if ecart|abs < 1 %}ecart-zero{% elif ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
+                            {{ ecart|floatformat:0 }} FCFA
+                        </strong>
+                    </th>
+                    <th class="text-center">
+                        {% if ecart|abs < 1 %}
+                            <span class="badge bg-success">Conforme</span>
+                        {% elif justifications %}
+                            <span class="badge bg-info">Justifié</span>
+                        {% else %}
+                            <span class="badge bg-danger">À justifier</span>
+                        {% endif %}
+                    </th>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+    
+    <!-- Section Justifications -->
+    {% if justifications %}
+    <div class="justification-section">
         <h5 class="mb-3">
-            <i class="fas fa-balance-scale me-2"></i>
-            {% trans "Comparaison Quittancements / Déclarations" %}
+            <i class="fas fa-clipboard-check me-2"></i>
+            {% trans "Justifications des Écarts" %}
         </h5>
         
-        <div class="table-responsive">
-            <table class="table table-hover comparison-table">
-                <thead class="table-light">
-                    <tr>
-                        <th>{% trans "Date" %}</th>
-                        <th class="text-end">{% trans "Montant Déclaré" %}</th>
-                        <th class="text-end">{% trans "Montant Quittancé" %}</th>
-                        <th class="text-end">{% trans "Écart Journalier" %}</th>
-                        <th class="text-center">{% trans "Détails Quittancement" %}</th>
-                        <th class="text-center">{% trans "Statut" %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for jour in comparaison_journaliere %}
-                    <tr>
-                        <td><strong>{{ jour.date|date:"d/m/Y" }}</strong></td>
-                        <td class="text-end">{{ jour.montant_declare|floatformat:0 }} FCFA</td>
-                        <td class="text-end">
-                            {% if jour.montant_quittance > 0 %}
-                                {{ jour.montant_quittance|floatformat:0 }} FCFA
-                            {% else %}
-                                <span class="text-muted">0 FCFA</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">
-                            {% if jour.ecart|abs < 1 %}
-                                <span class="text-success">0 FCFA</span>
-                            {% else %}
-                                <span class="{% if jour.ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">{{ jour.ecart|floatformat:0 }} FCFA</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if jour.quittances_jour %}
-                                <span class="badge bg-info me-1" title="Quittancement journalier">
-                                    <i class="fas fa-calendar-day"></i> {{ jour.quittances_jour|length }}
-                                </span>
-                            {% endif %}
-                            {% if jour.quittances_decade %}
-                                <span class="badge bg-primary" title="Décade(s) couvrant ce jour">
-                                    <i class="fas fa-calendar-week"></i> {{ jour.quittances_decade|length }}
-                                </span>
-                            {% endif %}
-                            {% if not jour.quittances_jour and not jour.quittances_decade %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if jour.statut == 'ok' %}
-                                <span class="badge bg-success">
-                                    <i class="fas fa-check-circle"></i> {% trans "Conforme" %}
-                                </span>
-                            {% else %}
-                                <span class="badge bg-danger">
-                                    <i class="fas fa-exclamation-triangle"></i> {% trans "Écart" %}
-                                </span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-3">
-                            {% trans "Aucune donnée pour cette période" %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="table-secondary">
-                    <tr>
-                        <th>{% trans "TOTAL" %}</th>
-                        <th class="text-end">{{ total_declare|floatformat:0 }} FCFA</th>
-                        <th class="text-end">{{ total_quittance|floatformat:0 }} FCFA</th>
-                        <th class="text-end">
-                            <span class="{% if ecart|abs < 1 %}text-success{% else %}text-danger{% endif %}">
-                                {{ ecart|floatformat:0 }} FCFA
-                            </span>
-                        </th>
-                        <th colspan="2"></th>
-                    </tr>
-                </tfoot>
-            </table>
+        {% for justif in justifications %}
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <strong>{% trans "Justifié le" %} :</strong> 
+                        {{ justif.date_justification|date:"d/m/Y à H:i" }}
+                    </div>
+                    <div>
+                        <strong>{% trans "Par" %} :</strong> 
+                        {{ justif.justifie_par.nom_complet }}
+                    </div>
+                </div>
+                <div class="alert alert-light mb-0">
+                    <i class="fas fa-quote-left text-muted me-2"></i>
+                    {{ justif.justification }}
+                    <i class="fas fa-quote-right text-muted ms-2"></i>
+                </div>
+            </div>
         </div>
-        
-        <!-- Légende explicative -->
-        <div class="alert alert-info mt-3">
-            <h6><i class="fas fa-info-circle me-2"></i>{% trans "Comment lire ce tableau :" %}</h6>
-            <ul class="mb-0">
-                <li><strong>{% trans "Quittancement journalier" %}</strong> : {% trans "Quittance pour un jour spécifique" %}</li>
-                <li><strong>{% trans "Décade" %}</strong> : {% trans "Quittance pour une période de jours (montant réparti au prorata)" %}</li>
-                <li><strong>{% trans "Conforme" %}</strong> : {% trans "Montant quittancé = Montant déclaré (écart = 0)" %}</li>
-                <li><strong class="text-danger">{% trans "Écart" %}</strong> : {% trans "Toute différence entre quittancé et déclaré nécessite justification" %}</li>
-            </ul>
-        </div>
+        {% endfor %}
     </div>
-
+    {% endif %}
+    
     <!-- Actions en bas de page -->
     <div class="d-flex justify-content-between align-items-center mt-4">
-        <a href="{% url 'inventaire:comptabilisation_quittancements' %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-2"></i> {% trans "Retour à la comptabilisation" %}
-        </a>
-        
         <div>
-            <button onclick="exportToExcel()" class="btn btn-success">
-                <i class="fas fa-file-excel me-2"></i> {% trans "Exporter Excel" %}
+            <a href="{% url 'inventaire:comptabilisation_quittancements' %}" 
+               class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                {% trans "Retour à la comptabilisation" %}
+            </a>
+            
+            <button onclick="window.print()" class="btn btn-outline-primary ms-2">
+                <i class="fas fa-print me-2"></i>
+                {% trans "Imprimer" %}
             </button>
             
-            <button onclick="window.print()" class="btn btn-primary">
-                <i class="fas fa-print me-2"></i> {% trans "Imprimer" %}
+            <button onclick="exportToExcel()" class="btn btn-success ms-2">
+                <i class="fas fa-file-excel me-2"></i>
+                {% trans "Exporter Excel" %}
             </button>
         </div>
+        
+        {% if ecart|abs >= 1 and not justifications %}
+        <a href="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" 
+           class="btn btn-warning btn-lg">
+            <i class="fas fa-edit me-2"></i>
+            {% trans "Justifier l'écart de" %} {{ ecart|floatformat:0 }} FCFA
+        </a>
+        {% endif %}
     </div>
+    
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const cards = document.querySelectorAll('.stat-card, .detail-card');
+    // Animation des cartes au chargement
+    const cards = document.querySelectorAll('.summary-card');
     cards.forEach((card, index) => {
         setTimeout(() => {
             card.style.opacity = '0';
@@ -312,16 +570,90 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 50);
         }, index * 100);
     });
+    
+    // Tooltip Bootstrap
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Mise en évidence des lignes avec écart
+    const rows = document.querySelectorAll('.day-comparison tbody tr');
+    rows.forEach(row => {
+        const ecartCell = row.querySelector('.ecart-negatif, .ecart-positif');
+        if (ecartCell) {
+            row.style.background = 'linear-gradient(to right, #fff5f5, white)';
+        }
+    });
+    
+    // Highlight des décades avec problèmes
+    const decades = document.querySelectorAll('.decade-section');
+    decades.forEach(decade => {
+        if (decade.classList.contains('decade-error') || decade.classList.contains('decade-incomplete')) {
+            decade.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.02)';
+                this.style.transition = 'all 0.3s ease';
+            });
+            decade.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+            });
+        }
+    });
 });
 
+// Fonction d'export Excel
 function exportToExcel() {
     const params = new URLSearchParams({
-        format: 'excel',
-        poste: '{{ poste.id }}',
+        poste_id: {{ poste.id }},
         date_debut: '{{ date_debut|date:"Y-m-d" }}',
-        date_fin: '{{ date_fin|date:"Y-m-d" }}'
+        date_fin: '{{ date_fin|date:"Y-m-d" }}',
+        format: 'excel'
     });
+    
     window.location.href = "{% url 'inventaire:export_quittancements' %}?" + params.toString();
 }
+
+// Fonction d'impression stylée
+function printDetails() {
+    // Ajouter une classe pour l'impression
+    document.body.classList.add('printing');
+    window.print();
+    document.body.classList.remove('printing');
+}
 </script>
+
+<!-- Style d'impression -->
+<style>
+@media print {
+    .btn, .alert-dismissible .btn-close {
+        display: none !important;
+    }
+    
+    .page-header {
+        background: none !important;
+        color: black !important;
+        border: 2px solid #667eea;
+    }
+    
+    .summary-card {
+        border: 1px solid #dee2e6;
+        break-inside: avoid;
+    }
+    
+    .decade-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    
+    .day-comparison {
+        font-size: 0.9rem;
+    }
+    
+    .badge {
+        border: 1px solid currentColor;
+        background: none !important;
+        color: black !important;
+    }
+}
+</style>
 {% endblock %}

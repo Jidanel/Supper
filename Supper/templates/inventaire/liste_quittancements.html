@@ -1,6 +1,7 @@
 {% extends 'admin/base_site.html' %}
 {% load static %}
 {% load i18n %}
+{%load inventaire_extras%}
 
 {% block title %}{% trans "Liste des Quittancements" %}{% endblock %}
 
@@ -139,7 +140,7 @@
         
         <div class="stat-card success">
             <p class="mb-2">{% trans "Montant Total" %}</p>
-            <h3>{{ total_montant|floatformat:0 }}</h3>
+            <h3>{{ total_montant|floatformat:0|format_milliers  }}</h3>
             <small>FCFA</small>
         </div>
         
@@ -305,7 +306,6 @@
                     <th class="text-end">{% trans "Montant" %}</th>
                     <th>{% trans "Saisi par" %}</th>
                     <th class="text-center">{% trans "Document" %}</th>
-                    <th class="text-center">{% trans "Actions" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -330,7 +330,7 @@
                     </td>
                     <td>{{ quittancement.get_periode_display }}</td>
                     <td class="text-end">
-                        <strong>{{ quittancement.montant|floatformat:0 }}</strong> FCFA
+                        <strong>{{ quittancement.montant|floatformat:0|format_milliers  }}</strong> FCFA
                     </td>
                     <td>
                         {% if quittancement.saisi_par %}
@@ -350,27 +350,6 @@
                         {% else %}
                         <span class="text-muted">-</span>
                         {% endif %}
-                    </td>
-                    <td class="text-center">
-                        <div class="btn-group" role="group">
-                            <button type="button" 
-                                    class="btn btn-sm btn-outline-primary dropdown-toggle btn-action" 
-                                    data-bs-toggle="dropdown">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="#">
-                                        <i class="fas fa-eye me-2"></i>
-                                        {% trans "Voir détails" %}
-                                    </a>
-                                </li>
-                                {% if user.is_admin %}
-                                <li><hr class="dropdown-divider"></li>
-                                
-                                {% endif %}
-                            </ul>
-                        </div>
                     </td>
                 </tr>
                 {% empty %}

@@ -2404,79 +2404,131 @@ class Quittancement(models.Model):
         return f"Quittance {self.numero_quittance} - {self.poste.nom}"
     
     def clean(self):
-        """Validation métier stricte améliorée"""
+        """
+        Validation métier stricte CORRIGÉE
+        - Empêche le chevauchement des décades
+        - Vérifie l'unicité des quittancements journaliers
+        - Contrôle les dates futures
+        """
         from django.core.exceptions import ValidationError
         from django.utils import timezone
         
         today = timezone.now().date()
+        errors = {}
         
-        # Date future interdite pour date_quittancement
+        # 1. Vérifier la date de quittancement
         if self.date_quittancement and self.date_quittancement > today:
-            raise ValidationError({
-                'date_quittancement': "La date de quittancement ne peut pas être dans le futur."
-            })
+            errors['date_quittancement'] = "La date de quittancement ne peut pas être dans le futur."
         
-        # Validation selon type
+        # 2. Validation selon le type de déclaration
         if self.type_declaration == 'journaliere':
+            # === VALIDATION JOURNALIÈRE ===
             if not self.date_recette:
-                raise ValidationError({
-                    'date_recette': "Date de recette obligatoire pour type journalière."
-                })
+                errors['date_recette'] = "Date de recette obligatoire pour type journalière."
             
-            # Date future interdite
-            if self.date_recette > today:
-                raise ValidationError({
-                    'date_recette': "La date de recette ne peut pas être dans le futur."
-                })
+            elif self.date_recette > today:
+                errors['date_recette'] = "La date de recette ne peut pas être dans le futur."
             
             # Vérifier l'unicité pour ce jour et ce poste
-            existing = Quittancement.objects.filter(
-                poste=self.poste,
-                type_declaration='journaliere',
-                date_recette=self.date_recette
-            ).exclude(pk=self.pk if self.pk else None)
-            
-            if existing.exists():
-                raise ValidationError({
-                    'date_recette': f"Un quittancement existe déjà pour le {self.date_recette.strftime('%d/%m/%Y')} sur ce poste."
-                })
+            elif self.date_recette and self.poste:
+                existing = Quittancement.objects.filter(
+                    poste=self.poste,
+                    type_declaration='journaliere',
+                    date_recette=self.date_recette
+                ).exclude(pk=self.pk if self.pk else None)
                 
+                if existing.exists():
+                    errors['date_recette'] = (
+                        f"Un quittancement existe déjà pour le {self.date_recette.strftime('%d/%m/%Y')} "
+                        f"sur ce poste (N°{existing.first().numero_quittance})."
+                    )
+            
+            # Nettoyer les champs de décade
+            self.date_debut_decade = None
+            self.date_fin_decade = None
+            
         elif self.type_declaration == 'decade':
-            if not self.date_debut_decade or not self.date_fin_decade:
-                raise ValidationError("Dates début et fin obligatoires pour type décade.")
+            # === VALIDATION DÉCADE AMÉLIORÉE ===
+            if not self.date_debut_decade:
+                errors['date_debut_decade'] = "Date de début de décade obligatoire."
             
-            # Dates futures interdites
-            if self.date_debut_decade > today:
-                raise ValidationError({
-                    'date_debut_decade': "La date de début ne peut pas être dans le futur."
-                })
+            if not self.date_fin_decade:
+                errors['date_fin_decade'] = "Date de fin de décade obligatoire."
             
-            if self.date_fin_decade > today:
-                raise ValidationError({
-                    'date_fin_decade': "La date de fin ne peut pas être dans le futur."
-                })
+            # Vérifier les dates futures
+            if self.date_debut_decade and self.date_debut_decade > today:
+                errors['date_debut_decade'] = "La date de début ne peut pas être dans le futur."
             
-            if self.date_debut_decade > self.date_fin_decade:
-                raise ValidationError({
-                    'date_fin_decade': "La date de fin doit être après la date de début."
-                })
+            if self.date_fin_decade and self.date_fin_decade > today:
+                errors['date_fin_decade'] = "La date de fin ne peut pas être dans le futur."
             
-            # Vérifier les chevauchements de décades pour ce poste
-            chevauchements = Quittancement.objects.filter(
-                poste=self.poste,
-                type_declaration='decade'
-            ).exclude(pk=self.pk if self.pk else None)
+            # Vérifier la cohérence des dates
+            if self.date_debut_decade and self.date_fin_decade:
+                if self.date_debut_decade > self.date_fin_decade:
+                    errors['date_fin_decade'] = "La date de fin doit être après la date de début."
+                
+                # Vérifier que la décade ne dépasse pas 31 jours
+                delta = (self.date_fin_decade - self.date_debut_decade).days
+                if delta > 30:
+                    errors['date_fin_decade'] = "Une décade ne peut pas dépasser 31 jours."
+                
+                # === VÉRIFICATION CHEVAUCHEMENT STRICT ===
+                if self.poste:
+                    # 1. Vérifier les chevauchements avec d'autres décades
+                    chevauchements_decade = Quittancement.objects.filter(
+                        poste=self.poste,
+                        type_declaration='decade'
+                    ).exclude(pk=self.pk if self.pk else None)
+                    
+                    for q in chevauchements_decade:
+                        # Une décade chevauche si au moins un jour est en commun
+                        if (self.date_debut_decade <= q.date_fin_decade and 
+                            self.date_fin_decade >= q.date_debut_decade):
+                            
+                            # Détailler les jours en conflit
+                            debut_conflit = max(self.date_debut_decade, q.date_debut_decade)
+                            fin_conflit = min(self.date_fin_decade, q.date_fin_decade)
+                            jours_conflit = (fin_conflit - debut_conflit).days + 1
+                            
+                            errors['date_debut_decade'] = (
+                                f"Cette période chevauche avec le quittancement N°{q.numero_quittance} "
+                                f"({q.date_debut_decade.strftime('%d/%m/%Y')} au "
+                                f"{q.date_fin_decade.strftime('%d/%m/%Y')}). "
+                                f"{jours_conflit} jour(s) en conflit."
+                            )
+                            break
+                    
+                    # 2. Vérifier aussi avec les quittancements journaliers
+                    # Une décade ne peut pas contenir un jour déjà quittancé individuellement
+                    from datetime import timedelta
+                    dates_decade = []
+                    current_date = self.date_debut_decade
+                    while current_date <= self.date_fin_decade:
+                        dates_decade.append(current_date)
+                        current_date += timedelta(days=1)
+                    
+                    quittancements_journaliers = Quittancement.objects.filter(
+                        poste=self.poste,
+                        type_declaration='journaliere',
+                        date_recette__in=dates_decade
+                    ).exclude(pk=self.pk if self.pk else None)
+                    
+                    if quittancements_journaliers.exists():
+                        jours_conflits = list(quittancements_journaliers.values_list('date_recette', flat=True))
+                        jours_str = ', '.join([d.strftime('%d/%m/%Y') for d in jours_conflits[:3]])
+                        if len(jours_conflits) > 3:
+                            jours_str += f" et {len(jours_conflits) - 3} autre(s)"
+                        
+                        errors['date_debut_decade'] = (
+                            f"Cette décade contient des jours déjà quittancés individuellement : {jours_str}"
+                        )
             
-            for q in chevauchements:
-                # Vérifier si les périodes se chevauchent
-                if (self.date_debut_decade <= q.date_fin_decade and 
-                    self.date_fin_decade >= q.date_debut_decade):
-                    raise ValidationError({
-                        'date_debut_decade': f"Cette période chevauche avec le quittancement {q.numero_quittance} "
-                                           f"({q.date_debut_decade.strftime('%d/%m/%Y')} au "
-                                           f"{q.date_fin_decade.strftime('%d/%m/%Y')})"
-                    })
-    
+            # Nettoyer le champ date_recette
+            self.date_recette = None
+        
+        if errors:
+            raise ValidationError(errors)
+            
     def save(self, *args, **kwargs):
         """Sauvegarde avec validation et verrouillage automatique"""
         self.full_clean()

@@ -2528,7 +2528,7 @@ class RapportInventaireView(AdminRequiredMixin, View):
     #         response = HttpResponse(content_type='text/csv')
     #         response['Content-Disposition'] = 'attachment; filename="rapport_synthese_postes.csv"'
             
-    #         writer = csv.writer(response)
+    #     writer = csv.writer(response)
     #         writer.writerow([
     #             'Poste', 'Code', 'Total Véhicules', 'Nb Inventaires',
     #             'Moyenne Véhicules/Jour', 'Inventaires Verrouillés',
@@ -4889,21 +4889,28 @@ def liste_quittancements(request):
     return render(request, 'inventaire/liste_quittancements.html', context)
 
 
-
 @login_required
 def comptabilisation_quittancements(request):
+    """
+    Vue corrigée pour la comptabilisation des quittancements
+    Logique mise à jour :
+    - Journalière : Compare directement recette du jour vs quittancement du jour
+    - Décade : Somme des recettes journalières vs montant total de la décade
+    """
     import calendar
-    from datetime import timedelta
+    from datetime import timedelta, date
+    from decimal import Decimal
 
+    # Récupération des paramètres
     annee_courante = timezone.now().year
     mois_courant = timezone.now().month
 
     periode = request.GET.get('periode', 'mois')
     poste_id = request.GET.get('poste')
     annee = int(request.GET.get('annee', annee_courante))
-    mois = request.GET.get('mois')  # Expected format: YYYY-MM
+    mois = request.GET.get('mois')  # Format: YYYY-MM
 
-    # Calcul période date_debut/date_fin
+    # Calcul des dates selon la période
     if periode == 'mois':
         if mois:
             try:
@@ -4932,11 +4939,11 @@ def comptabilisation_quittancements(request):
         else:
             date_debut = date(annee, 7, 1)
             date_fin = date(annee, 12, 31)
-    else:
+    else:  # année
         date_debut = date(annee, 1, 1)
         date_fin = date(annee, 12, 31)
 
-    # Filtrer postes selon permissions
+    # Filtrer les postes selon permissions
     if request.user.is_admin:
         if poste_id:
             postes = Poste.objects.filter(id=poste_id, is_active=True)
@@ -4953,101 +4960,140 @@ def comptabilisation_quittancements(request):
     total_quittance_global = Decimal('0')
 
     for poste in postes:
-
-        # Quittances journalières dans la période
-        quittances_journalieres = Quittancement.objects.filter(
-            poste=poste,
-            type_declaration='journaliere',
-            date_recette__range=[date_debut, date_fin]
-        )
-
-        # Recettes journalières enregistrées dans la période
+        # === LOGIQUE CORRIGÉE ===
+        
+        # 1. Récupérer toutes les recettes journalières de la période
         recettes_journalieres = RecetteJournaliere.objects.filter(
             poste=poste,
             date__range=[date_debut, date_fin]
         )
-
-        # Calcul des écarts journaliers
-        ecart_journalier_total = Decimal('0')
-        jours_avec_recettes = recettes_journalieres.values_list('date', flat=True).distinct()
-        dates_period = [date_debut + timedelta(days=i) for i in range((date_fin - date_debut).days + 1)]
-
-        # Vérifier que tous les jours ont une recette (pour décade)
-        periode_type = request.GET.get('type_declaration')
-
-        if periode_type == 'decade':
-            # On vérifie si toutes les dates de la décade ont une recette
-            manque_jours = [d for d in dates_period if d not in jours_avec_recettes]
-            if manque_jours:
-                # Si certains jours manquent, écart non calculable, à traiter
-                ecart_decade = None
-                justification_existe = False
+        
+        # 2. Récupérer les quittancements journaliers
+        quittancements_journaliers = Quittancement.objects.filter(
+            poste=poste,
+            type_declaration='journaliere',
+            date_recette__range=[date_debut, date_fin]
+        )
+        
+        # 3. Récupérer les quittancements de décade qui chevauchent la période
+        quittancements_decades = Quittancement.objects.filter(
+            poste=poste,
+            type_declaration='decade'
+        ).filter(
+            models.Q(date_debut_decade__lte=date_fin) & 
+            models.Q(date_fin_decade__gte=date_debut)
+        )
+        
+        # 4. Calculer le total des recettes déclarées
+        total_declare = recettes_journalieres.aggregate(
+            Sum('montant_declare')
+        )['montant_declare__sum'] or Decimal('0')
+        
+        # 5. Calculer le total des quittancements
+        total_quittance = Decimal('0')
+        ecart_details = []
+        statut = 'conforme'
+        statut_label = 'Conforme'
+        statut_class = 'success'
+        
+        # 5a. Ajouter les quittancements journaliers
+        for q_jour in quittancements_journaliers:
+            total_quittance += q_jour.montant
+            
+            # Vérifier l'écart pour ce jour spécifique
+            recette_jour = recettes_journalieres.filter(
+                date=q_jour.date_recette
+            ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+            
+            ecart_jour = q_jour.montant - recette_jour
+            if abs(ecart_jour) >= 1:
+                ecart_details.append({
+                    'date': q_jour.date_recette,
+                    'ecart': ecart_jour,
+                    'type': 'journaliere'
+                })
+        
+        # 5b. Traiter les quittancements de décade
+        jours_incomplets = []
+        for q_decade in quittancements_decades:
+            # Déterminer la période effective de la décade dans notre période d'analyse
+            debut_effectif = max(q_decade.date_debut_decade, date_debut)
+            fin_effective = min(q_decade.date_fin_decade, date_fin)
+            
+            # Vérifier que tous les jours de la décade ont des recettes
+            dates_decade = []
+            current_date = q_decade.date_debut_decade
+            while current_date <= q_decade.date_fin_decade:
+                dates_decade.append(current_date)
+                current_date += timedelta(days=1)
+            
+            # Récupérer les recettes de cette décade
+            recettes_decade = recettes_journalieres.filter(
+                date__in=dates_decade
+            )
+            
+            # Vérifier si tous les jours ont des recettes
+            dates_avec_recettes = set(recettes_decade.values_list('date', flat=True))
+            dates_manquantes = [d for d in dates_decade if d not in dates_avec_recettes]
+            
+            if dates_manquantes:
+                # Décade incomplète
+                jours_incomplets.extend(dates_manquantes)
+                statut = 'incomplet'
+                statut_label = f'Données incomplètes ({len(dates_manquantes)} jour(s) manquant(s))'
+                statut_class = 'warning'
             else:
-                # Somme des montants déclarés journaliers
-                somme_recette_decade = recettes_journalieres.aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-
-                # Récupérer la quittance de la décade pour la période
-                quittance_decade = Quittancement.objects.filter(
-                    poste=poste,
-                    type_declaration='decade',
-                    date_debut_decade__lte=date_fin,
-                    date_fin_decade__gte=date_debut
-                ).aggregate(Sum('montant'))['montant__sum'] or Decimal('0')
-
-                ecart_decade = quittance_decade - somme_recette_decade
-                justification_existe = JustificationEcart.objects.filter(
-                    poste=poste,
-                    date_debut=date_debut,
-                    date_fin=date_fin
-                ).exists()
-        else:  # Journaliere ou autres
-            # Pour chaque jour, calculer l’écart (quittance - recette)
-            ecart_journalier_total = Decimal('0')
-            for q in quittances_journalieres:
-                recette_jour = recettes_journalieres.filter(date=q.date_recette).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-                ecart = q.montant - recette_jour
-                ecart_journalier_total += ecart
-
-            ecart_decade = None
-            justification_existe = False
-            if ecart_journalier_total != 0:
-                justification_existe = JustificationEcart.objects.filter(
-                    poste=poste,
-                    date_debut=date_debut,
-                    date_fin=date_fin
-                ).exists()
-
-        # Déterminer le total quittance (journalière ou décade)
-        total_quittance = (quittance_decade if periode_type == 'decade' and ecart_decade is not None else
-                           quittances_journalieres.aggregate(Sum('montant'))['montant__sum'] or Decimal('0'))
-
-        # Calcul recettes totales déclarés
-        total_declare = recettes_journalieres.aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-
-        # Choisir l’écart à afficher
-        ecart = ecart_decade if periode_type == 'decade' and ecart_decade is not None else ecart_journalier_total
-
-        # Calcul du pourcentage
+                # Calculer la somme des recettes de la décade
+                somme_recettes_decade = recettes_decade.aggregate(
+                    Sum('montant_declare')
+                )['montant_declare__sum'] or Decimal('0')
+                
+                # L'écart est : montant quittancé - somme des recettes
+                ecart_decade = q_decade.montant - somme_recettes_decade
+                
+                # Si la décade est dans notre période, compter son montant
+                if debut_effectif <= fin_effective:
+                    total_quittance += q_decade.montant
+                    
+                    if abs(ecart_decade) >= 1:
+                        ecart_details.append({
+                            'debut': q_decade.date_debut_decade,
+                            'fin': q_decade.date_fin_decade,
+                            'ecart': ecart_decade,
+                            'type': 'decade'
+                        })
+        
+        # 6. Calculer l'écart global
+        ecart = total_quittance - total_declare
         ecart_pourcentage = (ecart / total_declare * 100) if total_declare > 0 else Decimal('0')
-
-        # Déterminer le statut
-        if ecart is None:
+        
+        # 7. Déterminer le statut final
+        if jours_incomplets:
             statut = 'incomplet'
-            statut_label = 'Données incomplètes'
+            statut_label = f'Données incomplètes'
             statut_class = 'warning'
         elif abs(ecart) < 1:
             statut = 'conforme'
             statut_label = 'Conforme'
             statut_class = 'success'
-        elif justification_existe:
-            statut = 'justifie'
-            statut_label = 'Justifié'
-            statut_class = 'warning'
         else:
-            statut = 'ecart'
-            statut_label = 'Non justifié'
-            statut_class = 'danger'
-
+            # Vérifier si justifié
+            justification_existe = JustificationEcart.objects.filter(
+                poste=poste,
+                date_debut=date_debut,
+                date_fin=date_fin
+            ).exists()
+            
+            if justification_existe:
+                statut = 'justifie'
+                statut_label = 'Justifié'
+                statut_class = 'info'
+            else:
+                statut = 'ecart'
+                statut_label = 'Non justifié'
+                statut_class = 'danger'
+        
+        # Ajouter au résultat
         resultats.append({
             'poste': poste,
             'poste_id': poste.id,
@@ -5056,17 +5102,20 @@ def comptabilisation_quittancements(request):
             'total_declare': total_declare,
             'ecart': ecart,
             'ecart_pourcentage': ecart_pourcentage,
-            'justifie': justification_existe,
+            'ecart_details': ecart_details,
+            'jours_incomplets': jours_incomplets,
+            'justifie': statut == 'justifie',
             'statut': statut,
             'statut_label': statut_label,
             'statut_class': statut_class
         })
-
+        
         total_declare_global += total_declare
         total_quittance_global += total_quittance
 
+    # Calculer les statistiques globales
     ecart_global = total_quittance_global - total_declare_global
-
+    
     statistiques = {
         'total_declare': total_declare_global,
         'total_quittance': total_quittance_global,
@@ -5078,29 +5127,37 @@ def comptabilisation_quittancements(request):
         'nombre_ecarts': len([r for r in resultats if r['statut'] == 'ecart']),
         'nombre_incomplets': len([r for r in resultats if r['statut'] == 'incomplet']),
     }
-
+    
+    # Postes pour filtrage (admin seulement)
     postes_filtre = Poste.objects.filter(is_active=True).order_by('nom') if request.user.is_admin else None
-
+    
+    # Générer la liste des années disponibles
+    current_year = timezone.now().year
+    annees_disponibles = list(range(current_year - 5, current_year + 1))
+    
+    # Journaliser l'action
     log_user_action(
         request.user,
         "Consultation comptabilisation quittancements",
         f"Période: {periode}, Date: {date_debut} au {date_fin}, Postes: {len(resultats)}",
         request
     )
-
+    
     context = {
         'resultats': resultats,
         'statistiques': statistiques,
         'periode': periode,
         'annee': annee,
+        'annees_disponibles': annees_disponibles,
         'mois': f"{annee}-{mois_int:02d}" if periode == 'mois' else None,
         'date_debut': date_debut,
         'date_fin': date_fin,
         'postes_filtre': postes_filtre,
         'poste_selectionne': int(poste_id) if poste_id else None,
+        'postes': postes_filtre,  
     }
+    
     return render(request, 'inventaire/comptabilisation_quittancements.html', context)
-
 @login_required
 def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
     """
@@ -5327,15 +5384,19 @@ def authentifier_document(request):
 def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
     """
     Vue pour afficher les détails des quittancements d'un poste sur une période
-
-    CORRECTION MAJEURE : 
-    - Utiliser date_recette/date_debut_decade/date_fin_decade au lieu de date_quittancement
-    - Calculer correctement les écarts journaliers et par décade
-    - Fournir une structure détaillée par jour pour le template
+    
+    NOUVELLE LOGIQUE :
+    - Pour les quittancements journaliers : comparaison directe jour par jour
+    - Pour les décades : vérification que tous les jours ont des recettes, 
+      puis somme des recettes vs montant de la décade
     """
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+    from django.db.models import Sum
+    
     poste = get_object_or_404(Poste, id=poste_id)
-
-    # Vérification permission
+    
+    # Vérification des permissions
     if not request.user.is_admin:
         if not request.user.poste_affectation or request.user.poste_affectation.id != poste.id:
             messages.error(request, "Vous n'avez pas accès aux données de ce poste.")
@@ -5346,127 +5407,214 @@ def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
                 request
             )
             return redirect('inventaire:comptabilisation_quittancements')
-
-    # Conversion des dates string en objet date
+    
+    # Conversion des dates
     try:
         date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
     except ValueError as e:
         messages.error(request, f"Format de date invalide : {str(e)}")
         return redirect('inventaire:comptabilisation_quittancements')
-
-    # Quittancements journaliers et décades
+    
+    # Récupérer les quittancements journaliers
     quittancements_journaliers = Quittancement.objects.filter(
         poste=poste,
         type_declaration='journaliere',
         date_recette__range=[date_debut_obj, date_fin_obj]
     ).select_related('poste', 'saisi_par').order_by('date_recette')
-
+    
+    # Récupérer les quittancements de décade qui chevauchent la période
+    from django.db import models
     quittancements_decades = Quittancement.objects.filter(
         poste=poste,
-        type_declaration='decade',
-        date_debut_decade__lte=date_fin_obj,
-        date_fin_decade__gte=date_debut_obj
+        type_declaration='decade'
+    ).filter(
+        models.Q(date_debut_decade__lte=date_fin_obj) & 
+        models.Q(date_fin_decade__gte=date_debut_obj)
     ).select_related('poste', 'saisi_par').order_by('date_debut_decade')
-
-    # Recettes déclarées
+    
+    # Récupérer toutes les recettes de la période
     recettes = RecetteJournaliere.objects.filter(
         poste=poste,
         date__range=[date_debut_obj, date_fin_obj]
     ).order_by('date')
-
-    # Calcul total quittance journalière
-    total_quittance_jour = quittancements_journaliers.aggregate(
-        Sum('montant')
-    )['montant__sum'] or Decimal('0')
-
-    # Calcul total quittance décade au prorata
-    total_quittance_decade = Decimal('0')
-    for q in quittancements_decades:
-        debut_effectif = max(q.date_debut_decade, date_debut_obj)
-        fin_effective = min(q.date_fin_decade, date_fin_obj)
-
-        if debut_effectif <= fin_effective:
-            jours_chevauchement = (fin_effective - debut_effectif).days + 1
-            jours_total_decade = (q.date_fin_decade - q.date_debut_decade).days + 1
-            if jours_total_decade > 0:
-                montant_prorata = (q.montant * jours_chevauchement) / jours_total_decade
-                total_quittance_decade += montant_prorata
-
-    total_quittance = total_quittance_jour + total_quittance_decade
-
-    total_declare = recettes.aggregate(
-        Sum('montant_declare')
-    )['montant_declare__sum'] or Decimal('0')
-
-    ecart = total_quittance - total_declare
-
-    # Préparation de la comparaison journalière détaillée
+    
+    # === NOUVELLE LOGIQUE DE CALCUL ===
+    
+    # Traiter les décades
+    decades_details = []
+    for q_decade in quittancements_decades:
+        # Récupérer toutes les dates de la décade
+        dates_decade = []
+        current_date = q_decade.date_debut_decade
+        while current_date <= q_decade.date_fin_decade:
+            # Ne prendre que les dates dans notre période d'analyse
+            if date_debut_obj <= current_date <= date_fin_obj:
+                dates_decade.append(current_date)
+            current_date += timedelta(days=1)
+        
+        # Récupérer les recettes de cette décade
+        recettes_decade = recettes.filter(date__in=dates_decade)
+        dates_avec_recettes = set(recettes_decade.values_list('date', flat=True))
+        
+        # Identifier les dates manquantes
+        dates_manquantes = [d for d in dates_decade if d not in dates_avec_recettes]
+        
+        if dates_manquantes:
+            # Décade incomplète - impossible de calculer l'écart
+            decade_detail = {
+                'quittance': q_decade,
+                'dates': dates_decade,
+                'dates_manquantes': dates_manquantes,
+                'somme_recettes': Decimal('0'),
+                'statut': 'incomplet',
+                'ecart': None,
+                'message': f"{len(dates_manquantes)} jour(s) sans recette"
+            }
+        else:
+            # Calculer la somme des recettes journalières
+            somme_recettes = recettes_decade.aggregate(
+                Sum('montant_declare')
+            )['montant_declare__sum'] or Decimal('0')
+            
+            # L'écart est la différence entre le montant quittancé et la somme des recettes
+            ecart_decade = q_decade.montant - somme_recettes
+            
+            decade_detail = {
+                'quittance': q_decade,
+                'dates': dates_decade,
+                'dates_manquantes': [],
+                'somme_recettes': somme_recettes,
+                'statut': 'ok' if abs(ecart_decade) < 1 else 'ecart',
+                'ecart': ecart_decade
+            }
+        
+        decades_details.append(decade_detail)
+    
+    # Créer la comparaison journalière détaillée
     comparaison_journaliere = []
-
-    for recette in recettes:
-        quittances_jour = [q for q in quittancements_journaliers if q.date_recette == recette.date]
-        quittances_decade_couvrant = [q for q in quittancements_decades if q.date_debut_decade <= recette.date <= q.date_fin_decade]
-
-        montant_quittance_jour = sum(q.montant for q in quittances_jour)
-
-        montant_quittance_decade = Decimal('0')
-        for q in quittances_decade_couvrant:
-            jours_total = (q.date_fin_decade - q.date_debut_decade).days + 1
-            montant_par_jour = q.montant / jours_total
-            montant_quittance_decade += montant_par_jour
-
-        montant_quittance_total = montant_quittance_jour + montant_quittance_decade
-
-        ecart_jour = montant_quittance_total - recette.montant_declare
-
-        statut = 'ok' if abs(ecart_jour) < 1 else 'ecart'
-        statut_label = 'Conforme' if statut == 'ok' else 'Écart détecté'
-        statut_class = 'success' if statut == 'ok' else 'danger'
-
+    total_quittance = Decimal('0')
+    total_declare = Decimal('0')
+    
+    # Parcourir toutes les dates de la période
+    current_date = date_debut_obj
+    while current_date <= date_fin_obj:
+        # Récupérer la recette du jour
+        recette_jour = recettes.filter(date=current_date).first()
+        montant_declare = recette_jour.montant_declare if recette_jour else Decimal('0')
+        
+        # Récupérer les quittancements journaliers de ce jour
+        quittances_jour = []
+        montant_quittance_jour = Decimal('0')
+        
+        for q in quittancements_journaliers:
+            if q.date_recette == current_date:
+                quittances_jour.append(q)
+                montant_quittance_jour += q.montant
+        
+        # Vérifier si ce jour fait partie d'une décade
+        decade_couvrant = None
+        for decade_detail in decades_details:
+            if current_date in decade_detail['dates']:
+                decade_couvrant = decade_detail
+                break
+        
+        # Calculer l'écart du jour (seulement pour les quittancements journaliers)
+        if decade_couvrant:
+            # Pour les jours en décade, l'écart est calculé au niveau de la décade
+            ecart_jour = None
+            statut = 'decade'
+            statut_label = 'Partie de décade'
+            statut_class = 'info'
+        else:
+            # Pour les jours avec quittancement journalier
+            ecart_jour = montant_quittance_jour - montant_declare
+            
+            if not recette_jour and montant_quittance_jour > 0:
+                statut = 'manquant'
+                statut_label = 'Recette manquante'
+                statut_class = 'warning'
+            elif abs(ecart_jour) < 1:
+                statut = 'ok'
+                statut_label = 'Conforme'
+                statut_class = 'success'
+            else:
+                statut = 'ecart'
+                statut_label = 'Écart détecté'
+                statut_class = 'danger'
+        
         comparaison_journaliere.append({
-            'date': recette.date,
-            'recette': recette,
-            'montant_declare': recette.montant_declare,
-            'montant_quittance': montant_quittance_total,
+            'date': current_date,
+            'recette': recette_jour,
+            'montant_declare': montant_declare,
+            'montant_quittance': montant_quittance_jour,
             'ecart': ecart_jour,
             'quittances_jour': quittances_jour,
-            'quittances_decade': quittances_decade_couvrant,
+            'decade_couvrant': decade_couvrant,
             'statut': statut,
             'statut_label': statut_label,
             'statut_class': statut_class,
         })
-
-    # Justifications d'écarts
+        
+        # Ajouter aux totaux
+        total_declare += montant_declare
+        if not decade_couvrant:  # Ne pas compter deux fois pour les décades
+            total_quittance += montant_quittance_jour
+        
+        current_date += timedelta(days=1)
+    
+    # Ajouter les montants des décades au total
+    for decade_detail in decades_details:
+        if decade_detail['statut'] != 'incomplet':
+            # Ne compter que la partie de la décade dans notre période
+            # Prorata si la décade dépasse notre période
+            q_decade = decade_detail['quittance']
+            if q_decade.date_debut_decade >= date_debut_obj and q_decade.date_fin_decade <= date_fin_obj:
+                # Décade entièrement dans la période
+                total_quittance += q_decade.montant
+            else:
+                # Calculer le prorata
+                debut_effectif = max(q_decade.date_debut_decade, date_debut_obj)
+                fin_effective = min(q_decade.date_fin_decade, date_fin_obj)
+                jours_dans_periode = (fin_effective - debut_effectif).days + 1
+                jours_total_decade = (q_decade.date_fin_decade - q_decade.date_debut_decade).days + 1
+                montant_prorata = (q_decade.montant * jours_dans_periode) / jours_total_decade
+                total_quittance += montant_prorata
+    
+    # Calcul de l'écart global
+    ecart = total_quittance - total_declare
+    
+    # Vérifier les justifications existantes
     justifications = JustificationEcart.objects.filter(
         poste=poste,
         date_debut=date_debut_obj,
         date_fin=date_fin_obj
     ).select_related('justifie_par')
-
-    # Journalisation
+    
+    # Journaliser l'action
     log_user_action(
         request.user,
         "Consultation détails quittancements",
         f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | Écart: {ecart} FCFA",
         request
     )
-
+    
     context = {
         'poste': poste,
         'date_debut': date_debut_obj,
         'date_fin': date_fin_obj,
-        'quittancements': list(quittancements_journaliers) + list(quittancements_decades),
         'quittancements_journaliers': quittancements_journaliers,
         'quittancements_decades': quittancements_decades,
+        'decades_details': decades_details,
         'recettes': recettes,
         'comparaison_journaliere': comparaison_journaliere,
         'total_quittance': total_quittance,
         'total_declare': total_declare,
         'ecart': ecart,
         'justifications': justifications,
+        'quittancements': list(quittancements_journaliers) + list(quittancements_decades),
     }
-
+    
     return render(request, 'inventaire/detail_quittancements.html', context)
 
 
