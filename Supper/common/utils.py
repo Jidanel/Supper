@@ -376,48 +376,178 @@ def nettoyer_donnees_anciennes(model_class, champ_date, jours_retention):
 
 
 
-def log_user_action(user, action, details="", request=None):
+# ===================================================================
+# REMPLACER LA FONCTION log_user_action DANS common/utils.py
+# ===================================================================
+
+def log_user_action(user, action, details="", request=None, **extra_data):
     """
-    Fonction pour journaliser manuellement une action utilisateur
-    VERSION CORRIGÉE : Gère correctement les cas sans request
+    Fonction AMÉLIORÉE pour journaliser manuellement une action utilisateur
+    
+    NOUVEAUTÉS :
+    - Détecte automatiquement si middleware a déjà journalisé
+    - Enrichit automatiquement avec contexte utilisateur
+    - Supporte données extra structurées
+    - Évite les duplications
+    
+    Args:
+        user: Utilisateur effectuant l'action
+        action: Nom de l'action (ex: "Saisie recette confirmée")
+        details: Détails de l'action (ex: "Recette: 500000 FCFA")
+        request: Objet request Django (optionnel mais recommandé)
+        **extra_data: Données supplémentaires structurées (montant=500000, poste_id=12, etc.)
+    
+    Usage:
+        # Simple
+        log_user_action(request.user, "Saisie recette", "Montant: 500000 FCFA", request)
+        
+        # Avec données structurées
+        log_user_action(
+            request.user, 
+            "Saisie recette confirmée",
+            "Recette saisie avec succès",
+            request,
+            montant=500000,
+            poste_id=12,
+            date="2025-01-15"
+        )
     """
     try:
         from accounts.models import JournalAudit
+        from datetime import timedelta
+        import time
         
+        # ===================================================================
+        # ANTI-DUPLICATION : Marquer que cette requête a un log manuel
+        # ===================================================================
+        if request:
+            if hasattr(request, '_has_manual_log'):
+                # Un log manuel existe déjà pour cette requête, ne pas dupliquer
+                logger.debug(f"Log manuel déjà présent pour {request.path}, skip")
+                return
+            
+            # Marquer cette requête comme ayant un log manuel
+            request._has_manual_log = True
+        
+        # ===================================================================
+        # ENRICHISSEMENT AUTOMATIQUE DES INFORMATIONS
+        # ===================================================================
         ip = None
-        session = None
+        session_key = ''
         user_agent = ""
         url = ""
+        method = ""
+        duration = None
         
         if request:
-            ip = request.META.get('REMOTE_ADDR')
-            # CORRECTION : Récupérer session_key seulement si elle existe
-            if hasattr(request, 'session') and request.session.session_key:
-                session = request.session.session_key
+            # IP
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(',')[0].strip()
             else:
-                session = 'no-session'  # Valeur par défaut
+                ip = request.META.get('REMOTE_ADDR')
             
+            # Session
+            session_key = getattr(request.session, 'session_key', '') or ''
+            
+            # User agent
             user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
-            url = request.path
-        else:
-            # Pas de request fournie (cas des fonctions internes)
-            session = 'internal-action'
-            ip = '127.0.0.1'
+            
+            # URL et méthode
+            url = request.path[:500]
+            method = request.method[:10]
+            
+            # Durée (si middleware a marqué le début)
+            if hasattr(request, '_audit_start_time'):
+                duration_seconds = time.time() - request._audit_start_time
+                duration = timedelta(seconds=duration_seconds)
         
+        # ===================================================================
+        # ENRICHISSEMENT DES DÉTAILS
+        # ===================================================================
+        # Format : [Nom Complet (Rôle)] | Détails originaux | Extras
+        
+        enriched_details = f"{user.nom_complet} ({user.get_habilitation_display()})"
+        
+        if details:
+            enriched_details += f" | {details}"
+        
+        # Ajouter les données extra structurées
+        if extra_data:
+            extra_parts = []
+            for key, value in extra_data.items():
+                # Formater joliment les clés (snake_case -> Title Case)
+                formatted_key = key.replace('_', ' ').title()
+                extra_parts.append(f"{formatted_key}: {value}")
+            
+            if extra_parts:
+                enriched_details += f" | {' | '.join(extra_parts)}"
+        
+        # ===================================================================
+        # CRÉATION DE L'ENTRÉE DE JOURNAL
+        # ===================================================================
         JournalAudit.objects.create(
             utilisateur=user,
             action=action,
-            details=details,
+            details=enriched_details,
             adresse_ip=ip,
             user_agent=user_agent,
-            session_key=session,  # Toujours fourni maintenant
+            session_key=session_key,
             url_acces=url,
-            succes=True
+            methode_http=method,
+            succes=True,
+            statut_reponse=200,
+            duree_execution=duration
         )
         
-        logger.info(f"Action manuelle journalisée: {action} | Utilisateur: {user.username}")
+        # Log dans le fichier système aussi
+        logger.info(f"Action manuelle : {action} | {user.username} | {details}")
         
     except Exception as e:
-        # Ne pas bloquer l'opération si le logging échoue
-        logger.error(f"Erreur journalisation manuelle (non bloquante): {str(e)}")
+        # Ne pas interrompre l'application si le logging échoue
+        logger.error(f"Erreur journalisation manuelle: {str(e)}")
 
+
+# # ===================================================================
+# # EXEMPLE D'UTILISATION DANS VOS VUES
+# # ===================================================================
+
+# # AVANT (votre code actuel - fonctionne toujours) :
+# def saisir_recette(request):
+#     # ... code métier ...
+#     montant = 500000
+#     poste = get_object_or_404(Poste, id=12)
+#     date_recette = "2025-01-15"
+    
+#     log_user_action(
+#         request.user,
+#         "Saisie recette confirmée",
+#         f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date_recette}",
+#         request
+#     )
+#     return redirect('...')
+
+# # APRÈS (nouvelle syntaxe avec données structurées - optionnel) :
+# def saisir_recette(request):
+#     # ... code métier ...
+#     montant = 500000
+#     poste = get_object_or_404(Poste, id=12)
+#     date_recette = "2025-01-15"
+    
+#     log_user_action(
+#         request.user,
+#         "Saisie recette confirmée",
+#         f"Recette saisie pour {poste.nom}",
+#         request,
+#         montant=f"{montant:.0f} FCFA",
+#         poste=poste.nom,
+#         date=date_recette,
+#         type_poste=poste.get_type_poste_display()
+#     )
+#     return redirect('...')
+
+# # RÉSULTAT DANS LE JOURNAL :
+# # Action: "Saisie recette confirmée"
+# # Détails: "Jean DUPONT (Chef de Poste Péage) | Recette saisie pour Péage de Douala | 
+# #           Montant: 500000 FCFA | Poste: Péage de Douala | Date: 2025-01-15 | 
+# #           Type Poste: Poste de Péage"

@@ -11,10 +11,10 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import authenticate
 from .models import Departement, UtilisateurSUPPER, Poste
 import re
+from .models import *
+import logging
 
-# Créer/Modifier le fichier : Supper/accounts/forms.py
-from django import forms
-from .models import Poste, UtilisateurSUPPER
+logger = logging.getLogger('supper')
 
 # Dictionnaire des départements par région du Cameroun
 DEPARTEMENTS_CAMEROUN = {
@@ -94,80 +94,159 @@ class PosteForm(forms.ModelForm):
         else:
             # Par défaut, afficher tous les départements ou aucun
             self.fields['departement'].queryset = Departement.objects.none()
-class CustomLoginForm(LoginView):
+# class CustomLoginForm(LoginView):
+#     """
+#     Formulaire de connexion personnalisé pour SUPPER
+#     CORRIGÉ : Hérite d'AuthenticationForm pour compatibilité avec LoginView
+#     """
+    
+#     username = forms.CharField(
+#         label=_("Matricule"),
+#         max_length=20,
+#         widget=forms.TextInput(attrs={
+#             'class': 'form-control form-control-lg',
+#             'placeholder': _('Votre matricule'),
+#             'autofocus': True,
+#             'autocomplete': 'username',
+#             'style': 'text-transform: uppercase;'
+#         }),
+#         help_text=_("Saisissez votre matricule (ex: ADM001)")
+#     )
+    
+#     password = forms.CharField(
+#         label=_("Mot de passe"),
+#         widget=forms.PasswordInput(attrs={
+#             'class': 'form-control form-control-lg',
+#             'placeholder': _('Votre mot de passe'),
+#             'autocomplete': 'current-password',
+#         })
+#     )
+    
+#     remember_me = forms.BooleanField(
+#         label=_("Se souvenir de moi"),
+#         required=False,
+#         widget=forms.CheckboxInput(attrs={
+#             'class': 'form-check-input',
+#         })
+#     )
+    
+#     class Meta:
+#         model = UtilisateurSUPPER
+#         fields = ['username', 'password', 'remember_me']
+    
+#     def __init__(self, request=None, *args, **kwargs):
+#         """
+#         CORRECTION : Accepter le paramètre request de LoginView
+#         """
+#         super().__init__(request, *args, **kwargs)
+    
+#     def clean_username(self):
+#         """Nettoyer et valider le matricule"""
+#         username = self.cleaned_data.get('username')
+#         if username:
+#             # Convertir en majuscules
+#             username = username.upper().strip()
+            
+#             # Valider le format
+#             if not re.match(r'^[A-Z0-9]{3,20}$', username):
+#                 raise ValidationError(
+#                     _("Le matricule doit contenir entre 3 et 20 caractères alphanumériques.")
+#                 )
+        
+#         return username
+    
+#     def confirm_login_allowed(self, user):
+#         """
+#         Vérifications supplémentaires après authentification
+#         """
+#         super().confirm_login_allowed(user)
+        
+#         # Vérifier que l'utilisateur est actif dans SUPPER
+#         if not user.is_active:
+#             raise ValidationError(
+#                 _("Ce compte a été désactivé. Contactez votre administrateur."),
+#                 code='inactive',
+#             )
+
+class CustomLoginForm(AuthenticationForm):
     """
-    Formulaire de connexion personnalisé pour SUPPER
-    CORRIGÉ : Hérite d'AuthenticationForm pour compatibilité avec LoginView
+    Formulaire de connexion personnalisé avec messages d'erreur détaillés
+    SOLUTION PROBLÈME 2: Messages d'erreur spécifiques pour matricule/mot de passe
     """
     
     username = forms.CharField(
         label=_("Matricule"),
         max_length=20,
         widget=forms.TextInput(attrs={
-            'class': 'form-control form-control-lg',
-            'placeholder': _('Votre matricule'),
+            'class': 'form-control',
+            'placeholder': 'Ex: 1052105M',
             'autofocus': True,
-            'autocomplete': 'username',
-            'style': 'text-transform: uppercase;'
-        }),
-        help_text=_("Saisissez votre matricule (ex: ADM001)")
+            'required': True
+        })
     )
     
     password = forms.CharField(
         label=_("Mot de passe"),
         widget=forms.PasswordInput(attrs={
-            'class': 'form-control form-control-lg',
-            'placeholder': _('Votre mot de passe'),
-            'autocomplete': 'current-password',
+            'class': 'form-control',
+            'placeholder': 'Mot de passe',
+            'required': True
         })
     )
     
-    remember_me = forms.BooleanField(
-        label=_("Se souvenir de moi"),
-        required=False,
-        widget=forms.CheckboxInput(attrs={
-            'class': 'form-check-input',
-        })
-    )
-    
-    class Meta:
-        model = UtilisateurSUPPER
-        fields = ['username', 'password', 'remember_me']
-    
-    def __init__(self, request=None, *args, **kwargs):
+    def clean(self):
         """
-        CORRECTION : Accepter le paramètre request de LoginView
+        Validation personnalisée avec messages spécifiques
         """
-        super().__init__(request, *args, **kwargs)
-    
-    def clean_username(self):
-        """Nettoyer et valider le matricule"""
         username = self.cleaned_data.get('username')
-        if username:
-            # Convertir en majuscules
+        password = self.cleaned_data.get('password')
+        
+        if username and password:
+            # Convertir le matricule en majuscules
             username = username.upper().strip()
             
-            # Valider le format
-            if not re.match(r'^[A-Z0-9]{3,20}$', username):
+            # Vérifier d'abord si l'utilisateur existe
+            try:
+                user = UtilisateurSUPPER.objects.get(username=username)
+                
+                # L'utilisateur existe, vérifier le mot de passe
+                self.user_cache = authenticate(self.request, username=username, password=password)
+                
+                if self.user_cache is None:
+                    # Le mot de passe est incorrect
+                    logger.warning(f"Tentative de connexion échouée pour {username} - Mot de passe incorrect")
+                    raise ValidationError(
+                        _("Mot de passe incorrect. Veuillez vérifier votre mot de passe et réessayer."),
+                        code='invalid_password',
+                    )
+                elif not self.user_cache.is_active:
+                    # Le compte est désactivé
+                    logger.warning(f"Tentative de connexion avec compte désactivé: {username}")
+                    raise ValidationError(
+                        _("Ce compte a été désactivé. Contactez un administrateur."),
+                        code='inactive',
+                    )
+                    
+            except UtilisateurSUPPER.DoesNotExist:
+                # Le matricule n'existe pas
+                logger.warning(f"Tentative de connexion avec matricule inexistant: {username}")
                 raise ValidationError(
-                    _("Le matricule doit contenir entre 3 et 20 caractères alphanumériques.")
+                    _("Le matricule '%(username)s' n'existe pas dans le système. Vérifiez votre matricule."),
+                    code='invalid_username',
+                    params={'username': username},
                 )
         
-        return username
+        return self.cleaned_data
     
     def confirm_login_allowed(self, user):
         """
-        Vérifications supplémentaires après authentification
+        Vérifications supplémentaires après authentification réussie
         """
-        super().confirm_login_allowed(user)
-        
-        # Vérifier que l'utilisateur est actif dans SUPPER
         if not user.is_active:
             raise ValidationError(
-                _("Ce compte a été désactivé. Contactez votre administrateur."),
+                _("Ce compte est désactivé."),
                 code='inactive',
             )
-
 
 class UtilisateurCreationForm(UserCreationForm):
     """Formulaire de création d'utilisateur SUPPER"""
@@ -365,50 +444,319 @@ class UserCreateForm(forms.ModelForm):
         return user
 
 
+# class UserUpdateForm(forms.ModelForm):
+#     """
+#     Formulaire de modification d'utilisateur
+#     """
+    
+#     class Meta:
+#         model = UtilisateurSUPPER
+#         fields = [
+#             'nom_complet', 'telephone', 'email',
+#             'poste_affectation', 'habilitation', 'is_active'
+#         ]
+#         widgets = {
+#             'nom_complet': forms.TextInput(attrs={'class': 'form-control'}),
+#             'telephone': forms.TextInput(attrs={'class': 'form-control'}),
+#             'email': forms.EmailInput(attrs={'class': 'form-control'}),
+#             'poste_affectation': forms.Select(attrs={'class': 'form-select'}),
+#             'habilitation': forms.Select(attrs={'class': 'form-select'}),
+#             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+#         }
+
+
 class UserUpdateForm(forms.ModelForm):
     """
     Formulaire de modification d'utilisateur
+    SOLUTION PROBLÈME 1: Formulaire avec pré-remplissage automatique
     """
     
     class Meta:
         model = UtilisateurSUPPER
         fields = [
-            'nom_complet', 'telephone', 'email',
-            'poste_affectation', 'habilitation', 'is_active'
+            'nom_complet', 
+            'telephone', 
+            'email', 
+            'habilitation', 
+            'poste_affectation',
+            'is_active',
+            'acces_tous_postes',
+            'peut_saisir_peage',
+            'peut_saisir_pesage',
+            'peut_gerer_peage',
+            'peut_gerer_pesage',
+            'peut_gerer_personnel',
+            'peut_gerer_budget',
+            'peut_gerer_inventaire',
+            'peut_gerer_archives',
+            'peut_gerer_stocks_psrr',
+            'peut_gerer_stock_info',
         ]
+        
         widgets = {
-            'nom_complet': forms.TextInput(attrs={'class': 'form-control'}),
-            'telephone': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'poste_affectation': forms.Select(attrs={'class': 'form-select'}),
-            'habilitation': forms.Select(attrs={'class': 'form-select'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'nom_complet': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nom et prénom(s) complets'
+            }),
+            'telephone': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: +237XXXXXXXXX'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'email@exemple.cm'
+            }),
+            'habilitation': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'poste_affectation': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'acces_tous_postes': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_saisir_peage': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_saisir_pesage': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_peage': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_pesage': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_personnel': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_budget': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_inventaire': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_archives': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_stocks_psrr': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'peut_gerer_stock_info': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
         }
+        
+        labels = {
+            'nom_complet': _("Nom complet"),
+            'telephone': _("Téléphone"),
+            'email': _("Email (optionnel)"),
+            'habilitation': _("Rôle"),
+            'poste_affectation': _("Poste d'affectation"),
+            'is_active': _("Compte actif"),
+            'acces_tous_postes': _("Accès à tous les postes"),
+            'peut_saisir_peage': _("Peut saisir données péage"),
+            'peut_saisir_pesage': _("Peut saisir données pesage"),
+            'peut_gerer_peage': _("Gérer le péage"),
+            'peut_gerer_pesage': _("Gérer le pesage"),
+            'peut_gerer_personnel': _("Gérer le personnel"),
+            'peut_gerer_budget': _("Gérer le budget"),
+            'peut_gerer_inventaire': _("Gérer l'inventaire"),
+            'peut_gerer_archives': _("Gérer les archives"),
+            'peut_gerer_stocks_psrr': _("Gérer les stocks PSRR"),
+            'peut_gerer_stock_info': _("Gérer le stock informatique"),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Limiter les postes aux postes actifs uniquement
+        self.fields['poste_affectation'].queryset = Poste.objects.filter(is_active=True).order_by('nom')
+        self.fields['poste_affectation'].required = False
+        
+        # Marquer l'email comme optionnel visuellement
+        self.fields['email'].required = False
+        
+    def clean_telephone(self):
+        """Validation du numéro de téléphone camerounais"""
+        telephone = self.cleaned_data.get('telephone')
+        if telephone:
+            # Nettoyer le numéro
+            telephone = telephone.replace(' ', '').replace('-', '')
+            
+            # Vérifier le format camerounais
+            import re
+            if not re.match(r'^(\+237)?[0-9]{8,9}$', telephone):
+                raise ValidationError(
+                    _("Format invalide. Utilisez le format: +237XXXXXXXXX ou XXXXXXXXX")
+                )
+        return telephone
+    
+    def save(self, commit=True):
+        """
+        Sauvegarde avec gestion automatique des permissions selon le rôle
+        """
+        user = super().save(commit=False)
+        
+        # Appliquer automatiquement les permissions selon l'habilitation
+        # (La logique est déjà dans le modèle via _configure_permissions_by_role)
+        
+        if commit:
+            user.save()
+            
+        return user
+
+
+# class ProfileEditForm(forms.ModelForm):
+#     """
+#     Formulaire pour permettre aux utilisateurs de modifier leur profil
+#     """
+    
+#     class Meta:
+#         model = UtilisateurSUPPER
+#         fields = ['nom_complet', 'telephone', 'email']
+#         widgets = {
+#             'nom_complet': forms.TextInput(attrs={
+#                 'class': 'form-control',
+#                 'readonly': True  # Nom complet ne peut pas être modifié par l'utilisateur
+#             }),
+#             'telephone': forms.TextInput(attrs={
+#                 'class': 'form-control',
+#                 'placeholder': '+237XXXXXXXXX'
+#             }),
+#             'email': forms.EmailInput(attrs={
+#                 'class': 'form-control',
+#                 'placeholder': 'email@example.com'
+#             }),
+#         }
 
 
 class ProfileEditForm(forms.ModelForm):
     """
-    Formulaire pour permettre aux utilisateurs de modifier leur profil
+    Formulaire pour qu'un utilisateur modifie son propre profil
+    (sans les permissions administratives)
     """
     
     class Meta:
         model = UtilisateurSUPPER
-        fields = ['nom_complet', 'telephone', 'email']
+        fields = ['telephone', 'email']
+        
         widgets = {
-            'nom_complet': forms.TextInput(attrs={
-                'class': 'form-control',
-                'readonly': True  # Nom complet ne peut pas être modifié par l'utilisateur
-            }),
             'telephone': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '+237XXXXXXXXX'
+                'placeholder': 'Ex: +237XXXXXXXXX'
             }),
             'email': forms.EmailInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'email@example.com'
+                'placeholder': 'email@exemple.cm'
             }),
         }
+        
+        labels = {
+            'telephone': _("Numéro de téléphone"),
+            'email': _("Adresse email (pour réinitialisation mot de passe)"),
+        }
+    
+    def clean_telephone(self):
+        """Validation du numéro de téléphone"""
+        telephone = self.cleaned_data.get('telephone')
+        if telephone:
+            telephone = telephone.replace(' ', '').replace('-', '')
+            import re
+            if not re.match(r'^(\+237)?[0-9]{8,9}$', telephone):
+                raise ValidationError(
+                    _("Format invalide. Utilisez le format camerounais.")
+                )
+        return telephone
 
+class UserCreateForm(forms.ModelForm):
+    """
+    Formulaire de création d'utilisateur
+    """
+    password = forms.CharField(
+        label=_("Mot de passe"),
+        initial='supper2025',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'value': 'supper2025'
+        }),
+        help_text=_("Mot de passe par défaut: supper2025")
+    )
+    
+    class Meta:
+        model = UtilisateurSUPPER
+        fields = [
+            'username',
+            'nom_complet',
+            'telephone',
+            'email',
+            'habilitation',
+            'poste_affectation',
+            'password'
+        ]
+        
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: 1052105M',
+                'style': 'text-transform: uppercase;'
+            }),
+            'nom_complet': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nom et prénom(s)'
+            }),
+            'telephone': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: +237XXXXXXXXX'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'email@exemple.cm (optionnel)'
+            }),
+            'habilitation': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'poste_affectation': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+        }
+        
+        labels = {
+            'username': _("Matricule"),
+            'nom_complet': _("Nom complet"),
+            'telephone': _("Téléphone"),
+            'email': _("Email (optionnel)"),
+            'habilitation': _("Rôle"),
+            'poste_affectation': _("Poste d'affectation"),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['poste_affectation'].queryset = Poste.objects.filter(is_active=True).order_by('nom')
+        self.fields['poste_affectation'].required = False
+        self.fields['email'].required = False
+    
+    def clean_username(self):
+        """Nettoyer et valider le matricule"""
+        username = self.cleaned_data.get('username')
+        if username:
+            username = username.upper().strip()
+        return username
+    
+    def save(self, commit=True, created_by=None):
+        """Créer l'utilisateur avec le mot de passe"""
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password'])
+        
+        if created_by:
+            user.cree_par = created_by
+        
+        if commit:
+            user.save()
+            
+        return user
 
 class PosteForm(forms.ModelForm):
     """Formulaire pour les postes"""

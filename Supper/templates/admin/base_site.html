@@ -1,4 +1,4 @@
-<!-- templates/admin/base_site.html - Version révisée avec nouvelles URLs -->
+<!-- templates/admin/base_site.html - Version optimisée avec icônes FA uniques -->
 {% load static i18n %}
 
 <!DOCTYPE html>
@@ -211,7 +211,7 @@
         <!-- Logo et titre -->
         <div class="logo-section">
             <div class="logo-icon">
-                <i class="fas fa-road text-white fs-2"></i>
+                <i class="fas fa-route text-white fs-2"></i>
             </div>
             <div class="logo-text">
                 <h1 class="mb-0">SUPPER</h1>
@@ -227,7 +227,7 @@
         <!-- Dashboard -->
         <li>
             <a href="{% url 'common:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                <i class="fas fa-tachometer-alt me-1"></i>
+                <i class="fas fa-gauge-high me-1"></i>
                 {% trans "Dashboard" %}
             </a>
         </li>
@@ -236,13 +236,13 @@
         {% if user.peut_gerer_inventaire %}
         <li class="dropdown">
             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-clipboard-list me-1"></i>
+                <i class="fas fa-clipboard-check me-1"></i>
                 {% trans "Inventaires" %}
             </a>
             <ul class="dropdown-menu">
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-edit me-1"></i>{% trans "Saisie" %}
+                        <i class="fas fa-pen-to-square me-1"></i>{% trans "Saisie" %}
                     </h6>
                 </li>
                 <li>
@@ -252,7 +252,7 @@
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:inventaire_administratif' %}">
-                        <i class="fas fa-keyboard me-2"></i>{% trans "Inventaire Automatique" %}
+                        <i class="fas fa-robot me-2"></i>{% trans "Inventaire Automatique" %}
                     </a>
                 </li>
                 
@@ -260,7 +260,7 @@
                 
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-calendar me-1"></i>{% trans "Programmation" %}
+                        <i class="fas fa-calendar-check me-1"></i>{% trans "Programmation" %}
                     </h6>
                 </li>
                 <li>
@@ -270,12 +270,12 @@
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_programmations' %}">
-                        <i class="fas fa-tasks me-2"></i>{% trans "Programmations Actives" %}
+                        <i class="fas fa-list-check me-2"></i>{% trans "Programmations Actives" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:programmations_desactivees' %}">
-                        <i class="fas fa-calendar-times me-2"></i>{% trans "Programmations Désactivées" %}
+                        <i class="fas fa-ban me-2"></i>{% trans "Programmations Désactivées" %}
                     </a>
                 </li>
                 
@@ -283,22 +283,22 @@
                 
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-list me-1"></i>{% trans "Consultation" %}
+                        <i class="fas fa-search me-1"></i>{% trans "Consultation" %}
                     </h6>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:inventaire_list' %}">
-                        <i class="fas fa-list-alt me-2"></i>{% trans "Liste Inventaires" %}
+                        <i class="fas fa-table-list me-2"></i>{% trans "Liste Inventaires" %}
                     </a>
                 </li>
                  <li>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_administratifs' %}">
-                        <i class="fas fa-list-alt me-2"></i>{% trans "Liste Inventaires Administratifs" %}
+                        <i class="fas fa-file-invoice me-2"></i>{% trans "Liste Inventaires Administratifs" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:jours_impertinents' %}">
-                        <i class="fas fa-calendar-day me-2"></i>{% trans "Liste Jours Impertinents" %}
+                        <i class="fas fa-calendar-xmark me-2"></i>{% trans "Liste Jours Impertinents" %}
                     </a>
                 </li>
         
@@ -318,7 +318,7 @@
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:consolider_inventaire_mensuel' %}">
-                        <i class="fas fa-compress me-2"></i>{% trans "Consolider Mensuel" %}
+                        <i class="fas fa-layer-group me-2"></i>{% trans "Consolider Mensuel" %}
                     </a>
                 </li>
                 {% endif %}
@@ -330,73 +330,73 @@
         {% if user.is_chef_poste or user.is_admin %}
         <li class="dropdown">
             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-road me-1"></i>
+                <i class="fas fa-toll me-1"></i>
                 {% trans "Péage" %}
             </a>
             <ul class="dropdown-menu">
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-coins me-1"></i>{% trans "Recettes" %}
+                        <i class="fas fa-money-bill-wave me-1"></i>{% trans "Recettes" %}
                     </h6>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:saisie_recette' %}">
-                        <i class="fas fa-plus-circle me-2"></i>{% trans "Saisir Recette" %}
+                        <i class="fas fa-cash-register me-2"></i>{% trans "Saisir Recette" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}">
-                        <i class="fas fa-list me-2"></i>{% trans "Liste des Recettes" %}
+                        <i class="fas fa-receipt me-2"></i>{% trans "Liste des Recettes" %}
                     </a>
                 </li>
                 <li>
                     <a href="{% url 'inventaire:statistiques_recettes' %}" class="dropdown-item">
-                        <i class="fas fa-chart-bar me-2"></i>
+                        <i class="fas fa-chart-pie me-2"></i>
                         {% trans "Statistiques Recettes" %}
                     </a>
                 </li>
                  <li>
                         <a class="dropdown-item" href="{% url 'inventaire:import_recettes'%}">
-                            <i class="fas fa-check me-2"></i>{% trans "Importer les Recettes" %}
+                            <i class="fas fa-file-import me-2"></i>{% trans "Importer les Recettes" %}
                         </a>
                     </li>
                 <li>
                     <a href="{% url 'inventaire:taux_evolution_avance' %}" class="dropdown-item">
-                        <i class="fas fa-chart-bar me-2"></i>
+                        <i class="fas fa-arrow-trend-up me-2"></i>
                         {% trans "Taux D'Évolution et Estimations" %}
                     </a>
                 </li>
                 <li>
                     <a href="{% url 'inventaire:gestion_objectifs_annuels' %}" class="dropdown-item">
-                        <i class="fas fa-chart-bar me-2"></i>
+                        <i class="fas fa-bullseye me-2"></i>
                         {% trans "Gestion des Objectifs Annuels" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:saisie_quittancement' %}">
-                        <i class="fas fa-plus-circle me-2"></i>{% trans "Saisir Quittance" %}
+                        <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Saisir Quittance" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_quittancements' %}">
-                        <i class="fas fa-analys me-2"></i>{% trans "Liste des quittances" %}
+                        <i class="fas fa-file-lines me-2"></i>{% trans "Liste des quittances" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:comptabilisation_quittancements' %}">
-                        <i class="fas fa-plus-circle me-2"></i>{% trans "Comptabilisation et Justifications" %}
+                        <i class="fas fa-calculator me-2"></i>{% trans "Comptabilisation et Justifications" %}
                     </a>
                 </li>
                 {% if user.voir_taux_deperdition %}
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-chart-line me-1"></i>{% trans "Analyse" %}
+                        <i class="fas fa-magnifying-glass-chart me-1"></i>{% trans "Analyse" %}
                     </h6>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}?periode=mois">
-                        <i class="fas fa-chart-bar me-2"></i>{% trans "Analyse Mensuelle" %}
+                        <i class="fas fa-chart-column me-2"></i>{% trans "Analyse Mensuelle" %}
                     </a>
                 </li>
                 {% endif %}
@@ -407,24 +407,24 @@
             {% if user.is_admin or user.is_chef_poste %}
             <li class="dropdown">
                 <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="fas fa-boxes me-1"></i>
+                    <i class="fas fa-boxes-stacked me-1"></i>
                     {% trans "Stocks" %}
                 </a>
                 <ul class="dropdown-menu">
                     {% if user.is_admin %}
                     <li>
                         <a class="dropdown-item" href="{% url 'inventaire:liste_postes_stocks' %}">
-                            <i class="fas fa-list me-2"></i>{% trans "Tous les stocks" %}
+                            <i class="fas fa-warehouse me-2"></i>{% trans "Tous les stocks" %}
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item" href="{% url 'inventaire:selection_transfert_stock' %}">
-                            <i class="fas fa-exchange-alt me-2"></i>{% trans "Transférer Stock" %}
+                            <i class="fas fa-truck-moving me-2"></i>{% trans "Transférer Stock" %}
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item" href="{% url 'inventaire:liste_bordereaux' %}">
-                            <i class="fas fa-list me-2"></i>{% trans "Liste des Bordereaux" %}
+                            <i class="fas fa-clipboard-list me-2"></i>{% trans "Liste des Bordereaux" %}
                         </a>
                     </li>
                     {% endif %}
@@ -432,17 +432,17 @@
                     {% if user.poste_affectation %}
                     <li>
                         <a class="dropdown-item" href="{% url 'inventaire:mon_stock' %}">
-                            <i class="fas fa-box me-2"></i>{% trans "Mon stock" %}
+                            <i class="fas fa-box-open me-2"></i>{% trans "Mon stock" %}
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item" href="{% url 'inventaire:historique_stock' user.poste_affectation.id %}">
-                            <i class="fas fa-history me-2"></i>{% trans "Historique" %}
+                            <i class="fas fa-clock-rotate-left me-2"></i>{% trans "Historique" %}
                         </a>
                     </li>
                      <li>
                         <a class="dropdown-item" href="{% url 'inventaire:simulateur_commandes'%}">
-                            <i class="fas fa-chart-line me-2"></i>{% trans "Simulateur de Commandes" %}
+                            <i class="fas fa-chart-simple me-2"></i>{% trans "Simulateur de Commandes" %}
                         </a>
                     </li>
                    
@@ -455,28 +455,28 @@
         {% if user.peut_gerer_personnel or user.is_admin %}
         <li class="dropdown">
             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-cogs me-1"></i>
+                <i class="fas fa-sliders me-1"></i>
                 {% trans "Gestion" %}
             </a>
             <ul class="dropdown-menu">
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-map me-1"></i>{% trans "Postes" %}
+                        <i class="fas fa-location-dot me-1"></i>{% trans "Postes" %}
                     </h6>
                 </li>
                 <li>
                    <a class="dropdown-item" href="{% url 'accounts:liste_postes' %}">
-                        <i class="fas fa-map-marker-alt me-2"></i>{% trans "Gestion des Postes" %}
+                        <i class="fas fa-map-location-dot me-2"></i>{% trans "Gestion des Postes" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'accounts:creer_poste' %}">
-                        <i class="fas fa-plus me-2"></i>{% trans "Ajouter un Poste" %}
+                        <i class="fas fa-square-plus me-2"></i>{% trans "Ajouter un Poste" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'accounts:import_postes' %}">
-                        <i class="fas fa-plus me-2"></i>{% trans "Creer peage en masses" %}
+                        <i class="fas fa-file-arrow-up me-2"></i>{% trans "Creer peage en masses" %}
                     </a>
                 </li>
                 
@@ -484,7 +484,7 @@
                 
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-users me-1"></i>{% trans "Utilisateurs" %}
+                        <i class="fas fa-users-gear me-1"></i>{% trans "Utilisateurs" %}
                     </h6>
                 </li>
                 <li>
@@ -502,17 +502,17 @@
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <h6 class="dropdown-header">
-                        <i class="fas fa-shield-alt me-1"></i>{% trans "Administration" %}
+                        <i class="fas fa-shield-halved me-1"></i>{% trans "Administration" %}
                     </h6>
                 </li>
                 <li>
                    <a class="dropdown-item" href="{% url 'accounts:journal_audit' %}">
-                        <i class="fas fa-history me-2"></i>{% trans "Journal d'Audit" %}
+                        <i class="fas fa-book-open me-2"></i>{% trans "Journal d'Audit" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="#" onclick="marquerJourImpertinent(); return false;">
-                        <i class="fas fa-flag me-2 text-warning"></i>
+                        <i class="fas fa-flag-checkered me-2 text-warning"></i>
                         {% trans "Marquer Jour Impertinent" %}
                     </a>
                 </li>
@@ -525,18 +525,18 @@
         {% if user.peut_gerer_inventaire or user.is_admin %}
         <li class="dropdown">
             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-chart-bar me-1"></i>
+                <i class="fas fa-chart-mixed me-1"></i>
                 {% trans "Rapports" %}
             </a>
             <ul class="dropdown-menu">
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:classement_rendement' %}">
-                        <i class="fas fa-trophy me-2"></i>{% trans "Classement Postes Rendement" %}
+                        <i class="fas fa-ranking-star me-2"></i>{% trans "Classement Postes Rendement" %}
                     </a>
                 </li>
                 <li>
                 <a class="dropdown-item" href="{% url 'inventaire:classement_postes_performances' %}">
-                    <i class="fas fa-trophy me-2"></i>{% trans "Classement Postes Deperdition" %}
+                    <i class="fas fa-award me-2"></i>{% trans "Classement Postes Deperdition" %}
                 </a>
             </li>
             <li>
@@ -546,18 +546,18 @@
             </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
-                        <i class="fas fa-file-export me-2"></i>{% trans "Générer Rapports" %}
+                        <i class="fas fa-file-pdf me-2"></i>{% trans "Générer Rapports" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:api_inventaire_stats' %}">
-                        <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques" %}
+                        <i class="fas fa-chart-gantt me-2"></i>{% trans "Statistiques" %}
                     </a>
                 </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
-                        <i class="fas fa-download me-2"></i>{% trans "Sauvegarde" %}
+                        <i class="fas fa-cloud-arrow-down me-2"></i>{% trans "Sauvegarde" %}
                     </a>
                 </li>
             </ul>
@@ -568,23 +568,23 @@
         {% if user.is_superuser %}
         <li class="dropdown">
             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="fas fa-tools me-1"></i>
+                <i class="fas fa-screwdriver-wrench me-1"></i>
                 {% trans "Administration" %}
             </a>
             <ul class="dropdown-menu">
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:parametrage_global' %}">
-                        <i class="fas fa-shield-alt me-2"></i>{% trans "Parametrage Global" %}
+                        <i class="fas fa-gears me-2"></i>{% trans "Parametrage Global" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:selection_compte_emploi' %}">
-                        <i class="fas fa-shield-alt me-2"></i>{% trans "Compte d'emploi" %}
+                        <i class="fas fa-wallet me-2"></i>{% trans "Compte d'emploi" %}
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:authentifier_document' %}">
-                        <i class="fas fa-lock me-2"></i>{% trans "Authentifier un document" %}
+                        <i class="fas fa-stamp me-2"></i>{% trans "Authentifier un document" %}
                     </a>
                 </li>
                 <li><hr class="dropdown-divider"></li>
@@ -627,7 +627,7 @@
                     <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
                     <li>
                         <a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                            <i class="fas fa-user me-2"></i>{% trans "Mon Profil" %}
+                            <i class="fas fa-id-card me-2"></i>{% trans "Mon Profil" %}
                         </a>
                     </li>
                     <li>
@@ -640,7 +640,7 @@
                         <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
                             {% csrf_token %}
                             <button type="submit" class="dropdown-item border-0 bg-transparent text-start w-100">
-                                <i class="fas fa-sign-out-alt me-2"></i>{% trans "Déconnexion" %}
+                                <i class="fas fa-right-from-bracket me-2"></i>{% trans "Déconnexion" %}
                             </button>
                         </form>
                     </li>
@@ -660,13 +660,13 @@
             {% for message in messages %}
             <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
                 {% if message.tags == 'error' %}
-                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <i class="fas fa-triangle-exclamation me-2"></i>
                 {% elif message.tags == 'warning' %}
-                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <i class="fas fa-circle-exclamation me-2"></i>
                 {% elif message.tags == 'success' %}
-                    <i class="fas fa-check-circle me-2"></i>
+                    <i class="fas fa-circle-check me-2"></i>
                 {% else %}
-                    <i class="fas fa-info-circle me-2"></i>
+                    <i class="fas fa-circle-info me-2"></i>
                 {% endif %}
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -687,12 +687,12 @@
                             <div class="mt-4">
                                 {% if user.peut_gerer_inventaire %}
                                 <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-primary me-2">
-                                    <i class="fas fa-plus me-2"></i>{% trans "Saisir Inventaire" %}
+                                    <i class="fas fa-keyboard me-2"></i>{% trans "Saisir Inventaire" %}
                                 </a>
                                 {% endif %}
                                 {% if user.is_chef_poste %}
                                 <a href="{% url 'inventaire:saisie_recette' %}" class="btn btn-success">
-                                    <i class="fas fa-coins me-2"></i>{% trans "Saisir Recette" %}
+                                    <i class="fas fa-cash-register me-2"></i>{% trans "Saisir Recette" %}
                                 </a>
                             
                                 {% endif %}
@@ -820,7 +820,7 @@ function checkNotifications() {
                             <li>
                                 <a class="dropdown-item" href="#">
                                     <div class="d-flex align-items-center">
-                                        <i class="fas fa-${notif.type === 'warning' ? 'exclamation-triangle text-warning' : 'info-circle text-info'} me-2"></i>
+                                        <i class="fas fa-${notif.type === 'warning' ? 'triangle-exclamation text-warning' : 'circle-info text-info'} me-2"></i>
                                         <small>${notif.message}</small>
                                     </div>
                                 </a>
@@ -855,4 +855,4 @@ document.addEventListener('DOMContentLoaded', function() {
 {% block extra_js %}{% endblock %}
 
 </body>
-</html>
+</html>base_site avec les nouveaux fas-d

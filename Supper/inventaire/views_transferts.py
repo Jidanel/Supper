@@ -261,7 +261,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
         poste_origine=poste_origine,
         poste_destination=poste_destination,
         numero_bordereau=numero_bordereau,
-        commentaire=f"CESSION vers {poste_destination.nom} - {commentaire}"
+        commentaire=f"{commentaire}"
     )
     
     logger.info(f"Historique ORIGINE créé - ID: {hist_origine.id}, Bordereau: {hist_origine.numero_bordereau}")
@@ -279,7 +279,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
         poste_origine=poste_origine,
         poste_destination=poste_destination,
         numero_bordereau=numero_bordereau,
-        commentaire=f"RÉCEPTION depuis {poste_origine.nom} - {commentaire}"
+        commentaire=f"{commentaire}"
     )
     
     logger.info(f"Historique DESTINATION créé - ID: {hist_destination.id}, Bordereau: {hist_destination.numero_bordereau}")

@@ -222,15 +222,15 @@
             margin-bottom: 0.5rem;
             font-weight: 500;
             color: var(--gris-fonce);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
         }
 
         .form-control {
             width: 100%;
-            padding: 1rem 1.25rem;
-            border: 2px solid #E5E7EB;
-            border-radius: 12px;
-            font-size: 1rem;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 0.95rem;
             transition: all 0.3s ease;
             background: var(--gris-clair);
         }
@@ -238,8 +238,13 @@
         .form-control:focus {
             outline: none;
             border-color: var(--bleu-principal);
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
             background: var(--blanc-pur);
+        }
+
+        .form-control.is-invalid {
+            border-color: #dc3545;
+            background-color: #fff5f5;
         }
 
         .input-icon {
@@ -248,11 +253,7 @@
             top: 50%;
             transform: translateY(-50%);
             color: var(--gris-moyen);
-            z-index: 5;
-        }
-
-        .form-control.with-icon {
-            padding-left: 3rem;
+            font-size: 1rem;
         }
 
         .password-toggle {
@@ -264,168 +265,28 @@
             border: none;
             color: var(--gris-moyen);
             cursor: pointer;
-            padding: 8px;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            z-index: 10;
+            padding: 0.25rem;
+            transition: color 0.3s ease;
         }
 
         .password-toggle:hover {
             color: var(--bleu-principal);
-            background: rgba(37, 99, 235, 0.1);
-        }
-
-        /* Button Styling avec gradient bleu */
-        .btn-login {
-            width: 100%;
-            padding: 1rem 2rem;
-            background: linear-gradient(135deg, var(--bleu-principal), var(--bleu-clair));
-            color: var(--blanc-pur);
-            border: none;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-login::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .btn-login:hover::before {
-            left: 100%;
-        }
-
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
-        }
-
-        .btn-login:active {
-            transform: translateY(0);
         }
 
         /* Alert Styling */
         .alert {
-            border: none;
-            border-radius: 12px;
             padding: 1rem 1.25rem;
+            border-radius: 10px;
             margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
+            border: none;
+            font-size: 0.95rem;
+            animation: slideDown 0.3s ease;
         }
 
-        .alert-danger {
-            background: #FEF2F2;
-            color: #B91C1C;
-            border-left: 4px solid #EF4444;
-        }
-
-        .alert-success {
-            background: #ECFDF5;
-            color: #047857;
-            border-left: 4px solid #10B981;
-        }
-
-        /* Footer */
-        .login-footer {
-            text-align: center;
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid #E5E7EB;
-        }
-
-        .security-info {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            color: var(--gris-moyen);
-            font-size: 0.85rem;
-        }
-
-        .security-info i {
-            color: var(--accent-orange);
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .header-content {
-                padding: 0 1rem;
-            }
-
-            .login-wrapper {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-                text-align: center;
-            }
-
-            .login-info {
-                text-align: center;
-            }
-
-            .login-info h2 {
-                font-size: 2.5rem;
-            }
-
-            .login-card {
-                padding: 2rem;
-            }
-
-            .login-container {
-                padding: 1rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .login-info h2 {
-                font-size: 2rem;
-            }
-
-            .login-card {
-                padding: 1.5rem;
-            }
-
-            .card-header h3 {
-                font-size: 1.5rem;
-            }
-        }
-
-        /* Loading Animation */
-        .btn-loading {
-            pointer-events: none;
-            opacity: 0.7;
-        }
-
-        .btn-loading i {
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        /* Input Animation */
-        .form-group {
-            animation: slideUp 0.5s ease-out;
-        }
-
-        @keyframes slideUp {
+        @keyframes slideDown {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(-20px);
             }
             to {
                 opacity: 1;
@@ -433,30 +294,124 @@
             }
         }
 
-        /* Card Animation */
-        .login-card {
-            animation: fadeInCard 0.8s ease-out;
+        .alert-danger {
+            background: #fee2e2;
+            color: #dc3545;
         }
 
-        @keyframes fadeInCard {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+        .alert-success {
+            background: #d1fae5;
+            color: #10b981;
         }
 
-        /* Notification Band - Style Atlantique */
-        .notification-band {
-            background: linear-gradient(135deg, var(--bleu-fonce) 0%, var(--bleu-principal) 100%);
+        .alert-warning {
+            background: #fed7aa;
+            color: var(--accent-orange);
+        }
+
+        .alert i {
+            margin-right: 0.5rem;
+        }
+
+        .text-danger {
+            color: #dc3545;
+            font-size: 0.875rem;
+        }
+
+        /* Submit Button */
+        .btn-login {
+            width: 100%;
+            padding: 0.875rem;
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #dc7c0b 100%);
             color: var(--blanc-pur);
-            padding: 0.75rem 0;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .btn-login.btn-loading {
+            background: linear-gradient(135deg, var(--gris-moyen) 0%, #475569 100%);
+            pointer-events: none;
+        }
+
+        .btn-login.btn-loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        .login-footer {
+            margin-top: 2rem;
+            text-align: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .security-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gris-moyen);
+        }
+
+        .security-info i {
+            color: #10b981;
+            font-size: 1rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .login-wrapper {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .login-info {
+                text-align: center;
+            }
+
+            .login-info h2 {
+                font-size: 2rem;
+            }
+
+            .login-card {
+                padding: 2rem;
+            }
+
+            .features-list {
+                display: none;
+            }
+        }
+
+        /* Notification Band */
+        .notification-band {
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #dc7c0b 100%);
+            color: var(--blanc-pur);
+            padding: 0.75rem;
             text-align: center;
             font-size: 0.9rem;
-            font-weight: 500;
             position: relative;
             overflow: hidden;
         }
@@ -536,18 +491,34 @@
                     <p>Veuillez vous identifier pour accéder au système</p>
                 </div>
 
-                <!-- Messages -->
+                <!-- Messages Django généraux -->
                 {% if messages %}
                     {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">
-                            <i class="fas fa-exclamation-circle"></i>
+                        <div class="alert alert-{{ message.tags|default:'info' }}">
+                            {% if message.tags == 'success' %}
+                                <i class="fas fa-check-circle"></i>
+                            {% elif message.tags == 'error' %}
+                                <i class="fas fa-exclamation-circle"></i>
+                            {% else %}
+                                <i class="fas fa-info-circle"></i>
+                            {% endif %}
                             {{ message }}
                         </div>
                     {% endfor %}
                 {% endif %}
 
+                <!-- Erreurs générales du formulaire (non-field errors) - AJOUT POUR MESSAGES SPÉCIFIQUES -->
+                {% if form.non_field_errors %}
+                    {% for error in form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
                 <!-- Formulaire de connexion -->
-                <form method="post" id="loginForm">
+                <form method="post" id="loginForm" novalidate>
                      {% csrf_token %} 
                     
                     <!-- Matricule -->
@@ -559,10 +530,11 @@
                         <div class="position-relative">
                             <input 
                                 type="text" 
-                                class="form-control with-icon" 
+                                class="form-control with-icon {% if form.username.errors %}is-invalid{% endif %}" 
                                 id="id_username" 
                                 name="username" 
                                 placeholder="Entrez votre matricule"
+                                value="{{ form.username.value|default:'' }}"
                                 required
                                 autofocus
                                 maxlength="20"
@@ -573,7 +545,7 @@
                         {% if form.username.errors %}
                             <div class="text-danger mt-2">
                                 {% for error in form.username.errors %}
-                                    <small>{{ error }}</small>
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
                                 {% endfor %}
                             </div>
                         {% endif %}
@@ -588,7 +560,7 @@
                         <div class="position-relative">
                             <input 
                                 type="password" 
-                                class="form-control with-icon" 
+                                class="form-control with-icon {% if form.password.errors %}is-invalid{% endif %}" 
                                 id="id_password" 
                                 name="password" 
                                 placeholder="Entrez votre mot de passe"
@@ -603,7 +575,7 @@
                         {% if form.password.errors %}
                             <div class="text-danger mt-2">
                                 {% for error in form.password.errors %}
-                                    <small>{{ error }}</small>
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
                                 {% endfor %}
                             </div>
                         {% endif %}

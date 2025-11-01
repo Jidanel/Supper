@@ -186,7 +186,7 @@ AUTH_USER_MODEL = 'accounts.UtilisateurSUPPER'
 
 # URLs de redirection après connexion/déconnexion
 LOGIN_URL = '/accounts/login/'           # URL complète pour éviter les conflits
-LOGIN_REDIRECT_URL = '/admin/'           # Redirection après connexion réussie
+LOGIN_REDIRECT_URL = '/common/'           # Redirection après connexion réussie
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # ===================================================================

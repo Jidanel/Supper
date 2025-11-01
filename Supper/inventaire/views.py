@@ -522,12 +522,12 @@ class SaisieInventaireView(InventaireMixin, View):
             inventaire.save()
             
             # Journaliser l'action
-            log_user_action(
-                request.user,
-                "Saisie inventaire",
-                f"Poste: {poste.nom}, Date: {target_date}, Véhicules: {total_vehicules}",
-                request
-            )
+            # log_user_action(
+            #     request.user,
+            #     "Saisie inventaire",
+            #     f"Poste: {poste.nom}, Date: {target_date}, Véhicules: {total_vehicules}",
+            #     request
+            # )
             
             messages.success(request, "Inventaire sauvegardé avec succès.")
             return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
@@ -714,12 +714,12 @@ def modifier_inventaire(request, pk):
                 pass
             
             # Journaliser l'action
-            log_user_action(
-                request.user,
-                "Modification inventaire",
-                f"Inventaire modifié: {inventaire.poste.nom} - {inventaire.date}",
-                request
-            )
+            # log_user_action(
+            #     request.user,
+            #     "Modification inventaire",
+            #     f"Inventaire modifié: {inventaire.poste.nom} - {inventaire.date}",
+            #     request
+            # )
             
             messages.success(request, "L'inventaire a été modifié avec succès.")
             return redirect('inventaire_detail', pk=inventaire.pk)
@@ -930,13 +930,13 @@ def saisir_recette(request):
                         commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')}"
                     )
                     
-                    # Journaliser
-                    log_user_action(
-                        request.user,
-                        "Saisie recette confirmée",
-                        f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date_recette}",
-                        request
-                    )
+                    # # Journaliser
+                    # log_user_action(
+                    #     request.user,
+                    #     "Saisie recette confirmée",
+                    #     f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date_recette}",
+                    #     request
+                    # )
                     
                     messages.success(
                         request, 
@@ -1107,12 +1107,12 @@ def modifier_recette(request, pk):
             recette.save()
             
             # Journaliser
-            log_user_action(
-                request.user,
-                "Modification recette",
-                f"Recette modifiée: {recette.poste.nom} - {recette.date}",
-                request
-            )
+            # log_user_action(
+            #     request.user,
+            #     "Modification recette",
+            #     f"Recette modifiée: {recette.poste.nom} - {recette.date}",
+            #     request
+            # )
             
             messages.success(request, "La recette a été modifiée avec succès.")
             

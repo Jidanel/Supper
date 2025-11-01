@@ -75,15 +75,22 @@ def _log_admin_access(request, action):
 class CustomLoginView(BilingualMixin, LoginView):
     """
     Vue de connexion personnalisée avec journalisation automatique
-    Support bilingue et redirection intelligente selon le rôle utilisateur
+    SOLUTION PROBLÈME 2: Utilisation de CustomLoginForm pour messages détaillés
     """
     
     template_name = 'accounts/login.html'
     redirect_authenticated_user = True
+    form_class = CustomLoginForm  # Utiliser notre formulaire personnalisé
+    
+    def get_form_kwargs(self):
+        """Ajouter la requête au formulaire pour l'authentification"""
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
     
     def form_valid(self, form):
         """
-        Traitement du formulaire de connexion valide - CORRIGÉ
+        Traitement du formulaire de connexion valide
         Redirection vers l'admin Django pour tous les utilisateurs
         """
         # Effectuer la connexion standard Django
@@ -95,10 +102,10 @@ class CustomLoginView(BilingualMixin, LoginView):
         # Message de bienvenue
         messages.success(
             self.request,
-            f"Bienvenue {user.nom_complet} ! Connexion réussie."
+            f"✓ Bienvenue {user.nom_complet} ! Connexion réussie."
         )
         
-        # Journaliser la connexion
+        # Journaliser la connexion réussie
         log_user_action(
             user=user,
             action="Connexion réussie",
@@ -106,35 +113,45 @@ class CustomLoginView(BilingualMixin, LoginView):
             request=self.request
         )
         
-        # REDIRECTION CORRIGÉE : Tous vers l'admin Django
-        return redirect('/admin/')
+        # Redirection vers l'admin Django
+        return redirect('/common/')
     
     def form_invalid(self, form):
         """
         Traitement du formulaire de connexion invalide
+        Les messages d'erreur spécifiques sont maintenant gérés dans CustomLoginForm
         """
-        username = form.cleaned_data.get('username', 'Inconnu')
+        # Les erreurs sont déjà dans le formulaire grâce à CustomLoginForm
+        # Pas besoin d'ajouter de messages supplémentaires ici
         
-        # Journaliser la tentative échouée si utilisateur existe
-        try:
-            user = UtilisateurSUPPER.objects.get(username=username.upper())
-            log_user_action(
-                user=user,
-                action="TENTATIVE CONNEXION ÉCHOUÉE",
-                details=f"Mot de passe incorrect depuis {self.request.META.get('REMOTE_ADDR', 'IP inconnue')}",
-                request=self.request
-            )
-        except UtilisateurSUPPER.DoesNotExist:
-            pass
-        
-        # Message d'erreur générique
-        messages.error(
-            self.request,
-            "Matricule ou mot de passe incorrect. Veuillez réessayer."
-        )
+        # Si on veut journaliser les tentatives échouées pour l'audit
+        if form.cleaned_data.get('username'):
+            username = form.cleaned_data['username'].upper()
+            try:
+                user = UtilisateurSUPPER.objects.get(username=username)
+                log_user_action(
+                    user=user,
+                    action="TENTATIVE CONNEXION ÉCHOUÉE",
+                    details=f"Tentative échouée depuis {self.request.META.get('REMOTE_ADDR', 'IP inconnue')}",
+                    request=self.request
+                )
+            except UtilisateurSUPPER.DoesNotExist:
+                # Journaliser aussi les tentatives avec matricule inexistant
+                logger.warning(
+                    f"Tentative connexion matricule inexistant: {username} depuis IP: {self.request.META.get('REMOTE_ADDR')}"
+                )
         
         return super().form_invalid(form)
-
+    
+    def get_context_data(self, **kwargs):
+        """Ajouter des données au contexte du template"""
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'title': _('Connexion SUPPER'),
+            'app_name': 'SUPPER',
+            'subtitle': _('Suivi des Péages et Pesages Routiers'),
+        })
+        return context
 
 class CustomLogoutView(View):
     """Vue personnalisée pour la déconnexion avec journalisation"""
@@ -282,7 +299,7 @@ def liste_utilisateurs(request):
     """
     if not _check_admin_permission(request.user):
         messages.error(request, "Accès non autorisé.")
-        return redirect('/admin/')
+        return redirect('/common/')
     
     # Filtres
     search = request.GET.get('search', '')
@@ -336,64 +353,41 @@ def liste_utilisateurs(request):
     return render(request, 'accounts/liste_utilisateurs.html', context)
 
 
-@login_required
+@login_required  
 def creer_utilisateur(request):
     """
-    NOUVELLE VUE PRINCIPALE - Vue pour créer un nouvel utilisateur
-    SOLUTION PROBLÈME 3 : Cette vue remplace CreateUserView
+    Vue pour créer un nouvel utilisateur avec formulaire
+    AMÉLIORATION: Utilisation du formulaire UserCreateForm
     """
     if not _check_admin_permission(request.user):
         messages.error(request, "Accès non autorisé.")
         return redirect('accounts:liste_utilisateurs')
     
     if request.method == 'POST':
-        # Récupération des données du formulaire
-        username = request.POST.get('username', '').upper()
-        nom_complet = request.POST.get('nom_complet', '')
-        telephone = request.POST.get('telephone', '')
-        email = request.POST.get('email', '')
-        habilitation = request.POST.get('habilitation', 'agent_inventaire')
-        poste_id = request.POST.get('poste_affectation', '')
-        password = request.POST.get('password', 'supper2025')
+        form = UserCreateForm(request.POST)
         
-        try:
-            # Validation
-            if UtilisateurSUPPER.objects.filter(username=username).exists():
-                messages.error(request, f"Le matricule {username} existe déjà.")
-                return render(request, 'accounts/creer_utilisateur.html', {'postes': Poste.objects.filter(is_active=True)})
-            
-            # Création utilisateur
-            user = UtilisateurSUPPER.objects.create_user(
-                username=username,
-                password=password,
-                nom_complet=nom_complet,
-                telephone=telephone,
-                email=email if email else None,
-                habilitation=habilitation,
-                cree_par=request.user
-            )
-            
-            # Affectation poste si spécifié
-            if poste_id:
-                poste = Poste.objects.get(id=poste_id)
-                user.poste_affectation = poste
-                user.save()
+        if form.is_valid():
+            # Créer l'utilisateur
+            user = form.save(created_by=request.user)
             
             # Journalisation
             log_user_action(
                 request.user,
                 "Création utilisateur",
-                f"Utilisateur créé: {username} ({nom_complet}) - {habilitation}",
+                f"Utilisateur créé: {user.username} ({user.nom_complet}) - {user.habilitation}",
                 request
             )
             
-            messages.success(request, f"Utilisateur {nom_complet} créé avec succès.")
+            messages.success(request, f"Utilisateur {user.nom_complet} créé avec succès.")
             return redirect('accounts:detail_utilisateur', user_id=user.id)
-            
-        except Exception as e:
-            messages.error(request, f"Erreur lors de la création: {str(e)}")
+        else:
+            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+    else:
+        # GET: Formulaire vide
+        form = UserCreateForm()
     
     context = {
+        'form': form,
         'postes': Poste.objects.filter(is_active=True).order_by('nom'),
         'habilitations': Habilitation.choices,
         'title': 'Créer un Utilisateur'
@@ -413,7 +407,7 @@ def detail_utilisateur(request, user_id):
     # Vérification des permissions
     if not _check_admin_permission(request.user) and request.user != user:
         messages.error(request, "Accès non autorisé.")
-        return redirect('/admin/')
+        return redirect('/common/')
     
     # Activités récentes
     activites_recentes = JournalAudit.objects.filter(
@@ -449,53 +443,50 @@ def detail_utilisateur(request, user_id):
 @login_required
 def modifier_utilisateur(request, user_id):
     """
-    NOUVELLE VUE PRINCIPALE - Vue pour modifier un utilisateur
-    SOLUTION PROBLÈME 3 : Cette vue remplace UserUpdateView
+    Vue pour modifier un utilisateur
+    SOLUTION PROBLÈME 1: Utilisation du formulaire UserUpdateForm avec pré-remplissage
     """
-    user = get_object_or_404(UtilisateurSUPPER, id=user_id)
+    user_to_edit = get_object_or_404(UtilisateurSUPPER, id=user_id)
     
     # Vérification des permissions
     if not _check_admin_permission(request.user):
         messages.error(request, "Accès non autorisé.")
-        return redirect('accounts:detail_utilisateur', user_id=user.id)
+        return redirect('accounts:detail_utilisateur', user_id=user_to_edit.id)
     
     if request.method == 'POST':
-        try:
-            # Mise à jour des champs
-            user.nom_complet = request.POST.get('nom_complet', user.nom_complet)
-            user.telephone = request.POST.get('telephone', user.telephone)
-            user.email = request.POST.get('email', '') or None
-            user.habilitation = request.POST.get('habilitation', user.habilitation)
-            user.is_active = request.POST.get('is_active') == 'on'
-            
-            # Poste d'affectation
-            poste_id = request.POST.get('poste_affectation', '')
-            if poste_id:
-                user.poste_affectation = Poste.objects.get(id=poste_id)
-            else:
-                user.poste_affectation = None
-            
-            user.save()
+        # Utiliser le formulaire avec les données POST
+        form = UserUpdateForm(request.POST, instance=user_to_edit)
+        
+        if form.is_valid():
+            # Sauvegarder les modifications
+            user_updated = form.save()
             
             # Journalisation
             log_user_action(
                 request.user,
                 "Modification utilisateur",
-                f"Utilisateur modifié: {user.username} ({user.nom_complet})",
+                f"Utilisateur modifié: {user_updated.username} ({user_updated.nom_complet})",
                 request
             )
             
-            messages.success(request, f"Utilisateur {user.nom_complet} modifié avec succès.")
-            return redirect('accounts:detail_utilisateur', user_id=user.id)
-            
-        except Exception as e:
-            messages.error(request, f"Erreur lors de la modification: {str(e)}")
+            messages.success(
+                request, 
+                f"Utilisateur {user_updated.nom_complet} modifié avec succès."
+            )
+            return redirect('accounts:detail_utilisateur', user_id=user_updated.id)
+        else:
+            # Si le formulaire n'est pas valide, afficher les erreurs
+            messages.error(request, "Veuillez vous rassurer que tous les champs obligatoires sont remplis.")
+    else:
+        # GET: Créer le formulaire avec les données existantes (PRÉ-REMPLISSAGE)
+        form = UserUpdateForm(instance=user_to_edit)
     
     context = {
-        'user_edit': user,
+        'form': form,
+        'user_edit': user_to_edit,
         'postes': Poste.objects.filter(is_active=True).order_by('nom'),
         'habilitations': Habilitation.choices,
-        'title': f'Modifier - {user.nom_complet}'
+        'title': f'Modifier - {user_to_edit.nom_complet}'
     }
     
     return render(request, 'accounts/modifier_utilisateur.html', context)
@@ -926,7 +917,7 @@ def dashboard_redirect(request):
     )
     
     # CORRECTION : Tous les utilisateurs vont vers l'admin Django temporairement
-    return redirect('/admin/')
+    return redirect('/common/')
 
 
 # ===================================================================
@@ -1111,7 +1102,7 @@ def check_admin_permission_api(request):
     
     if has_permission:
         response_data['admin_urls'] = {
-            'main': '/admin/',
+            'main': '/common/',
             'users': '/admin/accounts/utilisateursupper/',
             'postes': '/admin/accounts/poste/',
             'inventaires': '/admin/inventaire/inventairejournalier/',
@@ -1144,7 +1135,7 @@ def admin_help_view(request):
             'can_view_audit': True,
         },
         'admin_urls': {
-            'main': '/admin/',
+            'main': '/common/',
             'users': '/admin/accounts/utilisateursupper/',
             'postes': '/admin/accounts/poste/',
             'inventaires': '/admin/inventaire/inventairejournalier/',
@@ -1193,7 +1184,7 @@ def redirect_error_handler(request, error_type='permission'):
     
     # Rediriger vers le dashboard approprié selon le rôle
     if _check_admin_permission(user):
-        return redirect('/admin/')
+        return redirect('/common/')
     else:
         return redirect('accounts:dashboard_redirect')
 
@@ -1295,7 +1286,7 @@ def liste_postes(request):
     """Liste des postes - remplace l'admin Django"""
     if not _check_admin_permission(request.user):
         messages.error(request, "Accès non autorisé.")
-        return redirect('/admin/')
+        return redirect('/common/')
     
     # Filtres
     search = request.GET.get('search', '')
@@ -1478,7 +1469,7 @@ def journal_audit(request):
     """Liste complète du journal d'audit - remplace l'admin Django"""
     if not _check_admin_permission(request.user):
         messages.error(request, "Accès non autorisé.")
-        return redirect('/admin/')
+        return redirect('/common/')
     
     # Filtres
     search = request.GET.get('search', '')

@@ -123,22 +123,22 @@
     <div class="stats-grid">
         <div class="stat-card primary">
             <p class="mb-2">{% trans "Total Déclaré" %}</p>
-            <h3>{{ statistiques.total_declare|floatformat:0 }}</h3>
+            <h3>{{ statistiques.total_declare|floatformat:0|format_milliers }}</h3>
             <small>FCFA</small>
         </div>
         
         <div class="stat-card info">
             <p class="mb-2">{% trans "Total Quittancé" %}</p>
-            <h3>{{ statistiques.total_quittance|floatformat:0 }}</h3>
+            <h3>{{ statistiques.total_quittance|floatformat:0|format_milliers }}</h3>
             <small>FCFA</small>
         </div>
         
         <div class="stat-card {% if statistiques.ecart_total|abs < 100 %}success{% else %}warning{% endif %}">
             <p class="mb-2">{% trans "Écart Total" %}</p>
             <h3 class="{% if statistiques.ecart_total|abs < 1 %}text-white{% elif statistiques.ecart_total < 0 %}text-danger{% else %}text-warning{% endif %}">
-                {{ statistiques.ecart_total|floatformat:0 }}
+                {{ statistiques.ecart_total|floatformat:0|format_milliers }}
             </h3>
-            <small>FCFA ({{ statistiques.ecart_pourcentage|floatformat:2 }}%)</small>
+            <small>FCFA ({{ statistiques.ecart_pourcentage|floatformat:2|format_milliers }}%)</small>
         </div>
         
         <div class="stat-card {% if statistiques.nombre_conformes == statistiques.nombre_postes %}success{% else %}warning{% endif %}">
@@ -255,10 +255,10 @@
                 {% for resultat in resultats %}
                 <tr>
                     <td><strong>{{ resultat.poste_nom }}</strong></td>
-                    <td class="text-end">{{ resultat.total_declare|floatformat:0 }} FCFA</td>
-                    <td class="text-end">{{ resultat.total_quittance|floatformat:0 }} FCFA</td>
+                    <td class="text-end">{{ resultat.total_declare|floatformat:0|format_milliers }} FCFA</td>
+                    <td class="text-end">{{ resultat.total_quittance|floatformat:0|format_milliers }} FCFA</td>
                     <td class="text-end {% if resultat.ecart|abs >= 1 %}{% if resultat.ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}{% else %}text-success{% endif %}">
-                        {{ resultat.ecart|floatformat:0 }} FCFA
+                        {{ resultat.ecart|floatformat:0|format_milliers }} FCFA
                     </td>
                     <td class="text-center">
                         <span class="badge {% if resultat.ecart|abs < 1 %}bg-success{% else %}bg-danger{% endif %}">{{ resultat.ecart_pourcentage|floatformat:2 }}%</span>
@@ -311,10 +311,10 @@
             <tfoot class="table-light">
                 <tr>
                     <th>{% trans "TOTAL" %}</th>
-                    <th class="text-end">{{ statistiques.total_declare|floatformat:0 }} FCFA</th>
-                    <th class="text-end">{{ statistiques.total_quittance|floatformat:0 }} FCFA</th>
+                    <th class="text-end">{{ statistiques.total_declare|floatformat:0|format_milliers }} FCFA</th>
+                    <th class="text-end">{{ statistiques.total_quittance|floatformat:0|format_milliers }} FCFA</th>
                     <th class="text-end {% if statistiques.ecart_total|abs >= 1 %}{% if statistiques.ecart_total < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}{% else %}text-success{% endif %}">
-                        {{ statistiques.ecart_total|floatformat:0 }} FCFA
+                        {{ statistiques.ecart_total|floatformat:0|format_milliers }} FCFA
                     </th>
                     <th class="text-center">
                         <span class="badge {% if statistiques.ecart_total|abs < 1 %}bg-success{% else %}bg-danger{% endif %}">{{ statistiques.ecart_pourcentage|floatformat:2 }}%</span>

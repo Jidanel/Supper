@@ -123,6 +123,17 @@
         background: #f8f9fa;
         color: #6c757d;
     }
+    
+    .invalid-feedback {
+        display: block;
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .is-invalid {
+        border-color: #dc3545 !important;
+    }
 </style>
 {% endblock %}
 
@@ -137,7 +148,7 @@
                     {{ title }}
                 </h1>
                 <p class="mb-0 mt-2 opacity-75">
-                    {% trans "Modification du compte utilisateur" %} {{ modifier_utilisateur.nom_complet }}
+                    {% trans "Modification du compte utilisateur" %} {{ user_edit.nom_complet }}
                 </p>
             </div>
             <div>
@@ -160,6 +171,16 @@
                         {% for message in messages %}
                         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
                             {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <!-- Erreurs générales du formulaire -->
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            {{ error }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                         {% endfor %}
@@ -189,7 +210,7 @@
                                     {% trans "Matricule" %}
                                 </label>
                                 <input type="text" class="form-control readonly-field" id="username" 
-                                       value="{{ modifier_utilisateur.username }}" readonly>
+                                       value="{{ user_edit.username }}" readonly>
                                 <div class="help-text">
                                     {% trans "Le matricule ne peut pas être modifié" %}
                                 </div>
@@ -198,11 +219,15 @@
                         
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="nom_complet" class="form-label">
-                                    {% trans "Nom complet" %} <span class="required">*</span>
+                                <label for="{{ form.nom_complet.id_for_label }}" class="form-label">
+                                    {{ form.nom_complet.label }} <span class="required">*</span>
                                 </label>
-                                <input type="text" class="form-control" id="nom_complet" name="nom_complet"
-                                       required value="{{ modifier_utilisateur.nom_complet }}">
+                                {{ form.nom_complet }}
+                                {% if form.nom_complet.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.nom_complet.errors.0 }}
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -210,175 +235,216 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="telephone" class="form-label">
-                                    {% trans "Téléphone" %} <span class="required">*</span>
+                                <label for="{{ form.telephone.id_for_label }}" class="form-label">
+                                    {{ form.telephone.label }} <span class="required">*</span>
                                 </label>
-                                <input type="tel" class="form-control" id="telephone" name="telephone"
-                                       required value="{{ modifier_utilisateur.telephone }}">
+                                {{ form.telephone }}
+                                {% if form.telephone.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.telephone.errors.0 }}
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                         
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="email" class="form-label">
-                                    {% trans "Email" %}
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    {{ form.email.label }}
                                 </label>
-                                <input type="email" class="form-control" id="email" name="email"
-                                       value="{{ modifier_utilisateur.email|default:'' }}">
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.email.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="help-text">
+                                    {% trans "Optionnel - Pour la réinitialisation de mot de passe" %}
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Affectation et statut -->
+                    <!-- Affectation professionnelle -->
                     <div class="section-title">
                         <i class="fas fa-briefcase me-2"></i>
-                        {% trans "Affectation et statut" %}
+                        {% trans "Affectation professionnelle" %}
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="habilitation" class="form-label">
-                                    {% trans "Habilitation" %} <span class="required">*</span>
+                                <label for="{{ form.habilitation.id_for_label }}" class="form-label">
+                                    {{ form.habilitation.label }} <span class="required">*</span>
                                 </label>
-                                <select class="form-select" id="habilitation" name="habilitation" required>
-                                    {% for value, label in habilitations %}
-                                    <option value="{{ value }}" {% if value == modifier_utilisateur.habilitation %}selected{% endif %}>
-                                        {{ label }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
+                                {{ form.habilitation }}
+                                {% if form.habilitation.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.habilitation.errors.0 }}
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                         
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="poste_affectation" class="form-label">
-                                    {% trans "Poste d'affectation" %}
+                                <label for="{{ form.poste_affectation.id_for_label }}" class="form-label">
+                                    {{ form.poste_affectation.label }}
                                 </label>
-                                <select class="form-select" id="poste_affectation" name="poste_affectation">
-                                    <option value="">{% trans "Aucun poste spécifique" %}</option>
-                                    {% for poste in postes %}
-                                    <option value="{{ poste.id }}" 
-                                            {% if modifier_utilisateur.poste_affectation.id == poste.id %}selected{% endif %}>
-                                        {{ poste.nom }} ({{ poste.get_type_poste_display }})
-                                    </option>
-                                    {% endfor %}
-                                </select>
+                                {{ form.poste_affectation }}
+                                {% if form.poste_affectation.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.poste_affectation.errors.0 }}
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
-                                       {% if modifier_utilisateur.is_active %}checked{% endif %}>
-                                <label class="form-check-label" for="is_active">
-                                    {% trans "Compte actif" %}
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Permissions automatiques -->
+                    <!-- Permissions par rôle (affichage) -->
                     <div class="permissions-section">
-                        <h6 class="text-muted mb-3">
-                            <i class="fas fa-info-circle me-2"></i>
-                            {% trans "Permissions (configurées automatiquement selon l'habilitation)" %}
-                        </h6>
+                        <h5 class="mb-3">
+                            <i class="fas fa-key me-2"></i>
+                            {% trans "Permissions associées au rôle" %}
+                        </h5>
                         
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="small text-muted mb-2">
-                                    <strong>{% trans "Saisie de données :" %}</strong>
+                                <p class="fw-bold text-muted small">{% trans "Permissions de saisie" %}:</p>
+                                <div id="permissions-saisie">
+                                    <span class="text-muted">{% trans "Sélectionnez un rôle" %}</span>
                                 </div>
-                                <div class="small" id="permissions-saisie">
-                                    <!-- Rempli par JavaScript -->
+                            </div>
+                            <div class="col-md-6">
+                                <p class="fw-bold text-muted small">{% trans "Permissions de gestion" %}:</p>
+                                <div id="permissions-gestion">
+                                    <span class="text-muted">{% trans "Sélectionnez un rôle" %}</span>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Permissions détaillées -->
+                    <div class="section-title">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        {% trans "Permissions détaillées" %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">{% trans "Statut et accès" %}</h6>
+                            
+                            <div class="form-check">
+                                {{ form.is_active }}
+                                <label for="{{ form.is_active.id_for_label }}" class="form-check-label">
+                                    {{ form.is_active.label }}
+                                </label>
                             </div>
                             
-                            <div class="col-md-6">
-                                <div class="small text-muted mb-2">
-                                    <strong>{% trans "Gestion modules :" %}</strong>
+                            <div class="form-check">
+                                {{ form.acces_tous_postes }}
+                                <label for="{{ form.acces_tous_postes.id_for_label }}" class="form-check-label">
+                                    {{ form.acces_tous_postes.label }}
+                                </label>
+                            </div>
+                            
+                            <h6 class="text-muted mb-3 mt-4">{% trans "Permissions de saisie" %}</h6>
+                            
+                            <div class="form-check">
+                                {{ form.peut_saisir_peage }}
+                                <label for="{{ form.peut_saisir_peage.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_saisir_peage.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_saisir_pesage }}
+                                <label for="{{ form.peut_saisir_pesage.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_saisir_pesage.label }}
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">{% trans "Permissions de gestion" %}</h6>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_peage }}
+                                <label for="{{ form.peut_gerer_peage.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_peage.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_pesage }}
+                                <label for="{{ form.peut_gerer_pesage.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_pesage.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_personnel }}
+                                <label for="{{ form.peut_gerer_personnel.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_personnel.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_budget }}
+                                <label for="{{ form.peut_gerer_budget.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_budget.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_inventaire }}
+                                <label for="{{ form.peut_gerer_inventaire.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_inventaire.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_archives }}
+                                <label for="{{ form.peut_gerer_archives.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_archives.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_stocks_psrr }}
+                                <label for="{{ form.peut_gerer_stocks_psrr.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_stocks_psrr.label }}
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.peut_gerer_stock_info }}
+                                <label for="{{ form.peut_gerer_stock_info.id_for_label }}" class="form-check-label">
+                                    {{ form.peut_gerer_stock_info.label }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions supplémentaires -->
+                    <div class="row mt-4">
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title text-info">
+                                        <i class="fas fa-bell me-2"></i>
+                                        {% trans "Notification" %}
+                                    </h6>
+                                    <p class="small text-muted mb-2">
+                                        {% trans "Notifier l'utilisateur des modifications" %}
+                                    </p>
+                                    <button type="button" class="btn btn-info btn-sm" 
+                                            onclick="sendNotification('{{ user_edit.id }}')">
+                                        <i class="fas fa-paper-plane me-1"></i>
+                                        {% trans "Notifier" %}
+                                    </button>
                                 </div>
-                                <div class="small" id="permissions-gestion">
-                                    <!-- Rempli par JavaScript -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Informations système -->
-                    <div class="section-title">
-                        <i class="fas fa-info-circle me-2"></i>
-                        {% trans "Informations système" %}
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label class="form-label">{% trans "Créé le" %}</label>
-                                <input type="text" class="form-control readonly-field" 
-                                       value="{{ modifier_utilisateur.date_creation|date:'d/m/Y H:i' }}" readonly>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label class="form-label">{% trans "Modifié le" %}</label>
-                                <input type="text" class="form-control readonly-field" 
-                                       value="{{ modifier_utilisateur.date_modification|date:'d/m/Y H:i' }}" readonly>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label class="form-label">{% trans "Créé par" %}</label>
-                                <input type="text" class="form-control readonly-field" 
-                                       value="{% if modifier_utilisateur.cree_par %}{{ modifier_utilisateur.cree_par.nom_complet }}{% else %}{% trans 'Système' %}{% endif %}" readonly>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Actions rapides -->
-                    <div class="section-title">
-                        <i class="fas fa-tools me-2"></i>
-                        {% trans "Actions rapides" %}
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <div class="border rounded p-3 h-100">
-                                <h6 class="text-warning">
-                                    <i class="fas fa-key me-2"></i>
-                                    {% trans "Réinitialiser le mot de passe" %}
-                                </h6>
-                                <p class="small text-muted mb-2">
-                                    {% trans "Remet le mot de passe à 'supper2025'" %}
-                                </p>
-                                <button type="button" class="btn btn-warning btn-sm" 
-                                        onclick="resetPassword('{{ modifier_utilisateur.id }}')">
-                                    <i class="fas fa-redo me-1"></i>
-                                    {% trans "Réinitialiser" %}
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <div class="border rounded p-3 h-100">
-                                <h6 class="text-info">
-                                    <i class="fas fa-envelope me-2"></i>
-                                    {% trans "Envoyer notification" %}
-                                </h6>
-                                <p class="small text-muted mb-2">
-                                    {% trans "Notifier l'utilisateur des modifications" %}
-                                </p>
-                                <button type="button" class="btn btn-info btn-sm" 
-                                        onclick="sendNotification('{{ modifier_utilisateur.id }}')">
-                                    <i class="fas fa-paper-plane me-1"></i>
-                                    {% trans "Notifier" %}
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -483,25 +549,37 @@ const permissionsParRole = {
         saisie: ['Péage et pesage'],
         gestion: ['Personnel', 'Péage', 'Pesage', 'Inventaire', 'Stocks PSRR']
     },
-    // Ajouter d'autres rôles selon les besoins
+    'serv_info': {
+        saisie: ['Toutes les données'],
+        gestion: ['Tous les modules', 'Stock informatique']
+    },
+    'serv_emission': {
+        saisie: ['Péage'],
+        gestion: ['Péage', 'Stocks PSRR']
+    }
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Mettre à jour les permissions affichées
-    updatePermissionsDisplay();
+    // Récupérer l'élément select de l'habilitation
+    const habilitationSelect = document.querySelector('select[name="habilitation"]');
     
-    // Écouter les changements d'habilitation
-    document.getElementById('habilitation').addEventListener('change', updatePermissionsDisplay);
+    if (habilitationSelect) {
+        // Mettre à jour les permissions affichées au chargement
+        updatePermissionsDisplay();
+        
+        // Écouter les changements d'habilitation
+        habilitationSelect.addEventListener('change', updatePermissionsDisplay);
+    }
 });
 
 function updatePermissionsDisplay() {
-    const habilitationSelect = document.getElementById('habilitation');
-    const selectedRole = habilitationSelect.value;
+    const habilitationSelect = document.querySelector('select[name="habilitation"]');
+    const selectedRole = habilitationSelect ? habilitationSelect.value : null;
     
     const saisieDiv = document.getElementById('permissions-saisie');
     const gestionDiv = document.getElementById('permissions-gestion');
     
-    if (permissionsParRole[selectedRole]) {
+    if (selectedRole && permissionsParRole[selectedRole]) {
         const permissions = permissionsParRole[selectedRole];
         
         saisieDiv.innerHTML = permissions.saisie.map(p => 
@@ -573,15 +651,18 @@ function confirmSendNotification() {
 }
 
 // Validation téléphone en temps réel
-document.getElementById('telephone').addEventListener('input', function(e) {
-    const value = e.target.value;
-    const pattern = /^(\+?237?)?[0-9]{0,9}$/;
-    
-    if (!pattern.test(value) && value !== '') {
-        e.target.setCustomValidity('{% trans "Format de téléphone invalide" %}');
-    } else {
-        e.target.setCustomValidity('');
-    }
-});
+const telephoneInput = document.querySelector('input[name="telephone"]');
+if (telephoneInput) {
+    telephoneInput.addEventListener('input', function(e) {
+        const value = e.target.value;
+        const pattern = /^(\+?237?)?[0-9]{0,9}$/;
+        
+        if (!pattern.test(value) && value !== '') {
+            e.target.setCustomValidity('{% trans "Format de téléphone invalide" %}');
+        } else {
+            e.target.setCustomValidity('');
+        }
+    });
+}
 </script>
 {% endblock %}

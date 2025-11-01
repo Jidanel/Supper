@@ -111,7 +111,10 @@ class AuditMiddleware(MiddlewareMixin):
         return None
     
     def process_response(self, request, response):
-        """Traitement des réponses sortantes"""
+        """
+        Traitement des réponses sortantes
+        MODIFIÉ : Détecte les logs manuels pour éviter duplication
+        """
         
         # Calculer la durée de traitement
         if hasattr(request, '_audit_start_time'):
@@ -122,12 +125,27 @@ class AuditMiddleware(MiddlewareMixin):
         if not hasattr(request, '_audit_info') or self._should_ignore_request(request):
             return response
         
+        # ===================================================================
+        # NOUVEAU : DÉTECTION DES LOGS MANUELS
+        # ===================================================================
+        # Si un log manuel a été créé dans la vue (via log_user_action),
+        # ne pas créer un log automatique pour éviter la duplication
+        if hasattr(request, '_has_manual_log') and request._has_manual_log:
+            logger.debug(
+                f"Log manuel détecté pour {request.path}, "
+                f"skip middleware automatic logging"
+            )
+            # Le log manuel contient déjà tous les détails nécessaires
+            return response
+        
+        # ===================================================================
+        # JOURNALISATION AUTOMATIQUE (si pas de log manuel)
+        # ===================================================================
         # Journaliser les actions importantes
         if self._is_important_action(request, response):
             self._log_detailed_action(request, response)
         
         return response
-    
     def _should_ignore_request(self, request):
         """Détermine si la requête doit être ignorée pour la journalisation"""
         ignore_paths = [
@@ -222,7 +240,13 @@ class AuditMiddleware(MiddlewareMixin):
             logger.error(f"Erreur lors de la journalisation détaillée: {str(e)}")
     
     def _build_detailed_action(self, request, response, user):
-        """Construit une description détaillée de l'action effectuée"""
+        """
+        Construit une description détaillée de l'action effectuée
+        
+        CORRECTION IMPORTANTE :
+        Ordre de vérification modifié pour éviter les faux positifs
+        Ex: /inventaire/recettes/ doit être détecté comme RECETTE, pas inventaire
+        """
         
         path = request.path.lower()
         method = request.method
@@ -236,6 +260,11 @@ class AuditMiddleware(MiddlewareMixin):
         except:
             view_kwargs = {}
         
+        # ===================================================================
+        # ORDRE IMPORTANT : Vérifier d'abord les URLs SPÉCIFIQUES
+        # puis les génériques pour éviter les faux positifs
+        # ===================================================================
+        
         # Actions de connexion/déconnexion
         if 'login' in path:
             if response.status_code == 302:
@@ -246,46 +275,16 @@ class AuditMiddleware(MiddlewareMixin):
         if 'logout' in path:
             return "Déconnexion", f"{username} s'est déconnecté"
         
-        # Actions sur l'inventaire
-        if 'inventaire' in path:
-            poste_id = view_kwargs.get('poste_id') or request.POST.get('poste')
-            date = request.POST.get('date', '')
-            
-            if poste_id:
-                try:
-                    from accounts.models import Poste
-                    poste = Poste.objects.get(id=poste_id)
-                    poste_nom = poste.nom
-                except:
-                    poste_nom = f"Poste ID {poste_id}"
-            else:
-                poste_nom = "Poste non spécifié"
-            
-            if method == 'POST':
-                if 'saisie' in path:
-                    return "Saisie inventaire", f"{username} a saisi l'inventaire du {poste_nom} pour le {date}"
-                elif 'modifier' in path:
-                    return "Modification inventaire", f"L'administrateur {username} a modifié l'inventaire du {poste_nom} pour le {date}"
-                else:
-                    return "Création inventaire", f"{username} a créé un inventaire pour {poste_nom}"
-            elif method == 'PUT':
-                return "Modification inventaire", f"L'administrateur {username} a modifié l'inventaire du {poste_nom}"
-            elif method == 'DELETE':
-                return "Suppression inventaire", f"L'administrateur {username} a supprimé l'inventaire du {poste_nom}"
-            else:
-                if 'liste' in path or 'index' in path:
-                    return "Consultation liste inventaires", f"{username} a consulté la liste des inventaires"
-                elif view_kwargs.get('pk'):
-                    return "Consultation inventaire", f"{username} a consulté l'inventaire du {poste_nom}"
-                else:
-                    return "Consultation inventaires", f"{username} a consulté la page des inventaires"
-        
-        # Actions sur les recettes
+        # ===================================================================
+        # PRIORITÉ 1 : RECETTES (avant inventaire car URL = /inventaire/recettes/)
+        # ===================================================================
         if 'recette' in path:
-            poste_id = view_kwargs.get('poste_id') or request.POST.get('poste')
-            date = request.POST.get('date', '')
+            poste_id = view_kwargs.get('poste_id') or request.POST.get('poste') or request.GET.get('poste')
+            date = request.POST.get('date', '') or request.GET.get('date', '')
             montant = request.POST.get('montant_declare', '')
             
+            # Récupérer le nom du poste si disponible
+            poste_nom = "Poste non spécifié"
             if poste_id:
                 try:
                     from accounts.models import Poste
@@ -293,64 +292,214 @@ class AuditMiddleware(MiddlewareMixin):
                     poste_nom = poste.nom
                 except:
                     poste_nom = f"Poste ID {poste_id}"
-            else:
-                poste_nom = "Poste non spécifié"
             
+            # Distinction fine des actions sur recettes
             if method == 'POST':
-                if 'saisie' in path:
+                if 'saisie' in path or 'saisir' in path:
                     return "Saisie recette", f"{username} a saisi la recette du {poste_nom} pour le {date}: {montant} FCFA"
-                elif 'modifier' in path:
-                    return "Modification recette", f"L'administrateur {username} a modifié la recette du {poste_nom} pour le {date}"
+                elif 'modifier' in path or 'edit' in path:
+                    return "Modification recette", f"{username} a modifié la recette du {poste_nom} pour le {date}"
+                elif 'supprimer' in path or 'delete' in path:
+                    return "Suppression recette", f"{username} a supprimé la recette du {poste_nom}"
                 else:
                     return "Création recette", f"{username} a créé une recette pour {poste_nom}"
+            
             elif method == 'PUT':
-                return "Modification recette", f"L'administrateur {username} a modifié la recette du {poste_nom}"
-            else:
-                if 'statistiques' in path:
-                    return "Consultation statistiques", f"{username} a consulté les statistiques de recettes"
-                elif 'liste' in path:
+                return "Modification recette", f"{username} a modifié la recette du {poste_nom}"
+            
+            elif method == 'DELETE':
+                return "Suppression recette", f"{username} a supprimé la recette du {poste_nom}"
+            
+            elif method == 'GET':
+                # Distinction entre différentes pages recettes
+                if 'statistiques' in path or 'stats' in path:
+                    periode = request.GET.get('periode', 'non spécifiée')
+                    return "Consultation statistiques recettes", f"{username} a consulté les statistiques de recettes pour la période {periode}"
+                
+                elif 'liste' in path or path.endswith('/recettes/') or path.endswith('/recettes'):
+                    # Liste complète des recettes
                     return "Consultation liste recettes", f"{username} a consulté la liste des recettes"
+                
+                elif view_kwargs.get('pk') or view_kwargs.get('recette_id'):
+                    # Détail d'une recette spécifique
+                    return "Consultation détail recette", f"{username} a consulté le détail d'une recette du {poste_nom}"
+                
                 else:
                     return "Consultation recettes", f"{username} a consulté la page des recettes"
         
-        # Actions sur la programmation d'inventaires
+        # ===================================================================
+        # PRIORITÉ 2 : QUITTANCEMENTS (avant inventaire)
+        # ===================================================================
+        if 'quittancement' in path or 'quittance' in path:
+            poste_id = view_kwargs.get('poste_id') or request.POST.get('poste')
+            numero = request.POST.get('numero_quittance', '') or request.GET.get('numero', '')
+            
+            poste_nom = "Poste non spécifié"
+            if poste_id:
+                try:
+                    from accounts.models import Poste
+                    poste = Poste.objects.get(id=poste_id)
+                    poste_nom = poste.nom
+                except:
+                    poste_nom = f"Poste ID {poste_id}"
+            
+            if method == 'POST':
+                if 'justification' in path:
+                    return "Justification écart quittancement", f"{username} a justifié un écart pour {poste_nom}"
+                elif 'image' in path or 'upload' in path:
+                    return "Ajout image quittancement", f"{username} a ajouté/modifié l'image du quittancement N°{numero}"
+                else:
+                    return "Création quittancement", f"{username} a créé un quittancement N°{numero} pour {poste_nom}"
+            
+            elif method == 'GET':
+                if 'comptabilisation' in path:
+                    return "Consultation comptabilisation quittancements", f"{username} a consulté la comptabilisation des quittancements"
+                elif 'authentification' in path or 'verif' in path:
+                    return "Authentification document", f"{username} a vérifié l'authenticité d'un document"
+                elif 'detail' in path:
+                    return "Consultation détails quittancements", f"{username} a consulté les détails des quittancements"
+                else:
+                    return "Consultation quittancements", f"{username} a consulté les quittancements"
+        
+        # ===================================================================
+        # PRIORITÉ 3 : PROGRAMMATION (avant inventaire)
+        # ===================================================================
         if 'programmation' in path:
             if method == 'POST':
                 postes = request.POST.getlist('postes', [])
                 mois = request.POST.get('mois', '')
                 motif = request.POST.get('motif', '')
-                return "Programmation inventaire", f"L'administrateur {username} a programmé un inventaire pour {len(postes)} poste(s) en {mois} - Motif: {motif}"
+                return "Programmation inventaire", f"{username} a programmé un inventaire pour {len(postes)} poste(s) en {mois} - Motif: {motif}"
             else:
                 return "Consultation programmations", f"{username} a consulté les programmations d'inventaires"
         
-        # Actions administratives
-        if 'admin' in path:
-            if 'utilisateur' in path or 'user' in path:
-                if method == 'POST':
-                    return "Gestion utilisateurs", f"L'administrateur {username} a modifié les utilisateurs"
+        # ===================================================================
+        # PRIORITÉ 4 : INVENTAIRE (après recettes/quittancements/programmation)
+        # ===================================================================
+        if 'inventaire' in path:
+            poste_id = view_kwargs.get('poste_id') or request.POST.get('poste') or request.GET.get('poste')
+            date = request.POST.get('date', '') or request.GET.get('date', '')
+            
+            poste_nom = "Poste non spécifié"
+            if poste_id:
+                try:
+                    from accounts.models import Poste
+                    poste = Poste.objects.get(id=poste_id)
+                    poste_nom = poste.nom
+                except:
+                    poste_nom = f"Poste ID {poste_id}"
+            
+            if method == 'POST':
+                if 'saisie' in path or 'saisir' in path:
+                    return "Saisie inventaire", f"{username} a saisi l'inventaire du {poste_nom} pour le {date}"
+                elif 'modifier' in path or 'edit' in path:
+                    return "Modification inventaire", f"{username} a modifié l'inventaire du {poste_nom} pour le {date}"
+                elif 'consolider' in path or 'consolidation' in path:
+                    mois = request.POST.get('mois', '')
+                    annee = request.POST.get('annee', '')
+                    return "Consolidation inventaire", f"{username} a consolidé l'inventaire de {poste_nom} pour {mois}/{annee}"
                 else:
-                    return "Consultation utilisateurs", f"L'administrateur {username} a consulté la liste des utilisateurs"
-            elif 'poste' in path:
-                if method == 'POST':
-                    return "Gestion postes", f"L'administrateur {username} a modifié les postes"
+                    return "Création inventaire", f"{username} a créé un inventaire pour {poste_nom}"
+            
+            elif method == 'PUT':
+                return "Modification inventaire", f"{username} a modifié l'inventaire du {poste_nom}"
+            
+            elif method == 'DELETE':
+                return "Suppression inventaire", f"{username} a supprimé l'inventaire du {poste_nom}"
+            
+            elif method == 'GET':
+                # Distinction entre différentes pages inventaires
+                if 'liste' in path or 'index' in path or path.endswith('/inventaires/') or path.endswith('/inventaire/'):
+                    return "Consultation liste inventaires", f"{username} a consulté la liste des inventaires"
+                
+                elif 'mensuel' in path or 'consolidation' in path:
+                    return "Consultation inventaires mensuels", f"{username} a consulté les inventaires mensuels consolidés"
+                
+                elif view_kwargs.get('pk') or view_kwargs.get('inventaire_id'):
+                    return "Consultation détail inventaire", f"{username} a consulté le détail d'un inventaire du {poste_nom}"
+                
                 else:
-                    return "Consultation postes", f"L'administrateur {username} a consulté la liste des postes"
+                    return "Consultation inventaires", f"{username} a consulté la page des inventaires"
+        
+        # ===================================================================
+        # ACTIONS ADMINISTRATIVES
+        # ===================================================================
+        if 'admin' in path or '/administration/' in path:
+            if 'utilisateur' in path or 'user' in path or 'accounts' in path:
+                if method == 'POST':
+                    return "Gestion utilisateurs", f"{username} a modifié les utilisateurs"
+                else:
+                    return "Consultation utilisateurs", f"{username} a consulté la liste des utilisateurs"
+            
+            elif 'poste' in path and '/admin/' in path:
+                if method == 'POST':
+                    return "Gestion postes", f"{username} a modifié les postes"
+                else:
+                    return "Consultation postes", f"{username} a consulté la liste des postes"
+            
+            elif 'journal' in path or 'audit' in path:
+                return "Consultation journal d'audit", f"{username} a consulté le journal d'audit"
+            
             else:
-                return "Administration", f"L'administrateur {username} a accédé au panel d'administration"
+                return "Administration", f"{username} a accédé au panel d'administration"
         
-        # Tableau de bord
+        # ===================================================================
+        # CONFIGURATION JOURS
+        # ===================================================================
+        if 'configuration' in path or 'config-jour' in path:
+            if method == 'POST':
+                date_config = request.POST.get('date', '')
+                statut = request.POST.get('statut', '')
+                return "Configuration jour", f"{username} a configuré le jour {date_config} avec le statut {statut}"
+            else:
+                return "Consultation configuration jours", f"{username} a consulté la configuration des jours"
+        
+        # ===================================================================
+        # TABLEAU DE BORD
+        # ===================================================================
         if 'dashboard' in path:
-            return "Accès tableau de bord", f"{username} ({role}) a accédé à son tableau de bord"
+            if 'admin' in path:
+                return "Accès dashboard administrateur", f"{username} a accédé au tableau de bord administrateur"
+            elif 'chef' in path:
+                return "Accès dashboard chef de poste", f"{username} a accédé au tableau de bord chef de poste"
+            elif 'agent' in path:
+                return "Accès dashboard agent", f"{username} a accédé au tableau de bord agent"
+            else:
+                return "Accès tableau de bord", f"{username} ({role}) a accédé à son tableau de bord"
         
-        # Rapports
+        # ===================================================================
+        # RAPPORTS
+        # ===================================================================
         if 'report' in path or 'rapport' in path:
             type_rapport = request.GET.get('type', 'général')
             periode = request.GET.get('periode', '')
-            return "Génération rapport", f"{username} a généré un rapport {type_rapport} pour la période {periode}"
+            format_export = request.GET.get('format', 'HTML')
+            return "Génération rapport", f"{username} a généré un rapport {type_rapport} pour {periode} (format: {format_export})"
         
-        # Action générique avec plus de contexte
+        # ===================================================================
+        # STOCKS
+        # ===================================================================
+        if 'stock' in path:
+            if 'psrr' in path:
+                return "Gestion stocks PSRR", f"{username} a accédé à la gestion des stocks PSRR"
+            elif 'informatique' in path or 'info' in path:
+                return "Gestion stock informatique", f"{username} a accédé à la gestion du stock informatique"
+            else:
+                return "Gestion stocks", f"{username} a accédé à la gestion des stocks"
+        
+        # ===================================================================
+        # PÉAGE/PESAGE
+        # ===================================================================
+        if 'peage' in path:
+            return "Gestion péage", f"{username} a accédé à la gestion du péage"
+        
+        if 'pesage' in path:
+            return "Gestion pesage", f"{username} a accédé à la gestion du pesage"
+        
+        # ===================================================================
+        # ACTION GÉNÉRIQUE (fallback)
+        # ===================================================================
         return f"{method} {path}", f"{username} ({role}) a effectué une action {method} sur {path}"
-    
     def _get_client_ip(self, request):
         """Récupère l'adresse IP réelle du client"""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
