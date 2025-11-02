@@ -273,7 +273,12 @@ def liste_inventaires_administratifs(request):
 def recherche_tracabilite_ticket(request):
     """
     Vue administrative de recherche et traçabilité des tickets
-    Permet de tracer l'historique complet d'un numéro de ticket
+    VERSION AMÉLIORÉE : Gestion des tickets sur plusieurs années
+    
+    FONCTIONNALITÉ :
+    - Recherche un ticket sur toutes les années ou une année spécifique
+    - Affiche l'historique complet avec les différentes occurrences par année
+    - Permet de tracer le cycle de vie d'un numéro de ticket
     """
     
     resultats = None
@@ -310,12 +315,18 @@ def recherche_tracabilite_ticket(request):
                 ).order_by('date_reception')
                 
                 if series_trouvees.exists():
-                    resultats = []
+                    # ===== GROUPEMENT PAR ANNÉE =====
+                    resultats_par_annee = {}
                     
                     for serie in series_trouvees:
+                        annee_serie = serie.date_reception.year
+                        
+                        if annee_serie not in resultats_par_annee:
+                            resultats_par_annee[annee_serie] = []
+                        
                         info = {
                             'serie': serie,
-                            'annee': serie.date_reception.year,
+                            'annee': annee_serie,
                             'couleur': couleur.libelle_affichage,
                             'numero': numero,
                             'statut': serie.get_statut_display(),
@@ -359,12 +370,30 @@ def recherche_tracabilite_ticket(request):
                         if serie.commentaire:
                             info['commentaire'] = serie.commentaire
                         
-                        resultats.append(info)
+                        resultats_par_annee[annee_serie].append(info)
+                    
+                    # Convertir en liste triée par année (décroissant)
+                    resultats = [
+                        {
+                            'annee': annee,
+                            'occurrences': occurrences,
+                            'nombre': len(occurrences)
+                        }
+                        for annee, occurrences in sorted(
+                            resultats_par_annee.items(), 
+                            reverse=True
+                        )
+                    ]
+                    
+                    # Message de succès détaillé
+                    total_occurrences = sum(r['nombre'] for r in resultats)
+                    annees_concernees = [str(r['annee']) for r in resultats]
                     
                     messages.success(
                         request,
-                        f"✅ {len(resultats)} occurrence(s) trouvée(s) pour le ticket "
-                        f"{couleur.libelle_affichage} #{numero}"
+                        f"✅ {total_occurrences} occurrence(s) trouvée(s) pour le ticket "
+                        f"{couleur.libelle_affichage} #{numero} "
+                        f"sur {len(annees_concernees)} année(s) : {', '.join(annees_concernees)}"
                     )
                 else:
                     messages.warning(
@@ -385,10 +414,10 @@ def recherche_tracabilite_ticket(request):
     # Liste de toutes les couleurs pour le formulaire
     couleurs = CouleurTicket.objects.all().order_by('code_normalise')
     
-    # Années disponibles pour le filtre
+    # Années disponibles pour le filtre (10 dernières années)
     annees_disponibles = []
     annee_actuelle = date.today().year
-    for i in range(5):  # 5 dernières années
+    for i in range(10):  # 10 dernières années
         annees_disponibles.append(annee_actuelle - i)
     
     context = {
@@ -402,7 +431,6 @@ def recherche_tracabilite_ticket(request):
     }
     
     return render(request, 'inventaire/recherche_tracabilite_ticket.html', context)
-
 
 @login_required
 @user_passes_test(is_admin)

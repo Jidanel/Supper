@@ -1088,12 +1088,11 @@ def saisir_recette_avec_tickets(request):
                 messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
                 return redirect('inventaire:liste_recettes')
             
-            # ===== NOUVELLE LOGIQUE DE VALIDATION =====
+            # ===== VALIDATION SIMPLIFIÉE (sans vérification unicité annuelle) =====
             
             details_ventes = []
             montant_total_calcule = Decimal('0')
             erreurs_validation = []
-            annee_recette = date_recette.year
             
             for i, form_detail in enumerate(formset):
                 if form_detail.cleaned_data and not form_detail.cleaned_data.get('DELETE', False):
@@ -1101,7 +1100,11 @@ def saisir_recette_avec_tickets(request):
                     num_premier = form_detail.cleaned_data['numero_premier']
                     num_dernier = form_detail.cleaned_data['numero_dernier']
                     
-                    # VALIDATION 1 : Vérification complète (stock + tickets vendus)
+                    # ===== SEULE VALIDATION : Disponibilité en stock =====
+                    # Cette fonction vérifie :
+                    # 1. Que les numéros sont cohérents
+                    # 2. Que les tickets ne sont pas déjà vendus
+                    # 3. Que la série est disponible en stock pour CE poste
                     disponible, msg, tickets_prob = SerieTicket.verifier_disponibilite_serie_complete(
                         poste, couleur, num_premier, num_dernier
                     )
@@ -1118,23 +1121,7 @@ def saisir_recette_avec_tickets(request):
                                     f"au poste {ticket['poste']}"
                                 )
                         continue
-                    
-                    # VALIDATION 2 : Unicité annuelle (tous les tickets de la plage)
-                    for num_ticket in range(num_premier, num_dernier + 1):
-                        est_unique, msg_unique, hist = SerieTicket.verifier_unicite_annuelle(
-                            num_ticket, couleur, annee_recette
-                        )
-                        
-                        if not est_unique:
-                            erreurs_validation.append(
-                                f"⚠️ Ligne {i+1}: Ticket {couleur.libelle_affichage} "
-                                f"#{num_ticket} existe déjà en {annee_recette}"
-                            )
-                            break  # Pas besoin de vérifier tous les tickets si un est en double
-                    
-                    if erreurs_validation:
-                        continue  # Passer à la série suivante
-                    
+                                       
                     # Si tout est OK, ajouter aux détails
                     nombre = num_dernier - num_premier + 1
                     montant = Decimal(nombre) * Decimal('500')
@@ -1293,7 +1280,7 @@ def traiter_confirmation_recette_tickets(request):
     
     if not data:
         messages.error(request, "Aucune recette en attente de confirmation")
-        return redirect('inventaire:saisie_recette')
+        return redirect('inventaire:saisir_recette_avec_tickets')
     
     try:
         poste = Poste.objects.get(id=data['poste_id'])
@@ -1393,22 +1380,27 @@ def traiter_confirmation_recette_tickets(request):
             # 6. Notifications aux administrateurs
             from accounts.models import UtilisateurSUPPER
             admins = UtilisateurSUPPER.objects.filter(
-                is_admin=True,
+                    habilitation__in=[
+                        'admin_principal',
+                        'coord_psrr',
+                        'serv_info',
+                        'serv_emission'
+                    ],
                 is_active=True
             )
             
-            for admin in admins:
-                NotificationUtilisateur.objects.create(
-                    destinataire=admin,
-                    expediteur=request.user,
-                    titre="Nouvelle recette saisie",
-                    message=(
-                        f"Recette de {montant_total:,.0f} FCFA saisie par "
-                        f"{request.user.nom_complet} pour le poste {poste.nom} "
-                        f"le {date_recette.strftime('%d/%m/%Y')}"
-                    ),
-                    type_notification='info'
-                )
+            # for admin in admins:
+            #     NotificationUtilisateur.objects.create(
+            #         destinataire=admin,
+            #         expediteur=request.user,
+            #         titre="Nouvelle recette saisie",
+            #         message=(
+            #             f"Recette de {montant_total:,.0f} FCFA saisie par "
+            #             f"{request.user.nom_complet} pour le poste {poste.nom} "
+            #             f"le {date_recette.strftime('%d/%m/%Y')}"
+            #         ),
+            #         type_notification='info'
+            #     )
             
             # 7. Nettoyer la session
             del request.session['recette_tickets_confirmation']
@@ -1429,7 +1421,7 @@ def traiter_confirmation_recette_tickets(request):
     except Exception as e:
         logger.error(f"Erreur confirmation recette tickets: {str(e)}", exc_info=True)
         messages.error(request, f"❌ Erreur lors de l'enregistrement: {str(e)}")
-        return redirect('inventaire:saisie_recette')
+        return redirect('inventaire:saisir_recette_avec_tickets')
 
 
 @login_required
@@ -1442,7 +1434,7 @@ def confirmation_recette_tickets(request):
     
     if not data:
         messages.error(request, "Aucune recette en attente")
-        return redirect('inventaire:saisie_recette')
+        return redirect('inventaire:saisir_recette_avec_tickets')
     
     poste = Poste.objects.get(id=data['poste_id'])
     montant_total = Decimal(data['montant_total'])

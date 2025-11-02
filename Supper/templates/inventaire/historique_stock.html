@@ -6,23 +6,12 @@
 
 {% block extra_css %}
 <style>
-    .modal-detail-historique {
-        max-width: 900px;
+    .card-stat {
+        transition: transform 0.2s;
     }
     
-    .badge-serie {
-        padding: 0.5rem 1rem;
-        margin: 0.25rem;
-        border-radius: 6px;
-        display: inline-block;
-    }
-    
-    .table-series {
-        font-size: 0.9rem;
-    }
-    
-    .table-series th {
-        background-color: #f3f4f6;
+    .card-stat:hover {
+        transform: translateY(-5px);
     }
 </style>
 {% endblock %}
@@ -32,32 +21,31 @@
     <h2><i class="fas fa-history"></i> Historique du stock - {{ poste.nom }}</h2>
     
     <div class="alert alert-info">
-        Stock actuel : <strong>{{ stock.valeur_monetaire|floatformat:0|format_milliers }} FCFA</strong>
+        Stock actuel : <strong>{{ stock.valeur_monetaire|format_fcfa }}</strong>
     </div>
     
-    <!-- Filtres (code existant conservé) -->
+    <!-- Sélecteur de poste (si admin) -->
     {% if is_admin and postes_liste %}
     <div class="card mb-3">
         <div class="card-body">
-            <form method="get" action="{% url 'inventaire:liste_postes_stocks' %}">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label>Changer de poste</label>
-                        <select class="form-control" onchange="window.location.href='{% url 'inventaire:historique_stock' 0 %}'.replace('0', this.value)">
-                            <option value="">-- Sélectionner un poste --</option>
-                            {% for p in postes_liste %}
-                            <option value="{{ p.id }}" {% if p.id == poste.id %}selected{% endif %}>
-                                {{ p.nom }} ({{ p.code }})
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <label>Changer de poste</label>
+                    <select class="form-control" id="selectPoste" data-url-template="{% url 'inventaire:historique_stock' 0 %}">
+                        <option value="">-- Sélectionner un poste --</option>
+                        {% for p in postes_liste %}
+                        <option value="{{ p.id }}" {% if p.id == poste.id %}selected{% endif %}>
+                            {{ p.nom }} ({{ p.code }})
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
     {% endif %}
     
+    <!-- Filtres -->
     <div class="card mb-3">
         <div class="card-body">
             <form method="get" class="row">
@@ -71,11 +59,17 @@
                 </div>
                 <div class="col-md-3">
                     <label>Date début</label>
-                    <input type="date" name="date_debut" class="form-control" value="{{ filters.date_debut }}">
+                    <input type="date" 
+                           name="date_debut" 
+                           class="form-control" 
+                           value="{% if filters.date_debut and filters.date_debut != 'None' %}{{ filters.date_debut }}{% endif %}">
                 </div>
                 <div class="col-md-3">
                     <label>Date fin</label>
-                    <input type="date" name="date_fin" class="form-control" value="{{ filters.date_fin }}">
+                    <input type="date" 
+                           name="date_fin" 
+                           class="form-control" 
+                           value="{% if filters.date_fin and filters.date_fin != 'None' %}{{ filters.date_fin }}{% endif %}">
                 </div>
                 <div class="col-md-3">
                     <label>&nbsp;</label><br>
@@ -86,305 +80,86 @@
         </div>
     </div>
     
+    <!-- Statistiques -->
     <div class="row mb-3">
         <div class="col-md-3">
-            <div class="card text-center">
+            <div class="card card-stat text-center shadow-sm">
                 <div class="card-body">
                     <h5>Approvisionnements</h5>
-                    <h3 class="text-success">{{ total_approvisionnements|floatformat:0|format_milliers }} FCFA</h3>
+                    <h3 class="text-success">{{ total_approvisionnements|format_fcfa }}</h3>
                     <small>{{ nombre_approvisionnements }} opération(s)</small>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card text-center">
+            <div class="card card-stat text-center shadow-sm">
                 <div class="card-body">
                     <h5>Débit</h5>
-                    <h3 class="text-danger">{{ total_destockages|floatformat:0|format_milliers }} FCFA</h3>
+                    <h3 class="text-danger">{{ total_destockages|format_fcfa }}</h3>
                     <small>{{ nombre_destockages }} opération(s)</small>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- Tableau avec bouton Détail -->
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Montant</th>
-                <th>Stock avant</th>
-                <th>Stock après</th>
-                <th>Effectué par</th>
-                <th>Observations</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for h in page_obj %}
-            <tr>
-                <td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td>
-                <td>
-                    {% if h.type_mouvement == 'CREDIT' %}
-                        <span class="badge bg-success text-white">Crédit</span>
-                    {% else %}
-                        <span class="badge bg-danger text-white">Débit</span>
-                    {% endif %}
-                </td>
-                <td>{{ h.montant|floatformat:0|format_milliers }} FCFA</td>
-                <td>{{ h.stock_avant|floatformat:0|format_milliers }}</td>
-                <td>{{ h.stock_apres|floatformat:0|format_milliers }}</td>
-                <td>{{ h.effectue_par.nom_complet }}</td>
-                <td>{{ h.commentaire|truncatewords:10 }}</td>
-                <td>
-                    <!-- NOUVEAU BOUTON DÉTAIL -->
-                    <button type="button" 
-                            class="btn btn-sm btn-primary"
-                            data-bs-toggle="modal" 
-                            data-bs-target="#detailModal{{ h.id }}">
-                        <i class="fas fa-eye me-1"></i>Détail
-                    </button>
-                </td>
-            </tr>
-            
-            <!-- MODAL DÉTAIL -->
-            <div class="modal fade" id="detailModal{{ h.id }}" tabindex="-1">
-                <div class="modal-dialog modal-detail-historique modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header bg-{{ h.type_mouvement|lower == 'credit' and 'success' or 'danger' }} text-white">
-                            <h5 class="modal-title">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Détail de l'opération - {{ h.date_mouvement|date:"d/m/Y à H:i" }}
-                            </h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            
-                            <!-- Informations générales -->
-                            <h6 class="border-bottom pb-2 mb-3">Informations générales</h6>
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <strong>Type d'opération :</strong> 
-                                    <span class="badge bg-{{ h.type_mouvement|lower == 'credit' and 'success' or 'danger' }}">
-                                        {{ h.get_type_mouvement_display }}
-                                    </span>
-                                </div>
-                                <div class="col-md-6">
-                                    <strong>Type de stock :</strong> {{ h.get_type_stock_display }}
-                                </div>
-                            </div>
-                            
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <strong>Montant :</strong><br>
-                                    <h4 class="text-{{ h.type_mouvement|lower == 'credit' and 'success' or 'danger' }}">
-                                        {{ h.montant|floatformat:0|format_milliers }} FCFA
-                                    </h4>
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>Nombre de tickets :</strong><br>
-                                    <h4>{{ h.nombre_tickets|default:'N/A' }}</h4>
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>Effectué par :</strong><br>
-                                    {{ h.effectue_par.nom_complet }}
-                                </div>
-                            </div>
-                            
-                            <!-- Impact sur le stock -->
-                            <h6 class="border-bottom pb-2 mb-3 mt-4">Impact sur le stock</h6>
-                            <div class="row text-center mb-3">
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <small class="text-muted">Stock avant</small>
-                                            <h5>{{ h.stock_avant|floatformat:0|format_milliers }} FCFA</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card bg-light">
-                                        <div class="card-body">
-                                            <small class="text-muted">Variation</small>
-                                            <h5 class="text-{{ h.type_mouvement|lower == 'credit' and 'success' or 'danger' }}">
-                                                {{ h.type_mouvement|lower == 'credit' and '+' or '-' }}{{ h.montant|floatformat:0|format_milliers }} FCFA
-                                            </h5>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <small class="text-muted">Stock après</small>
-                                            <h5>{{ h.stock_apres|floatformat:0|format_milliers }} FCFA</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Détails selon le type d'opération -->
-                            {% if h.type_mouvement == 'DEBIT' and h.reference_recette %}
-                            <!-- CAS 1 : VENTE -->
-                            <h6 class="border-bottom pb-2 mb-3 mt-4">
-                                <i class="fas fa-shopping-cart me-2"></i>Détail de la vente
-                            </h6>
-                            
-                            <div class="alert alert-info">
-                                <strong>Recette associée :</strong> 
-                                <a href="{% url 'inventaire:recette_detail' h.reference_recette.id %}" target="_blank">
-                                    Voir la recette du {{ h.reference_recette.date|date:"d/m/Y" }}
+    <!-- Tableau -->
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Montant</th>
+                            <th>Stock avant</th>
+                            <th>Stock après</th>
+                            <th>Effectué par</th>
+                            <th>Observations</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in page_obj %}
+                        <tr>
+                            <td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="badge bg-{{ h.type_mouvement|type_mouvement_badge_class }} text-white">
+                                    {{ h.get_type_mouvement_display }}
+                                </span>
+                            </td>
+                            <td>{{ h.montant|format_fcfa }}</td>
+                            <td>{{ h.stock_avant|format_fcfa }}</td>
+                            <td>{{ h.stock_apres|format_fcfa }}</td>
+                            <td>{{ h.effectue_par.nom_complet }}</td>
+                            <td>{{ h.commentaire|truncatewords:10 }}</td>
+                            <td>
+                                {# ===== NOUVEAU : Lien vers page détail au lieu de modal ===== #}
+                                <a href="{% url 'inventaire:detail_historique_stock' h.id %}" 
+                                   class="btn btn-sm btn-primary"
+                                   target="_blank"
+                                   title="Voir le détail complet de cette opération">
+                                    <i class="fas fa-eye me-1"></i>Détail
                                 </a>
-                            </div>
-                            
-                            <!-- Séries de tickets vendues -->
-                            {% if h.reference_recette.details_ventes_tickets.exists %}
-                            <h6 class="mb-3">Séries de tickets vendues</h6>
-                            <table class="table table-series table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Couleur</th>
-                                        <th>Premier N°</th>
-                                        <th>Dernier N°</th>
-                                        <th>Nombre</th>
-                                        <th>Montant</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for detail in h.reference_recette.details_ventes_tickets.all %}
-                                    <tr>
-                                        <td>
-                                            <span class="badge-serie" style="background-color: #6B7280;">
-                                                {{ detail.couleur.libelle_affichage }}
-                                            </span>
-                                        </td>
-                                        <td><strong>#{{ detail.numero_premier }}</strong></td>
-                                        <td><strong>#{{ detail.numero_dernier }}</strong></td>
-                                        <td>{{ detail.nombre_tickets }} tickets</td>
-                                        <td class="text-success"><strong>{{ detail.montant|floatformat:0|format_milliers }} FCFA</strong></td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                            {% else %}
-                            <p class="text-muted">Aucun détail de tickets disponible (ancien système)</p>
-                            {% endif %}
-                            
-                            {% elif h.type_mouvement == 'CREDIT' and h.type_stock == 'reapprovisionnement' %}
-                            <!-- CAS 2 : TRANSFERT REÇU -->
-                            <h6 class="border-bottom pb-2 mb-3 mt-4">
-                                <i class="fas fa-exchange-alt me-2"></i>Détail du transfert
-                            </h6>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="alert alert-success">
-                                        <strong>Poste émetteur :</strong><br>
-                                        {{ h.poste_origine.nom }} ({{ h.poste_origine.code }})
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="alert alert-info">
-                                        <strong>Poste récepteur :</strong><br>
-                                        {{ h.poste_destination.nom }} ({{ h.poste_destination.code }})
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {% if h.numero_bordereau %}
-                            <p>
-                                <strong>Numéro de bordereau :</strong> {{ h.numero_bordereau }}<br>
-                                <a href="{% url 'inventaire:bordereaux_transfert' h.numero_bordereau %}" target="_blank" class="btn btn-sm btn-primary mt-2">
-                                    <i class="fas fa-file-pdf me-1"></i>Voir les bordereaux
-                                </a>
-                            </p>
-                            {% endif %}
-                            
-                            {% elif h.type_mouvement == 'CREDIT' and h.type_stock == 'imprimerie_nationale' %}
-                            <!-- CAS 3 : APPROVISIONNEMENT IMPRIMERIE NATIONALE -->
-                            <h6 class="border-bottom pb-2 mb-3 mt-4">
-                                <i class="fas fa-truck me-2"></i>Approvisionnement Imprimerie Nationale
-                            </h6>
-                            
-                            <div class="alert alert-success">
-                                <i class="fas fa-check-circle me-2"></i>
-                                Stock reçu de l'Imprimerie Nationale
-                            </div>
-                            
-                            <!-- Séries reçues si disponibles -->
-                            {% with series_recues=h.series_tickets_associees.all %}
-                            {% if series_recues %}
-                            <h6 class="mb-3">Séries de tickets reçues</h6>
-                            <table class="table table-series table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Couleur</th>
-                                        <th>Premier N°</th>
-                                        <th>Dernier N°</th>
-                                        <th>Nombre</th>
-                                        <th>Valeur</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for serie in series_recues %}
-                                    <tr>
-                                        <td>
-                                            <span class="badge-serie" style="background-color: #6B7280;">
-                                                {{ serie.couleur.libelle_affichage }}
-                                            </span>
-                                        </td>
-                                        <td><strong>#{{ serie.numero_premier }}</strong></td>
-                                        <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                                        <td>{{ serie.nombre_tickets }} tickets</td>
-                                        <td class="text-success"><strong>{{ serie.valeur_monetaire|floatformat:0|format_milliers }} FCFA</strong></td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                            {% endif %}
-                            {% endwith %}
-                            
-                            {% elif h.type_mouvement == 'CREDIT' and h.type_stock == 'regularisation' %}
-                            <!-- CAS 4 : RÉGULARISATION -->
-                            <h6 class="border-bottom pb-2 mb-3 mt-4">
-                                <i class="fas fa-balance-scale me-2"></i>Régularisation
-                            </h6>
-                            
-                            <div class="alert alert-warning">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Régularisation de stock
-                            </div>
-                            {% endif %}
-                            
-                            <!-- Observations -->
-                            {% if h.commentaire %}
-                            <h6 class="border-bottom pb-2 mb-3 mt-4">Observations</h6>
-                            <div class="alert alert-light">
-                                {{ h.commentaire }}
-                            </div>
-                            {% endif %}
-                            
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                        </div>
-                    </div>
-                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            {% endfor %}
-        </tbody>
-    </table>
+        </div>
+    </div>
     
-    <!-- Pagination (code existant conservé) -->
+    <!-- Pagination -->
     {% if page_obj.has_other_pages %}
-    <nav aria-label="Navigation">
+    <nav aria-label="Navigation" class="mt-3">
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page=1{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Début</a>
+                <a class="page-link" href="?page=1{% if filters.type and filters.type != 'tous' %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Début</a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Précédent</a>
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filters.type and filters.type != 'tous' %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Précédent</a>
             </li>
             {% endif %}
             
@@ -396,10 +171,10 @@
             
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Suivant</a>
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filters.type and filters.type != 'tous' %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Suivant</a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filters.type %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Fin</a>
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filters.type and filters.type != 'tous' %}&type={{ filters.type }}{% endif %}{% if filters.date_debut %}&date_debut={{ filters.date_debut }}{% endif %}{% if filters.date_fin %}&date_fin={{ filters.date_fin }}{% endif %}">Fin</a>
             </li>
             {% endif %}
         </ul>
@@ -408,13 +183,18 @@
 </div>
 
 <script>
-// Script Bootstrap 5 pour les modals
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialisation automatique des modals Bootstrap 5
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => {
-        new bootstrap.Modal(modal);
-    });
+    // Sélecteur de poste
+    const selectPoste = document.getElementById('selectPoste');
+    if (selectPoste) {
+        selectPoste.addEventListener('change', function() {
+            if (this.value) {
+                const urlTemplate = this.getAttribute('data-url-template');
+                const newUrl = urlTemplate.replace('0', this.value);
+                window.location.href = newUrl;
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

@@ -52,8 +52,8 @@ urlpatterns = [
     # ================================================================
     # SAISIE RECETTES
     # ================================================================
-    path('recettes/saisie/', views.saisir_recette_avec_tickets, name='saisie_recette_avec_tickets'),
-    path('recettes/saisie/<int:poste_id>/', views.saisir_recette_avec_tickets, name='saisie_recette_poste_avec_tickets'),
+    path('recettes/saisie/', views.saisir_recette_avec_tickets, name='saisir_recette_avec_tickets'),
+    path('recettes/saisie/<int:poste_id>/', views.saisir_recette_avec_tickets, name='saisir_recette_poste_avec_tickets'),
     #path('recettes/supprimer/<int:poste_id>/', views.supprimer_recette, name='supprimer_recette_poste'),
     path('recettes/<int:recette_id>/delete-admin/', views.redirect_to_delete_recette_admin, name='redirect_delete_recette_admin'),
     path('recettes/', views.RecetteListView.as_view(), name='liste_recettes'),
@@ -122,6 +122,9 @@ urlpatterns = [
     path('stocks/charger/<int:poste_id>/', views_stocks.charger_stock_tickets, name='charger_stock_tickets'),
     path('stocks/historique/<int:poste_id>/', views_stocks.historique_stock, name='historique_stock'),
     path('stocks/mon-stock/', views_stocks.mon_stock, name='mon_stock'),
+    path('stocks/historique/<int:historique_id>/detail/', 
+     views_stocks.detail_historique_stock, 
+     name='detail_historique_stock'),
 
     # Gestion des objectifs annuels
     path('objectifs-annuels/', 

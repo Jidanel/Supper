@@ -1,107 +1,206 @@
-{% extends "admin/base_site.html" %}
-{% load static i18n inventaire_extras %}
+{% extends "base.html" %}
+{% load static %}
 
-{% block title %}Confirmation chargement stock{% endblock %}
+{% block title %}Confirmation chargement stock - {{ poste.nom }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card shadow">
-                <div class="card-header bg-warning text-dark">
-                    <h3><i class="fas fa-exclamation-triangle me-2"></i>Confirmation du chargement</h3>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            
+            <!-- En-tête -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-check-circle text-warning"></i>
+                    Confirmation du chargement
+                </h2>
+            </div>
+
+            <!-- ALERTE : Conflits potentiels détectés -->
+            {% if tickets_existants %}
+            <div class="alert alert-danger border-left-danger" role="alert">
+                <h4 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    ⚠️ CONFLIT DÉTECTÉ - Tickets déjà existants en {{ annee_actuelle }}
+                </h4>
+                <hr>
+                <p class="mb-2">
+                    <strong>Les tickets suivants existent déjà cette année :</strong>
+                </p>
+                <ul class="mb-0">
+                    {% for ticket in tickets_existants %}
+                    <li>
+                        <strong>Ticket #{{ ticket.numero }}</strong> - 
+                        Reçu le {{ ticket.historique.date_reception|date:"d/m/Y" }} 
+                        au poste {{ ticket.historique.poste_reception }}
+                        ({{ ticket.historique.type_entree }}) - 
+                        <span class="badge badge-info">{{ ticket.historique.statut }}</span>
+                    </li>
+                    {% endfor %}
+                    {% if nombre_tickets > 10 and tickets_existants|length == 10 %}
+                    <li class="text-muted"><em>... et potentiellement d'autres tickets de la série</em></li>
+                    {% endif %}
+                </ul>
+                <hr>
+                <p class="mb-0 text-danger font-weight-bold">
+                    <i class="fas fa-ban"></i>
+                    Si vous confirmez, le chargement sera BLOQUÉ car ces numéros existent déjà en {{ annee_actuelle }}.
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Récapitulatif du chargement -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        Récapitulatif du chargement
+                    </h5>
                 </div>
-                
                 <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Vérifiez attentivement les informations avant de valider</strong>
-                    </div>
-                    
-                    <!-- Informations du poste -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5><i class="fas fa-map-marker-alt me-2"></i>Poste</h5>
+                    <div class="row">
+                        <!-- Colonne gauche -->
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th width="40%">Poste :</th>
+                                    <td>
+                                        <span class="badge badge-info">{{ poste.code }}</span>
+                                        {{ poste.nom }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Type :</th>
+                                    <td>
+                                        <span class="badge badge-{% if type_stock == 'imprimerie_nationale' %}success{% else %}warning{% endif %}">
+                                            {{ type_stock_label }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Couleur tickets :</th>
+                                    <td>
+                                        <strong>{{ couleur.libelle_affichage }}</strong>
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
-                        <div class="card-body">
-                            <h4>{{ poste.nom }}</h4>
-                            <p class="text-muted mb-0">Code : {{ poste.code }}</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Type de stock -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5><i class="fas fa-tag me-2"></i>Type de stock</h5>
-                        </div>
-                        <div class="card-body">
-                            <h4>
-                                <span class="badge bg-{% if type_stock == 'regularisation' %}primary{% else %}success{% endif %} fs-5">
-                                    {{ type_stock_label }}
-                                </span>
-                            </h4>
-                        </div>
-                    </div>
-                    
-                    <!-- Détails de la série -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5><i class="fas fa-palette me-2"></i>Série de tickets</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="text-muted">Couleur</label>
-                                    <h4>{{ couleur.libelle_affichage }}</h4>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="text-muted">Numéros de série</label>
-                                    <h4>#{{ numero_premier }} → #{{ numero_dernier }}</h4>
-                                </div>
-                            </div>
-                            
-                            <hr>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label class="text-muted">Nombre de tickets</label>
-                                    <h3 class="text-primary">{{ nombre_tickets|format_milliers }}</h3>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="text-muted">Valeur monétaire</label>
-                                    <h3 class="text-success">{{ montant|floatformat:0|format_milliers }} FCFA</h3>
-                                </div>
-                            </div>
+
+                        <!-- Colonne droite -->
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th width="40%">Série :</th>
+                                    <td>
+                                        <code class="text-primary">
+                                            #{{ numero_premier }} à #{{ numero_dernier }}
+                                        </code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Nombre de tickets :</th>
+                                    <td>
+                                        <strong class="text-info">{{ nombre_tickets }}</strong> tickets
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Valeur monétaire :</th>
+                                    <td>
+                                        <strong class="text-success" style="font-size: 1.2em;">
+                                            {{ montant|floatformat:0 }} FCFA
+                                        </strong>
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
                     </div>
-                    
-                    <!-- Commentaire -->
+
                     {% if commentaire %}
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5><i class="fas fa-comment me-2"></i>Commentaire</h5>
-                        </div>
-                        <div class="card-body">
-                            <p>{{ commentaire }}</p>
-                        </div>
+                    <hr>
+                    <div class="alert alert-info mb-0">
+                        <strong><i class="fas fa-comment"></i> Commentaire :</strong><br>
+                        {{ commentaire }}
                     </div>
                     {% endif %}
-                    
-                    <!-- Boutons d'action -->
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="d-flex justify-content-between mt-4">
-                            <button type="submit" name="action" value="annuler" class="btn btn-secondary btn-lg">
-                                <i class="fas fa-times me-2"></i>Annuler
-                            </button>
-                            <button type="submit" name="action" value="confirmer" class="btn btn-success btn-lg">
-                                <i class="fas fa-check me-2"></i>Confirmer le chargement
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </div>
+
+            <!-- Informations supplémentaires -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb"></i>
+                        Règle d'unicité annuelle
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i>
+                        <strong>Un numéro de ticket ne peut être chargé qu'UNE SEULE FOIS par année.</strong>
+                    </p>
+                    <ul class="mb-0">
+                        <li>
+                            Exemple 1 : Ticket #100 chargé en 2025 
+                            → <span class="text-danger">IMPOSSIBLE</span> de recharger #100 en 2025
+                        </li>
+                        <li>
+                            Exemple 2 : Ticket #100 chargé en 2025 
+                            → <span class="text-success">POSSIBLE</span> de charger #100 en 2026
+                        </li>
+                    </ul>
+                    <hr class="my-2">
+                    <p class="mb-0 text-muted small">
+                        <i class="fas fa-info-circle"></i>
+                        Cette règle ne s'applique QU'au chargement de stock (Imprimerie Nationale ou Régularisation).
+                        Les ventes de tickets ne sont pas concernées par cette restriction.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Boutons d'action -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <button type="submit" name="action" value="annuler" 
+                                class="btn btn-secondary btn-block btn-lg">
+                            <i class="fas fa-times"></i>
+                            Annuler
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <button type="submit" name="action" value="confirmer" 
+                                class="btn btn-success btn-block btn-lg"
+                                {% if tickets_existants %}
+                                onclick="return confirm('ATTENTION : Des conflits ont été détectés. Si vous confirmez, le chargement sera bloqué. Voulez-vous vraiment continuer ?');"
+                                {% endif %}>
+                            <i class="fas fa-check"></i>
+                            {% if tickets_existants %}
+                            Tenter le chargement (sera bloqué)
+                            {% else %}
+                            Confirmer le chargement
+                            {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Lien retour -->
+            <div class="text-center mt-3">
+                <a href="{% url 'inventaire:charger_stock_tickets' poste.id %}" 
+                   class="btn btn-link">
+                    <i class="fas fa-arrow-left"></i>
+                    Retour au formulaire
+                </a>
+            </div>
+
         </div>
     </div>
 </div>
+
+<style>
+.border-left-danger {
+    border-left: 4px solid #e74a3b !important;
+}
+</style>
 {% endblock %}

@@ -2861,12 +2861,228 @@ class SerieTicket(models.Model):
                 name='numero_premier_inferieur_dernier'
             )
         ]
-    
+    @classmethod
+    def transferer_serie(cls, poste_origine, poste_destination, couleur, 
+                        numero_premier, numero_dernier, user, commentaire=""):
+        """
+        Transfère une série de tickets d'un poste vers un autre
+        
+        RÈGLE : Le ticket quitte le stock d'origine et entre au stock de destination
+        
+        Args:
+            poste_origine: Poste source
+            poste_destination: Poste cible
+            couleur: CouleurTicket
+            numero_premier: Premier numéro de la série
+            numero_dernier: Dernier numéro de la série
+            user: Utilisateur effectuant le transfert
+            commentaire: Commentaire optionnel
+        
+        Returns:
+            tuple (bool, str, serie_origine, serie_destination)
+        """
+        from django.db import transaction
+        
+        # Vérifier disponibilité au poste d'origine
+        disponible, msg, _ = cls.verifier_disponibilite_serie_complete(
+            poste_origine, couleur, numero_premier, numero_dernier
+        )
+        
+        if not disponible:
+            return False, msg, None, None
+        
+        with transaction.atomic():
+            # 1. Trouver la série dans le stock d'origine
+            serie_origine = cls.objects.filter(
+                poste=poste_origine,
+                couleur=couleur,
+                statut='stock',
+                numero_premier__lte=numero_premier,
+                numero_dernier__gte=numero_dernier
+            ).first()
+            
+            if not serie_origine:
+                return False, "Série non trouvée dans le stock d'origine", None, None
+            
+            # 2. Marquer la série d'origine comme transférée
+            serie_origine.statut = 'transfere'
+            serie_origine.poste_destination_transfert = poste_destination
+            serie_origine.commentaire = f"Transféré vers {poste_destination.nom} - {commentaire}"
+            serie_origine.save()
+            
+            # 3. Créer la nouvelle série au poste de destination
+            serie_destination = cls.objects.create(
+                poste=poste_destination,
+                couleur=couleur,
+                numero_premier=numero_premier,
+                numero_dernier=numero_dernier,
+                statut='stock',
+                type_entree='transfert_recu',
+                commentaire=f"Reçu du poste {poste_origine.nom} - {commentaire}"
+            )
+            
+            # 4. Créer l'historique pour le poste d'origine (DÉBIT)
+            montant = Decimal(serie_destination.nombre_tickets) * Decimal('500')
+            
+            stock_origine, _ = GestionStock.objects.get_or_create(
+                poste=poste_origine,
+                defaults={'valeur_monetaire': Decimal('0')}
+            )
+            
+            stock_avant_origine = stock_origine.valeur_monetaire
+            stock_origine.valeur_monetaire -= montant
+            stock_origine.save()
+            
+            historique_origine = HistoriqueStock.objects.create(
+                poste=poste_origine,
+                type_mouvement='DEBIT',
+                poste_origine=poste_origine,
+                poste_destination=poste_destination,
+                montant=montant,
+                nombre_tickets=serie_destination.nombre_tickets,
+                stock_avant=stock_avant_origine,
+                stock_apres=stock_origine.valeur_monetaire,
+                effectue_par=user,
+                commentaire=f"Transfert vers {poste_destination.nom} - {commentaire}"
+            )
+            
+            # Associer la série d'origine à l'historique
+            historique_origine.associer_series_tickets([serie_origine])
+            
+            # 5. Créer l'historique pour le poste de destination (CRÉDIT)
+            stock_destination, _ = GestionStock.objects.get_or_create(
+                poste=poste_destination,
+                defaults={'valeur_monetaire': Decimal('0')}
+            )
+            
+            stock_avant_destination = stock_destination.valeur_monetaire
+            stock_destination.valeur_monetaire += montant
+            stock_destination.save()
+            
+            historique_destination = HistoriqueStock.objects.create(
+                poste=poste_destination,
+                type_mouvement='CREDIT',
+                type_stock='reapprovisionnement',
+                poste_origine=poste_origine,
+                poste_destination=poste_destination,
+                montant=montant,
+                nombre_tickets=serie_destination.nombre_tickets,
+                stock_avant=stock_avant_destination,
+                stock_apres=stock_destination.valeur_monetaire,
+                effectue_par=user,
+                commentaire=f"Transfert reçu du poste {poste_origine.nom} - {commentaire}"
+            )
+            
+            # Associer la nouvelle série à l'historique
+            historique_destination.associer_series_tickets([serie_destination])
+            
+            # 6. Journaliser l'action
+            from common.utils import log_user_action
+            log_user_action(
+                user,
+                "Transfert de tickets",
+                f"Transfert de {serie_destination.nombre_tickets} tickets "
+                f"{couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+                f"du poste {poste_origine.nom} vers {poste_destination.nom}",
+                None
+            )
+            
+            return True, "Transfert effectué avec succès", serie_origine, serie_destination
+
+
+    @classmethod
+    def obtenir_historique_complet_ticket(cls, numero_ticket, couleur, annee=None):
+        """
+        Obtient l'historique complet d'un numéro de ticket (tous postes, toutes années)
+        
+        AMÉLIORATION : Inclut les transferts entre postes
+        
+        Args:
+            numero_ticket: Numéro du ticket
+            couleur: Instance de CouleurTicket
+            annee: Année spécifique (optionnel)
+        
+        Returns:
+            dict avec l'historique complet par année et par poste
+        """
+        from django.db.models import Q
+        from datetime import date
+        
+        # Construire la requête
+        query = Q(
+            numero_premier__lte=numero_ticket,
+            numero_dernier__gte=numero_ticket,
+            couleur=couleur
+        )
+        
+        if annee:
+            debut_annee = date(annee, 1, 1)
+            fin_annee = date(annee, 12, 31)
+            query &= Q(date_reception__range=[debut_annee, fin_annee])
+        
+        # Récupérer toutes les séries contenant ce ticket
+        series = cls.objects.filter(query).select_related(
+            'poste', 'poste_destination_transfert', 'reference_recette'
+        ).order_by('date_reception')
+        
+        # Grouper par année et poste
+        historique = {}
+        
+        for serie in series:
+            annee_serie = serie.date_reception.year
+            
+            if annee_serie not in historique:
+                historique[annee_serie] = []
+            
+            info = {
+                'poste': serie.poste.nom,
+                'date_reception': serie.date_reception,
+                'statut': serie.statut,
+                'type_entree': serie.get_type_entree_display() if serie.type_entree else 'Non défini',
+                'serie_complete': f"#{serie.numero_premier}-{serie.numero_dernier}",
+                'nombre_tickets': serie.nombre_tickets
+            }
+            
+            # Ajouter les détails selon le statut
+            if serie.statut == 'stock':
+                info['message'] = f"✅ En stock au poste {serie.poste.nom}"
+            
+            elif serie.statut == 'vendu':
+                info['date_vente'] = serie.date_utilisation
+                info['message'] = f"💰 Vendu le {serie.date_utilisation.strftime('%d/%m/%Y')} au poste {serie.poste.nom}"
+                
+                if serie.reference_recette:
+                    info['recette'] = serie.reference_recette.montant_declare
+            
+            elif serie.statut == 'transfere':
+                if serie.poste_destination_transfert:
+                    info['poste_destination'] = serie.poste_destination_transfert.nom
+                    info['message'] = (
+                        f"📦 Transféré du poste {serie.poste.nom} "
+                        f"vers {serie.poste_destination_transfert.nom}"
+                    )
+                else:
+                    info['message'] = f"📦 Transféré depuis {serie.poste.nom}"
+            
+            if serie.commentaire:
+                info['commentaire'] = serie.commentaire
+            
+            historique[annee_serie].append(info)
+        
+        return historique
+
+
+
     def __str__(self):
         return f"{self.couleur.libelle_affichage} #{self.numero_premier}-{self.numero_dernier} ({self.get_statut_display()})"
     
     def clean(self):
-        """Validation avant sauvegarde"""
+        """
+        Validation avant sauvegarde
+        
+        CORRECTION : Ne vérifier les chevauchements QUE lors du CHARGEMENT
+        Pas lors de la vente (consommation de série)
+        """
         from django.core.exceptions import ValidationError
         
         if self.numero_premier > self.numero_dernier:
@@ -2874,33 +3090,43 @@ class SerieTicket(models.Model):
                 'numero_dernier': _("Le numéro du dernier ticket doit être supérieur ou égal au premier")
             })
         
-        # Vérifier les chevauchements pour les séries en stock du même poste et couleur
-        if self.statut == 'stock':
+        # ===== CORRECTION : Ne vérifier les chevauchements QUE pour les nouvelles séries en stock =====
+        # Si la série est en train d'être créée (pas encore de pk) ET qu'elle est en stock
+        if not self.pk and self.statut == 'stock':
+            # Vérifier les chevauchements avec d'autres séries en stock du MÊME poste
             chevauchements = SerieTicket.objects.filter(
                 poste=self.poste,
                 couleur=self.couleur,
-                statut='stock'
-            ).exclude(pk=self.pk)
+                statut='stock'  # Seulement les séries en stock
+            )
             
             for serie in chevauchements:
                 # Vérifier si les plages se chevauchent
                 if not (self.numero_dernier < serie.numero_premier or 
-                       self.numero_premier > serie.numero_dernier):
+                    self.numero_premier > serie.numero_dernier):
                     raise ValidationError(
-                        f"Chevauchement détecté avec la série {serie.couleur.libelle_affichage} "
-                        f"#{serie.numero_premier}-{serie.numero_dernier}"
+                        f"⚠️ Chevauchement détecté avec la série en stock "
+                        f"{serie.couleur.libelle_affichage} #{serie.numero_premier}-{serie.numero_dernier} "
+                        f"au poste {self.poste.nom}"
                     )
-    
-   
+        
+        # ===== NOUVEAU : Si c'est un transfert, ne pas vérifier les chevauchements =====
+        # Les transferts créent naturellement des séries avec les mêmes numéros
+
 
     @classmethod
     def verifier_disponibilite_serie_complete(cls, poste, couleur, numero_premier, numero_dernier):
         """
-        Vérification COMPLÈTE de disponibilité d'une série de tickets
+        Vérification COMPLÈTE de disponibilité d'une série de tickets pour VENTE
+        
+        CORRECTION MAJEURE :
+        - Ne vérifie QUE les tickets vendus (pas les tickets en stock)
+        - Accepte les chevauchements avec des séries en stock du MÊME poste
+        
         Vérifie :
         1. Que les numéros sont cohérents
-        2. Qu'aucun ticket de la plage n'a déjà été vendu
-        3. Que la plage est disponible en stock
+        2. Qu'aucun ticket de la plage n'a déjà été vendu (n'importe quel poste)
+        3. Que la plage est disponible en stock pour CE poste
         
         Returns:
             tuple (bool, str, list): (est_disponible, message_erreur, tickets_problematiques)
@@ -2914,10 +3140,12 @@ class SerieTicket(models.Model):
         if numero_premier < 1:
             return False, "Les numéros de tickets doivent être positifs", []
         
-        # Vérification 2 : Détecter les tickets déjà vendus dans cette plage
+        # ===== CORRECTION : Vérification 2 - Tickets VENDUS uniquement =====
+        # Ne chercher QUE les tickets avec statut 'vendu'
+        # Ignorer les tickets en 'stock' car ils sont disponibles pour vente
         tickets_deja_vendus = cls.objects.filter(
             couleur=couleur,
-            statut='vendu',
+            statut='vendu',  # ← IMPORTANT : Seulement les vendus
             # Chevauchement : (debut1 <= fin2) AND (fin1 >= debut2)
             numero_premier__lte=numero_dernier,
             numero_dernier__gte=numero_premier
@@ -2951,9 +3179,10 @@ class SerieTicket(models.Model):
             
             return False, msg, tickets_problematiques
         
-        # Vérification 3 : Tickets disponibles en stock pour CE poste
+        # ===== CORRECTION : Vérification 3 - Disponibilité en stock POUR CE POSTE =====
+        # Chercher uniquement les séries en stock du poste concerné
         series_stock_poste = cls.objects.filter(
-            poste=poste,
+            poste=poste,  # ← IMPORTANT : Seulement CE poste
             couleur=couleur,
             statut='stock'
         )
@@ -2964,11 +3193,12 @@ class SerieTicket(models.Model):
                 f"pour le poste {poste.nom}"
             ), []
         
-        # Vérifier que la plage demandée est couverte par une série en stock
+        # Vérifier que la plage demandée est couverte par UNE série en stock
         plage_couverte = False
         serie_couvrante = None
         
         for serie in series_stock_poste:
+            # La série en stock doit CONTENIR complètement la plage demandée
             if (numero_premier >= serie.numero_premier and 
                 numero_dernier <= serie.numero_dernier):
                 plage_couverte = True
@@ -2983,16 +3213,15 @@ class SerieTicket(models.Model):
             ]
             
             msg = (
-                f"Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+                f"❌ Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
                 f"non disponible en stock au poste {poste.nom}. "
-                f"Séries disponibles : {', '.join(series_dispo)}"
+                f"Séries disponibles : {', '.join(series_dispo) if series_dispo else 'Aucune'}"
             )
             
             return False, msg, []
         
-        # Tout est OK
-        return True, f"Série {couleur.libelle_affichage} disponible", []
-
+        # ===== Tout est OK - La série peut être vendue =====
+        return True, f"✅ Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} disponible", []
 
     @classmethod
     def verifier_unicite_annuelle(cls, numero_ticket, couleur, annee):

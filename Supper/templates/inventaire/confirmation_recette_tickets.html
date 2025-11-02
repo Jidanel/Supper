@@ -218,12 +218,12 @@
                     </div>
                     
                     <!-- Boutons d'action -->
-                    <form method="post" action="{% url 'inventaire:saisie_recette_avec_tickets' %}">
+                    <form method="post" action="{% url 'inventaire:saisir_recette_avec_tickets' %}">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="confirmer">
                         
                         <div class="d-flex justify-content-between mt-4">
-                            <a href="{% url 'inventaire:saisie_recette_avec_tickets' %}" 
+                            <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" 
                                class="btn btn-secondary btn-lg">
                                 <i class="fas fa-arrow-left me-2"></i>
                                 Retour / Modifier

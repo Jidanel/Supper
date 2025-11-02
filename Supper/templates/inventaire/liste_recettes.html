@@ -165,7 +165,7 @@
         </div>
         <div>
             {% if user.is_chef_poste or user.is_admin %}
-            <a href="{% url 'inventaire:saisie_recette' %}" class="btn btn-primary">
+            <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
                 {% trans "Nouvelle Recette" %}
             </a>
@@ -536,7 +536,7 @@
         <h4>{% trans "Aucune recette trouvée" %}</h4>
         <p>{% trans "Aucune recette ne correspond aux filtres sélectionnés" %}</p>
         {% if user.is_chef_poste or user.is_admin %}
-        <a href="{% url 'inventaire:saisie_recette' %}" class="btn btn-primary mt-3">
+        <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary mt-3">
             <i class="fas fa-plus me-2"></i>
             {% trans "Saisir une recette" %}
         </a>

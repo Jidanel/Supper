@@ -1,286 +1,324 @@
-{% extends "admin/base_site.html" %}
-{% load static i18n %}
+{% extends "base.html" %}
+{% load static %}
 
-{% block title %}Traçabilité des Tickets{% endblock %}
-
-{% block extra_css %}
-<style>
-    .search-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-    }
-    
-    .result-card {
-        border-left: 4px solid #3b82f6;
-        background: white;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .result-card.vendu {
-        border-left-color: #10b981;
-    }
-    
-    .result-card.transfere {
-        border-left-color: #f59e0b;
-    }
-    
-    .result-card.stock {
-        border-left-color: #3b82f6;
-    }
-    
-    .timeline-item {
-        position: relative;
-        padding-left: 3rem;
-        padding-bottom: 1rem;
-    }
-    
-    .timeline-item::before {
-        content: '';
-        position: absolute;
-        left: 0.75rem;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: #e5e7eb;
-    }
-    
-    .timeline-item:last-child::before {
-        display: none;
-    }
-    
-    .timeline-dot {
-        position: absolute;
-        left: 0;
-        top: 0.25rem;
-        width: 2rem;
-        height: 2rem;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.875rem;
-    }
-    
-    .badge-couleur {
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        font-weight: 600;
-    }
-</style>
-{% endblock %}
+{% block title %}Traçabilité des Tickets - Historique Complet{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
-    
-    <h2 class="mb-4">
-        <i class="fas fa-search me-2"></i>
-        Traçabilité des Tickets
-    </h2>
-    
-    <!-- Carte de recherche -->
-    <div class="search-card">
-        <h4 class="mb-3">
-            <i class="fas fa-crosshairs me-2"></i>
-            Rechercher un ticket
-        </h4>
-        
-        <form method="post">
-            {% csrf_token %}
+    <div class="row">
+        <div class="col-12">
             
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">Numéro du ticket *</label>
-                    <input type="number" 
-                           name="numero_ticket" 
-                           class="form-control form-control-lg" 
-                           placeholder="Ex: 12345"
-                           value="{{ numero_recherche|default:'' }}"
-                           required>
-                </div>
-                
-                <div class="col-md-4">
-                    <label class="form-label">Couleur *</label>
-                    <select name="couleur_id" class="form-select form-select-lg" required>
-                        <option value="">-- Sélectionner une couleur --</option>
-                        {% for couleur in couleurs %}
-                        <option value="{{ couleur.id }}" 
-                                {% if couleur_recherche == couleur.id|stringformat:"s" %}selected{% endif %}>
-                            {{ couleur.libelle_affichage }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
-                    <label class="form-label">Année (optionnel)</label>
-                    <select name="annee" class="form-select form-select-lg">
-                        <option value="">Toutes les années</option>
-                        {% for annee in annees_disponibles %}
-                        <option value="{{ annee }}" 
-                                {% if annee_recherche == annee|stringformat:"s" %}selected{% endif %}>
-                            {{ annee }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-2">
-                    <label class="form-label">&nbsp;</label>
-                    <button type="submit" class="btn btn-light btn-lg w-100">
-                        <i class="fas fa-search me-2"></i>
-                        Rechercher
-                    </button>
-                </div>
+            <!-- En-tête -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-route text-primary"></i>
+                    Traçabilité des Tickets
+                </h2>
             </div>
-        </form>
-    </div>
-    
-    <!-- Résultats -->
-    {% if resultats %}
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-list-alt me-2"></i>
-                Historique du ticket
-            </h5>
-        </div>
-        <div class="card-body">
-            
-            {% if resultats|length == 1 %}
+
+            <!-- Informations importantes -->
             <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                Ce ticket a été trouvé une seule fois dans le système.
+                <h5 class="alert-heading">
+                    <i class="fas fa-info-circle"></i>
+                    Règles de traçabilité
+                </h5>
+                <ul class="mb-0">
+                    <li>
+                        <strong>Unicité annuelle au chargement :</strong> 
+                        Un ticket ne peut être chargé qu'une fois par an (Imprimerie/Régularisation)
+                    </li>
+                    <li>
+                        <strong>Transferts entre postes :</strong> 
+                        Un ticket transféré du Poste A vers Poste B apparaît dans les deux historiques
+                    </li>
+                    <li>
+                        <strong>Multi-années :</strong> 
+                        Le même numéro peut exister dans différentes années
+                    </li>
+                </ul>
             </div>
-            {% else %}
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                <strong>Attention :</strong> Ce ticket apparaît {{ resultats|length }} fois dans le système 
-                (années différentes selon la règle d'unicité annuelle).
+
+            <!-- Formulaire de recherche -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-search"></i>
+                        Rechercher un ticket
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="numero_ticket">
+                                        <i class="fas fa-hashtag"></i>
+                                        Numéro du ticket *
+                                    </label>
+                                    <input type="number" 
+                                           class="form-control form-control-lg" 
+                                           id="numero_ticket" 
+                                           name="numero_ticket"
+                                           value="{{ numero_recherche }}"
+                                           min="1"
+                                           required
+                                           placeholder="Ex: 100">
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="couleur_id">
+                                        <i class="fas fa-palette"></i>
+                                        Couleur *
+                                    </label>
+                                    <select class="form-control form-control-lg" 
+                                            id="couleur_id" 
+                                            name="couleur_id"
+                                            required>
+                                        <option value="">Sélectionnez une couleur</option>
+                                        {% for couleur in couleurs %}
+                                        <option value="{{ couleur.id }}"
+                                                {% if couleur_recherche == couleur.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ couleur.libelle_affichage }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="annee">
+                                        <i class="fas fa-calendar"></i>
+                                        Année (optionnel)
+                                    </label>
+                                    <select class="form-control form-control-lg" 
+                                            id="annee" 
+                                            name="annee">
+                                        <option value="">Toutes les années</option>
+                                        {% for annee in annees_disponibles %}
+                                        <option value="{{ annee }}"
+                                                {% if annee_recherche == annee|stringformat:"s" %}selected{% endif %}>
+                                            {{ annee }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg btn-block">
+                            <i class="fas fa-search"></i>
+                            Lancer la recherche
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Résultats de la recherche -->
+            {% if resultats %}
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i>
+                        Historique complet du ticket
+                    </h5>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Timeline par année -->
+                    {% for annee_data in resultats %}
+                    <div class="mb-5">
+                        <!-- En-tête de l'année -->
+                        <div class="d-flex align-items-center mb-3">
+                            <h3 class="mb-0">
+                                <i class="fas fa-calendar-alt text-primary"></i>
+                                Année {{ annee_data.annee }}
+                            </h3>
+                            <span class="badge badge-info badge-lg ml-3" style="font-size: 1.1em;">
+                                {{ annee_data.nombre }} occurrence(s)
+                            </span>
+                        </div>
+
+                        <!-- Timeline des événements -->
+                        <div class="timeline">
+                            {% for occ in annee_data.occurrences %}
+                            <div class="timeline-item mb-4">
+                                <div class="row">
+                                    <!-- Colonne date/badge -->
+                                    <div class="col-md-3">
+                                        <div class="text-center">
+                                            <div class="timeline-date bg-light p-3 rounded">
+                                                <i class="fas fa-calendar text-primary"></i>
+                                                <h5 class="mb-0 mt-2">
+                                                    {{ occ.date_reception|date:"d/m/Y" }}
+                                                </h5>
+                                            </div>
+                                            
+                                            <!-- Badge statut -->
+                                            <div class="mt-2">
+                                                {% if occ.statut == 'stock' %}
+                                                <span class="badge badge-success badge-lg">
+                                                    <i class="fas fa-box"></i> En stock
+                                                </span>
+                                                {% elif occ.statut == 'vendu' %}
+                                                <span class="badge badge-primary badge-lg">
+                                                    <i class="fas fa-money-bill-wave"></i> Vendu
+                                                </span>
+                                                {% elif occ.statut == 'transfere' %}
+                                                <span class="badge badge-warning badge-lg">
+                                                    <i class="fas fa-exchange-alt"></i> Transféré
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Colonne détails -->
+                                    <div class="col-md-9">
+                                        <div class="card border-left-primary">
+                                            <div class="card-body">
+                                                <h5 class="card-title">
+                                                    <i class="fas fa-map-marker-alt"></i>
+                                                    {{ occ.poste }}
+                                                </h5>
+                                                
+                                                <p class="card-text">
+                                                    <strong>Type d'entrée :</strong> 
+                                                    <span class="badge badge-secondary">{{ occ.type_entree }}</span>
+                                                </p>
+
+                                                <p class="card-text">
+                                                    <strong>Série complète :</strong> 
+                                                    <code>{{ occ.serie_complete }}</code>
+                                                    ({{ occ.nombre_tickets }} tickets)
+                                                </p>
+
+                                                <!-- Message principal -->
+                                                <div class="alert alert-{{ occ.statut }} mt-2">
+                                                    {{ occ.message|safe }}
+                                                </div>
+
+                                                <!-- Détails selon le statut -->
+                                                {% if occ.statut == 'transfere' and occ.poste_destination %}
+                                                <div class="border-top pt-3 mt-3">
+                                                    <h6>
+                                                        <i class="fas fa-arrow-right text-warning"></i>
+                                                        Transfert vers
+                                                    </h6>
+                                                    <p class="mb-0">
+                                                        <strong>{{ occ.poste_destination }}</strong>
+                                                    </p>
+                                                </div>
+                                                {% endif %}
+
+                                                {% if occ.statut == 'vendu' %}
+                                                <div class="border-top pt-3 mt-3">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <p class="mb-0">
+                                                                <i class="fas fa-calendar-check"></i>
+                                                                <strong>Date de vente :</strong> 
+                                                                {{ occ.date_vente|date:"d/m/Y" }}
+                                                            </p>
+                                                        </div>
+                                                        {% if occ.recette %}
+                                                        <div class="col-md-6">
+                                                            <p class="mb-0">
+                                                                <i class="fas fa-money-bill"></i>
+                                                                <strong>Recette :</strong> 
+                                                                {{ occ.recette|floatformat:0 }} FCFA
+                                                            </p>
+                                                        </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+
+                                                <!-- Commentaire -->
+                                                {% if occ.commentaire %}
+                                                <div class="border-top pt-3 mt-3">
+                                                    <p class="text-muted mb-0">
+                                                        <i class="fas fa-comment"></i>
+                                                        <em>{{ occ.commentaire }}</em>
+                                                    </p>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ligne de connexion entre événements -->
+                            {% if not forloop.last %}
+                            <div class="text-center my-3">
+                                <i class="fas fa-arrow-down text-muted fa-2x"></i>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {% if not forloop.last %}
+                    <hr class="my-5" style="border-top: 3px dashed #dee2e6;">
+                    {% endif %}
+                    {% endfor %}
+
+                    <!-- Résumé global -->
+                    <div class="alert alert-info mt-5">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-chart-line"></i>
+                            Résumé de la traçabilité
+                        </h5>
+                        <hr>
+                        {% with total_occ=resultats|length %}
+                        <p class="mb-0">
+                            Le ticket <strong>{{ resultats.0.occurrences.0.couleur }} #{{ numero_recherche }}</strong>
+                            a été tracé sur <strong>{{ total_occ }} année(s)</strong> différente(s).
+                        </p>
+                        {% endwith %}
+                    </div>
+                </div>
             </div>
             {% endif %}
-            
-            <!-- Timeline des résultats -->
-            <div class="timeline mt-4">
-                {% for resultat in resultats %}
-                <div class="timeline-item">
-                    <div class="timeline-dot bg-{{ resultat.classe_badge }} text-white">
-                        <i class="fas fa-{% if resultat.statut == 'stock' %}box{% elif resultat.statut == 'vendu' %}money-bill{% else %}exchange-alt{% endif %}"></i>
-                    </div>
-                    
-                    <div class="result-card {{ resultat.statut|lower }}">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <h5 class="mb-1">
-                                    <span class="badge-couleur" style="background-color: #6B7280;">
-                                        {{ resultat.couleur }} #{{ resultat.numero }}
-                                    </span>
-                                    <span class="badge bg-{{ resultat.classe_badge }} ms-2">
-                                        {{ resultat.statut }}
-                                    </span>
-                                </h5>
-                                <p class="text-muted mb-0">
-                                    Année {{ resultat.annee }}
-                                </p>
-                            </div>
-                            
-                            <div class="text-end">
-                                <small class="text-muted">
-                                    {{ resultat.date_reception|date:"d/m/Y" }}
-                                </small>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6 class="text-muted mb-2">Informations d'origine</h6>
-                                <ul class="list-unstyled mb-0">
-                                    <li>
-                                        <i class="fas fa-map-marker-alt me-2 text-primary"></i>
-                                        <strong>Poste initial :</strong> {{ resultat.poste_initial.nom }} ({{ resultat.poste_initial.code }})
-                                    </li>
-                                    <li>
-                                        <i class="fas fa-calendar me-2 text-primary"></i>
-                                        <strong>Reçu le :</strong> {{ resultat.date_reception|date:"d/m/Y à H:i" }}
-                                    </li>
-                                    <li>
-                                        <i class="fas fa-truck me-2 text-primary"></i>
-                                        <strong>Type d'entrée :</strong> {{ resultat.type_entree }}
-                                    </li>
-                                    <li>
-                                        <i class="fas fa-hashtag me-2 text-primary"></i>
-                                        <strong>Série complète :</strong> 
-                                        #{{ resultat.serie.numero_premier }} - #{{ resultat.serie.numero_dernier }}
-                                    </li>
-                                </ul>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <h6 class="text-muted mb-2">État actuel</h6>
-                                
-                                {% if resultat.statut == 'stock' %}
-                                <div class="alert alert-success mb-0">
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    {{ resultat.message }}
-                                </div>
-                                
-                                {% elif resultat.statut == 'vendu' %}
-                                <ul class="list-unstyled mb-0">
-                                    <li>
-                                        <i class="fas fa-calendar-check me-2 text-success"></i>
-                                        <strong>Date de vente :</strong> {{ resultat.date_vente|date:"d/m/Y" }}
-                                    </li>
-                                    <li>
-                                        <i class="fas fa-map-marker-alt me-2 text-success"></i>
-                                        <strong>Poste de vente :</strong> {{ resultat.poste_vente }}
-                                    </li>
-                                    {% if resultat.recette_id %}
-                                    <li>
-                                        <i class="fas fa-file-invoice-dollar me-2 text-success"></i>
-                                        <strong>Recette :</strong> 
-                                        <a href="{% url 'inventaire:recette_detail' resultat.recette_id %}">
-                                            Voir la recette ({{ resultat.montant_recette|floatformat:0 }} FCFA)
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                </ul>
-                                
-                                {% elif resultat.statut == 'transfere' %}
-                                <div class="alert alert-warning mb-0">
-                                    <i class="fas fa-exchange-alt me-2"></i>
-                                    {{ resultat.message }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        {% if resultat.commentaire %}
-                        <div class="mt-3 p-2 bg-light rounded">
-                            <small class="text-muted">
-                                <i class="fas fa-comment me-1"></i>
-                                <strong>Commentaire :</strong> {{ resultat.commentaire }}
-                            </small>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+
         </div>
     </div>
-    
-    {% elif request.method == 'POST' %}
-    <div class="alert alert-warning">
-        <i class="fas fa-search me-2"></i>
-        Aucun résultat trouvé pour cette recherche.
-    </div>
-    {% endif %}
-    
 </div>
+
+<style>
+.timeline-item {
+    position: relative;
+}
+
+.border-left-primary {
+    border-left: 4px solid #4e73df !important;
+}
+
+.alert-stock {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-vendu {
+    background-color: #cce5ff;
+    border-color: #b8daff;
+    color: #004085;
+}
+
+.alert-transfere {
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404;
+}
+
+.badge-lg {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+}
+</style>
 {% endblock %}

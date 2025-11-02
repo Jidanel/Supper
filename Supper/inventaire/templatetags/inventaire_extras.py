@@ -812,3 +812,96 @@ def has_value(value):
     if isinstance(value, str) and value.strip() == '':
         return False
     return True
+
+@register.filter(name='type_mouvement_badge_class')
+def type_mouvement_badge_class(type_mouvement):
+    """
+    Retourne la classe CSS Bootstrap pour le badge selon le type de mouvement
+    
+    Usage dans le template :
+    {{ h.type_mouvement|type_mouvement_badge_class }}
+    """
+    if not type_mouvement:
+        return 'secondary'
+    
+    type_lower = str(type_mouvement).lower()
+    
+    if type_lower == 'credit':
+        return 'success'
+    elif type_lower == 'debit':
+        return 'danger'
+    else:
+        return 'secondary'
+
+
+@register.filter(name='is_credit')
+def is_credit(type_mouvement):
+    """
+    Vérifie si le type de mouvement est un crédit
+    
+    Usage dans le template :
+    {% if h.type_mouvement|is_credit %}...{% endif %}
+    """
+    if not type_mouvement:
+        return False
+    return str(type_mouvement).lower() == 'credit'
+
+
+@register.filter(name='is_debit')
+def is_debit(type_mouvement):
+    """
+    Vérifie si le type de mouvement est un débit
+    
+    Usage dans le template :
+    {% if h.type_mouvement|is_debit %}...{% endif %}
+    """
+    if not type_mouvement:
+        return False
+    return str(type_mouvement).lower() == 'debit'
+
+
+@register.filter(name='mouvement_sign')
+def mouvement_sign(type_mouvement):
+    """
+    Retourne le signe + ou - selon le type de mouvement
+    
+    Usage dans le template :
+    {{ h.type_mouvement|mouvement_sign }}
+    """
+    if not type_mouvement:
+        return ''
+    
+    type_lower = str(type_mouvement).lower()
+    return '+' if type_lower == 'credit' else '-'
+
+
+@register.filter(name='text_color_by_mouvement')
+def text_color_by_mouvement(type_mouvement):
+    """
+    Retourne la classe de couleur de texte selon le type de mouvement
+    
+    Usage dans le template :
+    <span class="text-{{ h.type_mouvement|text_color_by_mouvement }}">...</span>
+    """
+    if not type_mouvement:
+        return 'secondary'
+    
+    type_lower = str(type_mouvement).lower()
+    return 'success' if type_lower == 'credit' else 'danger'
+
+
+# ===================================================================
+# FILTRES UTILITAIRES SUPPLÉMENTAIRES
+# ===================================================================
+
+@register.filter(name='default_if_none_or_empty')
+def default_if_none_or_empty(value, default='N/A'):
+    """
+    Retourne une valeur par défaut si la valeur est None ou vide
+    
+    Usage dans le template :
+    {{ h.nombre_tickets|default_if_none_or_empty:'Aucun' }}
+    """
+    if value is None or value == '':
+        return default
+    return value
