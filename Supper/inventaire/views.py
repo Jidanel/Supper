@@ -816,17 +816,245 @@ def supprimer_inventaire(request, pk):
     }
     
     return render(request, 'inventaire/confirmer_suppression.html', context)
-@login_required
-def saisir_recette(request):
-    """
-    Interface de saisie de recette pour les chefs de poste
-    Version complète avec confirmation et gestion des stocks
-    """
-    from django.db import transaction
-    from decimal import Decimal, InvalidOperation
-    from django.urls import reverse
+# @login_required
+# def saisir_recette(request):
+#     """
+#     Interface de saisie de recette pour les chefs de poste
+#     Version complète avec confirmation et gestion des stocks
+#     """
+#     from django.db import transaction
+#     from decimal import Decimal, InvalidOperation
+#     from django.urls import reverse
     
-    # Vérifier que l'utilisateur peut saisir des recettes
+#     # Vérifier que l'utilisateur peut saisir des recettes
+#     if not (request.user.is_chef_poste or request.user.is_admin):
+#         messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
+#         return HttpResponseForbidden("Accès non autorisé")
+    
+#     # Déterminer les postes accessibles
+#     if hasattr(request.user, 'get_postes_accessibles'):
+#         postes = request.user.get_postes_accessibles()
+#     else:
+#         if request.user.acces_tous_postes or request.user.is_admin:
+#             postes = Poste.objects.filter(is_active=True)
+#         elif request.user.poste_affectation:
+#             postes = Poste.objects.filter(id=request.user.poste_affectation.id)
+#         else:
+#             postes = Poste.objects.none()
+    
+#     if request.method == 'POST':
+#         # Vérifier si c'est une confirmation
+#         if request.POST.get('action') == 'confirmer':
+#             try:
+#                 poste_id = request.POST.get('poste_id')
+#                 date_str = request.POST.get('date')
+#                 montant_str = request.POST.get('montant')
+#                 observations = request.POST.get('observations', '')
+#                 lier_inventaire = request.POST.get('lier_inventaire') == 'true'
+                
+#                 # Validation des données
+#                 poste = Poste.objects.get(id=poste_id)
+#                 date_recette = datetime.strptime(date_str, '%Y-%m-%d').date()
+#                 montant = Decimal(montant_str)
+                
+#                 # Vérifier qu'une recette n'existe pas déjà
+#                 if RecetteJournaliere.objects.filter(poste=poste, date=date_recette).exists():
+#                     messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
+#                     return redirect('inventaire:liste_recettes')
+                
+#                 # Vérifier le stock AVANT de créer la recette
+#                 from inventaire.models import GestionStock, HistoriqueStock
+                
+#                 stock, created = GestionStock.objects.get_or_create(
+#                     poste=poste,
+#                     defaults={'valeur_monetaire': Decimal('0')}
+#                 )
+                
+#                 stock_avant = stock.valeur_monetaire
+                
+#                 # Si stock insuffisant, différencier admin et chef de poste
+#                 if stock.valeur_monetaire < montant:
+#                     messages.warning(
+#                         request, 
+#                         f"Stock insuffisant ({stock.valeur_monetaire:.0f} FCFA disponible). "
+#                         f"Il faut {montant:.0f} FCFA."
+#                     )
+                    
+#                     # DIFFÉRENCIATION : Admin vers charger stock, Chef vers nouvelle saisie
+#                     if request.user.is_admin:
+#                         messages.info(request, "Veuillez d'abord approvisionner le stock.")
+#                         return redirect('inventaire:charger_stock', poste_id=poste.id)
+#                     else:
+#                         messages.info(request, "Veuillez saisir une recette avec un montant inférieur ou contacter l'administrateur.")
+#                         return redirect('inventaire:saisie_recette')
+                
+#                 # Si stock suffisant, procéder à l'enregistrement
+#                 with transaction.atomic():
+#                     # Créer la recette
+#                     recette = RecetteJournaliere.objects.create(
+#                         poste=poste,
+#                         date=date_recette,
+#                         montant_declare=montant,
+#                         chef_poste=request.user,
+#                         modifiable_par_chef=False,
+#                         observations=observations,
+#                         prolongation_accordee=False
+#                     )
+                    
+#                     # Chercher l'inventaire associé si demandé
+#                     if lier_inventaire:
+#                         try:
+#                             inventaire = InventaireJournalier.objects.get(
+#                                 poste=poste,
+#                                 date=date_recette
+#                             )
+#                             recette.inventaire_associe = inventaire
+#                             recette.save()
+#                         except InventaireJournalier.DoesNotExist:
+#                             pass
+                    
+#                     # Déduire du stock
+#                     stock.valeur_monetaire -= montant
+#                     stock.save()
+                    
+#                     # Créer l'historique
+#                     HistoriqueStock.objects.create(
+#                         poste=poste,
+#                         type_mouvement='DEBIT',
+#                         montant=montant,
+#                         nombre_tickets=int(montant / 500),
+#                         stock_avant=stock_avant,
+#                         stock_apres=stock.valeur_monetaire,
+#                         effectue_par=request.user,
+#                         reference_recette=recette,
+#                         commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')}"
+#                     )
+                    
+#                     # # Journaliser
+#                     # log_user_action(
+#                     #     request.user,
+#                     #     "Saisie recette confirmée",
+#                     #     f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date_recette}",
+#                     #     request
+#                     # )
+                    
+#                     messages.success(
+#                         request, 
+#                         f"Recette enregistrée avec succès. Stock restant: {stock.valeur_monetaire:.0f} FCFA"
+#                     )
+                    
+#                     # Redirection selon le type d'utilisateur
+#                     if request.user.is_admin:
+#                         return redirect('inventaire:liste_recettes')
+#                     else:
+#                         return redirect(f"{reverse('inventaire:liste_recettes')}?poste={poste.id}")
+                        
+#             except Exception as e:
+#                 messages.error(request, f"Erreur lors de l'enregistrement: {str(e)}")
+#                 return redirect('inventaire:saisie_recette')
+        
+#         else:
+#             # Premier POST : validation du formulaire
+#             form = RecetteJournaliereForm(request.POST, user=request.user)
+            
+#             if form.is_valid():
+#                 poste = form.cleaned_data['poste']
+#                 date_recette = form.cleaned_data['date']
+#                 montant = form.cleaned_data['montant_declare']
+#                 observations = form.cleaned_data.get('observations', '')
+#                 lier_inventaire = form.cleaned_data.get('lier_inventaire', True)
+                
+#                 # Vérifier le stock actuel
+#                 from inventaire.models import GestionStock
+#                 stock_actuel = Decimal('0')
+#                 try:
+#                     stock = GestionStock.objects.get(poste=poste)
+#                     stock_actuel = stock.valeur_monetaire
+#                 except GestionStock.DoesNotExist:
+#                     pass
+                
+#                 # Afficher la page de confirmation même si stock insuffisant
+#                 # L'alerte sera affichée sur la page de confirmation
+#                 return render(request, 'inventaire/confirmer_recette.html', {
+#                     'poste': poste,
+#                     'date': date_recette,
+#                     'montant': montant,
+#                     'observations': observations,
+#                     'lier_inventaire': lier_inventaire,
+#                     'stock_actuel': stock_actuel,
+#                     'stock_apres': stock_actuel - montant,
+#                     'stock_suffisant': stock_actuel >= montant,
+#                     'is_admin': request.user.is_admin
+#                 })
+#     else:
+#         # GET : afficher le formulaire
+#         initial_data = {
+#             'date': timezone.now().date(),
+#             'lier_inventaire': True
+#         }
+#         if request.user.poste_affectation:
+#             initial_data['poste'] = request.user.poste_affectation
+            
+#         form = RecetteJournaliereForm(initial=initial_data, user=request.user)
+    
+#     # Reste du code pour les statistiques...
+#     recettes_query = RecetteJournaliere.objects.filter(
+#         chef_poste=request.user
+#     ).select_related('poste', 'inventaire_associe').order_by('-date')
+    
+#     stats = {
+#         'total_mois': 0,
+#         'moyenne_taux': 0
+#     }
+    
+#     if recettes_query.exists():
+#         recettes_mois = recettes_query.filter(
+#             date__month=timezone.now().month,
+#             date__year=timezone.now().year
+#         )
+        
+#         total_result = recettes_mois.aggregate(total=Sum('montant_declare'))['total']
+#         if total_result:
+#             stats['total_mois'] = float(total_result)
+        
+#         taux_values = []
+#         for recette in recettes_query.filter(taux_deperdition__isnull=False):
+#             if recette.taux_deperdition is not None:
+#                 try:
+#                     val = float(recette.taux_deperdition)
+#                     taux_values.append(val)
+#                 except (TypeError, ValueError, InvalidOperation):
+#                     continue
+        
+#         if taux_values:
+#             stats['moyenne_taux'] = sum(taux_values) / len(taux_values)
+    
+#     recettes_recentes = recettes_query[:10]
+    
+#     context = {
+#         'form': form,
+#         'postes': postes,
+#         'recettes_recentes': recettes_recentes,
+#         'stats': stats,
+#         'title': 'Saisir une recette journalière'
+#     }
+    
+#     return render(request, 'inventaire/saisir_recette.html', context)
+
+@login_required
+def saisir_recette_avec_tickets(request):
+    """
+    Interface MISE À JOUR de saisie de recette avec gestion des tickets par séries
+    REMPLACE la fonction saisir_recette existante
+    
+    Permet de:
+    - Saisir plusieurs séries de tickets vendus (couleur + numéros)
+    - Calculer automatiquement le montant total
+    - Vérifier la cohérence avec le stock
+    - Déduire automatiquement les séries du stock
+    """
+    
+    # Vérifier permissions
     if not (request.user.is_chef_poste or request.user.is_admin):
         messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
         return HttpResponseForbidden("Accès non autorisé")
@@ -845,167 +1073,125 @@ def saisir_recette(request):
     if request.method == 'POST':
         # Vérifier si c'est une confirmation
         if request.POST.get('action') == 'confirmer':
-            try:
-                poste_id = request.POST.get('poste_id')
-                date_str = request.POST.get('date')
-                montant_str = request.POST.get('montant')
-                observations = request.POST.get('observations', '')
-                lier_inventaire = request.POST.get('lier_inventaire') == 'true'
-                
-                # Validation des données
-                poste = Poste.objects.get(id=poste_id)
-                date_recette = datetime.strptime(date_str, '%Y-%m-%d').date()
-                montant = Decimal(montant_str)
-                
-                # Vérifier qu'une recette n'existe pas déjà
-                if RecetteJournaliere.objects.filter(poste=poste, date=date_recette).exists():
-                    messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
-                    return redirect('inventaire:liste_recettes')
-                
-                # Vérifier le stock AVANT de créer la recette
-                from inventaire.models import GestionStock, HistoriqueStock
-                
-                stock, created = GestionStock.objects.get_or_create(
-                    poste=poste,
-                    defaults={'valeur_monetaire': Decimal('0')}
-                )
-                
-                stock_avant = stock.valeur_monetaire
-                
-                # Si stock insuffisant, différencier admin et chef de poste
-                if stock.valeur_monetaire < montant:
-                    messages.warning(
-                        request, 
-                        f"Stock insuffisant ({stock.valeur_monetaire:.0f} FCFA disponible). "
-                        f"Il faut {montant:.0f} FCFA."
-                    )
-                    
-                    # DIFFÉRENCIATION : Admin vers charger stock, Chef vers nouvelle saisie
-                    if request.user.is_admin:
-                        messages.info(request, "Veuillez d'abord approvisionner le stock.")
-                        return redirect('inventaire:charger_stock', poste_id=poste.id)
-                    else:
-                        messages.info(request, "Veuillez saisir une recette avec un montant inférieur ou contacter l'administrateur.")
-                        return redirect('inventaire:saisie_recette')
-                
-                # Si stock suffisant, procéder à l'enregistrement
-                with transaction.atomic():
-                    # Créer la recette
-                    recette = RecetteJournaliere.objects.create(
-                        poste=poste,
-                        date=date_recette,
-                        montant_declare=montant,
-                        chef_poste=request.user,
-                        modifiable_par_chef=False,
-                        observations=observations,
-                        prolongation_accordee=False
-                    )
-                    
-                    # Chercher l'inventaire associé si demandé
-                    if lier_inventaire:
-                        try:
-                            inventaire = InventaireJournalier.objects.get(
-                                poste=poste,
-                                date=date_recette
-                            )
-                            recette.inventaire_associe = inventaire
-                            recette.save()
-                        except InventaireJournalier.DoesNotExist:
-                            pass
-                    
-                    # Déduire du stock
-                    stock.valeur_monetaire -= montant
-                    stock.save()
-                    
-                    # Créer l'historique
-                    HistoriqueStock.objects.create(
-                        poste=poste,
-                        type_mouvement='DEBIT',
-                        montant=montant,
-                        nombre_tickets=int(montant / 500),
-                        stock_avant=stock_avant,
-                        stock_apres=stock.valeur_monetaire,
-                        effectue_par=request.user,
-                        reference_recette=recette,
-                        commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')}"
-                    )
-                    
-                    # # Journaliser
-                    # log_user_action(
-                    #     request.user,
-                    #     "Saisie recette confirmée",
-                    #     f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date_recette}",
-                    #     request
-                    # )
-                    
-                    messages.success(
-                        request, 
-                        f"Recette enregistrée avec succès. Stock restant: {stock.valeur_monetaire:.0f} FCFA"
-                    )
-                    
-                    # Redirection selon le type d'utilisateur
-                    if request.user.is_admin:
-                        return redirect('inventaire:liste_recettes')
-                    else:
-                        return redirect(f"{reverse('inventaire:liste_recettes')}?poste={poste.id}")
-                        
-            except Exception as e:
-                messages.error(request, f"Erreur lors de l'enregistrement: {str(e)}")
-                return redirect('inventaire:saisie_recette')
+            return traiter_confirmation_recette_tickets(request)
         
-        else:
-            # Premier POST : validation du formulaire
-            form = RecetteJournaliereForm(request.POST, user=request.user)
+        # Sinon, c'est une soumission du formulaire
+        form = RecetteAvecTicketsForm(request.POST, user=request.user)
+        formset = DetailVenteTicketFormSet(request.POST, prefix='tickets')
+        
+        if form.is_valid() and formset.is_valid():
+            poste = form.cleaned_data['poste']
+            date_recette = form.cleaned_data['date']
+            observations = form.cleaned_data.get('observations', '')
             
-            if form.is_valid():
-                poste = form.cleaned_data['poste']
-                date_recette = form.cleaned_data['date']
-                montant = form.cleaned_data['montant_declare']
-                observations = form.cleaned_data.get('observations', '')
-                lier_inventaire = form.cleaned_data.get('lier_inventaire', True)
-                
-                # Vérifier le stock actuel
-                from inventaire.models import GestionStock
-                stock_actuel = Decimal('0')
-                try:
-                    stock = GestionStock.objects.get(poste=poste)
-                    stock_actuel = stock.valeur_monetaire
-                except GestionStock.DoesNotExist:
-                    pass
-                
-                # Afficher la page de confirmation même si stock insuffisant
-                # L'alerte sera affichée sur la page de confirmation
-                return render(request, 'inventaire/confirmer_recette.html', {
-                    'poste': poste,
-                    'date': date_recette,
-                    'montant': montant,
-                    'observations': observations,
-                    'lier_inventaire': lier_inventaire,
-                    'stock_actuel': stock_actuel,
-                    'stock_apres': stock_actuel - montant,
-                    'stock_suffisant': stock_actuel >= montant,
-                    'is_admin': request.user.is_admin
-                })
+            # Vérifier qu'une recette n'existe pas déjà
+            if RecetteJournaliere.objects.filter(poste=poste, date=date_recette).exists():
+                messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
+                return redirect('inventaire:liste_recettes')
+            
+            # Traiter les détails de vente tickets
+            details_ventes = []
+            montant_total_calcule = Decimal('0')
+            erreurs_validation = []
+            
+            for i, form_detail in enumerate(formset):
+                if form_detail.cleaned_data and not form_detail.cleaned_data.get('DELETE', False):
+                    couleur = form_detail.cleaned_data['couleur']
+                    num_premier = form_detail.cleaned_data['numero_premier']
+                    num_dernier = form_detail.cleaned_data['numero_dernier']
+                    
+                    # Vérifier que la série existe en stock
+                    disponible, msg = SerieTicket.verifier_disponibilite_serie(
+                        poste, couleur, num_premier, num_dernier
+                    )
+                    
+                    if not disponible:
+                        erreurs_validation.append(f"Ligne {i+1}: {msg}")
+                        continue
+                    
+                    # Calculer le montant de cette série
+                    nombre = num_dernier - num_premier + 1
+                    montant = Decimal(nombre) * Decimal('500')
+                    montant_total_calcule += montant
+                    
+                    details_ventes.append({
+                        'couleur': couleur,
+                        'numero_premier': num_premier,
+                        'numero_dernier': num_dernier,
+                        'nombre_tickets': nombre,
+                        'montant': montant,
+                        'ordre': i + 1
+                    })
+            
+            # Vérifier qu'il y a au moins une série
+            if not details_ventes:
+                messages.error(request, "Vous devez saisir au moins une série de tickets vendus")
+                return redirect('inventaire:saisie_recette_avec_tickets')
+            
+            # S'il y a des erreurs de validation
+            if erreurs_validation:
+                for erreur in erreurs_validation:
+                    messages.error(request, erreur)
+                return redirect('inventaire:saisie_recette')
+            
+            # Vérifier le stock global
+            stock_actuel = Decimal('0')
+            try:
+                stock = GestionStock.objects.get(poste=poste)
+                stock_actuel = stock.valeur_monetaire
+            except GestionStock.DoesNotExist:
+                pass
+            
+            # Stocker en session pour confirmation
+            request.session['recette_tickets_confirmation'] = {
+                'poste_id': poste.id,
+                'date': date_recette.isoformat(),
+                'montant_total': str(montant_total_calcule),
+                'observations': observations,
+                'details_ventes': [
+                    {
+                        'couleur_id': d['couleur'].id,
+                        'couleur_libelle': d['couleur'].libelle_affichage,
+                        'numero_premier': d['numero_premier'],
+                        'numero_dernier': d['numero_dernier'],
+                        'nombre_tickets': d['nombre_tickets'],
+                        'montant': str(d['montant']),
+                        'ordre': d['ordre']
+                    }
+                    for d in details_ventes
+                ],
+                'stock_actuel': str(stock_actuel)
+            }
+            
+            return redirect('inventaire:confirmation_recette_tickets')
     else:
         # GET : afficher le formulaire
         initial_data = {
-            'date': timezone.now().date(),
-            'lier_inventaire': True
+            'date': timezone.now().date()
         }
         if request.user.poste_affectation:
             initial_data['poste'] = request.user.poste_affectation
-            
-        form = RecetteJournaliereForm(initial=initial_data, user=request.user)
+        
+        form = RecetteAvecTicketsForm(initial=initial_data, user=request.user)
+        
+        # Formset vide avec 1 formulaire par défaut
+        formset = DetailVenteTicketFormSet(prefix='tickets')
+        
+        # Passer le poste initial au formset pour filtrer les couleurs
+        if request.user.poste_affectation:
+            for form_detail in formset:
+                form_detail.fields['couleur'].queryset = CouleurTicket.objects.filter(
+                    series__poste=request.user.poste_affectation,
+                    series__statut='stock'
+                ).distinct().order_by('code_normalise')
     
-    # Reste du code pour les statistiques...
+    # Statistiques (conservées du code existant)
+    from django.db.models import Sum
     recettes_query = RecetteJournaliere.objects.filter(
         chef_poste=request.user
-    ).select_related('poste', 'inventaire_associe').order_by('-date')
+    ).select_related('poste').order_by('-date')
     
-    stats = {
-        'total_mois': 0,
-        'moyenne_taux': 0
-    }
+    stats = {'total_mois': 0, 'moyenne_taux': 0}
     
     if recettes_query.exists():
         recettes_mois = recettes_query.filter(
@@ -1021,8 +1207,7 @@ def saisir_recette(request):
         for recette in recettes_query.filter(taux_deperdition__isnull=False):
             if recette.taux_deperdition is not None:
                 try:
-                    val = float(recette.taux_deperdition)
-                    taux_values.append(val)
+                    taux_values.append(float(recette.taux_deperdition))
                 except (TypeError, ValueError, InvalidOperation):
                     continue
         
@@ -1033,13 +1218,158 @@ def saisir_recette(request):
     
     context = {
         'form': form,
+        'formset': formset,
         'postes': postes,
         'recettes_recentes': recettes_recentes,
         'stats': stats,
         'title': 'Saisir une recette journalière'
     }
     
-    return render(request, 'inventaire/saisir_recette.html', context)
+    return render(request, 'inventaire/saisir_recette_tickets.html', context)
+
+
+def traiter_confirmation_recette_tickets(request):
+    """
+    Traite la confirmation de la recette avec tickets
+    Fonction auxiliaire appelée par saisir_recette_avec_tickets
+    """
+    
+    # Récupérer les données de session
+    data = request.session.get('recette_tickets_confirmation')
+    
+    if not data:
+        messages.error(request, "Aucune recette en attente de confirmation")
+        return redirect('inventaire:saisie_recette')
+    
+    try:
+        poste = Poste.objects.get(id=data['poste_id'])
+        date_recette = datetime.fromisoformat(data['date']).date()
+        montant_total = Decimal(data['montant_total'])
+        
+        with transaction.atomic():
+            # 1. Créer la recette
+            recette = RecetteJournaliere.objects.create(
+                poste=poste,
+                date=date_recette,
+                montant_declare=montant_total,
+                chef_poste=request.user,
+                modifiable_par_chef=False,
+                observations=data['observations']
+            )
+            
+            # 2. Créer les détails de vente et consommer les séries
+            for detail_data in data['details_ventes']:
+                couleur = CouleurTicket.objects.get(id=detail_data['couleur_id'])
+                
+                # Créer le détail de vente
+                DetailVenteTicket.objects.create(
+                    recette=recette,
+                    couleur=couleur,
+                    numero_premier=detail_data['numero_premier'],
+                    numero_dernier=detail_data['numero_dernier'],
+                    ordre=detail_data['ordre']
+                )
+                
+                # Consommer la série de tickets
+                success, msg, series = SerieTicket.consommer_serie(
+                    poste,
+                    couleur,
+                    detail_data['numero_premier'],
+                    detail_data['numero_dernier'],
+                    recette
+                )
+                
+                if not success:
+                    raise Exception(f"Erreur consommation série: {msg}")
+            
+            # 3. Mettre à jour le stock global
+            stock, _ = GestionStock.objects.get_or_create(
+                poste=poste,
+                defaults={'valeur_monetaire': Decimal('0')}
+            )
+            
+            stock_avant = stock.valeur_monetaire
+            stock.valeur_monetaire -= montant_total
+            stock.save()
+            
+            # 4. Créer l'historique
+            HistoriqueStock.objects.create(
+                poste=poste,
+                type_mouvement='DEBIT',
+                montant=montant_total,
+                nombre_tickets=int(montant_total / 500),
+                stock_avant=stock_avant,
+                stock_apres=stock.valeur_monetaire,
+                effectue_par=request.user,
+                reference_recette=recette,
+                commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')} - {len(data['details_ventes'])} série(s)"
+            )
+            
+            # 5. Nettoyer la session
+            del request.session['recette_tickets_confirmation']
+            
+            messages.success(
+                request,
+                f"✅ Recette enregistrée avec succès : {montant_total:,.0f} FCFA "
+                f"({len(data['details_ventes'])} série(s) de tickets). "
+                f"Stock restant: {stock.valeur_monetaire:,.0f} FCFA"
+            )
+            
+            # Redirection selon le type d'utilisateur
+            if request.user.is_admin:
+                return redirect('inventaire:liste_recettes')
+            else:
+                return redirect(f"{reverse('inventaire:liste_recettes')}?poste={poste.id}")
+    
+    except Exception as e:
+        logger.error(f"Erreur confirmation recette tickets: {str(e)}", exc_info=True)
+        messages.error(request, f"❌ Erreur lors de l'enregistrement: {str(e)}")
+        return redirect('inventaire:saisie_recette')
+
+
+@login_required
+def confirmation_recette_tickets(request):
+    """
+    Page de confirmation avant validation de la recette avec tickets
+    """
+    
+    data = request.session.get('recette_tickets_confirmation')
+    
+    if not data:
+        messages.error(request, "Aucune recette en attente")
+        return redirect('inventaire:saisie_recette')
+    
+    poste = Poste.objects.get(id=data['poste_id'])
+    montant_total = Decimal(data['montant_total'])
+    stock_actuel = Decimal(data['stock_actuel'])
+    
+    # Préparer les détails enrichis
+    details_enrichis = []
+    for detail in data['details_ventes']:
+        couleur = CouleurTicket.objects.get(id=detail['couleur_id'])
+        details_enrichis.append({
+            'couleur': couleur,
+            'numero_premier': detail['numero_premier'],
+            'numero_dernier': detail['numero_dernier'],
+            'nombre_tickets': detail['nombre_tickets'],
+            'montant': Decimal(detail['montant'])
+        })
+    
+    context = {
+        'poste': poste,
+        'date': datetime.fromisoformat(data['date']).date(),
+        'montant_total': montant_total,
+        'observations': data['observations'],
+        'details_ventes': details_enrichis,
+        'stock_actuel': stock_actuel,
+        'stock_apres': stock_actuel - montant_total,
+        'stock_suffisant': stock_actuel >= montant_total,
+        'is_admin': request.user.is_admin,
+        'title': 'Confirmation de la recette'
+    }
+    
+    return render(request, 'inventaire/confirmation_recette_tickets.html', context)
+
 @login_required
 def modifier_recette(request, pk):
     """

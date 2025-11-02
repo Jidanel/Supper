@@ -1170,3 +1170,318 @@ class JustificationEcartForm(forms.ModelForm):
                 'placeholder': 'Expliquez en détail les raisons de l\'écart constaté...'
             })
         }
+
+
+class ChargementStockTicketsForm(forms.Form):
+    """
+    Formulaire pour charger des stocks de tickets
+    Remplace le champ montant par : couleur + numéros de série
+    """
+    
+    type_stock = forms.ChoiceField(
+        choices=[
+            ('regularisation', 'Régularisation'),
+            ('imprimerie_nationale', 'Imprimerie Nationale')
+        ],
+        widget=forms.RadioSelect,
+        label=_("Type de stock"),
+        required=True
+    )
+    
+    couleur_saisie = forms.CharField(
+        max_length=50,
+        label=_("Couleur des tickets"),
+        help_text=_("Ex: Bleu Clair, Rouge, Vert Foncé"),
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Entrez la couleur des tickets'
+        })
+    )
+    
+    numero_premier = forms.IntegerField(
+        min_value=1,
+        label=_("Numéro du premier ticket"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 1000'
+        })
+    )
+    
+    numero_dernier = forms.IntegerField(
+        min_value=1,
+        label=_("Numéro du dernier ticket"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 1500'
+        })
+    )
+    
+    # Champs calculés automatiquement (readonly dans le template)
+    nombre_tickets_calcule = forms.IntegerField(
+        required=False,
+        label=_("Nombre de tickets"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'readonly': 'readonly'
+        })
+    )
+    
+    montant_calcule = forms.DecimalField(
+        required=False,
+        label=_("Montant total (FCFA)"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'readonly': 'readonly'
+        })
+    )
+    
+    commentaire = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Commentaire optionnel'
+        }),
+        label=_("Commentaire")
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        numero_premier = cleaned_data.get('numero_premier')
+        numero_dernier = cleaned_data.get('numero_dernier')
+        
+        if numero_premier and numero_dernier:
+            if numero_premier > numero_dernier:
+                raise ValidationError(
+                    _("Le numéro du premier ticket doit être inférieur ou égal au dernier")
+                )
+            
+            # Calculer automatiquement
+            nombre_tickets = numero_dernier - numero_premier + 1
+            montant = Decimal(nombre_tickets) * Decimal('500')
+            
+            cleaned_data['nombre_tickets_calcule'] = nombre_tickets
+            cleaned_data['montant_calcule'] = montant
+        
+        return cleaned_data
+
+
+class DetailVenteTicketForm(forms.Form):
+    """
+    Formulaire pour saisir UN détail de vente de tickets
+    Utilisé dans un formset pour permettre plusieurs séries
+    """
+    
+    couleur = forms.ModelChoiceField(
+        queryset=CouleurTicket.objects.all(),
+        empty_label="-- Sélectionner une couleur --",
+        label=_("Couleur"),
+        widget=forms.Select(attrs={
+            'class': 'form-control couleur-select',
+            'onchange': 'calculerMontant(this)'
+        })
+    )
+    
+    numero_premier = forms.IntegerField(
+        min_value=1,
+        label=_("Premier ticket vendu"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control numero-premier',
+            'placeholder': 'Ex: 12',
+            'onchange': 'calculerMontant(this)'
+        })
+    )
+    
+    numero_dernier = forms.IntegerField(
+        min_value=1,
+        label=_("Dernier ticket vendu"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control numero-dernier',
+            'placeholder': 'Ex: 25',
+            'onchange': 'calculerMontant(this)'
+        })
+    )
+    
+    nombre_tickets_affiche = forms.IntegerField(
+        required=False,
+        label=_("Nombre"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control nombre-tickets-affiche',
+            'readonly': 'readonly'
+        })
+    )
+    
+    montant_affiche = forms.DecimalField(
+        required=False,
+        label=_("Montant (FCFA)"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control montant-affiche',
+            'readonly': 'readonly'
+        })
+    )
+    
+    def __init__(self, *args, poste=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Filtrer les couleurs disponibles pour ce poste
+        if poste:
+            couleurs_disponibles = CouleurTicket.objects.filter(
+                series__poste=poste,
+                series__statut='stock'
+            ).distinct().order_by('code_normalise')
+            
+            self.fields['couleur'].queryset = couleurs_disponibles
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        numero_premier = cleaned_data.get('numero_premier')
+        numero_dernier = cleaned_data.get('numero_dernier')
+        
+        if numero_premier and numero_dernier:
+            if numero_premier > numero_dernier:
+                raise ValidationError(
+                    _("Le premier numéro doit être inférieur ou égal au dernier")
+                )
+            
+            nombre = numero_dernier - numero_premier + 1
+            montant = Decimal(nombre) * Decimal('500')
+            
+            cleaned_data['nombre_tickets_affiche'] = nombre
+            cleaned_data['montant_affiche'] = montant
+        
+        return cleaned_data
+
+
+# Formset pour gérer plusieurs séries de tickets dans une recette
+DetailVenteTicketFormSet = forms.formset_factory(
+    DetailVenteTicketForm,
+    extra=1,
+    max_num=10,
+    validate_max=True,
+    can_delete=True
+)
+
+
+class RecetteAvecTicketsForm(forms.ModelForm):
+    """
+    Formulaire de saisie de recette AVEC gestion des tickets par séries
+    Extension du RecetteJournaliereForm existant
+    """
+    
+    class Meta:
+        model = RecetteJournaliere
+        fields = ['poste', 'date', 'montant_declare', 'observations']
+        widgets = {
+            'poste': forms.Select(attrs={'class': 'form-control'}),
+            'date': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control',
+                'max': '{{ today }}'
+            }),
+            'montant_declare': forms.NumberInput(attrs={
+                'class': 'form-control montant-declare-principal',
+                'readonly': 'readonly',  # Calculé automatiquement
+                'placeholder': 'Calculé automatiquement'
+            }),
+            'observations': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3
+            })
+        }
+    
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.user = user
+        
+        # Filtrer les postes selon permissions
+        if user:
+            if hasattr(user, 'get_postes_accessibles'):
+                self.fields['poste'].queryset = user.get_postes_accessibles()
+        
+        # Si modification, bloquer poste et date
+        if self.instance.pk:
+            self.fields['poste'].disabled = True
+            self.fields['date'].disabled = True
+    
+    def clean_montant_declare(self):
+        """
+        Le montant déclaré sera vérifié par rapport aux tickets saisis
+        Cette vérification se fera dans la vue après traitement du formset
+        """
+        return self.cleaned_data.get('montant_declare')
+
+
+class TransfertStockTicketsForm(forms.Form):
+    """
+    Formulaire pour transférer des tickets entre postes
+    Avec gestion par séries et couleurs
+    """
+    
+    couleur = forms.ModelChoiceField(
+        queryset=CouleurTicket.objects.all(),
+        label=_("Couleur des tickets à transférer"),
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
+    numero_premier = forms.IntegerField(
+        min_value=1,
+        label=_("Premier ticket à transférer"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 100'
+        })
+    )
+    
+    numero_dernier = forms.IntegerField(
+        min_value=1,
+        label=_("Dernier ticket à transférer"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 200'
+        })
+    )
+    
+    commentaire = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3
+        }),
+        label=_("Commentaire / Justification")
+    )
+    
+    def __init__(self, *args, poste_origine=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Filtrer les couleurs disponibles pour le poste origine
+        if poste_origine:
+            couleurs_dispo = CouleurTicket.objects.filter(
+                series__poste=poste_origine,
+                series__statut='stock'
+            ).distinct().order_by('code_normalise')
+            
+            self.fields['couleur'].queryset = couleurs_dispo
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        numero_premier = cleaned_data.get('numero_premier')
+        numero_dernier = cleaned_data.get('numero_dernier')
+        
+        if numero_premier and numero_dernier:
+            if numero_premier > numero_dernier:
+                raise ValidationError(
+                    _("Le premier numéro doit être inférieur ou égal au dernier")
+                )
+            
+            # Calculer pour info
+            nombre = numero_dernier - numero_premier + 1
+            montant = Decimal(nombre) * Decimal('500')
+            
+            cleaned_data['nombre_tickets_calcule'] = nombre
+            cleaned_data['montant_calcule'] = montant
+        
+        return cleaned_data

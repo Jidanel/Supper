@@ -340,7 +340,7 @@
                     </h6>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{% url 'inventaire:saisie_recette' %}">
+                    <a class="dropdown-item" href="{% url 'inventaire:saisie_recette_avec_tickets' %}">
                         <i class="fas fa-cash-register me-2"></i>{% trans "Saisir Recette" %}
                     </a>
                 </li>
@@ -691,7 +691,7 @@
                                 </a>
                                 {% endif %}
                                 {% if user.is_chef_poste %}
-                                <a href="{% url 'inventaire:saisie_recette' %}" class="btn btn-success">
+                                <a href="{% url 'inventaire:saisie_recette_avec_tickets' %}" class="btn btn-success">
                                     <i class="fas fa-cash-register me-2"></i>{% trans "Saisir Recette" %}
                                 </a>
                             
@@ -855,4 +855,4 @@ document.addEventListener('DOMContentLoaded', function() {
 {% block extra_js %}{% endblock %}
 
 </body>
-</html>base_site avec les nouveaux fas-d
+</html>

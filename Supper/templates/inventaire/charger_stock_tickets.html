@@ -1,0 +1,235 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Charger stock - {{ poste.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .serie-stock-card {
+        border-left: 4px solid #3b82f6;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .couleur-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .form-calculated {
+        background-color: #f3f4f6;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2><i class="fas fa-plus-circle"></i> Charger le stock - {{ poste.nom }}</h2>
+    
+    <div class="row mt-4">
+        <!-- Stock actuel (ancien système) -->
+        <div class="col-md-6">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-box me-2"></i>Stock actuel (valeur globale)</h5>
+                </div>
+                <div class="card-body">
+                    <h3>{{ stock.valeur_monetaire|floatformat:0|format_milliers }} FCFA</h3>
+                    <p>{{ stock.nombre_tickets|format_milliers }} tickets</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Séries en stock par couleur -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-palette me-2"></i>Séries en stock par couleur</h5>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                    {% if series_par_couleur %}
+                        {% for couleur_code, data in series_par_couleur.items %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="couleur-badge" style="background: #e0e7ff; color: #3730a3;">
+                                    {{ data.couleur.libelle_affichage }}
+                                </span>
+                                <span class="text-muted">
+                                    {{ data.total_tickets }} tickets = {{ data.valeur_totale|floatformat:0|format_milliers }} FCFA
+                                </span>
+                            </div>
+                            <div class="small text-muted">
+                                {% for serie in data.series %}
+                                    <span class="badge bg-secondary me-1">#{{ serie.numero_premier }}-{{ serie.numero_dernier }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <hr>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">Aucune série en stock</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Formulaire de chargement -->
+    <div class="card mt-4">
+        <div class="card-header bg-success text-white">
+            <h5><i class="fas fa-truck-loading me-2"></i>Charger une nouvelle série</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" id="formChargement">
+                {% csrf_token %}
+                
+                <!-- Type de stock -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">{{ form.type_stock.label }} *</label>
+                    <div class="row">
+                        {% for radio in form.type_stock %}
+                        <div class="col-md-6">
+                            <div class="form-check form-check-lg">
+                                {{ radio.tag }}
+                                <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                    {% if 'regularisation' in radio.choice_label %}
+                                    <i class="fas fa-sync-alt me-2 text-primary"></i>
+                                    {% else %}
+                                    <i class="fas fa-print me-2 text-success"></i>
+                                    {% endif %}
+                                    <strong>{{ radio.choice_label }}</strong>
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <!-- Couleur -->
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.couleur_saisie.label }} *</label>
+                        {{ form.couleur_saisie }}
+                        <small class="form-text text-muted">{{ form.couleur_saisie.help_text }}</small>
+                    </div>
+                    
+                    <!-- Numéro premier -->
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">{{ form.numero_premier.label }} *</label>
+                        {{ form.numero_premier }}
+                    </div>
+                    
+                    <!-- Numéro dernier -->
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">{{ form.numero_dernier.label }} *</label>
+                        {{ form.numero_dernier }}
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <!-- Nombre calculé -->
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.nombre_tickets_calcule.label }}</label>
+                        <input type="text" class="form-control form-calculated" id="nombre_calcule" readonly>
+                    </div>
+                    
+                    <!-- Montant calculé -->
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.montant_calcule.label }}</label>
+                        <input type="text" class="form-control form-calculated" id="montant_calcule" readonly>
+                    </div>
+                </div>
+                
+                <!-- Commentaire -->
+                <div class="mb-3">
+                    <label class="form-label">{{ form.commentaire.label }}</label>
+                    {{ form.commentaire }}
+                </div>
+                
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-check me-2"></i>Valider le chargement
+                    </button>
+                    <a href="{% url 'inventaire:liste_postes_stocks' %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Historique récent -->
+    {% if historique_recent %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5><i class="fas fa-history me-2"></i>Historique récent</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Montant</th>
+                        <th>Commentaire</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in historique_recent %}
+                    <tr>
+                        <td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="badge bg-{% if h.type_stock == 'regularisation' %}primary{% else %}success{% endif %}">
+                                {{ h.get_type_stock_display }}
+                            </span>
+                        </td>
+                        <td>{{ h.montant|floatformat:0|format_milliers }} FCFA</td>
+                        <td><small>{{ h.commentaire|truncatewords:10 }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Calcul automatique du nombre de tickets et montant
+document.addEventListener('DOMContentLoaded', function() {
+    const numPremier = document.getElementById('{{ form.numero_premier.id_for_label }}');
+    const numDernier = document.getElementById('{{ form.numero_dernier.id_for_label }}');
+    const nombreCalc = document.getElementById('nombre_calcule');
+    const montantCalc = document.getElementById('montant_calcule');
+    
+    function calculer() {
+        const premier = parseInt(numPremier.value) || 0;
+        const dernier = parseInt(numDernier.value) || 0;
+        
+        if (premier > 0 && dernier >= premier) {
+            const nombre = dernier - premier + 1;
+            const montant = nombre * 500;
+            
+            nombreCalc.value = nombre.toLocaleString('fr-FR') + ' tickets';
+            montantCalc.value = montant.toLocaleString('fr-FR') + ' FCFA';
+        } else {
+            nombreCalc.value = '';
+            montantCalc.value = '';
+        }
+    }
+    
+    numPremier.addEventListener('input', calculer);
+    numDernier.addEventListener('input', calculer);
+    
+    // Calcul initial si valeurs présentes
+    calculer();
+});
+</script>
+{% endblock %}

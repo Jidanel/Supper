@@ -1,0 +1,331 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Saisir une recette avec tickets{% endblock %}
+
+{% block extra_css %}
+<style>
+    .formset-row {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: white;
+    }
+    
+    .formset-row.to-delete {
+        opacity: 0.5;
+        background: #fee2e2;
+    }
+    
+    .btn-add-serie {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    .btn-remove-serie {
+        background: #dc3545;
+        border: none;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+    }
+    
+    .form-calculated {
+        background-color: #f3f4f6;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    
+    .montant-total-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #10b981;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3><i class="fas fa-coins me-2"></i>Saisir une recette journalière</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="formRecette">
+                        {% csrf_token %}
+                        
+                        {% if form.errors or formset.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Erreurs de saisie :</strong>
+                            {{ form.errors }}
+                            {{ formset.errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Informations générales -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.poste.label }} *</label>
+                                {{ form.poste }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.date.label }} *</label>
+                                {{ form.date }}
+                            </div>
+                        </div>
+                        
+                        <!-- Séries de tickets vendus -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5><i class="fas fa-ticket-alt me-2"></i>Séries de tickets vendus</h5>
+                            </div>
+                            <div class="card-body">
+                                {{ formset.management_form }}
+                                
+                                <div id="formset-container">
+                                    {% for form_detail in formset %}
+                                    <div class="formset-row" data-formset-index="{{ forloop.counter0 }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6>Série #{{ forloop.counter }}</h6>
+                                            {% if not forloop.first %}
+                                            <button type="button" class="btn-remove-serie" onclick="removeFormset(this)">
+                                                <i class="fas fa-minus me-1"></i>Supprimer
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <!-- Couleur -->
+                                            <div class="col-md-3 mb-2">
+                                                <label class="form-label">{{ form_detail.couleur.label }} *</label>
+                                                {{ form_detail.couleur }}
+                                            </div>
+                                            
+                                            <!-- Premier numéro -->
+                                            <div class="col-md-2 mb-2">
+                                                <label class="form-label">{{ form_detail.numero_premier.label }} *</label>
+                                                {{ form_detail.numero_premier }}
+                                            </div>
+                                            
+                                            <!-- Dernier numéro -->
+                                            <div class="col-md-2 mb-2">
+                                                <label class="form-label">{{ form_detail.numero_dernier.label }} *</label>
+                                                {{ form_detail.numero_dernier }}
+                                            </div>
+                                            
+                                            <!-- Nombre (calculé) -->
+                                            <div class="col-md-2 mb-2">
+                                                <label class="form-label">Nombre</label>
+                                                <input type="text" class="form-control form-calculated nombre-tickets-calc" readonly>
+                                            </div>
+                                            
+                                            <!-- Montant (calculé) -->
+                                            <div class="col-md-3 mb-2">
+                                                <label class="form-label">Montant (FCFA)</label>
+                                                <input type="text" class="form-control form-calculated montant-calc" readonly>
+                                            </div>
+                                        </div>
+                                        
+                                        {{ form_detail.DELETE }}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="text-center mt-3">
+                                    <button type="button" class="btn-add-serie" onclick="addFormset()">
+                                        <i class="fas fa-plus me-2"></i>Ajouter une autre série
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Montant total calculé -->
+                        <div class="card mb-3 border-success">
+                            <div class="card-body text-center">
+                                <label class="form-label">Montant total déclaré (calculé automatiquement)</label>
+                                <div class="montant-total-display" id="montantTotalDisplay">0 FCFA</div>
+                                <input type="hidden" name="montant_declare" id="montant_declare" value="0">
+                            </div>
+                        </div>
+                        
+                        <!-- Observations -->
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.observations.label }}</label>
+                            {{ form.observations }}
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-save me-2"></i>Valider la recette
+                            </button>
+                            <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times me-2"></i>Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Colonne latérale : statistiques -->
+        <div class="col-md-3">
+            <!-- Statistiques rapides -->
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">
+                    <h5>Statistiques du mois</h5>
+                </div>
+                <div class="card-body">
+                    <p>Total du mois : <strong>{{ stats.total_mois|floatformat:0|default:"0" }} FCFA</strong></p>
+                    <p>Taux moyen : <strong>{{ stats.moyenne_taux|floatformat:2|default:"0" }}%</strong></p>
+                </div>
+            </div>
+            
+            <!-- Recettes récentes -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recettes récentes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for recette in recettes_recentes %}
+                        <a href="{% url 'inventaire:recette_detail' recette.pk %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between">
+                                <small>{{ recette.date|date:"d/m" }}</small>
+                                <small>{{ recette.montant_declare|floatformat:0 }} FCFA</small>
+                            </div>
+                            <small class="text-muted">{{ recette.poste.nom }}</small>
+                        </a>
+                        {% empty %}
+                        <p class="text-muted">Aucune recette récente</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let formsetIndex = {{ formset.total_form_count }};
+
+// Calcul automatique du montant d'une série
+function calculerMontantSerie(row) {
+    const premier = parseInt(row.querySelector('[name*="numero_premier"]').value) || 0;
+    const dernier = parseInt(row.querySelector('[name*="numero_dernier"]').value) || 0;
+    
+    if (premier > 0 && dernier >= premier) {
+        const nombre = dernier - premier + 1;
+        const montant = nombre * 500;
+        
+        row.querySelector('.nombre-tickets-calc').value = nombre.toLocaleString('fr-FR') + ' tickets';
+        row.querySelector('.montant-calc').value = montant.toLocaleString('fr-FR') + ' FCFA';
+        
+        return montant;
+    } else {
+        row.querySelector('.nombre-tickets-calc').value = '';
+        row.querySelector('.montant-calc').value = '';
+        return 0;
+    }
+}
+
+// Calcul du montant total
+function calculerMontantTotal() {
+    let total = 0;
+    
+    document.querySelectorAll('.formset-row:not(.to-delete)').forEach(row => {
+        total += calculerMontantSerie(row);
+    });
+    
+    document.getElementById('montantTotalDisplay').textContent = 
+        total.toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('montant_declare').value = total;
+}
+
+// Ajouter une série
+function addFormset() {
+    const container = document.getElementById('formset-container');
+    const totalForms = document.getElementById('id_tickets-TOTAL_FORMS');
+    
+    // Clone la première row
+    const firstRow = document.querySelector('.formset-row');
+    const newRow = firstRow.cloneNode(true);
+    
+    // Mise à jour des index
+    newRow.querySelectorAll('input, select').forEach(input => {
+        const name = input.name.replace(/tickets-\d+/, `tickets-${formsetIndex}`);
+        const id = input.id.replace(/id_tickets-\d+/, `id_tickets-${formsetIndex}`);
+        
+        input.name = name;
+        input.id = id;
+        input.value = '';
+    });
+    
+    // Ajouter bouton supprimer
+    const header = newRow.querySelector('h6');
+    header.textContent = `Série #${formsetIndex + 1}`;
+    
+    if (!newRow.querySelector('.btn-remove-serie')) {
+        const btnContainer = newRow.querySelector('.d-flex');
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.className = 'btn-remove-serie';
+        btnRemove.innerHTML = '<i class="fas fa-minus me-1"></i>Supprimer';
+        btnRemove.onclick = function() { removeFormset(this); };
+        btnContainer.appendChild(btnRemove);
+    }
+    
+    container.appendChild(newRow);
+    
+    // Event listeners
+    newRow.querySelectorAll('[name*="numero_"]').forEach(input => {
+        input.addEventListener('input', calculerMontantTotal);
+    });
+    
+    formsetIndex++;
+    totalForms.value = formsetIndex;
+}
+
+// Supprimer une série
+function removeFormset(btn) {
+    const row = btn.closest('.formset-row');
+    row.classList.add('to-delete');
+    
+    const deleteInput = row.querySelector('[name*="DELETE"]');
+    if (deleteInput) {
+        deleteInput.checked = true;
+    } else {
+        row.remove();
+    }
+    
+    calculerMontantTotal();
+}
+
+// Event listeners au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    // Calculer le montant initial
+    calculerMontantTotal();
+    
+    // Event listeners sur tous les champs de numéros
+    document.querySelectorAll('[name*="numero_"]').forEach(input => {
+        input.addEventListener('input', calculerMontantTotal);
+    });
+    
+    // Validation avant soumission
+    document.getElementById('formRecette').addEventListener('submit', function(e) {
+        const total = parseFloat(document.getElementById('montant_declare').value);
+        
+        if (total <= 0) {
+            e.preventDefault();
+            alert('Vous devez saisir au moins une série de tickets vendus');
+        }
+    });
+});
+</script>
+{% endblock %}

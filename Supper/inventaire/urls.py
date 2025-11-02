@@ -52,8 +52,8 @@ urlpatterns = [
     # ================================================================
     # SAISIE RECETTES
     # ================================================================
-    path('recettes/saisie/', views.saisir_recette, name='saisie_recette'),
-    path('recettes/saisie/<int:poste_id>/', views.saisir_recette, name='saisie_recette_poste'),
+    path('recettes/saisie/', views.saisir_recette_avec_tickets, name='saisie_recette_avec_tickets'),
+    path('recettes/saisie/<int:poste_id>/', views.saisir_recette_avec_tickets, name='saisie_recette_poste_avec_tickets'),
     #path('recettes/supprimer/<int:poste_id>/', views.supprimer_recette, name='supprimer_recette_poste'),
     path('recettes/<int:recette_id>/delete-admin/', views.redirect_to_delete_recette_admin, name='redirect_delete_recette_admin'),
     path('recettes/', views.RecetteListView.as_view(), name='liste_recettes'),
@@ -116,8 +116,10 @@ urlpatterns = [
     path('admin/recettes/', views.redirect_to_recettes_admin, name='recettes_admin'),
     path('admin/statistiques/', views.redirect_to_statistiques_admin, name='statistiques_admin'),
     path('stocks/', views_stocks.liste_postes_stocks, name='liste_postes_stocks'),
+#     path('stocks/charger/', views_stocks.charger_stock_selection, name='charger_stock_selection'),
+#     path('stocks/charger/<int:poste_id>/', views_stocks.charger_stock, name='charger_stock'),
     path('stocks/charger/', views_stocks.charger_stock_selection, name='charger_stock_selection'),
-    path('stocks/charger/<int:poste_id>/', views_stocks.charger_stock, name='charger_stock'),
+    path('stocks/charger/<int:poste_id>/', views_stocks.charger_stock_tickets, name='charger_stock_tickets'),
     path('stocks/historique/<int:poste_id>/', views_stocks.historique_stock, name='historique_stock'),
     path('stocks/mon-stock/', views_stocks.mon_stock, name='mon_stock'),
 
@@ -137,7 +139,7 @@ urlpatterns = [
      path('api/graphique-evolution/', views.api_graphique_evolution, name='api_graphique_evolution'),
      path('api/statistiques-postes/', views.api_statistiques_postes_ordonnes, name='api_statistiques_postes_ordonnes'),
      path('api/stats/', views.api_inventaire_stats, name='api_inventaire_stats'),
-     path('stocks/chargement/confirmation/', views_stocks.confirmation_chargement_stock, name='confirmation_chargement_stock'),
+     path('stocks/chargement/confirmation/', views_stocks.confirmation_chargement_stock_tickets, name='confirmation_chargement_stock_tickets'),
      path('compte-emploi/',views_rapports.selection_compte_emploi, name='selection_compte_emploi'),
      path('compte-emploi/<int:poste_id>/<str:mois>/', views_rapports.generer_compte_emploi_pdf, name='generer_compte_emploi'),
      path('parametrage-global/', views_rapports.parametrage_global, name='parametrage_global'),

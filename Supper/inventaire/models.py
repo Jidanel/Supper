@@ -4,6 +4,7 @@
 
 from datetime import timedelta
 import decimal
+import re
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -2613,4 +2614,459 @@ class JustificationEcart(models.Model):
     
     def __str__(self):
         return f"Justification {self.poste.nom} - {self.date_debut} au {self.date_fin}"
+
+
+
+class CouleurTicket(models.Model):
+    """
+    Modèle pour gérer les couleurs de tickets de manière normalisée
+    """
+    code_normalise = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name=_("Code normalisé"),
+        help_text=_("Code avec underscores (ex: bleu_clair)")
+    )
+    
+    libelle_affichage = models.CharField(
+        max_length=50,
+        verbose_name=_("Libellé d'affichage"),
+        help_text=_("Libellé original saisi (ex: Bleu Clair)")
+    )
+    
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+    
+    class Meta:
+        verbose_name = _("Couleur de ticket")
+        verbose_name_plural = _("Couleurs de tickets")
+        ordering = ['code_normalise']
+    
+    def __str__(self):
+        return self.libelle_affichage
+    
+    @staticmethod
+    def normaliser_couleur(couleur_saisie):
+        """
+        Normalise une couleur saisie : 
+        - Supprime les espaces multiples
+        - Remplace les espaces par des underscores
+        - Convertit en minuscules
+        
+        Exemples:
+        "Bleu Clair" -> "bleu_clair"
+        " bleu  clair " -> "bleu_clair"
+        "ROUGE" -> "rouge"
+        """
+        if not couleur_saisie:
+            return ""
+        
+        # Supprimer les espaces en début/fin
+        couleur = couleur_saisie.strip()
+        
+        # Remplacer les espaces multiples par un seul
+        couleur = re.sub(r'\s+', ' ', couleur)
+        
+        # Remplacer les espaces par des underscores
+        couleur = couleur.replace(' ', '_')
+        
+        # Convertir en minuscules
+        couleur = couleur.lower()
+        
+        return couleur
+    
+    @classmethod
+    def obtenir_ou_creer(cls, couleur_saisie):
+        """
+        Obtient ou crée une couleur de manière normalisée
+        
+        Args:
+            couleur_saisie: Couleur saisie par l'utilisateur
+        
+        Returns:
+            Instance de CouleurTicket
+        """
+        code_normalise = cls.normaliser_couleur(couleur_saisie)
+        
+        # Conserver le libellé original pour l'affichage
+        libelle_affichage = couleur_saisie.strip()
+        
+        couleur, created = cls.objects.get_or_create(
+            code_normalise=code_normalise,
+            defaults={'libelle_affichage': libelle_affichage}
+        )
+        
+        return couleur
+
+
+class SerieTicket(models.Model):
+    """
+    Modèle pour gérer les séries de tickets avec leur couleur
+    Une série = ensemble de tickets numérotés d'une certaine couleur
+    """
+    
+    STATUT_CHOICES = [
+        ('stock', _('En stock')),
+        ('vendu', _('Vendu')),
+        ('transfere', _('Transféré')),
+    ]
+    
+    poste = models.ForeignKey(
+        'accounts.Poste',
+        on_delete=models.CASCADE,
+        related_name='series_tickets',
+        verbose_name=_("Poste")
+    )
+    
+    couleur = models.ForeignKey(
+        CouleurTicket,
+        on_delete=models.PROTECT,
+        related_name='series',
+        verbose_name=_("Couleur")
+    )
+    
+    numero_premier = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name=_("Numéro du premier ticket")
+    )
+    
+    numero_dernier = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name=_("Numéro du dernier ticket")
+    )
+    
+    nombre_tickets = models.IntegerField(
+        verbose_name=_("Nombre de tickets"),
+        help_text=_("Calculé automatiquement")
+    )
+    
+    valeur_monetaire = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_("Valeur monétaire (FCFA)"),
+        help_text=_("Calculée automatiquement : nombre_tickets * 500")
+    )
+    
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='stock',
+        verbose_name=_("Statut")
+    )
+    
+    type_entree = models.CharField(
+        max_length=30,
+        choices=[
+            ('imprimerie_nationale', _('Imprimerie Nationale')),
+            ('regularisation', _('Régularisation')),
+            ('transfert_recu', _('Transfert reçu')),
+        ],
+        null=True,
+        blank=True,
+        verbose_name=_("Type d'entrée")
+    )
+    
+    date_reception = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de réception")
+    )
+    
+    date_utilisation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date d'utilisation/vente")
+    )
+    
+    reference_recette = models.ForeignKey(
+        'RecetteJournaliere',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='series_tickets_utilisees',
+        verbose_name=_("Recette associée")
+    )
+    
+    poste_destination_transfert = models.ForeignKey(
+        'accounts.Poste',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='series_tickets_recues',
+        verbose_name=_("Poste de destination (si transféré)")
+    )
+    
+    commentaire = models.TextField(
+        blank=True,
+        verbose_name=_("Commentaire")
+    )
+    
+    class Meta:
+        verbose_name = _("Série de tickets")
+        verbose_name_plural = _("Séries de tickets")
+        ordering = ['-date_reception', 'couleur', 'numero_premier']
+        indexes = [
+            models.Index(fields=['poste', 'statut']),
+            models.Index(fields=['couleur', 'statut']),
+            models.Index(fields=['statut', 'date_reception']),
+        ]
+        # Contrainte : pas de chevauchement de numéros pour même poste et couleur en stock
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(numero_premier__lte=models.F('numero_dernier')),
+                name='numero_premier_inferieur_dernier'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.couleur.libelle_affichage} #{self.numero_premier}-{self.numero_dernier} ({self.get_statut_display()})"
+    
+    def clean(self):
+        """Validation avant sauvegarde"""
+        from django.core.exceptions import ValidationError
+        
+        if self.numero_premier > self.numero_dernier:
+            raise ValidationError({
+                'numero_dernier': _("Le numéro du dernier ticket doit être supérieur ou égal au premier")
+            })
+        
+        # Vérifier les chevauchements pour les séries en stock du même poste et couleur
+        if self.statut == 'stock':
+            chevauchements = SerieTicket.objects.filter(
+                poste=self.poste,
+                couleur=self.couleur,
+                statut='stock'
+            ).exclude(pk=self.pk)
+            
+            for serie in chevauchements:
+                # Vérifier si les plages se chevauchent
+                if not (self.numero_dernier < serie.numero_premier or 
+                       self.numero_premier > serie.numero_dernier):
+                    raise ValidationError(
+                        f"Chevauchement détecté avec la série {serie.couleur.libelle_affichage} "
+                        f"#{serie.numero_premier}-{serie.numero_dernier}"
+                    )
+    
+    def save(self, *args, **kwargs):
+        """Calcul automatique avant sauvegarde"""
+        # Calcul du nombre de tickets
+        self.nombre_tickets = self.numero_dernier - self.numero_premier + 1
+        
+        # Calcul de la valeur monétaire
+        self.valeur_monetaire = Decimal(self.nombre_tickets) * Decimal('500')
+        
+        # Validation
+        self.clean()
+        
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def verifier_disponibilite_serie(cls, poste, couleur, numero_premier, numero_dernier):
+        """
+        Vérifie si une série de tickets est disponible dans le stock
+        
+        Returns:
+            tuple (bool, str): (est_disponible, message_erreur)
+        """
+        # Vérifier que le numéro de début < numéro de fin
+        if numero_premier > numero_dernier:
+            return False, "Le numéro du premier ticket doit être inférieur au dernier"
+        
+        # Chercher les séries en stock pour ce poste et cette couleur
+        series_stock = cls.objects.filter(
+            poste=poste,
+            couleur=couleur,
+            statut='stock'
+        )
+        
+        # Vérifier si la plage demandée est couverte par les séries en stock
+        for serie in series_stock:
+            if (numero_premier >= serie.numero_premier and 
+                numero_dernier <= serie.numero_dernier):
+                return True, "Série disponible"
+        
+        return False, f"Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} non disponible en stock"
+    
+    @classmethod
+    def consommer_serie(cls, poste, couleur, numero_premier, numero_dernier, recette):
+        """
+        Consomme (marque comme vendue) une série de tickets
+        Gère le découpage des séries si nécessaire
+        
+        Args:
+            poste: Poste concerné
+            couleur: CouleurTicket
+            numero_premier: Premier numéro vendu
+            numero_dernier: Dernier numéro vendu
+            recette: Instance de RecetteJournaliere
+        
+        Returns:
+            tuple (bool, str, list): (success, message, series_creees)
+        """
+        from django.db import transaction
+        
+        disponible, msg = cls.verifier_disponibilite_serie(
+            poste, couleur, numero_premier, numero_dernier
+        )
+        
+        if not disponible:
+            return False, msg, []
+        
+        with transaction.atomic():
+            # Trouver la série parente qui contient cette plage
+            serie_parente = cls.objects.filter(
+                poste=poste,
+                couleur=couleur,
+                statut='stock',
+                numero_premier__lte=numero_premier,
+                numero_dernier__gte=numero_dernier
+            ).first()
+            
+            if not serie_parente:
+                return False, "Série parente non trouvée", []
+            
+            series_creees = []
+            
+            # CAS 1 : Vente de toute la série
+            if (numero_premier == serie_parente.numero_premier and 
+                numero_dernier == serie_parente.numero_dernier):
+                serie_parente.statut = 'vendu'
+                serie_parente.date_utilisation = recette.date
+                serie_parente.reference_recette = recette
+                serie_parente.save()
+                series_creees.append(serie_parente)
+            
+            # CAS 2 : Vente au début de la série
+            elif numero_premier == serie_parente.numero_premier:
+                # Créer série vendue
+                serie_vendue = cls.objects.create(
+                    poste=poste,
+                    couleur=couleur,
+                    numero_premier=numero_premier,
+                    numero_dernier=numero_dernier,
+                    statut='vendu',
+                    date_utilisation=recette.date,
+                    reference_recette=recette,
+                    type_entree=serie_parente.type_entree
+                )
+                series_creees.append(serie_vendue)
+                
+                # Mettre à jour la série parente (reste en stock)
+                serie_parente.numero_premier = numero_dernier + 1
+                serie_parente.save()
+            
+            # CAS 3 : Vente à la fin de la série
+            elif numero_dernier == serie_parente.numero_dernier:
+                # Créer série vendue
+                serie_vendue = cls.objects.create(
+                    poste=poste,
+                    couleur=couleur,
+                    numero_premier=numero_premier,
+                    numero_dernier=numero_dernier,
+                    statut='vendu',
+                    date_utilisation=recette.date,
+                    reference_recette=recette,
+                    type_entree=serie_parente.type_entree
+                )
+                series_creees.append(serie_vendue)
+                
+                # Mettre à jour la série parente
+                serie_parente.numero_dernier = numero_premier - 1
+                serie_parente.save()
+            
+            # CAS 4 : Vente au milieu de la série (découpage en 3)
+            else:
+                # Série vendue (milieu)
+                serie_vendue = cls.objects.create(
+                    poste=poste,
+                    couleur=couleur,
+                    numero_premier=numero_premier,
+                    numero_dernier=numero_dernier,
+                    statut='vendu',
+                    date_utilisation=recette.date,
+                    reference_recette=recette,
+                    type_entree=serie_parente.type_entree
+                )
+                series_creees.append(serie_vendue)
+                
+                # Série après (reste en stock)
+                serie_apres = cls.objects.create(
+                    poste=poste,
+                    couleur=couleur,
+                    numero_premier=numero_dernier + 1,
+                    numero_dernier=serie_parente.numero_dernier,
+                    statut='stock',
+                    type_entree=serie_parente.type_entree
+                )
+                series_creees.append(serie_apres)
+                
+                # Mettre à jour série parente (devient série avant)
+                serie_parente.numero_dernier = numero_premier - 1
+                serie_parente.save()
+            
+            return True, "Série consommée avec succès", series_creees
+
+
+class DetailVenteTicket(models.Model):
+    """
+    Détail d'une vente de tickets (pour une recette)
+    Permet de gérer plusieurs séries vendues dans une même journée
+    """
+    recette = models.ForeignKey(
+        'RecetteJournaliere',
+        on_delete=models.CASCADE,
+        related_name='details_ventes_tickets',
+        verbose_name=_("Recette")
+    )
+    
+    couleur = models.ForeignKey(
+        CouleurTicket,
+        on_delete=models.PROTECT,
+        verbose_name=_("Couleur")
+    )
+    
+    numero_premier = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name=_("Premier ticket vendu")
+    )
+    
+    numero_dernier = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name=_("Dernier ticket vendu")
+    )
+    
+    nombre_tickets = models.IntegerField(
+        verbose_name=_("Nombre de tickets vendus")
+    )
+    
+    montant = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_("Montant (FCFA)")
+    )
+    
+    ordre = models.IntegerField(
+        default=1,
+        verbose_name=_("Ordre de saisie"),
+        help_text=_("Pour conserver l'ordre de saisie des séries")
+    )
+    
+    class Meta:
+        verbose_name = _("Détail vente tickets")
+        verbose_name_plural = _("Détails ventes tickets")
+        ordering = ['recette', 'ordre']
+        indexes = [
+            models.Index(fields=['recette', 'ordre']),
+        ]
+    
+    def __str__(self):
+        return f"{self.couleur.libelle_affichage} #{self.numero_premier}-{self.numero_dernier} - {self.montant} FCFA"
+    
+    def save(self, *args, **kwargs):
+        # Calcul automatique
+        self.nombre_tickets = self.numero_dernier - self.numero_premier + 1
+        self.montant = Decimal(self.nombre_tickets) * Decimal('500')
+        
+        super().save(*args, **kwargs)
 
