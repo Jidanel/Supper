@@ -2262,12 +2262,55 @@ class HistoriqueStock(models.Model):
         verbose_name=_("Type de stock"),
         help_text=_("Type d'approvisionnement")
     )
+    series_tickets_associees = models.ManyToManyField(
+        'SerieTicket',
+        blank=True,
+        related_name='historiques',
+        verbose_name=_("Séries de tickets associées"),
+        help_text=_("Séries de tickets concernées par ce mouvement")
+    )
+
     
     class Meta:
         verbose_name = _("Historique stock")
         verbose_name_plural = _("Historiques stocks")
         ordering = ['-date_mouvement']
 
+    def associer_series_tickets(self, series_list):
+        """
+        Méthode utilitaire pour associer des séries de tickets
+        à un historique de stock
+        
+        Args:
+            series_list: Liste ou QuerySet de SerieTicket
+        """
+        self.series_tickets_associees.set(series_list)
+    
+    def get_series_par_couleur(self):
+        """
+        Retourne les séries associées groupées par couleur
+        
+        Returns:
+            dict: {couleur: [series]}
+        """
+        series_par_couleur = {}
+        
+        for serie in self.series_tickets_associees.all().select_related('couleur'):
+            couleur_code = serie.couleur.code_normalise
+            
+            if couleur_code not in series_par_couleur:
+                series_par_couleur[couleur_code] = {
+                    'couleur': serie.couleur,
+                    'series': [],
+                    'total_tickets': 0,
+                    'valeur_totale': Decimal('0')
+                }
+            
+            series_par_couleur[couleur_code]['series'].append(serie)
+            series_par_couleur[couleur_code]['total_tickets'] += serie.nombre_tickets
+            series_par_couleur[couleur_code]['valeur_totale'] += serie.valeur_monetaire
+        
+        return series_par_couleur
 
 class TypeDeclaration(models.TextChoices):
     """Types de déclaration pour quittancement"""
@@ -2848,6 +2891,167 @@ class SerieTicket(models.Model):
                         f"#{serie.numero_premier}-{serie.numero_dernier}"
                     )
     
+   
+
+    @classmethod
+    def verifier_disponibilite_serie_complete(cls, poste, couleur, numero_premier, numero_dernier):
+        """
+        Vérification COMPLÈTE de disponibilité d'une série de tickets
+        Vérifie :
+        1. Que les numéros sont cohérents
+        2. Qu'aucun ticket de la plage n'a déjà été vendu
+        3. Que la plage est disponible en stock
+        
+        Returns:
+            tuple (bool, str, list): (est_disponible, message_erreur, tickets_problematiques)
+        """
+        from django.db.models import Q
+        
+        # Vérification 1 : Numéros cohérents
+        if numero_premier > numero_dernier:
+            return False, "Le numéro du premier ticket doit être inférieur ou égal au dernier", []
+        
+        if numero_premier < 1:
+            return False, "Les numéros de tickets doivent être positifs", []
+        
+        # Vérification 2 : Détecter les tickets déjà vendus dans cette plage
+        tickets_deja_vendus = cls.objects.filter(
+            couleur=couleur,
+            statut='vendu',
+            # Chevauchement : (debut1 <= fin2) AND (fin1 >= debut2)
+            numero_premier__lte=numero_dernier,
+            numero_dernier__gte=numero_premier
+        ).values_list('numero_premier', 'numero_dernier', 'date_utilisation', 'poste__nom')
+        
+        if tickets_deja_vendus.exists():
+            tickets_problematiques = []
+            for prem, dern, date_vente, nom_poste in tickets_deja_vendus:
+                tickets_problematiques.append({
+                    'premier': prem,
+                    'dernier': dern,
+                    'date_vente': date_vente,
+                    'poste': nom_poste
+                })
+            
+            # Construire message détaillé
+            if len(tickets_problematiques) == 1:
+                ticket = tickets_problematiques[0]
+                msg = (
+                    f"❌ TICKET DÉJÀ VENDU : La série {couleur.libelle_affichage} "
+                    f"#{ticket['premier']}-{ticket['dernier']} a déjà été vendue "
+                    f"le {ticket['date_vente'].strftime('%d/%m/%Y')} "
+                    f"au poste {ticket['poste']}"
+                )
+            else:
+                msg = (
+                    f"❌ TICKETS DÉJÀ VENDUS : {len(tickets_problematiques)} série(s) "
+                    f"de la couleur {couleur.libelle_affichage} chevauchent votre saisie et "
+                    f"ont déjà été vendues"
+                )
+            
+            return False, msg, tickets_problematiques
+        
+        # Vérification 3 : Tickets disponibles en stock pour CE poste
+        series_stock_poste = cls.objects.filter(
+            poste=poste,
+            couleur=couleur,
+            statut='stock'
+        )
+        
+        if not series_stock_poste.exists():
+            return False, (
+                f"Aucun stock de tickets {couleur.libelle_affichage} disponible "
+                f"pour le poste {poste.nom}"
+            ), []
+        
+        # Vérifier que la plage demandée est couverte par une série en stock
+        plage_couverte = False
+        serie_couvrante = None
+        
+        for serie in series_stock_poste:
+            if (numero_premier >= serie.numero_premier and 
+                numero_dernier <= serie.numero_dernier):
+                plage_couverte = True
+                serie_couvrante = serie
+                break
+        
+        if not plage_couverte:
+            # Lister les séries disponibles pour aider l'utilisateur
+            series_dispo = [
+                f"#{s.numero_premier}-{s.numero_dernier}" 
+                for s in series_stock_poste
+            ]
+            
+            msg = (
+                f"Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+                f"non disponible en stock au poste {poste.nom}. "
+                f"Séries disponibles : {', '.join(series_dispo)}"
+            )
+            
+            return False, msg, []
+        
+        # Tout est OK
+        return True, f"Série {couleur.libelle_affichage} disponible", []
+
+
+    @classmethod
+    def verifier_unicite_annuelle(cls, numero_ticket, couleur, annee):
+            """
+            Vérifie l'unicité d'un numéro de ticket pour une année donnée
+            Règle métier : Un numéro de ticket ne peut apparaître qu'une seule fois par an
+            
+            Args:
+                numero_ticket: Numéro du ticket à vérifier
+                couleur: Instance de CouleurTicket
+                annee: Année à vérifier (int)
+            
+            Returns:
+                tuple (bool, str, dict): (est_unique, message, historique)
+            """
+            from django.db.models import Q
+            from datetime import date
+            
+            # Date de début et fin de l'année
+            debut_annee = date(annee, 1, 1)
+            fin_annee = date(annee, 12, 31)
+            
+            # Chercher toutes les séries qui contiennent ce numéro dans l'année
+            series_contenant_numero = cls.objects.filter(
+                couleur=couleur,
+                numero_premier__lte=numero_ticket,
+                numero_dernier__gte=numero_ticket,
+                date_reception__range=[debut_annee, fin_annee]
+            ).select_related('poste', 'poste_destination_transfert')
+            
+            if not series_contenant_numero.exists():
+                return True, f"Ticket #{numero_ticket} unique en {annee}", {}
+            
+            # Si le ticket existe déjà dans l'année
+            serie = series_contenant_numero.first()
+            
+            historique = {
+                'numero': numero_ticket,
+                'couleur': couleur.libelle_affichage,
+                'annee': annee,
+                'poste_reception': serie.poste.nom,
+                'date_reception': serie.date_reception,
+                'statut': serie.statut,
+                'type_entree': serie.get_type_entree_display() if serie.type_entree else 'Non défini'
+            }
+            
+            if serie.statut == 'vendu' and serie.date_utilisation:
+                historique['date_vente'] = serie.date_utilisation
+                historique['poste_vente'] = serie.poste.nom
+            elif serie.statut == 'transfere' and serie.poste_destination_transfert:
+                historique['poste_transfere'] = serie.poste_destination_transfert.nom
+            
+            msg = (
+                f"⚠️ Le ticket {couleur.libelle_affichage} #{numero_ticket} "
+                f"existe déjà en {annee} au poste {serie.poste.nom} "
+                f"(reçu le {serie.date_reception.strftime('%d/%m/%Y')})"
+            )
+            
+            return False, msg, historique
     def save(self, *args, **kwargs):
         """Calcul automatique avant sauvegarde"""
         # Calcul du nombre de tickets

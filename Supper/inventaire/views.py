@@ -1044,22 +1044,21 @@ def supprimer_inventaire(request, pk):
 @login_required
 def saisir_recette_avec_tickets(request):
     """
-    Interface MISE À JOUR de saisie de recette avec gestion des tickets par séries
-    REMPLACE la fonction saisir_recette existante
+    Version AMÉLIORÉE de la saisie de recette avec vérifications complètes
     
-    Permet de:
-    - Saisir plusieurs séries de tickets vendus (couleur + numéros)
-    - Calculer automatiquement le montant total
-    - Vérifier la cohérence avec le stock
-    - Déduire automatiquement les séries du stock
+    Améliorations :
+    1. Vérification des tickets déjà vendus
+    2. Validation de l'unicité annuelle
+    3. Messages d'erreur détaillés
+    4. Vérification du lien avec l'inventaire
     """
     
-    # Vérifier permissions
+    # Vérifier permissions (code existant conservé)
     if not (request.user.is_chef_poste or request.user.is_admin):
         messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
         return HttpResponseForbidden("Accès non autorisé")
     
-    # Déterminer les postes accessibles
+    # Déterminer les postes accessibles (code existant conservé)
     if hasattr(request.user, 'get_postes_accessibles'):
         postes = request.user.get_postes_accessibles()
     else:
@@ -1089,10 +1088,12 @@ def saisir_recette_avec_tickets(request):
                 messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
                 return redirect('inventaire:liste_recettes')
             
-            # Traiter les détails de vente tickets
+            # ===== NOUVELLE LOGIQUE DE VALIDATION =====
+            
             details_ventes = []
             montant_total_calcule = Decimal('0')
             erreurs_validation = []
+            annee_recette = date_recette.year
             
             for i, form_detail in enumerate(formset):
                 if form_detail.cleaned_data and not form_detail.cleaned_data.get('DELETE', False):
@@ -1100,16 +1101,41 @@ def saisir_recette_avec_tickets(request):
                     num_premier = form_detail.cleaned_data['numero_premier']
                     num_dernier = form_detail.cleaned_data['numero_dernier']
                     
-                    # Vérifier que la série existe en stock
-                    disponible, msg = SerieTicket.verifier_disponibilite_serie(
+                    # VALIDATION 1 : Vérification complète (stock + tickets vendus)
+                    disponible, msg, tickets_prob = SerieTicket.verifier_disponibilite_serie_complete(
                         poste, couleur, num_premier, num_dernier
                     )
                     
                     if not disponible:
-                        erreurs_validation.append(f"Ligne {i+1}: {msg}")
+                        erreurs_validation.append(f"❌ Ligne {i+1}: {msg}")
+                        
+                        # Si tickets déjà vendus, afficher détails
+                        if tickets_prob:
+                            for ticket in tickets_prob:
+                                erreurs_validation.append(
+                                    f"   → Série #{ticket['premier']}-{ticket['dernier']} "
+                                    f"vendue le {ticket['date_vente'].strftime('%d/%m/%Y')} "
+                                    f"au poste {ticket['poste']}"
+                                )
                         continue
                     
-                    # Calculer le montant de cette série
+                    # VALIDATION 2 : Unicité annuelle (tous les tickets de la plage)
+                    for num_ticket in range(num_premier, num_dernier + 1):
+                        est_unique, msg_unique, hist = SerieTicket.verifier_unicite_annuelle(
+                            num_ticket, couleur, annee_recette
+                        )
+                        
+                        if not est_unique:
+                            erreurs_validation.append(
+                                f"⚠️ Ligne {i+1}: Ticket {couleur.libelle_affichage} "
+                                f"#{num_ticket} existe déjà en {annee_recette}"
+                            )
+                            break  # Pas besoin de vérifier tous les tickets si un est en double
+                    
+                    if erreurs_validation:
+                        continue  # Passer à la série suivante
+                    
+                    # Si tout est OK, ajouter aux détails
                     nombre = num_dernier - num_premier + 1
                     montant = Decimal(nombre) * Decimal('500')
                     montant_total_calcule += montant
@@ -1123,16 +1149,26 @@ def saisir_recette_avec_tickets(request):
                         'ordre': i + 1
                     })
             
-            # Vérifier qu'il y a au moins une série
+            # Vérifier qu'il y a au moins une série valide
             if not details_ventes:
-                messages.error(request, "Vous devez saisir au moins une série de tickets vendus")
-                return redirect('inventaire:saisie_recette_avec_tickets')
+                if not erreurs_validation:
+                    erreurs_validation.append("Vous devez saisir au moins une série de tickets vendus")
             
-            # S'il y a des erreurs de validation
+            # S'il y a des erreurs de validation, les afficher et redemander la saisie
             if erreurs_validation:
                 for erreur in erreurs_validation:
                     messages.error(request, erreur)
-                return redirect('inventaire:saisie_recette')
+                
+                # Recharger le formulaire avec les données saisies
+                return render(request, 'inventaire/saisir_recette_tickets.html', {
+                    'form': form,
+                    'formset': formset,
+                    'postes': postes,
+                    'title': 'Saisir une recette journalière',
+                    'recettes_recentes': RecetteJournaliere.objects.filter(
+                        chef_poste=request.user
+                    ).select_related('poste').order_by('-date')[:10]
+                })
             
             # Vérifier le stock global
             stock_actuel = Decimal('0')
@@ -1140,7 +1176,24 @@ def saisir_recette_avec_tickets(request):
                 stock = GestionStock.objects.get(poste=poste)
                 stock_actuel = stock.valeur_monetaire
             except GestionStock.DoesNotExist:
-                pass
+                messages.warning(
+                    request,
+                    "⚠️ Aucun stock enregistré pour ce poste. "
+                    "Le stock sera initialisé en négatif après cette vente."
+                )
+            
+            # Vérifier si un inventaire existe pour ce jour
+            inventaire_existe = InventaireJournalier.objects.filter(
+                poste=poste,
+                date=date_recette
+            ).exists()
+            
+            if not inventaire_existe:
+                messages.info(
+                    request,
+                    "ℹ️ Aucun inventaire n'a été saisi pour cette date. "
+                    "Le taux de déperdition ne pourra pas être calculé."
+                )
             
             # Stocker en session pour confirmation
             request.session['recette_tickets_confirmation'] = {
@@ -1148,6 +1201,7 @@ def saisir_recette_avec_tickets(request):
                 'date': date_recette.isoformat(),
                 'montant_total': str(montant_total_calcule),
                 'observations': observations,
+                'inventaire_existe': inventaire_existe,
                 'details_ventes': [
                     {
                         'couleur_id': d['couleur'].id,
@@ -1164,8 +1218,9 @@ def saisir_recette_avec_tickets(request):
             }
             
             return redirect('inventaire:confirmation_recette_tickets')
+    
     else:
-        # GET : afficher le formulaire
+        # GET : afficher le formulaire (code existant conservé)
         initial_data = {
             'date': timezone.now().date()
         }
@@ -1173,11 +1228,9 @@ def saisir_recette_avec_tickets(request):
             initial_data['poste'] = request.user.poste_affectation
         
         form = RecetteAvecTicketsForm(initial=initial_data, user=request.user)
-        
-        # Formset vide avec 1 formulaire par défaut
         formset = DetailVenteTicketFormSet(prefix='tickets')
         
-        # Passer le poste initial au formset pour filtrer les couleurs
+        # Filtrer les couleurs disponibles
         if request.user.poste_affectation:
             for form_detail in formset:
                 form_detail.fields['couleur'].queryset = CouleurTicket.objects.filter(
@@ -1185,7 +1238,7 @@ def saisir_recette_avec_tickets(request):
                     series__statut='stock'
                 ).distinct().order_by('code_normalise')
     
-    # Statistiques (conservées du code existant)
+    # Statistiques (code existant conservé)
     from django.db.models import Sum
     recettes_query = RecetteJournaliere.objects.filter(
         chef_poste=request.user
@@ -1228,13 +1281,14 @@ def saisir_recette_avec_tickets(request):
     return render(request, 'inventaire/saisir_recette_tickets.html', context)
 
 
+
 def traiter_confirmation_recette_tickets(request):
     """
+    VERSION AMÉLIORÉE avec liaison des séries de tickets à l'historique
     Traite la confirmation de la recette avec tickets
-    Fonction auxiliaire appelée par saisir_recette_avec_tickets
     """
     
-    # Récupérer les données de session
+    # Récupérer les données de session (code existant conservé)
     data = request.session.get('recette_tickets_confirmation')
     
     if not data:
@@ -1247,7 +1301,7 @@ def traiter_confirmation_recette_tickets(request):
         montant_total = Decimal(data['montant_total'])
         
         with transaction.atomic():
-            # 1. Créer la recette
+            # 1. Créer la recette (code existant conservé)
             recette = RecetteJournaliere.objects.create(
                 poste=poste,
                 date=date_recette,
@@ -1256,6 +1310,20 @@ def traiter_confirmation_recette_tickets(request):
                 modifiable_par_chef=False,
                 observations=data['observations']
             )
+            
+            # Associer l'inventaire s'il existe
+            try:
+                inventaire = InventaireJournalier.objects.get(
+                    poste=poste,
+                    date=date_recette
+                )
+                recette.inventaire_associe = inventaire
+                recette.save()
+            except InventaireJournalier.DoesNotExist:
+                pass
+            
+            # ===== NOUVELLE LOGIQUE : Tracking des séries =====
+            series_vendues = []  # Pour liaison à l'historique
             
             # 2. Créer les détails de vente et consommer les séries
             for detail_data in data['details_ventes']:
@@ -1281,8 +1349,11 @@ def traiter_confirmation_recette_tickets(request):
                 
                 if not success:
                     raise Exception(f"Erreur consommation série: {msg}")
+                
+                # ===== NOUVEAU : Collecter les séries vendues =====
+                series_vendues.extend(series)
             
-            # 3. Mettre à jour le stock global
+            # 3. Mettre à jour le stock global (code existant conservé)
             stock, _ = GestionStock.objects.get_or_create(
                 poste=poste,
                 defaults={'valeur_monetaire': Decimal('0')}
@@ -1293,7 +1364,7 @@ def traiter_confirmation_recette_tickets(request):
             stock.save()
             
             # 4. Créer l'historique
-            HistoriqueStock.objects.create(
+            historique = HistoriqueStock.objects.create(
                 poste=poste,
                 type_mouvement='DEBIT',
                 montant=montant_total,
@@ -1305,7 +1376,41 @@ def traiter_confirmation_recette_tickets(request):
                 commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')} - {len(data['details_ventes'])} série(s)"
             )
             
-            # 5. Nettoyer la session
+            # ===== NOUVEAU : Associer les séries à l'historique =====
+            if series_vendues:
+                historique.associer_series_tickets(series_vendues)
+            
+            # 5. Journaliser l'action (code existant conservé)
+            log_user_action(
+                request.user,
+                "Saisie recette avec tickets",
+                f"Recette de {montant_total:,.0f} FCFA saisie pour {poste.nom} "
+                f"le {date_recette.strftime('%d/%m/%Y')} - "
+                f"{len(data['details_ventes'])} série(s) de tickets",
+                request
+            )
+            
+            # 6. Notifications aux administrateurs
+            from accounts.models import UtilisateurSUPPER
+            admins = UtilisateurSUPPER.objects.filter(
+                is_admin=True,
+                is_active=True
+            )
+            
+            for admin in admins:
+                NotificationUtilisateur.objects.create(
+                    destinataire=admin,
+                    expediteur=request.user,
+                    titre="Nouvelle recette saisie",
+                    message=(
+                        f"Recette de {montant_total:,.0f} FCFA saisie par "
+                        f"{request.user.nom_complet} pour le poste {poste.nom} "
+                        f"le {date_recette.strftime('%d/%m/%Y')}"
+                    ),
+                    type_notification='info'
+                )
+            
+            # 7. Nettoyer la session
             del request.session['recette_tickets_confirmation']
             
             messages.success(

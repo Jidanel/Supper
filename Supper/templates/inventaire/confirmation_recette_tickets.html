@@ -1,0 +1,252 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}Confirmation de la recette{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-confirmation {
+        border: 3px solid #f59e0b;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .alerte-critique {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        margin-bottom: 2rem;
+    }
+    
+    .table-recap {
+        font-size: 1.1rem;
+    }
+    
+    .table-recap th {
+        background-color: #f3f4f6;
+        font-weight: 600;
+        padding: 1rem;
+    }
+    
+    .table-recap td {
+        padding: 1rem;
+    }
+    
+    .stock-info {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .series-vendues {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .montant-total {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #059669;
+    }
+    
+    .stock-warning {
+        background: #fee2e2;
+        border-left: 4px solid #dc2626;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            
+            <!-- Alerte critique -->
+            <div class="alerte-critique">
+                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                <h4 class="mb-2">⚠️ ATTENTION - ACTION IRRÉVERSIBLE</h4>
+                <p class="mb-0">
+                    Une fois validée, cette recette ne pourra plus être modifiée.<br>
+                    <strong>Les tickets vendus seront définitivement déduits du stock.</strong>
+                </p>
+            </div>
+            
+            <!-- Carte principale -->
+            <div class="card card-confirmation">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">
+                        <i class="fas fa-clipboard-check me-2"></i>
+                        Confirmer la recette journalière
+                    </h3>
+                </div>
+                
+                <div class="card-body p-4">
+                    
+                    <!-- Informations générales -->
+                    <h5 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-info-circle me-2"></i>Informations générales
+                    </h5>
+                    
+                    <table class="table table-bordered table-recap mb-4">
+                        <tr>
+                            <th width="30%">Poste</th>
+                            <td><strong>{{ poste.nom }}</strong> ({{ poste.code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Date</th>
+                            <td>{{ date|date:"d/m/Y" }} ({{ date|date:"l" }})</td>
+                        </tr>
+                        <tr>
+                            <th>Chef de poste</th>
+                            <td>{{ request.user.nom_complet }}</td>
+                        </tr>
+                        {% if observations %}
+                        <tr>
+                            <th>Observations</th>
+                            <td>{{ observations }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                    
+                    <!-- Séries de tickets vendus -->
+                    <h5 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-ticket-alt me-2"></i>
+                        Séries de tickets vendus ({{ details_ventes|length }} série{% if details_ventes|length > 1 %}s{% endif %})
+                    </h5>
+                    
+                    {% for detail in details_ventes %}
+                    <div class="series-vendues">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <div class="badge" style="background-color: {{ detail.couleur.code_hex|default:'#6B7280' }}; font-size: 1rem; padding: 0.5rem 1rem;">
+                                    {{ detail.couleur.libelle_affichage }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>N° {{ detail.numero_premier }}</strong>
+                                <i class="fas fa-arrow-right mx-2"></i>
+                                <strong>N° {{ detail.numero_dernier }}</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <i class="fas fa-ticket-alt me-1"></i>
+                                {{ detail.nombre_tickets }} ticket{% if detail.nombre_tickets > 1 %}s{% endif %}
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <strong class="text-success">
+                                    {{ detail.montant|floatformat:0|format_milliers }} FCFA
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Montant total -->
+                    <div class="card bg-light mt-3">
+                        <div class="card-body text-center">
+                            <h5 class="text-muted mb-2">Montant total déclaré</h5>
+                            <div class="montant-total">
+                                {{ montant_total|floatformat:0|format_milliers }} FCFA
+                            </div>
+                            <small class="text-muted">
+                                ({{ montant_total|floatformat:0|dividedby:500 }} tickets vendus)
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- Informations de stock -->
+                    <h5 class="border-bottom pb-2 mb-3 mt-4">
+                        <i class="fas fa-warehouse me-2"></i>Impact sur le stock
+                    </h5>
+                    
+                    {% if stock_suffisant %}
+                    <div class="stock-info">
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <h6 class="text-muted">Stock avant vente</h6>
+                                <h4>{{ stock_actuel|floatformat:0|format_milliers }} FCFA</h4>
+                                <small>({{ stock_actuel|floatformat:0|dividedby:500 }} tickets)</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-muted">Déduction</h6>
+                                <h4 class="text-danger">- {{ montant_total|floatformat:0|format_milliers }} FCFA</h4>
+                                <small>({{ montant_total|floatformat:0|dividedby:500 }} tickets)</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-muted">Stock après vente</h6>
+                                <h4 class="text-success">{{ stock_apres|floatformat:0|format_milliers }} FCFA</h4>
+                                <small>({{ stock_apres|floatformat:0|dividedby:500 }} tickets)</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="stock-warning">
+                        <h5 class="text-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            ⚠️ ATTENTION : STOCK INSUFFISANT
+                        </h5>
+                        <p class="mb-2">
+                            Le montant déclaré ({{ montant_total|floatformat:0|format_milliers }} FCFA) 
+                            est supérieur au stock actuel ({{ stock_actuel|floatformat:0|format_milliers }} FCFA).
+                        </p>
+                        <p class="mb-0">
+                            <strong>Veuillez vérifier les séries de tickets saisies.</strong>
+                        </p>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Message important -->
+                    <div class="alert alert-info mt-4">
+                        <h6>
+                            <i class="fas fa-info-circle me-2"></i>
+                            Que va-t-il se passer après validation ?
+                        </h6>
+                        <ul class="mb-0">
+                            <li>Les séries de tickets vendus passeront en statut "Vendu"</li>
+                            <li>Le stock sera automatiquement déduit de <strong>{{ montant_total|floatformat:0|format_milliers }} FCFA</strong></li>
+                            <li>Un historique de vente sera créé avec tous les détails</li>
+                            <li>Les numéros de tickets ne pourront plus être réutilisés</li>
+                            <li><strong class="text-danger">Cette action est définitive et irréversible</strong></li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Boutons d'action -->
+                    <form method="post" action="{% url 'inventaire:saisie_recette_avec_tickets' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="confirmer">
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'inventaire:saisie_recette_avec_tickets' %}" 
+                               class="btn btn-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Retour / Modifier
+                            </a>
+                            
+                            {% if stock_suffisant %}
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Valider définitivement la recette
+                            </button>
+                            {% else %}
+                            <button type="button" class="btn btn-danger btn-lg" disabled>
+                                <i class="fas fa-ban me-2"></i>
+                                Validation impossible (stock insuffisant)
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                    
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

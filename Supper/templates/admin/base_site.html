@@ -423,6 +423,12 @@
                         </a>
                     </li>
                     <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:recherche_tracabilite_ticket' %}">
+                            <i class="fas fa-search me-2"></i>
+                            {% trans "Traçabilité Tickets" %}
+                        </a>
+                    </li>
+                    <li>
                         <a class="dropdown-item" href="{% url 'inventaire:liste_bordereaux' %}">
                             <i class="fas fa-clipboard-list me-2"></i>{% trans "Liste des Bordereaux" %}
                         </a>

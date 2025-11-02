@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from datetime import datetime
 from .models import *
-from accounts.models import Poste
+from accounts.models import *
 from django.db.models import Sum, Avg, Count, Q
+from datetime import date
 def is_admin(user):
     return user.is_authenticated and (user.is_superuser or user.habilitation == 'admin_principal')
 
@@ -266,3 +267,183 @@ def liste_inventaires_administratifs(request):
     }
     
     return render(request, 'inventaire/liste_inventaires_administratifs.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def recherche_tracabilite_ticket(request):
+    """
+    Vue administrative de recherche et traçabilité des tickets
+    Permet de tracer l'historique complet d'un numéro de ticket
+    """
+    
+    resultats = None
+    numero_recherche = None
+    couleur_recherche = None
+    annee_recherche = None
+    
+    if request.method == 'POST':
+        numero_recherche = request.POST.get('numero_ticket')
+        couleur_id = request.POST.get('couleur_id')
+        annee_recherche = request.POST.get('annee')
+        
+        if numero_recherche and couleur_id:
+            try:
+                numero = int(numero_recherche)
+                couleur = CouleurTicket.objects.get(id=couleur_id)
+                
+                # Recherche dans TOUTES les années si non spécifiée
+                query = Q(
+                    numero_premier__lte=numero,
+                    numero_dernier__gte=numero,
+                    couleur=couleur
+                )
+                
+                if annee_recherche:
+                    annee = int(annee_recherche)
+                    debut_annee = date(annee, 1, 1)
+                    fin_annee = date(annee, 12, 31)
+                    query &= Q(date_reception__range=[debut_annee, fin_annee])
+                
+                series_trouvees = SerieTicket.objects.filter(query).select_related(
+                    'poste', 'couleur', 'reference_recette', 
+                    'poste_destination_transfert'
+                ).order_by('date_reception')
+                
+                if series_trouvees.exists():
+                    resultats = []
+                    
+                    for serie in series_trouvees:
+                        info = {
+                            'serie': serie,
+                            'annee': serie.date_reception.year,
+                            'couleur': couleur.libelle_affichage,
+                            'numero': numero,
+                            'statut': serie.get_statut_display(),
+                            'poste_initial': serie.poste,
+                            'date_reception': serie.date_reception,
+                            'type_entree': serie.get_type_entree_display() if serie.type_entree else 'Non défini'
+                        }
+                        
+                        # Informations selon le statut
+                        if serie.statut == 'stock':
+                            info['message'] = f"✅ Actuellement en stock au poste {serie.poste.nom}"
+                            info['classe_badge'] = 'success'
+                        
+                        elif serie.statut == 'vendu':
+                            info['date_vente'] = serie.date_utilisation
+                            info['poste_vente'] = serie.poste.nom
+                            
+                            if serie.reference_recette:
+                                info['recette_id'] = serie.reference_recette.id
+                                info['montant_recette'] = serie.reference_recette.montant_declare
+                            
+                            info['message'] = (
+                                f"💰 Vendu le {serie.date_utilisation.strftime('%d/%m/%Y')} "
+                                f"au poste {serie.poste.nom}"
+                            )
+                            info['classe_badge'] = 'primary'
+                        
+                        elif serie.statut == 'transfere':
+                            if serie.poste_destination_transfert:
+                                info['poste_destination'] = serie.poste_destination_transfert.nom
+                                info['message'] = (
+                                    f"📦 Transféré du poste {serie.poste.nom} "
+                                    f"vers {serie.poste_destination_transfert.nom}"
+                                )
+                            else:
+                                info['message'] = f"📦 Transféré depuis {serie.poste.nom}"
+                            
+                            info['classe_badge'] = 'warning'
+                        
+                        # Commentaire si présent
+                        if serie.commentaire:
+                            info['commentaire'] = serie.commentaire
+                        
+                        resultats.append(info)
+                    
+                    messages.success(
+                        request,
+                        f"✅ {len(resultats)} occurrence(s) trouvée(s) pour le ticket "
+                        f"{couleur.libelle_affichage} #{numero}"
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        f"Aucune trace du ticket {couleur.libelle_affichage} #{numero} "
+                        f"dans le système" + (f" pour l'année {annee_recherche}" if annee_recherche else "")
+                    )
+            
+            except ValueError:
+                messages.error(request, "Numéro de ticket ou année invalide")
+            except CouleurTicket.DoesNotExist:
+                messages.error(request, "Couleur de ticket invalide")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la recherche : {str(e)}")
+        else:
+            messages.error(request, "Veuillez renseigner le numéro de ticket et la couleur")
+    
+    # Liste de toutes les couleurs pour le formulaire
+    couleurs = CouleurTicket.objects.all().order_by('code_normalise')
+    
+    # Années disponibles pour le filtre
+    annees_disponibles = []
+    annee_actuelle = date.today().year
+    for i in range(5):  # 5 dernières années
+        annees_disponibles.append(annee_actuelle - i)
+    
+    context = {
+        'couleurs': couleurs,
+        'annees_disponibles': annees_disponibles,
+        'numero_recherche': numero_recherche,
+        'couleur_recherche': couleur_recherche,
+        'annee_recherche': annee_recherche,
+        'resultats': resultats,
+        'title': 'Traçabilité des Tickets'
+    }
+    
+    return render(request, 'inventaire/recherche_tracabilite_ticket.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def verifier_unicite_ticket_annee(request):
+    """
+    API pour vérifier l'unicité d'un ticket dans une année
+    Utilisé lors de la saisie pour validation en temps réel
+    """
+    from django.http import JsonResponse
+    
+    if request.method == 'POST':
+        numero = request.POST.get('numero')
+        couleur_id = request.POST.get('couleur_id')
+        annee = request.POST.get('annee')
+        
+        if not all([numero, couleur_id, annee]):
+            return JsonResponse({
+                'success': False,
+                'message': 'Paramètres manquants'
+            })
+        
+        try:
+            numero = int(numero)
+            annee = int(annee)
+            couleur = CouleurTicket.objects.get(id=couleur_id)
+            
+            est_unique, message, historique = SerieTicket.verifier_unicite_annuelle(
+                numero, couleur, annee
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'est_unique': est_unique,
+                'message': message,
+                'historique': historique
+            })
+        
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': str(e)
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Méthode non autorisée'})

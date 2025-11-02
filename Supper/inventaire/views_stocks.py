@@ -408,8 +408,7 @@ def charger_stock_tickets(request, poste_id):
 @user_passes_test(is_admin)
 def confirmation_chargement_stock_tickets(request):
     """
-    Page de confirmation du chargement de stock AVEC tickets par séries
-    REMPLACE confirmation_chargement_stock existante
+    VERSION AMÉLIORÉE utilisant executer_chargement_stock_avec_series()
     """
     
     # Récupérer les données de session
@@ -427,88 +426,22 @@ def confirmation_chargement_stock_tickets(request):
         
         if action == 'confirmer':
             try:
-                with transaction.atomic():
-                    # 1. Créer la série de tickets
-                    serie = SerieTicket.objects.create(
-                        poste=poste,
-                        couleur=couleur,
-                        numero_premier=chargement_data['numero_premier'],
-                        numero_dernier=chargement_data['numero_dernier'],
-                        statut='stock',
-                        type_entree=chargement_data['type_stock'],
-                        commentaire=chargement_data['commentaire']
-                    )
-                    
-                    # 2. Mettre à jour le stock global (ancien système)
-                    stock, _ = GestionStock.objects.get_or_create(
-                        poste=poste,
-                        defaults={'valeur_monetaire': Decimal('0')}
-                    )
-                    
-                    stock_avant = stock.valeur_monetaire
-                    montant = Decimal(chargement_data['montant'])
-                    
-                    stock.valeur_monetaire += montant
-                    stock.save()
-                    
-                    # 3. Créer l'historique
-                    type_stock_label = (
-                        "Régularisation" if chargement_data['type_stock'] == 'regularisation' 
-                        else "Imprimerie Nationale"
-                    )
-                    
-                    HistoriqueStock.objects.create(
-                        poste=poste,
-                        type_mouvement='CREDIT',
-                        type_stock=chargement_data['type_stock'],
-                        montant=montant,
-                        nombre_tickets=chargement_data['nombre_tickets'],
-                        stock_avant=stock_avant,
-                        stock_apres=stock.valeur_monetaire,
-                        effectue_par=request.user,
-                        commentaire=(
-                            f"{chargement_data['commentaire'] or ''} - "
-                            f"Série {couleur.libelle_affichage} "
-                            f"#{chargement_data['numero_premier']}-{chargement_data['numero_dernier']}"
-                        )
-                    )
-                    
-                    # 4. Envoyer notifications
-                    chefs = UtilisateurSUPPER.objects.filter(
-                        poste_affectation=poste,
-                        habilitation__in=['chef_peage', 'chef_pesage'],
-                        is_active=True
-                    )
-                    
-                    for chef in chefs:
-                        NotificationUtilisateur.objects.create(
-                            destinataire=chef,
-                            expediteur=request.user,
-                            titre="Nouveau stock de tickets disponible",
-                            message=(
-                                f"Stock {type_stock_label} crédité : "
-                                f"Série {couleur.libelle_affichage} "
-                                f"#{chargement_data['numero_premier']}-{chargement_data['numero_dernier']} "
-                                f"({chargement_data['nombre_tickets']} tickets = {montant:,.0f} FCFA) "
-                                f"pour {poste.nom}"
-                            ),
-                            type_notification='info'
-                        )
-                    
-                    # 5. Journaliser
-                    log_user_action(
-                        request.user,
-                        f"Chargement stock {type_stock_label} avec tickets",
-                        (
-                            f"Stock crédité: Série {couleur.libelle_affichage} "
-                            f"#{chargement_data['numero_premier']}-{chargement_data['numero_dernier']} "
-                            f"= {montant:,.0f} FCFA pour {poste.nom}"
-                        ),
-                        request
-                    )
-                    
-                    # 6. Nettoyer la session
+                # ===== UTILISATION DE LA NOUVELLE FONCTION =====
+                success, message, serie, historique = executer_chargement_stock_avec_series(
+                    poste=poste,
+                    couleur=couleur,
+                    numero_premier=chargement_data['numero_premier'],
+                    numero_dernier=chargement_data['numero_dernier'],
+                    type_stock=chargement_data['type_stock'],
+                    user=request.user,
+                    commentaire=chargement_data['commentaire']
+                )
+                
+                if success:
+                    # Nettoyer la session
                     del request.session['chargement_stock_tickets']
+                    
+                    montant = Decimal(chargement_data['montant'])
                     
                     messages.success(
                         request,
@@ -518,6 +451,8 @@ def confirmation_chargement_stock_tickets(request):
                     )
                     
                     return redirect('inventaire:liste_postes_stocks')
+                else:
+                    raise Exception(message)
                     
             except Exception as e:
                 logger.error(f"Erreur chargement stock tickets: {str(e)}", exc_info=True)
@@ -529,7 +464,7 @@ def confirmation_chargement_stock_tickets(request):
             messages.info(request, "Chargement annulé")
             return redirect('inventaire:charger_stock_tickets', poste_id=poste.id)
     
-    # Préparer les données pour l'affichage
+    # Préparer les données pour l'affichage (reste inchangé)
     montant = Decimal(chargement_data['montant'])
     
     context = {
@@ -549,6 +484,129 @@ def confirmation_chargement_stock_tickets(request):
     }
     
     return render(request, 'inventaire/confirmation_chargement_stock_tickets.html', context)
+
+def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero_dernier, 
+                                         type_stock, user, commentaire):
+    """
+    Exécute le chargement de stock ET crée la liaison avec l'historique
+    
+    Cette fonction centralise toute la logique de chargement de stock avec tickets :
+    - Crée la série de tickets
+    - Met à jour le stock global
+    - Crée l'historique avec liaison aux séries
+    - Envoie les notifications
+    - Journalise l'action
+    
+    Args:
+        poste: Instance de Poste concerné
+        couleur: Instance de CouleurTicket
+        numero_premier: Premier numéro de la série (int)
+        numero_dernier: Dernier numéro de la série (int)
+        type_stock: 'imprimerie_nationale' ou 'regularisation'
+        user: Utilisateur effectuant l'opération
+        commentaire: Commentaire optionnel (str)
+    
+    Returns:
+        tuple: (success, message, serie_creee, historique)
+        - success (bool): True si l'opération a réussi
+        - message (str): Message de résultat
+        - serie_creee (SerieTicket): Instance de la série créée
+        - historique (HistoriqueStock): Instance de l'historique créé
+    
+    Raises:
+        Exception: En cas d'erreur lors de la transaction
+    """
+    from django.db import transaction
+    
+    with transaction.atomic():
+        # 1. Créer la série de tickets
+        serie = SerieTicket.objects.create(
+            poste=poste,
+            couleur=couleur,
+            numero_premier=numero_premier,
+            numero_dernier=numero_dernier,
+            statut='stock',
+            type_entree=type_stock,
+            commentaire=commentaire
+        )
+        
+        # 2. Mettre à jour le stock global (ancien système)
+        stock, _ = GestionStock.objects.get_or_create(
+            poste=poste,
+            defaults={'valeur_monetaire': Decimal('0')}
+        )
+        
+        stock_avant = stock.valeur_monetaire
+        montant = serie.valeur_monetaire
+        
+        stock.valeur_monetaire += montant
+        stock.save()
+        
+        # 3. Créer l'historique
+        type_stock_label = (
+            "Régularisation" if type_stock == 'regularisation' 
+            else "Imprimerie Nationale"
+        )
+        
+        historique = HistoriqueStock.objects.create(
+            poste=poste,
+            type_mouvement='CREDIT',
+            type_stock=type_stock,
+            montant=montant,
+            nombre_tickets=serie.nombre_tickets,
+            stock_avant=stock_avant,
+            stock_apres=stock.valeur_monetaire,
+            effectue_par=user,
+            commentaire=(
+                f"{commentaire or ''} - Série {couleur.libelle_affichage} "
+                f"#{numero_premier}-{numero_dernier}"
+            )
+        )
+        
+        # ===== IMPORTANT : Associer la série à l'historique =====
+        # Cette méthode doit exister dans le modèle HistoriqueStock
+        historique.associer_series_tickets([serie])
+        
+        # 4. Envoyer notifications aux chefs de poste
+        chefs = UtilisateurSUPPER.objects.filter(
+            poste_affectation=poste,
+            habilitation__in=['chef_peage', 'chef_pesage'],
+            is_active=True
+        )
+        
+        for chef in chefs:
+            NotificationUtilisateur.objects.create(
+                destinataire=chef,
+                expediteur=user,
+                titre="Nouveau stock de tickets disponible",
+                message=(
+                    f"Stock {type_stock_label} crédité : "
+                    f"Série {couleur.libelle_affichage} "
+                    f"#{numero_premier}-{numero_dernier} "
+                    f"({serie.nombre_tickets} tickets = {montant:,.0f} FCFA) "
+                    f"pour {poste.nom}"
+                ),
+                type_notification='info'
+            )
+        
+        # 5. Journaliser l'action
+        log_user_action(
+            user,
+            f"Chargement stock {type_stock_label} avec tickets",
+            (
+                f"Stock crédité: Série {couleur.libelle_affichage} "
+                f"#{numero_premier}-{numero_dernier} "
+                f"= {montant:,.0f} FCFA pour {poste.nom}"
+            ),
+            None  # request n'est pas disponible dans cette fonction
+        )
+        
+        logger.info(
+            f"Chargement stock avec série : {couleur.libelle_affichage} "
+            f"#{numero_premier}-{numero_dernier} pour {poste.nom}"
+        )
+        
+        return True, "Chargement réussi", serie, historique
 
 @login_required
 def mon_stock(request):

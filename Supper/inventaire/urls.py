@@ -140,6 +140,7 @@ urlpatterns = [
      path('api/statistiques-postes/', views.api_statistiques_postes_ordonnes, name='api_statistiques_postes_ordonnes'),
      path('api/stats/', views.api_inventaire_stats, name='api_inventaire_stats'),
      path('stocks/chargement/confirmation/', views_stocks.confirmation_chargement_stock_tickets, name='confirmation_chargement_stock_tickets'),
+     path('recettes/vente/confirmation/', views.confirmation_recette_tickets, name='confirmation_recette_tickets'),
      path('compte-emploi/',views_rapports.selection_compte_emploi, name='selection_compte_emploi'),
      path('compte-emploi/<int:poste_id>/<str:mois>/', views_rapports.generer_compte_emploi_pdf, name='generer_compte_emploi'),
      path('parametrage-global/', views_rapports.parametrage_global, name='parametrage_global'),
@@ -206,4 +207,14 @@ path(
     views.ajouter_image_quittancement,
     name='ajouter_image_quittancement'
 ),
+
+# Traçabilité des tickets (admin)
+    path('admin/tracabilite-tickets/', 
+         views_admin.recherche_tracabilite_ticket, 
+         name='recherche_tracabilite_ticket'),
+    
+    path('api/verifier-unicite-ticket/', 
+         views_admin.verifier_unicite_ticket_annee, 
+         name='api_verifier_unicite_ticket'),
+
 ]

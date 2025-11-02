@@ -1,0 +1,286 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Traçabilité des Tickets{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .result-card {
+        border-left: 4px solid #3b82f6;
+        background: white;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .result-card.vendu {
+        border-left-color: #10b981;
+    }
+    
+    .result-card.transfere {
+        border-left-color: #f59e0b;
+    }
+    
+    .result-card.stock {
+        border-left-color: #3b82f6;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 3rem;
+        padding-bottom: 1rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e5e7eb;
+    }
+    
+    .timeline-item:last-child::before {
+        display: none;
+    }
+    
+    .timeline-dot {
+        position: absolute;
+        left: 0;
+        top: 0.25rem;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+    }
+    
+    .badge-couleur {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    
+    <h2 class="mb-4">
+        <i class="fas fa-search me-2"></i>
+        Traçabilité des Tickets
+    </h2>
+    
+    <!-- Carte de recherche -->
+    <div class="search-card">
+        <h4 class="mb-3">
+            <i class="fas fa-crosshairs me-2"></i>
+            Rechercher un ticket
+        </h4>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Numéro du ticket *</label>
+                    <input type="number" 
+                           name="numero_ticket" 
+                           class="form-control form-control-lg" 
+                           placeholder="Ex: 12345"
+                           value="{{ numero_recherche|default:'' }}"
+                           required>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Couleur *</label>
+                    <select name="couleur_id" class="form-select form-select-lg" required>
+                        <option value="">-- Sélectionner une couleur --</option>
+                        {% for couleur in couleurs %}
+                        <option value="{{ couleur.id }}" 
+                                {% if couleur_recherche == couleur.id|stringformat:"s" %}selected{% endif %}>
+                            {{ couleur.libelle_affichage }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Année (optionnel)</label>
+                    <select name="annee" class="form-select form-select-lg">
+                        <option value="">Toutes les années</option>
+                        {% for annee in annees_disponibles %}
+                        <option value="{{ annee }}" 
+                                {% if annee_recherche == annee|stringformat:"s" %}selected{% endif %}>
+                            {{ annee }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-light btn-lg w-100">
+                        <i class="fas fa-search me-2"></i>
+                        Rechercher
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Résultats -->
+    {% if resultats %}
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-list-alt me-2"></i>
+                Historique du ticket
+            </h5>
+        </div>
+        <div class="card-body">
+            
+            {% if resultats|length == 1 %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Ce ticket a été trouvé une seule fois dans le système.
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Attention :</strong> Ce ticket apparaît {{ resultats|length }} fois dans le système 
+                (années différentes selon la règle d'unicité annuelle).
+            </div>
+            {% endif %}
+            
+            <!-- Timeline des résultats -->
+            <div class="timeline mt-4">
+                {% for resultat in resultats %}
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-{{ resultat.classe_badge }} text-white">
+                        <i class="fas fa-{% if resultat.statut == 'stock' %}box{% elif resultat.statut == 'vendu' %}money-bill{% else %}exchange-alt{% endif %}"></i>
+                    </div>
+                    
+                    <div class="result-card {{ resultat.statut|lower }}">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="mb-1">
+                                    <span class="badge-couleur" style="background-color: #6B7280;">
+                                        {{ resultat.couleur }} #{{ resultat.numero }}
+                                    </span>
+                                    <span class="badge bg-{{ resultat.classe_badge }} ms-2">
+                                        {{ resultat.statut }}
+                                    </span>
+                                </h5>
+                                <p class="text-muted mb-0">
+                                    Année {{ resultat.annee }}
+                                </p>
+                            </div>
+                            
+                            <div class="text-end">
+                                <small class="text-muted">
+                                    {{ resultat.date_reception|date:"d/m/Y" }}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-2">Informations d'origine</h6>
+                                <ul class="list-unstyled mb-0">
+                                    <li>
+                                        <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                                        <strong>Poste initial :</strong> {{ resultat.poste_initial.nom }} ({{ resultat.poste_initial.code }})
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-calendar me-2 text-primary"></i>
+                                        <strong>Reçu le :</strong> {{ resultat.date_reception|date:"d/m/Y à H:i" }}
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-truck me-2 text-primary"></i>
+                                        <strong>Type d'entrée :</strong> {{ resultat.type_entree }}
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-hashtag me-2 text-primary"></i>
+                                        <strong>Série complète :</strong> 
+                                        #{{ resultat.serie.numero_premier }} - #{{ resultat.serie.numero_dernier }}
+                                    </li>
+                                </ul>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-2">État actuel</h6>
+                                
+                                {% if resultat.statut == 'stock' %}
+                                <div class="alert alert-success mb-0">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    {{ resultat.message }}
+                                </div>
+                                
+                                {% elif resultat.statut == 'vendu' %}
+                                <ul class="list-unstyled mb-0">
+                                    <li>
+                                        <i class="fas fa-calendar-check me-2 text-success"></i>
+                                        <strong>Date de vente :</strong> {{ resultat.date_vente|date:"d/m/Y" }}
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-map-marker-alt me-2 text-success"></i>
+                                        <strong>Poste de vente :</strong> {{ resultat.poste_vente }}
+                                    </li>
+                                    {% if resultat.recette_id %}
+                                    <li>
+                                        <i class="fas fa-file-invoice-dollar me-2 text-success"></i>
+                                        <strong>Recette :</strong> 
+                                        <a href="{% url 'inventaire:recette_detail' resultat.recette_id %}">
+                                            Voir la recette ({{ resultat.montant_recette|floatformat:0 }} FCFA)
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                                
+                                {% elif resultat.statut == 'transfere' %}
+                                <div class="alert alert-warning mb-0">
+                                    <i class="fas fa-exchange-alt me-2"></i>
+                                    {{ resultat.message }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if resultat.commentaire %}
+                        <div class="mt-3 p-2 bg-light rounded">
+                            <small class="text-muted">
+                                <i class="fas fa-comment me-1"></i>
+                                <strong>Commentaire :</strong> {{ resultat.commentaire }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    {% elif request.method == 'POST' %}
+    <div class="alert alert-warning">
+        <i class="fas fa-search me-2"></i>
+        Aucun résultat trouvé pour cette recherche.
+    </div>
+    {% endif %}
+    
+</div>
+{% endblock %}
