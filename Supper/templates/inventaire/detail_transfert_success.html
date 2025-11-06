@@ -1,0 +1,196 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Transfert Réussi - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête de succès -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-success border-success shadow-sm">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-check-circle fa-3x text-success me-3"></i>
+                    <div>
+                        <h4 class="alert-heading mb-1">✅ Transfert Réussi !</h4>
+                        <p class="mb-0">
+                            Le transfert de stock a été effectué avec succès. 
+                            Bordereau N° <strong>{{ numero_bordereau }}</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Détails du transfert -->
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        Détails du Transfert
+                    </h5>
+                </div>
+                
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="border-start border-danger border-4 ps-3 mb-3">
+                                <h6 class="text-danger mb-2">
+                                    <i class="fas fa-arrow-circle-left"></i> 
+                                    Poste Émetteur (Cède)
+                                </h6>
+                                <p class="mb-0"><strong>{{ poste_origine.nom }}</strong></p>
+                                <small class="text-muted">Code : {{ poste_origine.code }}</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="border-start border-success border-4 ps-3 mb-3">
+                                <h6 class="text-success mb-2">
+                                    <i class="fas fa-arrow-circle-right"></i> 
+                                    Poste Destinataire (Reçoit)
+                                </h6>
+                                <p class="mb-0"><strong>{{ poste_destination.nom }}</strong></p>
+                                <small class="text-muted">Code : {{ poste_destination.code }}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row text-center mb-4">
+                        <div class="col-md-6">
+                            <div class="bg-light p-3 rounded">
+                                <h6 class="text-muted mb-2">Montant Transféré</h6>
+                                <h3 class="text-primary mb-0">
+                                    {{ montant|floatformat:0 }} FCFA
+                                </h3>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="bg-light p-3 rounded">
+                                <h6 class="text-muted mb-2">Nombre de Tickets</h6>
+                                <h3 class="text-primary mb-0">
+                                    {{ nombre_tickets }} tickets
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bordereaux à télécharger -->
+                    <div class="alert alert-info border-info">
+                        <h6 class="mb-3">
+                            <i class="fas fa-file-pdf me-2"></i>
+                            Documents Disponibles
+                        </h6>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'inventaire:bordereaux_transfert' numero_bordereau=numero_bordereau %}?type=cession" 
+                               class="btn btn-outline-danger" 
+                               target="_blank">
+                                <i class="fas fa-file-pdf me-2"></i>
+                                📄 Télécharger le Bordereau de CESSION
+                                <small class="d-block">Pour le poste {{ poste_origine.nom }}</small>
+                            </a>
+                            
+                            <a href="{% url 'inventaire:bordereaux_transfert' numero_bordereau=numero_bordereau %}?type=reception" 
+                               class="btn btn-outline-success" 
+                               target="_blank">
+                                <i class="fas fa-file-pdf me-2"></i>
+                                📄 Télécharger le Bordereau de RÉCEPTION
+                                <small class="d-block">Pour le poste {{ poste_destination.nom }}</small>
+                            </a>
+                        </div>
+                        
+                        <p class="text-muted small mt-3 mb-0">
+                            <i class="fas fa-info-circle"></i> 
+                            Les bordereaux s'ouvriront dans un nouvel onglet
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-light">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'inventaire:liste_bordereaux' %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-list me-2"></i>
+                            Voir Tous les Bordereaux
+                        </a>
+                        
+                        <a href="{% url 'inventaire:selection_transfert_stock' %}" 
+                           class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>
+                            Nouveau Transfert
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historique rapide -->
+    <div class="row mt-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Historique du Transfert
+                    </h6>
+                </div>
+                
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <th width="30%">N° Bordereau :</th>
+                            <td><code>{{ numero_bordereau }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Date et Heure :</th>
+                            <td>{{ hist_cession.date_mouvement|date:"d/m/Y à H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Effectué par :</th>
+                            <td>{{ hist_cession.effectue_par.nom_complet }}</td>
+                        </tr>
+                        {% if hist_cession.commentaire %}
+                        <tr>
+                            <th>Commentaire :</th>
+                            <td>{{ hist_cession.commentaire }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.border-4 {
+    border-width: 4px !important;
+}
+
+.btn-outline-danger:hover,
+.btn-outline-success:hover {
+    color: white;
+}
+
+.alert-success {
+    animation: slideInDown 0.5s ease-out;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+{% endblock %}

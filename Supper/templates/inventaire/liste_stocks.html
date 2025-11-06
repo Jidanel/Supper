@@ -143,6 +143,9 @@
                        class="btn btn-sm btn-info">
                         <i class="fas fa-history"></i> Historique
                     </a>
+                    <a href="{% url 'inventaire:stock_historique_date' item.poste.id %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-calendar"></i> Stock par date
+                    </a>
                 </div>
             </div>
             

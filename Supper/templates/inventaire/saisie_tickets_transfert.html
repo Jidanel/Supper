@@ -1,0 +1,234 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Saisir les Tickets à Transférer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .serie-disponible {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 0.8rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .serie-disponible:hover {
+        background: #f3f4f6;
+        border-color: #667eea;
+    }
+    
+    .couleur-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- En-tête avec infos postes -->
+    <div class="row mb-4">
+        <div class="col-md-5">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="text-danger">
+                        <i class="fas fa-arrow-circle-left me-2"></i>
+                        POSTE ORIGINE (Cède)
+                    </h6>
+                    <h5>{{ poste_origine.nom }}</h5>
+                    <p class="mb-0">
+                        Stock actuel : 
+                        <strong>{{ stock_origine.valeur_monetaire|floatformat:0|format_milliers }} FCFA</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 text-center d-flex align-items-center justify-content-center">
+            <i class="fas fa-arrow-right fa-3x text-primary"></i>
+        </div>
+        
+        <div class="col-md-5">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-success">
+                        <i class="fas fa-arrow-circle-right me-2"></i>
+                        POSTE DESTINATION (Reçoit)
+                    </h6>
+                    <h5>{{ poste_destination.nom }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <h2 class="mb-4">Étape 2 : Saisir les Tickets à Transférer</h2>
+    
+    <div class="row">
+        <!-- Formulaire de saisie -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Saisie de la Série à Transférer</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="formTransfert">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            {{ form.couleur_saisie.label_tag }}
+                            {{ form.couleur_saisie }}
+                            {% if form.couleur_saisie.errors %}
+                            <div class="text-danger">{{ form.couleur_saisie.errors }}</div>
+                            {% endif %}
+                            <small class="text-muted">{{ form.couleur_saisie.help_text }}</small>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.numero_premier.label_tag }}
+                                {{ form.numero_premier }}
+                                {% if form.numero_premier.errors %}
+                                <div class="text-danger">{{ form.numero_premier.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                {{ form.numero_dernier.label_tag }}
+                                {{ form.numero_dernier }}
+                                {% if form.numero_dernier.errors %}
+                                <div class="text-danger">{{ form.numero_dernier.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Calcul automatique -->
+                        <div id="calcul-auto" class="alert alert-info d-none">
+                            <strong>Calcul automatique :</strong>
+                            <p class="mb-0" id="info-calcul"></p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.commentaire.label_tag }}
+                            {{ form.commentaire }}
+                            {% if form.commentaire.errors %}
+                            <div class="text-danger">{{ form.commentaire.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'inventaire:selection_postes_transfert_tickets' %}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour
+                            </a>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-arrow-right me-2"></i>
+                                Continuer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Séries disponibles -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Séries Disponibles au Poste d'Origine</h5>
+                </div>
+                <div class="card-body">
+                    {% if series_par_couleur %}
+                        {% for couleur_code, groupe in series_par_couleur.items %}
+                        <div class="mb-4">
+                            <h6>
+                                <span class="couleur-badge" 
+                                      style="background-color: {{ groupe.couleur.code_hex|default:'#6B7280' }}">
+                                    {{ groupe.couleur.libelle_affichage }}
+                                </span>
+                            </h6>
+                            
+                            <p class="text-muted">
+                                Total : {{ groupe.total_tickets }} tickets = 
+                                {{ groupe.valeur_totale|floatformat:0|format_milliers }} FCFA
+                            </p>
+                            
+                            {% for serie in groupe.series %}
+                            <div class="serie-disponible" 
+                                 onclick="remplirFormulaire('{{ groupe.couleur.libelle_affichage }}', {{ serie.numero_premier }}, {{ serie.numero_dernier }})">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>#{{ serie.numero_premier }} → #{{ serie.numero_dernier }}</strong>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-primary">
+                                            {{ serie.nombre_tickets }} tickets
+                                        </span>
+                                        <span class="badge bg-success">
+                                            {{ serie.valeur_monetaire|floatformat:0|format_milliers }} FCFA
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Aucune série en stock pour ce poste
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function remplirFormulaire(couleur, premier, dernier) {
+    document.getElementById('id_couleur_saisie').value = couleur;
+    document.getElementById('id_numero_premier').value = premier;
+    document.getElementById('id_numero_dernier').value = dernier;
+    
+    calculerAutomatique();
+}
+
+function calculerAutomatique() {
+    const premier = parseInt(document.getElementById('id_numero_premier').value) || 0;
+    const dernier = parseInt(document.getElementById('id_numero_dernier').value) || 0;
+    
+    if (premier > 0 && dernier > 0 && premier <= dernier) {
+        const nbTickets = dernier - premier + 1;
+        const montant = nbTickets * 500;
+        
+        document.getElementById('calcul-auto').classList.remove('d-none');
+        document.getElementById('info-calcul').innerHTML = 
+            `<strong>${nbTickets} tickets</strong> × 500 FCFA = 
+             <strong>${montant.toLocaleString('fr-FR')} FCFA</strong>`;
+    } else {
+        document.getElementById('calcul-auto').classList.add('d-none');
+    }
+}
+
+// Écouter les changements
+document.getElementById('id_numero_premier').addEventListener('input', calculerAutomatique);
+document.getElementById('id_numero_dernier').addEventListener('input', calculerAutomatique);
+
+// Calcul initial si valeurs présentes
+window.addEventListener('load', calculerAutomatique);
+</script>
+{% endblock %}

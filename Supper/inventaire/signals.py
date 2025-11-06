@@ -3,6 +3,7 @@
 # VERSION CORRIGÉE FINALE - REMPLACER ENTIÈREMENT LE FICHIER EXISTANT
 # ===================================================================
 
+from datetime import date
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -353,3 +354,74 @@ def auto_link_inventaire_recette(sender, instance, created, **kwargs):
             logger.warning(f"Aucun inventaire trouvé pour la recette: {instance.poste.nom} du {instance.date}")
         except Exception as e:
             logger.error(f"Erreur liaison auto inventaire-recette: {str(e)}")
+
+
+
+
+# Variable globale pour tracker la dernière date de snapshot
+_derniere_date_snapshot = None
+
+
+def creer_snapshots_quotidiens():
+    """
+    ✅ Crée les snapshots de stock pour tous les postes actifs
+    À appeler automatiquement à minuit
+    """
+    from accounts.models import Poste
+    from inventaire.models import SnapshotStockJournalier
+    import logging
+    
+    logger = logging.getLogger('supper')
+    
+    global _derniere_date_snapshot
+    date_aujourdhui = date.today()
+    
+    # Éviter de créer plusieurs fois le même jour
+    if _derniere_date_snapshot == date_aujourdhui:
+        return
+    
+    logger.info(f"🔄 Création des snapshots de stock pour le {date_aujourdhui}")
+    
+    postes_actifs = Poste.objects.filter(is_active=True)
+    count_success = 0
+    count_error = 0
+    
+    for poste in postes_actifs:
+        try:
+            # Créer snapshot pour hier (stock de fin de journée)
+            hier = date_aujourdhui - timedelta(days=1)
+            snapshot = SnapshotStockJournalier.creer_snapshot(poste, hier)
+            count_success += 1
+            logger.debug(f"✅ Snapshot créé: {poste.nom} - {hier} - {snapshot.stock_total_quantite} tickets")
+        except Exception as e:
+            count_error += 1
+            logger.error(f"❌ Erreur snapshot {poste.nom}: {str(e)}")
+    
+    _derniere_date_snapshot = date_aujourdhui
+    logger.info(f"✅ Snapshots créés: {count_success} OK, {count_error} erreurs")
+
+
+@receiver(post_save, sender='inventaire.SerieTicket')
+def verifier_creation_snapshot_apres_mouvement(sender, instance, created, **kwargs):
+    """
+    ✅ Vérifie si on doit créer un snapshot après un mouvement de stock
+    """
+    from datetime import datetime
+    
+    global _derniere_date_snapshot
+    date_aujourdhui = date.today()
+    heure_actuelle = datetime.now().time()
+    
+    # Si c'est un nouveau jour ET qu'on n'a pas encore créé le snapshot
+    if _derniere_date_snapshot != date_aujourdhui:
+        # Créer les snapshots à partir de 00:05 (laisser 5 min de marge)
+        if heure_actuelle.hour == 0 and heure_actuelle.minute >= 5:
+            creer_snapshots_quotidiens()
+
+
+# ===================================================================
+# COMMANDE MANUELLE pour créer les snapshots
+# python manage.py shell
+# from inventaire.signals import creer_snapshots_quotidiens
+# creer_snapshots_quotidiens()
+# ===================================================================

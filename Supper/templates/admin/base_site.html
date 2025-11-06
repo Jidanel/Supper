@@ -418,7 +418,12 @@
                         </a>
                     </li>
                     <li>
-                        <a class="dropdown-item" href="{% url 'inventaire:selection_transfert_stock' %}">
+                        <a class="dropdown-item" href="{% url 'inventaire:stock_historique_date' poste.id %}">
+                            <i class="fas fa-calendar-check"></i> {% trans "Stock à une date" %}
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:selection_postes_transfert_tickets' %}">
                             <i class="fas fa-truck-moving me-2"></i>{% trans "Transférer Stock" %}
                         </a>
                     </li>

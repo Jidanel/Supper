@@ -1485,3 +1485,107 @@ class TransfertStockTicketsForm(forms.Form):
             cleaned_data['montant_calcule'] = montant
         
         return cleaned_data
+
+class TransfertStockTicketsForm(forms.Form):
+    """
+    Formulaire de transfert de stock par saisie de séries de tickets
+    Similaire au formulaire de saisie de recette
+    """
+    
+    couleur_saisie = forms.CharField(
+        label="Couleur des tickets",
+        max_length=50,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: Bleu, Rouge, Vert...'
+        }),
+        help_text="Entrez la couleur des tickets à transférer"
+    )
+    
+    numero_premier = forms.IntegerField(
+        label="N° du premier ticket",
+        min_value=1,
+        required=True,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 1000'
+        })
+    )
+    
+    numero_dernier = forms.IntegerField(
+        label="N° du dernier ticket",
+        min_value=1,
+        required=True,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 1050'
+        })
+    )
+    
+    commentaire = forms.CharField(
+        label="Commentaire (optionnel)",
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Raison du transfert, observations...'
+        })
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        numero_premier = cleaned_data.get('numero_premier')
+        numero_dernier = cleaned_data.get('numero_dernier')
+        
+        if numero_premier and numero_dernier:
+            if numero_premier > numero_dernier:
+                raise forms.ValidationError(
+                    "Le numéro du premier ticket doit être inférieur ou égal au dernier"
+                )
+        
+        return cleaned_data
+
+
+class SelectionPostesTransfertForm(forms.Form):
+    """
+    Formulaire de sélection des postes pour le transfert
+    """
+    
+    poste_origine = forms.ModelChoiceField(
+        queryset=Poste.objects.filter(is_active=True).order_by('nom'),
+        label="Poste d'origine (cède)",
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'form-select form-select-lg',
+        }),
+        empty_label="-- Sélectionner le poste qui cède --"
+    )
+    
+    poste_destination = forms.ModelChoiceField(
+        queryset=Poste.objects.filter(is_active=True).order_by('nom'),
+        label="Poste de destination (reçoit)",
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'form-select form-select-lg',
+        }),
+        empty_label="-- Sélectionner le poste qui reçoit --"
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        origine = cleaned_data.get('poste_origine')
+        destination = cleaned_data.get('poste_destination')
+        
+        if origine and destination and origine == destination:
+            raise forms.ValidationError(
+                "Les postes d'origine et de destination doivent être différents"
+            )
+        
+        return cleaned_data
+
+
+
+
+
+

@@ -31,7 +31,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Hôtes autorisés
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
-
+# ALLOWED_HOSTS = ('10.87.11.160')
 # ===================================================================
 # APPLICATIONS INSTALLÉES
 # ===================================================================
@@ -380,6 +380,7 @@ if not DEBUG:
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
+    
 ]
 
 # ===================================================================

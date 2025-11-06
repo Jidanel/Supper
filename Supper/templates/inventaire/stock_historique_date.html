@@ -1,0 +1,323 @@
+<!-- templates/inventaire/stock_historique_date.html -->
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Stock historique - {{ poste.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timeline-event {
+        border-left: 3px solid #3b82f6;
+        padding-left: 1rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+    
+    .timeline-event::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #3b82f6;
+        border: 2px solid #fff;
+    }
+    
+    .event-credit {
+        border-left-color: #10b981;
+    }
+    
+    .event-credit::before {
+        background: #10b981;
+    }
+    
+    .event-debit {
+        border-left-color: #ef4444;
+    }
+    
+    .event-debit::before {
+        background: #ef4444;
+    }
+    
+    .stock-value-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .date-selector {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2><i class="fas fa-calendar-check"></i> Stock Historique - {{ poste.nom }}</h2>
+    
+    <!-- Sélecteur de date -->
+    <div class="date-selector">
+        <form method="get" class="row align-items-end">
+            <div class="col-md-4">
+                <label for="date" class="form-label">
+                    <i class="fas fa-calendar"></i> Sélectionner une date
+                </label>
+                <input type="date" 
+                       id="date" 
+                       name="date" 
+                       class="form-control" 
+                       value="{{ date_selectionnee|date:'Y-m-d' }}"
+                       max="{{ 'now'|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Afficher
+                </button>
+                <a href="{% url 'inventaire:api_stock_timeline' poste.id %}?date_fin={{ date_selectionnee|date:'Y-m-d' }}" 
+                   class="btn btn-info" target="_blank">
+                    <i class="fas fa-chart-line"></i> API JSON
+                </a>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'inventaire:export_stock_history_csv' poste.id %}" 
+                   class="btn btn-success">
+                    <i class="fas fa-download"></i> Exporter CSV
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Valeur du stock à la date sélectionnée -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="stock-value-card">
+                <h4>Stock au {{ date_selectionnee|date:"d/m/Y" }}</h4>
+                <div class="display-4 mb-2">
+                    {{ stock_valeur|floatformat:0|format_milliers }} FCFA
+                </div>
+                <div class="h5">
+                    <i class="fas fa-ticket-alt"></i> {{ stock_tickets|format_milliers }} tickets
+                </div>
+                <hr>
+                <small>
+                    <i class="fas fa-info-circle"></i>
+                    Basé sur {{ nombre_events_total }} événement(s) jusqu'à cette date
+                </small>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Informations complémentaires</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Poste :</th>
+                            <td>{{ poste.nom }} ({{ poste.code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Région :</th>
+                            <td>{{ poste.get_region_display }}</td>
+                        </tr>
+                        {% if dernier_event %}
+                        <tr>
+                            <th>Dernier mouvement :</th>
+                            <td>
+                                {{ dernier_event.event_datetime|date:"d/m/Y H:i" }}
+                                <br>
+                                <small class="text-muted">
+                                    {{ dernier_event.get_event_type_display }}
+                                    ({{ dernier_event.montant_variation|floatformat:0|format_milliers }} FCFA)
+                                </small>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                    
+                    <!-- Actions rapides -->
+                    <div class="mt-3">
+                        <h6>Comparer avec :</h6>
+                        <div class="btn-group">
+                            <a href="?date={{ date_selectionnee|add:"-1"|date:'Y-m-d' }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                Jour précédent
+                            </a>
+                            <a href="?date={{ date_selectionnee|add:"-7"|date:'Y-m-d' }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                -1 semaine
+                            </a>
+                            <a href="?date={{ date_selectionnee|add:"-30"|date:'Y-m-d' }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                -1 mois
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Graphique d'évolution sur 30 jours -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="fas fa-chart-line"></i> Évolution sur 30 jours</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="stockChart" height="100"></canvas>
+        </div>
+    </div>
+    
+    <!-- Événements de la journée -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>
+                        <i class="fas fa-list"></i> 
+                        Événements du {{ date_selectionnee|date:"d/m/Y" }}
+                        {% if events_jour %}
+                        <span class="badge bg-primary">{{ events_jour|length }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if events_jour %}
+                        <div class="timeline">
+                            {% for event in events_jour %}
+                            <div class="timeline-event 
+                                        {% if event.montant_variation > 0 %}event-credit{% else %}event-debit{% endif %}">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            {{ event.get_event_type_display }}
+                                            <span class="badge 
+                                                {% if event.montant_variation > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                                {% if event.montant_variation > 0 %}+{% endif %}
+                                                {{ event.montant_variation|floatformat:0|format_milliers }} FCFA
+                                            </span>
+                                        </h6>
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock"></i> {{ event.event_datetime|date:"H:i:s" }}
+                                            {% if event.effectue_par %}
+                                            | <i class="fas fa-user"></i> {{ event.effectue_par.nom_complet }}
+                                            {% endif %}
+                                        </small>
+                                        {% if event.commentaire %}
+                                        <p class="mb-0 mt-2">
+                                            <small>{{ event.commentaire }}</small>
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-end">
+                                        <small class="text-muted">
+                                            Stock après:<br>
+                                            <strong>{{ event.stock_resultant|floatformat:0|format_milliers }} FCFA</strong>
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Métadonnées si disponibles -->
+                                {% if event.metadata %}
+                                <div class="mt-2">
+                                    {% if event.metadata.numero_bordereau %}
+                                    <span class="badge bg-info">
+                                        Bordereau: {{ event.metadata.numero_bordereau }}
+                                    </span>
+                                    {% endif %}
+                                    {% if event.metadata.series %}
+                                    <div class="mt-1">
+                                        {% for serie in event.metadata.series %}
+                                        <span class="badge bg-secondary me-1">
+                                            {{ serie.couleur }} #{{ serie.premier }}-{{ serie.dernier }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">
+                            <i class="fas fa-info-circle"></i>
+                            Aucun mouvement de stock ce jour-là
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Graphique d'évolution
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('stockChart').getContext('2d');
+    
+    // Données depuis le template
+    const history = {{ history|safe|default:"[]" }};
+    
+    const labels = history.map(h => {
+        const d = new Date(h.date);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+    });
+    
+    const data = history.map(h => h.valeur);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Stock (FCFA)',
+                data: data,
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y.toLocaleString('fr-FR') + ' FCFA';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('fr-FR');
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

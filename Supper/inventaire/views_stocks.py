@@ -563,38 +563,13 @@ def confirmation_chargement_stock_tickets(request):
 def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero_dernier, 
                                          type_stock, user, commentaire):
     """
-    Exécute le chargement de stock ET crée la liaison avec l'historique
-    
-    Cette fonction centralise toute la logique de chargement de stock avec tickets :
-    - Crée la série de tickets
-    - Met à jour le stock global
-    - Crée l'historique avec liaison aux séries
-    - Envoie les notifications
-    - Journalise l'action
-    
-    Args:
-        poste: Instance de Poste concerné
-        couleur: Instance de CouleurTicket
-        numero_premier: Premier numéro de la série (int)
-        numero_dernier: Dernier numéro de la série (int)
-        type_stock: 'imprimerie_nationale' ou 'regularisation'
-        user: Utilisateur effectuant l'opération
-        commentaire: Commentaire optionnel (str)
-    
-    Returns:
-        tuple: (success, message, serie_creee, historique)
-        - success (bool): True si l'opération a réussi
-        - message (str): Message de résultat
-        - serie_creee (SerieTicket): Instance de la série créée
-        - historique (HistoriqueStock): Instance de l'historique créé
-    
-    Raises:
-        Exception: En cas d'erreur lors de la transaction
+    VERSION MODIFIÉE avec Event Sourcing
+    Exécute le chargement de stock ET crée la liaison avec l'historique + EVENT
     """
     from django.db import transaction
     
     with transaction.atomic():
-        # 1. Créer la série de tickets
+        # 1. Créer la série de tickets (CODE EXISTANT)
         serie = SerieTicket.objects.create(
             poste=poste,
             couleur=couleur,
@@ -605,7 +580,7 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
             commentaire=commentaire
         )
         
-        # 2. Mettre à jour le stock global (ancien système)
+        # 2. Mettre à jour le stock global (CODE EXISTANT)
         stock, _ = GestionStock.objects.get_or_create(
             poste=poste,
             defaults={'valeur_monetaire': Decimal('0')}
@@ -617,7 +592,36 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
         stock.valeur_monetaire += montant
         stock.save()
         
-        # 3. Créer l'historique
+        # ===== NOUVEAU CODE EVENT SOURCING (AJOUTER) =====
+        # Créer l'événement Event Sourcing
+        event_type = 'REGULARISATION' if type_stock == 'regularisation' else 'CHARGEMENT'
+        
+        StockEvent.objects.create(
+            poste=poste,
+            event_type=event_type,
+            event_datetime=timezone.now(),
+            montant_variation=montant,
+            nombre_tickets_variation=serie.nombre_tickets,
+            stock_resultant=stock.valeur_monetaire,  # Utiliser la nouvelle valeur
+            tickets_resultants=int(stock.valeur_monetaire / 500),
+            effectue_par=user,
+            reference_id=str(serie.id),
+            reference_type='SerieTicket',
+            metadata={
+                'type_stock': type_stock,
+                'serie': {
+                    'couleur': couleur.libelle_affichage,
+                    'numero_premier': numero_premier,
+                    'numero_dernier': numero_dernier,
+                    'nombre_tickets': serie.nombre_tickets,
+                    'valeur': str(montant)
+                }
+            },
+            commentaire=commentaire or f"Chargement série {couleur.libelle_affichage}"
+        )
+        # ===== FIN NOUVEAU CODE =====
+        
+        # 3. Créer l'historique (CODE EXISTANT - garder tel quel)
         type_stock_label = (
             "Régularisation" if type_stock == 'regularisation' 
             else "Imprimerie Nationale"
@@ -638,8 +642,7 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
             )
         )
         
-        # ===== IMPORTANT : Associer la série à l'historique =====
-        # Cette méthode doit exister dans le modèle HistoriqueStock
+        # Reste du code existant (notifications, etc.) - GARDER TEL QUEL
         historique.associer_series_tickets([serie])
         
         # 4. Envoyer notifications aux chefs de poste
@@ -673,7 +676,7 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
                 f"#{numero_premier}-{numero_dernier} "
                 f"= {montant:,.0f} FCFA pour {poste.nom}"
             ),
-            None  # request n'est pas disponible dans cette fonction
+            None
         )
         
         logger.info(
@@ -682,6 +685,7 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
         )
         
         return True, "Chargement réussi", serie, historique
+
 
 @login_required
 def mon_stock(request):

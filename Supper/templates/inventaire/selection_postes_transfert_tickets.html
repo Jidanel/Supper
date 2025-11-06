@@ -1,0 +1,134 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Transférer des Tickets{% endblock %}
+
+{% block extra_css %}
+<style>
+    .poste-card {
+        border-left: 4px solid #667eea;
+        transition: all 0.3s;
+    }
+    
+    .poste-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .serie-badge {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 15px;
+        margin: 0.2rem;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-exchange-alt me-2"></i>
+        Transférer des Tickets Entre Postes
+    </h2>
+    
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Nouveau système de transfert :</strong> 
+        Saisissez les numéros de tickets à transférer (comme pour la déclaration de recette).
+        Le système calculera automatiquement la valeur monétaire.
+    </div>
+    
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Règle importante :</strong> 
+        Un ticket vendu ne peut PAS être transféré. Seuls les tickets en stock peuvent être transférés.
+    </div>
+    
+    <!-- Formulaire de sélection -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Étape 1 : Sélectionner les Postes</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        {{ form.poste_origine.label_tag }}
+                        {{ form.poste_origine }}
+                        {% if form.poste_origine.errors %}
+                        <div class="text-danger">{{ form.poste_origine.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        {{ form.poste_destination.label_tag }}
+                        {{ form.poste_destination }}
+                        {% if form.poste_destination.errors %}
+                        <div class="text-danger">{{ form.poste_destination.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+                
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-arrow-right me-2"></i>
+                        Continuer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Aperçu des stocks disponibles -->
+    <h4 class="mb-3">Stocks Disponibles par Poste</h4>
+    
+    <div class="row">
+        {% for item in postes %}
+        <div class="col-md-6 mb-3">
+            <div class="card poste-card">
+                <div class="card-body">
+                    <h5>{{ item.poste.nom }}</h5>
+                    <p class="text-muted mb-2">{{ item.poste.code }}</p>
+                    
+                    <div class="mb-2">
+                        <strong>Stock total :</strong> 
+                        <span class="badge bg-primary">
+                            {{ item.stock_actuel|floatformat:0|format_milliers }} FCFA
+                        </span>
+                    </div>
+                    
+                    {% if item.series_disponibles %}
+                    <div class="mt-3">
+                        <strong>Séries disponibles :</strong>
+                        <div class="mt-2">
+                            {% for serie in item.series_disponibles %}
+                            <span class="serie-badge" 
+                                  style="background-color: {{ serie.couleur.code_hex|default:'#6B7280' }}; color: white;">
+                                {{ serie.couleur.libelle_affichage }} 
+                                #{{ serie.numero_premier }}-{{ serie.numero_dernier }}
+                                ({{ serie.nombre_tickets }} tickets)
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-muted mt-2">
+                        <i>Aucune série en stock</i>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

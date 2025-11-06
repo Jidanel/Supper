@@ -11,7 +11,9 @@ from . import views_rapports
 from . import views_import
 from . import views_classement
 from . import views_transferts
+from . import views_transferts_tickets
 from . import views_bordereaux_pdf
+from .views_stock_event_sourcing import *
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -145,7 +147,7 @@ urlpatterns = [
      path('stocks/chargement/confirmation/', views_stocks.confirmation_chargement_stock_tickets, name='confirmation_chargement_stock_tickets'),
      path('recettes/vente/confirmation/', views.confirmation_recette_tickets, name='confirmation_recette_tickets'),
      path('compte-emploi/',views_rapports.selection_compte_emploi, name='selection_compte_emploi'),
-     path('compte-emploi/<int:poste_id>/<str:mois>/', views_rapports.generer_compte_emploi_pdf, name='generer_compte_emploi'),
+     path('compte-emploi/<int:poste_id>/<str:date_debut>/<str:date_fin>/', views_rapports.generer_compte_emploi_pdf, name='generer_compte_emploi'),
      path('parametrage-global/', views_rapports.parametrage_global, name='parametrage_global'),
      path('classement-rendement/', views_classement.classement_postes_rendement, name='classement_rendement'),
      path('stocks/transfert/selection/', 
@@ -219,5 +221,62 @@ path(
     path('api/verifier-unicite-ticket/', 
          views_admin.verifier_unicite_ticket_annee, 
          name='api_verifier_unicite_ticket'),
+     
+     path('transfert-tickets/selection-postes/', 
+         views_transferts_tickets.selection_postes_transfert_tickets,
+         name='selection_postes_transfert_tickets'),
+     path('transfert/bordereau/<str:numero_bordereau>/',
+     views_transferts_tickets.detail_bordereau_transfert,
+     name='detail_bordereau_transfert'),
+    
+    path('transfert-tickets/saisie/', 
+         views_transferts_tickets.saisie_tickets_transfert,
+         name='saisie_tickets_transfert'),
+    
+    path('transfert-tickets/confirmation/', 
+         views_transferts_tickets.confirmation_transfert_tickets,
+         name='confirmation_transfert_tickets'),
+
+     path('stocks/transfert/succes/<str:numero_bordereau>/', 
+     views_transferts.detail_transfert_succes, 
+     name='detail_transfert_succes'),
 
 ]
+
+event_sourcing_patterns = [
+    # Visualisation du stock à une date
+    path(
+        'stock/<int:poste_id>/historique/',
+        stock_historique_date,
+        name='stock_historique_date'
+    ),
+    
+    # API pour timeline graphique
+    path(
+        'api/stock/<int:poste_id>/timeline/',
+        api_stock_timeline,
+        name='api_stock_timeline'
+    ),
+    
+    # Comparaison entre dates
+    path(
+        'stock/comparer-dates/',
+        comparer_stocks_dates,
+        name='comparer_stocks_dates'
+    ),
+    
+    # Export CSV
+    path(
+        'stock/<int:poste_id>/export-csv/',
+        export_stock_history_csv,
+        name='export_stock_history_csv'
+    ),
+    
+    # Reconstruction (admin only)
+    path(
+        'stock/<int:poste_id>/rebuild/',
+        rebuild_stock_events,
+        name='rebuild_stock_events'
+    ),
+]
+urlpatterns += event_sourcing_patterns

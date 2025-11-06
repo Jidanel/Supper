@@ -1362,7 +1362,34 @@ def traiter_confirmation_recette_tickets(request):
                 reference_recette=recette,
                 commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')} - {len(data['details_ventes'])} série(s)"
             )
-            
+            StockEvent.objects.create(
+                    poste=poste,
+                    event_type='VENTE',
+                    event_datetime=datetime.combine(date_recette, datetime.now().time()),
+                    montant_variation=-montant_total,  # NÉGATIF car c'est une sortie
+                    nombre_tickets_variation=-int(montant_total / 500),  # NÉGATIF
+                    stock_resultant=stock.valeur_monetaire,  # Stock APRÈS la vente
+                    tickets_resultants=int(stock.valeur_monetaire / 500),
+                    effectue_par=request.user,
+                    reference_id=str(recette.id),
+                    reference_type='RecetteJournaliere',
+                    metadata={
+                        'date_recette': str(date_recette),
+                        'montant_declare': str(montant_total),
+                        'series_vendues': [
+                            {
+                                'couleur': detail_data['couleur_libelle'],
+                                'numero_premier': detail_data['numero_premier'],
+                                'numero_dernier': detail_data['numero_dernier'],
+                                'nombre_tickets': detail_data['nombre_tickets'],
+                                'montant': detail_data['montant']
+                            }
+                            for detail_data in data['details_ventes']
+                        ]
+                    },
+                    commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')} - {len(data['details_ventes'])} série(s)"
+                )
+
             # ===== NOUVEAU : Associer les séries à l'historique =====
             if series_vendues:
                 historique.associer_series_tickets(series_vendues)

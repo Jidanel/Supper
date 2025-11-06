@@ -1,4 +1,5 @@
 # inventaire/views_transferts.py
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -8,7 +9,7 @@ from datetime import datetime
 from django.db.models import Sum, Avg, Count, Q
 
 from accounts.models import Poste, NotificationUtilisateur
-from inventaire.models import GestionStock, HistoriqueStock
+from inventaire.models import *
 from common.utils import log_user_action
 import logging
 
@@ -127,11 +128,13 @@ def formulaire_transfert_stock(request, origine_id, destination_id):
     return render(request, 'inventaire/formulaire_transfert_stock.html', context)
 
 
+
 @login_required
 @user_passes_test(is_admin)
 def confirmation_transfert_stock(request):
-    """Confirmation du transfert avant exécution - VERSION CORRIGÉE"""
-    
+    """
+    ✅ VERSION AMÉLIORÉE : Meilleure gestion de la redirection
+    """
     transfert_data = request.session.get('transfert_stock')
     
     if not transfert_data:
@@ -147,15 +150,12 @@ def confirmation_transfert_stock(request):
         
         if action == 'confirmer':
             try:
-                # LOG avant exécution
                 logger.info(f"DEBUT TRANSFERT : {montant} FCFA de {poste_origine.code} vers {poste_destination.code}")
                 
                 with transaction.atomic():
-                    # Générer le numéro de bordereau
                     numero_bordereau = generer_numero_bordereau()
                     logger.info(f"Bordereau généré : {numero_bordereau}")
                     
-                    # Exécuter le transfert
                     hist_origine, hist_destination = executer_transfert_stock(
                         poste_origine,
                         poste_destination,
@@ -165,31 +165,30 @@ def confirmation_transfert_stock(request):
                         numero_bordereau
                     )
                     
-                    logger.info(f"Transaction terminée - Hist Origine ID: {hist_origine.id}, Hist Dest ID: {hist_destination.id}")
+                    logger.info(f"Transaction OK - Hist Origine: {hist_origine.id}, Hist Dest: {hist_destination.id}")
                 
-                # Si on arrive ici, la transaction a réussi
-                # Nettoyer la session
+                # ✅ NOUVEAU : Nettoyer la session ET rediriger vers page de succès
                 if 'transfert_stock' in request.session:
                     del request.session['transfert_stock']
                 
                 messages.success(
                     request, 
-                    f"✅ Transfert réussi ! {montant:,.0f} FCFA transférés de {poste_origine.nom} vers {poste_destination.nom}"
+                    f"✅ Transfert réussi ! {montant:,.0f} FCFA transférés. Bordereau N°{numero_bordereau}"
                 )
                 
-                # Rediriger vers les bordereaux
-                return redirect('inventaire:bordereaux_transfert', numero_bordereau=numero_bordereau)
+                # ✅ CORRECTION : Redirection vers une page de succès avec liens bordereaux
+                return redirect('inventaire:detail_transfert_succes', numero_bordereau=numero_bordereau)
                 
             except ValueError as ve:
-                logger.error(f"Erreur de validation transfert : {str(ve)}")
-                messages.error(request, f"Erreur de validation : {str(ve)}")
+                logger.error(f"Erreur validation : {str(ve)}")
+                messages.error(request, f"❌ Validation : {str(ve)}")
                 return redirect('inventaire:formulaire_transfert_stock', 
                               origine_id=poste_origine.id, 
                               destination_id=poste_destination.id)
             
             except Exception as e:
-                logger.error(f"Erreur transfert stock : {str(e)}", exc_info=True)
-                messages.error(request, f"❌ Erreur lors du transfert : {str(e)}")
+                logger.error(f"Erreur transfert : {str(e)}", exc_info=True)
+                messages.error(request, f"❌ Erreur : {str(e)}")
                 return redirect('inventaire:selection_transfert_stock')
         
         elif action == 'annuler':
@@ -209,11 +208,54 @@ def confirmation_transfert_stock(request):
     
     return render(request, 'inventaire/confirmation_transfert_stock.html', context)
 
+
+
+@login_required
+@user_passes_test(is_admin)
+def detail_transfert_succes(request, numero_bordereau):
+    """
+    ✅ NOUVELLE PAGE : Affiche les détails du transfert avec liens de téléchargement
+    """
+    # Récupérer les deux historiques
+    hist_cession = get_object_or_404(
+        HistoriqueStock,
+        numero_bordereau=numero_bordereau,
+        type_mouvement='DEBIT'
+    )
+    
+    hist_reception = HistoriqueStock.objects.filter(
+        numero_bordereau=numero_bordereau,
+        type_mouvement='CREDIT'
+    ).first()
+    
+    context = {
+        'numero_bordereau': numero_bordereau,
+        'hist_cession': hist_cession,
+        'hist_reception': hist_reception,
+        'poste_origine': hist_cession.poste_origine,
+        'poste_destination': hist_cession.poste_destination,
+        'montant': hist_cession.montant,
+        'nombre_tickets': hist_cession.nombre_tickets,
+        'title': 'Transfert Réussi'
+    }
+    
+    return render(request, 'inventaire/detail_transfert_succes.html', context)
+
+# ===== MODIFICATIONS À APPORTER DANS inventaire/views_transferts.py =====
+
+# 1. AJOUTER ces imports au début du fichier :
+from inventaire.models import StockEvent
+from datetime import datetime
+
+
+# 2. REMPLACER la fonction executer_transfert_stock (environ ligne 200-300)
+# par cette version modifiée :
+
 def executer_transfert_stock(poste_origine, poste_destination, montant, 
                             user, commentaire, numero_bordereau):
     """
+    VERSION MODIFIÉE avec Event Sourcing
     Exécute le transfert de stock entre deux postes
-    VERSION CORRIGÉE avec get_or_create
     """
     
     # CORRECTION : Utiliser get_or_create au lieu de get
@@ -248,7 +290,55 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     logger.info(f"TRANSFERT STOCK - Origine {poste_origine.code}: {stock_origine_avant} -> {stock_origine.valeur_monetaire}")
     logger.info(f"TRANSFERT STOCK - Destination {poste_destination.code}: {stock_destination_avant} -> {stock_destination.valeur_monetaire}")
     
-    # Créer l'historique pour le poste ORIGINE (DEBIT - Cession)
+    # ===== NOUVEAU CODE EVENT SOURCING =====
+    timestamp = timezone.now()
+    
+    # Créer l'événement de SORTIE pour le poste origine
+    StockEvent.objects.create(
+        poste=poste_origine,
+        event_type='TRANSFERT_OUT',
+        event_datetime=timestamp,
+        montant_variation=-montant,  # NÉGATIF car sortie
+        nombre_tickets_variation=-nombre_tickets,
+        stock_resultant=stock_origine.valeur_monetaire,
+        tickets_resultants=int(stock_origine.valeur_monetaire / 500),
+        effectue_par=user,
+        metadata={
+            'poste_destination': {
+                'id': poste_destination.id,
+                'nom': poste_destination.nom,
+                'code': poste_destination.code
+            },
+            'numero_bordereau': numero_bordereau,
+            'type_operation': 'cession'
+        },
+        commentaire=f"Transfert vers {poste_destination.nom} - {commentaire}"
+    )
+    
+    # Créer l'événement d'ENTRÉE pour le poste destination
+    StockEvent.objects.create(
+        poste=poste_destination,
+        event_type='TRANSFERT_IN',
+        event_datetime=timestamp,
+        montant_variation=montant,  # POSITIF car entrée
+        nombre_tickets_variation=nombre_tickets,
+        stock_resultant=stock_destination.valeur_monetaire,
+        tickets_resultants=int(stock_destination.valeur_monetaire / 500),
+        effectue_par=user,
+        metadata={
+            'poste_origine': {
+                'id': poste_origine.id,
+                'nom': poste_origine.nom,
+                'code': poste_origine.code
+            },
+            'numero_bordereau': numero_bordereau,
+            'type_operation': 'reception'
+        },
+        commentaire=f"Transfert depuis {poste_origine.nom} - {commentaire}"
+    )
+    # ===== FIN NOUVEAU CODE =====
+    
+    # Créer l'historique pour le poste ORIGINE (CODE EXISTANT - garder)
     hist_origine = HistoriqueStock.objects.create(
         poste=poste_origine,
         type_mouvement='DEBIT',
@@ -266,7 +356,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     
     logger.info(f"Historique ORIGINE créé - ID: {hist_origine.id}, Bordereau: {hist_origine.numero_bordereau}")
     
-    # Créer l'historique pour le poste DESTINATION (CREDIT - Réception)
+    # Créer l'historique pour le poste DESTINATION (CODE EXISTANT - garder)
     hist_destination = HistoriqueStock.objects.create(
         poste=poste_destination,
         type_mouvement='CREDIT',
@@ -284,6 +374,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     
     logger.info(f"Historique DESTINATION créé - ID: {hist_destination.id}, Bordereau: {hist_destination.numero_bordereau}")
     
+    # RESTE DU CODE EXISTANT (notifications, etc.) - GARDER TEL QUEL
     # Notifier les chefs de poste concernés
     from accounts.models import UtilisateurSUPPER
     
@@ -353,65 +444,248 @@ def generer_numero_bordereau():
 @login_required
 def bordereaux_transfert(request, numero_bordereau):
     """
-    Affiche les bordereaux de cession et d'approvisionnement
-    VERSION CORRIGÉE avec meilleur débogage
+    ✅ VERSION CORRIGÉE : Détection automatique du type de bordereau
+    
+    Génère DEUX PDF (cession + réception) ou UN seul selon le paramètre GET
     """
+    from django.shortcuts import get_object_or_404, render
+    from django.http import HttpResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.enums import TA_CENTER
+    from datetime import datetime
+    from decimal import Decimal
     
-    logger.info(f"Recherche bordereau : {numero_bordereau}")
+    # ========== RÉCUPÉRER LE TYPE DEMANDÉ (ou par défaut 'cession') ==========
+    type_bordereau = request.GET.get('type', 'cession')
     
-    # Récupérer les deux historiques liés à ce bordereau
-    historiques = HistoriqueStock.objects.filter(
-        numero_bordereau=numero_bordereau
-    ).select_related('poste', 'poste_origine', 'poste_destination', 'effectue_par')
+    # Validation du type
+    if type_bordereau not in ['cession', 'reception']:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest("Type de bordereau invalide. Utilisez 'cession' ou 'reception'")
     
-    logger.info(f"Nombre d'historiques trouvés : {historiques.count()}")
+    # ========== RÉCUPÉRER L'HISTORIQUE SELON LE TYPE ==========
+    try:
+        if type_bordereau == 'cession':
+            hist = HistoriqueStock.objects.select_related(
+                'poste', 'poste_origine', 'poste_destination', 'effectue_par'
+            ).get(
+                numero_bordereau=numero_bordereau,
+                type_mouvement='DEBIT'
+            )
+        else:
+            hist = HistoriqueStock.objects.select_related(
+                'poste', 'poste_origine', 'poste_destination', 'effectue_par'
+            ).get(
+                numero_bordereau=numero_bordereau,
+                type_mouvement='CREDIT'
+            )
+    except HistoriqueStock.DoesNotExist:
+        from django.http import Http404
+        raise Http404(f"Bordereau {numero_bordereau} ({type_bordereau}) introuvable")
     
-    if not historiques.exists():
-        # LOG de débogage
-        logger.error(f"❌ Bordereau {numero_bordereau} introuvable")
-        
-        # Chercher des bordereaux similaires pour aider au débogage
-        tous_bordereaux = HistoriqueStock.objects.filter(
-            type_stock='reapprovisionnement'
-        ).values_list('numero_bordereau', flat=True).distinct()
-        
-        logger.info(f"Bordereaux existants : {list(tous_bordereaux)}")
-        
-        messages.error(request, f"Bordereau N°{numero_bordereau} introuvable. Vérifiez les logs.")
-        return redirect('inventaire:liste_bordereaux')
-    
-    # Séparer cession et réception
-    hist_cession = historiques.filter(type_mouvement='DEBIT').first()
-    hist_reception = historiques.filter(type_mouvement='CREDIT').first()
-    
-    if not hist_cession or not hist_reception:
-        logger.error(f"Données incomplètes - Cession: {hist_cession}, Réception: {hist_reception}")
-        messages.error(request, "Données de transfert incomplètes")
-        return redirect('inventaire:liste_bordereaux')
-    
-    # Contrôle d'accès
+    # ========== CONTRÔLE D'ACCÈS ==========
     if not request.user.is_admin:
-        postes_autorises = [hist_cession.poste.id, hist_reception.poste.id]
-        
         if not request.user.poste_affectation or \
-           request.user.poste_affectation.id not in postes_autorises:
-            messages.error(request, "Accès non autorisé à ce bordereau")
-            return redirect('common:dashboard')
+           request.user.poste_affectation not in [hist.poste_origine, hist.poste_destination]:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("Vous n'avez pas accès à ce bordereau")
     
-    context = {
-        'numero_bordereau': numero_bordereau,
-        'hist_cession': hist_cession,
-        'hist_reception': hist_reception,
-        'poste_origine': hist_cession.poste,
-        'poste_destination': hist_reception.poste,
-        'montant': hist_cession.montant,
-        'nombre_tickets': hist_cession.nombre_tickets,
-        'date_transfert': hist_cession.date_mouvement,
-        'effectue_par': hist_cession.effectue_par,
-        'title': f'Bordereau de Transfert N°{numero_bordereau}'
-    }
+    # ========== RÉCUPÉRER LES SÉRIES TRANSFÉRÉES ==========
+    if type_bordereau == 'cession':
+        series_transferees = SerieTicket.objects.filter(
+            poste=hist.poste_origine,
+            statut='transfere',
+            poste_destination_transfert=hist.poste_destination,
+            date_utilisation=hist.date_mouvement.date()
+        ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
+    else:
+        series_transferees = SerieTicket.objects.filter(
+            poste=hist.poste_destination,
+            type_entree='transfert_recu',
+            date_reception__date=hist.date_mouvement.date()
+        ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
     
-    return render(request, 'inventaire/bordereaux_transfert.html', context)
+    # Grouper par couleur
+    series_par_couleur = {}
+    for serie in series_transferees:
+        couleur_key = serie.couleur.libelle_affichage
+        if couleur_key not in series_par_couleur:
+            series_par_couleur[couleur_key] = {
+                'couleur': serie.couleur,
+                'series': [],
+                'total_tickets': 0,
+                'valeur_totale': Decimal('0')
+            }
+        
+        series_par_couleur[couleur_key]['series'].append(serie)
+        series_par_couleur[couleur_key]['total_tickets'] += serie.nombre_tickets
+        series_par_couleur[couleur_key]['valeur_totale'] += serie.valeur_monetaire
+    
+    # ========== GÉNÉRER LE PDF ==========
+    response = HttpResponse(content_type='application/pdf')
+    filename = f'bordereau_{type_bordereau}_{numero_bordereau}.pdf'
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    
+    doc = SimpleDocTemplate(
+        response, 
+        pagesize=A4,
+        rightMargin=2*cm, 
+        leftMargin=2*cm,
+        topMargin=2*cm, 
+        bottomMargin=2*cm
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Récupérer la config globale
+    from inventaire.models import ConfigurationGlobale
+    config = ConfigurationGlobale.get_config()
+    
+    # ========== EN-TÊTE ==========
+    from inventaire.views_rapports import creer_entete_bilingue
+    poste_concerne = hist.poste_origine if type_bordereau == 'cession' else hist.poste_destination
+    elements.append(creer_entete_bilingue(config, poste_concerne))
+    elements.append(Spacer(1, 1*cm))
+    
+    # ========== TITRE ==========
+    titre_style = ParagraphStyle(
+        'Titre',
+        parent=styles['Heading1'],
+        fontSize=16,
+        textColor=colors.HexColor('#d32f2f' if type_bordereau == 'cession' else '#388e3c'),
+        alignment=TA_CENTER,
+        spaceAfter=20
+    )
+    
+    titre_text = (
+        "BORDEREAU DE CESSION DE TICKETS" 
+        if type_bordereau == 'cession' 
+        else "BORDEREAU DE RÉCEPTION DE TICKETS"
+    )
+    elements.append(Paragraph(titre_text, titre_style))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # ========== INFORMATIONS GÉNÉRALES ==========
+    data = [
+        ['N° Bordereau:', numero_bordereau],
+        ['Date et Heure:', hist.date_mouvement.strftime('%d/%m/%Y à %H:%M')],
+        ['', ''],
+    ]
+    
+    if type_bordereau == 'cession':
+        data.extend([
+            ['POSTE ÉMETTEUR (CÈDE):', f"{hist.poste_origine.nom} ({hist.poste_origine.code})"],
+            ['POSTE DESTINATAIRE:', f"{hist.poste_destination.nom} ({hist.poste_destination.code})"],
+        ])
+    else:
+        data.extend([
+            ['POSTE BÉNÉFICIAIRE (REÇOIT):', f"{hist.poste_destination.nom} ({hist.poste_destination.code})"],
+            ['POSTE ÉMETTEUR:', f"{hist.poste_origine.nom} ({hist.poste_origine.code})"],
+        ])
+    
+    data.extend([
+        ['', ''],
+        ['MONTANT TOTAL TRANSFÉRÉ:', f"{hist.montant:,.0f} FCFA".replace(',', ' ')],
+        ['NOMBRE TOTAL DE TICKETS:', f"{hist.nombre_tickets} tickets"],
+    ])
+    
+    table = Table(data, colWidths=[6*cm, 10*cm])
+    table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    
+    elements.append(table)
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # ========== DÉTAIL DES SÉRIES ==========
+    titre_series = ParagraphStyle(
+        'TitreSeries',
+        parent=styles['Heading2'],
+        fontSize=12,
+        spaceAfter=10
+    )
+    
+    elements.append(Paragraph("DÉTAIL DES SÉRIES TRANSFÉRÉES", titre_series))
+    
+    if series_par_couleur:
+        for couleur_nom, groupe in series_par_couleur.items():
+            couleur_header = [[
+                Paragraph(f"<b>Couleur : {couleur_nom}</b>", styles['Normal']),
+                f"Total: {groupe['total_tickets']} tickets",
+                f"{groupe['valeur_totale']:,.0f} FCFA".replace(',', ' ')
+            ]]
+            
+            for serie in groupe['series']:
+                couleur_header.append([
+                    f"Série #{serie.numero_premier} → #{serie.numero_dernier}",
+                    f"{serie.nombre_tickets} tickets",
+                    f"{serie.valeur_monetaire:,.0f} FCFA".replace(',', ' ')
+                ])
+            
+            serie_table = Table(couleur_header, colWidths=[7*cm, 4*cm, 5*cm])
+            serie_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            
+            elements.append(serie_table)
+            elements.append(Spacer(1, 0.3*cm))
+    
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # ========== ÉTAT DES STOCKS ==========
+    elements.append(Paragraph("ÉTAT DES STOCKS", titre_series))
+    
+    stock_data = [
+        ['STOCK AVANT:', f"{hist.stock_avant:,.0f} FCFA".replace(',', ' ')],
+        ['STOCK APRÈS:', f"{hist.stock_apres:,.0f} FCFA".replace(',', ' ')],
+        ['EFFECTUÉ PAR:', hist.effectue_par.nom_complet],
+    ]
+    
+    if hist.commentaire:
+        stock_data.append(['COMMENTAIRE:', hist.commentaire[:100]])
+    
+    stock_table = Table(stock_data, colWidths=[6*cm, 10*cm])
+    stock_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    
+    elements.append(stock_table)
+    elements.append(Spacer(1, 1.5*cm))
+    
+    # ========== SIGNATURES ==========
+    signature_data = [
+        ['LE CHEF ÉMETTEUR', 'LE CHEF DESTINATAIRE', 'L\'ADMINISTRATEUR'],
+        ['', '', ''],
+        ['_________________', '_________________', '_________________'],
+        [hist.poste_origine.nom, hist.poste_destination.nom, hist.effectue_par.nom_complet]
+    ]
+    
+    sig_table = Table(signature_data, colWidths=[5.5*cm, 5.5*cm, 5.5*cm])
+    sig_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+    
+    elements.append(sig_table)
+    
+    # Générer le PDF
+    doc.build(elements)
+    
+    return response
 
 @login_required
 def liste_bordereaux(request):
