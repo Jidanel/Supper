@@ -1,6 +1,7 @@
+<!-- templates/inventaire/liste_stocks.html - MODIFICATION DU BOUTON STOCK PAR DATE -->
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
-{%load inventaire_extras %}
+{% load inventaire_extras %}
 
 {% block title %}Gestion des Stocks - Vue d'ensemble{% endblock %}
 
@@ -143,7 +144,10 @@
                        class="btn btn-sm btn-info">
                         <i class="fas fa-history"></i> Historique
                     </a>
-                    <a href="{% url 'inventaire:stock_historique_date' item.poste.id %}" class="btn btn-sm btn-primary">
+                    <!-- MODIFICATION ICI : Lien direct vers le stock du poste avec date actuelle -->
+                    <a href="{% url 'inventaire:stock_historique_date' item.poste.id %}?date={{ 'now'|date:'Y-m-d' }}" 
+                       class="btn btn-sm btn-primary"
+                       title="Voir le stock de ce poste à une date précise">
                         <i class="fas fa-calendar"></i> Stock par date
                     </a>
                 </div>

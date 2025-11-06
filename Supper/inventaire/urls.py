@@ -244,7 +244,21 @@ path(
 ]
 
 event_sourcing_patterns = [
-    # Visualisation du stock à une date
+    # Vue de sélection (nouvelle)
+    path(
+        'stock/selection-date/',
+        stock_selection_date,
+        name='stock_selection_date'
+    ),
+    
+    # Visualisation du stock à une date avec poste_id optionnel
+    path(
+        'stock/historique/',
+        stock_historique_date,
+        name='stock_historique_date_sans_poste'
+    ),
+    
+    # Visualisation du stock à une date avec poste spécifique
     path(
         'stock/<int:poste_id>/historique/',
         stock_historique_date,

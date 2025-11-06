@@ -4,6 +4,7 @@
 from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse, HttpResponse
+from django.urls import reverse
 from django.utils import timezone
 from datetime import datetime, date, timedelta
 from decimal import Decimal
@@ -21,16 +22,25 @@ def is_admin(user):
     return user.is_authenticated and (
         user.is_superuser or 
         user.is_staff or
-        (hasattr(user, 'is_admin') and user.is_admin())
+        (hasattr(user, 'is_admin') and user.is_admin)
     )
 
 
+# inventaire/views_stock_event_sourcing.py - MODIFICATION DE LA FONCTION stock_historique_date
+
 @login_required
-def stock_historique_date(request, poste_id):
+def stock_historique_date(request, poste_id=None):
     """
     Vue pour afficher le stock à une date précise
-    Accessible aux chefs de poste et admins
+    Admin : peut sélectionner n'importe quel poste
+    Chef de poste : voit uniquement son poste
     """
+    from django.shortcuts import redirect
+    
+    # Si pas de poste_id, rediriger vers la vue de sélection
+    if poste_id is None:
+        return stock_selection_date(request)
+    
     poste = get_object_or_404(Poste, id=poste_id)
     
     # Vérification des permissions
@@ -63,6 +73,11 @@ def stock_historique_date(request, poste_id):
         is_cancelled=False
     ).order_by('event_datetime')
     
+    # Ajouter la liste des postes pour admin
+    postes_disponibles = []
+    if request.user.is_admin:
+        postes_disponibles = Poste.objects.filter(is_active=True).order_by('nom')
+    
     context = {
         'poste': poste,
         'date_selectionnee': target_date,
@@ -72,11 +87,58 @@ def stock_historique_date(request, poste_id):
         'nombre_events_total': stock_data['nombre_events'],
         'events_jour': events_jour,
         'history': history,
+        'postes_disponibles': postes_disponibles,  # Pour le sélecteur admin
+        'is_admin': request.user.is_admin,
         'title': f'Stock de {poste.nom} au {target_date.strftime("%d/%m/%Y")}'
     }
     
     return render(request, 'inventaire/stock_historique_date.html', context)
 
+
+@login_required
+def stock_selection_date(request):
+    """
+    Vue pour sélectionner poste et date (admin) ou seulement date (chef de poste)
+    """
+    # Déterminer les postes accessibles
+    if request.user.is_admin:
+        postes = Poste.objects.filter(is_active=True).order_by('nom')
+    else:
+        # Chef de poste : seulement son poste
+        postes = request.user.get_postes_accessibles()
+    
+    # Si soumission du formulaire
+    if request.method == 'POST':
+        poste_id = request.POST.get('poste_id')
+        date_str = request.POST.get('date')
+        
+        if poste_id:
+            # Vérifier l'accès au poste
+            try:
+                poste = Poste.objects.get(id=poste_id)
+                if request.user.peut_acceder_poste(poste):
+                    url = reverse('inventaire:stock_historique_date', kwargs={'poste_id': poste_id})
+                    if date_str:
+                        url += f'?date={date_str}'
+                    return redirect(url)
+            except Poste.DoesNotExist:
+                pass
+        
+        from django.contrib import messages
+        messages.error(request, "Veuillez sélectionner un poste valide.")
+    
+    # Pour un chef de poste avec un seul poste, rediriger directement
+    if postes.count() == 1 and not request.user.is_admin:
+        poste = postes.first()
+        return redirect('inventaire:stock_historique_date', poste_id=poste.id)
+    
+    context = {
+        'postes': postes,
+        'date_selectionnee': date.today(),
+        'title': 'Sélection du poste et de la date'
+    }
+    
+    return render(request, 'inventaire/stock_selection_date.html', context)
 
 @login_required
 def api_stock_timeline(request, poste_id):

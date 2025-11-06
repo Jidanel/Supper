@@ -1,0 +1,147 @@
+<!-- templates/inventaire/stock_selection_date.html -->
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Sélection du stock à consulter{% endblock %}
+
+{% block extra_css %}
+<style>
+    .selection-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+    
+    .form-icon {
+        font-size: 3rem;
+        color: #6B46C1;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    
+    .btn-primary-custom {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 8px;
+        transition: transform 0.2s;
+    }
+    
+    .btn-primary-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="selection-card">
+        <div class="form-icon">
+            <i class="fas fa-calendar-check"></i>
+        </div>
+        
+        <h3 class="text-center mb-4">Consulter le stock à une date</h3>
+        
+        <form method="post" action="{% url 'inventaire:stock_selection_date' %}">
+            {% csrf_token %}
+            
+            <!-- Sélection du poste -->
+            <div class="mb-4">
+                <label for="poste_id" class="form-label">
+                    <i class="fas fa-map-marker-alt"></i> Poste
+                </label>
+                
+                {% if postes.count == 1 %}
+                    <!-- Chef de poste avec un seul poste -->
+                    <input type="hidden" name="poste_id" value="{{ postes.first.id }}">
+                    <div class="form-control-plaintext">
+                        <strong>{{ postes.first.nom }}</strong> ({{ postes.first.code }})
+                    </div>
+                {% else %}
+                    <!-- Admin ou utilisateur avec plusieurs postes -->
+                    <select name="poste_id" id="poste_id" class="form-select form-select-lg" required>
+                        <option value="">-- Sélectionner un poste --</option>
+                        {% for poste in postes %}
+                        <option value="{{ poste.id }}">
+                            {{ poste.nom }} ({{ poste.code }}) - {{ poste.get_region_display }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </div>
+            
+            <!-- Sélection de la date -->
+            <div class="mb-4">
+                <label for="date" class="form-label">
+                    <i class="fas fa-calendar"></i> Date à consulter
+                </label>
+                <input type="date" 
+                       name="date" 
+                       id="date" 
+                       class="form-control form-control-lg" 
+                       value="{{ date_selectionnee|date:'Y-m-d' }}"
+                       max="{{ 'now'|date:'Y-m-d' }}"
+                       required>
+                <small class="text-muted">
+                    Sélectionnez la date pour laquelle vous souhaitez consulter le stock
+                </small>
+            </div>
+            
+            <!-- Boutons d'action -->
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary-custom">
+                    <i class="fas fa-search"></i> Consulter le stock
+                </button>
+            </div>
+        </form>
+        
+        <!-- Liens rapides -->
+        <div class="mt-4 text-center">
+            <p class="text-muted">Accès rapides :</p>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setToday()">
+                    Aujourd'hui
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setYesterday()">
+                    Hier
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setWeekAgo()">
+                    Il y a 7 jours
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setMonthAgo()">
+                    Il y a 30 jours
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function setToday() {
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+}
+
+function setYesterday() {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    document.getElementById('date').value = date.toISOString().split('T')[0];
+}
+
+function setWeekAgo() {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    document.getElementById('date').value = date.toISOString().split('T')[0];
+}
+
+function setMonthAgo() {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    document.getElementById('date').value = date.toISOString().split('T')[0];
+}
+</script>
+{% endblock %}
