@@ -23,11 +23,10 @@ import os
 from django.conf import settings
 
 
-
 @login_required
 def selection_compte_emploi(request):
     """
-    ✅ VERSION AMÉLIORÉE : Sélection avec plage de dates (date début → date fin)
+    VERSION AMÉLIORÉE : Permet de choisir entre aperçu et génération directe PDF
     """
     from datetime import date, timedelta
     from django.shortcuts import render, redirect
@@ -60,6 +59,7 @@ def selection_compte_emploi(request):
         poste_id = request.POST.get('poste_id')
         date_debut_str = request.POST.get('date_debut')
         date_fin_str = request.POST.get('date_fin')
+        action = request.POST.get('action', 'apercu')  # Par défaut : aperçu
         
         # Validations
         if not poste_id:
@@ -79,11 +79,19 @@ def selection_compte_emploi(request):
                 elif (date_fin - date_debut).days > 365:
                     messages.error(request, "La période ne peut pas dépasser 1 an")
                 else:
-                    # ✅ Redirection avec les deux dates
-                    return redirect('inventaire:generer_compte_emploi', 
-                                  poste_id=poste_id,
-                                  date_debut=date_debut_str,
-                                  date_fin=date_fin_str)
+                    # ✅ Redirection selon l'action choisie
+                    if action == 'apercu':
+                        # Afficher l'aperçu HTML
+                        return redirect('inventaire:apercu_compte_emploi', 
+                                      poste_id=poste_id,
+                                      date_debut=date_debut_str,
+                                      date_fin=date_fin_str)
+                    else:
+                        # Générer directement le PDF
+                        return redirect('inventaire:generer_compte_emploi', 
+                                      poste_id=poste_id,
+                                      date_debut=date_debut_str,
+                                      date_fin=date_fin_str)
             
             except ValueError:
                 messages.error(request, "Format de date invalide")
@@ -97,7 +105,6 @@ def selection_compte_emploi(request):
     }
     
     return render(request, 'inventaire/selection_compte_emploi.html', context)
-
 
 def creer_section_details_series(titre, series_par_couleur, styles, 
                                  inclure_destination=False, 
@@ -251,10 +258,9 @@ def creer_pied_page(poste, config, user):
     return elements
 
 
-@login_required
 def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     """
-    Génère le PDF du compte d'emploi avec toutes les sections
+    VERSION CORRIGÉE : Génère le PDF avec régularisations incluses
     """
     from datetime import datetime
     from django.shortcuts import get_object_or_404, redirect
@@ -285,18 +291,10 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
         messages.error(request, "Format de dates invalide")
         return redirect('inventaire:selection_compte_emploi')
     
-    # Vérifier disponibilité
-    from datetime import date as date_class
-    today = date_class.today()
-    
-    if date_debut_obj > today or date_fin_obj > today:
-        messages.error(request, "Les dates ne peuvent pas être dans le futur")
-        return redirect('inventaire:selection_compte_emploi')
-    
     # Récupérer config
     config = ConfigurationGlobale.get_config()
     
-    # Calcul des données
+    # Calcul des données avec la fonction corrigée
     donnees = calculer_donnees_compte_emploi(poste, date_debut_obj, date_fin_obj)
     
     # Générer PDF
@@ -338,17 +336,22 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     elements.append(titre)
     elements.append(Spacer(1, 0.3*cm))
     
-    # ========== TABLEAU SYNTHÈSE ==========
+    # ========== TABLEAU SYNTHÈSE AMÉLIORÉ ==========
+    # Inclure RÉGULARISATION comme colonne séparée
     
     table_data = [
-        ['PÉRIODE', 'STOCK DÉBUT', '', 'APPROV IMP.', '', 'REAPPROV REÇU', '', 'REAPPROV CÉDÉ', '', 'VENTE', '', 'STOCK FINAL', ''],
-        ['', 'Qté', 'Valeur', 'Qté', 'Valeur', 'Qté', 'Valeur', 'Qté', 'Valeur', 'Qté', 'Valeur', 'Qté', 'Valeur'],
+        ['PÉRIODE', 'STOCK DÉBUT', '', 'APPROV IMP.', '', 'RÉGULARISATION', '', 
+         'REAPPROV REÇU', '', 'REAPPROV CÉDÉ', '', 'VENTE', '', 'STOCK FINAL', ''],
+        ['', 'Qté', 'Valeur', 'Qté', 'Valeur', 'Qté', 'Valeur', 
+         'Qté', 'Valeur', 'Qté', 'Valeur', 'Qté', 'Valeur', 'Qté', 'Valeur'],
         [
             f"{date_debut_obj.strftime('%d/%m')} - {date_fin_obj.strftime('%d/%m')}",
             str(donnees['stock_debut_qte']),
             f"{donnees['stock_debut_valeur']:,.0f}".replace(',', ' '),
             str(donnees['approv_imprimerie_qte']),
             f"{donnees['approv_imprimerie_valeur']:,.0f}".replace(',', ' '),
+            str(donnees.get('approv_regularisation_qte', 0)),
+            f"{donnees.get('approv_regularisation_valeur', 0):,.0f}".replace(',', ' '),
             str(donnees['reapprov_recu_qte']),
             f"{donnees['reapprov_recu_valeur']:,.0f}".replace(',', ' '),
             str(donnees['reapprov_cede_qte']),
@@ -364,6 +367,8 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
             f"{donnees['stock_debut_valeur']:,.0f}".replace(',', ' '),
             str(donnees['approv_imprimerie_qte']),
             f"{donnees['approv_imprimerie_valeur']:,.0f}".replace(',', ' '),
+            str(donnees.get('approv_regularisation_qte', 0)),
+            f"{donnees.get('approv_regularisation_valeur', 0):,.0f}".replace(',', ' '),
             str(donnees['reapprov_recu_qte']),
             f"{donnees['reapprov_recu_valeur']:,.0f}".replace(',', ' '),
             str(donnees['reapprov_cede_qte']),
@@ -375,21 +380,24 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
         ]
     ]
     
-    col_widths = [1.5*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm, 1.3*cm, 2*cm]
+    # Largeurs de colonnes ajustées pour inclure RÉGULARISATION
+    col_widths = [1.5*cm, 1*cm, 1.7*cm, 1*cm, 1.7*cm, 1*cm, 1.7*cm, 
+                  1*cm, 1.7*cm, 1*cm, 1.7*cm, 1*cm, 1.7*cm, 1*cm, 1.7*cm]
     
     table = Table(table_data, colWidths=col_widths)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a5568')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
         ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#e2e8f0')),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('FONTSIZE', (0, 1), (-1, -1), 6),
         ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#cbd5e0')),
         ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        # Fusion des cellules d'en-tête
         ('SPAN', (0, 0), (0, 1)),
         ('SPAN', (1, 0), (2, 0)),
         ('SPAN', (3, 0), (4, 0)),
@@ -397,28 +405,39 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
         ('SPAN', (7, 0), (8, 0)),
         ('SPAN', (9, 0), (10, 0)),
         ('SPAN', (11, 0), (12, 0)),
+        ('SPAN', (13, 0), (14, 0)),
     ]))
     
     elements.append(table)
     elements.append(Spacer(1, 0.5*cm))
     
-    # ========== PAGE 1 : SECTIONS DÉTAILLÉES ==========
+    # ========== SECTIONS DÉTAILLÉES ==========
     
     # Stock de début
     if donnees['stock_debut_par_couleur']:
-        elements.append(creer_section_details_series(
+        elements.extend(creer_section_details_series(
             "DÉTAIL DU STOCK DE DÉBUT",
             donnees['stock_debut_par_couleur'],
             styles
         ))
         elements.append(Spacer(1, 0.3*cm))
     
-    # Approvisionnements
+    # Approvisionnements Imprimerie
     if donnees['approv_imp_par_couleur']:
-        elements.extend(creer_section_details_series(
+        elements.append(creer_section_details_series(
             "DÉTAIL DES APPROVISIONNEMENTS - IMPRIMERIE NATIONALE",
             donnees['approv_imp_par_couleur'],
             styles
+        ))
+        elements.append(Spacer(1, 0.3*cm))
+    
+    # Approvisionnements Régularisation
+    if donnees.get('approv_reg_par_couleur'):
+        elements.extend(creer_section_details_series(
+            "DÉTAIL DES RÉGULARISATIONS",
+            donnees['approv_reg_par_couleur'],
+            styles,
+            highlight_color=colors.HexColor('#fbbf24')  # Couleur jaune pour distinguer
         ))
         elements.append(Spacer(1, 0.3*cm))
     
@@ -434,9 +453,7 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     # Saut de page
     elements.append(PageBreak())
     
-    # ========== PAGE 2 : TRANSFERTS CÉDÉS + VENTES ==========
-    
-    # ✅ UTILISATION DE LA FONCTION SPÉCIFIQUE (sans paramètre optionnel)
+    # Transferts cédés
     if donnees['transferts_cedes_par_couleur']:
         elements.extend(creer_section_transferts_cedes(
             "DÉTAIL DES TRANSFERTS CÉDÉS",
@@ -458,14 +475,52 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
         elements.append(creer_section_details_series(
             "DÉTAIL DU STOCK FINAL (RESTE EN CIRCULATION)",
             donnees['stock_final_par_couleur'],
-            styles
+            styles,
         ))
+    
+    # Note de vérification
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Ajout d'une note de vérification de cohérence
+    note_style = ParagraphStyle(
+        'Note',
+        parent=styles['Normal'],
+        fontSize=7,
+        textColor=colors.HexColor('#4b5563'),
+        alignment=TA_CENTER
+    )
+    
+    # Calcul de vérification
+    total_entrees = (
+        donnees['stock_debut_valeur'] + 
+        donnees['approv_imprimerie_valeur'] + 
+        donnees.get('approv_regularisation_valeur', 0) +
+        donnees['reapprov_recu_valeur']
+    )
+    
+    total_sorties = donnees['reapprov_cede_valeur'] + donnees['vente_valeur']
+    stock_calcule = total_entrees - total_sorties
+    
+    ecart = abs(stock_calcule - donnees['stock_final_valeur'])
+    
+    if ecart < 1000:
+        note_text = "✓ Cohérence vérifiée : Stock final = Stock début + Entrées - Sorties"
+        note_color = colors.HexColor('#10b981')
+    else:
+        note_text = f"⚠ Écart détecté : {ecart:,.0f} FCFA".replace(',', ' ')
+        note_color = colors.HexColor('#ef4444')
+    
+    note_paragraph = Paragraph(
+        f"<font color='{note_color}'>{note_text}</font>", 
+        note_style
+    )
+    elements.append(note_paragraph)
     
     # Pied de page
     elements.append(Spacer(1, 0.5*cm))
     elements.append(creer_pied_page(poste, config, request.user))
     
-    # Générer PDF
+    # Générer le PDF
     doc.build(elements)
     
     return response
@@ -724,18 +779,31 @@ def creer_section_ventes_par_semaine(ventes_par_semaine, styles):
 
 def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
     """
-    ✅ VERSION CORRIGÉE : Cohérence totale avec l'historique
+    VERSION FINALE CORRIGÉE
+    
+    CORRECTIONS:
+    1. Semaines commencent à date_debut (pas forcément lundi)
+    2. Type d'entrée correct pour imprimerie nationale
+    3. Vérification stricte des séries pour éviter les mélanges
     """
     from decimal import Decimal
     from django.db.models import Sum, Q
-    from inventaire.models import SerieTicket, HistoriqueStock
-    from datetime import timedelta
+    from inventaire.models import SerieTicket, StockEvent
+    from datetime import timedelta, datetime
+    from django.utils import timezone
+    from collections import defaultdict
+    import logging
     
+    logger = logging.getLogger('supper')
+    
+    # Initialiser la structure de données
     donnees = {
         'stock_debut_qte': 0,
         'stock_debut_valeur': Decimal('0'),
         'approv_imprimerie_qte': 0,
         'approv_imprimerie_valeur': Decimal('0'),
+        'approv_regularisation_qte': 0,
+        'approv_regularisation_valeur': Decimal('0'),
         'reapprov_recu_qte': 0,
         'reapprov_recu_valeur': Decimal('0'),
         'reapprov_cede_qte': 0,
@@ -747,6 +815,7 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         
         'stock_debut_par_couleur': {},
         'approv_imp_par_couleur': {},
+        'approv_reg_par_couleur': {},
         'transferts_recus_par_couleur': {},
         'transferts_cedes_par_couleur': {},
         'ventes_par_couleur': {},
@@ -754,30 +823,42 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         'stock_final_par_couleur': {},
     }
     
-    # ========== 1. STOCK DE DÉBUT ==========
-    # ✅ CORRECTION : Stock AVANT date_debut (< et non <=)
+    # ========== 1. STOCK AU DÉBUT ==========
+    # Stock début = tout ce qui s'est passé AVANT date_debut (veille à 23h59:59)
     
-    # Toutes les séries reçues AVANT date_debut
-    series_recues_avant = SerieTicket.objects.filter(
+    veille_debut = date_debut - timedelta(days=1)
+    debut_datetime = timezone.make_aware(
+        datetime.combine(veille_debut, datetime.max.time().replace(microsecond=999999))
+    )
+    
+    # Event Sourcing pour le stock début
+    events_avant_debut = StockEvent.objects.filter(
         poste=poste,
-        date_reception__lt=date_debut  # ✅ Strictement AVANT
-    ).select_related('couleur')
+        event_datetime__lte=debut_datetime
+    ).aggregate(
+        total_valeur=Sum('montant_variation'),
+        total_tickets=Sum('nombre_tickets_variation')
+    )
     
-    # Soustraire les séries vendues/transférées AVANT date_debut
-    series_sorties_avant = SerieTicket.objects.filter(
+    stock_debut_valeur = events_avant_debut['total_valeur'] or Decimal('0')
+    stock_debut_qte = events_avant_debut['total_tickets'] or 0
+    
+    if stock_debut_valeur < 0:
+        stock_debut_valeur = Decimal('0')
+    if stock_debut_qte < 0:
+        stock_debut_qte = 0
+    
+    donnees['stock_debut_valeur'] = stock_debut_valeur
+    donnees['stock_debut_qte'] = stock_debut_qte
+    
+    # Détail du stock début par couleur
+    series_stock_debut = SerieTicket.objects.filter(
         poste=poste,
-        date_utilisation__lt=date_debut,  # ✅ Strictement AVANT
-        statut__in=['vendu', 'epuise', 'transfere']
-    ).select_related('couleur')
-    
-    # Calcul du stock début
-    ids_series_sorties = set(series_sorties_avant.values_list('id', flat=True))
-    series_stock_debut = [s for s in series_recues_avant if s.id not in ids_series_sorties]
+        date_reception__lte=veille_debut,
+        statut='stock'
+    ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
     
     for serie in series_stock_debut:
-        donnees['stock_debut_qte'] += serie.nombre_tickets
-        donnees['stock_debut_valeur'] += serie.valeur_monetaire
-        
         couleur_key = serie.couleur.libelle_affichage
         if couleur_key not in donnees['stock_debut_par_couleur']:
             donnees['stock_debut_par_couleur'][couleur_key] = {
@@ -791,16 +872,29 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         donnees['stock_debut_par_couleur'][couleur_key]['total_tickets'] += serie.nombre_tickets
         donnees['stock_debut_par_couleur'][couleur_key]['valeur_totale'] += serie.valeur_monetaire
     
-    # ========== 2. APPROVISIONNEMENTS IMPRIMERIE (PENDANT LA PÉRIODE) ==========
+    # ========== 2. MOUVEMENTS PENDANT LA PÉRIODE ==========
     
-    series_approv = SerieTicket.objects.filter(
+    fin_datetime = timezone.make_aware(
+        datetime.combine(date_fin, datetime.max.time().replace(microsecond=999999))
+    )
+    
+    # 2.1 APPROVISIONNEMENTS IMPRIMERIE NATIONALE
+    # CORRECTION : Vérifier les types d'entrée possibles
+    types_imprimerie = ['imprimerie_nationale', 'imprimerie']
+    
+    series_imprimerie = SerieTicket.objects.filter(
         poste=poste,
-        type_entree='imprimerie',
-        date_reception__gte=date_debut,  # ✅ >= date_debut
+        type_entree__in=types_imprimerie,  # Utiliser IN pour couvrir les variantes
+        date_reception__gte=date_debut,
         date_reception__lte=date_fin
+    ).exclude(
+        statut__in=['vendu', 'epuise']  # EXCLURE les séries vendues
     ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
     
-    for serie in series_approv:
+    # Logger pour débug
+    logger.info(f"Approvisionnements Imprimerie trouvés: {series_imprimerie.count()} séries")
+    
+    for serie in series_imprimerie:
         donnees['approv_imprimerie_qte'] += serie.nombre_tickets
         donnees['approv_imprimerie_valeur'] += serie.valeur_monetaire
         
@@ -816,9 +910,37 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         donnees['approv_imp_par_couleur'][couleur_key]['series'].append(serie)
         donnees['approv_imp_par_couleur'][couleur_key]['total_tickets'] += serie.nombre_tickets
         donnees['approv_imp_par_couleur'][couleur_key]['valeur_totale'] += serie.valeur_monetaire
+        
+        logger.debug(f"Imprimerie: Série {couleur_key} #{serie.numero_premier}-{serie.numero_dernier} = {serie.valeur_monetaire}")
     
-    # ========== 3. TRANSFERTS REÇUS (PENDANT LA PÉRIODE) ==========
+    # 2.2 APPROVISIONNEMENTS PAR RÉGULARISATION
+    series_regularisation = SerieTicket.objects.filter(
+        poste=poste,
+        type_entree='regularisation',
+        date_reception__gte=date_debut,
+        date_reception__lte=date_fin
+    ).exclude(
+        statut__in=['vendu', 'epuise']  # EXCLURE les séries vendues
+    ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
     
+    for serie in series_regularisation:
+        donnees['approv_regularisation_qte'] += serie.nombre_tickets
+        donnees['approv_regularisation_valeur'] += serie.valeur_monetaire
+        
+        couleur_key = serie.couleur.libelle_affichage
+        if couleur_key not in donnees['approv_reg_par_couleur']:
+            donnees['approv_reg_par_couleur'][couleur_key] = {
+                'couleur': serie.couleur,
+                'series': [],
+                'total_tickets': 0,
+                'valeur_totale': Decimal('0')
+            }
+        
+        donnees['approv_reg_par_couleur'][couleur_key]['series'].append(serie)
+        donnees['approv_reg_par_couleur'][couleur_key]['total_tickets'] += serie.nombre_tickets
+        donnees['approv_reg_par_couleur'][couleur_key]['valeur_totale'] += serie.valeur_monetaire
+    
+    # 2.3 TRANSFERTS REÇUS
     series_recues = SerieTicket.objects.filter(
         poste=poste,
         type_entree='transfert_recu',
@@ -843,8 +965,7 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         donnees['transferts_recus_par_couleur'][couleur_key]['total_tickets'] += serie.nombre_tickets
         donnees['transferts_recus_par_couleur'][couleur_key]['valeur_totale'] += serie.valeur_monetaire
     
-    # ========== 4. TRANSFERTS CÉDÉS (PENDANT LA PÉRIODE) ==========
-    
+    # 2.4 TRANSFERTS CÉDÉS
     series_cedees = SerieTicket.objects.filter(
         poste=poste,
         statut='transfere',
@@ -869,8 +990,7 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         donnees['transferts_cedes_par_couleur'][couleur_key]['total_tickets'] += serie.nombre_tickets
         donnees['transferts_cedes_par_couleur'][couleur_key]['valeur_totale'] += serie.valeur_monetaire
     
-    # ========== 5. VENTES (PENDANT LA PÉRIODE) ==========
-    
+    # 2.5 VENTES (avec détail par semaine CORRIGÉ)
     series_vendues = SerieTicket.objects.filter(
         poste=poste,
         statut__in=['vendu', 'epuise'],
@@ -896,11 +1016,22 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         donnees['ventes_par_couleur'][couleur_key]['total_tickets'] += serie.nombre_tickets
         donnees['ventes_par_couleur'][couleur_key]['valeur_totale'] += serie.valeur_monetaire
         
-        # Ventes par semaine
+        # CORRECTION : Regroupement par semaine commençant à date_debut
         if serie.date_utilisation:
-            semaine_debut = serie.date_utilisation - timedelta(days=serie.date_utilisation.weekday())
-            semaine_fin = semaine_debut + timedelta(days=6)
+            # Calculer le nombre de jours depuis date_debut
+            jours_depuis_debut = (serie.date_utilisation - date_debut).days
             
+            # Calculer le numéro de semaine (0, 1, 2, ...)
+            numero_semaine = jours_depuis_debut // 7
+            
+            # Calculer les dates de début et fin de cette semaine
+            semaine_debut = date_debut + timedelta(days=numero_semaine * 7)
+            
+            # La fin de semaine est soit +6 jours, soit date_fin si on dépasse
+            semaine_fin_theorique = semaine_debut + timedelta(days=6)
+            semaine_fin = min(semaine_fin_theorique, date_fin)
+            
+            # Clé de la semaine
             semaine_key = f"{semaine_debut.strftime('%d/%m')} au {semaine_fin.strftime('%d/%m/%Y')}"
             
             if semaine_key not in donnees['ventes_par_semaine']:
@@ -930,41 +1061,49 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
             if couleur_data['dernier_ticket'] is None or serie.numero_dernier > couleur_data['dernier_ticket']:
                 couleur_data['dernier_ticket'] = serie.numero_dernier
     
-    # ========== 6. STOCK FINAL = STOCK DÉBUT + ENTRÉES - SORTIES ==========
+    # ========== 3. CALCUL DU STOCK FINAL ==========
     
-    # ✅ CORRECTION : Calculer à partir des mouvements (cohérence mathématique)
-    donnees['stock_final_qte'] = (
-        donnees['stock_debut_qte'] +
-        donnees['approv_imprimerie_qte'] +
-        donnees['reapprov_recu_qte'] -
-        donnees['reapprov_cede_qte'] -
-        donnees['vente_qte']
+    total_entrees = (
+        donnees['approv_imprimerie_valeur'] +
+        donnees['approv_regularisation_valeur'] +
+        donnees['reapprov_recu_valeur']
     )
     
-    donnees['stock_final_valeur'] = (
-        donnees['stock_debut_valeur'] +
-        donnees['approv_imprimerie_valeur'] +
-        donnees['reapprov_recu_valeur'] -
-        donnees['reapprov_cede_valeur'] -
+    total_sorties = (
+        donnees['reapprov_cede_valeur'] +
         donnees['vente_valeur']
     )
     
-    # Détail du stock final par couleur (séries restantes)
-    # Toutes les séries reçues jusqu'à date_fin
-    series_recues_total = SerieTicket.objects.filter(
+    donnees['stock_final_valeur'] = donnees['stock_debut_valeur'] + total_entrees - total_sorties
+    donnees['stock_final_qte'] = int(donnees['stock_final_valeur'] / 500) if donnees['stock_final_valeur'] > 0 else 0
+    
+    # Vérification par Event Sourcing
+    events_jusqu_fin = StockEvent.objects.filter(
+        poste=poste,
+        event_datetime__lte=fin_datetime
+    ).aggregate(
+        total_valeur=Sum('montant_variation'),
+        total_tickets=Sum('nombre_tickets_variation')
+    )
+    
+    stock_final_event_sourcing = events_jusqu_fin['total_valeur'] or Decimal('0')
+    
+    if abs(stock_final_event_sourcing - donnees['stock_final_valeur']) > Decimal('1000'):
+        logger.warning(
+            f"Écart détecté pour {poste.nom}: "
+            f"Calcul direct={donnees['stock_final_valeur']}, "
+            f"Event Sourcing={stock_final_event_sourcing}"
+        )
+    
+    # Détail du stock final par couleur
+    # CORRECTION : Chercher les séries qui sont TOUJOURS en stock à date_fin
+    series_stock_final = SerieTicket.objects.filter(
         poste=poste,
         date_reception__lte=date_fin
-    ).select_related('couleur')
-    
-    # Soustraire les séries vendues/transférées jusqu'à date_fin
-    series_sorties_total = SerieTicket.objects.filter(
-        poste=poste,
-        date_utilisation__lte=date_fin,
-        statut__in=['vendu', 'epuise', 'transfere']
-    ).select_related('couleur')
-    
-    ids_series_sorties_total = set(series_sorties_total.values_list('id', flat=True))
-    series_stock_final = [s for s in series_recues_total if s.id not in ids_series_sorties_total]
+    ).filter(
+        Q(statut='stock') |  # Soit toujours en stock
+        Q(statut__in=['vendu', 'epuise', 'transfere'], date_utilisation__gt=date_fin)  # Soit utilisées APRÈS date_fin
+    ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
     
     for serie in series_stock_final:
         couleur_key = serie.couleur.libelle_affichage
@@ -979,6 +1118,13 @@ def calculer_donnees_compte_emploi(poste, date_debut, date_fin):
         donnees['stock_final_par_couleur'][couleur_key]['series'].append(serie)
         donnees['stock_final_par_couleur'][couleur_key]['total_tickets'] += serie.nombre_tickets
         donnees['stock_final_par_couleur'][couleur_key]['valeur_totale'] += serie.valeur_monetaire
+    
+    # LOG pour vérification
+    logger.info(f"Compte d'emploi {poste.nom} du {date_debut} au {date_fin}:")
+    logger.info(f"  Stock début: {stock_debut_qte} tickets = {stock_debut_valeur}")
+    logger.info(f"  Approv. Imprimerie: {donnees['approv_imprimerie_qte']} tickets = {donnees['approv_imprimerie_valeur']}")
+    logger.info(f"  Ventes: {donnees['vente_qte']} tickets = {donnees['vente_valeur']}")
+    logger.info(f"  Stock final: {donnees['stock_final_qte']} tickets = {donnees['stock_final_valeur']}")
     
     return donnees
 
@@ -1111,7 +1257,79 @@ def creer_pied_page(poste, config, user):
     
     return footer_table
 
+# inventaire/views_rapports.py - Vue à AJOUTER
 
+@login_required
+def apercu_compte_emploi(request, poste_id, date_debut, date_fin):
+    """
+    Vue pour afficher un aperçu du compte d'emploi avant génération du PDF
+    Utilise le calcul amélioré avec stocks à date précis
+    """
+    from django.shortcuts import render, get_object_or_404, redirect
+    from django.contrib import messages
+    from datetime import datetime
+    from accounts.models import Poste
+    
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    # Vérifier les permissions
+    if not request.user.is_admin:
+        if not request.user.poste_affectation or request.user.poste_affectation != poste:
+            messages.error(request, "Accès non autorisé")
+            return redirect('inventaire:selection_compte_emploi')
+    
+    # Parser les dates
+    try:
+        date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
+        date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
+    except:
+        messages.error(request, "Format de dates invalide")
+        return redirect('inventaire:selection_compte_emploi')
+    
+    # Calculer le nombre de jours
+    nombre_jours = (date_fin_obj - date_debut_obj).days + 1
+    
+    # Calculer les données avec la nouvelle fonction
+    donnees = calculer_donnees_compte_emploi(poste, date_debut_obj, date_fin_obj)
+    
+    # Vérifier la cohérence des données
+    entrees_totales = (
+        donnees['stock_debut_valeur'] +
+        donnees['approv_imprimerie_valeur'] +
+        donnees['reapprov_recu_valeur']
+    )
+    
+    sorties_totales = (
+        donnees['reapprov_cede_valeur'] +
+        donnees['vente_valeur']
+    )
+    
+    stock_final_calcule = entrees_totales - sorties_totales
+    
+    # Alerte si incohérence
+    coherence_ok = abs(stock_final_calcule - donnees['stock_final_valeur']) < 1000
+    
+    if not coherence_ok:
+        messages.warning(
+            request,
+            f"⚠️ Attention : Écart détecté dans le calcul. "
+            f"Stock final calculé : {stock_final_calcule:,.0f} FCFA, "
+            f"Stock final réel : {donnees['stock_final_valeur']:,.0f} FCFA"
+        )
+    
+    context = {
+        'poste': poste,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'date_debut_obj': date_debut_obj,
+        'date_fin_obj': date_fin_obj,
+        'nombre_jours': nombre_jours,
+        'donnees': donnees,
+        'coherence_ok': coherence_ok,
+        'title': f"Compte d'Emploi - {poste.nom}"
+    }
+    
+    return render(request, 'inventaire/compte_emploi_pdf_preview.html', context)
 
 # def creer_section_details_series(titre, series_par_couleur, styles, 
 #                                  inclure_date_vente=False, 

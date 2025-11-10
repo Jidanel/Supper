@@ -1,0 +1,421 @@
+<!-- templates/inventaire/compte_emploi_pdf_preview.html -->
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}Aperçu Compte d'Emploi - {{ poste.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .compte-emploi-container {
+        background: white;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .header-section {
+        text-align: center;
+        margin-bottom: 2rem;
+        border-bottom: 3px solid #4a5568;
+        padding-bottom: 1rem;
+    }
+    
+    .periode-info {
+        background: #f3f4f6;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+    
+    .tableau-synthese {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2rem;
+    }
+    
+    .tableau-synthese th {
+        background: #4a5568;
+        color: white;
+        padding: 0.75rem;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+    
+    .tableau-synthese td {
+        border: 1px solid #cbd5e0;
+        padding: 0.5rem;
+        text-align: right;
+    }
+    
+    .tableau-synthese .total-row {
+        background: #e2e8f0;
+        font-weight: bold;
+    }
+    
+    .stock-detail-section {
+        margin-bottom: 2rem;
+        page-break-inside: avoid;
+    }
+    
+    .stock-detail-title {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+    
+    .series-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+    }
+    
+    .series-table th {
+        background: #f3f4f6;
+        padding: 0.5rem;
+        text-align: left;
+        font-size: 0.85rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .series-table td {
+        padding: 0.4rem;
+        border: 1px solid #e2e8f0;
+        font-size: 0.85rem;
+    }
+    
+    .couleur-header {
+        background: #e0e7ff;
+        font-weight: bold;
+    }
+    
+    .stock-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stock-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .stock-card-title {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .stock-debut {
+        border-color: #3b82f6;
+    }
+    
+    .stock-debut .stock-card-title {
+        color: #3b82f6;
+    }
+    
+    .stock-fin {
+        border-color: #10b981;
+    }
+    
+    .stock-fin .stock-card-title {
+        color: #10b981;
+    }
+    
+    .vente-semaine {
+        background: #fef2f2;
+        border-left: 4px solid #dc2626;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .btn-generate-pdf {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-generate-pdf:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    }
+    
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        
+        .stock-comparison {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <h2>Aperçu du Compte d'Emploi</h2>
+        <div>
+            <a href="{% url 'inventaire:generer_compte_emploi' poste.id date_debut date_fin %}" 
+               class="btn-generate-pdf">
+                <i class="fas fa-file-pdf"></i>
+                Télécharger PDF
+            </a>
+            <a href="{% url 'inventaire:selection_compte_emploi' %}" 
+               class="btn btn-secondary ms-2">
+                <i class="fas fa-arrow-left"></i>
+                Retour
+            </a>
+        </div>
+    </div>
+    
+    <div class="compte-emploi-container">
+        <!-- En-tête -->
+        <div class="header-section">
+            <h3>COMPTE D'EMPLOI DES TICKETS</h3>
+            <h4>{{ poste.nom }} ({{ poste.code }})</h4>
+        </div>
+        
+        <!-- Période -->
+        <div class="periode-info">
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Période :</strong> 
+                    Du {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Durée :</strong> 
+                    {{ nombre_jours }} jours
+                </div>
+                <div class="col-md-4">
+                    <strong>Généré le :</strong> 
+                    {{ "now"|date:"d/m/Y à H:i" }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Comparaison Stock Début / Fin -->
+        <div class="stock-comparison">
+            <div class="stock-card stock-debut">
+                <div class="stock-card-title">
+                    <i class="fas fa-box"></i> 
+                    Stock au {{ date_debut|date:"d/m/Y" }} (Début)
+                </div>
+                <div>
+                    <strong>Valeur :</strong> 
+                    {{ donnees.stock_debut_valeur|floatformat:0|format_milliers }} FCFA
+                </div>
+                <div>
+                    <strong>Tickets :</strong> 
+                    {{ donnees.stock_debut_qte|format_milliers }}
+                </div>
+            </div>
+            
+            <div class="stock-card stock-fin">
+                <div class="stock-card-title">
+                    <i class="fas fa-box-open"></i> 
+                    Stock au {{ date_fin|date:"d/m/Y" }} (Fin)
+                </div>
+                <div>
+                    <strong>Valeur :</strong> 
+                    {{ donnees.stock_final_valeur|floatformat:0|format_milliers }} FCFA
+                </div>
+                <div>
+                    <strong>Tickets :</strong> 
+                    {{ donnees.stock_final_qte|format_milliers }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tableau de synthèse -->
+        <table class="tableau-synthese">
+            <thead>
+                <tr>
+                    <th rowspan="2">PÉRIODE</th>
+                    <th colspan="2">STOCK DÉBUT</th>
+                    <th colspan="2">APPROV. IMP.</th>
+                    <th colspan="2">TRANSFERTS REÇUS</th>
+                    <th colspan="2">TRANSFERTS CÉDÉS</th>
+                    <th colspan="2">VENTES</th>
+                    <th colspan="2">STOCK FINAL</th>
+                </tr>
+                <tr>
+                    <th>Qté</th>
+                    <th>Valeur</th>
+                    <th>Qté</th>
+                    <th>Valeur</th>
+                    <th>Qté</th>
+                    <th>Valeur</th>
+                    <th>Qté</th>
+                    <th>Valeur</th>
+                    <th>Qté</th>
+                    <th>Valeur</th>
+                    <th>Qté</th>
+                    <th>Valeur</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ date_debut|date:"d/m" }} - {{ date_fin|date:"d/m/Y" }}</td>
+                    <td>{{ donnees.stock_debut_qte|format_milliers }}</td>
+                    <td>{{ donnees.stock_debut_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.approv_imprimerie_qte|format_milliers }}</td>
+                    <td>{{ donnees.approv_imprimerie_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_recu_qte|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_recu_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_cede_qte|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_cede_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.vente_qte|format_milliers }}</td>
+                    <td>{{ donnees.vente_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.stock_final_qte|format_milliers }}</td>
+                    <td>{{ donnees.stock_final_valeur|floatformat:0|format_milliers }}</td>
+                </tr>
+                <tr class="total-row">
+                    <td>TOTAL</td>
+                    <td>{{ donnees.stock_debut_qte|format_milliers }}</td>
+                    <td>{{ donnees.stock_debut_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.approv_imprimerie_qte|format_milliers }}</td>
+                    <td>{{ donnees.approv_imprimerie_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_recu_qte|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_recu_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_cede_qte|format_milliers }}</td>
+                    <td>{{ donnees.reapprov_cede_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.vente_qte|format_milliers }}</td>
+                    <td>{{ donnees.vente_valeur|floatformat:0|format_milliers }}</td>
+                    <td>{{ donnees.stock_final_qte|format_milliers }}</td>
+                    <td>{{ donnees.stock_final_valeur|floatformat:0|format_milliers }}</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Détails Stock de Début -->
+        {% if donnees.stock_debut_par_couleur %}
+        <div class="stock-detail-section">
+            <div class="stock-detail-title">
+                <i class="fas fa-list"></i> Détail du Stock au {{ date_debut|date:"d/m/Y" }} (Début)
+            </div>
+            {% for couleur_nom, groupe in donnees.stock_debut_par_couleur.items %}
+            <table class="series-table">
+                <thead>
+                    <tr class="couleur-header">
+                        <th colspan="3">{{ couleur_nom }}</th>
+                        <th>Total: {{ groupe.total_tickets }} tickets</th>
+                        <th>{{ groupe.valeur_totale|floatformat:0|format_milliers }} FCFA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for serie in groupe.series %}
+                    <tr>
+                        <td>#{{ serie.numero_premier }}</td>
+                        <td>→</td>
+                        <td>#{{ serie.numero_dernier }}</td>
+                        <td>{{ serie.nombre_tickets }} tickets</td>
+                        <td>{{ serie.valeur_monetaire|floatformat:0|format_milliers }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Détails des Mouvements -->
+        
+        {% if donnees.approv_imp_par_couleur %}
+        <div class="stock-detail-section">
+            <div class="stock-detail-title" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <i class="fas fa-plus-circle"></i> Approvisionnements Imprimerie Nationale
+            </div>
+            {% for couleur_nom, groupe in donnees.approv_imp_par_couleur.items %}
+            <table class="series-table">
+                <thead>
+                    <tr class="couleur-header">
+                        <th colspan="3">{{ couleur_nom }}</th>
+                        <th>Total: {{ groupe.total_tickets }} tickets</th>
+                        <th>{{ groupe.valeur_totale|floatformat:0|format_milliers }} FCFA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for serie in groupe.series %}
+                    <tr>
+                        <td>#{{ serie.numero_premier }}</td>
+                        <td>→</td>
+                        <td>#{{ serie.numero_dernier }}</td>
+                        <td>{{ serie.nombre_tickets }} tickets</td>
+                        <td>{{ serie.valeur_monetaire|floatformat:0|format_milliers }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        {% if donnees.ventes_par_semaine %}
+        <div class="stock-detail-section">
+            <div class="stock-detail-title" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);">
+                <i class="fas fa-shopping-cart"></i> Détail des Ventes par Semaine
+            </div>
+            {% for semaine_key, semaine_data in donnees.ventes_par_semaine.items %}
+            <div class="vente-semaine">
+                <h6><strong>Semaine du {{ semaine_key }}</strong></h6>
+                {% for couleur_nom, couleur_data in semaine_data.couleurs.items %}
+                <div class="ms-3">
+                    <strong>{{ couleur_nom }} :</strong>
+                    #{{ couleur_data.premier_ticket }} → #{{ couleur_data.dernier_ticket }} |
+                    {{ couleur_data.total_tickets }} tickets |
+                    {{ couleur_data.valeur_totale|floatformat:0|format_milliers }} FCFA
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Stock Final -->
+        {% if donnees.stock_final_par_couleur %}
+        <div class="stock-detail-section">
+            <div class="stock-detail-title" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <i class="fas fa-box"></i> Détail du Stock au {{ date_fin|date:"d/m/Y" }} (Fin)
+            </div>
+            {% for couleur_nom, groupe in donnees.stock_final_par_couleur.items %}
+            <table class="series-table">
+                <thead>
+                    <tr class="couleur-header">
+                        <th colspan="3">{{ couleur_nom }}</th>
+                        <th>Total: {{ groupe.total_tickets }} tickets</th>
+                        <th>{{ groupe.valeur_totale|floatformat:0|format_milliers }} FCFA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for serie in groupe.series %}
+                    <tr>
+                        <td>#{{ serie.numero_premier }}</td>
+                        <td>→</td>
+                        <td>#{{ serie.numero_dernier }}</td>
+                        <td>{{ serie.nombre_tickets }} tickets</td>
+                        <td>{{ serie.valeur_monetaire|floatformat:0|format_milliers }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+    </div>
+</div>
+{% endblock %}

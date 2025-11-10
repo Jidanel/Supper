@@ -1,4 +1,5 @@
 #inventaire/views_stocks.py
+from django.http import HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -10,7 +11,8 @@ from django.db import models
 from datetime import date, timedelta
 from .models import *
 from .forms import *
-from accounts.models import NotificationUtilisateur, Poste, UtilisateurSUPPER
+from accounts.models import *
+from collections import defaultdict
 from common.utils import log_user_action
 import logging
 logger = logging.getLogger('supper')
@@ -114,36 +116,145 @@ def liste_postes_stocks(request):
     
     return render(request, 'inventaire/liste_stocks.html', context)
 
-@login_required
-@user_passes_test(is_admin)
-def charger_stock_selection(request):
-    """Vue pour sélectionner un poste avant de charger son stock"""
+# @login_required
+# @user_passes_test(is_admin)
+# def charger_stock_selection(request):
+#     """Vue pour sélectionner un poste avant de charger son stock"""
+    
+#     if request.method == 'POST':
+#         poste_id = request.POST.get('poste_id')
+#         if poste_id:
+#             return redirect('inventaire:charger_stock', poste_id=poste_id)
+#         else:
+#             messages.error(request, "Veuillez sélectionner un poste")
+    
+#     # Récupérer les postes avec leurs stocks actuels
+#     postes = Poste.objects.filter(is_active=True).order_by('nom')
+#     postes_data = []
+    
+#     for poste in postes:
+#         stock = GestionStock.objects.filter(poste=poste).first()
+#         postes_data.append({
+#             'poste': poste,
+#             'stock_actuel': stock.valeur_monetaire if stock else 0,
+#             'tickets_actuels': stock.nombre_tickets if stock else 0
+#         })
+    
+#     return render(request, 'inventaire/charger_stock_selection.html', {
+#         'postes': postes_data,
+#         'title': 'Charger un stock'
+#     })
+
+# Vue charger_stock_selection corrigée pour inventaire/views.py
+
+def charger_stock_selection(request, poste_id):
+    """
+    Vue pour charger le stock utilisant la fonction corrigée
+    sans les champs inexistants historique_lie et serie_concernee
+    """
+    from django.shortcuts import render, redirect, get_object_or_404
+    from django.contrib import messages
+    from inventaire.models import Poste, GestionStock, SerieTicket
+    from inventaire.forms import ChargementStockForm
+    import logging
+    
+    logger = logging.getLogger('supper')
+    
+    poste = get_object_or_404(Poste, id=poste_id, is_active=True)
+    
+    # Vérification des permissions
+    if not request.user.peut_acceder_poste(poste):
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return redirect('inventaire:liste_postes_stocks')
     
     if request.method == 'POST':
-        poste_id = request.POST.get('poste_id')
-        if poste_id:
-            return redirect('inventaire:charger_stock', poste_id=poste_id)
-        else:
-            messages.error(request, "Veuillez sélectionner un poste")
+        form = ChargementStockForm(request.POST)
+        if form.is_valid():
+            try:
+                couleur = form.cleaned_data['couleur']
+                numero_premier = form.cleaned_data['numero_premier']
+                numero_dernier = form.cleaned_data['numero_dernier']
+                type_stock = form.cleaned_data.get('type_stock', 'imprimerie_nationale')
+                observations = form.cleaned_data.get('observations', '')
+                
+                # Validation
+                if numero_dernier <= numero_premier:
+                    messages.error(request, "Le numéro du dernier ticket doit être supérieur au premier.")
+                    return render(request, 'inventaire/charger_stock_selection.html', {
+                        'form': form,
+                        'poste': poste,
+                        'title': f'Charger le stock - {poste.nom}'
+                    })
+                
+                # Vérifier les conflits avec les séries existantes
+                series_existantes = SerieTicket.objects.filter(
+                    couleur=couleur,
+                    poste=poste,
+                    statut='stock'
+                )
+                
+                for serie in series_existantes:
+                    # Vérifier le chevauchement
+                    if not (numero_dernier < serie.numero_premier or 
+                            numero_premier > serie.numero_dernier):
+                        messages.error(
+                            request,
+                            f"Conflit avec la série existante {serie.couleur.libelle_affichage} "
+                            f"#{serie.numero_premier}-{serie.numero_dernier}"
+                        )
+                        return render(request, 'inventaire/charger_stock_selection.html', {
+                            'form': form,
+                            'poste': poste,
+                            'title': f'Charger le stock - {poste.nom}'
+                        })
+                
+                # Utiliser la fonction corrigée
+                success, message, serie, historique = executer_chargement_stock_avec_series(
+                    poste=poste,
+                    couleur=couleur,
+                    numero_premier=numero_premier,
+                    numero_dernier=numero_dernier,
+                    type_stock=type_stock,
+                    user=request.user,
+                    commentaire=observations
+                )
+                
+                if success:
+                    messages.success(request, message)
+                    logger.info(f"Chargement réussi par {request.user.username}: {message}")
+                    return redirect('inventaire:detail_stock', poste_id=poste.id)
+                else:
+                    messages.error(request, message)
+                    logger.error(f"Échec chargement par {request.user.username}: {message}")
+                    
+            except Exception as e:
+                logger.error(f"Erreur inattendue dans charger_stock_selection: {str(e)}", exc_info=True)
+                messages.error(request, f"Erreur inattendue: {str(e)}")
+    else:
+        form = ChargementStockForm()
     
-    # Récupérer les postes avec leurs stocks actuels
-    postes = Poste.objects.filter(is_active=True).order_by('nom')
-    postes_data = []
+    # Récupérer les séries actuelles en stock
+    series_actuelles = SerieTicket.objects.filter(
+        poste=poste,
+        statut='stock'
+    ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
     
-    for poste in postes:
-        stock = GestionStock.objects.filter(poste=poste).first()
-        postes_data.append({
-            'poste': poste,
-            'stock_actuel': stock.valeur_monetaire if stock else 0,
-            'tickets_actuels': stock.nombre_tickets if stock else 0
-        })
+    # Récupérer le stock total
+    try:
+        stock_total = GestionStock.objects.get(poste=poste)
+    except GestionStock.DoesNotExist:
+        stock_total = None
     
-    return render(request, 'inventaire/charger_stock_selection.html', {
-        'postes': postes_data,
-        'title': 'Charger un stock'
-    })
-
-# @login_required
+    context = {
+        'form': form,
+        'poste': poste,
+        'series_actuelles': series_actuelles,
+        'stock_total': stock_total,
+        'title': f'Charger le stock - {poste.nom}'
+    }
+    
+    return render(request, 'inventaire/charger_stock_selection.html', context)
+    # @login_required
 # @user_passes_test(is_admin)
 # def charger_stock(request, poste_id):
 #     """Vue pour charger/créditer le stock d'un poste avec choix du type"""
@@ -560,132 +671,252 @@ def confirmation_chargement_stock_tickets(request):
     
     return render(request, 'inventaire/confirmation_chargement_stock_tickets.html', context)
 
+
+
 def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero_dernier, 
-                                         type_stock, user, commentaire):
+                                          type_stock, user, commentaire=None):
     """
-    VERSION MODIFIÉE avec Event Sourcing
-    Exécute le chargement de stock ET crée la liaison avec l'historique + EVENT
+    VERSION CORRIGÉE : Sans les champs historique_lie et serie_concernee qui n'existent pas
+    
+    Cette fonction garantit que les séries sont bien associées à l'historique
+    lors du chargement de stock.
+    
+    Args:
+        poste: Instance du modèle Poste
+        couleur: Instance du modèle CouleurTicket
+        numero_premier: Numéro du premier ticket
+        numero_dernier: Numéro du dernier ticket
+        type_stock: Type de stock ('imprimerie_nationale' ou 'regularisation')
+        user: Utilisateur effectuant l'opération
+        commentaire: Commentaire optionnel
+    
+    Returns:
+        tuple: (success, message, serie, historique)
     """
     from django.db import transaction
+    from decimal import Decimal
+    from inventaire.models import SerieTicket, GestionStock, HistoriqueStock, StockEvent
+    from django.utils import timezone
+    from accounts.models import NotificationUtilisateur, UtilisateurSUPPER
+    from common.utils import log_user_action
+    import logging
     
-    with transaction.atomic():
-        # 1. Créer la série de tickets (CODE EXISTANT)
-        serie = SerieTicket.objects.create(
-            poste=poste,
-            couleur=couleur,
-            numero_premier=numero_premier,
-            numero_dernier=numero_dernier,
-            statut='stock',
-            type_entree=type_stock,
-            commentaire=commentaire
-        )
-        
-        # 2. Mettre à jour le stock global (CODE EXISTANT)
-        stock, _ = GestionStock.objects.get_or_create(
-            poste=poste,
-            defaults={'valeur_monetaire': Decimal('0')}
-        )
-        
-        stock_avant = stock.valeur_monetaire
-        montant = serie.valeur_monetaire
-        
-        stock.valeur_monetaire += montant
-        stock.save()
-        
-        # ===== NOUVEAU CODE EVENT SOURCING (AJOUTER) =====
-        # Créer l'événement Event Sourcing
-        event_type = 'REGULARISATION' if type_stock == 'regularisation' else 'CHARGEMENT'
-        
-        StockEvent.objects.create(
-            poste=poste,
-            event_type=event_type,
-            event_datetime=timezone.now(),
-            montant_variation=montant,
-            nombre_tickets_variation=serie.nombre_tickets,
-            stock_resultant=stock.valeur_monetaire,  # Utiliser la nouvelle valeur
-            tickets_resultants=int(stock.valeur_monetaire / 500),
-            effectue_par=user,
-            reference_id=str(serie.id),
-            reference_type='SerieTicket',
-            metadata={
-                'type_stock': type_stock,
-                'serie': {
-                    'couleur': couleur.libelle_affichage,
-                    'numero_premier': numero_premier,
-                    'numero_dernier': numero_dernier,
-                    'nombre_tickets': serie.nombre_tickets,
-                    'valeur': str(montant)
-                }
-            },
-            commentaire=commentaire or f"Chargement série {couleur.libelle_affichage}"
-        )
-        # ===== FIN NOUVEAU CODE =====
-        
-        # 3. Créer l'historique (CODE EXISTANT - garder tel quel)
-        type_stock_label = (
-            "Régularisation" if type_stock == 'regularisation' 
-            else "Imprimerie Nationale"
-        )
-        
-        historique = HistoriqueStock.objects.create(
-            poste=poste,
-            type_mouvement='CREDIT',
-            type_stock=type_stock,
-            montant=montant,
-            nombre_tickets=serie.nombre_tickets,
-            stock_avant=stock_avant,
-            stock_apres=stock.valeur_monetaire,
-            effectue_par=user,
-            commentaire=(
-                f"{commentaire or ''} - Série {couleur.libelle_affichage} "
+    logger = logging.getLogger('supper')
+    
+    try:
+        with transaction.atomic():
+            # 1. Créer la série de tickets
+            now = timezone.now()
+            serie = SerieTicket.objects.create(
+                poste=poste,
+                couleur=couleur,
+                numero_premier=numero_premier,
+                numero_dernier=numero_dernier,
+                statut='stock',
+                type_entree=type_stock,  # 'imprimerie_nationale' ou 'regularisation'
+                commentaire=commentaire or f"Chargement {type_stock}",
+                date_reception=now
+            )
+            
+            # 2. Mettre à jour le stock global
+            stock, created = GestionStock.objects.get_or_create(
+                poste=poste,
+                defaults={'valeur_monetaire': Decimal('0'), 'nombre_tickets': 0}
+            )
+            
+            stock_avant = stock.valeur_monetaire
+            montant = serie.valeur_monetaire  # Calculé automatiquement dans le modèle
+            nombre_tickets = serie.nombre_tickets
+            
+            stock.valeur_monetaire += montant
+            stock.nombre_tickets += nombre_tickets
+            stock.save()
+            
+            # 3. Créer l'historique
+            type_stock_label = (
+                "Régularisation" if type_stock == 'regularisation' 
+                else "Imprimerie Nationale"
+            )
+            
+            # Normaliser le type_stock pour l'historique
+            type_stock_historique = 'imprimerie_nationale' if type_stock in ['imprimerie', 'imprimerie_nationale'] else type_stock
+            
+            commentaire_historique = (
+                f"{type_stock_label} - Série {couleur.libelle_affichage} "
                 f"#{numero_premier}-{numero_dernier}"
             )
-        )
-        
-        # Reste du code existant (notifications, etc.) - GARDER TEL QUEL
-        historique.associer_series_tickets([serie])
-        
-        # 4. Envoyer notifications aux chefs de poste
-        chefs = UtilisateurSUPPER.objects.filter(
-            poste_affectation=poste,
-            habilitation__in=['chef_peage', 'chef_pesage'],
-            is_active=True
-        )
-        
-        for chef in chefs:
-            NotificationUtilisateur.objects.create(
-                destinataire=chef,
-                expediteur=user,
-                titre="Nouveau stock de tickets disponible",
-                message=(
-                    f"Stock {type_stock_label} crédité : "
-                    f"Série {couleur.libelle_affichage} "
+            if commentaire:
+                commentaire_historique += f"\n{commentaire}"
+            
+            historique = HistoriqueStock.objects.create(
+                poste=poste,
+                type_mouvement='CREDIT',
+                type_stock=type_stock_historique,
+                montant=montant,
+                nombre_tickets=nombre_tickets,
+                stock_avant=stock_avant,
+                stock_apres=stock.valeur_monetaire,
+                effectue_par=user,
+                commentaire=commentaire_historique,
+                date_mouvement=now
+            )
+            
+            # 4. ASSOCIER LA SÉRIE À L'HISTORIQUE (CRUCIAL)
+            historique.series_tickets_associees.add(serie)
+            
+            # 5. Créer l'événement Event Sourcing SANS historique_lie
+            event_type = 'REGULARISATION' if type_stock == 'regularisation' else 'CHARGEMENT'
+            
+            # Créer les métadonnées complètes
+            metadata = {
+                'type_stock': type_stock,
+                'type_stock_label': type_stock_label,
+                'serie': {
+                    'id': serie.id,
+                    'couleur': couleur.libelle_affichage,
+                    'couleur_id': couleur.id,
+                    'couleur_code': couleur.code_normalise,
+                    'numero_premier': numero_premier,
+                    'numero_dernier': numero_dernier,
+                    'nombre_tickets': nombre_tickets,
+                    'valeur': str(montant)
+                },
+                'historique_id': historique.id,  # Stocker l'ID de l'historique dans metadata
+                'operation': 'chargement_stock_avec_series'
+            }
+            
+            stock_event = StockEvent.objects.create(
+                poste=poste,
+                event_type=event_type,
+                event_datetime=now,
+                montant_variation=montant,
+                nombre_tickets_variation=nombre_tickets,
+                stock_resultant=stock.valeur_monetaire,
+                tickets_resultants=stock.nombre_tickets,
+                effectue_par=user,
+                reference_id=str(historique.id),  # Lien vers l'historique via reference_id
+                reference_type='HistoriqueStock',
+                # historique_lie=historique,  # SUPPRIMÉ - ce champ n'existe pas
+                metadata=metadata,
+                commentaire=commentaire or f"Chargement série {couleur.libelle_affichage}"
+            )
+            
+            # Note: serie_concernee n'existe pas non plus, on utilise metadata pour stocker l'info
+            # stock_event.serie_concernee = serie  # SUPPRIMÉ - ce champ n'existe pas
+            
+            # 6. Envoyer notifications aux chefs de poste
+            chefs = UtilisateurSUPPER.objects.filter(
+                poste_affectation=poste,
+                habilitation__in=['chef_peage', 'chef_pesage'],
+                is_active=True
+            )
+            
+            for chef in chefs:
+                NotificationUtilisateur.objects.create(
+                    destinataire=chef,
+                    expediteur=user,
+                    titre=f"Nouveau stock de tickets - {type_stock_label}",
+                    message=(
+                        f"Stock {type_stock_label} crédité : "
+                        f"Série {couleur.libelle_affichage} "
+                        f"#{numero_premier}-{numero_dernier} "
+                        f"({nombre_tickets:,} tickets = {montant:,.0f} FCFA) "
+                        f"pour {poste.nom}"
+                    ),
+                    type_notification='info'
+                )
+            
+            # 7. Journaliser l'action
+            log_user_action(
+                user,
+                f"Chargement stock {type_stock_label}",
+                (
+                    f"Stock crédité: Série {couleur.libelle_affichage} "
                     f"#{numero_premier}-{numero_dernier} "
-                    f"({serie.nombre_tickets} tickets = {montant:,.0f} FCFA) "
+                    f"({nombre_tickets:,} tickets = {montant:,.0f} FCFA) "
                     f"pour {poste.nom}"
                 ),
-                type_notification='info'
+                None
             )
-        
-        # 5. Journaliser l'action
-        log_user_action(
-            user,
-            f"Chargement stock {type_stock_label} avec tickets",
-            (
-                f"Stock crédité: Série {couleur.libelle_affichage} "
-                f"#{numero_premier}-{numero_dernier} "
-                f"= {montant:,.0f} FCFA pour {poste.nom}"
-            ),
-            None
+            
+            # 8. Log de débogage
+            logger.info(
+                f"Chargement stock réussi : {couleur.libelle_affichage} "
+                f"#{numero_premier}-{numero_dernier} pour {poste.nom} "
+                f"- Historique ID: {historique.id} avec "
+                f"{historique.series_tickets_associees.count()} série(s) associée(s)"
+            )
+            
+            return True, (
+                f"✅ Chargement réussi : {nombre_tickets:,} tickets "
+                f"({montant:,.0f} FCFA)"
+            ), serie, historique
+            
+    except Exception as e:
+        logger.error(
+            f"Erreur lors du chargement stock : {str(e)}", 
+            exc_info=True
         )
-        
-        logger.info(
-            f"Chargement stock avec série : {couleur.libelle_affichage} "
-            f"#{numero_premier}-{numero_dernier} pour {poste.nom}"
-        )
-        
-        return True, "Chargement réussi", serie, historique
+        return False, f"❌ Erreur : {str(e)}", None, None
 
+# Fonction pour vérifier et corriger les associations manquantes
+def verifier_et_corriger_associations(poste_id=None):
+    """
+    Vérifie et corrige les associations manquantes entre historiques et séries
+    """
+    from inventaire.models import HistoriqueStock, SerieTicket
+    from django.db.models import Q
+    import re
+    import logging
+    
+    logger = logging.getLogger('supper')
+    
+    # Filtrer par poste si spécifié
+    query = Q(type_mouvement='CREDIT')
+    if poste_id:
+        query &= Q(poste_id=poste_id)
+    
+    historiques = HistoriqueStock.objects.filter(query).prefetch_related('series_tickets_associees')
+    
+    corrections = 0
+    
+    for historique in historiques:
+        # Si pas de séries associées mais un commentaire avec infos
+        if not historique.series_tickets_associees.exists() and historique.commentaire:
+            # Essayer d'extraire les infos du commentaire
+            # Pattern : "Série Bleu #25896547-25956546"
+            pattern = r"Série\s+(\w+)\s+#(\d+)-(\d+)"
+            match = re.search(pattern, historique.commentaire)
+            
+            if match:
+                couleur_nom = match.group(1)
+                num_premier = int(match.group(2))
+                num_dernier = int(match.group(3))
+                
+                # Chercher la série correspondante
+                serie = SerieTicket.objects.filter(
+                    poste=historique.poste,
+                    numero_premier=num_premier,
+                    numero_dernier=num_dernier,
+                    date_reception=historique.date_mouvement.date()
+                ).first()
+                
+                if serie:
+                    # Associer la série à l'historique
+                    historique.series_tickets_associees.add(serie)
+                    corrections += 1
+                    logger.info(
+                        f"Association corrigée : Historique {historique.id} "
+                        f"-> Série {serie.id} ({couleur_nom} #{num_premier}-{num_dernier})"
+                    )
+                else:
+                    logger.warning(
+                        f"Série introuvable pour Historique {historique.id} : "
+                        f"{couleur_nom} #{num_premier}-{num_dernier}"
+                    )
+    
+    logger.info(f"Vérification terminée : {corrections} associations corrigées")
+    return corrections
 
 @login_required
 def mon_stock(request):
@@ -809,222 +1040,249 @@ def historique_stock(request, poste_id):
     
     return render(request, 'inventaire/historique_stock.html', context)
 
-@login_required
+
+# Modification de inventaire/views.py - fonction detail_historique_stock
+
 def detail_historique_stock(request, historique_id):
     """
-    Vue complète pour afficher le détail d'une opération d'historique
-    
-    Affiche :
-    - Informations générales de l'opération
-    - Impact sur le stock (avant/après)
-    - État détaillé des séries de tickets AVANT l'opération
-    - État détaillé des séries de tickets APRÈS l'opération
-    - Séries transférées (si transfert)
-    - Séries vendues (si vente)
+    Vue améliorée utilisant les champs structurés pour l'approvisionnement
     """
+    from django.http import HttpResponseForbidden
+    from django.shortcuts import render, get_object_or_404
+    from inventaire.models import SerieTicket, StockEvent, HistoriqueStock
+    from datetime import timedelta
+    from decimal import Decimal
+    from collections import defaultdict
+    import logging
     
-    # Récupérer l'historique
+    logger = logging.getLogger('supper')
+    
+    # Récupérer l'historique avec toutes les relations
     historique = get_object_or_404(
         HistoriqueStock.objects.select_related(
             'poste',
             'effectue_par',
             'reference_recette',
             'poste_origine',
-            'poste_destination'
+            'poste_destination',
+            'couleur_principale'  # Nouveau champ
+        ).prefetch_related(
+            'series_tickets_associees',
+            'series_tickets_associees__couleur'
         ),
         id=historique_id
     )
     
-    # Vérifier les permissions
     poste = historique.poste
     if not request.user.peut_acceder_poste(poste):
-        from django.http import HttpResponseForbidden
         return HttpResponseForbidden("Vous n'avez pas accès à ce poste")
     
     # ===================================================================
-    # CALCUL DE L'ÉTAT DU STOCK AVANT ET APRÈS L'OPÉRATION
+    # CALCUL DU STOCK AVANT/APRÈS
     # ===================================================================
     
-    # 1. État du stock AVANT l'opération
-    series_avant = []
-    
-    if historique.type_mouvement == 'DEBIT':
-        # Pour un débit (vente/transfert sortant), on cherche les séries qui existaient avant
-        # On cherche les séries en 'vendu' ou 'transfere' avec date <= date de l'historique
-        # PLUS les séries actuellement en stock
+    def calculer_stock_via_historiques(poste, date_reference, exclure_historique_id=None):
+        """Calcule le stock en sommant tous les mouvements jusqu'à la date"""
+        from django.db.models import Sum
         
-        if historique.reference_recette:
-            # CAS VENTE : Récupérer les séries vendues
-            details_vente = historique.reference_recette.details_ventes_tickets.all()
-            
-            for detail in details_vente:
-                # Trouver la série d'origine (qui était en stock avant la vente)
-                serie_origine = SerieTicket.objects.filter(
-                    poste=poste,
-                    couleur=detail.couleur,
-                    statut='vendu',
-                    numero_premier__lte=detail.numero_premier,
-                    numero_dernier__gte=detail.numero_dernier,
-                    date_utilisation=historique.reference_recette.date
-                ).first()
-                
-                if serie_origine:
-                    series_avant.append({
-                        'couleur': detail.couleur,
-                        'numero_premier': detail.numero_premier,
-                        'numero_dernier': detail.numero_dernier,
-                        'nombre_tickets': detail.nombre_tickets,
-                        'valeur': detail.montant,
-                        'statut': 'stock',  # Était en stock avant
-                        'action': 'vendue'  # A été vendue
-                    })
-        
-        # Ajouter les séries qui sont restées en stock
-        series_restantes = SerieTicket.objects.filter(
+        historiques_query = HistoriqueStock.objects.filter(
             poste=poste,
-            statut='stock',
-            date_reception__lte=historique.date_mouvement
-        ).order_by('couleur__code_normalise', 'numero_premier')
+            date_mouvement__lt=date_reference
+        )
         
-        for serie in series_restantes:
-            series_avant.append({
-                'couleur': serie.couleur,
-                'numero_premier': serie.numero_premier,
-                'numero_dernier': serie.numero_dernier,
-                'nombre_tickets': serie.nombre_tickets,
-                'valeur': serie.valeur_monetaire,
-                'statut': 'stock',
-                'action': 'conservee'  # Est restée en stock
-            })
-    
-    elif historique.type_mouvement == 'CREDIT':
-        # Pour un crédit, l'état AVANT = stock actuel MOINS les séries ajoutées
-        series_actuelles = SerieTicket.objects.filter(
-            poste=poste,
-            statut='stock',
-            date_reception__lte=historique.date_mouvement
-        ).exclude(
-            date_reception=historique.date_mouvement
-        ).order_by('couleur__code_normalise', 'numero_premier')
+        if exclure_historique_id:
+            historiques_query = historiques_query.exclude(id=exclure_historique_id)
         
-        for serie in series_actuelles:
-            series_avant.append({
-                'couleur': serie.couleur,
-                'numero_premier': serie.numero_premier,
-                'numero_dernier': serie.numero_dernier,
-                'nombre_tickets': serie.nombre_tickets,
-                'valeur': serie.valeur_monetaire,
-                'statut': 'stock',
-                'action': 'conservee'
-            })
-    
-    # 2. État du stock APRÈS l'opération
-    series_apres = []
-    
-    if historique.type_mouvement == 'DEBIT':
-        # Après un débit, on a le stock actuel (sans les séries vendues/transférées)
-        series_actuelles = SerieTicket.objects.filter(
-            poste=poste,
-            statut='stock'
-        ).order_by('couleur__code_normalise', 'numero_premier')
+        # Somme des crédits
+        totaux_credit = historiques_query.filter(
+            type_mouvement='CREDIT'
+        ).aggregate(
+            total_montant=Sum('montant'),
+            total_tickets=Sum('nombre_tickets')
+        )
         
-        for serie in series_actuelles:
-            series_apres.append({
-                'couleur': serie.couleur,
-                'numero_premier': serie.numero_premier,
-                'numero_dernier': serie.numero_dernier,
-                'nombre_tickets': serie.nombre_tickets,
-                'valeur': serie.valeur_monetaire,
-                'statut': 'stock',
-                'action': 'conservee'
-            })
-    
-    elif historique.type_mouvement == 'CREDIT':
-        # Après un crédit, on a tout le stock actuel
-        series_actuelles = SerieTicket.objects.filter(
-            poste=poste,
-            statut='stock',
-            date_reception__lte=historique.date_mouvement
-        ).order_by('couleur__code_normalise', 'numero_premier')
+        # Somme des débits
+        totaux_debit = historiques_query.filter(
+            type_mouvement='DEBIT'
+        ).aggregate(
+            total_montant=Sum('montant'),
+            total_tickets=Sum('nombre_tickets')
+        )
         
-        for serie in series_actuelles:
-            # Identifier les nouvelles séries ajoutées
-            est_nouvelle = serie.date_reception == historique.date_mouvement.date()
-            
-            series_apres.append({
-                'couleur': serie.couleur,
-                'numero_premier': serie.numero_premier,
-                'numero_dernier': serie.numero_dernier,
-                'nombre_tickets': serie.nombre_tickets,
-                'valeur': serie.valeur_monetaire,
-                'statut': 'stock',
-                'action': 'ajoutee' if est_nouvelle else 'conservee'
-            })
+        montant_credit = totaux_credit['total_montant'] or Decimal('0')
+        montant_debit = totaux_debit['total_montant'] or Decimal('0')
+        tickets_credit = totaux_credit['total_tickets'] or 0
+        tickets_debit = totaux_debit['total_tickets'] or 0
+        
+        stock_valeur = montant_credit - montant_debit
+        stock_tickets = tickets_credit - tickets_debit
+        
+        # Éviter les valeurs négatives
+        if stock_valeur < 0:
+            stock_valeur = Decimal('0')
+        if stock_tickets < 0:
+            stock_tickets = 0
+        
+        return stock_valeur, stock_tickets
+    
+    # Calculer le stock avant cette opération
+    stock_avant_valeur, stock_avant_qte = calculer_stock_via_historiques(
+        poste=poste,
+        date_reference=historique.date_mouvement,
+        exclure_historique_id=None
+    )
+    
+    # Calculer le stock après
+    if historique.type_mouvement == 'CREDIT':
+        stock_apres_valeur = stock_avant_valeur + historique.montant
+        stock_apres_qte = stock_avant_qte + historique.nombre_tickets
+    else:  # DEBIT
+        stock_apres_valeur = stock_avant_valeur - historique.montant
+        stock_apres_qte = stock_avant_qte - historique.nombre_tickets
+        if stock_apres_valeur < 0:
+            stock_apres_valeur = Decimal('0')
+        if stock_apres_qte < 0:
+            stock_apres_qte = 0
     
     # ===================================================================
-    # INFORMATIONS SPÉCIFIQUES SELON LE TYPE D'OPÉRATION
+    # RÉCUPÉRATION DES DÉTAILS D'APPROVISIONNEMENT STRUCTURÉS
     # ===================================================================
     
-    # Détails de vente (si applicable)
+    series_operation = []
+    details_approvisionnement = None
     details_vente = None
-    if historique.type_mouvement == 'DEBIT' and historique.reference_recette:
-        details_vente = historique.reference_recette.details_ventes_tickets.select_related(
-            'couleur'
-        ).all()
-    
-    # Détails de transfert (si applicable)
     info_transfert = None
-    if historique.type_mouvement == 'CREDIT' and historique.type_stock == 'reapprovisionnement':
-        if historique.poste_origine:
-            # Trouver les séries transférées
-            series_transferees = SerieTicket.objects.filter(
-                poste=historique.poste_destination,  # Poste actuel (destination)
-                type_entree='transfert_recu',
-                date_reception=historique.date_mouvement.date()
-            ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
+    
+    if historique.type_mouvement == 'CREDIT':
+        if historique.type_stock in ['imprimerie_nationale', 'imprimerie', 'regularisation']:
+            
+            # Utiliser la méthode du modèle pour récupérer les détails structurés
+            details_structurees = historique.get_details_approvisionnement_formattes()
+            
+            details_approvisionnement = {
+                'type': details_structurees['type'],
+                'montant': historique.montant,
+                'nombre_tickets': historique.nombre_tickets,
+                'series': details_structurees['series']
+            }
+            
+            # Si on n'a pas de séries dans les détails structurés, utiliser les séries associées
+            if not details_approvisionnement['series'] and historique.series_tickets_associees.exists():
+                for serie in historique.series_tickets_associees.all():
+                    details_approvisionnement['series'].append({
+                        'couleur': serie.couleur,
+                        'numero_premier': serie.numero_premier,
+                        'numero_dernier': serie.numero_dernier,
+                        'nombre_tickets': serie.nombre_tickets,
+                        'valeur_monetaire': Decimal(str(serie.nombre_tickets)) * Decimal('500')
+                    })
+            
+            # Ajouter à series_operation pour l'affichage
+            for serie_detail in details_approvisionnement['series']:
+                series_operation.append({
+                    'type': 'approvisionnement',
+                    'couleur': serie_detail.get('couleur'),
+                    'numero_premier': serie_detail.get('numero_premier'),
+                    'numero_dernier': serie_detail.get('numero_dernier'),
+                    'nombre_tickets': serie_detail.get('nombre_tickets'),
+                    'valeur': serie_detail.get('valeur') or serie_detail.get('valeur_monetaire'),
+                    'action': 'ajoutee'
+                })
+        
+        elif historique.type_stock == 'transfert_recu' or historique.poste_origine:
+            # Transfert entrant
+            series_recues = historique.series_tickets_associees.all()
             
             info_transfert = {
                 'poste_origine': historique.poste_origine,
+                'poste_destination': poste,
+                'numero_bordereau': historique.numero_bordereau,
+                'type': 'entrant',
+                'series': []
+            }
+            
+            for serie in series_recues:
+                info_transfert['series'].append({
+                    'couleur': serie.couleur,
+                    'numero_premier': serie.numero_premier,
+                    'numero_dernier': serie.numero_dernier,
+                    'nombre_tickets': serie.nombre_tickets,
+                    'valeur_monetaire': Decimal(str(serie.nombre_tickets)) * Decimal('500')
+                })
+    
+    elif historique.type_mouvement == 'DEBIT':
+        if historique.reference_recette:
+            # Vente
+            details_vente = historique.reference_recette.details_ventes_tickets.select_related(
+                'couleur'
+            ).all()
+            
+            for detail in details_vente:
+                series_operation.append({
+                    'type': 'vente',
+                    'couleur': detail.couleur,
+                    'numero_premier': detail.numero_premier,
+                    'numero_dernier': detail.numero_dernier,
+                    'nombre_tickets': detail.nombre_tickets,
+                    'valeur': detail.montant,
+                    'action': 'vendue'
+                })
+        
+        elif historique.poste_destination:
+            # Transfert sortant
+            series_transferees = historique.series_tickets_associees.all()
+            
+            info_transfert = {
+                'poste_origine': poste,
                 'poste_destination': historique.poste_destination,
                 'numero_bordereau': historique.numero_bordereau,
-                'series': series_transferees
+                'type': 'sortant',
+                'series': []
             }
+            
+            for serie in series_transferees:
+                info_transfert['series'].append({
+                    'couleur': serie.couleur,
+                    'numero_premier': serie.numero_premier,
+                    'numero_dernier': serie.numero_dernier,
+                    'nombre_tickets': serie.nombre_tickets,
+                    'valeur_monetaire': Decimal(str(serie.nombre_tickets)) * Decimal('500')
+                })
     
-    elif historique.type_mouvement == 'DEBIT' and historique.poste_destination:
-        # C'est un transfert sortant
-        series_transferees = SerieTicket.objects.filter(
-            poste=historique.poste,  # Poste d'origine
-            statut='transfere',
-            poste_destination_transfert=historique.poste_destination,
-            date_utilisation=historique.date_mouvement.date()
-        ).select_related('couleur', 'poste_destination_transfert').order_by(
-            'couleur__code_normalise', 'numero_premier'
+    # ===================================================================
+    # VARIATION ET VÉRIFICATION
+    # ===================================================================
+    
+    variation_valeur = stock_apres_valeur - stock_avant_valeur
+    variation_qte = stock_apres_qte - stock_avant_qte
+    
+    # Vérification de cohérence
+    if historique.type_mouvement == 'DEBIT':
+        variation_attendue = -historique.montant
+    else:
+        variation_attendue = historique.montant
+    
+    if abs(variation_valeur - variation_attendue) > Decimal('0.01'):
+        logger.warning(
+            f"Incohérence variation - Historique {historique_id}: "
+            f"Calculée={variation_valeur}, Attendue={variation_attendue}"
         )
-        
-        info_transfert = {
-            'poste_origine': historique.poste,
-            'poste_destination': historique.poste_destination,
-            'numero_bordereau': historique.numero_bordereau,
-            'series': series_transferees
-        }
     
-    # ===================================================================
-    # GROUPEMENT DES SÉRIES PAR COULEUR pour affichage
-    # ===================================================================
+    # Log de débogage avec les nouvelles données structurées
+    logger.info(f"Détail historique {historique_id}:")
+    logger.info(f"  Type: {historique.type_mouvement} - {historique.type_stock}")
+    logger.info(f"  Montant: {historique.montant}")
+    logger.info(f"  Stock avant: {stock_avant_valeur} ({stock_avant_qte} tickets)")
+    logger.info(f"  Stock après: {stock_apres_valeur} ({stock_apres_qte} tickets)")
     
-    def grouper_series_par_couleur(series_list):
-        """Groupe les séries par couleur pour un affichage plus clair"""
-        from collections import defaultdict
-        
-        grouped = defaultdict(list)
-        for serie in series_list:
-            couleur_key = serie['couleur'].libelle_affichage
-            grouped[couleur_key].append(serie)
-        
-        return dict(grouped)
+    if historique.numero_premier_ticket and historique.numero_dernier_ticket:
+        logger.info(f"  Série principale: #{historique.numero_premier_ticket}-{historique.numero_dernier_ticket}")
     
-    series_avant_groupees = grouper_series_par_couleur(series_avant)
-    series_apres_groupees = grouper_series_par_couleur(series_apres)
+    if historique.couleur_principale:
+        logger.info(f"  Couleur principale: {historique.couleur_principale.libelle_affichage}")
+    
+    if details_approvisionnement:
+        logger.info(f"  Séries approvisionnement: {len(details_approvisionnement.get('series', []))}")
     
     # ===================================================================
     # CONTEXTE POUR LE TEMPLATE
@@ -1033,12 +1291,34 @@ def detail_historique_stock(request, historique_id):
     context = {
         'historique': historique,
         'poste': poste,
-        'series_avant': series_avant,
-        'series_apres': series_apres,
-        'series_avant_groupees': series_avant_groupees,
-        'series_apres_groupees': series_apres_groupees,
+        
+        # Stocks calculés
+        'stock_avant_valeur': stock_avant_valeur,
+        'stock_avant_qte': stock_avant_qte,
+        'stock_apres_valeur': stock_apres_valeur,
+        'stock_apres_qte': stock_apres_qte,
+        
+        # Variations
+        'variation_valeur': variation_valeur,
+        'variation_qte': variation_qte,
+        
+        # Séries et opérations
+        'series_operation': series_operation,
+        
+        # Détails spécifiques
         'details_vente': details_vente,
         'info_transfert': info_transfert,
+        'details_approvisionnement': details_approvisionnement,
+        
+        # Affichage direct des champs structurés si disponibles
+        'serie_principale': {
+            'couleur': historique.couleur_principale,
+            'numero_premier': historique.numero_premier_ticket,
+            'numero_dernier': historique.numero_dernier_ticket,
+            'nombre_tickets': (historique.numero_dernier_ticket - historique.numero_premier_ticket + 1) 
+                            if historique.numero_premier_ticket and historique.numero_dernier_ticket else None
+        } if historique.couleur_principale else None,
+        
         'title': f'Détail opération - {poste.nom}',
         'is_admin': request.user.is_admin if hasattr(request.user, 'is_admin') else False,
     }

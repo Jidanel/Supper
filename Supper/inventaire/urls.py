@@ -146,8 +146,23 @@ urlpatterns = [
      path('api/stats/', views.api_inventaire_stats, name='api_inventaire_stats'),
      path('stocks/chargement/confirmation/', views_stocks.confirmation_chargement_stock_tickets, name='confirmation_chargement_stock_tickets'),
      path('recettes/vente/confirmation/', views.confirmation_recette_tickets, name='confirmation_recette_tickets'),
-     path('compte-emploi/',views_rapports.selection_compte_emploi, name='selection_compte_emploi'),
-     path('compte-emploi/<int:poste_id>/<str:date_debut>/<str:date_fin>/', views_rapports.generer_compte_emploi_pdf, name='generer_compte_emploi'),
+     path(
+        'compte-emploi/selection/',
+        views_rapports.selection_compte_emploi,
+        name='selection_compte_emploi'
+    ),
+    
+    path(
+        'compte-emploi/<int:poste_id>/<str:date_debut>/<str:date_fin>/apercu/',
+        views_rapports.apercu_compte_emploi,
+        name='apercu_compte_emploi'
+    ),
+    
+    path(
+        'compte-emploi/<int:poste_id>/<str:date_debut>/<str:date_fin>/pdf/',
+        views_rapports.generer_compte_emploi_pdf,
+        name='generer_compte_emploi'
+    ),
      path('parametrage-global/', views_rapports.parametrage_global, name='parametrage_global'),
      path('classement-rendement/', views_classement.classement_postes_rendement, name='classement_rendement'),
      path('stocks/transfert/selection/', 

@@ -905,3 +905,19 @@ def default_if_none_or_empty(value, default='N/A'):
     if value is None or value == '':
         return default
     return value
+
+@register.filter
+def calculer_valeur_tickets(nombre_tickets, prix_unitaire=500):
+    """
+    Calcule la valeur monétaire d'un nombre de tickets
+    Usage dans le template: {{ serie.nombre_tickets|calculer_valeur_tickets }}
+    """
+    if nombre_tickets is None:
+        return Decimal('0')
+    
+    try:
+        nombre = int(nombre_tickets) if not isinstance(nombre_tickets, int) else nombre_tickets
+        valeur = Decimal(str(nombre)) * Decimal(str(prix_unitaire))
+        return valeur
+    except (ValueError, TypeError):
+        return Decimal('0')

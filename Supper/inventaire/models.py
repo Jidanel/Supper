@@ -2272,6 +2272,37 @@ class HistoriqueStock(models.Model):
         verbose_name=_("Séries de tickets associées"),
         help_text=_("Séries de tickets concernées par ce mouvement")
     )
+    numero_premier_ticket = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Premier numéro de ticket"),
+        help_text=_("Premier numéro de la série (pour approvisionnement)")
+    )
+    
+    numero_dernier_ticket = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Dernier numéro de ticket"),
+        help_text=_("Dernier numéro de la série (pour approvisionnement)")
+    )
+    
+    couleur_principale = models.ForeignKey(
+        'CouleurTicket',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historiques_couleur',
+        verbose_name=_("Couleur principale"),
+        help_text=_("Couleur des tickets (pour approvisionnement)")
+    )
+    
+    # Ajout d'un JSONField pour stocker des détails supplémentaires structurés
+    details_approvisionnement = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_("Détails de l'approvisionnement"),
+        help_text=_("Détails structurés de l'approvisionnement (séries multiples, etc.)")
+    )
 
     
     class Meta:
@@ -2279,6 +2310,78 @@ class HistoriqueStock(models.Model):
         verbose_name_plural = _("Historiques stocks")
         ordering = ['-date_mouvement']
 
+    def get_details_approvisionnement_formattes(self):
+        """
+        Retourne les détails d'approvisionnement de manière structurée
+        Utilise d'abord les champs dédiés, puis le JSONField, puis parse le commentaire
+        """
+        details = {
+            'series': [],
+            'type': self.get_type_stock_display() if self.type_stock else 'Non défini',
+            'montant_total': self.montant,
+            'nombre_tickets_total': self.nombre_tickets
+        }
+        
+        # Priorité 1: Utiliser les champs dédiés s'ils existent
+        if self.numero_premier_ticket and self.numero_dernier_ticket and self.couleur_principale:
+            details['series'].append({
+                'couleur': self.couleur_principale,
+                'numero_premier': self.numero_premier_ticket,
+                'numero_dernier': self.numero_dernier_ticket,
+                'nombre_tickets': self.numero_dernier_ticket - self.numero_premier_ticket + 1,
+                'valeur': Decimal((self.numero_dernier_ticket - self.numero_premier_ticket + 1) * 500)
+            })
+        
+        # Priorité 2: Utiliser le JSONField s'il contient des données
+        elif self.details_approvisionnement and 'series' in self.details_approvisionnement:
+            for serie_data in self.details_approvisionnement['series']:
+                # Récupérer la couleur depuis la base de données si on a juste l'ID ou le nom
+                couleur = None
+                if 'couleur_id' in serie_data:
+                    couleur = CouleurTicket.objects.filter(id=serie_data['couleur_id']).first()
+                elif 'couleur_nom' in serie_data:
+                    couleur = CouleurTicket.objects.filter(
+                        Q(libelle_affichage__icontains=serie_data['couleur_nom']) |
+                        Q(code_normalise__icontains=serie_data['couleur_nom'].lower())
+                    ).first()
+                
+                if couleur and 'numero_premier' in serie_data and 'numero_dernier' in serie_data:
+                    nb_tickets = serie_data['numero_dernier'] - serie_data['numero_premier'] + 1
+                    details['series'].append({
+                        'couleur': couleur,
+                        'numero_premier': serie_data['numero_premier'],
+                        'numero_dernier': serie_data['numero_dernier'],
+                        'nombre_tickets': nb_tickets,
+                        'valeur': Decimal(nb_tickets * 500)
+                    })
+        
+        # Priorité 3: Parser le commentaire comme fallback
+        elif self.commentaire and '#' in self.commentaire:
+            import re
+            pattern = r"Série\s+(\w+)\s+#(\d+)-(\d+)"
+            matches = re.finditer(pattern, self.commentaire)
+            
+            for match in matches:
+                couleur_nom = match.group(1)
+                num_premier = int(match.group(2))
+                num_dernier = int(match.group(3))
+                
+                couleur = CouleurTicket.objects.filter(
+                    Q(libelle_affichage__icontains=couleur_nom) |
+                    Q(code_normalise__icontains=couleur_nom.lower())
+                ).first()
+                
+                if couleur:
+                    nb_tickets = num_dernier - num_premier + 1
+                    details['series'].append({
+                        'couleur': couleur,
+                        'numero_premier': num_premier,
+                        'numero_dernier': num_dernier,
+                        'nombre_tickets': nb_tickets,
+                        'valeur': Decimal(nb_tickets * 500)
+                    })
+        
+        return details
     def associer_series_tickets(self, series_list):
         """
         Méthode utilitaire pour associer des séries de tickets
@@ -2848,6 +2951,16 @@ class SerieTicket(models.Model):
         blank=True,
         verbose_name=_("Commentaire")
     )
+
+    responsable_reception = models.ForeignKey(
+       'accounts.UtilisateurSUPPER',
+       on_delete=models.SET_NULL,
+       null=True,
+       blank=True,
+       related_name='series_receptionnees',
+       verbose_name=_("Responsable de la réception"),
+       help_text=_("Utilisateur qui a réceptionné cette série")
+   )
     
     class Meta:
         verbose_name = _("Série de tickets")
@@ -3953,64 +4066,142 @@ class StockEvent(models.Model):
             return previous_event.stock_resultant
         return Decimal('0')
     
+
     @classmethod
-    def get_stock_at_date(cls, poste, target_date, use_cache=True):
+    def get_stock_at_date(cls, poste, target_date, exclude_event_id=None):
         """
-        Calcule le stock à une date donnée
+        Calcule le stock exact à une date donnée via Event Sourcing
+        Corrige le problème du stock initial à 0
         
         Args:
             poste: Instance du Poste
-            target_date: Date cible (date ou datetime)
-            use_cache: Utiliser le cache pour améliorer les performances
+            target_date: Date/DateTime cible
+            exclude_event_id: ID d'un event à exclure (optionnel)
         
         Returns:
-            dict: {
-                'valeur': Decimal,
-                'nombre_tickets': int,
-                'dernier_event': StockEvent ou None,
-                'nombre_events': int
-            }
+            tuple: (valeur_monetaire, nombre_tickets)
         """
-        # Convertir en datetime si nécessaire
-        if isinstance(target_date, date) and not isinstance(target_date, datetime):
-            target_date = datetime.combine(target_date, datetime.max.time())
+        from django.db.models import Sum, Q
+        from decimal import Decimal
         
-        # Clé de cache
-        cache_key = f"stock_{poste.id}_{target_date.strftime('%Y%m%d')}"
-        
-        if use_cache:
-            cached = cache.get(cache_key)
-            if cached:
-                return cached
-        
-        # Récupérer tous les événements jusqu'à la date cible
-        events = cls.objects.filter(
-            poste=poste,
-            event_datetime__lte=target_date,
-            is_cancelled=False
-        ).order_by('-event_datetime')
-        
-        if events.exists():
-            last_event = events.first()
-            result = {
-                'valeur': last_event.stock_resultant,
-                'nombre_tickets': last_event.tickets_resultants,
-                'dernier_event': last_event,
-                'nombre_events': events.count()
-            }
+        # S'assurer qu'on a un datetime
+        if hasattr(target_date, 'date'):
+            datetime_target = target_date
         else:
-            result = {
-                'valeur': Decimal('0'),
-                'nombre_tickets': 0,
-                'dernier_event': None,
-                'nombre_events': 0
-            }
+            from django.utils import timezone
+            datetime_target = timezone.make_aware(
+                datetime.combine(target_date, datetime.time.max)
+            )
         
-        # Mettre en cache pour 1 heure
-        if use_cache:
-            cache.set(cache_key, result, 3600)
+        # Requête de base pour les événements
+        events_query = cls.objects.filter(
+            poste=poste,
+            event_datetime__lte=datetime_target
+        )
         
-        return result
+        # Exclure un événement spécifique si demandé
+        if exclude_event_id:
+            events_query = events_query.exclude(id=exclude_event_id)
+        
+        # Calculer les totaux cumulés
+        totaux = events_query.aggregate(
+            total_valeur=Sum('montant_variation'),
+            total_tickets=Sum('nombre_tickets_variation')
+        )
+        
+        valeur_totale = totaux['total_valeur'] if totaux['total_valeur'] is not None else Decimal('0')
+        tickets_total = totaux['total_tickets'] if totaux['total_tickets'] is not None else 0
+        
+        # S'assurer que les valeurs ne sont pas négatives
+        if valeur_totale < 0:
+            valeur_totale = Decimal('0')
+        if tickets_total < 0:
+            tickets_total = 0
+        
+        return valeur_totale, tickets_total
+
+
+    @classmethod  
+    def recalculate_stock_from_historique(cls, poste, up_to_date=None):
+        """
+        Recalcule le stock complet depuis l'historique
+        Pour corriger les incohérences
+        
+        Args:
+            poste: Instance du Poste
+            up_to_date: Date limite (optionnel)
+        """
+        from inventaire.models import HistoriqueStock
+        from django.db.models import Q
+        from decimal import Decimal
+        
+        # Supprimer les anciens events pour ce poste
+        cls.objects.filter(poste=poste).delete()
+        
+        # Récupérer tous les historiques
+        historiques = HistoriqueStock.objects.filter(
+            poste=poste
+        ).order_by('date_mouvement')
+        
+        if up_to_date:
+            historiques = historiques.filter(date_mouvement__lte=up_to_date)
+        
+        stock_courant = Decimal('0')
+        tickets_courant = 0
+        
+        for hist in historiques:
+            # Calculer la variation
+            if hist.type_mouvement == 'CREDIT':
+                variation_montant = hist.montant
+                variation_tickets = hist.nombre_tickets
+            else:  # DEBIT
+                variation_montant = -hist.montant
+                variation_tickets = -hist.nombre_tickets
+            
+            # Mettre à jour le stock courant
+            stock_courant += variation_montant
+            tickets_courant += variation_tickets
+            
+            # S'assurer que le stock ne devient pas négatif
+            if stock_courant < 0:
+                stock_courant = Decimal('0')
+            if tickets_courant < 0:
+                tickets_courant = 0
+            
+            # Déterminer le type d'événement
+            if hist.type_mouvement == 'CREDIT':
+                if hist.type_stock == 'imprimerie_nationale':
+                    event_type = 'CHARGEMENT'
+                elif hist.type_stock == 'regularisation':
+                    event_type = 'REGULARISATION'
+                elif hist.poste_origine:
+                    event_type = 'TRANSFERT_IN'
+                else:
+                    event_type = 'CREDIT'
+            else:  # DEBIT
+                if hist.reference_recette:
+                    event_type = 'VENTE'
+                elif hist.poste_destination:
+                    event_type = 'TRANSFERT_OUT'
+                else:
+                    event_type = 'DEBIT'
+            
+            # Créer l'event
+            cls.objects.create(
+                poste=poste,
+                event_type=event_type,
+                event_datetime=hist.date_mouvement,
+                montant_variation=variation_montant,
+                nombre_tickets_variation=variation_tickets,
+                stock_resultant=stock_courant,
+                tickets_resultants=tickets_courant,
+                effectue_par=hist.effectue_par,
+                reference_id=str(hist.id),
+                reference_type='HistoriqueStock',
+                commentaire=hist.commentaire or ''
+            )
+        
+        return stock_courant, tickets_courant
     
     @classmethod
     def get_stock_history(cls, poste, date_debut, date_fin, interval='daily'):

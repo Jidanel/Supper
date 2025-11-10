@@ -241,13 +241,18 @@
 
                         <!-- Boutons d'Action -->
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-generate btn-lg">
+                            <button type="submit" name="action" value="apercu" class="btn btn-generate btn-lg">
+                                <i class="fas fa-eye me-2"></i>
+                                Afficher l'Aperçu du Compte d'Emploi
+                            </button>
+                            
+                            <button type="submit" name="action" value="pdf" class="btn btn-outline-primary btn-lg">
                                 <i class="fas fa-file-pdf me-2"></i>
-                                Générer le Compte d'Emploi (PDF)
+                                Générer directement le PDF
                             </button>
                             
                             <a href="{% url 'inventaire:liste_postes_stocks' %}" 
-                               class="btn btn-outline-secondary btn-lg">
+                            class="btn btn-outline-secondary btn-lg">
                                 <i class="fas fa-times me-2"></i>
                                 Annuler
                             </a>

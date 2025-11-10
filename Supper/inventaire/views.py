@@ -1044,21 +1044,18 @@ def supprimer_inventaire(request, pk):
 @login_required
 def saisir_recette_avec_tickets(request):
     """
-    Version AMÉLIORÉE de la saisie de recette avec vérifications complètes
-    
-    Améliorations :
-    1. Vérification des tickets déjà vendus
-    2. Validation de l'unicité annuelle
-    3. Messages d'erreur détaillés
-    4. Vérification du lien avec l'inventaire
+    Version AMÉLIORÉE avec :
+    1. Rechargement automatique lors du choix poste/date
+    2. Affichage du stock disponible par couleur
+    3. Pré-remplissage des couleurs selon le stock
     """
     
-    # Vérifier permissions (code existant conservé)
+    # Vérifier permissions
     if not (request.user.is_chef_poste or request.user.is_admin):
         messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
         return HttpResponseForbidden("Accès non autorisé")
     
-    # Déterminer les postes accessibles (code existant conservé)
+    # Déterminer les postes accessibles
     if hasattr(request.user, 'get_postes_accessibles'):
         postes = request.user.get_postes_accessibles()
     else:
@@ -1068,6 +1065,45 @@ def saisir_recette_avec_tickets(request):
             postes = Poste.objects.filter(id=request.user.poste_affectation.id)
         else:
             postes = Poste.objects.none()
+    
+    # ===================================================================
+    # NOUVEAU : Récupération du poste et date sélectionnés
+    # ===================================================================
+    
+    poste_selectionne = None
+    date_selectionnee = None
+    stock_disponible = []
+    afficher_formulaire_complet = False
+    
+    # Vérifier si un poste et une date sont sélectionnés (GET avec paramètres)
+    if request.method == 'GET' and ('poste' in request.GET or 'date' in request.GET):
+        poste_id = request.GET.get('poste')
+        date_str = request.GET.get('date')
+        
+        if poste_id:
+            try:
+                poste_selectionne = Poste.objects.get(id=poste_id)
+                if not request.user.peut_acceder_poste(poste_selectionne):
+                    messages.error(request, "Vous n'avez pas accès à ce poste")
+                    poste_selectionne = None
+            except Poste.DoesNotExist:
+                pass
+        
+        if date_str:
+            try:
+                from datetime import datetime
+                date_selectionnee = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                date_selectionnee = timezone.now().date()
+        
+        # Si poste ET date sélectionnés, charger le stock et afficher le formulaire complet
+        if poste_selectionne and date_selectionnee:
+            afficher_formulaire_complet = True
+            stock_disponible = _obtenir_stock_disponible(poste_selectionne)
+    
+    # ===================================================================
+    # TRAITEMENT POST (soumission du formulaire)
+    # ===================================================================
     
     if request.method == 'POST':
         # Vérifier si c'est une confirmation
@@ -1088,8 +1124,7 @@ def saisir_recette_avec_tickets(request):
                 messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
                 return redirect('inventaire:liste_recettes')
             
-            # ===== VALIDATION SIMPLIFIÉE (sans vérification unicité annuelle) =====
-            
+            # Validation des séries vendues
             details_ventes = []
             montant_total_calcule = Decimal('0')
             erreurs_validation = []
@@ -1100,11 +1135,7 @@ def saisir_recette_avec_tickets(request):
                     num_premier = form_detail.cleaned_data['numero_premier']
                     num_dernier = form_detail.cleaned_data['numero_dernier']
                     
-                    # ===== SEULE VALIDATION : Disponibilité en stock =====
-                    # Cette fonction vérifie :
-                    # 1. Que les numéros sont cohérents
-                    # 2. Que les tickets ne sont pas déjà vendus
-                    # 3. Que la série est disponible en stock pour CE poste
+                    # Vérifier disponibilité
                     disponible, msg, tickets_prob = SerieTicket.verifier_disponibilite_serie_complete(
                         poste, couleur, num_premier, num_dernier
                     )
@@ -1112,7 +1143,6 @@ def saisir_recette_avec_tickets(request):
                     if not disponible:
                         erreurs_validation.append(f"❌ Ligne {i+1}: {msg}")
                         
-                        # Si tickets déjà vendus, afficher détails
                         if tickets_prob:
                             for ticket in tickets_prob:
                                 erreurs_validation.append(
@@ -1122,7 +1152,7 @@ def saisir_recette_avec_tickets(request):
                                 )
                         continue
                                        
-                    # Si tout est OK, ajouter aux détails
+                    # Si OK, ajouter aux détails
                     nombre = num_dernier - num_premier + 1
                     montant = Decimal(nombre) * Decimal('500')
                     montant_total_calcule += montant
@@ -1141,16 +1171,22 @@ def saisir_recette_avec_tickets(request):
                 if not erreurs_validation:
                     erreurs_validation.append("Vous devez saisir au moins une série de tickets vendus")
             
-            # S'il y a des erreurs de validation, les afficher et redemander la saisie
+            # Si erreurs, réafficher avec stock
             if erreurs_validation:
                 for erreur in erreurs_validation:
                     messages.error(request, erreur)
                 
-                # Recharger le formulaire avec les données saisies
+                # Recharger le stock pour réaffichage
+                stock_disponible = _obtenir_stock_disponible(poste)
+                
                 return render(request, 'inventaire/saisir_recette_tickets.html', {
                     'form': form,
                     'formset': formset,
                     'postes': postes,
+                    'poste_selectionne': poste,
+                    'date_selectionnee': date_recette,
+                    'stock_disponible': stock_disponible,
+                    'afficher_formulaire_complet': True,
                     'title': 'Saisir une recette journalière',
                     'recettes_recentes': RecetteJournaliere.objects.filter(
                         chef_poste=request.user
@@ -1169,7 +1205,7 @@ def saisir_recette_avec_tickets(request):
                     "Le stock sera initialisé en négatif après cette vente."
                 )
             
-            # Vérifier si un inventaire existe pour ce jour
+            # Vérifier si un inventaire existe
             inventaire_existe = InventaireJournalier.objects.filter(
                 poste=poste,
                 date=date_recette
@@ -1206,26 +1242,50 @@ def saisir_recette_avec_tickets(request):
             
             return redirect('inventaire:confirmation_recette_tickets')
     
+    # ===================================================================
+    # AFFICHAGE FORMULAIRE (GET)
+    # ===================================================================
     else:
-        # GET : afficher le formulaire (code existant conservé)
-        initial_data = {
-            'date': timezone.now().date()
-        }
-        if request.user.poste_affectation:
+        # Préparer les données initiales
+        initial_data = {}
+        
+        if poste_selectionne:
+            initial_data['poste'] = poste_selectionne
+        elif request.user.poste_affectation:
             initial_data['poste'] = request.user.poste_affectation
         
-        form = RecetteAvecTicketsForm(initial=initial_data, user=request.user)
-        formset = DetailVenteTicketFormSet(prefix='tickets')
+        if date_selectionnee:
+            initial_data['date'] = date_selectionnee
+        else:
+            initial_data['date'] = timezone.now().date()
         
-        # Filtrer les couleurs disponibles
-        if request.user.poste_affectation:
+        form = RecetteAvecTicketsForm(initial=initial_data, user=request.user)
+        
+        # Modifier le formulaire pour activer le rechargement auto
+        form.fields['poste'].widget.attrs.update({
+            'onchange': 'this.form.submit()',
+            'class': 'form-select'
+        })
+        form.fields['date'].widget.attrs.update({
+            'onchange': 'this.form.submit()',
+            'class': 'form-control'
+        })
+        
+        # Créer le formset uniquement si formulaire complet affiché
+        if afficher_formulaire_complet and stock_disponible:
+            formset = DetailVenteTicketFormSet(prefix='tickets')
+            
+            # Filtrer les couleurs disponibles selon le stock
+            couleurs_disponibles = CouleurTicket.objects.filter(
+                id__in=[s['couleur'].id for s in stock_disponible]
+            ).order_by('code_normalise')
+            
             for form_detail in formset:
-                form_detail.fields['couleur'].queryset = CouleurTicket.objects.filter(
-                    series__poste=request.user.poste_affectation,
-                    series__statut='stock'
-                ).distinct().order_by('code_normalise')
+                form_detail.fields['couleur'].queryset = couleurs_disponibles
+        else:
+            formset = None
     
-    # Statistiques (code existant conservé)
+    # Statistiques
     from django.db.models import Sum
     recettes_query = RecetteJournaliere.objects.filter(
         chef_poste=request.user
@@ -1260,6 +1320,10 @@ def saisir_recette_avec_tickets(request):
         'form': form,
         'formset': formset,
         'postes': postes,
+        'poste_selectionne': poste_selectionne,
+        'date_selectionnee': date_selectionnee,
+        'stock_disponible': stock_disponible,
+        'afficher_formulaire_complet': afficher_formulaire_complet,
         'recettes_recentes': recettes_recentes,
         'stats': stats,
         'title': 'Saisir une recette journalière'
@@ -1267,6 +1331,58 @@ def saisir_recette_avec_tickets(request):
     
     return render(request, 'inventaire/saisir_recette_tickets.html', context)
 
+
+# ===================================================================
+# FONCTION UTILITAIRE : Obtenir le stock disponible
+# ===================================================================
+
+def _obtenir_stock_disponible(poste):
+    """
+    Obtient le stock de tickets disponibles pour un poste
+    Groupé par couleur avec les séries détaillées
+    
+    Returns:
+        list: Liste de dictionnaires avec couleur, séries, totaux
+    """
+    from collections import defaultdict
+    
+    # Récupérer toutes les séries en stock pour ce poste
+    series_stock = SerieTicket.objects.filter(
+        poste=poste,
+        statut='stock'
+    ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
+    
+    # Grouper par couleur
+    stock_par_couleur = defaultdict(lambda: {
+        'couleur': None,
+        'series': [],
+        'total_tickets': 0,
+        'valeur_totale': Decimal('0')
+    })
+    
+    for serie in series_stock:
+        couleur_code = serie.couleur.code_normalise
+        
+        if stock_par_couleur[couleur_code]['couleur'] is None:
+            stock_par_couleur[couleur_code]['couleur'] = serie.couleur
+        
+        stock_par_couleur[couleur_code]['series'].append({
+            'numero_premier': serie.numero_premier,
+            'numero_dernier': serie.numero_dernier,
+            'nombre_tickets': serie.nombre_tickets,
+            'valeur': serie.valeur_monetaire
+        })
+        
+        stock_par_couleur[couleur_code]['total_tickets'] += serie.nombre_tickets
+        stock_par_couleur[couleur_code]['valeur_totale'] += serie.valeur_monetaire
+    
+    # Convertir en liste triée
+    stock_liste = sorted(
+        stock_par_couleur.values(),
+        key=lambda x: x['couleur'].code_normalise if x['couleur'] else ''
+    )
+    
+    return stock_liste
 
 
 def traiter_confirmation_recette_tickets(request):

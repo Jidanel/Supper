@@ -1,6 +1,6 @@
+<!-- templates/inventaire/detail_historique_stock.html - VERSION AMÉLIORÉE -->
 {% extends "admin/base_site.html" %}
-{% load static i18n %}
-{% load inventaire_extras %}
+{% load static i18n inventaire_extras %}
 
 {% block title %}Détail opération - {{ poste.nom }}{% endblock %}
 
@@ -31,6 +31,26 @@
         color: white;
     }
     
+    .stock-summary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+    
+    .stock-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .operation-card {
+        border-left: 4px solid #ffc107;
+        background: #fffbf0;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
     .table-stock-detail {
         font-size: 0.95rem;
     }
@@ -40,24 +60,12 @@
         font-weight: 600;
     }
     
-    .highlight-new {
-        background-color: #d4edda !important;
-    }
-    
     .highlight-removed {
         background-color: #f8d7da !important;
     }
     
-    .couleur-badge {
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        display: inline-block;
-        font-weight: 500;
-    }
-    
-    .timeline-comparison {
-        position: relative;
-        padding: 2rem 0;
+    .highlight-added {
+        background-color: #d4edda !important;
     }
     
     .timeline-arrow {
@@ -65,6 +73,13 @@
         font-size: 2rem;
         color: #6c757d;
         margin: 1rem 0;
+    }
+    
+    .stock-consolidated {
+        background: #e9ecef;
+        padding: 0.5rem;
+        border-radius: 5px;
+        margin-bottom: 0.5rem;
     }
 </style>
 {% endblock %}
@@ -97,7 +112,7 @@
     </div>
     
     <!-- ===================================================================== -->
-    <!-- SECTION 1 : INFORMATIONS GÉNÉRALES -->
+    <!-- INFORMATIONS GÉNÉRALES DE L'OPÉRATION -->
     <!-- ===================================================================== -->
     <div class="card card-section shadow">
         <div class="card-header bg-{{ historique.type_mouvement|type_mouvement_badge_class }} text-white">
@@ -132,8 +147,9 @@
                 <div class="col-md-4 text-center">
                     <div class="card bg-light">
                         <div class="card-body">
-                            <h6 class="text-muted">Montant</h6>
+                            <h6 class="text-muted">Montant de l'opération</h6>
                             <h3 class="text-{{ historique.type_mouvement|text_color_by_mouvement }}">
+                                {% if historique.type_mouvement == 'CREDIT' %}+{% else %}-{% endif %}
                                 {{ historique.montant|format_fcfa }}
                             </h3>
                         </div>
@@ -143,7 +159,7 @@
                     <div class="card bg-light">
                         <div class="card-body">
                             <h6 class="text-muted">Nombre de tickets</h6>
-                            <h3>{{ historique.nombre_tickets|default_if_none_or_empty }}</h3>
+                            <h3>{{ historique.nombre_tickets|default_if_none_or_empty }} tickets</h3>
                         </div>
                     </div>
                 </div>
@@ -168,53 +184,10 @@
     </div>
     
     <!-- ===================================================================== -->
-    <!-- SECTION 2 : IMPACT SUR LE STOCK -->
-    <!-- ===================================================================== -->
-    <div class="card card-section shadow">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-chart-line me-2"></i>
-                Impact sur le stock
-            </h5>
-        </div>
-        <div class="card-body">
-            <div class="row text-center">
-                <div class="col-md-4">
-                    <div class="card border-primary">
-                        <div class="card-body">
-                            <h6 class="text-muted">Stock avant</h6>
-                            <h3 class="text-primary">{{ historique.stock_avant|format_fcfa }}</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card border-{{ historique.type_mouvement|type_mouvement_badge_class }}">
-                        <div class="card-body">
-                            <h6 class="text-muted">Variation</h6>
-                            <h3 class="text-{{ historique.type_mouvement|text_color_by_mouvement }}">
-                                {{ historique.type_mouvement|mouvement_sign }}{{ historique.montant|format_fcfa }}
-                            </h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card border-success">
-                        <div class="card-body">
-                            <h6 class="text-muted">Stock après</h6>
-                            <h3 class="text-success">{{ historique.stock_apres|format_fcfa }}</h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- ===================================================================== -->
-    <!-- SECTION 3 : DÉTAILS SPÉCIFIQUES (VENTE OU TRANSFERT) -->
+    <!-- DÉTAILS SPÉCIFIQUES DE L'OPÉRATION -->
     <!-- ===================================================================== -->
     
     {% if details_vente %}
-    <!-- CAS 1 : VENTE -->
     <div class="card card-section shadow">
         <div class="card-header bg-danger text-white">
             <h5 class="mb-0">
@@ -223,53 +196,83 @@
             </h5>
         </div>
         <div class="card-body">
-            <div class="alert alert-info">
-                <strong>Recette associée :</strong> 
-                <a href="{% url 'inventaire:recette_detail' historique.reference_recette.id %}" target="_blank" class="alert-link">
-                    Voir la recette du {{ historique.reference_recette.date|date:"d/m/Y" }}
-                </a>
-            </div>
-            
-            <h6 class="mb-3">Séries de tickets vendues</h6>
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Couleur</th>
-                            <th>Premier N°</th>
-                            <th>Dernier N°</th>
-                            <th>Nombre de tickets</th>
-                            <th>Montant</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for detail in details_vente %}
-                        <tr class="highlight-removed">
-                            <td>
-                                <span class="couleur-badge" style="background-color: #6B7280;">
-                                    {{ detail.couleur.libelle_affichage }}
-                                </span>
-                            </td>
-                            <td><strong>#{{ detail.numero_premier }}</strong></td>
-                            <td><strong>#{{ detail.numero_dernier }}</strong></td>
-                            <td>{{ detail.nombre_tickets }} tickets</td>
-                            <td class="text-success"><strong>{{ detail.montant|format_fcfa }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            <h6>Séries de tickets vendues</h6>
+            <table class="table table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Couleur</th>
+                        <th>Premier N°</th>
+                        <th>Dernier N°</th>
+                        <th>Nombre de tickets</th>
+                        <th>Montant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail in details_vente %}
+                    <tr>
+                        <td>
+                            <span class="badge" style="background-color: #6B7280;">
+                                {{ detail.couleur.libelle_affichage }}
+                            </span>
+                        </td>
+                        <td><strong>#{{ detail.numero_premier }}</strong></td>
+                        <td><strong>#{{ detail.numero_dernier }}</strong></td>
+                        <td>{{ detail.nombre_tickets }} tickets</td>
+                        <td class="text-success"><strong>{{ detail.montant|format_fcfa }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if details_approvisionnement %}
+    <div class="card card-section shadow">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-plus-circle me-2"></i>
+                Détail de l'approvisionnement - {{ details_approvisionnement.type }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <h6>Séries de tickets reçues</h6>
+            <table class="table table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Couleur</th>
+                        <th>Premier N°</th>
+                        <th>Dernier N°</th>
+                        <th>Nombre de tickets</th>
+                        <th>Valeur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for serie in details_approvisionnement.series %}
+                    <tr class="highlight-added">
+                        <td>
+                            <span class="badge" style="background-color: #6B7280;">
+                                {{ serie.couleur.libelle_affichage }}
+                            </span>
+                        </td>
+                        <td><strong>#{{ serie.numero_premier }}</strong></td>
+                        <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                        <td>{{ historique.nombre_tickets }} tickets</td>
+                        <td class="text-success"><strong>{{ historique.nombre_tickets|calculer_valeur_tickets|format_fcfa  }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
     {% endif %}
     
     {% if info_transfert %}
-    <!-- CAS 2 : TRANSFERT -->
     <div class="card card-section shadow">
         <div class="card-header bg-warning text-dark">
             <h5 class="mb-0">
                 <i class="fas fa-exchange-alt me-2"></i>
-                Détail du transfert
+                Détail du transfert {% if info_transfert.type == 'entrant' %}reçu{% else %}cédé{% endif %}
             </h5>
         </div>
         <div class="card-body">
@@ -294,52 +297,39 @@
                 </div>
             </div>
             
-            {% if info_transfert.numero_bordereau %}
-            <div class="mb-3">
-                <strong>Numéro de bordereau :</strong> {{ info_transfert.numero_bordereau }}<br>
-                <a href="{% url 'inventaire:bordereaux_transfert' info_transfert.numero_bordereau %}" 
-                   target="_blank" 
-                   class="btn btn-sm btn-primary mt-2">
-                    <i class="fas fa-file-pdf me-1"></i>Voir les bordereaux
-                </a>
-            </div>
-            {% endif %}
-            
-            <h6 class="mb-3">Séries de tickets transférées</h6>
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Couleur</th>
-                            <th>Premier N°</th>
-                            <th>Dernier N°</th>
-                            <th>Nombre de tickets</th>
-                            <th>Valeur</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for serie in info_transfert.series %}
-                        <tr>
-                            <td>
-                                <span class="couleur-badge" style="background-color: #6B7280;">
-                                    {{ serie.couleur.libelle_affichage }}
-                                </span>
-                            </td>
-                            <td><strong>#{{ serie.numero_premier }}</strong></td>
-                            <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                            <td>{{ serie.nombre_tickets }} tickets</td>
-                            <td class="text-success"><strong>{{ serie.valeur_monetaire|format_fcfa }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            <h6>Séries transférées</h6>
+            <table class="table table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Couleur</th>
+                        <th>Premier N°</th>
+                        <th>Dernier N°</th>
+                        <th>Nombre de tickets</th>
+                        <th>Valeur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for serie in info_transfert.series %}
+                    <tr>
+                        <td>
+                            <span class="badge" style="background-color: #6B7280;">
+                                {{ serie.couleur.libelle_affichage }}
+                            </span>
+                        </td>
+                        <td><strong>#{{ serie.numero_premier }}</strong></td>
+                        <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                        <td>{{ serie.nombre_tickets }} tickets</td>
+                        <td><strong>{{ serie.nombre_tickets|calculer_valeur_tickets|format_fcfa }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
     {% endif %}
     
     <!-- ===================================================================== -->
-    <!-- SECTION 4 : COMPARAISON ÉTAT DU STOCK AVANT/APRÈS -->
+    <!-- COMPARAISON ÉTAT DU STOCK (Event Sourcing) -->
     <!-- ===================================================================== -->
     <div class="card card-section shadow">
         <div class="card-header bg-dark text-white">
@@ -350,124 +340,145 @@
         </div>
         <div class="card-body">
             
-            <div class="timeline-comparison">
+            <!-- ÉTAT AVANT -->
+            <div class="mb-4">
+                <h5 class="text-primary">
+                    <i class="fas fa-clock me-2"></i>
+                    État du stock AVANT l'opération
+                </h5>
                 
-                <!-- ÉTAT AVANT -->
-                <div class="mb-4">
-                    <h5 class="text-primary">
-                        <i class="fas fa-clock me-2"></i>
-                        État du stock AVANT l'opération
-                    </h5>
-                    
-                    {% if series_avant_groupees %}
-                    <div class="table-responsive">
-                        <table class="table table-stock-detail table-bordered">
-                            <thead class="table-primary">
-                                <tr>
-                                    <th>Couleur</th>
-                                    <th>Premier N°</th>
-                                    <th>Dernier N°</th>
-                                    <th>Nombre</th>
-                                    <th>Valeur</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for couleur, series in series_avant_groupees.items %}
-                                    {% for serie in series %}
-                                    <tr {% if serie.action == 'vendue' %}class="highlight-removed"{% endif %}>
-                                        <td>
-                                            <span class="couleur-badge" style="background-color: #6B7280;">
-                                                {{ couleur }}
-                                            </span>
-                                        </td>
-                                        <td><strong>#{{ serie.numero_premier }}</strong></td>
-                                        <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                                        <td>{{ serie.nombre_tickets }}</td>
-                                        <td>{{ serie.valeur|format_fcfa }}</td>
-                                        <td>
-                                            {% if serie.action == 'vendue' %}
-                                            <span class="badge badge-action badge-vendue">
-                                                <i class="fas fa-times me-1"></i>Vendue
-                                            </span>
-                                            {% else %}
-                                            <span class="badge badge-action badge-conservee">
-                                                <i class="fas fa-check me-1"></i>Conservée
-                                            </span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <!-- Résumé du stock avant -->
+                <div class="stock-summary-card mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="stock-value">{{ stock_avant_valeur|floatformat:0|format_milliers }} FCFA</div>
+                            <div>Valeur totale du stock</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stock-value">{{ stock_avant_qte|format_milliers }} tickets</div>
+                            <div>Nombre total de tickets</div>
+                        </div>
                     </div>
-                    {% else %}
-                    <p class="text-muted">Aucune série en stock avant cette opération</p>
-                    {% endif %}
                 </div>
                 
-                <!-- FLÈCHE TRANSITION -->
-                <div class="timeline-arrow">
-                    <i class="fas fa-arrow-down text-{{ historique.type_mouvement|text_color_by_mouvement }}"></i>
-                </div>
+                {% if series_avant_groupees %}
+                <table class="table table-stock-detail table-bordered">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Couleur</th>
+                            <th>Premier N°</th>
+                            <th>Dernier N°</th>
+                            <th>Nombre</th>
+                            <th>Valeur</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for couleur, series in series_avant_groupees.items %}
+                            {% for serie in series %}
+                            <tr {% if serie.action == 'vendue' %}class="highlight-removed"{% endif %}>
+                                <td>
+                                    <span class="badge" style="background-color: #6B7280;">
+                                        {{ couleur }}
+                                    </span>
+                                </td>
+                                <td><strong>#{{ serie.numero_premier }}</strong></td>
+                                <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                                <td>{{ serie.nombre_tickets }}</td>
+                                <td>{{ serie.valeur|format_fcfa }}</td>
+                                <td>
+                                    {% if serie.action == 'vendue' %}
+                                    <span class="badge badge-action badge-vendue">
+                                        <i class="fas fa-times me-1"></i>Vendue
+                                    </span>
+                                    {% else %}
+                                    <span class="badge badge-action badge-conservee">
+                                        <i class="fas fa-check me-1"></i>En stock
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
                 
-                <!-- ÉTAT APRÈS -->
-                <div>
-                    <h5 class="text-success">
-                        <i class="fas fa-check-circle me-2"></i>
-                        État du stock APRÈS l'opération
-                    </h5>
-                    
-                    {% if series_apres_groupees %}
-                    <div class="table-responsive">
-                        <table class="table table-stock-detail table-bordered">
-                            <thead class="table-success">
-                                <tr>
-                                    <th>Couleur</th>
-                                    <th>Premier N°</th>
-                                    <th>Dernier N°</th>
-                                    <th>Nombre</th>
-                                    <th>Valeur</th>
-                                    <th>Statut</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for couleur, series in series_apres_groupees.items %}
-                                    {% for serie in series %}
-                                    <tr {% if serie.action == 'ajoutee' %}class="highlight-new"{% endif %}>
-                                        <td>
-                                            <span class="couleur-badge" style="background-color: #6B7280;">
-                                                {{ couleur }}
-                                            </span>
-                                        </td>
-                                        <td><strong>#{{ serie.numero_premier }}</strong></td>
-                                        <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                                        <td>{{ serie.nombre_tickets }}</td>
-                                        <td>{{ serie.valeur|format_fcfa }}</td>
-                                        <td>
-                                            {% if serie.action == 'ajoutee' %}
-                                            <span class="badge badge-action badge-ajoutee">
-                                                <i class="fas fa-plus me-1"></i>Ajoutée
-                                            </span>
-                                            {% else %}
-                                            <span class="badge badge-action badge-conservee">
-                                                <i class="fas fa-check me-1"></i>Conservée
-                                            </span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted">Stock vide après cette opération</p>
-                    {% endif %}
-                </div>
-                
+                {% endif %}
             </div>
+            
+            <!-- FLÈCHE TRANSITION -->
+            <div class="timeline-arrow">
+                <i class="fas fa-arrow-down text-{{ historique.type_mouvement|text_color_by_mouvement }}"></i>
+            </div>
+            
+            <!-- ÉTAT APRÈS -->
+            <div>
+                <h5 class="text-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    État du stock APRÈS l'opération
+                </h5>
+                
+                <!-- Résumé du stock après -->
+                <div class="stock-summary-card mb-3" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="stock-value">{{ stock_apres_valeur|floatformat:0|format_milliers }} FCFA</div>
+                            <div>Valeur totale du stock</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stock-value">{{ stock_apres_qte|format_milliers }} tickets</div>
+                            <div>Nombre total de tickets</div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if series_apres_groupees %}
+                <table class="table table-stock-detail table-bordered">
+                    <thead class="table-success">
+                        <tr>
+                            <th>Couleur</th>
+                            <th>Premier N°</th>
+                            <th>Dernier N°</th>
+                            <th>Nombre</th>
+                            <th>Valeur</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for couleur, series in series_apres_groupees.items %}
+                            {% for serie in series %}
+                            <tr {% if serie.action == 'ajoutee' %}class="highlight-added"{% endif %}>
+                                <td>
+                                    <span class="badge" style="background-color: #6B7280;">
+                                        {{ couleur }}
+                                    </span>
+                                </td>
+                                <td><strong>#{{ serie.numero_premier }}</strong></td>
+                                <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                                <td>{{ serie.nombre_tickets }}</td>
+                                <td>{{ serie.valeur|format_fcfa }}</td>
+                                <td>
+                                    {% if serie.action == 'ajoutee' %}
+                                    <span class="badge badge-action badge-ajoutee">
+                                        <i class="fas fa-plus me-1"></i>Ajoutée
+                                    </span>
+                                    {% else %}
+                                    <span class="badge badge-action badge-conservee">
+                                        <i class="fas fa-check me-1"></i>En stock
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                
+                {% endif %}
+            </div>
+            
         </div>
     </div>
     

@@ -46,20 +46,133 @@
         font-weight: bold;
         color: #10b981;
     }
+    
+    /* Styles pour l'affichage du stock */
+    .stock-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stock-couleur {
+        background: white;
+        border-left: 4px solid #667eea;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        border-radius: 5px;
+    }
+    
+    .serie-detail {
+        background: #f8f9fa;
+        padding: 0.5rem;
+        margin: 0.25rem 0;
+        border-radius: 3px;
+        font-size: 0.9rem;
+    }
+    
+    .selection-poste-card {
+        border: 3px solid #667eea;
+        background: linear-gradient(to bottom, #f8f9ff, white);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="row">
-        <div class="col-md-9">
+        <div class="col-md-{% if afficher_formulaire_complet %}9{% else %}12{% endif %}">
+            <!-- Carte de sélection Poste/Date -->
+            <div class="card selection-poste-card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-map-marker-alt me-2"></i>Étape 1 : Sélectionner le poste et la date</h4>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="formSelection">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Poste *</label>
+                                {{ form.poste }}
+                                <small class="text-muted d-block mt-1">
+                                    <i class="fas fa-info-circle"></i> La page se rechargera automatiquement
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Date *</label>
+                                {{ form.date }}
+                                <small class="text-muted d-block mt-1">
+                                    <i class="fas fa-info-circle"></i> Sélectionnez la date de la recette
+                                </small>
+                            </div>
+                        </div>
+                        
+                        {% if not afficher_formulaire_complet %}
+                        <div class="alert alert-info mt-3 mb-0">
+                            <i class="fas fa-hand-point-up"></i> 
+                            <strong>Veuillez sélectionner un poste et une date</strong> pour afficher le stock disponible et le formulaire de saisie.
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+            
+            {% if afficher_formulaire_complet %}
+            <!-- Stock disponible -->
+            {% if stock_disponible %}
+            <div class="card mb-3">
+                <div class="card-header stock-card">
+                    <h4><i class="fas fa-boxes me-2"></i>Stock disponible au {{ poste_selectionne.nom }}</h4>
+                    <small>Date : {{ date_selectionnee|date:"d/m/Y" }}</small>
+                </div>
+                <div class="card-body">
+                    {% for stock_couleur in stock_disponible %}
+                    <div class="stock-couleur">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0" style="color: #667eea;">
+                                <i class="fas fa-ticket-alt me-2"></i>{{ stock_couleur.couleur.libelle_affichage }}
+                            </h5>
+                            <div class="text-end">
+                                <strong style="color: #10b981;">{{ stock_couleur.total_tickets }} tickets</strong>
+                                <br>
+                                <small class="text-muted">{{ stock_couleur.valeur_totale|floatformat:0 }} FCFA</small>
+                            </div>
+                        </div>
+                        
+                        <div class="series-list">
+                            <strong class="text-muted" style="font-size: 0.85rem;">Séries disponibles :</strong>
+                            {% for serie in stock_couleur.series %}
+                            <div class="serie-detail">
+                                📦 #{{ serie.numero_premier }} → #{{ serie.numero_dernier }}
+                                <span class="badge bg-secondary">{{ serie.nombre_tickets }} tickets</span>
+                                <span class="badge bg-success">{{ serie.valeur|floatformat:0 }} FCFA</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Aucun stock disponible</strong> pour ce poste. Vous ne pourrez pas saisir de recette.
+            </div>
+            {% endif %}
+            
+            <!-- Formulaire de saisie des séries -->
+            {% if stock_disponible %}
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h3><i class="fas fa-coins me-2"></i>Saisir une recette journalière</h3>
+                    <h4><i class="fas fa-coins me-2"></i>Étape 2 : Saisir les tickets vendus</h4>
                 </div>
                 <div class="card-body">
                     <form method="post" id="formRecette">
                         {% csrf_token %}
+                        
+                        <!-- Champs cachés pour poste et date -->
+                        <input type="hidden" name="poste" value="{{ poste_selectionne.id }}">
+                        <input type="hidden" name="date" value="{{ date_selectionnee|date:'Y-m-d' }}">
                         
                         {% if form.errors or formset.errors %}
                         <div class="alert alert-danger">
@@ -69,21 +182,9 @@
                         </div>
                         {% endif %}
                         
-                        <!-- Informations générales -->
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">{{ form.poste.label }} *</label>
-                                {{ form.poste }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">{{ form.date.label }} *</label>
-                                {{ form.date }}
-                            </div>
-                        </div>
-                        
                         <!-- Séries de tickets vendus -->
-                        <div class="card mb-4">
-                            <div class="card-header bg-primary text-white">
+                        <div class="card mb-4 border-primary">
+                            <div class="card-header bg-light">
                                 <h5><i class="fas fa-ticket-alt me-2"></i>Séries de tickets vendus</h5>
                             </div>
                             <div class="card-body">
@@ -93,7 +194,7 @@
                                     {% for form_detail in formset %}
                                     <div class="formset-row" data-formset-index="{{ forloop.counter0 }}">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6>Série #{{ forloop.counter }}</h6>
+                                            <h6 class="text-primary"><i class="fas fa-layer-group me-2"></i>Série #{{ forloop.counter }}</h6>
                                             {% if not forloop.first %}
                                             <button type="button" class="btn-remove-serie" onclick="removeFormset(this)">
                                                 <i class="fas fa-minus me-1"></i>Supprimer
@@ -104,19 +205,20 @@
                                         <div class="row">
                                             <!-- Couleur -->
                                             <div class="col-md-3 mb-2">
-                                                <label class="form-label">{{ form_detail.couleur.label }} *</label>
+                                                <label class="form-label fw-bold">{{ form_detail.couleur.label }} *</label>
                                                 {{ form_detail.couleur }}
+                                                <small class="text-muted">Couleurs en stock</small>
                                             </div>
                                             
                                             <!-- Premier numéro -->
                                             <div class="col-md-2 mb-2">
-                                                <label class="form-label">{{ form_detail.numero_premier.label }} *</label>
+                                                <label class="form-label fw-bold">{{ form_detail.numero_premier.label }} *</label>
                                                 {{ form_detail.numero_premier }}
                                             </div>
                                             
                                             <!-- Dernier numéro -->
                                             <div class="col-md-2 mb-2">
-                                                <label class="form-label">{{ form_detail.numero_dernier.label }} *</label>
+                                                <label class="form-label fw-bold">{{ form_detail.numero_dernier.label }} *</label>
                                                 {{ form_detail.numero_dernier }}
                                             </div>
                                             
@@ -149,7 +251,7 @@
                         <!-- Montant total calculé -->
                         <div class="card mb-3 border-success">
                             <div class="card-body text-center">
-                                <label class="form-label">Montant total déclaré (calculé automatiquement)</label>
+                                <label class="form-label fw-bold">Montant total déclaré (calculé automatiquement)</label>
                                 <div class="montant-total-display" id="montantTotalDisplay">0 FCFA</div>
                                 <input type="hidden" name="montant_declare" id="montant_declare" value="0">
                             </div>
@@ -157,7 +259,7 @@
                         
                         <!-- Observations -->
                         <div class="mb-3">
-                            <label class="form-label">{{ form.observations.label }}</label>
+                            <label class="form-label fw-bold">{{ form.observations.label }}</label>
                             {{ form.observations }}
                         </div>
                         
@@ -172,46 +274,51 @@
                     </form>
                 </div>
             </div>
+            {% endif %}
+            {% endif %}
         </div>
         
+        {% if afficher_formulaire_complet %}
         <!-- Colonne latérale : statistiques -->
         <div class="col-md-3">
             <!-- Statistiques rapides -->
             <div class="card mb-3">
                 <div class="card-header bg-info text-white">
-                    <h5>Statistiques du mois</h5>
+                    <h5><i class="fas fa-chart-line me-2"></i>Statistiques</h5>
                 </div>
                 <div class="card-body">
-                    <p>Total du mois : <strong>{{ stats.total_mois|floatformat:0|default:"0" }} FCFA</strong></p>
-                    <p>Taux moyen : <strong>{{ stats.moyenne_taux|floatformat:2|default:"0" }}%</strong></p>
+                    <p><strong>Total du mois :</strong><br>{{ stats.total_mois|floatformat:0|default:"0" }} FCFA</p>
+                    <p><strong>Taux moyen :</strong><br>{{ stats.moyenne_taux|floatformat:2|default:"0" }}%</p>
                 </div>
             </div>
             
             <!-- Recettes récentes -->
             <div class="card">
                 <div class="card-header">
-                    <h5>Recettes récentes</h5>
+                    <h5><i class="fas fa-history me-2"></i>Recettes récentes</h5>
                 </div>
                 <div class="card-body">
                     <div class="list-group">
                         {% for recette in recettes_recentes %}
                         <a href="{% url 'inventaire:recette_detail' recette.pk %}" class="list-group-item list-group-item-action">
                             <div class="d-flex justify-content-between">
-                                <small>{{ recette.date|date:"d/m" }}</small>
-                                <small>{{ recette.montant_declare|floatformat:0 }} FCFA</small>
+                                <small><strong>{{ recette.date|date:"d/m" }}</strong></small>
+                                <small class="text-success">{{ recette.montant_declare|floatformat:0 }} FCFA</small>
                             </div>
                             <small class="text-muted">{{ recette.poste.nom }}</small>
                         </a>
                         {% empty %}
-                        <p class="text-muted">Aucune recette récente</p>
+                        <p class="text-muted text-center">Aucune recette récente</p>
                         {% endfor %}
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 </div>
 
+{% if afficher_formulaire_complet and formset %}
 <script>
 let formsetIndex = {{ formset.total_form_count }};
 
@@ -253,11 +360,9 @@ function addFormset() {
     const container = document.getElementById('formset-container');
     const totalForms = document.getElementById('id_tickets-TOTAL_FORMS');
     
-    // Clone la première row
     const firstRow = document.querySelector('.formset-row');
     const newRow = firstRow.cloneNode(true);
     
-    // Mise à jour des index
     newRow.querySelectorAll('input, select').forEach(input => {
         const name = input.name.replace(/tickets-\d+/, `tickets-${formsetIndex}`);
         const id = input.id.replace(/id_tickets-\d+/, `id_tickets-${formsetIndex}`);
@@ -267,7 +372,6 @@ function addFormset() {
         input.value = '';
     });
     
-    // Ajouter bouton supprimer
     const header = newRow.querySelector('h6');
     header.textContent = `Série #${formsetIndex + 1}`;
     
@@ -283,7 +387,6 @@ function addFormset() {
     
     container.appendChild(newRow);
     
-    // Event listeners
     newRow.querySelectorAll('[name*="numero_"]').forEach(input => {
         input.addEventListener('input', calculerMontantTotal);
     });
@@ -309,15 +412,12 @@ function removeFormset(btn) {
 
 // Event listeners au chargement
 document.addEventListener('DOMContentLoaded', function() {
-    // Calculer le montant initial
     calculerMontantTotal();
     
-    // Event listeners sur tous les champs de numéros
     document.querySelectorAll('[name*="numero_"]').forEach(input => {
         input.addEventListener('input', calculerMontantTotal);
     });
     
-    // Validation avant soumission
     document.getElementById('formRecette').addEventListener('submit', function(e) {
         const total = parseFloat(document.getElementById('montant_declare').value);
         
@@ -328,4 +428,5 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+{% endif %}
 {% endblock %}
