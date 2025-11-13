@@ -2,7 +2,7 @@
 # inventaire/models.py - Modèles pour la gestion des inventaires SUPPER
 # ===================================================================
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 import decimal
 import re
 from django.db import models
@@ -4081,22 +4081,21 @@ class StockEvent(models.Model):
         Returns:
             tuple: (valeur_monetaire, nombre_tickets)
         """
-        from django.db.models import Sum, Q
-        from decimal import Decimal
         
         # S'assurer qu'on a un datetime
-        if hasattr(target_date, 'date'):
+        if isinstance(target_date, datetime):
             datetime_target = target_date
         else:
-            from django.utils import timezone
+            # Convertir date en datetime avec l'heure maximale du jour
             datetime_target = timezone.make_aware(
-                datetime.combine(target_date, datetime.time.max)
+                datetime.combine(target_date, time.max)
             )
         
         # Requête de base pour les événements
         events_query = cls.objects.filter(
             poste=poste,
-            event_datetime__lte=datetime_target
+            event_datetime__lte=datetime_target,
+            is_cancelled=False  # Important: exclure les événements annulés
         )
         
         # Exclure un événement spécifique si demandé
@@ -4121,7 +4120,7 @@ class StockEvent(models.Model):
         return valeur_totale, tickets_total
 
 
-    @classmethod  
+    @classmethod
     def recalculate_stock_from_historique(cls, poste, up_to_date=None):
         """
         Recalcule le stock complet depuis l'historique
@@ -4132,7 +4131,6 @@ class StockEvent(models.Model):
             up_to_date: Date limite (optionnel)
         """
         from inventaire.models import HistoriqueStock
-        from django.db.models import Q
         from decimal import Decimal
         
         # Supprimer les anciens events pour ce poste
@@ -4177,14 +4175,14 @@ class StockEvent(models.Model):
                 elif hist.poste_origine:
                     event_type = 'TRANSFERT_IN'
                 else:
-                    event_type = 'CREDIT'
+                    event_type = 'CHARGEMENT'  # Par défaut pour CREDIT
             else:  # DEBIT
-                if hist.reference_recette:
+                if hasattr(hist, 'reference_recette') and hist.reference_recette:
                     event_type = 'VENTE'
                 elif hist.poste_destination:
                     event_type = 'TRANSFERT_OUT'
                 else:
-                    event_type = 'DEBIT'
+                    event_type = 'AJUSTEMENT'  # Par défaut pour DEBIT
             
             # Créer l'event
             cls.objects.create(
@@ -4202,7 +4200,8 @@ class StockEvent(models.Model):
             )
         
         return stock_courant, tickets_courant
-    
+
+
     @classmethod
     def get_stock_history(cls, poste, date_debut, date_fin, interval='daily'):
         """
@@ -4217,6 +4216,8 @@ class StockEvent(models.Model):
         Returns:
             list: Liste de dictionnaires avec date et valeur du stock
         """
+        from datetime import timedelta
+        
         history = []
         current_date = date_debut
         
@@ -4231,16 +4232,16 @@ class StockEvent(models.Model):
             delta = timedelta(days=1)
         
         while current_date <= date_fin:
-            stock_data = cls.get_stock_at_date(poste, current_date)
+            valeur, nombre_tickets = cls.get_stock_at_date(poste, current_date)
             history.append({
                 'date': current_date,
-                'valeur': stock_data['valeur'],
-                'nombre_tickets': stock_data['nombre_tickets']
+                'valeur': valeur,
+                'nombre_tickets': nombre_tickets
             })
             current_date += delta
         
         return history
-    
+
     @classmethod
     def create_from_historique(cls, historique):
         """
@@ -4359,3 +4360,391 @@ class StockSnapshot(models.Model):
         )
         
         return snapshot, created
+
+# inventaire/models.py - AJOUT AU FICHIER EXISTANT
+
+class EtatInventaireSnapshot(models.Model):
+    """
+    Snapshots périodiques pour capturer l'état d'un poste à un moment donné
+    Permet la reconstruction historique des indicateurs
+    """
+    
+    poste = models.ForeignKey(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='snapshots_inventaire',
+        verbose_name=_("Poste")
+    )
+    
+    date_snapshot = models.DateField(
+        verbose_name=_("Date du snapshot"),
+        db_index=True
+    )
+    
+    # Taux de déperdition à cette date
+    taux_deperdition = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Taux de déperdition (%)")
+    )
+    
+    # Risque de baisse annuel à cette date
+    risque_baisse_annuel = models.BooleanField(
+        default=False,
+        verbose_name=_("En risque de baisse annuel")
+    )
+    
+    recettes_periode_actuelle = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Recettes cumulées période actuelle")
+    )
+    
+    recettes_periode_n1 = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Recettes même période N-1")
+    )
+    
+    pourcentage_evolution = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Pourcentage d'évolution (%)")
+    )
+    
+    # Stock à cette date
+    stock_valeur = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name=_("Valeur du stock (FCFA)")
+    )
+    
+    stock_tickets = models.IntegerField(
+        default=0,
+        verbose_name=_("Nombre de tickets en stock")
+    )
+    
+    date_epuisement_prevu = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date d'épuisement prévue du stock")
+    )
+    
+    risque_grand_stock = models.BooleanField(
+        default=False,
+        verbose_name=_("Risque de grand stock"),
+        help_text=_("Stock qui dépasse le 31 décembre")
+    )
+    
+    # Métadonnées
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Créé le")
+    )
+    
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_("Métadonnées additionnelles")
+    )
+    
+    class Meta:
+        verbose_name = _("Snapshot état inventaire")
+        verbose_name_plural = _("Snapshots états inventaires")
+        unique_together = [['poste', 'date_snapshot']]
+        ordering = ['poste', '-date_snapshot']
+        indexes = [
+            models.Index(fields=['poste', '-date_snapshot']),
+            models.Index(fields=['date_snapshot']),
+            models.Index(fields=['risque_baisse_annuel']),
+            models.Index(fields=['risque_grand_stock']),
+        ]
+    
+    def __str__(self):
+        return f"Snapshot {self.poste.nom} - {self.date_snapshot}"
+    
+    @classmethod
+    def creer_snapshot(cls, poste, date_snapshot=None):
+        """
+        Crée un snapshot de l'état actuel d'un poste
+        
+        Args:
+            poste: Instance du Poste
+            date_snapshot: Date du snapshot (par défaut aujourd'hui)
+        
+        Returns:
+            EtatInventaireSnapshot: Le snapshot créé
+        """
+        from django.db.models import Sum
+        from decimal import Decimal
+        from datetime import date, timedelta
+        
+        if date_snapshot is None:
+            date_snapshot = date.today()
+        
+        # Calculer le taux de déperdition à cette date
+        derniere_recette = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__lte=date_snapshot,
+            taux_deperdition__isnull=False
+        ).order_by('-date').first()
+        
+        taux_deperdition = derniere_recette.taux_deperdition if derniere_recette else None
+        
+        # Calculer le risque de baisse annuel à cette date
+        annee = date_snapshot.year
+        debut_annee = date(annee, 1, 1)
+        
+        recettes_actuelles = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__range=[debut_annee, date_snapshot]
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+        
+        # Même période année précédente
+        debut_annee_prec = date(annee - 1, 1, 1)
+        date_fin_prec = date(annee - 1, date_snapshot.month, date_snapshot.day)
+        
+        recettes_n1 = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__range=[debut_annee_prec, date_fin_prec]
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+        
+        # Calculer le risque de baisse
+        risque_baisse = False
+        pourcentage_evolution = None
+        
+        if recettes_n1 > 0:
+            pourcentage_evolution = ((recettes_actuelles - recettes_n1) / recettes_n1) * 100
+            risque_baisse = pourcentage_evolution < -5
+        
+        # Calculer le stock à cette date via Event Sourcing
+        stock_valeur, stock_tickets = StockEvent.get_stock_at_date(poste, date_snapshot)
+        
+        # Calculer la date d'épuisement du stock
+        date_epuisement = None
+        risque_grand_stock = False
+        
+        if stock_valeur > 0:
+            # Utiliser la moyenne des 30 jours précédents
+            date_debut_moyenne = date_snapshot - timedelta(days=30)
+            
+            ventes_moyennes = RecetteJournaliere.objects.filter(
+                poste=poste,
+                date__range=[date_debut_moyenne, date_snapshot]
+            ).aggregate(
+                total=Sum('montant_declare'),
+                count=models.Count('id')
+            )
+            
+            if ventes_moyennes['total'] and ventes_moyennes['count'] > 0:
+                vente_moy_jour = ventes_moyennes['total'] / ventes_moyennes['count']
+                
+                if vente_moy_jour > 0:
+                    jours_restants = int(stock_valeur / vente_moy_jour)
+                    date_epuisement = date_snapshot + timedelta(days=jours_restants)
+                    
+                    # Vérifier si dépasse le 31 décembre
+                    fin_annee = date(date_snapshot.year, 12, 31)
+                    risque_grand_stock = date_epuisement > fin_annee
+        
+        # Créer ou mettre à jour le snapshot
+        snapshot, created = cls.objects.update_or_create(
+            poste=poste,
+            date_snapshot=date_snapshot,
+            defaults={
+                'taux_deperdition': taux_deperdition,
+                'risque_baisse_annuel': risque_baisse,
+                'recettes_periode_actuelle': recettes_actuelles,
+                'recettes_periode_n1': recettes_n1,
+                'pourcentage_evolution': pourcentage_evolution,
+                'stock_valeur': stock_valeur,
+                'stock_tickets': stock_tickets,
+                'date_epuisement_prevu': date_epuisement,
+                'risque_grand_stock': risque_grand_stock,
+                'metadata': {
+                    'annee_reference': annee,
+                    'derniere_recette_date': derniere_recette.date.isoformat() if derniere_recette else None,
+                }
+            }
+        )
+        
+        return snapshot
+    
+    @classmethod
+    def obtenir_ou_creer_snapshot(cls, poste, date_snapshot):
+        """
+        Récupère un snapshot existant ou le crée s'il n'existe pas
+        
+        Args:
+            poste: Instance du Poste
+            date_snapshot: Date du snapshot
+        
+        Returns:
+            EtatInventaireSnapshot: Le snapshot
+        """
+        try:
+            return cls.objects.get(poste=poste, date_snapshot=date_snapshot)
+        except cls.DoesNotExist:
+            return cls.creer_snapshot(poste, date_snapshot)
+    
+    def calculer_impact_taux_deperdition(self, snapshot_precedent):
+        """
+        Calcule l'impact sur le taux de déperdition
+        
+        Args:
+            snapshot_precedent: Snapshot de la période précédente
+        
+        Returns:
+            str: 'positif', 'negatif', ou 'nul'
+        """
+        if not self.taux_deperdition or not snapshot_precedent or not snapshot_precedent.taux_deperdition:
+            return 'nul'
+        
+        # Cas 1: Régression du taux (amélioration)
+        # Ex: -35% → -32% = positif
+        if self.taux_deperdition > snapshot_precedent.taux_deperdition:
+            return 'positif'
+        
+        # Cas 2: Passage en zone critique
+        # Ex: -25% → -32% = négatif
+        if snapshot_precedent.taux_deperdition >= -30 and self.taux_deperdition < -30:
+            return 'negatif'
+        
+        # Cas 3: Amélioration continue
+        # Ex: -40% → -28% = positif
+        if snapshot_precedent.taux_deperdition < -30 and self.taux_deperdition >= -30:
+            return 'positif'
+        
+        # Cas 4: Dégradation
+        if self.taux_deperdition < snapshot_precedent.taux_deperdition:
+            return 'negatif'
+        
+        return 'nul'
+    
+    def calculer_impact_risque_baisse(self, snapshot_precedent):
+        """
+        Calcule l'impact sur le risque de baisse annuel
+        
+        Returns:
+            str: 'positif', 'negatif', ou 'nul'
+        """
+        if not snapshot_precedent:
+            return 'nul'
+        
+        # Était en risque et ne l'est plus = positif
+        if snapshot_precedent.risque_baisse_annuel and not self.risque_baisse_annuel:
+            return 'positif'
+        
+        # N'était pas en risque et l'est maintenant = négatif
+        if not snapshot_precedent.risque_baisse_annuel and self.risque_baisse_annuel:
+            return 'negatif'
+        
+        # Pas de changement
+        return 'nul'
+    
+    def calculer_impact_grand_stock(self, snapshot_precedent):
+        """
+        Calcule l'impact sur le risque de grand stock
+        
+        Returns:
+            str: 'positif', 'negatif', ou 'nul'
+        """
+        if not snapshot_precedent or not self.date_epuisement_prevu or not snapshot_precedent.date_epuisement_prevu:
+            return 'nul'
+        
+        # Si la date d'épuisement s'est rapprochée = positif
+        if self.date_epuisement_prevu < snapshot_precedent.date_epuisement_prevu:
+            return 'positif'
+        
+        # Si la date d'épuisement s'est éloignée = négatif
+        if self.date_epuisement_prevu > snapshot_precedent.date_epuisement_prevu:
+            return 'negatif'
+        
+        # Même date
+        return 'nul'
+
+
+class JourneeImpertinente(models.Model):
+    """
+    Modèle pour suivre les journées impertinentes par poste
+    """
+    
+    poste = models.ForeignKey(
+        Poste,
+        on_delete=models.CASCADE,
+        related_name='journees_impertinentes',
+        verbose_name=_("Poste")
+    )
+    
+    date = models.DateField(
+        verbose_name=_("Date de la journée impertinente"),
+        db_index=True
+    )
+    
+    recette_declaree = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_("Recette déclarée")
+    )
+    
+    recette_potentielle = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_("Recette potentielle")
+    )
+    
+    ecart = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_("Écart")
+    )
+    
+    commentaire = models.TextField(
+        blank=True,
+        verbose_name=_("Commentaire")
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Créé le")
+    )
+    
+    class Meta:
+        verbose_name = _("Journée impertinente")
+        verbose_name_plural = _("Journées impertinentes")
+        unique_together = [['poste', 'date']]
+        ordering = ['-date', 'poste__nom']
+        indexes = [
+            models.Index(fields=['poste', '-date']),
+            models.Index(fields=['date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.poste.nom} - {self.date} (Impertinente)"
+    
+    @classmethod
+    def compter_pour_periode(cls, poste, date_debut, date_fin):
+        """
+        Compte les journées impertinentes pour un poste sur une période
+        
+        Args:
+            poste: Instance du Poste
+            date_debut: Date de début
+            date_fin: Date de fin
+        
+        Returns:
+            int: Nombre de journées impertinentes
+        """
+        return cls.objects.filter(
+            poste=poste,
+            date__range=[date_debut, date_fin]
+        ).count()

@@ -15,6 +15,7 @@ from . import views_transferts_tickets
 from . import views_bordereaux_pdf
 from .views_stock_event_sourcing import *
 from . import views_rapport_defaillants
+from . import views_rapport_inventaires
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -253,9 +254,23 @@ path(
          views_transferts_tickets.confirmation_transfert_tickets,
          name='confirmation_transfert_tickets'),
 
-     path('stocks/transfert/succes/<str:numero_bordereau>/', 
+    path('stocks/transfert/succes/<str:numero_bordereau>/', 
      views_transferts.detail_transfert_succes, 
      name='detail_transfert_succes'),
+    
+    # ===== RAPPORT DES INVENTAIRES =====
+    path(
+        'rapports/inventaires/selection/',
+        views_rapport_inventaires.selection_rapport_inventaires,
+        name='selection_rapport_inventaires'
+    ),
+    path(
+        'rapports/inventaires/',
+        views_rapport_inventaires.rapport_inventaires,
+        name='rapport_inventaires'
+    ),
+
+
 
 ]
 

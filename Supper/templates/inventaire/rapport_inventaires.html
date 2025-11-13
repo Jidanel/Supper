@@ -1,0 +1,820 @@
+<!-- inventaire/templates/inventaire/rapport_inventaires.html -->
+{% extends 'admin/base_site.html' %}
+{% load static %}
+
+{% block title %}Rapport des Inventaires - {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Styles généraux */
+    .rapport-header {
+        background: linear-gradient(135deg, #6B46C1 0%, #8B5CF6 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(107, 70, 193, 0.2);
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border-left: 4px solid #6B46C1;
+        height: 100%;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 20px rgba(107, 70, 193, 0.15);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #6B46C1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #64748B;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    /* Tableau des postes */
+    .rapport-table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .rapport-table table {
+        width: 100%;
+        margin-bottom: 0;
+    }
+    
+    .rapport-table thead {
+        background: linear-gradient(135deg, #6B46C1 0%, #8B5CF6 100%);
+        color: white;
+    }
+    
+    .rapport-table th {
+        padding: 1rem 0.75rem;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-align: center;
+        border: none;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    
+    .rapport-table td {
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        border-bottom: 1px solid #E2E8F0;
+        vertical-align: middle;
+        font-size: 0.85rem;
+    }
+    
+    .rapport-table tbody tr:hover {
+        background-color: #F8FAFC;
+    }
+    
+    .rapport-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* Badge types inventaires */
+    .badge-inv-type {
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        display: inline-block;
+        margin: 0.1rem;
+    }
+    
+    .badge-inv-normal {
+        background: #DBEAFE;
+        color: #1E40AF;
+    }
+    
+    .badge-inv-admin {
+        background: #FCE7F3;
+        color: #BE185D;
+    }
+    
+    /* Motifs */
+    .motif-badge {
+        background: #F3E8FF;
+        color: #6B46C1;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        display: inline-block;
+        margin: 0.1rem;
+        white-space: nowrap;
+    }
+    
+    /* Taux de déperdition */
+    .taux-cell {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .taux-success {
+        color: #059669;
+        background: #D1FAE5;
+        padding: 0.3rem 0.5rem;
+        border-radius: 6px;
+    }
+    
+    .taux-warning {
+        color: #D97706;
+        background: #FEF3C7;
+        padding: 0.3rem 0.5rem;
+        border-radius: 6px;
+    }
+    
+    .taux-danger {
+        color: #DC2626;
+        background: #FEE2E2;
+        padding: 0.3rem 0.5rem;
+        border-radius: 6px;
+    }
+    
+    .taux-impertinent {
+        color: #6B7280;
+        background: #F3F4F6;
+        padding: 0.3rem 0.5rem;
+        border-radius: 6px;
+        font-style: italic;
+    }
+    
+    /* Impacts */
+    .impact-badge {
+        padding: 0.3rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        display: inline-block;
+    }
+    
+    .impact-positif {
+        background: #D1FAE5;
+        color: #059669;
+    }
+    
+    .impact-negatif {
+        background: #FEE2E2;
+        color: #DC2626;
+    }
+    
+    .impact-stable {
+        background: #F3F4F6;
+        color: #6B7280;
+    }
+    
+    .impact-bon {
+        background: #D1FAE5;
+        color: #059669;
+    }
+    
+    .impact-mauvais {
+        background: #FEE2E2;
+        color: #DC2626;
+    }
+    
+    /* Journées impertinentes */
+    .ji-badge {
+        background: #FEF3C7;
+        color: #D97706;
+        padding: 0.3rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    
+    /* Ligne totaux */
+    .row-total {
+        background: #F8FAFC;
+        font-weight: 700;
+        border-top: 2px solid #6B46C1 !important;
+    }
+    
+    .row-total td {
+        padding: 1rem 0.75rem !important;
+        font-size: 0.9rem;
+    }
+    
+    /* Boutons d'action */
+    .btn-export {
+        background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-export:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(5, 150, 105, 0.3);
+        color: white;
+    }
+    
+    .btn-back {
+        background: #F1F5F9;
+        color: #475569;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-back:hover {
+        background: #E2E8F0;
+        color: #334155;
+    }
+    
+    /* Messages d'alerte */
+    .no-data-alert {
+        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+        border-left: 4px solid #F59E0B;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin: 2rem 0;
+    }
+    
+    /* Section infos */
+    .info-section {
+        background: #F8FAFC;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-title {
+        color: #6B46C1;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Colonnes calculées */
+    .col-taux-final {
+        background: #F0F9FF;
+        font-weight: 700;
+    }
+    
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .rapport-table {
+            overflow-x: auto;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+    }
+    
+    /* Tooltip */
+    [data-bs-toggle="tooltip"] {
+        cursor: help;
+        border-bottom: 1px dotted #6B46C1;
+    }
+    
+    /* Print styles */
+    @media print {
+        .btn-export, .btn-back {
+            display: none;
+        }
+        
+        .rapport-header {
+            background: #6B46C1 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête du rapport -->
+    <div class="rapport-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-2">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Rapport des Inventaires
+                </h2>
+                <p class="mb-0 opacity-75">
+                    Période du {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}
+                </p>
+            </div>
+            <div class="text-end">
+                <div class="mb-2">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    {{ donnees.statistiques.total_postes }} poste(s)
+                </div>
+                <div>
+                    <i class="fas fa-clipboard-check me-2"></i>
+                    Généré le {{ "now"|date:"d/m/Y à H:i" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if not donnees.postes %}
+        <!-- Message si pas de données -->
+        <div class="no-data-alert">
+            <h5 class="mb-2">
+                <i class="fas fa-info-circle me-2"></i>
+                Aucune donnée disponible
+            </h5>
+            <p class="mb-3">
+                Aucun poste avec inventaire programmé ou administratif n'a été trouvé pour la période 
+                du {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}.
+            </p>
+            <a href="{% url 'inventaire:selection_rapport_inventaires' %}" class="btn btn-back">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour à la sélection
+            </a>
+        </div>
+    {% else %}
+        <!-- Statistiques globales -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value">{{ donnees.statistiques.total_postes }}</div>
+                    <div class="stat-label">
+                        <i class="fas fa-map-marker-alt me-1"></i>
+                        Postes analysés
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value">
+                        {% if donnees.taux_moyen_periode %}
+                            {{ donnees.taux_moyen_periode|floatformat:2 }}%
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">
+                        <i class="fas fa-chart-bar me-1"></i>
+                        Taux moyen période
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value text-success">{{ donnees.statistiques.impacts_positifs }}</div>
+                    <div class="stat-label">
+                        <i class="fas fa-arrow-up me-1"></i>
+                        Impacts positifs
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value text-danger">{{ donnees.statistiques.impacts_negatifs }}</div>
+                    <div class="stat-label">
+                        <i class="fas fa-arrow-down me-1"></i>
+                        Impacts négatifs
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques supplémentaires -->
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value text-info">{{ donnees.statistiques.postes_avec_admin }}</div>
+                    <div class="stat-label">
+                        <i class="fas fa-user-shield me-1"></i>
+                        Postes avec inventaire administratif
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value text-primary">{{ donnees.statistiques.postes_avec_normal }}</div>
+                    <div class="stat-label">
+                        <i class="fas fa-clipboard-list me-1"></i>
+                        Postes avec inventaire normal
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value text-warning">{{ donnees.statistiques.total_journees_impertinentes }}</div>
+                    <div class="stat-label">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Total journées impertinentes
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info section -->
+        <div class="info-section">
+            <div class="info-title">
+                <i class="fas fa-lightbulb me-2"></i>
+                Informations sur les calculs
+            </div>
+            <ul class="mb-0 small">
+                <li><strong>Taux Normal</strong> : Moyenne des taux non impertinents des inventaires normaux</li>
+                <li><strong>Taux Admin</strong> : Moyenne des taux non impertinents des inventaires administratifs</li>
+                <li><strong>Taux Final</strong> : 
+                    Moyenne des deux taux s'ils sont tous deux valides, 
+                    sinon le taux valide disponible, 
+                    sinon aucun taux
+                </li>
+                <li><strong>Impacts</strong> : Comparaison entre état initial et état actuel pour chaque motif</li>
+            </ul>
+        </div>
+
+        <!-- Tableau des postes -->
+        <div class="rapport-table mb-4">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">N°</th>
+                            <th rowspan="2">Poste</th>
+                            <th rowspan="2">Type(s)<br>Inventaire</th>
+                            <th rowspan="2">Motif(s)<br>Programmation</th>
+                            <th colspan="3" style="border-bottom: 2px solid rgba(255,255,255,0.3);">
+                                Taux de Déperdition
+                            </th>
+                            <th rowspan="2">J.I.</th>
+                            
+                            {% if donnees.postes.0.afficher_taux_deperdition %}
+                            <th colspan="2" style="border-bottom: 2px solid rgba(255,255,255,0.3);">
+                                Évolution Taux
+                            </th>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_risque_baisse %}
+                            <th colspan="3" style="border-bottom: 2px solid rgba(255,255,255,0.3);">
+                                Risque Baisse Annuel
+                            </th>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_grand_stock %}
+                            <th colspan="3" style="border-bottom: 2px solid rgba(255,255,255,0.3);">
+                                Grand Stock
+                            </th>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_presence_admin %}
+                            <th rowspan="2">Impact<br>P.A.</th>
+                            {% endif %}
+                        </tr>
+                        <tr>
+                            <th>Normal</th>
+                            <th>Admin</th>
+                            <th>Final</th>
+                            
+                            {% if donnees.postes.0.afficher_taux_deperdition %}
+                            <th>Initial</th>
+                            <th>Impact</th>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_risque_baisse %}
+                            <th>Initial</th>
+                            <th>Actuel</th>
+                            <th>Impact</th>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_grand_stock %}
+                            <th>Initial</th>
+                            <th>Actuel</th>
+                            <th>Impact</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for poste_data in donnees.postes %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td class="text-start">
+                                <strong>{{ poste_data.poste.nom }}</strong>
+                            </td>
+                            <td>
+                                {% for type_inv in poste_data.types_inventaires %}
+                                    {% if type_inv == 'administratif' %}
+                                        <span class="badge-inv-type badge-inv-admin">Admin</span>
+                                    {% else %}
+                                        <span class="badge-inv-type badge-inv-normal">Normal</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td class="text-start small">
+                                {% for motif in poste_data.motifs_programmation %}
+                                    <span class="motif-badge">{{ motif }}</span>
+                                {% empty %}
+                                    <span class="text-muted">-</span>
+                                {% endfor %}
+                            </td>
+                            
+                            <!-- Taux Normal -->
+                            <td class="taux-cell">
+                                {% if poste_data.taux_moyen_normal %}
+                                    {% if poste_data.taux_moyen_normal > 0 %}
+                                        <span class="taux-impertinent">{{ poste_data.taux_moyen_normal|floatformat:1 }}%</span>
+                                    {% elif poste_data.taux_moyen_normal >= -30 %}
+                                        <span class="taux-success">{{ poste_data.taux_moyen_normal|floatformat:1 }}%</span>
+                                    {% else %}
+                                        <span class="taux-danger">{{ poste_data.taux_moyen_normal|floatformat:1 }}%</span>
+                                    {% endif %}
+                                    <div class="small text-muted">({{ poste_data.nb_taux_normaux }})</div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Taux Admin -->
+                            <td class="taux-cell">
+                                {% if poste_data.taux_moyen_admin %}
+                                    {% if poste_data.taux_moyen_admin > 0 %}
+                                        <span class="taux-impertinent">{{ poste_data.taux_moyen_admin|floatformat:1 }}%</span>
+                                    {% elif poste_data.taux_moyen_admin >= -30 %}
+                                        <span class="taux-success">{{ poste_data.taux_moyen_admin|floatformat:1 }}%</span>
+                                    {% else %}
+                                        <span class="taux-danger">{{ poste_data.taux_moyen_admin|floatformat:1 }}%</span>
+                                    {% endif %}
+                                    <div class="small text-muted">({{ poste_data.nb_taux_admins }})</div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Taux Final -->
+                            <td class="taux-cell col-taux-final">
+                                {% if poste_data.taux_final %}
+                                    {% if poste_data.taux_final > 0 %}
+                                        <span class="taux-impertinent">{{ poste_data.taux_final|floatformat:2 }}%</span>
+                                    {% elif poste_data.taux_final >= -30 %}
+                                        <span class="taux-success">{{ poste_data.taux_final|floatformat:2 }}%</span>
+                                    {% else %}
+                                        <span class="taux-danger">{{ poste_data.taux_final|floatformat:2 }}%</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="taux-impertinent">N/A</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Journées Impertinentes -->
+                            <td>
+                                {% if poste_data.journees_impertinentes > 0 %}
+                                    <span class="ji-badge">{{ poste_data.journees_impertinentes }}</span>
+                                {% else %}
+                                    <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Évolution Taux Déperdition -->
+                            {% if poste_data.afficher_taux_deperdition %}
+                            <td>
+                                {% if poste_data.taux_deperdition_initial %}
+                                    {{ poste_data.taux_deperdition_initial|floatformat:1 }}%
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if poste_data.impact_taux_deperdition == 'positif' %}
+                                    <span class="impact-badge impact-positif">
+                                        <i class="fas fa-arrow-up"></i> Positif
+                                    </span>
+                                {% elif poste_data.impact_taux_deperdition == 'negatif' %}
+                                    <span class="impact-badge impact-negatif">
+                                        <i class="fas fa-arrow-down"></i> Négatif
+                                    </span>
+                                {% else %}
+                                    <span class="impact-badge impact-stable">
+                                        <i class="fas fa-minus"></i> Stable
+                                    </span>
+                                {% endif %}
+                            </td>
+                            {% elif donnees.postes.0.afficher_taux_deperdition %}
+                            <td colspan="2" class="text-muted">-</td>
+                            {% endif %}
+                            
+                            <!-- Risque Baisse Annuel -->
+                            {% if poste_data.afficher_risque_baisse %}
+                            <td>
+                                {% if poste_data.risque_baisse_initial %}
+                                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if poste_data.risque_baisse_actuel %}
+                                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if poste_data.impact_risque_baisse == 'positif' %}
+                                    <span class="impact-badge impact-positif">
+                                        <i class="fas fa-arrow-up"></i> Positif
+                                    </span>
+                                {% elif poste_data.impact_risque_baisse == 'negatif' %}
+                                    <span class="impact-badge impact-negatif">
+                                        <i class="fas fa-arrow-down"></i> Négatif
+                                    </span>
+                                {% else %}
+                                    <span class="impact-badge impact-stable">
+                                        <i class="fas fa-minus"></i> Stable
+                                    </span>
+                                {% endif %}
+                            </td>
+                            {% elif donnees.postes.0.afficher_risque_baisse %}
+                            <td colspan="3" class="text-muted">-</td>
+                            {% endif %}
+                            
+                            <!-- Grand Stock -->
+                            {% if poste_data.afficher_grand_stock %}
+                            <td>
+                                {% if poste_data.date_epuisement_initiale %}
+                                    {{ poste_data.date_epuisement_initiale|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if poste_data.date_epuisement_actuelle %}
+                                    {{ poste_data.date_epuisement_actuelle|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if poste_data.impact_grand_stock == 'positif' %}
+                                    <span class="impact-badge impact-positif">
+                                        <i class="fas fa-arrow-up"></i> Positif
+                                    </span>
+                                {% elif poste_data.impact_grand_stock == 'negatif' %}
+                                    <span class="impact-badge impact-negatif">
+                                        <i class="fas fa-arrow-down"></i> Négatif
+                                    </span>
+                                {% else %}
+                                    <span class="impact-badge impact-stable">
+                                        <i class="fas fa-minus"></i> Stable
+                                    </span>
+                                {% endif %}
+                            </td>
+                            {% elif donnees.postes.0.afficher_grand_stock %}
+                            <td colspan="3" class="text-muted">-</td>
+                            {% endif %}
+                            
+                            <!-- Présence Administrative -->
+                            {% if poste_data.afficher_presence_admin %}
+                            <td>
+                                {% if poste_data.impact_presence_admin == 'positif' %}
+                                    <span class="impact-badge impact-bon">
+                                        <i class="fas fa-check"></i> positif
+                                    </span>
+                                {% elif poste_data.impact_presence_admin == 'negatif' %}
+                                    <span class="impact-badge impact-mauvais">
+                                        <i class="fas fa-times"></i> negatif
+                                    </span>
+                                {% elif poste_data.impact_presence_admin == 'impertinent' %}
+                                    <span class="impact-badge impact-stable">
+                                        <i class="fas fa-question"></i> Impert.
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            {% elif donnees.postes.0.afficher_presence_admin %}
+                            <td class="text-muted">-</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- Ligne totaux -->
+                        <tr class="row-total">
+                            <td colspan="4" class="text-end">
+                                <strong>TOTAUX / MOYENNES</strong>
+                            </td>
+                            <td colspan="3" class="col-taux-final">
+                                <strong>
+                                    {% if donnees.taux_moyen_periode %}
+                                        {{ donnees.taux_moyen_periode|floatformat:2 }}%
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </strong>
+                            </td>
+                            <td>
+                                <strong>{{ donnees.statistiques.total_journees_impertinentes }}</strong>
+                            </td>
+                            
+                            {% if donnees.postes.0.afficher_taux_deperdition %}
+                            <td colspan="2"></td>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_risque_baisse %}
+                            <td colspan="3"></td>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_grand_stock %}
+                            <td colspan="3"></td>
+                            {% endif %}
+                            
+                            {% if donnees.postes.0.afficher_presence_admin %}
+                            <td></td>
+                            {% endif %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <a href="{% url 'inventaire:selection_rapport_inventaires' %}" class="btn btn-back">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour à la sélection
+            </a>
+            
+             <button onclick="window.print()" class="btn btn-export">
+            <i class="fas fa-print me-2"></i> Imprimer
+            </button>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Activer les tooltips Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Animation d'apparition des cartes de statistiques
+    const statCards = document.querySelectorAll('.stat-card');
+    statCards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'all 0.5s ease';
+            
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 50);
+        }, index * 100);
+    });
+    
+    // Confirmation avant export PDF
+    const btnExport = document.querySelector('.btn-export');
+    if (btnExport) {
+        btnExport.addEventListener('click', function(e) {
+            // Optionnel : ajouter une animation ou feedback
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Génération en cours...';
+            
+            setTimeout(() => {
+                this.innerHTML = '<i class="fas fa-file-pdf me-2"></i>Exporter en PDF';
+            }, 2000);
+        });
+    }
+});
+</script>
+{% endblock %}

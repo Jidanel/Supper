@@ -1,0 +1,155 @@
+<!-- inventaire/templates/inventaire/selection_rapport_inventaires.html -->
+{% extends 'admin/base_site.html' %}
+{% load static %}
+
+{% block title %}Sélection Période - Rapport Inventaires{% endblock %}
+
+{% block extra_css %}
+<style>
+    .selection-card {
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+    
+    .btn-generate {
+        background: linear-gradient(135deg, #6B46C1 0%, #8B5CF6 100%);
+        color: white;
+        padding: 12px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-generate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(107, 70, 193, 0.3);
+        color: white;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control {
+        border: 2px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+    
+    .form-control:focus {
+        border-color: #6B46C1;
+        box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+    }
+    
+    .info-box {
+        background: linear-gradient(135deg, #EEF2FF 0%, #F3E8FF 100%);
+        border-left: 4px solid #6B46C1;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card selection-card shadow-lg">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Rapport des Inventaires
+                    </h4>
+                    <p class="mb-0 mt-2 opacity-75">Analyse de l'évolution des indicateurs sur une période</p>
+                </div>
+                
+                <div class="card-body p-4">
+                    <div class="info-box">
+                        <h6 class="fw-bold text-purple mb-2">
+                            <i class="fas fa-info-circle me-2"></i>
+                            À propos de ce rapport
+                        </h6>
+                        <p class="mb-0 text-sm">
+                            Ce rapport analyse l'évolution des postes de péage entre deux dates :
+                            taux de déperdition, risque de baisse annuel, et gestion des stocks.
+                            Les impacts positifs et négatifs sont calculés automatiquement.
+                        </p>
+                    </div>
+                    
+                    <form method="get" action="{% url 'inventaire:rapport_inventaires' %}">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="date_debut" class="form-label">
+                                    <i class="fas fa-calendar-alt me-1"></i>
+                                    Date de début
+                                </label>
+                                <input 
+                                    type="date" 
+                                    class="form-control" 
+                                    id="date_debut" 
+                                    name="date_debut"
+                                    value="{{ date_debut_default|date:'Y-m-d' }}"
+                                    max="{{ date_max|date:'Y-m-d' }}"
+                                    required
+                                >
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="date_fin" class="form-label">
+                                    <i class="fas fa-calendar-alt me-1"></i>
+                                    Date de fin
+                                </label>
+                                <input 
+                                    type="date" 
+                                    class="form-control" 
+                                    id="date_fin" 
+                                    name="date_fin"
+                                    value="{{ date_fin_default|date:'Y-m-d' }}"
+                                    max="{{ date_max|date:'Y-m-d' }}"
+                                    required
+                                >
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" name="action" value="preview" class="btn btn-generate">
+                                <i class="fas fa-eye me-2"></i>
+                                Générer le rapport
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateDebut = document.getElementById('date_debut');
+    const dateFin = document.getElementById('date_fin');
+    
+    // Validation : date_debut <= date_fin
+    function validerDates() {
+        if (dateDebut.value && dateFin.value) {
+            if (dateDebut.value > dateFin.value) {
+                dateFin.setCustomValidity('La date de fin doit être postérieure à la date de début');
+            } else {
+                dateFin.setCustomValidity('');
+            }
+        }
+    }
+    
+    dateDebut.addEventListener('change', validerDates);
+    dateFin.addEventListener('change', validerDates);
+});
+</script>
+{% endblock %}
