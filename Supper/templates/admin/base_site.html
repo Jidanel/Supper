@@ -198,6 +198,80 @@
                 padding: 1rem;
             }
         }
+
+        /* ============================================
+           MEDIA QUERIES POUR L'IMPRESSION
+           ============================================ */
+        @media print {
+            /* Masquer tous les éléments non imprimables */
+            .header-main,
+            .main-navigation,
+            .user-section,
+            .no-print,
+            .btn,
+            button,
+            .messages-container,
+            .notification-btn,
+            .alert-dismissible .btn-close {
+                display: none !important;
+            }
+
+            /* Réinitialiser le body pour l'impression */
+            body {
+                background: white !important;
+                margin: 0;
+                padding: 0;
+            }
+
+            /* Adapter le contenu principal pour l'impression */
+            .main-content {
+                min-height: auto;
+                background: white !important;
+                margin: 0;
+                padding: 0;
+            }
+
+            .content-wrapper {
+                max-width: 100%;
+                padding: 0;
+                margin: 0;
+                animation: none;
+                opacity: 1;
+            }
+
+            /* Forcer les couleurs pour l'impression */
+            * {
+                color: black !important;
+                background: white !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+
+            /* Garder les bordures de tableaux si présents */
+            table, th, td {
+                border-color: black !important;
+            }
+
+            /* Optimiser la pagination */
+            .card, .table, .row {
+                page-break-inside: avoid;
+            }
+
+            h1, h2, h3, h4, h5, h6 {
+                page-break-after: avoid;
+            }
+
+            /* Supprimer les ombres et effets visuels */
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #ddd !important;
+            }
+
+            /* Ajuster les marges pour l'impression */
+            @page {
+                margin: 2cm;
+            }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -540,6 +614,12 @@
                 {% trans "Rapports" %}
             </a>
             <ul class="dropdown-menu">
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_defaillants' %}">
+                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                        Rapport des Défaillants
+                    </a>
+                </li>
                 <li>
                     <a class="dropdown-item" href="{% url 'inventaire:classement_rendement' %}">
                         <i class="fas fa-ranking-star me-2"></i>{% trans "Classement Postes Rendement" %}

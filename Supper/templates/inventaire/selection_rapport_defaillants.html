@@ -1,0 +1,356 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+
+{% block title %}Sélection Période - Rapport Défaillants{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Style selon le design violet professionnel */
+    :root {
+        --violet-principal: #6B46C1;
+        --violet-fonce: #553C9A;
+        --blanc-pur: #FFFFFF;
+        --gris-clair: #F8FAFC;
+        --gris-moyen: #64748B;
+        --gris-fonce: #334155;
+        --accent-orange: #F59E0B;
+    }
+
+    .selection-container {
+        max-width: 600px;
+        margin: 3rem auto;
+    }
+
+    .selection-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .selection-header {
+        background: linear-gradient(135deg, var(--violet-principal) 0%, var(--violet-fonce) 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .selection-header h1 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .selection-header p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .selection-body {
+        padding: 2.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        color: var(--gris-fonce);
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-size: 0.95rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--violet-principal);
+        box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+    }
+
+    .date-input-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .btn-generate {
+        background: linear-gradient(135deg, var(--violet-principal) 0%, var(--violet-fonce) 100%);
+        color: white;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 50px;
+        font-size: 1.1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin-top: 1.5rem;
+    }
+
+    .btn-generate:hover {
+        transform: scale(1.02);
+        box-shadow: 0 10px 30px rgba(107, 70, 193, 0.3);
+    }
+
+    .quick-select {
+        margin-top: 1rem;
+    }
+
+    .quick-select-title {
+        color: var(--gris-moyen);
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .quick-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .quick-btn {
+        background: var(--gris-clair);
+        color: var(--gris-fonce);
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .quick-btn:hover {
+        background: var(--violet-principal);
+        color: white;
+    }
+
+    .info-box {
+        background: var(--gris-clair);
+        border-left: 4px solid var(--accent-orange);
+        padding: 1rem;
+        border-radius: 5px;
+        margin-top: 2rem;
+    }
+
+    .info-box h3 {
+        color: var(--gris-fonce);
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-box p {
+        color: var(--gris-moyen);
+        font-size: 0.875rem;
+        margin: 0;
+        line-height: 1.6;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        color: var(--violet-principal);
+        text-decoration: none;
+        margin-bottom: 2rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .back-link:hover {
+        transform: translateX(-5px);
+    }
+
+    .back-link i {
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="selection-container">
+        <a href="{% url 'common:dashboard' %}" class="back-link">
+            <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+        </a>
+        
+        <div class="selection-card">
+            <div class="selection-header">
+                <h1>
+                    <i class="fas fa-chart-line me-2"></i>
+                    Rapport des Postes Défaillants
+                </h1>
+                <p>Fiche Synoptique du Péage</p>
+            </div>
+            
+            <div class="selection-body">
+                <form method="GET" action="{% url 'inventaire:rapport_defaillants_peage' %}" id="periodeForm">
+                    <div class="date-input-group">
+                        <div class="form-group">
+                            <label for="date_debut" class="form-label">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                Date de début
+                            </label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   id="date_debut" 
+                                   name="date_debut"
+                                   value="{{ date_debut_default|date:'Y-m-d' }}"
+                                   max="{{ date_max|date:'Y-m-d' }}"
+                                   required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="date_fin" class="form-label">
+                                <i class="fas fa-calendar-check me-1"></i>
+                                Date de fin
+                            </label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   id="date_fin" 
+                                   name="date_fin"
+                                   value="{{ date_fin_default|date:'Y-m-d' }}"
+                                   max="{{ date_max|date:'Y-m-d' }}"
+                                   required>
+                        </div>
+                    </div>
+                    
+                    <div class="quick-select">
+                        <div class="quick-select-title">Sélection rapide</div>
+                        <div class="quick-buttons">
+                            <button type="button" class="quick-btn" onclick="setPeriod('today')">
+                                Aujourd'hui
+                            </button>
+                            <button type="button" class="quick-btn" onclick="setPeriod('week')">
+                                Cette semaine
+                            </button>
+                            <button type="button" class="quick-btn" onclick="setPeriod('month')">
+                                Ce mois
+                            </button>
+                            <button type="button" class="quick-btn" onclick="setPeriod('lastMonth')">
+                                Mois dernier
+                            </button>
+                            <button type="button" class="quick-btn" onclick="setPeriod('year')">
+                                Cette année
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-generate">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Générer le Rapport
+                    </button>
+                </form>
+                
+                <div class="info-box">
+                    <h3>
+                        <i class="fas fa-info-circle me-1"></i>
+                        Informations sur le rapport
+                    </h3>
+                    <p>
+                        Ce rapport présente une vue complète des postes défaillants avec :
+                        • Les jours sans déclaration de recettes
+                        • Les estimations basées sur les prévisions
+                        • Les comparaisons avec les années précédentes
+                        • Les postes à risque de baisse
+                        • La progression vers l'objectif annuel
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fonction pour définir les périodes rapides
+function setPeriod(period) {
+    const today = new Date();
+    let startDate, endDate;
+    
+    switch(period) {
+        case 'today':
+            startDate = endDate = today;
+            break;
+            
+        case 'week':
+            // Début de semaine (lundi)
+            startDate = new Date(today);
+            const day = startDate.getDay();
+            const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+            startDate.setDate(diff);
+            endDate = today;
+            break;
+            
+        case 'month':
+            // Début du mois en cours
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = today;
+            break;
+            
+        case 'lastMonth':
+            // Mois précédent complet
+            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+            break;
+            
+        case 'year':
+            // Début de l'année
+            startDate = new Date(today.getFullYear(), 0, 1);
+            endDate = today;
+            break;
+    }
+    
+    // Formater les dates pour l'input
+    document.getElementById('date_debut').value = formatDate(startDate);
+    document.getElementById('date_fin').value = formatDate(endDate);
+}
+
+// Fonction pour formater la date au format YYYY-MM-DD
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Validation du formulaire
+document.getElementById('periodeForm').addEventListener('submit', function(e) {
+    const dateDebut = new Date(document.getElementById('date_debut').value);
+    const dateFin = new Date(document.getElementById('date_fin').value);
+    
+    if (dateDebut > dateFin) {
+        e.preventDefault();
+        alert('La date de début doit être antérieure à la date de fin');
+        return false;
+    }
+    
+    // Vérifier que la période ne dépasse pas 1 an
+    const diffTime = Math.abs(dateFin - dateDebut);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 365) {
+        e.preventDefault();
+        alert('La période ne peut pas dépasser 1 an (365 jours)');
+        return false;
+    }
+});
+
+// Initialiser avec la période par défaut (ce mois)
+window.addEventListener('DOMContentLoaded', function() {
+    if (!document.getElementById('date_debut').value) {
+        setPeriod('month');
+    }
+});
+</script>
+{% endblock %}

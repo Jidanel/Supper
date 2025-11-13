@@ -97,6 +97,12 @@ class Poste(models.Model):
         verbose_name=_("Code du poste"),
         help_text=_("Code unique d'identification (ex: PG001, PS001)")
     )
+
+    nouveau = models.BooleanField(
+        default=False,
+        help_text="Cocher si c'est un nouveau poste pour l'année en cours",
+        verbose_name="Nouveau poste"
+    )
     
     nom = models.CharField(
         max_length=100,

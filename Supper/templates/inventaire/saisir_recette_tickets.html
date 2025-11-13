@@ -1,9 +1,11 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
+{% load inventaire_extras %}
 
 {% block title %}Saisir une recette avec tickets{% endblock %}
 
 {% block extra_css %}
+<!-- CSS inchangé - conservé tel quel -->
 <style>
     .formset-row {
         border: 2px solid #e5e7eb;
@@ -47,7 +49,6 @@
         color: #10b981;
     }
     
-    /* Styles pour l'affichage du stock */
     .stock-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -83,7 +84,10 @@
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-md-{% if afficher_formulaire_complet %}9{% else %}12{% endif %}">
-            <!-- Carte de sélection Poste/Date -->
+            
+            <!-- ================================================================= -->
+            <!-- Carte de sélection Poste/Date avec JavaScript amélioré -->
+            <!-- ================================================================= -->
             <div class="card selection-poste-card mb-3">
                 <div class="card-header bg-primary text-white">
                     <h4><i class="fas fa-map-marker-alt me-2"></i>Étape 1 : Sélectionner le poste et la date</h4>
@@ -100,7 +104,15 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Date *</label>
-                                {{ form.date }}
+                                <input 
+                                        type="date" 
+                                        name="date" 
+                                        id="id_date" 
+                                        class="form-control"
+                                        onchange="submitFormWithAllFields()"
+                                        value="{% if date_selectionnee %}{{ date_selectionnee|date:'Y-m-d' }}{% else %}{{ form.date.value|date:'Y-m-d' }}{% endif %}"
+                                        required
+                                    >
                                 <small class="text-muted d-block mt-1">
                                     <i class="fas fa-info-circle"></i> Sélectionnez la date de la recette
                                 </small>
@@ -133,9 +145,9 @@
                                 <i class="fas fa-ticket-alt me-2"></i>{{ stock_couleur.couleur.libelle_affichage }}
                             </h5>
                             <div class="text-end">
-                                <strong style="color: #10b981;">{{ stock_couleur.total_tickets }} tickets</strong>
+                                <strong style="color: #10b981;">{{ stock_couleur.total_tickets|format_milliers }} tickets</strong>
                                 <br>
-                                <small class="text-muted">{{ stock_couleur.valeur_totale|floatformat:0 }} FCFA</small>
+                                <small class="text-muted">{{ stock_couleur.valeur_totale|floatformat:0|format_milliers }} FCFA</small>
                             </div>
                         </div>
                         
@@ -143,9 +155,9 @@
                             <strong class="text-muted" style="font-size: 0.85rem;">Séries disponibles :</strong>
                             {% for serie in stock_couleur.series %}
                             <div class="serie-detail">
-                                📦 #{{ serie.numero_premier }} → #{{ serie.numero_dernier }}
-                                <span class="badge bg-secondary">{{ serie.nombre_tickets }} tickets</span>
-                                <span class="badge bg-success">{{ serie.valeur|floatformat:0 }} FCFA</span>
+                                📦 #{{ serie.numero_premier }} → #{{ serie.numero_dernier|format_milliers }}
+                                <span class="badge bg-secondary">{{ serie.nombre_tickets|format_milliers }} tickets</span>
+                                <span class="badge bg-success">{{ serie.valeur|floatformat:0|format_milliers }} FCFA</span>
                             </div>
                             {% endfor %}
                         </div>
@@ -287,8 +299,8 @@
                     <h5><i class="fas fa-chart-line me-2"></i>Statistiques</h5>
                 </div>
                 <div class="card-body">
-                    <p><strong>Total du mois :</strong><br>{{ stats.total_mois|floatformat:0|default:"0" }} FCFA</p>
-                    <p><strong>Taux moyen :</strong><br>{{ stats.moyenne_taux|floatformat:2|default:"0" }}%</p>
+                    <p><strong>Total du mois :</strong><br>{{ stats.total_mois|floatformat:0|default:"0"|format_milliers }} FCFA</p>
+                    <p><strong>Taux moyen :</strong><br>{{ stats.moyenne_taux|floatformat:2|default:"0"|format_milliers }}%</p>
                 </div>
             </div>
             
@@ -303,7 +315,7 @@
                         <a href="{% url 'inventaire:recette_detail' recette.pk %}" class="list-group-item list-group-item-action">
                             <div class="d-flex justify-content-between">
                                 <small><strong>{{ recette.date|date:"d/m" }}</strong></small>
-                                <small class="text-success">{{ recette.montant_declare|floatformat:0 }} FCFA</small>
+                                <small class="text-success">{{ recette.montant_declare|floatformat:0|format_milliers }} FCFA</small>
                             </div>
                             <small class="text-muted">{{ recette.poste.nom }}</small>
                         </a>
@@ -318,8 +330,32 @@
     </div>
 </div>
 
-{% if afficher_formulaire_complet and formset %}
+<!-- ================================================================= -->
+<!-- CORRECTION : JavaScript amélioré pour préserver tous les champs -->
+<!-- ================================================================= -->
 <script>
+// ===================================================================
+// FONCTION CRITIQUE : Soumettre le formulaire avec TOUS les champs
+// ===================================================================
+function submitFormWithAllFields() {
+    const form = document.getElementById('formSelection');
+    const posteSelect = form.querySelector('select[name="poste"]');
+    const dateInput = form.querySelector('input[name="date"]');
+    
+    // Vérifier que les deux champs ont des valeurs avant de soumettre
+    if (posteSelect && posteSelect.value && dateInput && dateInput.value) {
+        form.submit();
+    } else if (posteSelect && posteSelect.value) {
+        // Si seul le poste est sélectionné, soumettre quand même
+        // La date sera préservée ou initialisée côté serveur
+        form.submit();
+    }
+}
+
+{% if afficher_formulaire_complet and formset %}
+// ===================================================================
+// GESTION DES FORMSETS (inchangé)
+// ===================================================================
 let formsetIndex = {{ formset.total_form_count }};
 
 // Calcul automatique du montant d'une série
@@ -427,6 +463,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-</script>
 {% endif %}
+</script>
 {% endblock %}

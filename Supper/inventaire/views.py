@@ -1041,13 +1041,11 @@ def supprimer_inventaire(request, pk):
     
 #     return render(request, 'inventaire/saisir_recette.html', context)
 
+
 @login_required
 def saisir_recette_avec_tickets(request):
     """
-    Version AMÉLIORÉE avec :
-    1. Rechargement automatique lors du choix poste/date
-    2. Affichage du stock disponible par couleur
-    3. Pré-remplissage des couleurs selon le stock
+    Version CORRIGÉE avec préservation de la date lors du rechargement automatique
     """
     
     # Vérifier permissions
@@ -1067,7 +1065,7 @@ def saisir_recette_avec_tickets(request):
             postes = Poste.objects.none()
     
     # ===================================================================
-    # NOUVEAU : Récupération du poste et date sélectionnés
+    # CORRECTION : Récupération améliorée du poste et date sélectionnés
     # ===================================================================
     
     poste_selectionne = None
@@ -1075,28 +1073,31 @@ def saisir_recette_avec_tickets(request):
     stock_disponible = []
     afficher_formulaire_complet = False
     
-    # Vérifier si un poste et une date sont sélectionnés (GET avec paramètres)
-    if request.method == 'GET' and ('poste' in request.GET or 'date' in request.GET):
+    # Vérifier les paramètres GET pour le poste et la date
+    if request.method == 'GET':
         poste_id = request.GET.get('poste')
         date_str = request.GET.get('date')
         
+        # Traiter le poste sélectionné
         if poste_id:
             try:
                 poste_selectionne = Poste.objects.get(id=poste_id)
                 if not request.user.peut_acceder_poste(poste_selectionne):
                     messages.error(request, "Vous n'avez pas accès à ce poste")
                     poste_selectionne = None
-            except Poste.DoesNotExist:
+            except (Poste.DoesNotExist, ValueError):
                 pass
         
+        # Traiter la date sélectionnée
         if date_str:
             try:
                 from datetime import datetime
                 date_selectionnee = datetime.strptime(date_str, '%Y-%m-%d').date()
             except ValueError:
+                # Si format invalide, utiliser date du jour
                 date_selectionnee = timezone.now().date()
         
-        # Si poste ET date sélectionnés, charger le stock et afficher le formulaire complet
+        # Afficher le formulaire complet si poste ET date sont sélectionnés
         if poste_selectionne and date_selectionnee:
             afficher_formulaire_complet = True
             stock_disponible = _obtenir_stock_disponible(poste_selectionne)
@@ -1246,9 +1247,10 @@ def saisir_recette_avec_tickets(request):
     # AFFICHAGE FORMULAIRE (GET)
     # ===================================================================
     else:
-        # Préparer les données initiales
+        # CORRECTION : Préparer les données initiales en priorité depuis GET
         initial_data = {}
         
+        # Priorité 1 : Paramètres GET (pour préserver lors du rechargement)
         if poste_selectionne:
             initial_data['poste'] = poste_selectionne
         elif request.user.poste_affectation:
@@ -1257,18 +1259,21 @@ def saisir_recette_avec_tickets(request):
         if date_selectionnee:
             initial_data['date'] = date_selectionnee
         else:
+            # Par défaut, utiliser la date du jour
             initial_data['date'] = timezone.now().date()
         
         form = RecetteAvecTicketsForm(initial=initial_data, user=request.user)
         
-        # Modifier le formulaire pour activer le rechargement auto
+        # CORRECTION : Modifier le formulaire pour activer le rechargement auto
+        # IMPORTANT : Utiliser JavaScript pour soumettre avec TOUS les champs
         form.fields['poste'].widget.attrs.update({
-            'onchange': 'this.form.submit()',
+            'onchange': 'submitFormWithAllFields()',
             'class': 'form-select'
         })
         form.fields['date'].widget.attrs.update({
-            'onchange': 'this.form.submit()',
-            'class': 'form-control'
+            'onchange': 'submitFormWithAllFields()',
+            'class': 'form-control',
+            'type': 'date'  # Important pour le format HTML5
         })
         
         # Créer le formset uniquement si formulaire complet affiché
@@ -1330,7 +1335,6 @@ def saisir_recette_avec_tickets(request):
     }
     
     return render(request, 'inventaire/saisir_recette_tickets.html', context)
-
 
 # ===================================================================
 # FONCTION UTILITAIRE : Obtenir le stock disponible

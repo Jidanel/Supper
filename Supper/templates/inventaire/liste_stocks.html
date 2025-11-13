@@ -150,6 +150,11 @@
                        title="Voir le stock de ce poste à une date précise">
                         <i class="fas fa-calendar"></i> Stock par date
                     </a>
+                    <a href="{% url 'inventaire:rebuild_stock_events' item.poste.id %}?date={{ 'now'|date:'Y-m-d' }}" 
+                       class="btn btn-sm btn-primary"
+                       title="Voir le stock de ce poste à une date précise">
+                        <i class="fas fa-building"></i> Reconstr. Stock
+                    </a>
                 </div>
             </div>
             

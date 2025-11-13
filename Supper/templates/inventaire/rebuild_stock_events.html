@@ -1,0 +1,247 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stock-rebuild-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .incoherence-item {
+        background: white;
+        border-left: 4px solid #ef4444;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stat-box {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-box:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #6B46C1;
+    }
+    
+    .stat-label {
+        color: #64748B;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 0.5rem;
+    }
+    
+    .warning-zone {
+        background: #fef2f2;
+        border: 2px dashed #ef4444;
+        border-radius: 10px;
+        padding: 2rem;
+        margin: 2rem 0;
+    }
+    
+    .rebuild-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        font-size: 1.2rem;
+        padding: 1rem 3rem;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 30px rgba(16,185,129,0.3);
+    }
+    
+    .rebuild-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 15px 40px rgba(16,185,129,0.4);
+    }
+    
+    .rebuild-btn:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        transform: scale(1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête avec informations du poste -->
+    <div class="stock-rebuild-card">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-sync-alt me-3"></i>
+                    Reconstruction du Stock
+                </h1>
+                <h3 class="mb-0">{{ poste.nom }}</h3>
+                <p class="mt-2 mb-0 opacity-75">
+                    Code : {{ poste.code }} | Type : {{ poste.get_type_display }}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <button onclick="window.history.back()" class="btn btn-light btn-lg">
+                    <i class="fas fa-arrow-left me-2"></i> Retour
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques générales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-value">{{ total_events|intcomma }}</div>
+                <div class="stat-label">Événements Total</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-value text-danger">{{ incoherences|length }}</div>
+                <div class="stat-label">Incohérences Détectées</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-value text-warning">
+                    {{ stock_calcule_final|floatformat:0|intcomma }} FCFA
+                </div>
+                <div class="stat-label">Stock Calculé Final</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                {% with stock_actuel=poste.gestionstock_set.first.valeur_monetaire %}
+                <div class="stat-value {% if stock_actuel != stock_calcule_final %}text-danger{% else %}text-success{% endif %}">
+                    {{ stock_actuel|floatformat:0|intcomma }} FCFA
+                </div>
+                {% endwith %}
+                <div class="stat-label">Stock Enregistré</div>
+            </div>
+        </div>
+    </div>
+
+    {% if incoherences %}
+    <!-- Zone d'avertissement -->
+    <div class="warning-zone">
+        <h3 class="text-danger mb-3">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Attention : Incohérences Détectées
+        </h3>
+        <p class="text-muted mb-4">
+            Les événements suivants présentent des incohérences dans le calcul du stock résultant.
+            La reconstruction corrigera automatiquement ces erreurs.
+        </p>
+
+        <!-- Liste des incohérences -->
+        <div style="max-height: 400px; overflow-y: auto;">
+            {% for inc in incoherences|slice:":10" %}
+            <div class="incoherence-item">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Date :</strong><br>
+                        {{ inc.event.event_datetime|date:"d/m/Y H:i" }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Type :</strong><br>
+                        {{ inc.event.get_event_type_display }}
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Variation :</strong><br>
+                        <span class="{% if inc.event.montant_variation > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ inc.event.montant_variation|floatformat:0|intcomma }} FCFA
+                        </span>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Stock Attendu :</strong><br>
+                        <span class="text-success">{{ inc.stock_attendu|floatformat:0|intcomma }} FCFA</span>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Stock Enregistré :</strong><br>
+                        <span class="text-danger">{{ inc.stock_enregistre|floatformat:0|intcomma }} FCFA</span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <strong>Différence :</strong> 
+                        <span class="badge bg-danger">{{ inc.difference|floatformat:0|intcomma }} FCFA</span>
+                    </small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if incoherences|length > 10 %}
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle me-2"></i>
+            ... et {{ incoherences|length|add:"-10" }} autre(s) incohérence(s)
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Formulaire de confirmation -->
+    <div class="text-center mt-4">
+        <form method="POST" action="{% url 'inventaire:rebuild_stock_events' poste_id=poste.id %}" 
+              onsubmit="return confirmRebuild()">
+            {% csrf_token %}
+            <button type="submit" class="rebuild-btn" id="rebuildBtn">
+                <i class="fas fa-tools me-2"></i>
+                Lancer la Reconstruction du Stock
+            </button>
+        </form>
+        <p class="text-muted mt-3">
+            <i class="fas fa-shield-alt me-2"></i>
+            Cette opération recalculera tous les stocks résultants depuis le premier événement.
+        </p>
+    </div>
+
+    {% else %}
+    <!-- Aucune incohérence -->
+    <div class="alert alert-success text-center py-5">
+        <i class="fas fa-check-circle fa-4x mb-3 text-success"></i>
+        <h3>Stock Cohérent</h3>
+        <p class="mb-0">Aucune incohérence détectée. Le stock est correctement calculé.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmRebuild() {
+    const confirmation = confirm(
+        "⚠️ ATTENTION ⚠️\n\n" +
+        "Cette opération va recalculer TOUS les événements de stock pour ce poste.\n\n" +
+        "Les {{ incoherences|length }} incohérences détectées seront corrigées.\n\n" +
+        "Voulez-vous continuer ?"
+    );
+    
+    if (confirmation) {
+        document.getElementById('rebuildBtn').disabled = true;
+        document.getElementById('rebuildBtn').innerHTML = 
+            '<i class="fas fa-spinner fa-spin me-2"></i> Reconstruction en cours...';
+    }
+    
+    return confirmation;
+}
+</script>
+{% endblock %}

@@ -14,6 +14,7 @@ from . import views_transferts
 from . import views_transferts_tickets
 from . import views_bordereaux_pdf
 from .views_stock_event_sourcing import *
+from . import views_rapport_defaillants
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -307,5 +308,9 @@ event_sourcing_patterns = [
         rebuild_stock_events,
         name='rebuild_stock_events'
     ),
+    # Rapport des défaillants
+    path('rapports/defaillants/', views_rapport_defaillants.selection_rapport_defaillants, name='selection_rapport_defaillants'),
+
+    path('rapports/defaillants/generer/', views_rapport_defaillants.rapport_defaillants_peage, name='rapport_defaillants_peage'),
 ]
 urlpatterns += event_sourcing_patterns

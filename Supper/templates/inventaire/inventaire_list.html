@@ -266,7 +266,6 @@
                             <th>{% trans "Agent Saisie" %}</th>
                             <th>{% trans "Total Véhicules" %}</th>
                             <th>{% trans "Périodes" %}</th>
-                            <th>{% trans "Statut" %}</th>
                             <th>{% trans "Actions" %}</th>
                         </tr>
                     </thead>
@@ -297,21 +296,6 @@
                             <td>
                                 <span class="badge bg-info">{{ inventaire.nombre_periodes_saisies }}/10</span>
                             </td>
-                            {% comment %} <td>
-                                {% if inventaire.valide %}
-                                    <span class="badge badge-custom badge-valide">
-                                        <i class="fas fa-check-circle me-1"></i>{% trans "Validé" %}
-                                    </span>
-                                {% elif inventaire.verrouille %}
-                                    <span class="badge badge-custom badge-verrouille">
-                                        <i class="fas fa-lock me-1"></i>{% trans "Verrouillé" %}
-                                    </span>
-                                {% else %}
-                                    <span class="badge badge-custom badge-en-cours">
-                                        <i class="fas fa-edit me-1"></i>{% trans "En cours" %}
-                                    </span>
-                                {% endif %}
-                            </td> {% endcomment %}
                             <td>
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" 
@@ -390,17 +374,6 @@
     </div>
 </div>
 
-{% if can_admin %}
-<!-- Actions rapides pour admin -->
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
-    <div class="btn-group-vertical" role="group">
-        <a href="/django-admin/inventaire/inventairejournalier/" 
-           class="btn btn-dark btn-sm mb-2" title="{% trans 'Panel Admin Inventaires' %}">
-            <i class="fas fa-cogs"></i>
-        </a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}

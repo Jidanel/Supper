@@ -202,20 +202,20 @@
     <div class="summary-cards">
         <div class="summary-card">
             <h6>{% trans "Total Déclaré" %}</h6>
-            <h3 class="text-primary">{{ total_declare|floatformat:0 }}</h3>
+            <h3 class="text-primary">{{ total_declare|floatformat:0|format_milliers }}</h3>
             <small>FCFA</small>
         </div>
         
         <div class="summary-card">
             <h6>{% trans "Total Quittancé" %}</h6>
-            <h3 class="text-info">{{ total_quittance|floatformat:0 }}</h3>
+            <h3 class="text-info">{{ total_quittance|floatformat:0|format_milliers }}</h3>
             <small>FCFA</small>
         </div>
         
         <div class="summary-card">
             <h6>{% trans "Écart" %}</h6>
             <h3 class="{% if ecart|abs < 1 %}ecart-zero{% elif ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
-                {{ ecart|floatformat:0 }}
+                {{ ecart|floatformat:0|format_milliers }}
             </h3>
             <small>FCFA</small>
         </div>
@@ -249,7 +249,7 @@
             {% trans "Action requise" %}
         </h5>
         <p class="mb-0">
-            Un écart de <strong>{{ ecart|floatformat:0 }} FCFA</strong> a été détecté.
+            Un écart de <strong>{{ ecart|floatformat:0|format_milliers }} FCFA</strong> a été détecté.
             Cet écart doit être justifié pour la conformité comptable.
         </p>
         <hr>
@@ -288,16 +288,16 @@
                     
                     <div class="detail-info">
                         <span><strong>N° Quittance :</strong> {{ decade.quittance.numero_quittance }}</span>
-                        <span><strong>Montant quittancé :</strong> {{ decade.quittance.montant|floatformat:0 }} FCFA</span>
+                        <span><strong>Montant quittancé :</strong> {{ decade.quittance.montant|floatformat:0|format_milliers }} FCFA</span>
                     </div>
                     
                     {% if decade.statut != 'incomplet' %}
                     <div class="detail-info">
-                        <span><strong>Somme des recettes déclarées :</strong> {{ decade.somme_recettes|floatformat:0 }} FCFA</span>
+                        <span><strong>Somme des recettes déclarées :</strong> {{ decade.somme_recettes|floatformat:0|format_milliers }} FCFA</span>
                         <span>
                             <strong>Écart :</strong> 
                             <span class="{% if decade.ecart|abs < 1 %}text-success{% else %}text-danger{% endif %} fw-bold">
-                                {{ decade.ecart|floatformat:0 }} FCFA
+                                {{ decade.ecart|floatformat:0|format_milliers }} FCFA
                             </span>
                         </span>
                     </div>
@@ -374,7 +374,7 @@
                     
                     <td class="text-end">
                         {% if jour.recette %}
-                            <strong>{{ jour.montant_declare|floatformat:0 }}</strong> FCFA
+                            <strong>{{ jour.montant_declare|floatformat:0|format_milliers }}</strong> FCFA
                         {% else %}
                             <span class="badge bg-secondary">Non saisi</span>
                         {% endif %}
@@ -382,7 +382,7 @@
                     
                     <td class="text-end">
                         {% if jour.montant_quittance > 0 %}
-                            <strong>{{ jour.montant_quittance|floatformat:0 }}</strong> FCFA
+                            <strong>{{ jour.montant_quittance|floatformat:0|format_milliers }}</strong> FCFA
                         {% elif jour.decade_couvrant %}
                             <span class="text-muted">Voir décade</span>
                         {% else %}
@@ -422,7 +422,7 @@
                                 <span class="ecart-zero">0 FCFA</span>
                             {% else %}
                                 <span class="{% if jour.ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
-                                    {{ jour.ecart|floatformat:0 }} FCFA
+                                    {{ jour.ecart|floatformat:0|format_milliers }} FCFA
                                 </span>
                             {% endif %}
                         {% else %}
@@ -467,12 +467,12 @@
             <tfoot class="table-light">
                 <tr>
                     <th>{% trans "TOTAL PÉRIODE" %}</th>
-                    <th class="text-end">{{ total_declare|floatformat:0 }} FCFA</th>
-                    <th class="text-end">{{ total_quittance|floatformat:0 }} FCFA</th>
+                    <th class="text-end">{{ total_declare|floatformat:0|format_milliers }} FCFA</th>
+                    <th class="text-end">{{ total_quittance|floatformat:0|format_milliers }} FCFA</th>
                     <th colspan="2"></th>
                     <th class="text-end">
                         <strong class="{% if ecart|abs < 1 %}ecart-zero{% elif ecart < 0 %}ecart-negatif{% else %}ecart-positif{% endif %}">
-                            {{ ecart|floatformat:0 }} FCFA
+                            {{ ecart|floatformat:0|format_milliers }} FCFA
                         </strong>
                     </th>
                     <th class="text-center">
@@ -546,7 +546,7 @@
         <a href="{% url 'inventaire:justifier_ecart_periode' poste.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" 
            class="btn btn-warning btn-lg">
             <i class="fas fa-edit me-2"></i>
-            {% trans "Justifier l'écart de" %} {{ ecart|floatformat:0 }} FCFA
+            {% trans "Justifier l'écart de" %} {{ ecart|floatformat:0|format_milliers }} FCFA
         </a>
         {% endif %}
     </div>
