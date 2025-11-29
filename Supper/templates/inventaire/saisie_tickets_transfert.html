@@ -1,31 +1,57 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n inventaire_extras %}
 
-{% block title %}Saisir les Tickets à Transférer{% endblock %}
+{% block title %}Saisie des Tickets à Transférer{% endblock %}
 
 {% block extra_css %}
 <style>
     .serie-disponible {
         background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-        padding: 0.8rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
         margin-bottom: 0.5rem;
         cursor: pointer;
         transition: all 0.2s;
     }
     
     .serie-disponible:hover {
-        background: #f3f4f6;
+        background: #f8f9ff;
         border-color: #667eea;
+        transform: translateX(5px);
     }
     
-    .couleur-badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-weight: 600;
+    .serie-disponible.selected {
+        background: #eef2ff;
+        border-color: #667eea;
+        border-width: 3px;
+    }
+    
+    .couleur-groupe {
+        margin-bottom: 2rem;
+    }
+    
+    .couleur-titre {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 8px 8px 0 0;
+        margin-bottom: 0;
+    }
+    
+    .couleur-contenu {
+        background: #f8f9fa;
+        border: 2px solid #e5e7eb;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 1rem;
+    }
+    
+    .info-transfert {
+        background: linear-gradient(to right, #fff5f5, #fef2f2);
+        border-left: 4px solid #dc3545;
+        padding: 1rem;
+        margin-bottom: 1rem;
     }
 </style>
 {% endblock %}
@@ -33,63 +59,94 @@
 {% block content %}
 <div class="container-fluid py-4">
     
-    <!-- En-tête avec infos postes -->
+    <!-- En-tête avec infos des postes -->
     <div class="row mb-4">
         <div class="col-md-5">
             <div class="card border-danger">
                 <div class="card-body">
-                    <h6 class="text-danger">
+                    <h6 class="text-danger mb-2">
                         <i class="fas fa-arrow-circle-left me-2"></i>
-                        POSTE ORIGINE (Cède)
+                        POSTE ÉMETTEUR
                     </h6>
-                    <h5>{{ poste_origine.nom }}</h5>
+                    <h5 class="mb-1">{{ poste_origine.nom }}</h5>
+                    <p class="text-muted mb-0">Code: {{ poste_origine.code }}</p>
+                    {% if stock_origine %}
+                    <hr>
                     <p class="mb-0">
-                        Stock actuel : 
+                        Stock actuel: 
                         <strong>{{ stock_origine.valeur_monetaire|floatformat:0|format_milliers }} FCFA</strong>
                     </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
         
         <div class="col-md-2 text-center d-flex align-items-center justify-content-center">
-            <i class="fas fa-arrow-right fa-3x text-primary"></i>
+            <i class="fas fa-long-arrow-alt-right fa-3x text-primary animated-arrow"></i>
         </div>
         
         <div class="col-md-5">
             <div class="card border-success">
                 <div class="card-body">
-                    <h6 class="text-success">
+                    <h6 class="text-success mb-2">
                         <i class="fas fa-arrow-circle-right me-2"></i>
-                        POSTE DESTINATION (Reçoit)
+                        POSTE DESTINATAIRE
                     </h6>
-                    <h5>{{ poste_destination.nom }}</h5>
+                    <h5 class="mb-1">{{ poste_destination.nom }}</h5>
+                    <p class="text-muted mb-0">Code: {{ poste_destination.code }}</p>
                 </div>
             </div>
         </div>
     </div>
     
-    <h2 class="mb-4">Étape 2 : Saisir les Tickets à Transférer</h2>
+    <h2 class="mb-4">Étape 2 : Saisie des Tickets à Transférer</h2>
     
     <div class="row">
-        <!-- Formulaire de saisie -->
+        <!-- Colonne gauche : Formulaire -->
         <div class="col-lg-6">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Saisie de la Série à Transférer</h5>
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Formulaire de Saisie
+                    </h5>
                 </div>
                 <div class="card-body">
                     <form method="post" id="formTransfert">
                         {% csrf_token %}
                         
+                        <!-- Sélection de la couleur -->
                         <div class="mb-3">
-                            {{ form.couleur_saisie.label_tag }}
-                            {{ form.couleur_saisie }}
-                            {% if form.couleur_saisie.errors %}
-                            <div class="text-danger">{{ form.couleur_saisie.errors }}</div>
+                            {{ form.couleur_disponible.label_tag }}
+                            {{ form.couleur_disponible }}
+                            {% if form.couleur_disponible.errors %}
+                            <div class="text-danger">{{ form.couleur_disponible.errors }}</div>
                             {% endif %}
-                            <small class="text-muted">{{ form.couleur_saisie.help_text }}</small>
+                            <small class="text-muted">
+                                Sélectionnez la couleur des tickets à transférer
+                            </small>
                         </div>
                         
+                        <!-- Tableau des séries disponibles pour la couleur sélectionnée -->
+                        <div id="series-disponibles-table" class="mb-3 d-none">
+                            <label class="form-label">Séries disponibles pour cette couleur:</label>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Numéros</th>
+                                            <th>Quantité</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="series-tbody">
+                                        <!-- Rempli dynamiquement -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Numéros de tickets -->
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 {{ form.numero_premier.label_tag }}
@@ -110,10 +167,11 @@
                         
                         <!-- Calcul automatique -->
                         <div id="calcul-auto" class="alert alert-info d-none">
-                            <strong>Calcul automatique :</strong>
-                            <p class="mb-0" id="info-calcul"></p>
+                            <strong>Récapitulatif :</strong>
+                            <div id="info-calcul"></div>
                         </div>
                         
+                        <!-- Commentaire -->
                         <div class="mb-3">
                             {{ form.commentaire.label_tag }}
                             {{ form.commentaire }}
@@ -131,12 +189,13 @@
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'inventaire:selection_postes_transfert_tickets' %}" 
                                class="btn btn-secondary">
-                                <i class="fas fa-arrow-left me-2"></i>Retour
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Retour
                             </a>
                             
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-arrow-right me-2"></i>
-                                Continuer
+                                <i class="fas fa-check me-2"></i>
+                                Valider et Continuer
                             </button>
                         </div>
                     </form>
@@ -144,46 +203,54 @@
             </div>
         </div>
         
-        <!-- Séries disponibles -->
+        <!-- Colonne droite : Stock disponible -->
         <div class="col-lg-6">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Séries Disponibles au Poste d'Origine</h5>
+                    <h5 class="mb-0">
+                        <i class="fas fa-boxes me-2"></i>
+                        Stock Disponible au Poste Émetteur
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
                     {% if series_par_couleur %}
                         {% for couleur_code, groupe in series_par_couleur.items %}
-                        <div class="mb-4">
-                            <h6>
-                                <span class="couleur-badge" 
-                                      style="background-color: {{ groupe.couleur.code_hex|default:'#6B7280' }}">
-                                    {{ groupe.couleur.libelle_affichage }}
+                        <div class="couleur-groupe" data-couleur-id="{{ groupe.couleur.id }}">
+                            <h6 class="couleur-titre">
+                                {{ groupe.couleur.libelle_affichage }}
+                                <span class="float-end">
+                                    Total: {{ groupe.total_tickets }} tickets
                                 </span>
                             </h6>
-                            
-                            <p class="text-muted">
-                                Total : {{ groupe.total_tickets }} tickets = 
-                                {{ groupe.valeur_totale|floatformat:0|format_milliers }} FCFA
-                            </p>
-                            
-                            {% for serie in groupe.series %}
-                            <div class="serie-disponible" 
-                                 onclick="remplirFormulaire('{{ groupe.couleur.libelle_affichage }}', {{ serie.numero_premier }}, {{ serie.numero_dernier }})">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>#{{ serie.numero_premier }} → #{{ serie.numero_dernier }}</strong>
-                                    </div>
-                                    <div>
-                                        <span class="badge bg-primary">
-                                            {{ serie.nombre_tickets }} tickets
-                                        </span>
-                                        <span class="badge bg-success">
-                                            {{ serie.valeur_monetaire|floatformat:0|format_milliers }} FCFA
-                                        </span>
+                            <div class="couleur-contenu">
+                                <p class="mb-2 text-success">
+                                    <strong>Valeur totale: {{ groupe.valeur_totale|floatformat:0|format_milliers }} FCFA</strong>
+                                </p>
+                                
+                                {% for serie in groupe.series %}
+                                <div class="serie-disponible" 
+                                     data-couleur-id="{{ groupe.couleur.id }}"
+                                     data-couleur-nom="{{ groupe.couleur.libelle_affichage }}"
+                                     data-premier="{{ serie.numero_premier }}"
+                                     data-dernier="{{ serie.numero_dernier }}"
+                                     onclick="selectionnerSerie(this)">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="fas fa-hashtag text-primary"></i>
+                                            <strong>{{ serie.numero_premier|format_milliers }} → {{ serie.numero_dernier|format_milliers }}</strong>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-primary">
+                                                {{ serie.nombre_tickets }} tickets
+                                            </span>
+                                            <span class="badge bg-success ms-1">
+                                                {{ serie.valeur_monetaire|floatformat:0|format_milliers }} FCFA
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
+                                {% endfor %}
                             </div>
-                            {% endfor %}
                         </div>
                         {% endfor %}
                     {% else %}
@@ -199,14 +266,48 @@
 </div>
 
 <script>
-function remplirFormulaire(couleur, premier, dernier) {
-    document.getElementById('id_couleur_saisie').value = couleur;
+// Stock des séries par couleur (données côté serveur)
+const seriesParCouleur = {
+    {% for couleur_code, groupe in series_par_couleur.items %}
+    '{{ groupe.couleur.id }}': [
+        {% for serie in groupe.series %}
+        {
+            premier: {{ serie.numero_premier }},
+            dernier: {{ serie.numero_dernier }},
+            tickets: {{ serie.nombre_tickets }},
+            montant: {{ serie.valeur_monetaire }}
+        },
+        {% endfor %}
+    ],
+    {% endfor %}
+};
+
+// Fonction pour sélectionner une série
+function selectionnerSerie(element) {
+    // Retirer la classe selected de toutes les séries
+    document.querySelectorAll('.serie-disponible').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // Ajouter la classe selected à l'élément cliqué
+    element.classList.add('selected');
+    
+    // Récupérer les données
+    const couleurId = element.dataset.couleurId;
+    const couleurNom = element.dataset.couleurNom;
+    const premier = element.dataset.premier;
+    const dernier = element.dataset.dernier;
+    
+    // Remplir le formulaire
+    document.getElementById('id_couleur_disponible').value = couleurId;
     document.getElementById('id_numero_premier').value = premier;
     document.getElementById('id_numero_dernier').value = dernier;
     
+    // Calculer automatiquement
     calculerAutomatique();
 }
 
+// Fonction pour calculer le montant
 function calculerAutomatique() {
     const premier = parseInt(document.getElementById('id_numero_premier').value) || 0;
     const dernier = parseInt(document.getElementById('id_numero_dernier').value) || 0;
@@ -217,18 +318,74 @@ function calculerAutomatique() {
         
         document.getElementById('calcul-auto').classList.remove('d-none');
         document.getElementById('info-calcul').innerHTML = 
-            `<strong>${nbTickets} tickets</strong> × 500 FCFA = 
+            `<strong>${nbTickets.toLocaleString('fr-FR')} tickets</strong> × 500 FCFA = 
              <strong>${montant.toLocaleString('fr-FR')} FCFA</strong>`;
     } else {
         document.getElementById('calcul-auto').classList.add('d-none');
     }
 }
 
+// Fonction pour afficher les séries disponibles pour une couleur
+function afficherSeriesDisponibles() {
+    const couleurId = document.getElementById('id_couleur_disponible').value;
+    const tableDiv = document.getElementById('series-disponibles-table');
+    const tbody = document.getElementById('series-tbody');
+    
+    if (couleurId && seriesParCouleur[couleurId]) {
+        // Afficher le tableau
+        tableDiv.classList.remove('d-none');
+        
+        // Vider le tbody
+        tbody.innerHTML = '';
+        
+        // Ajouter les séries
+        seriesParCouleur[couleurId].forEach(serie => {
+            const row = `
+                <tr>
+                    <td>#${serie.premier.toLocaleString('fr-FR')} - #${serie.dernier.toLocaleString('fr-FR')}</td>
+                    <td>${serie.tickets} tickets</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-primary"
+                                onclick="remplirDepuisTableau(${serie.premier}, ${serie.dernier})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    } else {
+        tableDiv.classList.add('d-none');
+    }
+}
+
+// Fonction pour remplir depuis le tableau
+function remplirDepuisTableau(premier, dernier) {
+    document.getElementById('id_numero_premier').value = premier;
+    document.getElementById('id_numero_dernier').value = dernier;
+    calculerAutomatique();
+}
+
 // Écouter les changements
 document.getElementById('id_numero_premier').addEventListener('input', calculerAutomatique);
 document.getElementById('id_numero_dernier').addEventListener('input', calculerAutomatique);
+document.getElementById('id_couleur_disponible').addEventListener('change', afficherSeriesDisponibles);
 
 // Calcul initial si valeurs présentes
-window.addEventListener('load', calculerAutomatique);
+window.addEventListener('load', function() {
+    calculerAutomatique();
+    afficherSeriesDisponibles();
+});
 </script>
+
+<style>
+@keyframes slideRight {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(10px); }
+}
+
+.animated-arrow {
+    animation: slideRight 2s infinite;
+}
+</style>
 {% endblock %}

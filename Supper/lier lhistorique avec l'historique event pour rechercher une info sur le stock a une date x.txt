@@ -4,5 +4,7 @@ python manage.py fix_historique_series_association
 
 python manage.py migrate_approvisionnement_data
 
+python manage.py verifier_unicite_tickets
+
 generer snapshot 
 python manage.py generer_snapshots --date-debut 2025-10-14 --date-fin 2025-11-13

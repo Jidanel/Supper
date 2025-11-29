@@ -6,6 +6,7 @@ from datetime import datetime, time, timedelta
 import decimal
 import re
 from django.db import models
+from django.forms import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
@@ -75,7 +76,7 @@ class ProgrammationInventaire(models.Model):
     
     # Données pour le motif taux de déperdition
     taux_deperdition_precedent = models.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
@@ -471,7 +472,7 @@ class ProgrammationInventaire(models.Model):
                 taux_deperdition__isnull=False
             ).order_by('-date').first()
             
-            if derniere_recette and derniere_recette.taux_deperdition < -10:
+            if derniere_recette and derniere_recette.taux_deperdition < -30:
                 postes_auto.append({
                     'poste': poste,
                     'taux_deperdition': derniere_recette.taux_deperdition,
@@ -546,7 +547,7 @@ class InventaireMensuel(models.Model):
     )
      # Données pour le motif
     taux_deperdition_precedent = models.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
@@ -645,7 +646,7 @@ class InventaireMensuel(models.Model):
     )
     
     taux_deperdition_moyen = models.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
@@ -1631,7 +1632,7 @@ class RecetteJournaliere(models.Model):
     )
     
     taux_deperdition = models.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
@@ -1984,7 +1985,7 @@ class StatistiquesPeriodiques(models.Model):
     )
     
     taux_deperdition_moyen = models.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
@@ -3145,46 +3146,274 @@ class SerieTicket(models.Model):
             )
             
             return False, msg, historique
-    def save(self, *args, **kwargs):
-        """Calcul automatique avant sauvegarde"""
-        # Calcul du nombre de tickets
-        self.nombre_tickets = self.numero_dernier - self.numero_premier + 1
-        
-        # Calcul de la valeur monétaire
-        self.valeur_monetaire = Decimal(self.nombre_tickets) * Decimal('500')
-        
-        # Validation
-        self.clean()
-        
-        super().save(*args, **kwargs)
     
     @classmethod
-    def verifier_disponibilite_serie(cls, poste, couleur, numero_premier, numero_dernier):
+    def verifier_unicite_annuelle_chargement(cls, couleur, numero_premier, numero_dernier, annee=None):
         """
-        Vérifie si une série de tickets est disponible dans le stock
+        Vérifie l'unicité des numéros de tickets pour une année donnée.
+        Cette vérification est UNIQUEMENT effectuée lors du chargement 
+        (Imprimerie Nationale ou Régularisation), PAS lors des transferts.
+        
+        RÈGLE MÉTIER CRITIQUE:
+        - Un numéro de ticket ne peut appartenir qu'à UN SEUL poste par année
+        - En 2025, on peut avoir un ticket #10 même s'il existait en 2024
+        - Mais en 2025, le ticket #10 ne peut pas être chargé dans 2 postes différents
+        
+        Args:
+            couleur: Instance de CouleurTicket
+            numero_premier: Premier numéro de la série
+            numero_dernier: Dernier numéro de la série
+            annee: Année à vérifier (par défaut: année en cours)
         
         Returns:
-            tuple (bool, str): (est_disponible, message_erreur)
+            tuple (bool, str, dict): (est_unique, message_erreur, details)
         """
-        # Vérifier que le numéro de début < numéro de fin
-        if numero_premier > numero_dernier:
-            return False, "Le numéro du premier ticket doit être inférieur au dernier"
+        if annee is None:
+            annee = date.today().year
         
-        # Chercher les séries en stock pour ce poste et cette couleur
-        series_stock = cls.objects.filter(
-            poste=poste,
+        # Dates limites de l'année
+        debut_annee = timezone.make_aware(datetime(annee, 1, 1, 0, 0, 0))
+        fin_annee = timezone.make_aware(datetime(annee, 12, 31, 23, 59, 59))
+        
+        # Chercher TOUS les tickets de cette couleur chargés cette année
+        # qui chevauchent la plage demandée
+        # IMPORTANT: On ne regarde QUE les types d'entrée 'imprimerie_nationale' et 'regularisation'
+        # Les 'transfert_recu' ne comptent pas car ce sont les mêmes tickets qui bougent
+        series_existantes = cls.objects.filter(
             couleur=couleur,
-            statut='stock'
+            type_entree__in=['imprimerie_nationale', 'regularisation'],  # Seulement les chargements initiaux
+            date_reception__range=[debut_annee, fin_annee],
+            statut='stock',
+            # Chevauchement: (debut1 <= fin2) AND (fin1 >= debut2)
+            numero_premier__lte=numero_dernier,
+            numero_dernier__gte=numero_premier
+        ).select_related('poste')
+        
+        if not series_existantes.exists():
+            return True, f"✅ Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} disponible pour {annee}", {}
+        
+        # Construire le rapport des conflits
+        conflits = []
+        for serie in series_existantes:
+            # Calculer la plage en conflit
+            debut_conflit = max(numero_premier, serie.numero_premier)
+            fin_conflit = min(numero_dernier, serie.numero_dernier)
+            
+            conflits.append({
+                'poste_nom': serie.poste.nom,
+                'poste_code': serie.poste.code,
+                'serie_complete': f"#{serie.numero_premier}-{serie.numero_dernier}",
+                'plage_conflit': f"#{debut_conflit}-{fin_conflit}",
+                'nombre_tickets_conflit': fin_conflit - debut_conflit + 1,
+                'date_chargement': serie.date_reception.strftime('%d/%m/%Y'),
+                'type_entree': serie.get_type_entree_display() if serie.type_entree else 'Non défini'
+            })
+        
+        # Message d'erreur détaillé
+        premier_conflit = conflits[0]
+        msg = (
+            f"❌ UNICITÉ ANNUELLE VIOLÉE en {annee} !\n"
+            f"Les tickets {couleur.libelle_affichage} {premier_conflit['plage_conflit']} "
+            f"ont déjà été chargés au poste {premier_conflit['poste_nom']} "
+            f"le {premier_conflit['date_chargement']} ({premier_conflit['type_entree']}).\n"
+            f"Un même ticket ne peut pas être chargé dans deux postes différents la même année."
         )
         
-        # Vérifier si la plage demandée est couverte par les séries en stock
-        for serie in series_stock:
-            if (numero_premier >= serie.numero_premier and 
-                numero_dernier <= serie.numero_dernier):
-                return True, "Série disponible"
+        if len(conflits) > 1:
+            msg += f"\n{len(conflits)} série(s) en conflit au total."
         
-        return False, f"Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} non disponible en stock"
+        return False, msg, {'annee': annee, 'conflits': conflits}
+
     
+    @classmethod
+    def verifier_disponibilite_serie_complete(cls, poste, couleur, numero_premier, numero_dernier):
+        """
+        Vérifie UNIQUEMENT la disponibilité au poste ORIGINE pour vente/transfert.
+        
+        CHANGEMENT MAJEUR:
+        - Ne vérifie PLUS les chevauchements au poste destination
+        - Vérifie seulement que la série existe en stock au poste origine
+        - Vérifie qu'aucun ticket n'a été vendu
+        
+        Returns:
+            tuple (bool, str, list): (est_disponible, message_erreur, tickets_problematiques)
+        """
+        # Validation de base des numéros
+        if numero_premier > numero_dernier:
+            return False, "Le numéro du premier ticket doit être inférieur ou égal au dernier", []
+        
+        if numero_premier < 1:
+            return False, "Les numéros de tickets doivent être positifs", []
+        
+        # === ÉTAPE 1: Vérifier que la série existe en stock au poste origine ===
+        serie_source = cls.objects.filter(
+            poste=poste,
+            couleur=couleur,
+            statut='stock',
+            numero_premier__lte=numero_premier,
+            numero_dernier__gte=numero_dernier
+        ).first()
+        
+        if not serie_source:
+            # Aider l'utilisateur en listant ce qui est disponible
+            series_dispo = cls.objects.filter(
+                poste=poste,
+                couleur=couleur,
+                statut='stock'
+            ).order_by('numero_premier')
+            
+            if series_dispo.exists():
+                series_str = ', '.join([
+                    f"#{s.numero_premier}-{s.numero_dernier}" 
+                    for s in series_dispo
+                ])
+                msg = (
+                    f"❌ La série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+                    f"n'est pas disponible au poste {poste.nom}. "
+                    f"Séries disponibles: {series_str}"
+                )
+            else:
+                msg = (
+                    f"❌ Aucun stock de tickets {couleur.libelle_affichage} "
+                    f"au poste {poste.nom}"
+                )
+            
+            return False, msg, []
+        
+        # === ÉTAPE 2: Vérifier qu'aucun ticket de cette plage n'a été vendu ===
+        tickets_vendus = cls.objects.filter(
+            couleur=couleur,
+            statut='vendu',
+            numero_premier__lte=numero_dernier,
+            numero_dernier__gte=numero_premier
+        ).select_related('poste')
+        
+        if tickets_vendus.exists():
+            tickets_problematiques = []
+            for ticket in tickets_vendus:
+                tickets_problematiques.append({
+                    'premier': ticket.numero_premier,
+                    'dernier': ticket.numero_dernier,
+                    'date_vente': ticket.date_utilisation,
+                    'poste': ticket.poste.nom
+                })
+            
+            msg = (
+                f"❌ IMPOSSIBLE : Des tickets ont déjà été vendus ! "
+            )
+            for t in tickets_problematiques[:2]:
+                date_str = t['date_vente'].strftime('%d/%m/%Y') if t['date_vente'] else 'date inconnue'
+                msg += f"#{t['premier']}-{t['dernier']} (vendu le {date_str} au poste {t['poste']}), "
+            
+            return False, msg.rstrip(', '), tickets_problematiques
+        
+        # === TOUT EST OK ===
+        return True, f"✅ Série disponible pour transfert/vente", []
+    # @classmethod
+    # def verifier_disponibilite_serie_complete(cls, poste, couleur, numero_premier, numero_dernier):
+    #     """
+    #     VERSION CORRIGÉE - Vérifie UNIQUEMENT la disponibilité au poste ORIGINE
+    #     Ne vérifie PAS les chevauchements au poste destination
+        
+    #     Cette méthode est utilisée UNIQUEMENT pour vérifier qu'une série peut être :
+    #     1. VENDUE depuis ce poste
+    #     2. TRANSFÉRÉE depuis ce poste
+        
+    #     Returns:
+    #         tuple (bool, str, list): (est_disponible, message_erreur, tickets_problematiques)
+    #     """
+    #     from django.db.models import Q
+        
+    #     # Vérification 1 : Numéros cohérents
+    #     if numero_premier > numero_dernier:
+    #         return False, "Le numéro du premier ticket doit être inférieur ou égal au dernier", []
+        
+    #     if numero_premier < 1:
+    #         return False, "Les numéros de tickets doivent être positifs", []
+        
+    #     # Vérification 2 : La série est-elle en stock au poste ORIGINE ?
+    #     series_stock_origine = cls.objects.filter(
+    #         poste=poste,
+    #         couleur=couleur,
+    #         statut='stock',
+    #         numero_premier__lte=numero_dernier,
+    #         numero_dernier__gte=numero_premier
+    #     )
+        
+    #     if not series_stock_origine.exists():
+    #         # Lister les séries disponibles pour aider
+    #         series_dispo = cls.objects.filter(
+    #             poste=poste,
+    #             couleur=couleur,
+    #             statut='stock'
+    #         ).order_by('numero_premier')
+            
+    #         if series_dispo.exists():
+    #             series_str = ', '.join([
+    #                 f"#{s.numero_premier}-{s.numero_dernier}" 
+    #                 for s in series_dispo
+    #             ])
+    #             return False, (
+    #                 f"❌ La série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+    #                 f"n'est pas disponible au poste {poste.nom}. "
+    #                 f"Séries disponibles: {series_str}"
+    #             ), []
+    #         else:
+    #             return False, (
+    #                 f"❌ Aucun stock de tickets {couleur.libelle_affichage} "
+    #                 f"disponible au poste {poste.nom}"
+    #             ), []
+        
+    #     # Vérification 3 : La plage complète est-elle couverte ?
+    #     # Trouver une série qui contient ENTIÈREMENT la plage demandée
+    #     serie_couvrante = None
+    #     for serie in series_stock_origine:
+    #         if (numero_premier >= serie.numero_premier and 
+    #             numero_dernier <= serie.numero_dernier):
+    #             serie_couvrante = serie
+    #             break
+        
+    #     if not serie_couvrante:
+    #         # La plage demandée n'est pas entièrement couverte
+    #         return False, (
+    #             f"❌ La série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+    #             f"n'est pas entièrement disponible en stock au poste {poste.nom}. "
+    #             f"Vérifiez que toute la plage est dans une seule série."
+    #         ), []
+        
+    #     # Vérification 4 : Certains tickets ont-ils déjà été vendus ?
+    #     # Vérifier dans TOUTE la base si ces numéros ont été vendus
+    #     tickets_vendus = cls.objects.filter(
+    #         couleur=couleur,
+    #         statut='vendu',
+    #         numero_premier__lte=numero_dernier,
+    #         numero_dernier__gte=numero_premier
+    #     ).select_related('poste')
+        
+    #     if tickets_vendus.exists():
+    #         tickets_problematiques = []
+    #         for ticket in tickets_vendus:
+    #             tickets_problematiques.append({
+    #                 'premier': ticket.numero_premier,
+    #                 'dernier': ticket.numero_dernier,
+    #                 'date_vente': ticket.date_utilisation,
+    #                 'poste': ticket.poste.nom
+    #             })
+            
+    #         msg = (
+    #             f"❌ IMPOSSIBLE : Des tickets de cette plage ont déjà été vendus ! "
+    #             f"Ticket(s) vendu(s) : "
+    #         )
+    #         for t in tickets_problematiques[:2]:  # Afficher max 2 exemples
+    #             msg += f"#{t['premier']}-{t['dernier']} (vendu le {t['date_vente'].strftime('%d/%m/%Y') if t['date_vente'] else 'date inconnue'} au poste {t['poste']}), "
+            
+    #         return False, msg.rstrip(', '), tickets_problematiques
+        
+    #     # ✅ Tout est OK - La série peut être transférée ou vendue
+    #     return True, f"✅ Série disponible pour transfert/vente", []
+
+
+
     @classmethod
     def consommer_serie(cls, poste, couleur, numero_premier, numero_dernier, recette):
         """
@@ -3304,169 +3533,144 @@ class SerieTicket(models.Model):
             
             return True, "Série consommée avec succès", series_creees
 
-
-
+    
     @classmethod
-    def transferer_serie(cls, poste_origine, poste_destination, couleur, 
-                        numero_premier, numero_dernier, user, commentaire=''):
+    def transferer_serie(cls, poste_origine, poste_destination, couleur, numero_premier, numero_dernier, user, commentaire=''):
         """
-        VERSION COMPLÈTE avec Event Sourcing
-        Transfère une série de tickets d'un poste à un autre
+        Transfert de tickets entre postes - VERSION CORRIGÉE FINALE
         
-        Args:
-            poste_origine: Instance du Poste d'origine
-            poste_destination: Instance du Poste de destination
-            couleur: Instance de CouleurTicket
-            numero_premier: Premier numéro de la série
-            numero_dernier: Dernier numéro de la série
-            user: Utilisateur effectuant l'opération
-            commentaire: Commentaire optionnel
+        PRINCIPES:
+        1. On vérifie UNIQUEMENT que la série existe au poste origine
+        2. On ne vérifie PAS les chevauchements au poste destination
+        3. On fusionne les séries contiguës de même couleur au destination
+        4. Si pas contiguës, on ajoute simplement la nouvelle série
         
         Returns:
-            tuple: (success, message, serie_origine, serie_destination)
+            tuple (bool, str, SerieTicket, SerieTicket): (success, message, serie_origine, serie_destination)
         """
         from django.db import transaction
-        from django.utils import timezone
-        from decimal import Decimal
-        from datetime import datetime
         from inventaire.models import GestionStock, HistoriqueStock, StockEvent
         from accounts.models import NotificationUtilisateur, UtilisateurSUPPER
-        from common.utils import log_user_action
-        import logging
-        
-        logger = logging.getLogger('supper')
         
         try:
             with transaction.atomic():
-                # ===== 1. VÉRIFICATIONS PRÉLIMINAIRES =====
+                logger.info(f"=== DÉBUT TRANSFERT (VERSION CORRIGÉE) ===")
+                logger.info(f"De: {poste_origine.nom} vers: {poste_destination.nom}")
+                logger.info(f"Série: {couleur.libelle_affichage} #{numero_premier}-{numero_dernier}")
                 
-                # Vérifier que les postes sont différents
+                # === VALIDATION DE BASE ===
                 if poste_origine.id == poste_destination.id:
                     return False, "Les postes origine et destination doivent être différents", None, None
                 
-                # Vérifier la cohérence des numéros
                 if numero_premier > numero_dernier:
-                    return False, "Le numéro premier doit être inférieur ou égal au numéro dernier", None, None
-                
-                # Vérifier la disponibilité de la série au poste origine
-                disponible, msg, tickets_prob = cls.verifier_disponibilite_serie_complete(
-                    poste_origine, couleur, numero_premier, numero_dernier
-                )
-                
-                if not disponible:
-                    return False, f"Série non disponible: {msg}", None, None
-                
-                # ===== 2. IDENTIFIER LA SÉRIE À TRANSFÉRER =====
-                
-                # Rechercher la série exacte ou les séries qui contiennent la plage
-                series_origine = cls.objects.filter(
-                    poste=poste_origine,
-                    couleur=couleur,
-                    statut='stock',
-                    numero_premier__lte=numero_dernier,
-                    numero_dernier__gte=numero_premier
-                ).order_by('numero_premier')
-                
-                if not series_origine.exists():
-                    return False, "Aucune série trouvée correspondant à ces numéros", None, None
-                
-                # ===== 3. TRAITER LE TRANSFERT =====
+                    return False, "Le numéro premier doit être inférieur ou égal au dernier", None, None
                 
                 nombre_tickets = numero_dernier - numero_premier + 1
                 montant = Decimal(nombre_tickets) * Decimal('500')
                 timestamp = timezone.now()
                 
-                # Si la série correspond exactement à une série existante
-                serie_exacte = series_origine.filter(
-                    numero_premier=numero_premier,
-                    numero_dernier=numero_dernier
+                # === ÉTAPE 1: VÉRIFIER DISPONIBILITÉ AU POSTE ORIGINE UNIQUEMENT ===
+                disponible, msg, _ = cls.verifier_disponibilite_serie_complete(
+                    poste_origine, couleur, numero_premier, numero_dernier
+                )
+                
+                if not disponible:
+                    logger.error(f"Vérification échouée: {msg}")
+                    return False, msg, None, None
+                
+                # === ÉTAPE 2: TROUVER ET TRAITER LA SÉRIE AU POSTE ORIGINE ===
+                serie_source = cls.objects.filter(
+                    poste=poste_origine,
+                    couleur=couleur,
+                    statut='stock',
+                    numero_premier__lte=numero_premier,
+                    numero_dernier__gte=numero_dernier
                 ).first()
                 
-                if serie_exacte:
-                    # Cas simple : transfert direct de la série complète
+                if not serie_source:
+                    return False, "Série source introuvable (erreur inattendue)", None, None
+                
+                serie_transferee = None
+                
+                # CAS A: Transfert de la série complète
+                if (serie_source.numero_premier == numero_premier and 
+                    serie_source.numero_dernier == numero_dernier):
                     
-                    # Marquer la série comme transférée
-                    serie_exacte.statut = 'transfere'
-                    serie_exacte.date_utilisation = timestamp
-                    serie_exacte.poste_destination_transfert = poste_destination
-                    serie_exacte.save()
-                    
-                    # Créer la nouvelle série au poste destination
-                    serie_destination = cls.objects.create(
-                        poste=poste_destination,
-                        couleur=couleur,
-                        numero_premier=numero_premier,
-                        numero_dernier=numero_dernier,
-                        statut='stock',
-                        type_entree='transfert_recu',
-                        date_reception=timestamp,
-                        commentaire=f"Transféré depuis {poste_origine.nom} - {commentaire}"
-                    )
-                    
-                    serie_origine_finale = serie_exacte
-                    
+                    logger.info("→ Transfert complet de la série")
+                    serie_source.statut = 'transfere'
+                    serie_source.date_utilisation = timestamp.date()
+                    serie_source.poste_destination_transfert = poste_destination
+                    serie_source.commentaire = f"Transféré vers {poste_destination.nom} - {commentaire}"
+                    serie_source.save(update_fields=['statut', 'date_utilisation', 
+                                                    'poste_destination_transfert', 'commentaire'])
+                    serie_transferee = serie_source
+                
+                # CAS B: Transfert partiel - découpage
                 else:
-                    # Cas complexe : découper une série existante
-                    serie_contenante = series_origine.filter(
-                        numero_premier__lte=numero_premier,
-                        numero_dernier__gte=numero_dernier
-                    ).first()
+                    logger.info("→ Transfert partiel - découpage de la série")
                     
-                    if not serie_contenante:
-                        return False, "Impossible de trouver une série contenant cette plage", None, None
+                    # Conserver les infos originales
+                    original_premier = serie_source.numero_premier
+                    original_dernier = serie_source.numero_dernier
+                    type_entree_original = serie_source.type_entree
+                    responsable_original = serie_source.responsable_reception
                     
-                    # Diviser la série si nécessaire
-                    series_resultantes = []
-                    
-                    # Partie avant (si existe)
-                    if serie_contenante.numero_premier < numero_premier:
-                        serie_avant = cls.objects.create(
+                    # 1. Créer la partie AVANT si nécessaire
+                    if original_premier < numero_premier:
+                        cls.objects.create(
                             poste=poste_origine,
                             couleur=couleur,
-                            numero_premier=serie_contenante.numero_premier,
+                            numero_premier=original_premier,
                             numero_dernier=numero_premier - 1,
+                            nombre_tickets=(numero_premier - 1) - original_premier + 1,
+                            valeur_monetaire=Decimal((numero_premier - 1) - original_premier + 1) * Decimal('500'),
                             statut='stock',
-                            type_entree=serie_contenante.type_entree,
-                            date_reception=serie_contenante.date_reception,
-                            commentaire=f"Partie restante après transfert"
+                            type_entree=type_entree_original,
+                            responsable_reception=responsable_original,
+                            commentaire="Reste après transfert partiel"
                         )
-                        series_resultantes.append(serie_avant)
+                        logger.info(f"  → Partie avant: #{original_premier}-{numero_premier - 1}")
                     
-                    # Partie après (si existe)
-                    if serie_contenante.numero_dernier > numero_dernier:
-                        serie_apres = cls.objects.create(
+                    # 2. Créer la partie APRÈS si nécessaire
+                    if original_dernier > numero_dernier:
+                        cls.objects.create(
                             poste=poste_origine,
                             couleur=couleur,
                             numero_premier=numero_dernier + 1,
-                            numero_dernier=serie_contenante.numero_dernier,
+                            numero_dernier=original_dernier,
+                            nombre_tickets=original_dernier - (numero_dernier + 1) + 1,
+                            valeur_monetaire=Decimal(original_dernier - (numero_dernier + 1) + 1) * Decimal('500'),
                             statut='stock',
-                            type_entree=serie_contenante.type_entree,
-                            date_reception=serie_contenante.date_reception,
-                            commentaire=f"Partie restante après transfert"
+                            type_entree=type_entree_original,
+                            responsable_reception=responsable_original,
+                            commentaire="Reste après transfert partiel"
                         )
-                        series_resultantes.append(serie_apres)
+                        logger.info(f"  → Partie après: #{numero_dernier + 1}-{original_dernier}")
                     
-                    # Marquer la série originale comme transférée
-                    serie_contenante.statut = 'transfere'
-                    serie_contenante.date_utilisation = timestamp
-                    serie_contenante.poste_destination_transfert = poste_destination
-                    serie_contenante.save()
+                    # 3. Transformer la série originale en série transférée
+                    serie_source.numero_premier = numero_premier
+                    serie_source.numero_dernier = numero_dernier
+                    serie_source.nombre_tickets = nombre_tickets
+                    serie_source.valeur_monetaire = montant
+                    serie_source.statut = 'transfere'
+                    serie_source.date_utilisation = timestamp.date()
+                    serie_source.poste_destination_transfert = poste_destination
+                    serie_source.commentaire = f"Transféré vers {poste_destination.nom} - {commentaire}"
+                    serie_source.save()
                     
-                    # Créer la série transférée au poste destination
-                    serie_destination = cls.objects.create(
-                        poste=poste_destination,
-                        couleur=couleur,
-                        numero_premier=numero_premier,
-                        numero_dernier=numero_dernier,
-                        statut='stock',
-                        type_entree='transfert_recu',
-                        date_reception=timestamp,
-                        commentaire=f"Transféré depuis {poste_origine.nom} - {commentaire}"
-                    )
-                    
-                    serie_origine_finale = serie_contenante
+                    serie_transferee = serie_source
                 
-                # ===== 4. METTRE À JOUR LES STOCKS GLOBAUX =====
+                # === ÉTAPE 3: CRÉER/FUSIONNER LA SÉRIE AU POSTE DESTINATION ===
+                logger.info("Création/fusion de la série au poste DESTINATION...")
+                
+                # Chercher des séries contiguës de même couleur au poste destination
+                serie_destination = cls._fusionner_ou_creer_serie_destination(
+                    poste_destination, couleur, numero_premier, numero_dernier,
+                    user, poste_origine, commentaire, timestamp
+                )
+                
+                # === ÉTAPE 4: MISE À JOUR DES STOCKS GLOBAUX ===
+                logger.info("Mise à jour des stocks globaux...")
                 
                 # Stock origine
                 stock_origine, _ = GestionStock.objects.get_or_create(
@@ -3474,7 +3678,7 @@ class SerieTicket(models.Model):
                     defaults={'valeur_monetaire': Decimal('0')}
                 )
                 stock_origine_avant = stock_origine.valeur_monetaire
-                stock_origine.valeur_monetaire -= montant
+                stock_origine.valeur_monetaire = max(Decimal('0'), stock_origine.valeur_monetaire - montant)
                 stock_origine.save()
                 
                 # Stock destination
@@ -3486,13 +3690,14 @@ class SerieTicket(models.Model):
                 stock_destination.valeur_monetaire += montant
                 stock_destination.save()
                 
-                # ===== 5. CRÉER LES HISTORIQUES =====
+                logger.info(f"Stock {poste_origine.nom}: {stock_origine_avant} → {stock_origine.valeur_monetaire}")
+                logger.info(f"Stock {poste_destination.nom}: {stock_destination_avant} → {stock_destination.valeur_monetaire}")
                 
-                # Générer le numéro de bordereau
+                # === ÉTAPE 5: CRÉER LES HISTORIQUES ET ÉVÉNEMENTS ===
                 numero_bordereau = cls._generer_numero_bordereau_transfert()
                 
-                # Historique pour le poste origine (DEBIT)
-                hist_origine = HistoriqueStock.objects.create(
+                # Historique origine (DEBIT)
+                HistoriqueStock.objects.create(
                     poste=poste_origine,
                     type_mouvement='DEBIT',
                     type_stock='reapprovisionnement',
@@ -3504,11 +3709,11 @@ class SerieTicket(models.Model):
                     poste_origine=poste_origine,
                     poste_destination=poste_destination,
                     numero_bordereau=numero_bordereau,
-                    commentaire=f"Cession série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} - {commentaire}"
+                    commentaire=f"Cession {couleur.libelle_affichage} #{numero_premier}-{numero_dernier}"
                 )
                 
-                # Historique pour le poste destination (CREDIT)
-                hist_destination = HistoriqueStock.objects.create(
+                # Historique destination (CREDIT)
+                HistoriqueStock.objects.create(
                     poste=poste_destination,
                     type_mouvement='CREDIT',
                     type_stock='reapprovisionnement',
@@ -3520,19 +3725,12 @@ class SerieTicket(models.Model):
                     poste_origine=poste_origine,
                     poste_destination=poste_destination,
                     numero_bordereau=numero_bordereau,
-                    commentaire=f"Réception série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} - {commentaire}"
+                    commentaire=f"Réception {couleur.libelle_affichage} #{numero_premier}-{numero_dernier}"
                 )
                 
-                # Associer les séries aux historiques
-                hist_origine.series_tickets_associees.add(serie_origine_finale)
-                hist_destination.series_tickets_associees.add(serie_destination)
-                
-                # ===== 6. CRÉER LES ÉVÉNEMENTS EVENT SOURCING =====
-                
-                # Métadonnées communes
-                serie_metadata = {
+                # Events sourcing
+                metadata = {
                     'couleur': couleur.libelle_affichage,
-                    'couleur_code': couleur.code_normalise,
                     'numero_premier': numero_premier,
                     'numero_dernier': numero_dernier,
                     'nombre_tickets': nombre_tickets,
@@ -3540,8 +3738,7 @@ class SerieTicket(models.Model):
                     'numero_bordereau': numero_bordereau
                 }
                 
-                # Événement de sortie (poste origine)
-                event_sortie = StockEvent.objects.create(
+                StockEvent.objects.create(
                     poste=poste_origine,
                     event_type='TRANSFERT_OUT',
                     event_datetime=timestamp,
@@ -3550,24 +3747,11 @@ class SerieTicket(models.Model):
                     stock_resultant=stock_origine.valeur_monetaire,
                     tickets_resultants=int(stock_origine.valeur_monetaire / 500),
                     effectue_par=user,
-                    reference_id=str(hist_origine.id),
-                    reference_type='HistoriqueStock',
-                    metadata={
-                        'operation': 'transfert_serie_sortie',
-                        'poste_destination': {
-                            'id': poste_destination.id,
-                            'nom': poste_destination.nom,
-                            'code': poste_destination.code
-                        },
-                        'serie': serie_metadata,
-                        'serie_origine_id': serie_origine_finale.id,
-                        'serie_destination_id': serie_destination.id
-                    },
-                    commentaire=f"Transfert série {couleur.libelle_affichage} vers {poste_destination.nom}"
+                    metadata={'serie': metadata, 'poste_destination': {'nom': poste_destination.nom}},
+                    commentaire=f"Transfert vers {poste_destination.nom}"
                 )
                 
-                # Événement d'entrée (poste destination)
-                event_entree = StockEvent.objects.create(
+                StockEvent.objects.create(
                     poste=poste_destination,
                     event_type='TRANSFERT_IN',
                     event_datetime=timestamp,
@@ -3576,81 +3760,132 @@ class SerieTicket(models.Model):
                     stock_resultant=stock_destination.valeur_monetaire,
                     tickets_resultants=int(stock_destination.valeur_monetaire / 500),
                     effectue_par=user,
-                    reference_id=str(hist_destination.id),
-                    reference_type='HistoriqueStock',
-                    metadata={
-                        'operation': 'transfert_serie_entree',
-                        'poste_origine': {
-                            'id': poste_origine.id,
-                            'nom': poste_origine.nom,
-                            'code': poste_origine.code
-                        },
-                        'serie': serie_metadata,
-                        'serie_origine_id': serie_origine_finale.id,
-                        'serie_destination_id': serie_destination.id
-                    },
-                    commentaire=f"Réception série {couleur.libelle_affichage} depuis {poste_origine.nom}"
+                    metadata={'serie': metadata, 'poste_origine': {'nom': poste_origine.nom}},
+                    commentaire=f"Réception depuis {poste_origine.nom}"
                 )
                 
-                # ===== 7. NOTIFICATIONS =====
-                
-                # Notifier les chefs du poste origine
-                chefs_origine = UtilisateurSUPPER.objects.filter(
-                    poste_affectation=poste_origine,
-                    habilitation__in=['chef_peage', 'chef_pesage'],
-                    is_active=True
+                # Notifications
+                cls._envoyer_notifications_transfert(
+                    poste_origine, poste_destination,
+                    couleur, numero_premier, numero_dernier,
+                    montant, nombre_tickets, numero_bordereau, user
                 )
                 
-                for chef in chefs_origine:
-                    NotificationUtilisateur.objects.create(
-                        destinataire=chef,
-                        expediteur=user,
-                        titre="Tickets transférés (sortie)",
-                        message=(
-                            f"Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
-                            f"({nombre_tickets} tickets = {montant:,.0f} FCFA) "
-                            f"transférée vers {poste_destination.nom}. "
-                            f"Bordereau: {numero_bordereau}"
-                        ),
-                        type_notification='warning'
-                    )
+                logger.info(f"=== ✅ TRANSFERT RÉUSSI - Bordereau {numero_bordereau} ===")
                 
-                # Notifier les chefs du poste destination
-                chefs_destination = UtilisateurSUPPER.objects.filter(
-                    poste_affectation=poste_destination,
-                    habilitation__in=['chef_peage', 'chef_pesage'],
-                    is_active=True
-                )
-                
-                for chef in chefs_destination:
-                    NotificationUtilisateur.objects.create(
-                        destinataire=chef,
-                        expediteur=user,
-                        titre="Tickets reçus (entrée)",
-                        message=(
-                            f"Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
-                            f"({nombre_tickets} tickets = {montant:,.0f} FCFA) "
-                            f"reçue de {poste_origine.nom}. "
-                            f"Bordereau: {numero_bordereau}"
-                        ),
-                        type_notification='success'
-                    )
-                
-                # ===== 8. JOURNALISATION =====
-                
-                logger.info(
-                    f"TRANSFERT RÉUSSI - Bordereau {numero_bordereau}: "
-                    f"Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
-                    f"de {poste_origine.nom} vers {poste_destination.nom} "
-                    f"par {user.nom_complet}"
-                )
-                
-                return True, f"Transfert réussi - Bordereau {numero_bordereau}", serie_origine_finale, serie_destination
+                return True, f"Transfert réussi - Bordereau {numero_bordereau}", serie_transferee, serie_destination
                 
         except Exception as e:
-            logger.error(f"Erreur transfert série: {str(e)}", exc_info=True)
+            logger.error(f"❌ ERREUR TRANSFERT: {str(e)}", exc_info=True)
             return False, f"Erreur lors du transfert: {str(e)}", None, None
     
+    @classmethod
+    def _fusionner_ou_creer_serie_destination(cls, poste_destination, couleur, numero_premier, 
+                                            numero_dernier, user, poste_origine, commentaire, timestamp):
+        """
+        Crée une nouvelle série au poste destination ou fusionne avec des séries existantes
+        si elles sont contiguës et de même couleur.
+        
+        RÈGLES DE FUSION:
+        - Si une série existante finit à (numero_premier - 1), on l'étend
+        - Si une série existante commence à (numero_dernier + 1), on l'étend
+        - Si fusion possible des deux côtés, on fusionne tout
+        - Sinon, on crée une nouvelle série indépendante
+        """
+        nombre_tickets = numero_dernier - numero_premier + 1
+        montant = Decimal(nombre_tickets) * Decimal('500')
+        
+        # Chercher les séries contiguës au poste destination
+        serie_avant = cls.objects.filter(
+            poste=poste_destination,
+            couleur=couleur,
+            statut='stock',
+            numero_dernier=numero_premier - 1  # Série qui finit juste avant
+        ).first()
+        
+        serie_apres = cls.objects.filter(
+            poste=poste_destination,
+            couleur=couleur,
+            statut='stock',
+            numero_premier=numero_dernier + 1  # Série qui commence juste après
+        ).first()
+        
+        serie_destination = None
+        
+        # CAS 1: Fusion des deux côtés (séries avant ET après contiguës)
+        if serie_avant and serie_apres:
+            logger.info(f"→ Fusion triple: #{serie_avant.numero_premier}-{serie_avant.numero_dernier} "
+                    f"+ #{numero_premier}-{numero_dernier} "
+                    f"+ #{serie_apres.numero_premier}-{serie_apres.numero_dernier}")
+            
+            # Étendre la série avant pour tout englober
+            nouveau_dernier = serie_apres.numero_dernier
+            nouveau_nb_tickets = nouveau_dernier - serie_avant.numero_premier + 1
+            
+            serie_avant.numero_dernier = nouveau_dernier
+            serie_avant.nombre_tickets = nouveau_nb_tickets
+            serie_avant.valeur_monetaire = Decimal(nouveau_nb_tickets) * Decimal('500')
+            serie_avant.commentaire = f"Fusion après transfert depuis {poste_origine.nom}"
+            serie_avant.save()
+            
+            # Supprimer la série après (maintenant fusionnée)
+            serie_apres.delete()
+            
+            serie_destination = serie_avant
+            logger.info(f"  → Résultat: #{serie_avant.numero_premier}-{serie_avant.numero_dernier}")
+        
+        # CAS 2: Fusion avec série avant uniquement
+        elif serie_avant:
+            logger.info(f"→ Fusion avec série précédente: #{serie_avant.numero_premier}-{serie_avant.numero_dernier} "
+                    f"+ #{numero_premier}-{numero_dernier}")
+            
+            nouveau_nb_tickets = numero_dernier - serie_avant.numero_premier + 1
+            
+            serie_avant.numero_dernier = numero_dernier
+            serie_avant.nombre_tickets = nouveau_nb_tickets
+            serie_avant.valeur_monetaire = Decimal(nouveau_nb_tickets) * Decimal('500')
+            serie_avant.commentaire = f"Étendue après transfert depuis {poste_origine.nom}"
+            serie_avant.save()
+            
+            serie_destination = serie_avant
+            logger.info(f"  → Résultat: #{serie_avant.numero_premier}-{serie_avant.numero_dernier}")
+        
+        # CAS 3: Fusion avec série après uniquement
+        elif serie_apres:
+            logger.info(f"→ Fusion avec série suivante: #{numero_premier}-{numero_dernier} "
+                    f"+ #{serie_apres.numero_premier}-{serie_apres.numero_dernier}")
+            
+            nouveau_nb_tickets = serie_apres.numero_dernier - numero_premier + 1
+            
+            serie_apres.numero_premier = numero_premier
+            serie_apres.nombre_tickets = nouveau_nb_tickets
+            serie_apres.valeur_monetaire = Decimal(nouveau_nb_tickets) * Decimal('500')
+            serie_apres.commentaire = f"Étendue après transfert depuis {poste_origine.nom}"
+            serie_apres.save()
+            
+            serie_destination = serie_apres
+            logger.info(f"  → Résultat: #{serie_apres.numero_premier}-{serie_apres.numero_dernier}")
+        
+        # CAS 4: Pas de fusion possible - créer nouvelle série
+        else:
+            logger.info(f"→ Création nouvelle série: #{numero_premier}-{numero_dernier}")
+            
+            serie_destination = cls.objects.create(
+                poste=poste_destination,
+                couleur=couleur,
+                numero_premier=numero_premier,
+                numero_dernier=numero_dernier,
+                nombre_tickets=nombre_tickets,
+                valeur_monetaire=montant,
+                statut='stock',
+                type_entree='transfert_recu',
+                date_reception=timestamp,
+                responsable_reception=user,
+                commentaire=f"Reçu de {poste_origine.nom} - {commentaire}"
+            )
+        
+        return serie_destination
+
     @classmethod
     def _generer_numero_bordereau_transfert(cls):
         """Génère un numéro unique de bordereau pour le transfert"""
@@ -3811,42 +4046,35 @@ class SerieTicket(models.Model):
     def __str__(self):
         return f"{self.couleur.libelle_affichage} #{self.numero_premier}-{self.numero_dernier} ({self.get_statut_display()})"
     
+    
     def clean(self):
         """
-        Validation avant sauvegarde
-        
-        CORRECTION : Ne vérifier les chevauchements QUE lors du CHARGEMENT
-        Pas lors de la vente (consommation de série)
+        Validation MINIMALE - uniquement cohérence des données
+        Pas de vérification d'unicité ici
         """
         from django.core.exceptions import ValidationError
         
-        if self.numero_premier > self.numero_dernier:
-            raise ValidationError({
-                'numero_dernier': _("Le numéro du dernier ticket doit être supérieur ou égal au premier")
-            })
+        if self.numero_premier and self.numero_dernier:
+            if self.numero_premier > self.numero_dernier:
+                raise ValidationError({
+                    'numero_dernier': "Le numéro du dernier ticket doit être supérieur ou égal au premier"
+                })
+    
+    def save(self, *args, **kwargs):
+        """
+        Sauvegarde SIMPLE - calculs automatiques uniquement
+        Pas d'appel à clean() - les vues gèrent la validation
+        """
+        from decimal import Decimal
         
-        # ===== CORRECTION : Ne vérifier les chevauchements QUE pour les nouvelles séries en stock =====
-        # Si la série est en train d'être créée (pas encore de pk) ET qu'elle est en stock
-        if not self.pk and self.statut == 'stock':
-            # Vérifier les chevauchements avec d'autres séries en stock du MÊME poste
-            chevauchements = SerieTicket.objects.filter(
-                poste=self.poste,
-                couleur=self.couleur,
-                statut='stock'  # Seulement les séries en stock
-            )
-            
-            for serie in chevauchements:
-                # Vérifier si les plages se chevauchent
-                if not (self.numero_dernier < serie.numero_premier or 
-                    self.numero_premier > serie.numero_dernier):
-                    raise ValidationError(
-                        f"⚠️ Chevauchement détecté avec la série en stock "
-                        f"{serie.couleur.libelle_affichage} #{serie.numero_premier}-{serie.numero_dernier} "
-                        f"au poste {self.poste.nom}"
-                    )
+        # Calculs automatiques
+        if self.numero_premier and self.numero_dernier:
+            self.nombre_tickets = self.numero_dernier - self.numero_premier + 1
+            self.valeur_monetaire = Decimal(self.nombre_tickets) * Decimal('500')
         
-        # ===== NOUVEAU : Si c'est un transfert, ne pas vérifier les chevauchements =====
-        # Les transferts créent naturellement des séries avec les mêmes numéros
+        # Sauvegarde directe sans validation métier
+        super().save(*args, **kwargs)
+
 
 class DetailVenteTicket(models.Model):
     """
@@ -4383,7 +4611,7 @@ class EtatInventaireSnapshot(models.Model):
     
     # Taux de déperdition à cette date
     taux_deperdition = models.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,

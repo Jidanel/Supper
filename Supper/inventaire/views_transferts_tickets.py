@@ -3,6 +3,7 @@
 # Vues pour le transfert de tickets avec saisie de séries
 # ===================================================================
 
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -12,7 +13,8 @@ from datetime import date, timezone
 
 from accounts.models import Poste, NotificationUtilisateur
 from inventaire.models import *
-from inventaire.forms import TransfertStockTicketsForm, SelectionPostesTransfertForm
+from inventaire.forms import *
+from inventaire.services.transfert_service import TransfertTicketsService
 from common.utils import log_user_action
 import logging
 
@@ -30,48 +32,125 @@ def is_admin(user):
 @user_passes_test(is_admin)
 def selection_postes_transfert_tickets(request):
     """
-    ÉTAPE 1 : Sélection des postes origine et destination
+    ÉTAPE 1 AMÉLIORÉE : Sélection des postes avec pré-chargement du stock
+    
+    COMPORTEMENT :
+    - GET initial : Affiche le formulaire vide
+    - POST avec poste_origine seul : Recharge la page avec le stock affiché
+    - POST avec poste_origine ET poste_destination : Passe à l'étape 2
     """
     
-    if request.method == 'POST':
-        form = SelectionPostesTransfertForm(request.POST)
+    poste_origine = None
+    stock_origine_data = None
+    form_errors = []
+    
+    # Récupérer le poste origine depuis POST ou GET
+    poste_origine_id = request.POST.get('poste_origine') or request.GET.get('poste_origine')
+    poste_destination_id = request.POST.get('poste_destination')
+    
+    # ============================================================
+    # CAS 1 : Pré-chargement du stock quand poste_origine est sélectionné
+    # ============================================================
+    if poste_origine_id:
+        try:
+            poste_origine = Poste.objects.get(id=poste_origine_id, is_active=True)
+            
+            # Récupérer les séries en stock pour ce poste
+            series_stock = SerieTicket.objects.filter(
+                poste=poste_origine,
+                statut='stock'
+            ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
+            
+            # Grouper par couleur
+            stock_par_couleur = {}
+            for serie in series_stock:
+                couleur_key = serie.couleur.libelle_affichage
+                if couleur_key not in stock_par_couleur:
+                    stock_par_couleur[couleur_key] = {
+                        'couleur': serie.couleur,
+                        'series': [],
+                        'total_tickets': 0,
+                        'valeur_totale': Decimal('0')
+                    }
+                
+                stock_par_couleur[couleur_key]['series'].append({
+                    'id': serie.id,
+                    'numero_premier': serie.numero_premier,
+                    'numero_dernier': serie.numero_dernier,
+                    'nombre_tickets': serie.nombre_tickets,
+                    'valeur_monetaire': serie.valeur_monetaire
+                })
+                stock_par_couleur[couleur_key]['total_tickets'] += serie.nombre_tickets
+                stock_par_couleur[couleur_key]['valeur_totale'] += serie.valeur_monetaire
+            
+            stock_origine_data = stock_par_couleur
+            
+        except Poste.DoesNotExist:
+            messages.error(request, "Poste origine introuvable")
+            poste_origine = None
+            poste_origine_id = None
+    
+    # ============================================================
+    # CAS 2 : Soumission complète du formulaire (POST avec les 2 postes)
+    # ============================================================
+    if request.method == 'POST' and poste_origine_id and poste_destination_id:
+        form = SelectionPostesTransfertFormAmeliore(request.POST)
         
         if form.is_valid():
-            poste_origine = form.cleaned_data['poste_origine']
-            poste_destination = form.cleaned_data['poste_destination']
+            poste_origine_valid = form.cleaned_data['poste_origine']
+            poste_destination_valid = form.cleaned_data['poste_destination']
             
-            # Stocker en session
-            request.session['transfert_tickets_postes'] = {
-                'origine_id': poste_origine.id,
-                'destination_id': poste_destination.id
-            }
-            
-            return redirect('inventaire:saisie_tickets_transfert')
+            # Vérifier que le poste origine a du stock
+            if not stock_origine_data:
+                messages.error(request, f"Le poste {poste_origine_valid.nom} n'a aucun stock de tickets à transférer.")
+            else:
+                # Stocker en session
+                request.session['transfert_tickets'] = {
+                    'origine_id': poste_origine_valid.id,
+                    'destination_id': poste_destination_valid.id
+                }
+                
+                messages.success(
+                    request, 
+                    f"Transfert de {poste_origine_valid.nom} vers {poste_destination_valid.nom}. "
+                    f"Saisissez maintenant les tickets à transférer."
+                )
+                
+                return redirect('inventaire:saisie_tickets_transfert')
+        else:
+            # Erreurs de validation du formulaire
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{error}")
     else:
-        form = SelectionPostesTransfertForm()
+        # Initialiser le formulaire avec les données existantes
+        initial_data = {}
+        if poste_origine_id:
+            initial_data['poste_origine'] = poste_origine_id
+        if poste_destination_id:
+            initial_data['poste_destination'] = poste_destination_id
+            
+        form = SelectionPostesTransfertFormAmeliore(initial=initial_data)
     
-    # Récupérer les stocks actuels pour affichage
+    # ============================================================
+    # Récupérer tous les postes avec leur stock pour la vue d'ensemble
+    # ============================================================
     postes = Poste.objects.filter(is_active=True).order_by('nom')
     postes_data = []
     
     for poste in postes:
         stock = GestionStock.objects.filter(poste=poste).first()
-        
-        # Récupérer séries en stock
-        series = SerieTicket.objects.filter(
-            poste=poste,
-            statut='stock'
-        ).select_related('couleur')
-        
         postes_data.append({
             'poste': poste,
             'stock_actuel': stock.valeur_monetaire if stock else Decimal('0'),
-            'series_disponibles': series
+            'tickets_actuels': stock.nombre_tickets if stock else 0
         })
     
     context = {
         'form': form,
         'postes': postes_data,
+        'poste_origine': poste_origine,
+        'stock_origine_data': stock_origine_data,
         'title': 'Transférer des Tickets Entre Postes'
     }
     
@@ -82,11 +161,11 @@ def selection_postes_transfert_tickets(request):
 @user_passes_test(is_admin)
 def saisie_tickets_transfert(request):
     """
-    ÉTAPE 2 : Saisie des séries de tickets à transférer
+    ÉTAPE 2 AMÉLIORÉE : Saisie avec couleurs pré-chargées et validation améliorée
     """
     
     # Récupérer les postes de la session
-    postes_data = request.session.get('transfert_tickets_postes')
+    postes_data = request.session.get('transfert_tickets')
     
     if not postes_data:
         messages.error(request, "Veuillez d'abord sélectionner les postes")
@@ -104,18 +183,22 @@ def saisie_tickets_transfert(request):
     ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
     
     if request.method == 'POST':
-        form = TransfertStockTicketsForm(request.POST)
+        form = TransfertStockTicketsFormDynamique(
+            request.POST, 
+            poste_origine=poste_origine
+        )
         
         if form.is_valid():
-            couleur_saisie = form.cleaned_data['couleur_saisie']
+            couleur_id = form.cleaned_data['couleur_disponible']
             numero_premier = form.cleaned_data['numero_premier']
             numero_dernier = form.cleaned_data['numero_dernier']
             commentaire = form.cleaned_data.get('commentaire', '')
             
-            # Obtenir ou créer la couleur
-            couleur_obj = CouleurTicket.obtenir_ou_creer(couleur_saisie)
+            # Récupérer l'objet couleur
+            couleur_obj = get_object_or_404(CouleurTicket, id=couleur_id)
             
-            # Vérifier disponibilité COMPLÈTE (incluant vérification tickets vendus)
+            # === VÉRIFICATION AMÉLIORÉE ===
+            # 1. Vérifier disponibilité au poste origine
             disponible, msg, _ = SerieTicket.verifier_disponibilite_serie_complete(
                 poste_origine, couleur_obj, numero_premier, numero_dernier
             )
@@ -124,24 +207,28 @@ def saisie_tickets_transfert(request):
                 messages.error(request, msg)
                 return redirect('inventaire:saisie_tickets_transfert')
             
-            # Vérifier qu'aucun ticket n'a été vendu cette année
-            annee_actuelle = date.today().year
-            
+            # 2. Vérifier qu'aucun ticket n'a été vendu
             tickets_vendus = SerieTicket.objects.filter(
                 couleur=couleur_obj,
                 statut='vendu',
                 numero_premier__lte=numero_dernier,
-                numero_dernier__gte=numero_premier,
-                date_utilisation__year=annee_actuelle
+                numero_dernier__gte=numero_premier
             )
             
             if tickets_vendus.exists():
+                ticket_vendu = tickets_vendus.first()
                 messages.error(
                     request,
-                    f"❌ TRANSFERT IMPOSSIBLE : Des tickets de cette série ont déjà été vendus en {annee_actuelle}. "
+                    f"❌ TRANSFERT IMPOSSIBLE : Des tickets de cette série ont déjà été vendus. "
+                    f"Série vendue: {couleur_obj.libelle_affichage} "
+                    f"#{ticket_vendu.numero_premier}-{ticket_vendu.numero_dernier} "
+                    f"le {ticket_vendu.date_utilisation.strftime('%d/%m/%Y') if ticket_vendu.date_utilisation else 'date inconnue'}. "
                     f"Un ticket vendu ne peut pas être transféré."
                 )
                 return redirect('inventaire:saisie_tickets_transfert')
+            
+            # 3. NOTE: Pas de vérification de chevauchement au poste destination
+            # Les tickets peuvent coexister avec d'autres séries de même couleur
             
             # Calculer montant
             nombre_tickets = numero_dernier - numero_premier + 1
@@ -160,9 +247,9 @@ def saisie_tickets_transfert(request):
             
             return redirect('inventaire:confirmation_transfert_tickets')
     else:
-        form = TransfertStockTicketsForm()
+        form = TransfertStockTicketsFormDynamique(poste_origine=poste_origine)
     
-    # Grouper séries par couleur
+    # Grouper séries par couleur pour affichage
     series_par_couleur = {}
     for serie in series_disponibles:
         couleur_code = serie.couleur.code_normalise
@@ -190,29 +277,13 @@ def saisie_tickets_transfert(request):
     return render(request, 'inventaire/saisie_tickets_transfert.html', context)
 
 
-# inventaire/views_transferts_tickets.py
-# FONCTION COMPLÈTE confirmation_transfert_tickets avec Event Sourcing
-
 @login_required
 @user_passes_test(is_admin)
 def confirmation_transfert_tickets(request):
     """
-    VERSION COMPLÈTE avec Event Sourcing intégré
-    ÉTAPE 3 : Confirmation du transfert avec affichage complet
+    ÉTAPE 3 : Confirmation avec le nouveau service
     """
-    from django.db import transaction
-    from decimal import Decimal
-    from datetime import date, datetime
-    from django.utils import timezone
-    from inventaire.models import (
-        GestionStock, HistoriqueStock, SerieTicket, 
-        CouleurTicket, StockEvent
-    )
-    from accounts.models import NotificationUtilisateur, UtilisateurSUPPER
-    from common.utils import log_user_action
-    
-    # Récupérer données session
-    postes_data = request.session.get('transfert_tickets_postes')
+    postes_data = request.session.get('transfert_tickets')
     details_data = request.session.get('transfert_tickets_details')
     
     if not postes_data or not details_data:
@@ -223,7 +294,7 @@ def confirmation_transfert_tickets(request):
     poste_destination = get_object_or_404(Poste, id=postes_data['destination_id'])
     couleur = get_object_or_404(CouleurTicket, id=details_data['couleur_id'])
     
-    # Récupérer stocks actuels
+    # Récupérer stocks actuels pour affichage
     stock_origine, _ = GestionStock.objects.get_or_create(
         poste=poste_origine,
         defaults={'valeur_monetaire': Decimal('0')}
@@ -236,7 +307,7 @@ def confirmation_transfert_tickets(request):
     
     montant = Decimal(details_data['montant'])
     
-    # Calculer stocks après transfert
+    # Calculer stocks après transfert (pour affichage)
     stock_origine_apres = stock_origine.valeur_monetaire - montant
     stock_destination_apres = stock_destination.valeur_monetaire + montant
     
@@ -244,160 +315,64 @@ def confirmation_transfert_tickets(request):
         action = request.POST.get('action')
         
         if action == 'confirmer':
-            try:
-                with transaction.atomic():
-                    # ===== 1. EXÉCUTER LE TRANSFERT DE SÉRIE =====
-                    numero_premier = details_data['numero_premier']
-                    numero_dernier = details_data['numero_dernier']
-                    nombre_tickets = details_data['nombre_tickets']
-                    commentaire = details_data['commentaire']
-                    
-                    # Appeler la méthode transferer_serie (version modifiée avec Event Sourcing)
-                    success, message, serie_origine, serie_destination = SerieTicket.transferer_serie(
-                        poste_origine=poste_origine,
-                        poste_destination=poste_destination,
-                        couleur=couleur,
-                        numero_premier=numero_premier,
-                        numero_dernier=numero_dernier,
-                        user=request.user,
-                        commentaire=commentaire
-                    )
-                    
-                    if not success:
-                        raise Exception(message)
-                    
-                    # ===== 2. CRÉER LES ÉVÉNEMENTS EVENT SOURCING =====
-                    timestamp = timezone.now()
-                    
-                    # Récupérer le numéro de bordereau depuis l'historique créé
-                    hist_recent = HistoriqueStock.objects.filter(
-                        poste_origine=poste_origine,
-                        poste_destination=poste_destination,
-                        type_mouvement='DEBIT'
-                    ).order_by('-date_mouvement').first()
-                    
-                    numero_bordereau = hist_recent.numero_bordereau if hist_recent else f"TR-{timestamp.strftime('%Y%m%d%H%M%S')}"
-                    
-                    # Métadonnées de la série transférée
-                    serie_metadata = {
-                        'couleur': couleur.libelle_affichage,
-                        'couleur_code': couleur.code_normalise,
-                        'numero_premier': numero_premier,
-                        'numero_dernier': numero_dernier,
-                        'nombre_tickets': nombre_tickets,
-                        'valeur': str(montant)
-                    }
-                    
-                    # ÉVÉNEMENT 1 : Sortie du poste origine
-                    event_sortie = StockEvent.objects.create(
-                        poste=poste_origine,
-                        event_type='TRANSFERT_OUT',
-                        event_datetime=timestamp,
-                        montant_variation=-montant,  # NÉGATIF car c'est une sortie
-                        nombre_tickets_variation=-nombre_tickets,  # NÉGATIF
-                        stock_resultant=stock_origine_apres,
-                        tickets_resultants=int(stock_origine_apres / 500),
-                        effectue_par=request.user,
-                        reference_id=str(serie_origine.id) if serie_origine else '',
-                        reference_type='SerieTicket',
-                        metadata={
-                            'operation': 'transfert_tickets_sortie',
-                            'poste_destination': {
-                                'id': poste_destination.id,
-                                'nom': poste_destination.nom,
-                                'code': poste_destination.code
-                            },
-                            'serie_transferee': serie_metadata,
-                            'numero_bordereau': numero_bordereau,
-                            'commentaire': commentaire
-                        },
-                        commentaire=f"Transfert série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} vers {poste_destination.nom}"
-                    )
-                    
-                    # ÉVÉNEMENT 2 : Entrée au poste destination
-                    event_entree = StockEvent.objects.create(
-                        poste=poste_destination,
-                        event_type='TRANSFERT_IN',
-                        event_datetime=timestamp,
-                        montant_variation=montant,  # POSITIF car c'est une entrée
-                        nombre_tickets_variation=nombre_tickets,  # POSITIF
-                        stock_resultant=stock_destination_apres,
-                        tickets_resultants=int(stock_destination_apres / 500),
-                        effectue_par=request.user,
-                        reference_id=str(serie_destination.id) if serie_destination else '',
-                        reference_type='SerieTicket',
-                        metadata={
-                            'operation': 'transfert_tickets_entree',
-                            'poste_origine': {
-                                'id': poste_origine.id,
-                                'nom': poste_origine.nom,
-                                'code': poste_origine.code
-                            },
-                            'serie_recue': serie_metadata,
-                            'numero_bordereau': numero_bordereau,
-                            'commentaire': commentaire
-                        },
-                        commentaire=f"Réception série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} depuis {poste_origine.nom}"
-                    )
-                    
-                    # ===== 3. NETTOYER LA SESSION =====
-                    del request.session['transfert_tickets_postes']
-                    del request.session['transfert_tickets_details']
-                    
-                    # ===== 4. JOURNALISER L'ACTION =====
-                    log_user_action(
-                        request.user,
-                        "Transfert de tickets avec séries",
-                        f"Transfert réussi : {nombre_tickets} tickets {couleur.libelle_affichage} "
-                        f"#{numero_premier}-{numero_dernier} de {poste_origine.nom} vers {poste_destination.nom}. "
-                        f"Bordereau: {numero_bordereau}",
-                        request
-                    )
-                    
-                    # ===== 5. MESSAGE DE SUCCÈS =====
-                    messages.success(
-                        request,
-                        f"✅ Transfert réussi ! {nombre_tickets} tickets "
-                        f"{couleur.libelle_affichage} #{numero_premier}-"
-                        f"{numero_dernier} transférés. "
-                        f"Stock origine: {stock_origine_apres:,.0f} FCFA, "
-                        f"Stock destination: {stock_destination_apres:,.0f} FCFA"
-                    )
-                    
-                    # ===== 6. REDIRECTION =====
-                    if hist_recent and hist_recent.numero_bordereau:
-                        return redirect('inventaire:detail_bordereau_transfert', 
-                                      numero_bordereau=hist_recent.numero_bordereau)
-                    else:
-                        return redirect('inventaire:liste_bordereaux')
-                    
-            except Exception as e:
-                logger.error(f"Erreur transfert tickets : {str(e)}", exc_info=True)
-                messages.error(request, f"❌ Erreur lors du transfert : {str(e)}")
+            numero_premier = details_data['numero_premier']
+            numero_dernier = details_data['numero_dernier']
+            commentaire = details_data.get('commentaire', '')
+            
+            # ============================================================
+            # VALIDATION via le service
+            # ============================================================
+            est_valide, msg_validation, _ = TransfertTicketsService.valider_transfert(
+                poste_origine, poste_destination, couleur,
+                numero_premier, numero_dernier
+            )
+            
+            if not est_valide:
+                messages.error(request, msg_validation)
+                return redirect('inventaire:saisie_tickets_transfert')
+            
+            # ============================================================
+            # EXÉCUTION via le service
+            # ============================================================
+            success, message, serie_origine, serie_destination = TransfertTicketsService.executer_transfert(
+                poste_origine=poste_origine,
+                poste_destination=poste_destination,
+                couleur=couleur,
+                numero_premier=numero_premier,
+                numero_dernier=numero_dernier,
+                user=request.user,
+                commentaire=commentaire
+            )
+            
+            if success:
+                # Nettoyer la session
+                del request.session['transfert_tickets']
+                del request.session['transfert_tickets_details']
+                
+                messages.success(request, f"✅ {message}")
+                
+                # Journaliser
+                log_user_action(
+                    request.user,
+                    "Transfert de tickets",
+                    f"{details_data['nombre_tickets']} tickets {couleur.libelle_affichage} "
+                    f"#{numero_premier}-{numero_dernier} de {poste_origine.nom} vers {poste_destination.nom}",
+                    request
+                )
+                
+                return redirect('inventaire:liste_bordereaux')
+            else:
+                messages.error(request, f"❌ {message}")
                 return redirect('inventaire:saisie_tickets_transfert')
         
         elif action == 'annuler':
-            # Nettoyer la session
-            if 'transfert_tickets_postes' in request.session:
-                del request.session['transfert_tickets_postes']
+            if 'transfert_tickets' in request.session:
+                del request.session['transfert_tickets']
             if 'transfert_tickets_details' in request.session:
                 del request.session['transfert_tickets_details']
             
             messages.info(request, "Transfert annulé")
             return redirect('inventaire:selection_postes_transfert_tickets')
-    
-    # ===== AFFICHAGE DE LA PAGE DE CONFIRMATION (GET) =====
-    # Vérifier rapidement s'il y a des conflits potentiels
-    annee_actuelle = date.today().year
-    tickets_existants = []
-    
-    for num in range(details_data['numero_premier'], 
-                     min(details_data['numero_premier'] + 10, details_data['numero_dernier'] + 1)):
-        est_unique, msg, hist = SerieTicket.verifier_unicite_annuelle(
-            num, couleur, annee_actuelle
-        )
-        if not est_unique:
-            tickets_existants.append({'numero': num, 'historique': hist})
     
     context = {
         'poste_origine': poste_origine,
@@ -407,17 +382,48 @@ def confirmation_transfert_tickets(request):
         'numero_dernier': details_data['numero_dernier'],
         'nombre_tickets': details_data['nombre_tickets'],
         'montant': montant,
-        'commentaire': details_data['commentaire'],
+        'commentaire': details_data.get('commentaire', ''),
         'stock_origine_avant': stock_origine.valeur_monetaire,
         'stock_origine_apres': stock_origine_apres,
         'stock_destination_avant': stock_destination.valeur_monetaire,
         'stock_destination_apres': stock_destination_apres,
-        'tickets_existants': tickets_existants,
-        'annee_actuelle': annee_actuelle,
         'title': 'Confirmation du transfert'
     }
     
     return render(request, 'inventaire/confirmation_transfert_tickets.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def ajax_series_par_couleur(request):
+    """
+    Vue AJAX pour récupérer les séries disponibles par couleur
+    """
+    poste_id = request.GET.get('poste_id')
+    couleur_id = request.GET.get('couleur_id')
+    
+    if not poste_id or not couleur_id:
+        return JsonResponse({'error': 'Paramètres manquants'}, status=400)
+    
+    try:
+        series = SerieTicket.objects.filter(
+            poste_id=poste_id,
+            couleur_id=couleur_id,
+            statut='stock'
+        ).order_by('numero_premier').values(
+            'id', 'numero_premier', 'numero_dernier', 
+            'nombre_tickets', 'valeur_monetaire'
+        )
+        
+        return JsonResponse({
+            'series': list(series),
+            'count': series.count()
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 
 @login_required
 def detail_bordereau_transfert(request, numero_bordereau):

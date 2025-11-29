@@ -301,7 +301,7 @@
         }
         
         .rapport-header {
-            background: #6B46C1 !important;
+            background: none;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -327,10 +327,6 @@
                 <div class="mb-2">
                     <i class="fas fa-calendar-alt me-2"></i>
                     {{ donnees.statistiques.total_postes }} poste(s)
-                </div>
-                <div>
-                    <i class="fas fa-clipboard-check me-2"></i>
-                    Généré le {{ "now"|date:"d/m/Y à H:i" }}
                 </div>
             </div>
         </div>
@@ -432,7 +428,6 @@
                     </div>
                 </div>
             </div>
-            
             <div class="col-md-4 mb-3">
                 <div class="stat-card">
                     <div class="stat-value text-warning">{{ donnees.statistiques.total_journees_impertinentes }}</div>
@@ -443,14 +438,13 @@
                 </div>
             </div>
         </div>
-
         <!-- Info section -->
         <div class="info-section">
             <div class="info-title">
                 <i class="fas fa-lightbulb me-2"></i>
                 Informations sur les calculs
             </div>
-            <ul class="mb-0 small">
+            <ul class="mb-2 small">
                 <li><strong>Taux Normal</strong> : Moyenne des taux non impertinents des inventaires normaux</li>
                 <li><strong>Taux Admin</strong> : Moyenne des taux non impertinents des inventaires administratifs</li>
                 <li><strong>Taux Final</strong> : 

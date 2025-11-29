@@ -1,7 +1,4 @@
-# ===================================================================
-# inventaire/signals.py - Signaux pour l'application inventaire
-# VERSION CORRIGÉE FINALE - REMPLACER ENTIÈREMENT LE FICHIER EXISTANT
-# ===================================================================
+
 
 from datetime import date
 from django.db.models.signals import post_save, post_delete, pre_save
@@ -418,10 +415,3 @@ def verifier_creation_snapshot_apres_mouvement(sender, instance, created, **kwar
         if heure_actuelle.hour == 0 and heure_actuelle.minute >= 5:
             creer_snapshots_quotidiens()
 
-
-# ===================================================================
-# COMMANDE MANUELLE pour créer les snapshots
-# python manage.py shell
-# from inventaire.signals import creer_snapshots_quotidiens
-# creer_snapshots_quotidiens()
-# ===================================================================

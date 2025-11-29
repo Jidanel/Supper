@@ -270,6 +270,12 @@ path(
         name='rapport_inventaires'
     ),
 
+    path(
+        'ajax/series-par-couleur/', 
+        views_transferts_tickets.ajax_series_par_couleur,
+        name='ajax_series_par_couleur'
+    ),
+
 
 
 ]

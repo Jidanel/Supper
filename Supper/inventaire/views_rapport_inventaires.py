@@ -170,11 +170,14 @@ def calculer_taux_moyen_intelligent(taux_normaux, taux_admins):
     if taux_moyen_normal is not None and taux_moyen_admin is not None:
         # Les deux sont valides: moyenne des deux
         taux_final = (taux_moyen_normal + taux_moyen_admin) / 2
+        taux_final = max(min(taux_final, Decimal('9999.99')), Decimal('-9999.99'))
     elif taux_moyen_normal is not None:
         # Seulement normal valide
+        taux_moyen_normal = max(min(taux_moyen_normal, Decimal('9999.99')), Decimal('-9999.99'))
         taux_final = taux_moyen_normal
     elif taux_moyen_admin is not None:
         # Seulement admin valide
+        taux_moyen_admin = max(min(taux_moyen_admin, Decimal('9999.99')), Decimal('-9999.99'))
         taux_final = taux_moyen_admin
     else:
         # Aucun taux valide

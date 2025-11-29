@@ -1171,11 +1171,15 @@ class JustificationEcartForm(forms.ModelForm):
             })
         }
 
-
 class ChargementStockTicketsForm(forms.Form):
     """
     Formulaire pour charger des stocks de tickets
     Remplace le champ montant par : couleur + numéros de série
+    
+    INCLUT la vérification d'unicité annuelle :
+    - Un ticket ne peut être chargé qu'UNE SEULE FOIS par année
+    - Cette vérification s'applique aux chargements (imprimerie_nationale, regularisation)
+    - Les transferts ne sont PAS concernés (c'est le même ticket qui bouge)
     """
     
     type_stock = forms.ChoiceField(
@@ -1245,13 +1249,106 @@ class ChargementStockTicketsForm(forms.Form):
         label=_("Commentaire")
     )
     
+    def __init__(self, *args, **kwargs):
+        # Extraire le poste si fourni (pour la vérification d'unicité)
+        # Ce paramètre est optionnel pour garder la compatibilité
+        self.poste = kwargs.pop('poste', None)
+        super().__init__(*args, **kwargs)
+    
+    def _verifier_unicite_annuelle(self, couleur_saisie, numero_premier, numero_dernier):
+        """
+        Vérifie qu'aucun ticket de la plage n'a déjà été chargé cette année.
+        
+        RÈGLE MÉTIER :
+        - Un numéro de ticket ne peut être chargé qu'UNE SEULE FOIS par année
+        - En 2024, si ticket #1000 est chargé au Poste A, il ne peut pas être 
+          rechargé ailleurs en 2024
+        - En 2025, on peut charger un nouveau ticket #1000 (année différente)
+        
+        Returns:
+            tuple: (est_valide: bool, message_erreur: str, details: dict)
+        """
+        from django.utils import timezone
+        
+        annee_courante = timezone.now().year
+        
+        # Normaliser la couleur pour la recherche
+        # La normalisation doit correspondre à celle de CouleurTicket
+        couleur_normalisee = couleur_saisie.strip().lower()
+        # Remplacer les caractères spéciaux et accents pour la normalisation
+        import unicodedata
+        couleur_normalisee = ''.join(
+            c for c in unicodedata.normalize('NFD', couleur_normalisee)
+            if unicodedata.category(c) != 'Mn'
+        )
+        couleur_normalisee = couleur_normalisee.replace(' ', '_').replace('-', '_')
+        
+        # Chercher toutes les séries chargées cette année pour cette couleur
+        # On ne considère que les chargements (imprimerie_nationale, regularisation)
+        # Les transferts (transfert_recu) ne comptent pas car c'est le même ticket qui bouge
+        series_existantes = SerieTicket.objects.filter(
+            couleur__code_normalise=couleur_normalisee,
+            date_creation__year=annee_courante,
+            type_entree__in=['imprimerie_nationale', 'regularisation']
+        ).exclude(
+            statut='annule'  # Ignorer les séries annulées
+        ).select_related('poste', 'couleur')
+        
+        conflits = []
+        
+        for serie in series_existantes:
+            # Vérifier le chevauchement de plages
+            # Deux plages [a,b] et [c,d] se chevauchent si a <= d ET c <= b
+            if numero_premier <= serie.numero_dernier and serie.numero_premier <= numero_dernier:
+                # Calculer la plage de chevauchement
+                debut_chevauchement = max(numero_premier, serie.numero_premier)
+                fin_chevauchement = min(numero_dernier, serie.numero_dernier)
+                nb_tickets_conflit = fin_chevauchement - debut_chevauchement + 1
+                
+                conflits.append({
+                    'poste': serie.poste.nom if serie.poste else 'Inconnu',
+                    'poste_code': serie.poste.code if serie.poste else 'N/A',
+                    'serie_id': serie.id,
+                    'plage_existante': f"{serie.numero_premier:,} - {serie.numero_dernier:,}".replace(',', ' '),
+                    'plage_chevauchement': f"{debut_chevauchement:,} - {fin_chevauchement:,}".replace(',', ' '),
+                    'nb_tickets_conflit': nb_tickets_conflit,
+                    'date_chargement': serie.date_creation.strftime('%d/%m/%Y'),
+                    'type_entree': serie.get_type_entree_display() if hasattr(serie, 'get_type_entree_display') else serie.type_entree
+                })
+        
+        if conflits:
+            # Construire un message d'erreur détaillé
+            if len(conflits) == 1:
+                c = conflits[0]
+                message = (
+                    f"⚠️ Conflit d'unicité annuelle détecté !\n\n"
+                    f"Les tickets #{c['plage_chevauchement']} ({c['nb_tickets_conflit']} tickets) "
+                    f"ont déjà été chargés cette année au poste {c['poste']} ({c['poste_code']}) "
+                    f"le {c['date_chargement']} via {c['type_entree']}.\n\n"
+                    f"Un même numéro de ticket ne peut être chargé qu'une seule fois par année."
+                )
+            else:
+                message = f"⚠️ Conflit d'unicité annuelle détecté avec {len(conflits)} séries existantes !\n\n"
+                for i, c in enumerate(conflits, 1):
+                    message += (
+                        f"{i}. Tickets #{c['plage_chevauchement']} ({c['nb_tickets_conflit']} tickets) "
+                        f"déjà au poste {c['poste']} depuis le {c['date_chargement']}\n"
+                    )
+                message += "\nUn même numéro de ticket ne peut être chargé qu'une seule fois par année."
+            
+            return False, message, {'conflits': conflits, 'annee': annee_courante}
+        
+        return True, "", {'annee': annee_courante}
+    
     def clean(self):
         cleaned_data = super().clean()
         
         numero_premier = cleaned_data.get('numero_premier')
         numero_dernier = cleaned_data.get('numero_dernier')
+        couleur_saisie = cleaned_data.get('couleur_saisie')
         
         if numero_premier and numero_dernier:
+            # Validation de base : numéros cohérents
             if numero_premier > numero_dernier:
                 raise ValidationError(
                     _("Le numéro du premier ticket doit être inférieur ou égal au dernier")
@@ -1263,9 +1360,22 @@ class ChargementStockTicketsForm(forms.Form):
             
             cleaned_data['nombre_tickets_calcule'] = nombre_tickets
             cleaned_data['montant_calcule'] = montant
+            
+            # ============================================================
+            # VÉRIFICATION D'UNICITÉ ANNUELLE (NOUVELLE FONCTIONNALITÉ)
+            # ============================================================
+            if couleur_saisie:
+                est_valide, message_erreur, details = self._verifier_unicite_annuelle(
+                    couleur_saisie, numero_premier, numero_dernier
+                )
+                
+                if not est_valide:
+                    raise ValidationError(message_erreur)
+                
+                # Stocker les détails pour utilisation ultérieure si besoin
+                cleaned_data['verification_unicite'] = details
         
         return cleaned_data
-
 
 class DetailVenteTicketForm(forms.Form):
     """
@@ -1583,6 +1693,167 @@ class SelectionPostesTransfertForm(forms.Form):
             )
         
         return cleaned_data
+
+
+class SelectionPostesTransfertFormAmeliore(forms.Form):
+    """
+    Formulaire de sélection des postes pour un transfert de tickets.
+    """
+    
+    poste_origine = forms.ModelChoiceField(
+        queryset=Poste.objects.filter(is_active=True).order_by('nom'),
+        label=_("Poste émetteur (origine)"),
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'id': 'id_poste_origine'
+        }),
+        help_text=_("Poste qui cède les tickets")
+    )
+    
+    poste_destination = forms.ModelChoiceField(
+        queryset=Poste.objects.filter(is_active=True).order_by('nom'),
+        label=_("Poste destinataire"),
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'id': 'id_poste_destination'
+        }),
+        help_text=_("Poste qui reçoit les tickets")
+    )
+    
+    def clean(self):
+        """
+        Validation que les postes sont différents.
+        """
+        cleaned_data = super().clean()
+        
+        poste_origine = cleaned_data.get('poste_origine')
+        poste_destination = cleaned_data.get('poste_destination')
+        
+        if poste_origine and poste_destination:
+            if poste_origine.id == poste_destination.id:
+                raise ValidationError({
+                    'poste_destination': _(
+                        "Le poste destinataire doit être différent du poste émetteur"
+                    )
+                })
+            
+            # Vérifier que le poste origine a du stock
+            stock_origine = GestionStock.objects.filter(poste=poste_origine).first()
+            if not stock_origine or stock_origine.valeur_monetaire <= 0:
+                raise ValidationError({
+                    'poste_origine': _(
+                        f"Le poste {poste_origine.nom} n'a pas de stock disponible"
+                    )
+                })
+        
+        return cleaned_data
+
+class TransfertStockTicketsFormDynamique(forms.Form):
+    """
+    Formulaire dynamique pour le transfert de tickets entre postes.
+    Les couleurs sont pré-chargées selon le stock disponible au poste émetteur.
+    """
+    
+    couleur_disponible = forms.ChoiceField(
+        label=_("Couleur de tickets"),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text=_("Sélectionnez la couleur des tickets à transférer")
+    )
+    
+    numero_premier = forms.IntegerField(
+        min_value=1,
+        label=_("Numéro du premier ticket"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 1000'
+        })
+    )
+    
+    numero_dernier = forms.IntegerField(
+        min_value=1,
+        label=_("Numéro du dernier ticket"),
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: 2000'
+        })
+    )
+    
+    commentaire = forms.CharField(
+        required=False,
+        max_length=500,
+        label=_("Commentaire"),
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 2,
+            'placeholder': 'Commentaire optionnel sur ce transfert...'
+        })
+    )
+    
+    def __init__(self, *args, poste_origine=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.poste_origine = poste_origine
+        
+        # Charger les couleurs disponibles au poste origine
+        if poste_origine:
+            couleurs_dispo = SerieTicket.objects.filter(
+                poste=poste_origine,
+                statut='stock'
+            ).values_list(
+                'couleur__id', 'couleur__libelle_affichage'
+            ).distinct()
+            
+            choices = [('', '-- Sélectionner une couleur --')]
+            choices += [(str(c[0]), c[1]) for c in couleurs_dispo]
+            
+            self.fields['couleur_disponible'].choices = choices
+    
+    def clean(self):
+        """
+        Validation du transfert - vérifie UNIQUEMENT la disponibilité au poste origine.
+        """
+        cleaned_data = super().clean()
+        
+        couleur_id = cleaned_data.get('couleur_disponible')
+        numero_premier = cleaned_data.get('numero_premier')
+        numero_dernier = cleaned_data.get('numero_dernier')
+        
+        # Validation des numéros
+        if numero_premier and numero_dernier:
+            if numero_premier > numero_dernier:
+                raise ValidationError({
+                    'numero_dernier': _("Le numéro du dernier ticket doit être supérieur au premier")
+                })
+        
+        # Vérifier la disponibilité au poste origine UNIQUEMENT
+        if couleur_id and numero_premier and numero_dernier and self.poste_origine:
+            try:
+                couleur_obj = CouleurTicket.objects.get(id=couleur_id)
+                cleaned_data['couleur_obj'] = couleur_obj
+                
+                # Vérification de disponibilité (sans chevauchement au destination)
+                disponible, msg, tickets_prob = SerieTicket.verifier_disponibilite_serie_complete(
+                    self.poste_origine, couleur_obj, numero_premier, numero_dernier
+                )
+                
+                if not disponible:
+                    raise ValidationError({'__all__': msg})
+                
+            except CouleurTicket.DoesNotExist:
+                raise ValidationError({
+                    'couleur_disponible': _("Couleur invalide")
+                })
+        
+        # Calculer les valeurs
+        if numero_premier and numero_dernier:
+            nombre_tickets = numero_dernier - numero_premier + 1
+            valeur_monetaire = Decimal(nombre_tickets) * Decimal('500')
+            
+            cleaned_data['nombre_tickets'] = nombre_tickets
+            cleaned_data['valeur_monetaire'] = valeur_monetaire
+        
+        return cleaned_data
+
 
 
 
