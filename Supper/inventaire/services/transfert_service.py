@@ -1,7 +1,12 @@
 # inventaire/services/transfert_service.py
 """
-Service de transfert de tickets entre postes
+Service de transfert de tickets entre postes - VERSION CORRIGÉE
 Toute la logique métier centralisée ici - AUCUNE validation dans le modèle
+
+CORRECTION APPORTÉE:
+- Les historiques incluent maintenant les champs structurés pour les tickets
+- Les séries sont associées aux historiques via series_tickets_associees
+- Le JSONField details_approvisionnement est rempli
 """
 
 from django.db import transaction
@@ -54,6 +59,11 @@ class TransfertTicketsService:
     def executer_transfert(poste_origine, poste_destination, couleur, numero_premier, numero_dernier, user, commentaire=''):
         """
         Exécute le transfert après validation
+        
+        VERSION CORRIGÉE:
+        - Remplit les champs structurés de HistoriqueStock
+        - Associe les séries via series_tickets_associees
+        - Remplit le JSONField details_approvisionnement
         
         Returns:
             tuple (success, message, serie_origine, serie_destination)
@@ -179,12 +189,31 @@ class TransfertTicketsService:
             logger.info(f"Stock {poste_destination.nom}: {stock_destination_avant} → {stock_destination.valeur_monetaire}")
             
             # ============================================================
-            # ÉTAPE 4 : Créer historiques et événements
+            # ÉTAPE 4 : Créer historiques avec CHAMPS STRUCTURÉS (CORRECTION)
             # ============================================================
             numero_bordereau = TransfertTicketsService._generer_bordereau()
             
-            # Historique origine (DEBIT)
-            HistoriqueStock.objects.create(
+            # Préparer les détails structurés pour le JSONField
+            details_serie = {
+                'series': [{
+                    'couleur_id': couleur.id,
+                    'couleur_nom': couleur.libelle_affichage,
+                    'couleur_code': couleur.code_normalise,
+                    'numero_premier': numero_premier,
+                    'numero_dernier': numero_dernier,
+                    'nombre_tickets': nombre_tickets,
+                    'valeur': str(montant)
+                }],
+                'type_operation': 'transfert',
+                'numero_bordereau': numero_bordereau,
+                'poste_origine_id': poste_origine.id,
+                'poste_origine_nom': poste_origine.nom,
+                'poste_destination_id': poste_destination.id,
+                'poste_destination_nom': poste_destination.nom
+            }
+            
+            # Historique origine (DEBIT) - AVEC CHAMPS STRUCTURÉS
+            historique_origine = HistoriqueStock.objects.create(
                 poste=poste_origine,
                 type_mouvement='DEBIT',
                 type_stock='reapprovisionnement',
@@ -196,11 +225,21 @@ class TransfertTicketsService:
                 poste_origine=poste_origine,
                 poste_destination=poste_destination,
                 numero_bordereau=numero_bordereau,
-                commentaire=f"Cession {couleur.libelle_affichage} #{numero_premier}-{numero_dernier}"
+                # ===== NOUVEAUX CHAMPS STRUCTURÉS =====
+                numero_premier_ticket=numero_premier,
+                numero_dernier_ticket=numero_dernier,
+                couleur_principale=couleur,
+                details_approvisionnement=details_serie,
+                # =====================================
+                commentaire=f"Cession {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} vers {poste_destination.nom}"
             )
             
-            # Historique destination (CREDIT)
-            HistoriqueStock.objects.create(
+            # Associer la série transférée à l'historique origine
+            if serie_transferee:
+                historique_origine.series_tickets_associees.add(serie_transferee)
+            
+            # Historique destination (CREDIT) - AVEC CHAMPS STRUCTURÉS
+            historique_destination = HistoriqueStock.objects.create(
                 poste=poste_destination,
                 type_mouvement='CREDIT',
                 type_stock='reapprovisionnement',
@@ -212,17 +251,33 @@ class TransfertTicketsService:
                 poste_origine=poste_origine,
                 poste_destination=poste_destination,
                 numero_bordereau=numero_bordereau,
-                commentaire=f"Réception {couleur.libelle_affichage} #{numero_premier}-{numero_dernier}"
+                # ===== NOUVEAUX CHAMPS STRUCTURÉS =====
+                numero_premier_ticket=numero_premier,
+                numero_dernier_ticket=numero_dernier,
+                couleur_principale=couleur,
+                details_approvisionnement=details_serie,
+                # =====================================
+                commentaire=f"Réception {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} de {poste_origine.nom}"
             )
             
-            # Events sourcing
+            # Associer la série destination à l'historique destination
+            if serie_destination:
+                historique_destination.series_tickets_associees.add(serie_destination)
+            
+            # ============================================================
+            # ÉTAPE 5 : Events sourcing avec métadonnées complètes
+            # ============================================================
             metadata = {
                 'couleur': couleur.libelle_affichage,
+                'couleur_id': couleur.id,
+                'couleur_code': couleur.code_normalise,
                 'numero_premier': numero_premier,
                 'numero_dernier': numero_dernier,
                 'nombre_tickets': nombre_tickets,
                 'valeur': str(montant),
-                'numero_bordereau': numero_bordereau
+                'numero_bordereau': numero_bordereau,
+                'serie_transferee_id': serie_transferee.id if serie_transferee else None,
+                'serie_destination_id': serie_destination.id if serie_destination else None
             }
             
             StockEvent.objects.create(
@@ -234,7 +289,17 @@ class TransfertTicketsService:
                 stock_resultant=stock_origine.valeur_monetaire,
                 tickets_resultants=int(stock_origine.valeur_monetaire / 500),
                 effectue_par=user,
-                metadata={'serie': metadata, 'poste_destination': {'nom': poste_destination.nom}},
+                reference_id=str(historique_origine.id),
+                reference_type='HistoriqueStock',
+                metadata={
+                    'serie': metadata, 
+                    'poste_destination': {
+                        'id': poste_destination.id,
+                        'nom': poste_destination.nom,
+                        'code': poste_destination.code
+                    },
+                    'historique_id': historique_origine.id
+                },
                 commentaire=f"Transfert vers {poste_destination.nom}"
             )
             
@@ -247,12 +312,22 @@ class TransfertTicketsService:
                 stock_resultant=stock_destination.valeur_monetaire,
                 tickets_resultants=int(stock_destination.valeur_monetaire / 500),
                 effectue_par=user,
-                metadata={'serie': metadata, 'poste_origine': {'nom': poste_origine.nom}},
+                reference_id=str(historique_destination.id),
+                reference_type='HistoriqueStock',
+                metadata={
+                    'serie': metadata, 
+                    'poste_origine': {
+                        'id': poste_origine.id,
+                        'nom': poste_origine.nom,
+                        'code': poste_origine.code
+                    },
+                    'historique_id': historique_destination.id
+                },
                 commentaire=f"Réception depuis {poste_origine.nom}"
             )
             
             # ============================================================
-            # ÉTAPE 5 : Notifications
+            # ÉTAPE 6 : Notifications
             # ============================================================
             TransfertTicketsService._envoyer_notifications(
                 poste_origine, poste_destination, couleur,
@@ -261,6 +336,10 @@ class TransfertTicketsService:
             )
             
             logger.info(f"=== ✅ TRANSFERT RÉUSSI - Bordereau {numero_bordereau} ===")
+            logger.info(f"  Historique origine ID: {historique_origine.id}")
+            logger.info(f"  Historique destination ID: {historique_destination.id}")
+            logger.info(f"  Champs structurés remplis: couleur={couleur.libelle_affichage}, "
+                       f"tickets=#{numero_premier}-{numero_dernier}")
             
             return True, f"Transfert réussi - Bordereau {numero_bordereau}", serie_transferee, serie_destination
             
@@ -338,7 +417,6 @@ class TransfertTicketsService:
         else:
             logger.info(f"→ Création nouvelle série: #{numero_premier}-{numero_dernier}")
             
-            # Création directe - save() simplifié ne fait aucune validation
             return SerieTicket.objects.create(
                 poste=poste_destination,
                 couleur=couleur,

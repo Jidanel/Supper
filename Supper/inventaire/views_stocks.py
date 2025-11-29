@@ -676,10 +676,12 @@ def confirmation_chargement_stock_tickets(request):
 def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero_dernier, 
                                           type_stock, user, commentaire=None):
     """
-    VERSION CORRIGÉE : Sans les champs historique_lie et serie_concernee qui n'existent pas
+    VERSION CORRIGÉE : Avec remplissage des champs structurés de HistoriqueStock
     
-    Cette fonction garantit que les séries sont bien associées à l'historique
-    lors du chargement de stock.
+    Cette fonction garantit que:
+    - Les séries sont bien associées à l'historique
+    - Les champs structurés (numero_premier_ticket, numero_dernier_ticket, couleur_principale) sont remplis
+    - Le JSONField details_approvisionnement est rempli
     
     Args:
         poste: Instance du modèle Poste
@@ -707,15 +709,19 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
         with transaction.atomic():
             # 1. Créer la série de tickets
             now = timezone.now()
+            nombre_tickets = numero_dernier - numero_premier + 1
+            montant = Decimal(nombre_tickets) * Decimal('500')
+            
             serie = SerieTicket.objects.create(
                 poste=poste,
                 couleur=couleur,
                 numero_premier=numero_premier,
                 numero_dernier=numero_dernier,
                 statut='stock',
-                type_entree=type_stock,  # 'imprimerie_nationale' ou 'regularisation'
+                type_entree=type_stock,
                 commentaire=commentaire or f"Chargement {type_stock}",
-                date_reception=now
+                date_reception=now,
+                responsable_reception=user
             )
             
             # 2. Mettre à jour le stock global
@@ -725,14 +731,12 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
             )
             
             stock_avant = stock.valeur_monetaire
-            montant = serie.valeur_monetaire  # Calculé automatiquement dans le modèle
-            nombre_tickets = serie.nombre_tickets
             
             stock.valeur_monetaire += montant
             stock.nombre_tickets += nombre_tickets
             stock.save()
             
-            # 3. Créer l'historique
+            # 3. Préparer les labels et les détails structurés
             type_stock_label = (
                 "Régularisation" if type_stock == 'regularisation' 
                 else "Imprimerie Nationale"
@@ -748,6 +752,26 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
             if commentaire:
                 commentaire_historique += f"\n{commentaire}"
             
+            # ===== NOUVEAU: Préparer le JSONField details_approvisionnement =====
+            details_approvisionnement = {
+                'type': type_stock_label,
+                'type_code': type_stock_historique,
+                'series': [{
+                    'couleur_id': couleur.id,
+                    'couleur_nom': couleur.libelle_affichage,
+                    'couleur_code': couleur.code_normalise,
+                    'numero_premier': numero_premier,
+                    'numero_dernier': numero_dernier,
+                    'nombre_tickets': nombre_tickets,
+                    'valeur': str(montant),
+                    'serie_id': serie.id
+                }],
+                'total_tickets': nombre_tickets,
+                'total_valeur': str(montant),
+                'date_operation': now.isoformat()
+            }
+            
+            # 4. Créer l'historique AVEC CHAMPS STRUCTURÉS (CORRECTION MAJEURE)
             historique = HistoriqueStock.objects.create(
                 poste=poste,
                 type_mouvement='CREDIT',
@@ -758,16 +782,21 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
                 stock_apres=stock.valeur_monetaire,
                 effectue_par=user,
                 commentaire=commentaire_historique,
-                date_mouvement=now
+                date_mouvement=now,
+                # ===== NOUVEAUX CHAMPS STRUCTURÉS =====
+                numero_premier_ticket=numero_premier,
+                numero_dernier_ticket=numero_dernier,
+                couleur_principale=couleur,
+                details_approvisionnement=details_approvisionnement
+                # =====================================
             )
             
-            # 4. ASSOCIER LA SÉRIE À L'HISTORIQUE (CRUCIAL)
+            # 5. ASSOCIER LA SÉRIE À L'HISTORIQUE (CRUCIAL)
             historique.series_tickets_associees.add(serie)
             
-            # 5. Créer l'événement Event Sourcing SANS historique_lie
+            # 6. Créer l'événement Event Sourcing avec métadonnées complètes
             event_type = 'REGULARISATION' if type_stock == 'regularisation' else 'CHARGEMENT'
             
-            # Créer les métadonnées complètes
             metadata = {
                 'type_stock': type_stock,
                 'type_stock_label': type_stock_label,
@@ -781,7 +810,7 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
                     'nombre_tickets': nombre_tickets,
                     'valeur': str(montant)
                 },
-                'historique_id': historique.id,  # Stocker l'ID de l'historique dans metadata
+                'historique_id': historique.id,
                 'operation': 'chargement_stock_avec_series'
             }
             
@@ -794,17 +823,13 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
                 stock_resultant=stock.valeur_monetaire,
                 tickets_resultants=stock.nombre_tickets,
                 effectue_par=user,
-                reference_id=str(historique.id),  # Lien vers l'historique via reference_id
+                reference_id=str(historique.id),
                 reference_type='HistoriqueStock',
-                # historique_lie=historique,  # SUPPRIMÉ - ce champ n'existe pas
                 metadata=metadata,
                 commentaire=commentaire or f"Chargement série {couleur.libelle_affichage}"
             )
             
-            # Note: serie_concernee n'existe pas non plus, on utilise metadata pour stocker l'info
-            # stock_event.serie_concernee = serie  # SUPPRIMÉ - ce champ n'existe pas
-            
-            # 6. Envoyer notifications aux chefs de poste
+            # 7. Envoyer notifications aux chefs de poste
             chefs = UtilisateurSUPPER.objects.filter(
                 poste_affectation=poste,
                 habilitation__in=['chef_peage', 'chef_pesage'],
@@ -826,7 +851,7 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
                     type_notification='info'
                 )
             
-            # 7. Journaliser l'action
+            # 8. Journaliser l'action
             log_user_action(
                 user,
                 f"Chargement stock {type_stock_label}",
@@ -839,12 +864,16 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
                 None
             )
             
-            # 8. Log de débogage
+            # 9. Log de débogage avec confirmation des champs structurés
             logger.info(
-                f"Chargement stock réussi : {couleur.libelle_affichage} "
-                f"#{numero_premier}-{numero_dernier} pour {poste.nom} "
-                f"- Historique ID: {historique.id} avec "
-                f"{historique.series_tickets_associees.count()} série(s) associée(s)"
+                f"✅ Chargement stock réussi : {couleur.libelle_affichage} "
+                f"#{numero_premier}-{numero_dernier} pour {poste.nom}"
+            )
+            logger.info(
+                f"  Historique ID: {historique.id} | "
+                f"Champs structurés: couleur_principale={historique.couleur_principale}, "
+                f"tickets=#{historique.numero_premier_ticket}-{historique.numero_dernier_ticket} | "
+                f"Séries associées: {historique.series_tickets_associees.count()}"
             )
             
             return True, (
@@ -858,7 +887,7 @@ def executer_chargement_stock_avec_series(poste, couleur, numero_premier, numero
             exc_info=True
         )
         return False, f"❌ Erreur : {str(e)}", None, None
-
+    
 # Fonction pour vérifier et corriger les associations manquantes
 def verifier_et_corriger_associations(poste_id=None):
     """
@@ -1041,23 +1070,39 @@ def historique_stock(request, poste_id):
     return render(request, 'inventaire/historique_stock.html', context)
 
 
-# Modification de inventaire/views.py - fonction detail_historique_stock
 
 def detail_historique_stock(request, historique_id):
     """
-    Vue améliorée utilisant les champs structurés pour l'approvisionnement
+    Vue pour afficher les détails complets d'une opération de stock.
+    
+    CORRECTIONS:
+    - Transfert sortant (DEBIT) → action "transférée" (pas "vendue")
+    - Transfert entrant (CREDIT) → action "créditée"  
+    - Vente (DEBIT avec reference_recette) → action "vendue"
+    - Approvisionnement (CREDIT) → action "ajoutée"
     """
     from django.http import HttpResponseForbidden
     from django.shortcuts import render, get_object_or_404
-    from inventaire.models import SerieTicket, StockEvent, HistoriqueStock
-    from datetime import timedelta
+    from django.db.models import Sum
     from decimal import Decimal
     from collections import defaultdict
     import logging
+    import re
+    
+    # Imports des modèles - adapter selon votre structure
+    try:
+        from inventaire.models import (
+            SerieTicket, StockEvent, HistoriqueStock, CouleurTicket
+        )
+    except ImportError:
+        from .models import SerieTicket, StockEvent, HistoriqueStock, CouleurTicket
     
     logger = logging.getLogger('supper')
     
-    # Récupérer l'historique avec toutes les relations
+    # ===================================================================
+    # RÉCUPÉRATION DE L'HISTORIQUE
+    # ===================================================================
+    
     historique = get_object_or_404(
         HistoriqueStock.objects.select_related(
             'poste',
@@ -1065,7 +1110,7 @@ def detail_historique_stock(request, historique_id):
             'reference_recette',
             'poste_origine',
             'poste_destination',
-            'couleur_principale'  # Nouveau champ
+            'couleur_principale'
         ).prefetch_related(
             'series_tickets_associees',
             'series_tickets_associees__couleur'
@@ -1074,35 +1119,41 @@ def detail_historique_stock(request, historique_id):
     )
     
     poste = historique.poste
-    if not request.user.peut_acceder_poste(poste):
-        return HttpResponseForbidden("Vous n'avez pas accès à ce poste")
+    
+    # Vérification des permissions
+    if hasattr(request.user, 'peut_acceder_poste'):
+        if not request.user.peut_acceder_poste(poste):
+            return HttpResponseForbidden("Vous n'avez pas accès à ce poste")
+    
+    logger.info(f"=" * 60)
+    logger.info(f"DETAIL HISTORIQUE STOCK ID: {historique_id}")
+    logger.info(f"  Poste: {poste.nom}")
+    logger.info(f"  Type mouvement: {historique.type_mouvement}")
+    logger.info(f"  Type stock: {historique.type_stock}")
+    logger.info(f"  Poste origine: {historique.poste_origine}")
+    logger.info(f"  Poste destination: {historique.poste_destination}")
+    logger.info(f"  Numéro bordereau: {historique.numero_bordereau}")
     
     # ===================================================================
-    # CALCUL DU STOCK AVANT/APRÈS
+    # FONCTION: CALCUL DU STOCK VIA HISTORIQUES
     # ===================================================================
     
-    def calculer_stock_via_historiques(poste, date_reference, exclure_historique_id=None):
+    def calculer_stock_via_historiques(poste_cible, date_reference):
         """Calcule le stock en sommant tous les mouvements jusqu'à la date"""
-        from django.db.models import Sum
         
-        historiques_query = HistoriqueStock.objects.filter(
-            poste=poste,
+        historiques_avant = HistoriqueStock.objects.filter(
+            poste=poste_cible,
             date_mouvement__lt=date_reference
         )
         
-        if exclure_historique_id:
-            historiques_query = historiques_query.exclude(id=exclure_historique_id)
-        
-        # Somme des crédits
-        totaux_credit = historiques_query.filter(
+        totaux_credit = historiques_avant.filter(
             type_mouvement='CREDIT'
         ).aggregate(
             total_montant=Sum('montant'),
             total_tickets=Sum('nombre_tickets')
         )
         
-        # Somme des débits
-        totaux_debit = historiques_query.filter(
+        totaux_debit = historiques_avant.filter(
             type_mouvement='DEBIT'
         ).aggregate(
             total_montant=Sum('montant'),
@@ -1114,175 +1165,413 @@ def detail_historique_stock(request, historique_id):
         tickets_credit = totaux_credit['total_tickets'] or 0
         tickets_debit = totaux_debit['total_tickets'] or 0
         
-        stock_valeur = montant_credit - montant_debit
-        stock_tickets = tickets_credit - tickets_debit
-        
-        # Éviter les valeurs négatives
-        if stock_valeur < 0:
-            stock_valeur = Decimal('0')
-        if stock_tickets < 0:
-            stock_tickets = 0
+        stock_valeur = max(Decimal('0'), montant_credit - montant_debit)
+        stock_tickets = max(0, tickets_credit - tickets_debit)
         
         return stock_valeur, stock_tickets
     
-    # Calculer le stock avant cette opération
+    # ===================================================================
+    # FONCTION: EXTRACTION DES SÉRIES DEPUIS UN HISTORIQUE
+    # ===================================================================
+    
+    def extraire_series_depuis_historique(hist):
+        """
+        Extrait les séries de tickets depuis un historique.
+        Utilise plusieurs sources dans l'ordre de priorité.
+        """
+        series = []
+        
+        logger.info(f"  Extraction séries pour historique {hist.id}:")
+        logger.info(f"    - couleur_principale: {hist.couleur_principale}")
+        logger.info(f"    - numero_premier_ticket: {hist.numero_premier_ticket}")
+        logger.info(f"    - numero_dernier_ticket: {hist.numero_dernier_ticket}")
+        logger.info(f"    - details_approvisionnement: {bool(hist.details_approvisionnement)}")
+        logger.info(f"    - series_tickets_associees count: {hist.series_tickets_associees.count()}")
+        
+        # SOURCE 1: Champs structurés directs
+        if hist.couleur_principale and hist.numero_premier_ticket and hist.numero_dernier_ticket:
+            nb_tickets = hist.numero_dernier_ticket - hist.numero_premier_ticket + 1
+            series.append({
+                'couleur': hist.couleur_principale,
+                'couleur_nom': hist.couleur_principale.libelle_affichage,
+                'numero_premier': hist.numero_premier_ticket,
+                'numero_dernier': hist.numero_dernier_ticket,
+                'nombre_tickets': nb_tickets,
+                'valeur': Decimal(nb_tickets) * Decimal('500')
+            })
+            logger.info(f"    ✓ Source 1 (champs structurés): {hist.couleur_principale.libelle_affichage} "
+                       f"#{hist.numero_premier_ticket}-{hist.numero_dernier_ticket}")
+            return series
+        
+        # SOURCE 2: JSONField details_approvisionnement
+        if hist.details_approvisionnement and isinstance(hist.details_approvisionnement, dict):
+            series_data = hist.details_approvisionnement.get('series', [])
+            
+            for serie_data in series_data:
+                couleur = None
+                couleur_nom = serie_data.get('couleur_nom', 'Inconnu')
+                
+                # Récupérer l'objet couleur
+                if 'couleur_id' in serie_data:
+                    couleur = CouleurTicket.objects.filter(id=serie_data['couleur_id']).first()
+                
+                if not couleur and couleur_nom:
+                    couleur = CouleurTicket.objects.filter(
+                        libelle_affichage__icontains=couleur_nom
+                    ).first()
+                
+                num_premier = serie_data.get('numero_premier')
+                num_dernier = serie_data.get('numero_dernier')
+                
+                if num_premier and num_dernier:
+                    nb_tickets = num_dernier - num_premier + 1
+                    series.append({
+                        'couleur': couleur,
+                        'couleur_nom': couleur.libelle_affichage if couleur else couleur_nom,
+                        'numero_premier': num_premier,
+                        'numero_dernier': num_dernier,
+                        'nombre_tickets': nb_tickets,
+                        'valeur': Decimal(str(serie_data.get('valeur', nb_tickets * 500)))
+                    })
+            
+            if series:
+                logger.info(f"    ✓ Source 2 (JSON): {len(series)} série(s) trouvée(s)")
+                return series
+        
+        # SOURCE 3: Relation ManyToMany series_tickets_associees
+        series_associees = hist.series_tickets_associees.select_related('couleur').all()
+        if series_associees.exists():
+            for serie in series_associees:
+                series.append({
+                    'couleur': serie.couleur,
+                    'couleur_nom': serie.couleur.libelle_affichage if serie.couleur else 'Inconnu',
+                    'numero_premier': serie.numero_premier,
+                    'numero_dernier': serie.numero_dernier,
+                    'nombre_tickets': serie.nombre_tickets,
+                    'valeur': serie.valeur_monetaire
+                })
+            logger.info(f"    ✓ Source 3 (ManyToMany): {len(series)} série(s) trouvée(s)")
+            return series
+        
+        # SOURCE 4: Parser le commentaire
+        if hist.commentaire and '#' in hist.commentaire:
+            patterns = [
+                r"(?:Série\s+)?(\w+(?:\s+\w+)?)\s*#(\d+)[–-](\d+)",
+                r"(\w+)\s*#(\d+)[–-](\d+)",
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, hist.commentaire)
+                if matches:
+                    for match in matches:
+                        couleur_nom = match[0].strip()
+                        num_premier = int(match[1])
+                        num_dernier = int(match[2])
+                        
+                        couleur = CouleurTicket.objects.filter(
+                            libelle_affichage__icontains=couleur_nom
+                        ).first()
+                        
+                        if not couleur:
+                            couleur = CouleurTicket.objects.filter(
+                                code_normalise__icontains=couleur_nom.lower().replace(' ', '_')
+                            ).first()
+                        
+                        nb_tickets = num_dernier - num_premier + 1
+                        series.append({
+                            'couleur': couleur,
+                            'couleur_nom': couleur.libelle_affichage if couleur else couleur_nom,
+                            'numero_premier': num_premier,
+                            'numero_dernier': num_dernier,
+                            'nombre_tickets': nb_tickets,
+                            'valeur': Decimal(nb_tickets * 500)
+                        })
+                    
+                    if series:
+                        logger.info(f"    ✓ Source 4 (commentaire): {len(series)} série(s) parsée(s)")
+                        return series
+        
+        logger.warning(f"    ✗ Aucune série trouvée pour historique {hist.id}")
+        return series
+    
+    # ===================================================================
+    # CALCUL DES STOCKS AVANT/APRÈS
+    # ===================================================================
+    
     stock_avant_valeur, stock_avant_qte = calculer_stock_via_historiques(
-        poste=poste,
-        date_reference=historique.date_mouvement,
-        exclure_historique_id=None
+        poste_cible=poste,
+        date_reference=historique.date_mouvement
     )
     
-    # Calculer le stock après
     if historique.type_mouvement == 'CREDIT':
         stock_apres_valeur = stock_avant_valeur + historique.montant
         stock_apres_qte = stock_avant_qte + historique.nombre_tickets
     else:  # DEBIT
-        stock_apres_valeur = stock_avant_valeur - historique.montant
-        stock_apres_qte = stock_avant_qte - historique.nombre_tickets
-        if stock_apres_valeur < 0:
-            stock_apres_valeur = Decimal('0')
-        if stock_apres_qte < 0:
-            stock_apres_qte = 0
+        stock_apres_valeur = max(Decimal('0'), stock_avant_valeur - historique.montant)
+        stock_apres_qte = max(0, stock_avant_qte - historique.nombre_tickets)
     
     # ===================================================================
-    # RÉCUPÉRATION DES DÉTAILS D'APPROVISIONNEMENT STRUCTURÉS
+    # INITIALISATION DES VARIABLES DE CONTEXTE
     # ===================================================================
     
-    series_operation = []
     details_approvisionnement = None
     details_vente = None
     info_transfert = None
     
-    if historique.type_mouvement == 'CREDIT':
-        if historique.type_stock in ['imprimerie_nationale', 'imprimerie', 'regularisation']:
-            
-            # Utiliser la méthode du modèle pour récupérer les détails structurés
-            details_structurees = historique.get_details_approvisionnement_formattes()
-            
-            details_approvisionnement = {
-                'type': details_structurees['type'],
-                'montant': historique.montant,
-                'nombre_tickets': historique.nombre_tickets,
-                'series': details_structurees['series']
-            }
-            
-            # Si on n'a pas de séries dans les détails structurés, utiliser les séries associées
-            if not details_approvisionnement['series'] and historique.series_tickets_associees.exists():
-                for serie in historique.series_tickets_associees.all():
-                    details_approvisionnement['series'].append({
-                        'couleur': serie.couleur,
-                        'numero_premier': serie.numero_premier,
-                        'numero_dernier': serie.numero_dernier,
-                        'nombre_tickets': serie.nombre_tickets,
-                        'valeur_monetaire': Decimal(str(serie.nombre_tickets)) * Decimal('500')
-                    })
-            
-            # Ajouter à series_operation pour l'affichage
-            for serie_detail in details_approvisionnement['series']:
-                series_operation.append({
-                    'type': 'approvisionnement',
-                    'couleur': serie_detail.get('couleur'),
-                    'numero_premier': serie_detail.get('numero_premier'),
-                    'numero_dernier': serie_detail.get('numero_dernier'),
-                    'nombre_tickets': serie_detail.get('nombre_tickets'),
-                    'valeur': serie_detail.get('valeur') or serie_detail.get('valeur_monetaire'),
-                    'action': 'ajoutee'
-                })
-        
-        elif historique.type_stock == 'transfert_recu' or historique.poste_origine:
-            # Transfert entrant
-            series_recues = historique.series_tickets_associees.all()
-            
-            info_transfert = {
-                'poste_origine': historique.poste_origine,
-                'poste_destination': poste,
-                'numero_bordereau': historique.numero_bordereau,
-                'type': 'entrant',
-                'series': []
-            }
-            
-            for serie in series_recues:
-                info_transfert['series'].append({
-                    'couleur': serie.couleur,
-                    'numero_premier': serie.numero_premier,
-                    'numero_dernier': serie.numero_dernier,
-                    'nombre_tickets': serie.nombre_tickets,
-                    'valeur_monetaire': Decimal(str(serie.nombre_tickets)) * Decimal('500')
-                })
+    # Dictionnaires pour les séries avant/après groupées par couleur
+    series_avant_groupees = defaultdict(list)
+    series_apres_groupees = defaultdict(list)
     
-    elif historique.type_mouvement == 'DEBIT':
-        if historique.reference_recette:
-            # Vente
-            details_vente = historique.reference_recette.details_ventes_tickets.select_related(
-                'couleur'
-            ).all()
-            
-            for detail in details_vente:
-                series_operation.append({
-                    'type': 'vente',
-                    'couleur': detail.couleur,
-                    'numero_premier': detail.numero_premier,
-                    'numero_dernier': detail.numero_dernier,
-                    'nombre_tickets': detail.nombre_tickets,
-                    'valeur': detail.montant,
-                    'action': 'vendue'
-                })
+    # ===================================================================
+    # DÉTERMINATION DU TYPE D'OPÉRATION ET TRAITEMENT
+    # ===================================================================
+    
+    # -----------------------------------------------------------------
+    # CAS 1: TRANSFERT SORTANT (DEBIT avec poste_destination)
+    # -----------------------------------------------------------------
+    if historique.type_mouvement == 'DEBIT' and historique.poste_destination:
+        logger.info("  → Type: TRANSFERT SORTANT")
         
-        elif historique.poste_destination:
-            # Transfert sortant
-            series_transferees = historique.series_tickets_associees.all()
+        info_transfert = {
+            'poste_origine': poste,
+            'poste_destination': historique.poste_destination,
+            'numero_bordereau': historique.numero_bordereau,
+            'type': 'sortant',
+            'series': []
+        }
+        
+        # Extraire les séries
+        series_extraites = extraire_series_depuis_historique(historique)
+        
+        # Si pas de séries trouvées, chercher les SerieTicket marquées transférées
+        if not series_extraites:
+            logger.info("  → Recherche SerieTicket transférées...")
+            series_transferees = SerieTicket.objects.filter(
+                poste=poste,
+                statut='transfere',
+                poste_destination_transfert=historique.poste_destination
+            ).select_related('couleur')
             
-            info_transfert = {
-                'poste_origine': poste,
-                'poste_destination': historique.poste_destination,
-                'numero_bordereau': historique.numero_bordereau,
-                'type': 'sortant',
-                'series': []
-            }
+            if historique.date_mouvement:
+                series_transferees = series_transferees.filter(
+                    date_utilisation=historique.date_mouvement.date()
+                )
             
             for serie in series_transferees:
-                info_transfert['series'].append({
+                series_extraites.append({
                     'couleur': serie.couleur,
+                    'couleur_nom': serie.couleur.libelle_affichage if serie.couleur else 'Inconnu',
                     'numero_premier': serie.numero_premier,
                     'numero_dernier': serie.numero_dernier,
                     'nombre_tickets': serie.nombre_tickets,
-                    'valeur_monetaire': Decimal(str(serie.nombre_tickets)) * Decimal('500')
+                    'valeur': serie.valeur_monetaire
                 })
+        
+        # Remplir info_transfert ET series_avant_groupees
+        for serie in series_extraites:
+            couleur_nom = serie.get('couleur_nom', 'Inconnu')
+            
+            # Pour info_transfert
+            info_transfert['series'].append({
+                'couleur': serie.get('couleur'),
+                'numero_premier': serie.get('numero_premier'),
+                'numero_dernier': serie.get('numero_dernier'),
+                'nombre_tickets': serie.get('nombre_tickets'),
+                'valeur_monetaire': serie.get('valeur')
+            })
+            
+            # Pour series_avant_groupees - ACTION "transférée" (PAS "vendue")
+            series_avant_groupees[couleur_nom].append({
+                'numero_premier': serie.get('numero_premier'),
+                'numero_dernier': serie.get('numero_dernier'),
+                'nombre_tickets': serie.get('nombre_tickets'),
+                'valeur': serie.get('valeur'),
+                'action': 'transférée'  # ← CORRECTION ICI
+            })
+        
+        logger.info(f"  → Séries transférées: {len(info_transfert['series'])}")
+    
+    # -----------------------------------------------------------------
+    # CAS 2: TRANSFERT ENTRANT (CREDIT avec poste_origine)
+    # -----------------------------------------------------------------
+    elif historique.type_mouvement == 'CREDIT' and historique.poste_origine:
+        logger.info("  → Type: TRANSFERT ENTRANT")
+        
+        info_transfert = {
+            'poste_origine': historique.poste_origine,
+            'poste_destination': poste,
+            'numero_bordereau': historique.numero_bordereau,
+            'type': 'entrant',
+            'series': []
+        }
+        
+        # Extraire les séries de cet historique
+        series_extraites = extraire_series_depuis_historique(historique)
+        
+        # Si pas de séries trouvées, chercher dans l'historique DEBIT correspondant
+        if not series_extraites and historique.numero_bordereau:
+            logger.info(f"  → Recherche historique DEBIT avec bordereau: {historique.numero_bordereau}")
+            hist_debit = HistoriqueStock.objects.filter(
+                numero_bordereau=historique.numero_bordereau,
+                type_mouvement='DEBIT'
+            ).select_related('couleur_principale').prefetch_related(
+                'series_tickets_associees',
+                'series_tickets_associees__couleur'
+            ).first()
+            
+            if hist_debit:
+                logger.info(f"  → Historique DEBIT trouvé: ID {hist_debit.id}")
+                series_extraites = extraire_series_depuis_historique(hist_debit)
+        
+        # Si toujours pas de séries, chercher les SerieTicket reçues
+        if not series_extraites:
+            logger.info("  → Recherche SerieTicket reçues par transfert...")
+            series_recues = SerieTicket.objects.filter(
+                poste=poste,
+                origine='transfert',
+                serie_origine_transfert__poste=historique.poste_origine
+            ).select_related('couleur')
+            
+            if historique.date_mouvement:
+                series_recues = series_recues.filter(
+                    date_reception=historique.date_mouvement.date()
+                )
+            
+            for serie in series_recues:
+                series_extraites.append({
+                    'couleur': serie.couleur,
+                    'couleur_nom': serie.couleur.libelle_affichage if serie.couleur else 'Inconnu',
+                    'numero_premier': serie.numero_premier,
+                    'numero_dernier': serie.numero_dernier,
+                    'nombre_tickets': serie.nombre_tickets,
+                    'valeur': serie.valeur_monetaire
+                })
+        
+        # Remplir info_transfert ET series_apres_groupees
+        for serie in series_extraites:
+            couleur_nom = serie.get('couleur_nom', 'Inconnu')
+            
+            # Pour info_transfert
+            info_transfert['series'].append({
+                'couleur': serie.get('couleur'),
+                'numero_premier': serie.get('numero_premier'),
+                'numero_dernier': serie.get('numero_dernier'),
+                'nombre_tickets': serie.get('nombre_tickets'),
+                'valeur_monetaire': serie.get('valeur')
+            })
+            
+            # Pour series_apres_groupees - ACTION "créditée"
+            series_apres_groupees[couleur_nom].append({
+                'numero_premier': serie.get('numero_premier'),
+                'numero_dernier': serie.get('numero_dernier'),
+                'nombre_tickets': serie.get('nombre_tickets'),
+                'valeur': serie.get('valeur'),
+                'action': 'créditée'  # ← ACTION CRÉDIT
+            })
+        
+        logger.info(f"  → Séries reçues: {len(info_transfert['series'])}")
+    
+    # -----------------------------------------------------------------
+    # CAS 3: VENTE (DEBIT avec reference_recette)
+    # -----------------------------------------------------------------
+    elif historique.type_mouvement == 'DEBIT' and historique.reference_recette:
+        logger.info("  → Type: VENTE")
+        
+        details_vente = historique.reference_recette.details_ventes_tickets.select_related(
+            'couleur'
+        ).all()
+        
+        for detail in details_vente:
+            couleur_nom = detail.couleur.libelle_affichage if detail.couleur else 'Inconnu'
+            
+            # Pour series_avant_groupees - ACTION "vendue" (uniquement pour les vraies ventes)
+            series_avant_groupees[couleur_nom].append({
+                'numero_premier': detail.numero_premier,
+                'numero_dernier': detail.numero_dernier,
+                'nombre_tickets': detail.nombre_tickets,
+                'valeur': detail.montant,
+                'action': 'vendue'  # ← ACTION VENTE uniquement ici
+            })
+        
+        logger.info(f"  → Détails vente: {len(list(details_vente))} ligne(s)")
+    
+    # -----------------------------------------------------------------
+    # CAS 4: APPROVISIONNEMENT (CREDIT - Imprimerie ou Régularisation)
+    # -----------------------------------------------------------------
+    elif historique.type_mouvement == 'CREDIT':
+        logger.info("  → Type: APPROVISIONNEMENT")
+        
+        if historique.type_stock == 'regularisation':
+            type_label = "Régularisation"
+        else:
+            type_label = "Imprimerie Nationale"
+        
+        details_approvisionnement = {
+            'type': type_label,
+            'montant': historique.montant,
+            'nombre_tickets': historique.nombre_tickets,
+            'series': []
+        }
+        
+        series_extraites = extraire_series_depuis_historique(historique)
+        
+        for serie in series_extraites:
+            couleur_nom = serie.get('couleur_nom', 'Inconnu')
+            
+            # Pour details_approvisionnement
+            details_approvisionnement['series'].append(serie)
+            
+            # Pour series_apres_groupees - ACTION "ajoutée"
+            series_apres_groupees[couleur_nom].append({
+                'numero_premier': serie.get('numero_premier'),
+                'numero_dernier': serie.get('numero_dernier'),
+                'nombre_tickets': serie.get('nombre_tickets'),
+                'valeur': serie.get('valeur'),
+                'action': 'ajoutée'  # ← ACTION AJOUT
+            })
+        
+        logger.info(f"  → Séries approvisionnées: {len(details_approvisionnement['series'])}")
+    
+    # -----------------------------------------------------------------
+    # CAS 5: AUTRE DEBIT (sans poste_destination ni reference_recette)
+    # -----------------------------------------------------------------
+    elif historique.type_mouvement == 'DEBIT':
+        logger.info("  → Type: AUTRE DÉBIT")
+        
+        series_extraites = extraire_series_depuis_historique(historique)
+        
+        for serie in series_extraites:
+            couleur_nom = serie.get('couleur_nom', 'Inconnu')
+            
+            # Pour series_avant_groupees - ACTION "débitée"
+            series_avant_groupees[couleur_nom].append({
+                'numero_premier': serie.get('numero_premier'),
+                'numero_dernier': serie.get('numero_dernier'),
+                'nombre_tickets': serie.get('nombre_tickets'),
+                'valeur': serie.get('valeur'),
+                'action': 'débitée'  # ← ACTION DÉBIT générique
+            })
     
     # ===================================================================
-    # VARIATION ET VÉRIFICATION
+    # CONVERSION DES DEFAULTDICT EN DICT STANDARD
     # ===================================================================
     
-    variation_valeur = stock_apres_valeur - stock_avant_valeur
-    variation_qte = stock_apres_qte - stock_avant_qte
+    series_avant_groupees = dict(series_avant_groupees)
+    series_apres_groupees = dict(series_apres_groupees)
     
-    # Vérification de cohérence
-    if historique.type_mouvement == 'DEBIT':
-        variation_attendue = -historique.montant
-    else:
-        variation_attendue = historique.montant
+    # ===================================================================
+    # LOG FINAL
+    # ===================================================================
     
-    if abs(variation_valeur - variation_attendue) > Decimal('0.01'):
-        logger.warning(
-            f"Incohérence variation - Historique {historique_id}: "
-            f"Calculée={variation_valeur}, Attendue={variation_attendue}"
-        )
-    
-    # Log de débogage avec les nouvelles données structurées
-    logger.info(f"Détail historique {historique_id}:")
-    logger.info(f"  Type: {historique.type_mouvement} - {historique.type_stock}")
-    logger.info(f"  Montant: {historique.montant}")
-    logger.info(f"  Stock avant: {stock_avant_valeur} ({stock_avant_qte} tickets)")
-    logger.info(f"  Stock après: {stock_apres_valeur} ({stock_apres_qte} tickets)")
-    
-    if historique.numero_premier_ticket and historique.numero_dernier_ticket:
-        logger.info(f"  Série principale: #{historique.numero_premier_ticket}-{historique.numero_dernier_ticket}")
-    
-    if historique.couleur_principale:
-        logger.info(f"  Couleur principale: {historique.couleur_principale.libelle_affichage}")
-    
-    if details_approvisionnement:
-        logger.info(f"  Séries approvisionnement: {len(details_approvisionnement.get('series', []))}")
+    logger.info(f"=" * 60)
+    logger.info(f"RÉSUMÉ FINAL:")
+    logger.info(f"  Stock avant: {stock_avant_valeur} FCFA ({stock_avant_qte} tickets)")
+    logger.info(f"  Stock après: {stock_apres_valeur} FCFA ({stock_apres_qte} tickets)")
+    logger.info(f"  Series avant groupées: {len(series_avant_groupees)} couleur(s)")
+    logger.info(f"  Series après groupées: {len(series_apres_groupees)} couleur(s)")
+    if info_transfert:
+        logger.info(f"  Info transfert ({info_transfert['type']}): {len(info_transfert['series'])} série(s)")
+    logger.info(f"=" * 60)
     
     # ===================================================================
     # CONTEXTE POUR LE TEMPLATE
@@ -1298,29 +1587,16 @@ def detail_historique_stock(request, historique_id):
         'stock_apres_valeur': stock_apres_valeur,
         'stock_apres_qte': stock_apres_qte,
         
-        # Variations
-        'variation_valeur': variation_valeur,
-        'variation_qte': variation_qte,
+        # Séries groupées pour la comparaison avant/après
+        'series_avant_groupees': series_avant_groupees,
+        'series_apres_groupees': series_apres_groupees,
         
-        # Séries et opérations
-        'series_operation': series_operation,
-        
-        # Détails spécifiques
+        # Détails spécifiques par type d'opération
         'details_vente': details_vente,
         'info_transfert': info_transfert,
         'details_approvisionnement': details_approvisionnement,
         
-        # Affichage direct des champs structurés si disponibles
-        'serie_principale': {
-            'couleur': historique.couleur_principale,
-            'numero_premier': historique.numero_premier_ticket,
-            'numero_dernier': historique.numero_dernier_ticket,
-            'nombre_tickets': (historique.numero_dernier_ticket - historique.numero_premier_ticket + 1) 
-                            if historique.numero_premier_ticket and historique.numero_dernier_ticket else None
-        } if historique.couleur_principale else None,
-        
         'title': f'Détail opération - {poste.nom}',
-        'is_admin': request.user.is_admin if hasattr(request.user, 'is_admin') else False,
     }
     
     return render(request, 'inventaire/detail_historique_stock.html', context)

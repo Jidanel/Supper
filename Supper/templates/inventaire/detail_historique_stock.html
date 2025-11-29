@@ -1,4 +1,4 @@
-<!-- templates/inventaire/detail_historique_stock.html - VERSION AMÉLIORÉE -->
+<!-- templates/inventaire/detail_historique_stock.html - VERSION CORRIGÉE FINALE -->
 {% extends "admin/base_site.html" %}
 {% load static i18n inventaire_extras %}
 
@@ -21,8 +21,23 @@
         color: white;
     }
     
+    .badge-transferee {
+        background-color: #fd7e14;
+        color: white;
+    }
+    
+    .badge-debitee {
+        background-color: #6f42c1;
+        color: white;
+    }
+    
     .badge-ajoutee {
         background-color: #28a745;
+        color: white;
+    }
+    
+    .badge-creditee {
+        background-color: #20c997;
         color: white;
     }
     
@@ -64,8 +79,16 @@
         background-color: #f8d7da !important;
     }
     
+    .highlight-transferred {
+        background-color: #fff3cd !important;
+    }
+    
     .highlight-added {
         background-color: #d4edda !important;
+    }
+    
+    .highlight-credited {
+        background-color: #d1f2eb !important;
     }
     
     .timeline-arrow {
@@ -80,6 +103,13 @@
         padding: 0.5rem;
         border-radius: 5px;
         margin-bottom: 0.5rem;
+    }
+    
+    .no-data-message {
+        padding: 2rem;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
     }
 </style>
 {% endblock %}
@@ -131,7 +161,17 @@
                     <p><strong>Type d'opération :</strong><br>
                     <span class="badge bg-{{ historique.type_mouvement|type_mouvement_badge_class }} text-white">
                         {{ historique.get_type_mouvement_display }}
-                    </span></p>
+                    </span>
+                    {% if info_transfert %}
+                        <br><small class="text-muted">
+                            {% if info_transfert.type == 'entrant' %}
+                                (Transfert reçu)
+                            {% else %}
+                                (Transfert cédé)
+                            {% endif %}
+                        </small>
+                    {% endif %}
+                    </p>
                 </div>
                 <div class="col-md-3">
                     <p><strong>Type de stock :</strong><br>
@@ -236,6 +276,7 @@
             </h5>
         </div>
         <div class="card-body">
+            {% if details_approvisionnement.series %}
             <h6>Séries de tickets reçues</h6>
             <table class="table table-bordered">
                 <thead class="table-dark">
@@ -252,33 +293,48 @@
                     <tr class="highlight-added">
                         <td>
                             <span class="badge" style="background-color: #6B7280;">
-                                {{ serie.couleur.libelle_affichage }}
+                                {% if serie.couleur %}
+                                    {{ serie.couleur.libelle_affichage }}
+                                {% else %}
+                                    {{ serie.couleur_nom|default:"Inconnu" }}
+                                {% endif %}
                             </span>
                         </td>
                         <td><strong>#{{ serie.numero_premier }}</strong></td>
                         <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                        <td>{{ historique.nombre_tickets }} tickets</td>
-                        <td class="text-success"><strong>{{ historique.nombre_tickets|calculer_valeur_tickets|format_fcfa  }}</strong></td>
+                        <td>{{ serie.nombre_tickets }} tickets</td>
+                        <td class="text-success"><strong>{{ serie.valeur|format_fcfa }}</strong></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Approvisionnement de <strong>{{ details_approvisionnement.nombre_tickets }}</strong> tickets
+                pour une valeur de <strong>{{ details_approvisionnement.montant|format_fcfa }}</strong>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
     
     {% if info_transfert %}
     <div class="card card-section shadow">
-        <div class="card-header bg-warning text-dark">
+        <div class="card-header {% if info_transfert.type == 'entrant' %}bg-success{% else %}bg-warning{% endif %} {% if info_transfert.type != 'entrant' %}text-dark{% else %}text-white{% endif %}">
             <h5 class="mb-0">
                 <i class="fas fa-exchange-alt me-2"></i>
-                Détail du transfert {% if info_transfert.type == 'entrant' %}reçu{% else %}cédé{% endif %}
+                {% if info_transfert.type == 'entrant' %}
+                    Stock reçu par transfert (CRÉDIT)
+                {% else %}
+                    Stock transféré (DÉBIT)
+                {% endif %}
             </h5>
         </div>
         <div class="card-body">
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <div class="alert alert-primary">
+                    <div class="alert {% if info_transfert.type == 'sortant' %}alert-warning{% else %}alert-secondary{% endif %}">
                         <h6><i class="fas fa-building me-2"></i>Poste émetteur</h6>
                         <p class="mb-0">
                             <strong>{{ info_transfert.poste_origine.nom }}</strong><br>
@@ -287,7 +343,7 @@
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="alert alert-success">
+                    <div class="alert {% if info_transfert.type == 'entrant' %}alert-success{% else %}alert-secondary{% endif %}">
                         <h6><i class="fas fa-building me-2"></i>Poste récepteur</h6>
                         <p class="mb-0">
                             <strong>{{ info_transfert.poste_destination.nom }}</strong><br>
@@ -297,33 +353,82 @@
                 </div>
             </div>
             
-            <h6>Séries transférées</h6>
+            {% if historique.numero_bordereau %}
+            <div class="alert alert-light mb-3">
+                <strong><i class="fas fa-file-invoice me-2"></i>N° Bordereau :</strong>
+                <code>{{ historique.numero_bordereau }}</code>
+            </div>
+            {% endif %}
+            
+            {% if info_transfert.series %}
+            <h6>
+                {% if info_transfert.type == 'entrant' %}
+                    Séries de tickets reçues
+                {% else %}
+                    Séries de tickets transférées
+                {% endif %}
+            </h6>
             <table class="table table-bordered">
-                <thead class="table-dark">
+                <thead class="{% if info_transfert.type == 'entrant' %}table-success{% else %}table-warning{% endif %}">
                     <tr>
                         <th>Couleur</th>
                         <th>Premier N°</th>
                         <th>Dernier N°</th>
                         <th>Nombre de tickets</th>
                         <th>Valeur</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for serie in info_transfert.series %}
-                    <tr>
+                    <tr class="{% if info_transfert.type == 'entrant' %}highlight-credited{% else %}highlight-transferred{% endif %}">
                         <td>
                             <span class="badge" style="background-color: #6B7280;">
-                                {{ serie.couleur.libelle_affichage }}
+                                {% if serie.couleur %}
+                                    {{ serie.couleur.libelle_affichage }}
+                                {% else %}
+                                    Inconnu
+                                {% endif %}
                             </span>
                         </td>
                         <td><strong>#{{ serie.numero_premier }}</strong></td>
                         <td><strong>#{{ serie.numero_dernier }}</strong></td>
                         <td>{{ serie.nombre_tickets }} tickets</td>
                         <td><strong>{{ serie.nombre_tickets|calculer_valeur_tickets|format_fcfa }}</strong></td>
+                        <td>
+                            {% if info_transfert.type == 'entrant' %}
+                                <span class="badge badge-action badge-creditee">
+                                    <i class="fas fa-plus me-1"></i>Crédité
+                                </span>
+                            {% else %}
+                                <span class="badge badge-action badge-transferee">
+                                    <i class="fas fa-arrow-right me-1"></i>Transféré
+                                </span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="3">Total</th>
+                        <th>{{ historique.nombre_tickets }} tickets</th>
+                        <th>{{ historique.montant|format_fcfa }}</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
             </table>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Détails des séries non disponibles</strong><br>
+                Les informations détaillées de ce transfert n'ont pas été enregistrées.
+                <br><small class="text-muted">
+                    Montant total : {{ historique.montant|format_fcfa }} - 
+                    {{ historique.nombre_tickets }} tickets
+                </small>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
@@ -376,7 +481,7 @@
                     <tbody>
                         {% for couleur, series in series_avant_groupees.items %}
                             {% for serie in series %}
-                            <tr {% if serie.action == 'vendue' %}class="highlight-removed"{% endif %}>
+                            <tr class="{% if serie.action == 'vendue' %}highlight-removed{% elif serie.action == 'transférée' %}highlight-transferred{% elif serie.action == 'débitée' %}highlight-removed{% endif %}">
                                 <td>
                                     <span class="badge" style="background-color: #6B7280;">
                                         {{ couleur }}
@@ -389,7 +494,15 @@
                                 <td>
                                     {% if serie.action == 'vendue' %}
                                     <span class="badge badge-action badge-vendue">
-                                        <i class="fas fa-times me-1"></i>Vendue
+                                        <i class="fas fa-shopping-cart me-1"></i>Vendue
+                                    </span>
+                                    {% elif serie.action == 'transférée' %}
+                                    <span class="badge badge-action badge-transferee">
+                                        <i class="fas fa-arrow-right me-1"></i>Transférée
+                                    </span>
+                                    {% elif serie.action == 'débitée' %}
+                                    <span class="badge badge-action badge-debitee">
+                                        <i class="fas fa-minus me-1"></i>Débitée
                                     </span>
                                     {% else %}
                                     <span class="badge badge-action badge-conservee">
@@ -403,7 +516,10 @@
                     </tbody>
                 </table>
                 {% else %}
-                
+                <div class="no-data-message">
+                    <i class="fas fa-box-open fa-2x mb-2"></i>
+                    <p>Aucune série retirée du stock lors de cette opération</p>
+                </div>
                 {% endif %}
             </div>
             
@@ -448,7 +564,7 @@
                     <tbody>
                         {% for couleur, series in series_apres_groupees.items %}
                             {% for serie in series %}
-                            <tr {% if serie.action == 'ajoutee' %}class="highlight-added"{% endif %}>
+                            <tr class="{% if serie.action == 'ajoutée' %}highlight-added{% elif serie.action == 'créditée' %}highlight-credited{% endif %}">
                                 <td>
                                     <span class="badge" style="background-color: #6B7280;">
                                         {{ couleur }}
@@ -459,9 +575,13 @@
                                 <td>{{ serie.nombre_tickets }}</td>
                                 <td>{{ serie.valeur|format_fcfa }}</td>
                                 <td>
-                                    {% if serie.action == 'ajoutee' %}
+                                    {% if serie.action == 'ajoutée' %}
                                     <span class="badge badge-action badge-ajoutee">
                                         <i class="fas fa-plus me-1"></i>Ajoutée
+                                    </span>
+                                    {% elif serie.action == 'créditée' %}
+                                    <span class="badge badge-action badge-creditee">
+                                        <i class="fas fa-download me-1"></i>Créditée
                                     </span>
                                     {% else %}
                                     <span class="badge badge-action badge-conservee">
@@ -475,7 +595,10 @@
                     </tbody>
                 </table>
                 {% else %}
-                
+                <div class="no-data-message">
+                    <i class="fas fa-box-open fa-2x mb-2"></i>
+                    <p>Aucune série ajoutée au stock lors de cette opération</p>
+                </div>
                 {% endif %}
             </div>
             

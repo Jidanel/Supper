@@ -4589,7 +4589,7 @@ class StockSnapshot(models.Model):
         
         return snapshot, created
 
-# inventaire/models.py - AJOUT AU FICHIER EXISTANT
+
 
 class EtatInventaireSnapshot(models.Model):
     """
