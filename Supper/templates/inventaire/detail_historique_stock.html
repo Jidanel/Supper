@@ -257,7 +257,7 @@
                         </td>
                         <td><strong>#{{ detail.numero_premier }}</strong></td>
                         <td><strong>#{{ detail.numero_dernier }}</strong></td>
-                        <td>{{ detail.nombre_tickets }} tickets</td>
+                        <td>{{ detail.nombre_tickets|format_milliers }} tickets</td>
                         <td class="text-success"><strong>{{ detail.montant|format_fcfa }}</strong></td>
                     </tr>
                     {% endfor %}
@@ -302,7 +302,7 @@
                         </td>
                         <td><strong>#{{ serie.numero_premier }}</strong></td>
                         <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                        <td>{{ serie.nombre_tickets }} tickets</td>
+                        <td>{{ serie.nombre_tickets|format_milliers }} tickets</td>
                         <td class="text-success"><strong>{{ serie.valeur|format_fcfa }}</strong></td>
                     </tr>
                     {% endfor %}
@@ -311,7 +311,7 @@
             {% else %}
             <div class="alert alert-info">
                 <i class="fas fa-info-circle me-2"></i>
-                Approvisionnement de <strong>{{ details_approvisionnement.nombre_tickets }}</strong> tickets
+                Approvisionnement de <strong>{{ details_approvisionnement.nombre_tickets|format_milliers }}</strong> tickets
                 pour une valeur de <strong>{{ details_approvisionnement.montant|format_fcfa }}</strong>
             </div>
             {% endif %}
@@ -393,7 +393,7 @@
                         </td>
                         <td><strong>#{{ serie.numero_premier }}</strong></td>
                         <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                        <td>{{ serie.nombre_tickets }} tickets</td>
+                        <td>{{ serie.nombre_tickets|format_milliers }} tickets</td>
                         <td><strong>{{ serie.nombre_tickets|calculer_valeur_tickets|format_fcfa }}</strong></td>
                         <td>
                             {% if info_transfert.type == 'entrant' %}
@@ -412,7 +412,7 @@
                 <tfoot class="table-light">
                     <tr>
                         <th colspan="3">Total</th>
-                        <th>{{ historique.nombre_tickets }} tickets</th>
+                        <th>{{ historique.nombre_tickets|format_milliers }} tickets</th>
                         <th>{{ historique.montant|format_fcfa }}</th>
                         <th></th>
                     </tr>
@@ -425,7 +425,7 @@
                 Les informations détaillées de ce transfert n'ont pas été enregistrées.
                 <br><small class="text-muted">
                     Montant total : {{ historique.montant|format_fcfa }} - 
-                    {{ historique.nombre_tickets }} tickets
+                    {{ historique.nombre_tickets|format_milliers }} tickets
                 </small>
             </div>
             {% endif %}
