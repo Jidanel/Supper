@@ -1,0 +1,288 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    {% if station %}
+    <!-- EN-TÊTE STATION (si station spécifique) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white shadow">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 me-3">
+                                <i class="fas fa-balance-scale fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0 fw-bold">{{ station.nom }}</h4>
+                                <p class="mb-0 opacity-75">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ station.get_region_display }} - {{ station.code }}
+                                </p>
+                            </div>
+                        </div>
+                        {% if is_admin %}
+                        <a href="{% url 'inventaire:selectionner_station' %}?action=liste_amendes" 
+                           class="btn btn-light btn-sm">
+                            <i class="fas fa-exchange-alt me-1"></i>
+                            {% trans "Changer de station" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Titre et actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+            {{ title }}
+            {% if not station and is_admin %}
+            <small class="text-muted fs-6">({% trans "Toutes les stations" %})</small>
+            {% endif %}
+        </h2>
+        <a href="{% url 'inventaire:saisir_amende' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>
+            {% trans "Nouvelle amende" %}
+        </a>
+    </div>
+    
+    <!-- Statistiques rapides -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h3 class="mb-0 text-primary">{{ stats.count_total|default:0 }}</h3>
+                    <small class="text-muted">{% trans "Total amendes" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h3 class="mb-0 text-success">{{ stats.count_paye|default:0 }}</h3>
+                    <small class="text-muted">{% trans "Payées" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h3 class="mb-0 text-warning">{{ stats.count_non_paye|default:0 }}</h3>
+                    <small class="text-muted">{% trans "Non payées" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h3 class="mb-0 text-danger">
+                        {% if stats.total_non_paye %}
+                        {{ stats.total_non_paye|floatformat:0 }}
+                        {% else %}0{% endif %}
+                    </h3>
+                    <small class="text-muted">{% trans "FCFA à recouvrer" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtres -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <!-- Recherche -->
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" name="q" class="form-control" 
+                               placeholder="{% trans 'Rechercher...' %}"
+                               value="{{ query }}">
+                    </div>
+                </div>
+                
+                <!-- Statut -->
+                <div class="col-md-2">
+                    <select name="statut" class="form-select">
+                        <option value="">{% trans "Tous statuts" %}</option>
+                        <option value="non_paye" {% if statut_filter == 'non_paye' %}selected{% endif %}>
+                            {% trans "Non payé" %}
+                        </option>
+                        <option value="paye" {% if statut_filter == 'paye' %}selected{% endif %}>
+                            {% trans "Payé" %}
+                        </option>
+                    </select>
+                </div>
+                
+                <!-- Type infraction -->
+                <div class="col-md-2">
+                    <select name="type_infraction" class="form-select">
+                        <option value="">{% trans "Tous types" %}</option>
+                        <option value="S" {% if type_infraction == 'S' %}selected{% endif %}>
+                            {% trans "Surcharge" %}
+                        </option>
+                        <option value="HG" {% if type_infraction == 'HG' %}selected{% endif %}>
+                            {% trans "Hors Gabarit" %}
+                        </option>
+                        <option value="S+HG" {% if type_infraction == 'S+HG' %}selected{% endif %}>
+                            {% trans "S+HG" %}
+                        </option>
+                    </select>
+                </div>
+                
+                <!-- Station (admin seulement) -->
+                {% if is_admin and stations_accessibles %}
+                <div class="col-md-2">
+                    <select name="station_filter" class="form-select">
+                        <option value="">{% trans "Toutes stations" %}</option>
+                        {% for st in stations_accessibles %}
+                        <option value="{{ st.id }}" {% if station_filter == st.id|stringformat:"i" %}selected{% endif %}>
+                            {{ st.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i>
+                        {% trans "Filtrer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Liste des amendes -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            {% if amendes %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "N° Ticket" %}</th>
+                            <th>{% trans "Date" %}</th>
+                            <th>{% trans "Immatriculation" %}</th>
+                            <th>{% trans "Type" %}</th>
+                            <th class="text-end">{% trans "Montant" %}</th>
+                            <th class="text-center">{% trans "Statut" %}</th>
+                            {% if is_admin and not station %}
+                            <th>{% trans "Station" %}</th>
+                            {% endif %}
+                            <th class="text-center">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for amende in amendes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'inventaire:detail_amende' amende.pk %}" class="fw-bold text-decoration-none">
+                                    {{ amende.numero_ticket }}
+                                </a>
+                            </td>
+                            <td>{{ amende.date_emission|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ amende.immatriculation }}</span>
+                            </td>
+                            <td>
+                                {% if amende.type_infraction == 'HG' or amende.type_infraction == 'S+HG' %}
+                                <span class="badge bg-danger">{{ amende.get_type_infraction_display }}</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">{{ amende.get_type_infraction_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">
+                                {{ amende.montant_amende|floatformat:0 }} FCFA
+                            </td>
+                            <td class="text-center">
+                                {% if amende.statut == 'paye' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>{% trans "Payé" %}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-clock me-1"></i>{% trans "Non payé" %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            {% if is_admin and not station %}
+                            <td>
+                                <small>{{ amende.station.nom }}</small>
+                            </td>
+                            {% endif %}
+                            <td class="text-center">
+                                <a href="{% url 'inventaire:detail_amende' amende.pk %}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="{% trans 'Voir détails' %}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if amendes.has_other_pages %}
+            <div class="card-footer bg-white">
+                <nav aria-label="Pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if amendes.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ amendes.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}">
+                                &laquo;
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                {{ amendes.number }} / {{ amendes.paginator.num_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if amendes.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ amendes.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}">
+                                &raquo;
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="text-muted">{% trans "Aucune amende trouvée" %}</p>
+                <a href="{% url 'inventaire:saisir_amende' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "Saisir une amende" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+</style>
+{% endblock %}

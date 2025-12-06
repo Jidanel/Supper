@@ -465,10 +465,39 @@ class UserCreateForm(forms.ModelForm):
 #         }
 
 
+
+# Habilitations qui DOIVENT être affectées à une station de PESAGE
+HABILITATIONS_PESAGE = [
+    'chef_equipe_pesage',
+    'regisseur_pesage', 
+    'chef_station_pesage',
+]
+
+# Habilitations qui DOIVENT être affectées à un poste de PÉAGE
+HABILITATIONS_PEAGE = [
+    'chef_peage',
+    'caissier',
+    'agent_inventaire',
+]
+
+# Habilitations qui peuvent accéder à TOUS les postes (ou aucun)
+HABILITATIONS_MULTI_POSTES = [
+    'admin_principal',
+    'coord_psrr',
+    'serv_info',
+    'serv_emission',
+    'chef_ag',
+    'regisseur',
+    'comptable_mat',
+    'chef_ordre',
+    'chef_controle',
+    'imprimerie',
+    'focal_regional',
+    'chef_service',
+]
 class UserUpdateForm(forms.ModelForm):
     """
-    Formulaire de modification d'utilisateur
-    SOLUTION PROBLÈME 1: Formulaire avec pré-remplissage automatique
+    Formulaire de modification d'utilisateur avec validation croisée
     """
     
     class Meta:
@@ -507,10 +536,12 @@ class UserUpdateForm(forms.ModelForm):
                 'placeholder': 'email@exemple.cm'
             }),
             'habilitation': forms.Select(attrs={
-                'class': 'form-select'
+                'class': 'form-select',
+                'id': 'id_habilitation',
             }),
             'poste_affectation': forms.Select(attrs={
-                'class': 'form-select'
+                'class': 'form-select',
+                'id': 'id_poste_affectation'
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
@@ -572,21 +603,19 @@ class UserUpdateForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Limiter les postes aux postes actifs uniquement
-        self.fields['poste_affectation'].queryset = Poste.objects.filter(is_active=True).order_by('nom')
+        
+        # CORRECTION: is_active au lieu de actif
+        self.fields['poste_affectation'].queryset = Poste.objects.filter(
+            is_active=True
+        ).order_by('type', 'nom')
         self.fields['poste_affectation'].required = False
-        
-        # Marquer l'email comme optionnel visuellement
         self.fields['email'].required = False
-        
+    
     def clean_telephone(self):
         """Validation du numéro de téléphone camerounais"""
         telephone = self.cleaned_data.get('telephone')
         if telephone:
-            # Nettoyer le numéro
             telephone = telephone.replace(' ', '').replace('-', '')
-            
-            # Vérifier le format camerounais
             import re
             if not re.match(r'^(\+237)?[0-9]{8,9}$', telephone):
                 raise ValidationError(
@@ -595,13 +624,68 @@ class UserUpdateForm(forms.ModelForm):
         return telephone
     
     def save(self, commit=True):
+        user = super().save(commit=False)
+        if commit:
+            user.save()
+        return user
+
+    
+    def clean(self):
         """
-        Sauvegarde avec gestion automatique des permissions selon le rôle
+        Validation croisée habilitation <-> type de poste
+        - Rôles pesage → station pesage obligatoire
+        - Rôles péage → poste péage obligatoire
+        - Rôles admin → poste optionnel
         """
+        cleaned_data = super().clean()
+        habilitation = cleaned_data.get('habilitation')
+        poste = cleaned_data.get('poste_affectation')
+        
+        # Validation: si un poste est sélectionné, vérifier la cohérence avec le rôle
+        if habilitation and poste:
+            # Rôles pesage → station pesage obligatoire
+            if habilitation in HABILITATIONS_PESAGE:
+                if poste.type != 'pesage':
+                    raise ValidationError({
+                        'poste_affectation': _(
+                            "Le rôle '%(role)s' doit être affecté à une station de PESAGE, "
+                            "pas à un poste de péage."
+                        ) % {'role': dict(Habilitation.choices).get(habilitation, habilitation)}
+                    })
+            
+            # Rôles péage → poste péage obligatoire
+            elif habilitation in HABILITATIONS_PEAGE:
+                if poste.type != 'peage':
+                    raise ValidationError({
+                        'poste_affectation': _(
+                            "Le rôle '%(role)s' doit être affecté à un poste de PÉAGE, "
+                            "pas à une station de pesage."
+                        ) % {'role': dict(Habilitation.choices).get(habilitation, habilitation)}
+                    })
+        
+        # Validation: rôles pesage DOIVENT avoir une station
+        if habilitation in HABILITATIONS_PESAGE and not poste:
+            raise ValidationError({
+                'poste_affectation': _(
+                    "Une station de pesage est obligatoire pour le rôle '%(role)s'."
+                ) % {'role': dict(Habilitation.choices).get(habilitation, habilitation)}
+            })
+        
+        # Validation: rôles péage DOIVENT avoir un poste
+        if habilitation in HABILITATIONS_PEAGE and not poste:
+            raise ValidationError({
+                'poste_affectation': _(
+                    "Un poste de péage est obligatoire pour le rôle '%(role)s'."
+                ) % {'role': dict(Habilitation.choices).get(habilitation, habilitation)}
+            })
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        """Sauvegarde avec gestion automatique des permissions selon le rôle"""
         user = super().save(commit=False)
         
-        # Appliquer automatiquement les permissions selon l'habilitation
-        # (La logique est déjà dans le modèle via _configure_permissions_by_role)
+        # La logique de permissions est dans le modèle via _configure_permissions_by_role
         
         if commit:
             user.save()
@@ -671,9 +755,11 @@ class ProfileEditForm(forms.ModelForm):
                 )
         return telephone
 
+
 class UserCreateForm(forms.ModelForm):
     """
-    Formulaire de création d'utilisateur
+    Formulaire de création d'utilisateur avec filtrage dynamique des postes
+    selon l'habilitation sélectionnée.
     """
     password = forms.CharField(
         label=_("Mot de passe"),
@@ -716,10 +802,13 @@ class UserCreateForm(forms.ModelForm):
                 'placeholder': 'email@exemple.cm (optionnel)'
             }),
             'habilitation': forms.Select(attrs={
-                'class': 'form-select'
+                'class': 'form-select',
+                'id': 'id_habilitation',
+                'onchange': 'filterPostes()'  # Appel JS pour filtrage dynamique
             }),
             'poste_affectation': forms.Select(attrs={
-                'class': 'form-select'
+                'class': 'form-select',
+                'id': 'id_poste_affectation'
             }),
         }
         
@@ -734,9 +823,19 @@ class UserCreateForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['poste_affectation'].queryset = Poste.objects.filter(is_active=True).order_by('nom')
+        
+        # Par défaut, afficher tous les postes actifs
+        self.fields['poste_affectation'].queryset = Poste.objects.filter(
+            is_active=True
+        ).order_by('type', 'nom')
+        
         self.fields['poste_affectation'].required = False
         self.fields['email'].required = False
+        
+        # Ajouter des attributs data pour le filtrage JS
+        self.fields['poste_affectation'].widget.attrs.update({
+            'data-all-postes': 'true'
+        })
     
     def clean_username(self):
         """Nettoyer et valider le matricule"""
@@ -744,6 +843,53 @@ class UserCreateForm(forms.ModelForm):
         if username:
             username = username.upper().strip()
         return username
+    
+    def clean(self):
+        """
+        Validation croisée : vérifier la cohérence habilitation <-> type de poste
+        """
+        cleaned_data = super().clean()
+        habilitation = cleaned_data.get('habilitation')
+        poste = cleaned_data.get('poste_affectation')
+        
+        if habilitation and poste:
+            # Vérifier que les rôles pesage sont bien affectés à des stations pesage
+            if habilitation in HABILITATIONS_PESAGE:
+                if poste.type != 'pesage':
+                    raise ValidationError({
+                        'poste_affectation': _(
+                            "Les utilisateurs avec le rôle '%(role)s' doivent être "
+                            "affectés à une station de PESAGE."
+                        ) % {'role': self.fields['habilitation'].choices[habilitation]}
+                    })
+            
+            # Vérifier que les rôles péage sont bien affectés à des postes péage
+            elif habilitation in HABILITATIONS_PEAGE:
+                if poste.type != 'peage':
+                    raise ValidationError({
+                        'poste_affectation': _(
+                            "Les utilisateurs avec le rôle '%(role)s' doivent être "
+                            "affectés à un poste de PÉAGE."
+                        ) % {'role': self.fields['habilitation'].choices[habilitation]}
+                    })
+        
+        # Vérifier que les rôles pesage ont bien un poste
+        if habilitation in HABILITATIONS_PESAGE and not poste:
+            raise ValidationError({
+                'poste_affectation': _(
+                    "Une station de pesage est obligatoire pour ce rôle."
+                )
+            })
+        
+        # Vérifier que les rôles péage terrain ont bien un poste
+        if habilitation in HABILITATIONS_PEAGE and not poste:
+            raise ValidationError({
+                'poste_affectation': _(
+                    "Un poste de péage est obligatoire pour ce rôle."
+                )
+            })
+        
+        return cleaned_data
     
     def save(self, commit=True, created_by=None):
         """Créer l'utilisateur avec le mot de passe"""
@@ -757,6 +903,87 @@ class UserCreateForm(forms.ModelForm):
             user.save()
             
         return user
+
+
+class UserEditForm(forms.ModelForm):
+    """
+    Formulaire de modification d'utilisateur avec les mêmes validations
+    """
+    class Meta:
+        model = UtilisateurSUPPER
+        fields = [
+            'nom_complet',
+            'telephone',
+            'email',
+            'habilitation',
+            'poste_affectation',
+            'is_active',
+        ]
+        
+        widgets = {
+            'nom_complet': forms.TextInput(attrs={
+                'class': 'form-control'
+            }),
+            'telephone': forms.TextInput(attrs={
+                'class': 'form-control'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control'
+            }),
+            'habilitation': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_habilitation',
+                'onchange': 'filterPostes()'
+            }),
+            'poste_affectation': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_poste_affectation'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['poste_affectation'].queryset = Poste.objects.filter(
+            is_active=True
+        ).order_by('type', 'nom')
+        self.fields['poste_affectation'].required = False
+        self.fields['email'].required = False
+    
+    def clean(self):
+        """Validation croisée habilitation <-> type de poste"""
+        cleaned_data = super().clean()
+        habilitation = cleaned_data.get('habilitation')
+        poste = cleaned_data.get('poste_affectation')
+        
+        if habilitation and poste:
+            if habilitation in HABILITATIONS_PESAGE and poste.type != 'pesage':
+                raise ValidationError({
+                    'poste_affectation': _(
+                        "Ce rôle doit être affecté à une station de PESAGE."
+                    )
+                })
+            
+            elif habilitation in HABILITATIONS_PEAGE and poste.type != 'peage':
+                raise ValidationError({
+                    'poste_affectation': _(
+                        "Ce rôle doit être affecté à un poste de PÉAGE."
+                    )
+                })
+        
+        if habilitation in HABILITATIONS_PESAGE and not poste:
+            raise ValidationError({
+                'poste_affectation': _("Une station de pesage est obligatoire pour ce rôle.")
+            })
+        
+        if habilitation in HABILITATIONS_PEAGE and not poste:
+            raise ValidationError({
+                'poste_affectation': _("Un poste de péage est obligatoire pour ce rôle.")
+            })
+        
+        return cleaned_data
 
 class PosteForm(forms.ModelForm):
     """Formulaire pour les postes"""
@@ -774,7 +1001,7 @@ class PosteForm(forms.ModelForm):
                 'placeholder': 'Ex: YDE-N-01',
                 'pattern': r'^[A-Z0-9-]{3,15}$'
             }),
-            'type_poste': forms.Select(attrs={'class': 'form-select'}),
+            'type': forms.Select(attrs={'class': 'form-select'}),
             'localisation': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Adresse précise du poste'

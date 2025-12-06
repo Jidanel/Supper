@@ -70,64 +70,78 @@
     </div>
 
     <!-- Filtres -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">Période</label>
-                    <select name="periode" class="form-select" onchange="this.form.submit()">
-                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mensuel</option>
-                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestriel</option>
-                        <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestriel</option>
-                        <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
-                    </select>
-                </div>
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Période</label>
+                <select name="periode" class="form-select" onchange="this.form.submit()">
+                    <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mensuel</option>
+                    <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestriel</option>
+                    <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestriel</option>
+                    <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
+                </select>
+            </div>
 
-                <div class="col-md-2">
-                    <label class="form-label">Année</label>
-                    <select name="annee" class="form-select" onchange="this.form.submit()">
-                        {% for year in annees_disponibles %}
-                            <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div class="col-md-2">
+                <label class="form-label">Année</label>
+                <select name="annee" class="form-select" onchange="this.form.submit()">
+                    {% for year in annees_disponibles %}
+                        <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-                {% if periode == 'mois' %}
-                <div class="col-md-3">
-                    <label class="form-label">Mois</label>
-                    <select name="mois" class="form-select" onchange="this.form.submit()">
-                        <option value="">Mois en cours</option>
-                        {% for m in mois_liste %}
-                            <option value="{{ m }}" {% if request.GET.mois == m|stringformat:"d" %}selected{% endif %}>
-                                {{ m|date:"F" }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
+            {% if periode == 'mois' %}
+            <div class="col-md-3">
+                <label class="form-label">Mois</label>
+                <select name="mois" class="form-select" onchange="this.form.submit()">
+                    <option value="">Mois en cours</option>
+                    {% for m in mois_liste %}
+                        <option value="{{ m }}" {% if request.GET.mois == m|stringformat:"d" %}selected{% endif %}>
+                            {{ m|nom_mois }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
 
-                {% if periode == 'trimestre' %}
-                <div class="col-md-3">
-                    <label class="form-label">Trimestre</label>
-                    <select name="trimestre" class="form-select" onchange="this.form.submit()">
-                        <option value="">Trimestre en cours</option>
-                        {% for t in trimestres %}
-                            <option value="{{ t }}" {% if request.GET.trimestre == t|stringformat:"d" %}selected{% endif %}>
-                                Trimestre {{ t }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
+            {% if periode == 'trimestre' %}
+            <div class="col-md-3">
+                <label class="form-label">Trimestre</label>
+                <select name="trimestre" class="form-select" onchange="this.form.submit()">
+                    <option value="">Trimestre en cours</option>
+                    {% for t in trimestres %}
+                        <option value="{{ t }}" {% if request.GET.trimestre == t|stringformat:"d" %}selected{% endif %}>
+                            {{ t|nom_trimestre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
 
-                <div class="col-md-2 d-flex align-items-end">
-                    <a href="{% url 'inventaire:classement_agents_performances' %}" class="btn btn-primary w-100">
-                        <i class="fas fa-users"></i> Classement Agents
-                    </a>
-                </div>
-            </form>
-        </div>
+            {% if periode == 'semestre' %}
+            <div class="col-md-3">
+                <label class="form-label">Semestre</label>
+                <select name="semestre" class="form-select" onchange="this.form.submit()">
+                    <option value="">Semestre en cours</option>
+                    {% for s in semestres %}
+                        <option value="{{ s }}" {% if request.GET.semestre == s|stringformat:"d" %}selected{% endif %}>
+                            {{ s|nom_semestre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="col-md-2 d-flex align-items-end">
+                <a href="{% url 'inventaire:classement_agents_performances' %}" class="btn btn-primary w-100">
+                    <i class="fas fa-users"></i> Classement Agents
+                </a>
+            </div>
+        </form>
     </div>
+</div>
 
     <!-- Classement des postes -->
     <div class="row">

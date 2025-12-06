@@ -1,3 +1,4 @@
+#supper/accounts/management/commands/populate_regions.py
 from django.core.management.base import BaseCommand
 from accounts.models import Region, Departement
 

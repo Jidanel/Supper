@@ -1,0 +1,223 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    {% if station %}
+    <!-- EN-TÊTE STATION -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-dark text-white shadow">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 me-3">
+                                <i class="fas fa-chart-bar fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0 fw-bold">{{ station.nom }}</h4>
+                                <p class="mb-0 opacity-75">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ station.get_region_display }} - {{ station.code }}
+                                </p>
+                            </div>
+                        </div>
+                        {% if is_admin %}
+                        <a href="{% url 'inventaire:selectionner_station' %}?action=statistiques" 
+                           class="btn btn-light btn-sm">
+                            <i class="fas fa-exchange-alt me-1"></i>
+                            {% trans "Changer de station" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Titre -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-chart-line text-primary me-2"></i>
+            {{ title }}
+            {% if not station and is_admin %}
+            <small class="text-muted fs-6">({% trans "Toutes les stations" %})</small>
+            {% endif %}
+        </h2>
+    </div>
+    
+    <!-- Filtres période -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">{% trans "Période" %}</label>
+                    <select name="periode" class="form-select">
+                        <option value="jour" {% if periode == 'jour' %}selected{% endif %}>{% trans "Aujourd'hui" %}</option>
+                        <option value="semaine" {% if periode == 'semaine' %}selected{% endif %}>{% trans "Cette semaine" %}</option>
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>{% trans "Ce mois" %}</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>{% trans "Ce trimestre" %}</option>
+                        <option value="annee" {% if periode == 'annee' %}selected{% endif %}>{% trans "Cette année" %}</option>
+                    </select>
+                </div>
+                
+                {% if is_admin and stations_accessibles %}
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">{% trans "Station" %}</label>
+                    <select name="station" class="form-select">
+                        <option value="">{% trans "Toutes les stations" %}</option>
+                        {% for st in stations_accessibles %}
+                        <option value="{{ st.id }}" {% if station and station.id == st.id %}selected{% endif %}>
+                            {{ st.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-sync me-1"></i>
+                        {% trans "Actualiser" %}
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Période affichée -->
+            <div class="mt-3 p-2 bg-light rounded">
+                <i class="fas fa-calendar me-1"></i>
+                <strong>{% trans "Du" %}</strong> {{ date_debut|date:"d/m/Y" }}
+                <strong>{% trans "au" %}</strong> {{ date_fin|date:"d/m/Y" }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cartes statistiques -->
+    <div class="row g-4 mb-4">
+        
+        <!-- Émissions -->
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 text-primary mb-2">{{ stats.emissions|default:0 }}</div>
+                    <h6 class="text-muted mb-0">{% trans "Amendes émises" %}</h6>
+                    <small class="text-muted">
+                        {% trans "dont" %} {{ stats.hors_gabarit|default:0 }} {% trans "hors gabarit" %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Montant émis -->
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-6 text-info mb-2">
+                        {{ stats.montant_emis|floatformat:0|default:0 }}
+                    </div>
+                    <h6 class="text-muted mb-0">{% trans "Montant émis (FCFA)" %}</h6>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Montant recouvré -->
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
+                <div class="card-body text-center">
+                    <div class="display-6 text-success mb-2">
+                        {{ stats.montant_recouvre|floatformat:0|default:0 }}
+                    </div>
+                    <h6 class="text-muted mb-0">{% trans "Montant recouvré (FCFA)" %}</h6>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reste à recouvrer -->
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10">
+                <div class="card-body text-center">
+                    <div class="display-6 text-danger mb-2">
+                        {{ stats.reste_a_recouvrer|floatformat:0|default:0 }}
+                    </div>
+                    <h6 class="text-muted mb-0">{% trans "Reste à recouvrer (FCFA)" %}</h6>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Taux de recouvrement -->
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 mb-2 
+                        {% if stats.taux_recouvrement >= 80 %}text-success
+                        {% elif stats.taux_recouvrement >= 50 %}text-warning
+                        {% else %}text-danger{% endif %}">
+                        {{ stats.taux_recouvrement|floatformat:1|default:0 }}%
+                    </div>
+                    <h6 class="text-muted mb-0">{% trans "Taux de recouvrement" %}</h6>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar 
+                            {% if stats.taux_recouvrement >= 80 %}bg-success
+                            {% elif stats.taux_recouvrement >= 50 %}bg-warning
+                            {% else %}bg-danger{% endif %}" 
+                             style="width: {{ stats.taux_recouvrement|default:0 }}%">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Nombre de pesées -->
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 bg-info bg-opacity-10">
+                <div class="card-body text-center">
+                    <div class="display-4 text-info mb-2">{{ stats.nombre_pesees|default:0 }}</div>
+                    <h6 class="text-muted mb-0">{% trans "Véhicules pesés" %}</h6>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Actions rapides -->
+    <div class="row g-3">
+        <div class="col-md-6 col-lg-3">
+            <a href="{% url 'inventaire:liste_amendes' %}" class="btn btn-outline-primary w-100 py-3">
+                <i class="fas fa-list me-2"></i>
+                {% trans "Voir les amendes" %}
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <a href="{% url 'inventaire:liste_amendes_a_valider' %}" class="btn btn-outline-warning w-100 py-3">
+                <i class="fas fa-clock me-2"></i>
+                {% trans "Amendes à valider" %}
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <a href="{% url 'inventaire:liste_quittancements' %}" class="btn btn-outline-success w-100 py-3">
+                <i class="fas fa-receipt me-2"></i>
+                {% trans "Quittancements" %}
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <a href="{% url 'inventaire:historique_pesees' %}" class="btn btn-outline-info w-100 py-3">
+                <i class="fas fa-weight me-2"></i>
+                {% trans "Historique pesées" %}
+            </a>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-gradient-dark {
+    background: linear-gradient(135deg, #343a40 0%, #495057 100%);
+}
+</style>
+{% endblock %}

@@ -456,7 +456,6 @@ def icon_habilitation(habilitation):
         'chef_pesage': 'fa-user-tie',
         'focal_regional': 'fa-map-marked-alt',
         'agent_inventaire': 'fa-clipboard-list',
-        'caissier': 'fa-cash-register',
         'coord_psrr': 'fa-project-diagram',
         'serv_info': 'fa-laptop-code',
         'serv_emission': 'fa-file-invoice-dollar',
@@ -921,3 +920,101 @@ def calculer_valeur_tickets(nombre_tickets, prix_unitaire=500):
         return valeur
     except (ValueError, TypeError):
         return Decimal('0')
+
+
+@register.filter
+def nom_mois(numero_mois):
+    """
+    Convertit un numéro de mois (1-12) en nom français du mois
+    
+    Usage dans template:
+        {{ 1|nom_mois }}  → "Janvier"
+        {{ 12|nom_mois }} → "Décembre"
+    """
+    MOIS_FRANCAIS = {
+        1: 'Janvier',
+        2: 'Février', 
+        3: 'Mars',
+        4: 'Avril',
+        5: 'Mai',
+        6: 'Juin',
+        7: 'Juillet',
+        8: 'Août',
+        9: 'Septembre',
+        10: 'Octobre',
+        11: 'Novembre',
+        12: 'Décembre'
+    }
+    
+    try:
+        return MOIS_FRANCAIS.get(int(numero_mois), f"Mois {numero_mois}")
+    except (ValueError, TypeError):
+        return str(numero_mois)
+
+
+@register.filter
+def nom_mois_court(numero_mois):
+    """
+    Convertit un numéro de mois (1-12) en abréviation française
+    
+    Usage dans template:
+        {{ 1|nom_mois_court }}  → "Jan."
+        {{ 12|nom_mois_court }} → "Déc."
+    """
+    MOIS_COURTS = {
+        1: 'Jan.',
+        2: 'Fév.', 
+        3: 'Mars',
+        4: 'Avr.',
+        5: 'Mai',
+        6: 'Juin',
+        7: 'Juil.',
+        8: 'Août',
+        9: 'Sept.',
+        10: 'Oct.',
+        11: 'Nov.',
+        12: 'Déc.'
+    }
+    
+    try:
+        return MOIS_COURTS.get(int(numero_mois), f"M{numero_mois}")
+    except (ValueError, TypeError):
+        return str(numero_mois)
+
+
+@register.filter
+def nom_trimestre(numero_trimestre):
+    """
+    Convertit un numéro de trimestre (1-4) en label français
+    
+    Usage dans template:
+        {{ 1|nom_trimestre }} → "1er trimestre (Jan-Mars)"
+    """
+    TRIMESTRES = {
+        1: '1er trimestre (Jan-Mars)',
+        2: '2ème trimestre (Avr-Juin)',
+        3: '3ème trimestre (Juil-Sept)',
+        4: '4ème trimestre (Oct-Déc)'
+    }
+    
+    try:
+        return TRIMESTRES.get(int(numero_trimestre), f"Trimestre {numero_trimestre}")
+    except (ValueError, TypeError):
+        return str(numero_trimestre)
+
+
+@register.filter
+def nom_semestre(numero_semestre):
+    """
+    Convertit un numéro de semestre (1-2) en label français
+    """
+    SEMESTRES = {
+        1: '1er semestre (Jan-Juin)',
+        2: '2ème semestre (Juil-Déc)'
+    }
+    
+    try:
+        return SEMESTRES.get(int(numero_semestre), f"Semestre {numero_semestre}")
+    except (ValueError, TypeError):
+        return str(numero_semestre)
+

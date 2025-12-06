@@ -103,7 +103,6 @@ class UtilisateurSUPPERAdmin(UserAdmin):
             'chef_peage': 'primary',
             'chef_pesage': 'primary',
             'focal_regional': 'info',
-            'caissier': 'success',
             'agent_inventaire': 'secondary',
             'chef_service': 'warning',
             'coord_psrr': 'danger',

@@ -252,6 +252,124 @@
         </div>
         {% endif %}
 
+            <!-- STATISTIQUES PESAGE (si l'utilisateur a accès) -->
+            {% if stats_pesage %}
+            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #F1F5F9; display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fas fa-weight-scale" style="color: #8B5CF6;"></i> 
+                    {% trans "Module Pesage" %}
+                    {% if stats_pesage.station %}
+                    <span style="font-size: 0.875rem; color: #64748B; font-weight: 400; margin-left: auto;">
+                        {{ stats_pesage.station.nom }}
+                    </span>
+                    {% endif %}
+                </h2>
+                
+                <!-- Cartes statistiques Pesage -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                    
+                    <!-- Pesées du jour -->
+                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%); border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                            <i class="fas fa-balance-scale me-1"></i>{% trans "Pesées Aujourd'hui" %}
+                        </div>
+                        <div style="font-size: 2rem; font-weight: 700;">
+                            {{ stats_pesage.pesees_jour|default:"—" }}
+                        </div>
+                    </div>
+                    
+                    <!-- Amendes émises aujourd'hui -->
+                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #F59E0B 0%, #FCD34D 100%); border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                            <i class="fas fa-file-invoice me-1"></i>{% trans "Amendes Émises" %}
+                        </div>
+                        <div style="font-size: 2rem; font-weight: 700;">
+                            {{ stats_pesage.emissions_jour|default:0 }}
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;">
+                            {% trans "dont" %} {{ stats_pesage.hors_gabarit_jour|default:0 }} HG
+                        </div>
+                    </div>
+                    
+                    <!-- Montant émis -->
+                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%); border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                            <i class="fas fa-coins me-1"></i>{% trans "Montant Émis" %}
+                        </div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">
+                            {{ stats_pesage.montant_emis_jour|floatformat:0|intcomma }}
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;">FCFA</div>
+                    </div>
+                    
+                    <!-- Montant recouvré -->
+                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #10B981 0%, #6EE7B7 100%); border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                            <i class="fas fa-hand-holding-usd me-1"></i>{% trans "Recouvré" %}
+                        </div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">
+                            {{ stats_pesage.montant_recouvre_jour|floatformat:0|intcomma }}
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;">FCFA</div>
+                    </div>
+                    
+                    <!-- Reste à recouvrer -->
+                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #EF4444 0%, #FCA5A5 100%); border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                            <i class="fas fa-clock me-1"></i>{% trans "Reste à Recouvrer" %}
+                        </div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">
+                            {{ stats_pesage.reste_a_recouvrer_jour|floatformat:0|intcomma }}
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;">FCFA</div>
+                    </div>
+                    
+                    <!-- Amendes non payées (en attente) -->
+                    <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px; border: 2px dashed #CBD5E1;">
+                        <div style="font-size: 0.875rem; color: #64748B; margin-bottom: 0.5rem;">
+                            <i class="fas fa-hourglass-half me-1"></i>{% trans "En Attente" %}
+                        </div>
+                        <div style="font-size: 2rem; font-weight: 700; color: {% if stats_pesage.amendes_non_payees > 0 %}#F59E0B{% else %}#10B981{% endif %};">
+                            {{ stats_pesage.amendes_non_payees|default:0 }}
+                        </div>
+                        <div style="font-size: 0.75rem; color: #94a3b8;">{% trans "amendes" %}</div>
+                    </div>
+                </div>
+                
+                <!-- Actions rapides Pesage -->
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #E2E8F0;">
+                    {% if user.habilitation == 'chef_equipe_pesage' or user.is_admin %}
+                    <a href="{% url 'inventaire:saisir_amende' %}" 
+                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: #8B5CF6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s;">
+                        <i class="fas fa-plus"></i>{% trans "Saisir Amende" %}
+                    </a>
+                    {% endif %}
+                    
+                    {% if user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' or user.is_admin %}
+                    <a href="{% url 'inventaire:liste_amendes_a_valider' %}" 
+                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: #10B981; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s; position: relative;">
+                        <i class="fas fa-check-double"></i>{% trans "Valider Paiements" %}
+                        {% if stats_pesage.amendes_non_payees > 0 %}
+                        <span style="position: absolute; top: -8px; right: -8px; background: #EF4444; color: white; font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 50px;">
+                            {{ stats_pesage.amendes_non_payees }}
+                        </span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'inventaire:recettes_pesage' %}" 
+                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: #3B82F6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s;">
+                        <i class="fas fa-coins"></i>{% trans "Voir Recettes" %}
+                    </a>
+                    
+                    <a href="{% url 'inventaire:statistiques_pesage' %}" 
+                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s;">
+                        <i class="fas fa-chart-bar"></i>{% trans "Statistiques" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
     </div>
 </div>
 

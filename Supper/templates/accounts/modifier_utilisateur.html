@@ -22,15 +22,8 @@
         margin-bottom: 2rem;
     }
     
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: #334155;
-        margin-bottom: 0.5rem;
-    }
+    .form-group { margin-bottom: 1.5rem; }
+    .form-label { font-weight: 600; color: #334155; margin-bottom: 0.5rem; }
     
     .form-control, .form-select {
         border: 2px solid #e0e0e0;
@@ -46,30 +39,11 @@
     
     .btn-primary {
         background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        border: none; padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600;
     }
     
     .btn-secondary {
-        background: #64748B;
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-secondary:hover {
-        background: #475569;
-        transform: translateY(-2px);
+        background: #64748B; border: none; padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600;
     }
     
     .section-title {
@@ -80,15 +54,8 @@
         font-weight: 600;
     }
     
-    .help-text {
-        font-size: 0.875rem;
-        color: #64748B;
-        margin-top: 0.25rem;
-    }
-    
-    .required {
-        color: #dc3545;
-    }
+    .help-text { font-size: 0.875rem; color: #64748B; margin-top: 0.25rem; }
+    .required { color: #dc3545; }
     
     .warning-box {
         background: #fef3c7;
@@ -98,18 +65,8 @@
         margin-bottom: 1.5rem;
     }
     
-    .form-check {
-        margin-bottom: 1rem;
-    }
-    
-    .form-check-input:checked {
-        background-color: #F59E0B;
-        border-color: #F59E0B;
-    }
-    
-    .form-check-input:focus {
-        box-shadow: 0 0 0 0.25rem rgba(245, 158, 11, 0.25);
-    }
+    .form-check { margin-bottom: 1rem; }
+    .form-check-input:checked { background-color: #F59E0B; border-color: #F59E0B; }
     
     .permissions-section {
         background: #F8FAFC;
@@ -119,42 +76,61 @@
         border: 1px solid #e0e0e0;
     }
     
-    .readonly-field {
-        background: #f8f9fa;
-        color: #6c757d;
+    .readonly-field { background: #f8f9fa; color: #6c757d; }
+    .invalid-feedback { display: block; color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem; }
+    .is-invalid { border-color: #dc3545 !important; }
+    
+    /* Alertes de filtrage */
+    .filter-alert-pesage {
+        background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
+        border: 1px solid #8B5CF6; border-left: 4px solid #8B5CF6;
+        border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+        display: none; animation: fadeIn 0.3s ease;
+    }
+    .filter-alert-pesage .icon { color: #8B5CF6; }
+    
+    .filter-alert-peage {
+        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+        border: 1px solid #3B82F6; border-left: 4px solid #3B82F6;
+        border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+        display: none; animation: fadeIn 0.3s ease;
+    }
+    .filter-alert-peage .icon { color: #3B82F6; }
+    
+    .filter-alert-multi {
+        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+        border: 1px solid #F59E0B; border-left: 4px solid #F59E0B;
+        border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+        display: none; animation: fadeIn 0.3s ease;
+    }
+    .filter-alert-multi .icon { color: #F59E0B; }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     
-    .invalid-feedback {
-        display: block;
-        color: #dc3545;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
+    .postes-stats { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
+    .postes-stats .stat-item {
+        font-size: 0.8rem; padding: 0.25rem 0.5rem;
+        border-radius: 4px; background: #f1f5f9;
     }
-    
-    .is-invalid {
-        border-color: #dc3545 !important;
-    }
+    .postes-stats .stat-item.peage { border-left: 3px solid #3B82F6; }
+    .postes-stats .stat-item.pesage { border-left: 3px solid #8B5CF6; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <!-- En-tête -->
     <div class="header-section">
         <div class="d-flex align-items-center">
             <div class="flex-grow-1">
-                <h1 class="h3 mb-0">
-                    <i class="fas fa-user-edit me-2"></i>
-                    {{ title }}
-                </h1>
-                <p class="mb-0 mt-2 opacity-75">
-                    {% trans "Modification du compte utilisateur" %} {{ user_edit.nom_complet }}
-                </p>
+                <h1 class="h3 mb-0"><i class="fas fa-user-edit me-2"></i>{{ title }}</h1>
+                <p class="mb-0 mt-2 opacity-75">Modification du compte utilisateur {{ user_edit.nom_complet }}</p>
             </div>
             <div>
                 <a href="{% url 'accounts:detail_utilisateur' user_edit.id %}" class="btn btn-light">
-                    <i class="fas fa-arrow-left me-2"></i>
-                    {% trans "Retour au profil" %}
+                    <i class="fas fa-arrow-left me-2"></i>Retour au profil
                 </a>
             </div>
         </div>
@@ -163,10 +139,9 @@
     <div class="row justify-content-center">
         <div class="col-xl-8 col-lg-10">
             <div class="form-container">
-                <form method="post" novalidate>
+                <form method="post" novalidate id="form-modifier-utilisateur">
                     {% csrf_token %}
                     
-                    <!-- Messages d'erreur -->
                     {% if messages %}
                         {% for message in messages %}
                         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -176,7 +151,6 @@
                         {% endfor %}
                     {% endif %}
                     
-                    <!-- Erreurs générales du formulaire -->
                     {% if form.non_field_errors %}
                         {% for error in form.non_field_errors %}
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -186,48 +160,33 @@
                         {% endfor %}
                     {% endif %}
 
-                    <!-- Avertissement -->
                     <div class="warning-box">
                         <div class="d-flex align-items-center">
                             <i class="fas fa-exclamation-triangle text-warning me-2"></i>
                             <div>
-                                <strong>{% trans "Attention :" %}</strong>
-                                {% trans "La modification des permissions peut affecter l'accès de l'utilisateur au système." %}
+                                <strong>Attention :</strong>
+                                La modification des permissions peut affecter l'accès de l'utilisateur au système.
                             </div>
                         </div>
                     </div>
 
-                    <!-- Informations de base -->
-                    <div class="section-title">
-                        <i class="fas fa-user me-2"></i>
-                        {% trans "Informations de base" %}
-                    </div>
+                    <div class="section-title"><i class="fas fa-user me-2"></i>Informations de base</div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="username" class="form-label">
-                                    {% trans "Matricule" %}
-                                </label>
-                                <input type="text" class="form-control readonly-field" id="username" 
-                                       value="{{ user_edit.username }}" readonly>
-                                <div class="help-text">
-                                    {% trans "Le matricule ne peut pas être modifié" %}
-                                </div>
+                                <label class="form-label">Matricule</label>
+                                <input type="text" class="form-control readonly-field" value="{{ user_edit.username }}" readonly>
+                                <div class="help-text">Le matricule ne peut pas être modifié</div>
                             </div>
                         </div>
-                        
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="{{ form.nom_complet.id_for_label }}" class="form-label">
                                     {{ form.nom_complet.label }} <span class="required">*</span>
                                 </label>
                                 {{ form.nom_complet }}
-                                {% if form.nom_complet.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.nom_complet.errors.0 }}
-                                    </div>
-                                {% endif %}
+                                {% if form.nom_complet.errors %}<div class="invalid-feedback">{{ form.nom_complet.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
                     </div>
@@ -239,226 +198,156 @@
                                     {{ form.telephone.label }} <span class="required">*</span>
                                 </label>
                                 {{ form.telephone }}
-                                {% if form.telephone.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.telephone.errors.0 }}
-                                    </div>
-                                {% endif %}
+                                {% if form.telephone.errors %}<div class="invalid-feedback">{{ form.telephone.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
-                        
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="{{ form.email.id_for_label }}" class="form-label">
-                                    {{ form.email.label }}
-                                </label>
+                                <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
                                 {{ form.email }}
-                                {% if form.email.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.email.errors.0 }}
-                                    </div>
-                                {% endif %}
-                                <div class="help-text">
-                                    {% trans "Optionnel - Pour la réinitialisation de mot de passe" %}
-                                </div>
+                                {% if form.email.errors %}<div class="invalid-feedback">{{ form.email.errors.0 }}</div>{% endif %}
+                                <div class="help-text">Optionnel - Pour la réinitialisation de mot de passe</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Affectation professionnelle -->
-                    <div class="section-title">
-                        <i class="fas fa-briefcase me-2"></i>
-                        {% trans "Affectation professionnelle" %}
-                    </div>
+                    <div class="section-title"><i class="fas fa-briefcase me-2"></i>Affectation professionnelle</div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="{{ form.habilitation.id_for_label }}" class="form-label">
-                                    {{ form.habilitation.label }} <span class="required">*</span>
-                                </label>
-                                {{ form.habilitation }}
-                                {% if form.habilitation.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.habilitation.errors.0 }}
-                                    </div>
-                                {% endif %}
+                                <label for="id_habilitation" class="form-label">Rôle <span class="required">*</span></label>
+                                <select name="habilitation" id="id_habilitation" 
+                                        class="form-select {% if form.habilitation.errors %}is-invalid{% endif %}"
+                                        onchange="filterPostes()" required>
+                                    <option value="">-- Sélectionner un rôle --</option>
+                                    <optgroup label="Administration">
+                                        {% for value, label in habilitations %}
+                                            {% if value == 'admin_principal' or value == 'coord_psrr' or value == 'serv_info' or value == 'serv_emission' or value == 'chef_ag' or value == 'regisseur' or value == 'comptable_mat' or value == 'chef_ordre' or value == 'chef_controle' or value == 'imprimerie' or value == 'focal_regional' or value == 'chef_service' %}
+                                            <option value="{{ value }}" data-type="multi" {% if form.habilitation.value == value %}selected{% endif %}>{{ label }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+                                    <optgroup label="Péage">
+                                        {% for value, label in habilitations %}
+                                            {% if value == 'chef_peage'  or value == 'agent_inventaire' %}
+                                            <option value="{{ value }}" data-type="peage" {% if form.habilitation.value == value %}selected{% endif %}>{{ label }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+                                    <optgroup label="Pesage">
+                                        {% for value, label in habilitations %}
+                                            {% if value == 'chef_equipe_pesage' or value == 'regisseur_pesage' or value == 'chef_station_pesage' or value == 'chef_pesage' %}
+                                            <option value="{{ value }}" data-type="pesage" {% if form.habilitation.value == value %}selected{% endif %}>{{ label }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+                                </select>
+                                {% if form.habilitation.errors %}<div class="invalid-feedback">{{ form.habilitation.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
                         
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="{{ form.poste_affectation.id_for_label }}" class="form-label">
-                                    {{ form.poste_affectation.label }}
-                                </label>
-                                {{ form.poste_affectation }}
-                                {% if form.poste_affectation.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.poste_affectation.errors.0 }}
-                                    </div>
-                                {% endif %}
+                                <label for="id_poste_affectation" class="form-label" id="label-poste">Poste d'affectation</label>
+                                <div class="postes-stats">
+                                    <span class="stat-item peage"><i class="fas fa-road me-1"></i><span id="count-peage">{{ count_peage|default:0 }}</span> péage</span>
+                                    <span class="stat-item pesage"><i class="fas fa-weight me-1"></i><span id="count-pesage">{{ count_pesage|default:0 }}</span> pesage</span>
+                                </div>
+                                
+                                <!-- SELECT avec options générées directement -->
+                                <select name="poste_affectation" id="id_poste_affectation" class="form-select {% if form.poste_affectation.errors %}is-invalid{% endif %}">
+                                        <option value="">-- Aucun poste --</option>
+                                        
+                                        <optgroup label="Postes de Péage" id="optgroup-peage">
+                                            {% for poste in postes_peage %}
+                                            <option value="{{ poste.id }}" 
+                                                    data-type="peage"
+                                                    {% if form.poste_affectation.value|stringformat:"s" == poste.id|stringformat:"s" %}selected{% endif %}>
+                                                {{ poste.nom }} ({{ poste.code }})
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        
+                                        <optgroup label="Stations de Pesage" id="optgroup-pesage">
+                                            {% for poste in postes_pesage %}
+                                            <option value="{{ poste.id }}" 
+                                                    data-type="pesage"
+                                                    {% if form.poste_affectation.value|stringformat:"s" == poste.id|stringformat:"s" %}selected{% endif %}>
+                                                {{ poste.nom }} ({{ poste.code }})
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    </select>
+                                {% if form.poste_affectation.errors %}<div class="invalid-feedback">{{ form.poste_affectation.errors.0 }}</div>{% endif %}
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Alertes de filtrage -->
+                    <div id="filter-alert-pesage" class="filter-alert-pesage">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-weight icon me-2"></i>
+                            <div><strong>Rôle Pesage</strong><br><small>Une station de pesage est obligatoire pour ce rôle.</small></div>
+                        </div>
+                    </div>
+                    <div id="filter-alert-peage" class="filter-alert-peage">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-road icon me-2"></i>
+                            <div><strong>Rôle Péage</strong><br><small>Un poste de péage est obligatoire pour ce rôle.</small></div>
+                        </div>
+                    </div>
+                    <div id="filter-alert-multi" class="filter-alert-multi">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-users-cog icon me-2"></i>
+                            <div><strong>Rôle Administration</strong><br><small>L'affectation à un poste est optionnelle.</small></div>
+                        </div>
+                    </div>
 
-                    <!-- Permissions par rôle (affichage) -->
                     <div class="permissions-section">
-                        <h5 class="mb-3">
-                            <i class="fas fa-key me-2"></i>
-                            {% trans "Permissions associées au rôle" %}
-                        </h5>
-                        
+                        <h5 class="mb-3"><i class="fas fa-key me-2"></i>Permissions associées au rôle</h5>
                         <div class="row">
                             <div class="col-md-6">
-                                <p class="fw-bold text-muted small">{% trans "Permissions de saisie" %}:</p>
-                                <div id="permissions-saisie">
-                                    <span class="text-muted">{% trans "Sélectionnez un rôle" %}</span>
-                                </div>
+                                <p class="fw-bold text-muted small">Permissions de saisie:</p>
+                                <div id="permissions-saisie"><span class="text-muted">Sélectionnez un rôle</span></div>
                             </div>
                             <div class="col-md-6">
-                                <p class="fw-bold text-muted small">{% trans "Permissions de gestion" %}:</p>
-                                <div id="permissions-gestion">
-                                    <span class="text-muted">{% trans "Sélectionnez un rôle" %}</span>
-                                </div>
+                                <p class="fw-bold text-muted small">Permissions de gestion:</p>
+                                <div id="permissions-gestion"><span class="text-muted">Sélectionnez un rôle</span></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Permissions détaillées -->
-                    <div class="section-title">
-                        <i class="fas fa-shield-alt me-2"></i>
-                        {% trans "Permissions détaillées" %}
-                    </div>
+                    <div class="section-title"><i class="fas fa-shield-alt me-2"></i>Permissions détaillées</div>
 
                     <div class="row">
                         <div class="col-md-6">
-                            <h6 class="text-muted mb-3">{% trans "Statut et accès" %}</h6>
-                            
-                            <div class="form-check">
-                                {{ form.is_active }}
-                                <label for="{{ form.is_active.id_for_label }}" class="form-check-label">
-                                    {{ form.is_active.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.acces_tous_postes }}
-                                <label for="{{ form.acces_tous_postes.id_for_label }}" class="form-check-label">
-                                    {{ form.acces_tous_postes.label }}
-                                </label>
-                            </div>
-                            
-                            <h6 class="text-muted mb-3 mt-4">{% trans "Permissions de saisie" %}</h6>
-                            
-                            <div class="form-check">
-                                {{ form.peut_saisir_peage }}
-                                <label for="{{ form.peut_saisir_peage.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_saisir_peage.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_saisir_pesage }}
-                                <label for="{{ form.peut_saisir_pesage.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_saisir_pesage.label }}
-                                </label>
-                            </div>
+                            <h6 class="text-muted mb-3">Statut et accès</h6>
+                            <div class="form-check">{{ form.is_active }}<label for="{{ form.is_active.id_for_label }}" class="form-check-label">{{ form.is_active.label }}</label></div>
+                            <div class="form-check">{{ form.acces_tous_postes }}<label for="{{ form.acces_tous_postes.id_for_label }}" class="form-check-label">{{ form.acces_tous_postes.label }}</label></div>
+                            <h6 class="text-muted mb-3 mt-4">Permissions de saisie</h6>
+                            <div class="form-check">{{ form.peut_saisir_peage }}<label for="{{ form.peut_saisir_peage.id_for_label }}" class="form-check-label">{{ form.peut_saisir_peage.label }}</label></div>
+                            <div class="form-check">{{ form.peut_saisir_pesage }}<label for="{{ form.peut_saisir_pesage.id_for_label }}" class="form-check-label">{{ form.peut_saisir_pesage.label }}</label></div>
                         </div>
-                        
                         <div class="col-md-6">
-                            <h6 class="text-muted mb-3">{% trans "Permissions de gestion" %}</h6>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_peage }}
-                                <label for="{{ form.peut_gerer_peage.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_peage.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_pesage }}
-                                <label for="{{ form.peut_gerer_pesage.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_pesage.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_personnel }}
-                                <label for="{{ form.peut_gerer_personnel.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_personnel.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_budget }}
-                                <label for="{{ form.peut_gerer_budget.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_budget.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_inventaire }}
-                                <label for="{{ form.peut_gerer_inventaire.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_inventaire.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_archives }}
-                                <label for="{{ form.peut_gerer_archives.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_archives.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_stocks_psrr }}
-                                <label for="{{ form.peut_gerer_stocks_psrr.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_stocks_psrr.label }}
-                                </label>
-                            </div>
-                            
-                            <div class="form-check">
-                                {{ form.peut_gerer_stock_info }}
-                                <label for="{{ form.peut_gerer_stock_info.id_for_label }}" class="form-check-label">
-                                    {{ form.peut_gerer_stock_info.label }}
-                                </label>
-                            </div>
+                            <h6 class="text-muted mb-3">Permissions de gestion</h6>
+                            <div class="form-check">{{ form.peut_gerer_peage }}<label for="{{ form.peut_gerer_peage.id_for_label }}" class="form-check-label">{{ form.peut_gerer_peage.label }}</label></div>
+                            <div class="form-check">{{ form.peut_gerer_pesage }}<label for="{{ form.peut_gerer_pesage.id_for_label }}" class="form-check-label">{{ form.peut_gerer_pesage.label }}</label></div>
+                            <div class="form-check">{{ form.peut_gerer_personnel }}<label for="{{ form.peut_gerer_personnel.id_for_label }}" class="form-check-label">{{ form.peut_gerer_personnel.label }}</label></div>
+                            <div class="form-check">{{ form.peut_gerer_budget }}<label for="{{ form.peut_gerer_budget.id_for_label }}" class="form-check-label">{{ form.peut_gerer_budget.label }}</label></div>
+                            <div class="form-check">{{ form.peut_gerer_inventaire }}<label for="{{ form.peut_gerer_inventaire.id_for_label }}" class="form-check-label">{{ form.peut_gerer_inventaire.label }}</label></div>
+                            <div class="form-check">{{ form.peut_gerer_archives }}<label for="{{ form.peut_gerer_archives.id_for_label }}" class="form-check-label">{{ form.peut_gerer_archives.label }}</label></div>
+                            <div class="form-check">{{ form.peut_gerer_stocks_psrr }}<label for="{{ form.peut_gerer_stocks_psrr.id_for_label }}" class="form-check-label">{{ form.peut_gerer_stocks_psrr.label }}</label></div>
+                            <div class="form-check">{{ form.peut_gerer_stock_info }}<label for="{{ form.peut_gerer_stock_info.id_for_label }}" class="form-check-label">{{ form.peut_gerer_stock_info.label }}</label></div>
                         </div>
                     </div>
 
-                    <!-- Actions supplémentaires -->
-                    <div class="row mt-4">
-                        
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6 class="card-title text-info">
-                                        <i class="fas fa-bell me-2"></i>
-                                        {% trans "Notification" %}
-                                    </h6>
-                                    <p class="small text-muted mb-2">
-                                        {% trans "Notifier l'utilisateur des modifications" %}
-                                    </p>
-                                    <button type="button" class="btn btn-info btn-sm" 
-                                            onclick="sendNotification('{{ user_edit.id }}')">
-                                        <i class="fas fa-paper-plane me-1"></i>
-                                        {% trans "Notifier" %}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Boutons d'action -->
                     <div class="d-flex justify-content-between pt-3">
                         <a href="{% url 'accounts:detail_utilisateur' user_edit.id %}" class="btn btn-secondary">
-                            <i class="fas fa-times me-2"></i>
-                            {% trans "Annuler" %}
+                            <i class="fas fa-times me-2"></i>Annuler
                         </a>
-                        
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>
-                            {% trans "Enregistrer les modifications" %}
+                            <i class="fas fa-save me-2"></i>Enregistrer les modifications
                         </button>
                     </div>
                 </form>
@@ -467,202 +356,138 @@
     </div>
 </div>
 
-<!-- Modal de confirmation reset password -->
-<div class="modal fade" id="resetPasswordModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">{% trans "Confirmer la réinitialisation" %}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>{% trans "Êtes-vous sûr de vouloir réinitialiser le mot de passe ?" %}</p>
-                <div class="alert alert-warning">
-                    <small>{% trans "Le nouveau mot de passe sera 'supper2025'" %}</small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    {% trans "Annuler" %}
-                </button>
-                <button type="button" class="btn btn-warning" onclick="confirmResetPassword()">
-                    {% trans "Confirmer" %}
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal notification -->
-<div class="modal fade" id="notificationModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">{% trans "Envoyer une notification" %}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group mb-3">
-                    <label for="notificationTitle" class="form-label">{% trans "Titre" %}</label>
-                    <input type="text" class="form-control" id="notificationTitle" 
-                           value="{% trans 'Modification de votre compte' %}">
-                </div>
-                <div class="form-group">
-                    <label for="notificationMessage" class="form-label">{% trans "Message" %}</label>
-                    <textarea class="form-control" id="notificationMessage" rows="4">{% trans "Votre compte utilisateur a été modifié par un administrateur. Veuillez vous reconnecter pour appliquer les changements." %}</textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    {% trans "Annuler" %}
-                </button>
-                <button type="button" class="btn btn-info" onclick="confirmSendNotification()">
-                    {% trans "Envoyer" %}
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
-let currentUserId = null;
+// Constantes pour le filtrage
+const HABILITATIONS_PESAGE = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage', 'chef_pesage'];
+const HABILITATIONS_PEAGE = ['chef_peage', 'agent_inventaire'];
 
-// Configuration des permissions par rôle
-const permissionsParRole = {
-    'admin_principal': {
-        saisie: ['Toutes les données péage et pesage'],
-        gestion: ['Tous les modules', 'Personnel', 'Archives', 'Stocks']
-    },
-    'chef_peage': {
-        saisie: ['Données péage'],
-        gestion: ['Péage', 'Inventaire']
-    },
-    'chef_pesage': {
-        saisie: ['Données pesage'],
-        gestion: ['Pesage', 'Inventaire']
-    },
-    'agent_inventaire': {
-        saisie: ['Aucune saisie directe'],
-        gestion: ['Inventaire uniquement']
-    },
-    'coord_psrr': {
-        saisie: ['Péage et pesage'],
-        gestion: ['Personnel', 'Péage', 'Pesage', 'Inventaire', 'Stocks PSRR']
-    },
-    'serv_info': {
-        saisie: ['Toutes les données'],
-        gestion: ['Tous les modules', 'Stock informatique']
-    },
-    'serv_emission': {
-        saisie: ['Péage'],
-        gestion: ['Péage', 'Stocks PSRR']
-    }
-};
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Récupérer l'élément select de l'habilitation
-    const habilitationSelect = document.querySelector('select[name="habilitation"]');
+// Fonction de filtrage des postes
+function filterPostes() {
+    const habilitation = document.getElementById('id_habilitation').value;
+    const posteSelect = document.getElementById('id_poste_affectation');
+    const labelPoste = document.getElementById('label-poste');
     
-    if (habilitationSelect) {
-        // Mettre à jour les permissions affichées au chargement
-        updatePermissionsDisplay();
+    // Récupérer tous les optgroups
+    const optgroups = posteSelect.querySelectorAll('optgroup');
+    let optgroupPeage = null;
+    let optgroupPesage = null;
+    
+    optgroups.forEach(og => {
+        if (og.label.includes('Péage') || og.id === 'optgroup-peage') {
+            optgroupPeage = og;
+        } else if (og.label.includes('Pesage') || og.id === 'optgroup-pesage') {
+            optgroupPesage = og;
+        }
+    });
+    
+    const alertPesage = document.getElementById('filter-alert-pesage');
+    const alertPeage = document.getElementById('filter-alert-peage');
+    const alertMulti = document.getElementById('filter-alert-multi');
+    
+    // Cacher toutes les alertes
+    alertPesage.style.display = 'none';
+    alertPeage.style.display = 'none';
+    alertMulti.style.display = 'none';
+    
+    // Afficher tous les optgroups par défaut
+    if (optgroupPeage) optgroupPeage.style.display = '';
+    if (optgroupPesage) optgroupPesage.style.display = '';
+    
+    if (!habilitation) {
+        labelPoste.innerHTML = "Poste d'affectation";
+        posteSelect.required = false;
+        return;
+    }
+    
+    if (HABILITATIONS_PESAGE.includes(habilitation)) {
+        // Rôle PESAGE: masquer péage, afficher pesage
+        if (optgroupPeage) optgroupPeage.style.display = 'none';
+        if (optgroupPesage) optgroupPesage.style.display = '';
+        labelPoste.innerHTML = "Station de Pesage <span class='required'>*</span>";
+        posteSelect.required = true;
+        alertPesage.style.display = 'block';
         
-        // Écouter les changements d'habilitation
-        habilitationSelect.addEventListener('change', updatePermissionsDisplay);
+        // Désélectionner si le poste actuel est un péage
+        const currentOption = posteSelect.options[posteSelect.selectedIndex];
+        if (currentOption && currentOption.dataset && currentOption.dataset.type === 'peage') {
+            posteSelect.value = '';
+        }
+        
+    } else if (HABILITATIONS_PEAGE.includes(habilitation)) {
+        // Rôle PÉAGE: masquer pesage, afficher péage
+        if (optgroupPeage) optgroupPeage.style.display = '';
+        if (optgroupPesage) optgroupPesage.style.display = 'none';
+        labelPoste.innerHTML = "Poste de Péage <span class='required'>*</span>";
+        posteSelect.required = true;
+        alertPeage.style.display = 'block';
+        
+        // Désélectionner si le poste actuel est un pesage
+        const currentOption = posteSelect.options[posteSelect.selectedIndex];
+        if (currentOption && currentOption.dataset && currentOption.dataset.type === 'pesage') {
+            posteSelect.value = '';
+        }
+        
+    } else {
+        // Rôle ADMIN/MULTI: afficher tous les postes
+        labelPoste.innerHTML = "Poste d'affectation <small class='text-muted'>(optionnel)</small>";
+        posteSelect.required = false;
+        alertMulti.style.display = 'block';
+    }
+    
+    updatePermissionsDisplay();
+}
+
+// Validation avant soumission
+document.getElementById('form-modifier-utilisateur').addEventListener('submit', function(e) {
+    const habilitation = document.getElementById('id_habilitation').value;
+    const poste = document.getElementById('id_poste_affectation').value;
+    
+    if (HABILITATIONS_PESAGE.includes(habilitation) && !poste) {
+        e.preventDefault();
+        alert("Une station de pesage est obligatoire pour ce rôle.");
+        document.getElementById('id_poste_affectation').focus();
+        return false;
+    }
+    
+    if (HABILITATIONS_PEAGE.includes(habilitation) && !poste) {
+        e.preventDefault();
+        alert("Un poste de péage est obligatoire pour ce rôle.");
+        document.getElementById('id_poste_affectation').focus();
+        return false;
     }
 });
 
+// Configuration des permissions par rôle
+const permissionsParRole = {
+    'admin_principal': { saisie: ['Toutes les données'], gestion: ['Tous les modules'] },
+    'chef_peage': { saisie: ['Données péage'], gestion: ['Péage', 'Inventaire'] },
+    'chef_pesage': { saisie: ['Données pesage'], gestion: ['Pesage', 'Inventaire'] },
+    'chef_equipe_pesage': { saisie: ['Amendes', 'Pesées'], gestion: ['Aucune'] },
+    'regisseur_pesage': { saisie: ['Aucune'], gestion: ['Validation paiements'] },
+    'chef_station_pesage': { saisie: ['Amendes', 'Pesées'], gestion: ['Validation', 'Pesage'] },
+    'agent_inventaire': { saisie: ['Aucune'], gestion: ['Inventaire'] },
+    'coord_psrr': { saisie: ['Péage et pesage'], gestion: ['Personnel', 'Péage', 'Pesage'] },
+    'serv_info': { saisie: ['Toutes les données'], gestion: ['Tous les modules'] }
+};
+
 function updatePermissionsDisplay() {
-    const habilitationSelect = document.querySelector('select[name="habilitation"]');
-    const selectedRole = habilitationSelect ? habilitationSelect.value : null;
-    
+    const selectedRole = document.getElementById('id_habilitation').value;
     const saisieDiv = document.getElementById('permissions-saisie');
     const gestionDiv = document.getElementById('permissions-gestion');
     
     if (selectedRole && permissionsParRole[selectedRole]) {
-        const permissions = permissionsParRole[selectedRole];
-        
-        saisieDiv.innerHTML = permissions.saisie.map(p => 
-            `<span class="badge bg-success me-1 mb-1">${p}</span>`
-        ).join('');
-        
-        gestionDiv.innerHTML = permissions.gestion.map(p => 
-            `<span class="badge bg-primary me-1 mb-1">${p}</span>`
-        ).join('');
+        const p = permissionsParRole[selectedRole];
+        saisieDiv.innerHTML = p.saisie.map(x => '<span class="badge bg-success me-1">' + x + '</span>').join('');
+        gestionDiv.innerHTML = p.gestion.map(x => '<span class="badge bg-primary me-1">' + x + '</span>').join('');
     } else {
-        saisieDiv.innerHTML = '<span class="text-muted">{% trans "Permissions par défaut" %}</span>';
-        gestionDiv.innerHTML = '<span class="text-muted">{% trans "Selon configuration" %}</span>';
+        saisieDiv.innerHTML = '<span class="text-muted">Permissions par défaut</span>';
+        gestionDiv.innerHTML = '<span class="text-muted">Selon configuration</span>';
     }
 }
 
-function resetPassword(userId) {
-    currentUserId = userId;
-    new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
-}
-
-function confirmResetPassword() {
-    if (currentUserId) {
-        // Redirection vers l'action de reset
-        window.location.href = `/accounts/admin/reset-password/${currentUserId}/`;
-    }
-}
-
-function sendNotification(userId) {
-    currentUserId = userId;
-    new bootstrap.Modal(document.getElementById('notificationModal')).show();
-}
-
-function confirmSendNotification() {
-    const title = document.getElementById('notificationTitle').value;
-    const message = document.getElementById('notificationMessage').value;
-    
-    if (currentUserId && title && message) {
-        // Ici, vous pouvez faire un appel AJAX pour envoyer la notification
-        fetch('/accounts/admin/send-notification/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            body: JSON.stringify({
-                user_id: currentUserId,
-                title: title,
-                message: message
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                bootstrap.Modal.getInstance(document.getElementById('notificationModal')).hide();
-                // Afficher un message de succès
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                alertDiv.innerHTML = `
-                    {% trans "Notification envoyée avec succès !" %}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.header-section'));
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-        });
-    }
-}
-
-// Validation téléphone en temps réel
-const telephoneInput = document.querySelector('input[name="telephone"]');
-if (telephoneInput) {
-    telephoneInput.addEventListener('input', function(e) {
-        const value = e.target.value;
-        const pattern = /^(\+?237?)?[0-9]{0,9}$/;
-        
-        if (!pattern.test(value) && value !== '') {
-            e.target.setCustomValidity('{% trans "Format de téléphone invalide" %}');
-        } else {
-            e.target.setCustomValidity('');
-        }
-    });
-}
+// Initialisation au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    filterPostes();
+});
 </script>
 {% endblock %}

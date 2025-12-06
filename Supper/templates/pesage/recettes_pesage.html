@@ -1,0 +1,322 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}Recettes Pesage{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- En-tête avec station -->
+    {% if station %}
+    <div class="card bg-gradient-primary text-white shadow mb-4">
+        <div class="card-body py-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-building me-2"></i>{{ station.nom }}
+                    </h4>
+                    <p class="mb-0 opacity-75">
+                        <i class="fas fa-map-marker-alt me-1"></i>
+                        {{ station.get_region_display }} - {{ station.code }}
+                    </p>
+                </div>
+                {% if is_admin %}
+                <a href="{% url 'inventaire:selectionner_station' %}?action=recettes_pesage" 
+                   class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-exchange-alt me-1"></i> Changer de station
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Titre et actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-cash-register text-success me-2"></i>
+                Recettes Pesage
+            </h2>
+            <p class="text-muted mb-0">
+                Suivi des paiements d'amendes - Du {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'inventaire:statistiques_pesage' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-bar me-1"></i> Statistiques
+            </a>
+        </div>
+    </div>
+    
+    <!-- Cartes statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Total Recouvré</h6>
+                            <h3 class="mb-0">{{ stats.total_recouvre|default:0|intcomma }} F</h3>
+                        </div>
+                        <div class="icon-shape bg-white bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-money-bill-wave fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Paiements</h6>
+                            <h3 class="mb-0">{{ stats.count_paiements|default:0 }}</h3>
+                        </div>
+                        <div class="icon-shape bg-white bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-receipt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Moyenne/Jour</h6>
+                            <h3 class="mb-0">{{ stats.moyenne_journaliere|floatformat:0|intcomma }} F</h3>
+                        </div>
+                        <div class="icon-shape bg-white bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Période</h6>
+                            <h5 class="mb-0">{{ date_debut|date:"d/m" }} - {{ date_fin|date:"d/m/Y" }}</h5>
+                        </div>
+                        <div class="icon-shape bg-dark bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-calendar-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtres et recherche -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>Filtres et Recherche
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <!-- Recherche textuelle -->
+                <div class="col-md-4">
+                    <label class="form-label">Recherche</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" name="q" 
+                               value="{{ query }}" 
+                               placeholder="Ticket, immatriculation, nom...">
+                    </div>
+                </div>
+                
+                <!-- Période prédéfinie -->
+                <div class="col-md-2">
+                    <label class="form-label">Période</label>
+                    <select name="periode" class="form-select" id="selectPeriode">
+                        <option value="jour" {% if periode == 'jour' %}selected{% endif %}>Aujourd'hui</option>
+                        <option value="semaine" {% if periode == 'semaine' %}selected{% endif %}>Cette semaine</option>
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Ce mois</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Ce trimestre</option>
+                        <option value="annee" {% if periode == 'annee' %}selected{% endif %}>Cette année</option>
+                        <option value="personnalise" {% if periode == 'personnalise' %}selected{% endif %}>Personnalisé</option>
+                    </select>
+                </div>
+                
+                <!-- Dates personnalisées -->
+                <div class="col-md-2" id="dateDebutGroup" style="{% if periode != 'personnalise' %}display:none;{% endif %}">
+                    <label class="form-label">Date début</label>
+                    <input type="date" class="form-control" name="date_debut" 
+                           value="{{ date_debut|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-2" id="dateFinGroup" style="{% if periode != 'personnalise' %}display:none;{% endif %}">
+                    <label class="form-label">Date fin</label>
+                    <input type="date" class="form-control" name="date_fin" 
+                           value="{{ date_fin|date:'Y-m-d' }}">
+                </div>
+                
+                <!-- Filtre station (admin) -->
+                {% if is_admin %}
+                <div class="col-md-2">
+                    <label class="form-label">Station</label>
+                    <select name="station_filter" class="form-select">
+                        <option value="">Toutes les stations</option>
+                        {% for s in stations_accessibles %}
+                        <option value="{{ s.id }}" {% if station_filter == s.id|stringformat:"s" %}selected{% endif %}>
+                            {{ s.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <!-- Boutons -->
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-search me-1"></i> Filtrer
+                    </button>
+                    <a href="{% url 'inventaire:recettes_pesage' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Liste des recettes par jour -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>Recettes par Jour
+            </h5>
+            <span class="badge bg-secondary">{{ recettes.paginator.count }} jour(s)</span>
+        </div>
+        <div class="card-body p-0">
+            {% if recettes %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th class="text-center">Nb Paiements</th>
+                            <th class="text-end">Montant Total</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for recette in recettes %}
+                        <tr>
+                            <td>
+                                <i class="fas fa-calendar-day text-muted me-2"></i>
+                                <strong>{{ recette.date|date:"l d F Y" }}</strong>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary rounded-pill">
+                                    {{ recette.count_paiements }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <strong class="text-success">{{ recette.total|intcomma }} FCFA</strong>
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'inventaire:imprimer_recette_jour' recette.date|date:'Y-m-d' %}{% if station_filter %}?station={{ station_filter }}{% endif %}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Voir détails">
+                                    <i class="fas fa-eye me-1"></i> Détails
+                                </a>
+                                <a href="{% url 'inventaire:imprimer_recette_jour' recette.date|date:'Y-m-d' %}{% if station_filter %}?station={{ station_filter }}{% endif %}&print=1" 
+                                   class="btn btn-sm btn-outline-secondary"
+                                   target="_blank"
+                                   title="Imprimer">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td>TOTAL PÉRIODE</td>
+                            <td class="text-center">{{ stats.count_paiements }}</td>
+                            <td class="text-end text-success">{{ stats.total_recouvre|default:0|intcomma }} FCFA</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if recettes.has_other_pages %}
+            <div class="card-footer bg-white">
+                <nav aria-label="Pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if recettes.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ recettes.previous_page_number }}&q={{ query }}&periode={{ periode }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&station_filter={{ station_filter }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in recettes.paginator.page_range %}
+                            {% if recettes.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > recettes.number|add:'-3' and num < recettes.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}&q={{ query }}&periode={{ periode }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&station_filter={{ station_filter }}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if recettes.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ recettes.next_page_number }}&q={{ query }}&periode={{ periode }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&station_filter={{ station_filter }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucune recette trouvée</h5>
+                <p class="text-muted">Aucun paiement enregistré pour cette période.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectPeriode = document.getElementById('selectPeriode');
+    const dateDebutGroup = document.getElementById('dateDebutGroup');
+    const dateFinGroup = document.getElementById('dateFinGroup');
+    
+    selectPeriode.addEventListener('change', function() {
+        if (this.value === 'personnalise') {
+            dateDebutGroup.style.display = 'block';
+            dateFinGroup.style.display = 'block';
+        } else {
+            dateDebutGroup.style.display = 'none';
+            dateFinGroup.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,332 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- EN-TÊTE STATION -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white shadow">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 me-3">
+                                <i class="fas fa-balance-scale fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0 fw-bold">{{ station.nom }}</h4>
+                                <p class="mb-0 opacity-75">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ station.get_region_display }} - {{ station.code }}
+                                </p>
+                            </div>
+                        </div>
+                        {% if is_admin %}
+                        <a href="{% url 'inventaire:selectionner_station' %}?action=saisir_amende" 
+                           class="btn btn-light btn-sm">
+                            <i class="fas fa-exchange-alt me-1"></i>
+                            {% trans "Changer de station" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            
+            <!-- Titre de la page -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+                    {{ title }}
+                </h2>
+                <a href="{% url 'inventaire:liste_amendes' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-list me-1"></i>
+                    {% trans "Liste des amendes" %}
+                </a>
+            </div>
+            
+            <!-- Formulaire de saisie -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom">
+                    <h5 class="mb-0 text-primary">
+                        <i class="fas fa-edit me-2"></i>
+                        {% trans "Nouvelle amende" %}
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" id="form-amende" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Alerte date -->
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-calendar-check me-2"></i>
+                            <strong>{% trans "Date du jour" %}:</strong> {{ today|date:"d/m/Y" }}
+                            <br>
+                            <small class="text-muted">
+                                {% trans "Les amendes sont automatiquement datées du moment de saisie." %}
+                            </small>
+                        </div>
+                        
+                        <div class="row g-3">
+                            
+                            <!-- Section: Identification du véhicule -->
+                            <div class="col-12">
+                                <h6 class="text-muted text-uppercase mb-3">
+                                    <i class="fas fa-truck me-2"></i>
+                                    {% trans "Identification du véhicule" %}
+                                </h6>
+                            </div>
+                            
+                            <!-- Numéro de ticket -->
+                            <div class="col-md-6">
+                                <label for="id_numero_ticket" class="form-label fw-bold">
+                                    {% trans "Numéro de ticket" %} <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       name="numero_ticket" 
+                                       id="id_numero_ticket" 
+                                       class="form-control {% if form.numero_ticket.errors %}is-invalid{% endif %}"
+                                       value="{{ form.numero_ticket.value|default:'' }}"
+                                       placeholder="Ex: TK-2024-00001"
+                                       required>
+                                {% if form.numero_ticket.errors %}
+                                <div class="invalid-feedback">{{ form.numero_ticket.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Immatriculation -->
+                            <div class="col-md-6">
+                                <label for="id_immatriculation" class="form-label fw-bold">
+                                    {% trans "Immatriculation" %} <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       name="immatriculation" 
+                                       id="id_immatriculation" 
+                                       class="form-control {% if form.immatriculation.errors %}is-invalid{% endif %}"
+                                       value="{{ form.immatriculation.value|default:'' }}"
+                                       placeholder="Ex: CE 123 AB"
+                                       style="text-transform: uppercase;"
+                                       required>
+                                {% if form.immatriculation.errors %}
+                                <div class="invalid-feedback">{{ form.immatriculation.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Transporteur -->
+                            <div class="col-md-6">
+                                <label for="id_transporteur" class="form-label">
+                                    {% trans "Nom du transporteur" %}
+                                </label>
+                                <input type="text" 
+                                       name="transporteur" 
+                                       id="id_transporteur" 
+                                       class="form-control"
+                                       value="{{ form.transporteur.value|default:'' }}"
+                                       placeholder="{% trans 'Nom ou raison sociale' %}">
+                            </div>
+                            
+                            <!-- Opérateur -->
+                            <div class="col-md-6">
+                                <label for="id_operateur" class="form-label">
+                                    {% trans "Opérateur / Chauffeur" %}
+                                </label>
+                                <input type="text" 
+                                       name="operateur" 
+                                       id="id_operateur" 
+                                       class="form-control"
+                                       value="{{ form.operateur.value|default:'' }}"
+                                       placeholder="{% trans 'Nom du chauffeur' %}">
+                            </div>
+                            
+                            <!-- Section: Trajet -->
+                            <div class="col-12 mt-4">
+                                <h6 class="text-muted text-uppercase mb-3">
+                                    <i class="fas fa-route me-2"></i>
+                                    {% trans "Informations sur le trajet" %}
+                                </h6>
+                            </div>
+                            
+                            <!-- Ville de provenance -->
+                            <div class="col-md-6">
+                                <label for="id_provenance" class="form-label">
+                                    {% trans "Ville de provenance" %}
+                                </label>
+                                <input type="text" 
+                                       name="provenance" 
+                                       id="id_provenance" 
+                                       class="form-control"
+                                       value="{{ form.provenance.value|default:'' }}"
+                                       placeholder="Ex: Douala">
+                            </div>
+                            
+                            <!-- Ville de destination -->
+                            <div class="col-md-6">
+                                <label for="id_destination" class="form-label">
+                                    {% trans "Ville de destination" %}
+                                </label>
+                                <input type="text" 
+                                       name="destination" 
+                                       id="id_destination" 
+                                       class="form-control"
+                                       value="{{ form.destination.value|default:'' }}"
+                                       placeholder="Ex: Yaoundé">
+                            </div>
+                            
+                            <!-- Produit transporté -->
+                            <div class="col-md-12">
+                                <label for="id_produit_transporte" class="form-label">
+                                    {% trans "Produit transporté" %}
+                                </label>
+                                <input type="text" 
+                                       name="produit_transporte" 
+                                       id="id_produit_transporte" 
+                                       class="form-control"
+                                       value="{{ form.produit_transporte.value|default:'' }}"
+                                       placeholder="Ex: Ciment, Bois, Marchandises diverses...">
+                            </div>
+                            
+                            <!-- Section: Infraction -->
+                            <div class="col-12 mt-4">
+                                <h6 class="text-muted text-uppercase mb-3">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    {% trans "Nature de l'infraction" %}
+                                </h6>
+                            </div>
+                            
+                            <!-- Type d'infraction (checkboxes) -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">
+                                    {% trans "Type d'infraction" %} <span class="text-danger">*</span>
+                                </label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           name="est_surcharge" 
+                                           id="id_est_surcharge"
+                                           value="1"
+                                           {% if form.est_surcharge.value %}checked{% endif %}>
+                                    <label class="form-check-label" for="id_est_surcharge">
+                                        <i class="fas fa-weight text-warning me-1"></i>
+                                        {% trans "Surcharge (S)" %}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           name="est_hors_gabarit" 
+                                           id="id_est_hors_gabarit"
+                                           value="1"
+                                           {% if form.est_hors_gabarit.value %}checked{% endif %}>
+                                    <label class="form-check-label" for="id_est_hors_gabarit">
+                                        <i class="fas fa-expand-arrows-alt text-danger me-1"></i>
+                                        {% trans "Hors Gabarit (HG)" %}
+                                    </label>
+                                </div>
+                                <small class="text-muted">
+                                    {% trans "Cochez au moins une option" %}
+                                </small>
+                            </div>
+                            
+                            <!-- Montant amende -->
+                            <div class="col-md-6">
+                                <label for="id_montant_amende" class="form-label fw-bold">
+                                    {% trans "Montant amende (FCFA)" %} <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           name="montant_amende" 
+                                           id="id_montant_amende" 
+                                           class="form-control {% if form.montant_amende.errors %}is-invalid{% endif %}"
+                                           value="{{ form.montant_amende.value|default:'' }}"
+                                           min="0"
+                                           step="1"
+                                           placeholder="0"
+                                           required>
+                                    <span class="input-group-text">FCFA</span>
+                                    {% if form.montant_amende.errors %}
+                                    <div class="invalid-feedback">{{ form.montant_amende.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Observations -->
+                            <div class="col-12 mt-3">
+                                <label for="id_observations" class="form-label">
+                                    {% trans "Observations" %}
+                                </label>
+                                <textarea name="observations" 
+                                          id="id_observations" 
+                                          class="form-control"
+                                          rows="2"
+                                          placeholder="{% trans 'Notes complémentaires...' %}">{{ form.observations.value|default:'' }}</textarea>
+                            </div>
+                            
+                        </div>
+                        
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                            <a href="{% url 'inventaire:liste_amendes' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>
+                                {% trans "Annuler" %}
+                            </a>
+                            <div>
+                                <button type="submit" name="saisir_autre" class="btn btn-outline-primary me-2">
+                                    <i class="fas fa-plus me-1"></i>
+                                    {% trans "Enregistrer et saisir une autre" %}
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>
+                                    {% trans "Enregistrer" %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Uppercase pour immatriculation
+    document.getElementById('id_immatriculation').addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+    
+    // Validation: au moins une infraction cochée
+    const formAmende = document.getElementById('form-amende');
+    const checkSurcharge = document.getElementById('id_est_surcharge');
+    const checkHorsGabarit = document.getElementById('id_est_hors_gabarit');
+    
+    formAmende.addEventListener('submit', function(e) {
+        if (!checkSurcharge.checked && !checkHorsGabarit.checked) {
+            e.preventDefault();
+            alert("{% trans 'Veuillez cocher au moins un type d\\'infraction (Surcharge ou Hors Gabarit).' %}");
+            return false;
+        }
+    });
+    
+    // Focus sur premier champ
+    document.getElementById('id_numero_ticket').focus();
+});
+</script>
+{% endblock %}

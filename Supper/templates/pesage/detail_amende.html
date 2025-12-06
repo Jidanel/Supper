@@ -1,0 +1,239 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Détail amende" %} {{ amende.numero_ticket }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Fil d'Ariane -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'common:dashboard' %}">
+                    <i class="fas fa-weight me-1"></i>{% trans "Pesage" %}
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'inventaire:liste_amendes' %}">{% trans "Amendes" %}</a>
+            </li>
+            <li class="breadcrumb-item active">{{ amende.numero_ticket }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Informations principales -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-invoice text-primary me-2"></i>
+                        {% trans "Amende" %} {{ amende.numero_ticket }}
+                    </h5>
+                    <span class="badge {% if amende.statut == 'paye' %}bg-success{% else %}bg-secondary{% endif %} fs-6">
+                        {% if amende.statut == 'paye' %}
+                        <i class="fas fa-check me-1"></i>{% trans "Payé" %}
+                        {% else %}
+                        <i class="fas fa-clock me-1"></i>{% trans "Non payé" %}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <!-- Informations véhicule -->
+                        <div class="col-12">
+                            <h6 class="text-muted text-uppercase small mb-3">
+                                <i class="fas fa-truck me-2"></i>{% trans "Informations véhicule" %}
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Immatriculation" %}</label>
+                            <p class="fw-bold fs-5 mb-0">{{ amende.immatriculation }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Transporteur" %}</label>
+                            <p class="fw-bold mb-0">{{ amende.transporteur }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Opérateur" %}</label>
+                            <p class="mb-0">{{ amende.operateur }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Produit transporté" %}</label>
+                            <p class="mb-0">{{ amende.produit_transporte }}</p>
+                        </div>
+
+                        <div class="col-12"><hr class="my-2"></div>
+
+                        <!-- Trajet -->
+                        <div class="col-12">
+                            <h6 class="text-muted text-uppercase small mb-3">
+                                <i class="fas fa-route me-2"></i>{% trans "Trajet" %}
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Provenance" %}</label>
+                            <p class="mb-0">
+                                <i class="fas fa-map-marker-alt text-success me-1"></i>
+                                {{ amende.provenance }}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Destination" %}</label>
+                            <p class="mb-0">
+                                <i class="fas fa-flag-checkered text-danger me-1"></i>
+                                {{ amende.destination }}
+                            </p>
+                        </div>
+
+                        <div class="col-12"><hr class="my-2"></div>
+
+                        <!-- Infraction -->
+                        <div class="col-12">
+                            <h6 class="text-muted text-uppercase small mb-3">
+                                <i class="fas fa-exclamation-triangle me-2"></i>{% trans "Infraction" %}
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Type d'infraction" %}</label>
+                            <p class="mb-0">
+                                {% if amende.est_surcharge %}
+                                <span class="badge bg-warning text-dark me-1">
+                                    <i class="fas fa-weight-hanging me-1"></i>{% trans "Surcharge" %}
+                                </span>
+                                {% endif %}
+                                {% if amende.est_hors_gabarit %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-expand-arrows-alt me-1"></i>{% trans "Hors Gabarit" %}
+                                </span>
+                                {% endif %}
+                            </p>
+                            {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                {% trans "Compte pour 2 amendes dans les statistiques" %}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">{% trans "Montant de l'amende" %}</label>
+                            <p class="fw-bold fs-4 text-primary mb-0">
+                                {{ amende.montant_amende|floatformat:0 }} FCFA
+                            </p>
+                        </div>
+
+                        {% if amende.observations %}
+                        <div class="col-12"><hr class="my-2"></div>
+                        <div class="col-12">
+                            <label class="form-label text-muted small">{% trans "Observations" %}</label>
+                            <p class="mb-0">{{ amende.observations }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historique des événements -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-history text-secondary me-2"></i>
+                        {% trans "Historique" %}
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if events %}
+                    <ul class="list-group list-group-flush">
+                        {% for event in events %}
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    {% if event.event_type == 'EMISSION' %}
+                                    <span class="badge bg-primary me-2">{% trans "Émission" %}</span>
+                                    {% elif event.event_type == 'PAIEMENT' %}
+                                    <span class="badge bg-success me-2">{% trans "Paiement" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary me-2">{{ event.get_event_type_display }}</span>
+                                    {% endif %}
+                                    <span class="text-muted">{{ event.event_datetime|date:"d/m/Y H:i" }}</span>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted">
+                                        {% trans "Par" %} {{ event.effectue_par.nom_complet|default:event.effectue_par.username }}
+                                    </small>
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted text-center py-3 mb-0">{% trans "Aucun historique" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Informations de suivi -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% trans "Informations" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">{% trans "Station" %}</label>
+                        <p class="mb-0 fw-bold">{{ amende.station.nom }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">{% trans "Date d'émission" %}</label>
+                        <p class="mb-0">{{ amende.date_heure_emission|date:"d/m/Y à H:i" }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">{% trans "Saisi par" %}</label>
+                        <p class="mb-0">{{ amende.saisi_par.nom_complet }}</p>
+                    </div>
+                    {% if amende.statut == 'paye' %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">{% trans "Date de paiement" %}</label>
+                        <p class="mb-0">{{ amende.date_paiement|date:"d/m/Y à H:i" }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">{% trans "Validé par" %}</label>
+                        <p class="mb-0">{{ amende.valide_par.nom_complet }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            {% if amende.statut == 'non_paye' and user.habilitation == 'regisseur_pesage' or user.is_admin %}
+            <div class="card border-0 shadow-sm bg-success bg-opacity-10">
+                <div class="card-body text-center">
+                    <h6 class="text-success mb-3">{% trans "Action disponible" %}</h6>
+                    <form method="post" action="{% url 'inventaire:valider_paiement' amende.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-lg w-100" 
+                                onclick="return confirm('{% trans "Confirmer la validation du paiement ?" %}')">
+                            <i class="fas fa-check-circle me-2"></i>
+                            {% trans "Valider le paiement" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Retour -->
+            <div class="d-grid gap-2 mt-4">
+                <a href="{% url 'inventaire:liste_amendes' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    {% trans "Retour à la liste" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

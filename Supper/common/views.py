@@ -1,8 +1,5 @@
 # ===================================================================
-# Fichier : Supper/common/views.py - MISE À JOUR AVEC REDIRECTIONS ADMIN DJANGO
-# Vues avec gestion des permissions selon les clarifications
-# Agent : pas de recettes potentielles, Chef : seulement taux, Admin : tout
-# AJOUT: Redirections vers panel admin Django natif
+# Fichier : Supper/common/views.py
 # ===================================================================
 
 from django.shortcuts import render, redirect, get_object_or_404

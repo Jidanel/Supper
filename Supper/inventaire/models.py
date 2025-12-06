@@ -20,7 +20,9 @@ from django.utils import timezone
 from django.core.cache import cache
 
 import logging
-
+from inventaire.models_pesage import *
+from inventaire.models_performance import *
+from inventaire.models_config import *
 logger = logging.getLogger('supper')
 
 class MoisChoices(models.TextChoices):

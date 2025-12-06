@@ -8,6 +8,7 @@ from django.contrib.auth.views import LoginView, PasswordChangeView as DjangoPas
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, TemplateView, View
 from django.shortcuts import redirect, get_object_or_404, render
+from django.views.decorators.http import require_GET
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.db import transaction
@@ -38,6 +39,35 @@ from common.mixins import AuditMixin, AdminRequiredMixin, BilingualMixin
 logger = logging.getLogger('supper')
 
 
+
+# Habilitations qui DOIVENT être affectées à une station de PESAGE
+HABILITATIONS_PESAGE = [
+    'chef_equipe_pesage',
+    'regisseur_pesage', 
+    'chef_station_pesage',
+]
+
+# Habilitations qui DOIVENT être affectées à un poste de PÉAGE
+HABILITATIONS_PEAGE = [
+    'chef_peage',
+    'agent_inventaire',
+]
+
+# Habilitations qui peuvent accéder à TOUS les postes (ou aucun)
+HABILITATIONS_MULTI_POSTES = [
+    'admin_principal',
+    'coord_psrr',
+    'serv_info',
+    'serv_emission',
+    'chef_ag',
+    'regisseur',
+    'comptable_mat',
+    'chef_ordre',
+    'chef_controle',
+    'imprimerie',
+    'focal_regional',
+    'chef_service',
+]
 # ===================================================================
 # FONCTIONS UTILITAIRES POUR L'ADMIN DJANGO
 # ===================================================================
@@ -443,8 +473,7 @@ def detail_utilisateur(request, user_id):
 @login_required
 def modifier_utilisateur(request, user_id):
     """
-    Vue pour modifier un utilisateur
-    SOLUTION PROBLÈME 1: Utilisation du formulaire UserUpdateForm avec pré-remplissage
+    Vue pour modifier un utilisateur avec filtrage dynamique des postes
     """
     user_to_edit = get_object_or_404(UtilisateurSUPPER, id=user_id)
     
@@ -454,42 +483,206 @@ def modifier_utilisateur(request, user_id):
         return redirect('accounts:detail_utilisateur', user_id=user_to_edit.id)
     
     if request.method == 'POST':
-        # Utiliser le formulaire avec les données POST
         form = UserUpdateForm(request.POST, instance=user_to_edit)
         
         if form.is_valid():
-            # Sauvegarder les modifications
+            # Détecter les changements pour la journalisation
+            changes = []
+            if form.has_changed():
+                for field in form.changed_data:
+                    old_value = getattr(user_to_edit, field, None)
+                    new_value = form.cleaned_data.get(field)
+                    
+                    if field == 'habilitation':
+                        old_display = dict(Habilitation.choices).get(old_value, old_value)
+                        new_display = dict(Habilitation.choices).get(new_value, new_value)
+                        changes.append(f"Rôle: {old_display} → {new_display}")
+                    elif field == 'poste_affectation':
+                        old_display = str(old_value) if old_value else "Aucun"
+                        new_display = str(new_value) if new_value else "Aucun"
+                        changes.append(f"Poste: {old_display} → {new_display}")
+                    elif field == 'is_active':
+                        old_display = "Actif" if old_value else "Inactif"
+                        new_display = "Actif" if new_value else "Inactif"
+                        changes.append(f"Statut: {old_display} → {new_display}")
+            
             user_updated = form.save()
             
-            # Journalisation
-            log_user_action(
-                request.user,
-                "Modification utilisateur",
-                f"Utilisateur modifié: {user_updated.username} ({user_updated.nom_complet})",
-                request
-            )
+            details = f"Utilisateur modifié: {user_updated.username} ({user_updated.nom_complet})"
+            if changes:
+                details += f" | Modifications: {', '.join(changes)}"
             
-            messages.success(
-                request, 
-                f"Utilisateur {user_updated.nom_complet} modifié avec succès."
-            )
+            log_user_action(request.user, "Modification utilisateur", details, request)
+            
+            messages.success(request, f"Utilisateur {user_updated.nom_complet} modifié avec succès.")
             return redirect('accounts:detail_utilisateur', user_id=user_updated.id)
         else:
-            # Si le formulaire n'est pas valide, afficher les erreurs
-            messages.error(request, "Veuillez vous rassurer que tous les champs obligatoires sont remplis.")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    if field == '__all__':
+                        messages.error(request, error)
+                    else:
+                        messages.error(request, f"{error}")
     else:
-        # GET: Créer le formulaire avec les données existantes (PRÉ-REMPLISSAGE)
         form = UserUpdateForm(instance=user_to_edit)
     
+   
+    postes_peage = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
+    postes_pesage = Poste.objects.filter(is_active=True, type='pesage').order_by('nom')
+
     context = {
         'form': form,
         'user_edit': user_to_edit,
-        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
+        'postes_peage': postes_peage,
+        'postes_pesage': postes_pesage,
+        'count_peage': postes_peage.count(),
+        'count_pesage': postes_pesage.count(),
         'habilitations': Habilitation.choices,
         'title': f'Modifier - {user_to_edit.nom_complet}'
     }
     
     return render(request, 'accounts/modifier_utilisateur.html', context)
+
+@login_required
+@require_GET
+def api_postes_par_type(request):
+    """
+    API pour récupérer les postes filtrés par type.
+    
+    Paramètres GET:
+        - type: 'peage', 'pesage' ou 'all'
+    
+    Retourne:
+        JSON avec liste des postes [{id, code, nom, type}]
+    """
+    if not _check_admin_permission(request.user):
+        return JsonResponse({'error': 'Non autorisé'}, status=403)
+    
+    type = request.GET.get('type', 'all')
+    
+    queryset = Poste.objects.filter(is_active=True)
+    
+    if type == 'peage':
+        queryset = queryset.filter(type='peage')
+    elif type == 'pesage':
+        queryset = queryset.filter(type='pesage')
+    
+    queryset = queryset.order_by('nom')
+    
+    postes = [{
+        'id': p.id,
+        'code': p.code,
+        'nom': p.nom,
+        'type': p.type,
+        'type_display': p.get_type_display(),
+        'region': p.get_region_display() if hasattr(p, 'region') else '',
+    } for p in queryset]
+    
+    return JsonResponse({
+        'postes': postes,
+        'count': len(postes)
+    })
+
+
+@login_required
+@require_GET
+def api_habilitation_info(request):
+    """
+    API pour récupérer les infos sur une habilitation.
+    
+    Paramètres GET:
+        - habilitation: code de l'habilitation
+    
+    Retourne:
+        JSON avec infos sur le type de poste requis
+    """
+    habilitation = request.GET.get('habilitation', '')
+    
+    # Mapping
+    HABILITATIONS_PESAGE = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage']
+    HABILITATIONS_PEAGE = ['chef_peage', 'caissier', 'agent_inventaire']
+    HABILITATIONS_ADMIN = ['admin_principal', 'coord_psrr', 'serv_info']
+    
+    if habilitation in HABILITATIONS_PESAGE:
+        return JsonResponse({
+            'type_requis': 'pesage',
+            'poste_obligatoire': True,
+            'message': _("Ce rôle doit être affecté à une station de pesage.")
+        })
+    
+    elif habilitation in HABILITATIONS_PEAGE:
+        return JsonResponse({
+            'type_requis': 'peage',
+            'poste_obligatoire': True,
+            'message': _("Ce rôle doit être affecté à un poste de péage.")
+        })
+    
+    elif habilitation in HABILITATIONS_ADMIN:
+        return JsonResponse({
+            'type_requis': 'all',
+            'poste_obligatoire': False,
+            'message': _("Ce rôle a accès à tous les postes (affectation optionnelle).")
+        })
+    
+    else:
+        return JsonResponse({
+            'type_requis': 'all',
+            'poste_obligatoire': False,
+            'message': _("Sélectionnez un poste si nécessaire.")
+        })
+
+
+# ===================================================================
+# STATISTIQUES UTILISATEURS PAR TYPE
+# ===================================================================
+
+@login_required
+def stats_utilisateurs_pesage(request):
+    """
+    Statistiques des utilisateurs affectés aux stations de pesage.
+    """
+    if not _check_admin_permission(request.user):
+        return JsonResponse({'error': 'Non autorisé'}, status=403)
+    
+    from django.db.models import Count
+    
+    # Utilisateurs pesage par station
+    stats_par_station = UtilisateurSUPPER.objects.filter(
+        habilitation__in=['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage'],
+        poste_affectation__isnull=False,
+        is_active=True
+    ).values(
+        'poste_affectation__id',
+        'poste_affectation__nom',
+        'poste_affectation__code'
+    ).annotate(
+        count=Count('id')
+    ).order_by('poste_affectation__nom')
+    
+    # Stations sans personnel
+    stations_avec_personnel = [s['poste_affectation__id'] for s in stats_par_station]
+    stations_sans_personnel = Poste.objects.filter(
+        type='pesage',
+        is_active=True
+    ).exclude(id__in=stations_avec_personnel)
+    
+    # Comptage par rôle
+    stats_par_role = UtilisateurSUPPER.objects.filter(
+        habilitation__in=['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage'],
+        is_active=True
+    ).values('habilitation').annotate(
+        count=Count('id')
+    )
+    
+    return JsonResponse({
+        'par_station': list(stats_par_station),
+        'par_role': list(stats_par_role),
+        'stations_sans_personnel': list(stations_sans_personnel.values('id', 'nom', 'code')),
+        'total_utilisateurs_pesage': sum(s['count'] for s in stats_par_station),
+        'total_stations_pesage': Poste.objects.filter(type='pesage', is_active=True).count(),
+    })
+
+
 
 # ===================================================================
 # REDIRECTIONS AVEC PARAMÈTRES
@@ -1395,30 +1588,103 @@ def creer_poste(request):
         messages.error(request, "Accès non autorisé.")
         return redirect('accounts:liste_postes')
     
-    if request.method == 'POST':
-        from accounts.forms import PosteForm
-        form = PosteForm(request.POST)
-        
-        if form.is_valid():
-            poste = form.save()
-            
-            log_user_action(
-                request.user,
-                "Création poste",
-                f"Poste créé: {poste.code} - {poste.nom}",
-                request
-            )
-            
-            messages.success(request, f"Poste {poste.nom} créé avec succès.")
-            return redirect('accounts:detail_poste', poste_id=poste.id)
-    else:
-        from accounts.forms import PosteForm
-        form = PosteForm()
+    from accounts.models import Region, Departement
+    import json
     
-    from accounts.models import Region
+    # Charger toutes les régions avec leurs départements
+    regions = Region.objects.prefetch_related('departements').all().order_by('nom')
+    
+    # Créer un dictionnaire région_id -> liste de départements pour le JavaScript
+    departements_par_region = {}
+    for region in regions:
+        departements_par_region[region.id] = [
+            {'id': d.id, 'nom': d.nom} 
+            for d in region.departements.all().order_by('nom')
+        ]
+    
+    if request.method == 'POST':
+        # Récupérer les données du formulaire
+        code = request.POST.get('code', '').upper().strip()
+        nom = request.POST.get('nom', '').strip()
+        type_poste = request.POST.get('type', '')
+        is_active = request.POST.get('is_active') == 'on'
+        nouveau = request.POST.get('nouveau') == 'on'
+        region_id = request.POST.get('region')
+        departement_id = request.POST.get('departement')
+        axe_routier = request.POST.get('axe_routier', '').strip()
+        latitude = request.POST.get('latitude') or None
+        longitude = request.POST.get('longitude') or None
+        description = request.POST.get('description', '').strip()
+        
+        # Validation
+        errors = []
+        
+        if not code:
+            errors.append("Le code du poste est obligatoire.")
+        elif Poste.objects.filter(code=code).exists():
+            errors.append(f"Le code '{code}' existe déjà.")
+            
+        if not nom:
+            errors.append("Le nom du poste est obligatoire.")
+            
+        if not type_poste:
+            errors.append("Le type de poste est obligatoire.")
+            
+        if not region_id:
+            errors.append("La région est obligatoire.")
+        
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+        else:
+            try:
+                # Récupérer la région
+                region = Region.objects.get(id=region_id)
+                
+                # Récupérer le département (optionnel)
+                departement = None
+                if departement_id:
+                    departement = Departement.objects.get(id=departement_id)
+                
+                # Convertir latitude/longitude en float
+                lat = float(latitude) if latitude else None
+                lng = float(longitude) if longitude else None
+                
+                # Créer le poste
+                poste = Poste.objects.create(
+                    code=code,
+                    nom=nom,
+                    type=type_poste,
+                    is_active=is_active,
+                    nouveau=nouveau,
+                    region=region,
+                    departement=departement,
+                    axe_routier=axe_routier,
+                    latitude=lat,
+                    longitude=lng,
+                    description=description
+                )
+                
+                log_user_action(
+                    request.user,
+                    "Création poste",
+                    f"Poste créé: {poste.code} - {poste.nom}",
+                    request
+                )
+                
+                messages.success(request, f"Poste {poste.nom} créé avec succès.")
+                return redirect('accounts:detail_poste', poste_id=poste.id)
+                
+            except Region.DoesNotExist:
+                messages.error(request, "Région invalide.")
+            except Departement.DoesNotExist:
+                messages.error(request, "Département invalide.")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la création: {str(e)}")
+    
     context = {
-        'form': form,
-        'regions': Region.objects.all(),
+        'regions': regions,
+        'departements_par_region': json.dumps(departements_par_region),
         'title': 'Créer un Poste'
     }
     
@@ -1434,31 +1700,109 @@ def modifier_poste(request, poste_id):
         messages.error(request, "Accès non autorisé.")
         return redirect('accounts:detail_poste', poste_id=poste.id)
     
-    if request.method == 'POST':
-        from accounts.forms import PosteForm
-        form = PosteForm(request.POST, instance=poste)
-        
-        if form.is_valid():
-            poste = form.save()
-            
-            log_user_action(
-                request.user,
-                "Modification poste",
-                f"Poste modifié: {poste.code} - {poste.nom}",
-                request
-            )
-            
-            messages.success(request, f"Poste {poste.nom} modifié avec succès.")
-            return redirect('accounts:detail_poste', poste_id=poste.id)
-    else:
-        from accounts.forms import PosteForm
-        form = PosteForm(instance=poste)
+    from accounts.models import Region, Departement
+    import json
     
-    from accounts.models import Region
+    # Charger toutes les régions avec leurs départements
+    regions = Region.objects.prefetch_related('departements').all().order_by('nom')
+    
+    # Créer un dictionnaire région_id -> liste de départements
+    departements_par_region = {}
+    for region in regions:
+        departements_par_region[region.id] = [
+            {'id': d.id, 'nom': d.nom} 
+            for d in region.departements.all().order_by('nom')
+        ]
+    
+    # Déterminer le département et la région actuels
+    region_actuelle = poste.region.id if poste.region else None
+    departement_actuel = poste.departement.id if poste.departement else None
+    
+    if request.method == 'POST':
+        # Récupérer les données du formulaire
+        code = request.POST.get('code', '').upper().strip()
+        nom = request.POST.get('nom', '').strip()
+        type_poste = request.POST.get('type', '')
+        is_active = request.POST.get('is_active') == 'on'
+        nouveau = request.POST.get('nouveau') == 'on'
+        region_id = request.POST.get('region')
+        departement_id = request.POST.get('departement')
+        axe_routier = request.POST.get('axe_routier', '').strip()
+        latitude = request.POST.get('latitude') or None
+        longitude = request.POST.get('longitude') or None
+        description = request.POST.get('description', '').strip()
+        
+        # Validation
+        errors = []
+        
+        if not code:
+            errors.append("Le code du poste est obligatoire.")
+        elif Poste.objects.filter(code=code).exclude(id=poste.id).exists():
+            errors.append(f"Le code '{code}' existe déjà pour un autre poste.")
+            
+        if not nom:
+            errors.append("Le nom du poste est obligatoire.")
+            
+        if not type_poste:
+            errors.append("Le type de poste est obligatoire.")
+            
+        if not region_id:
+            errors.append("La région est obligatoire.")
+        
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+        else:
+            try:
+                # Récupérer la région
+                region = Region.objects.get(id=region_id)
+                
+                # Récupérer le département (optionnel)
+                departement = None
+                if departement_id:
+                    departement = Departement.objects.get(id=departement_id)
+                
+                # Convertir latitude/longitude en float
+                lat = float(latitude) if latitude else None
+                lng = float(longitude) if longitude else None
+                
+                # Mettre à jour le poste
+                poste.code = code
+                poste.nom = nom
+                poste.type = type_poste
+                poste.is_active = is_active
+                poste.nouveau = nouveau
+                poste.region = region
+                poste.departement = departement
+                poste.axe_routier = axe_routier
+                poste.latitude = lat
+                poste.longitude = lng
+                poste.description = description
+                poste.save()
+                
+                log_user_action(
+                    request.user,
+                    "Modification poste",
+                    f"Poste modifié: {poste.code} - {poste.nom}",
+                    request
+                )
+                
+                messages.success(request, f"Poste {poste.nom} modifié avec succès.")
+                return redirect('accounts:detail_poste', poste_id=poste.id)
+                
+            except Region.DoesNotExist:
+                messages.error(request, "Région invalide.")
+            except Departement.DoesNotExist:
+                messages.error(request, "Département invalide.")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la modification: {str(e)}")
+    
     context = {
-        'form': form,
         'poste': poste,
-        'regions': Region.objects.all(),
+        'regions': regions,
+        'departements_par_region': json.dumps(departements_par_region),
+        'departement_actuel': departement_actuel,
+        'region_actuelle': region_actuelle,
         'title': f'Modifier - {poste.nom}'
     }
     

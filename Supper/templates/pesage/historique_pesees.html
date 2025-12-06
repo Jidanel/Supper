@@ -1,0 +1,182 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    {% if station %}
+    <!-- EN-TÊTE STATION -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-info text-white shadow">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 me-3">
+                                <i class="fas fa-weight fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0 fw-bold">{{ station.nom }}</h4>
+                                <p class="mb-0 opacity-75">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ station.get_region_display }} - {{ station.code }}
+                                </p>
+                            </div>
+                        </div>
+                        {% if is_admin %}
+                        <a href="{% url 'inventaire:selectionner_station' %}?action=historique_pesees" 
+                           class="btn btn-light btn-sm">
+                            <i class="fas fa-exchange-alt me-1"></i>
+                            {% trans "Changer de station" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Titre -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="fas fa-history text-info me-2"></i>
+                {{ title }}
+            </h2>
+            {% if stats.total_pesees %}
+            <p class="text-muted mb-0">
+                <strong>{{ stats.total_pesees|default:0 }}</strong> {% trans "pesées sur" %}
+                <strong>{{ stats.count_jours|default:0 }}</strong> {% trans "jours" %}
+            </p>
+            {% endif %}
+        </div>
+        <a href="{% url 'inventaire:saisir_pesees' %}" class="btn btn-info text-white">
+            <i class="fas fa-plus me-1"></i>
+            {% trans "Saisir les pesées" %}
+        </a>
+    </div>
+    
+    <!-- Filtre admin par station -->
+    {% if is_admin and stations_accessibles %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <label class="form-label mb-0 fw-bold">{% trans "Filtrer par station" %}:</label>
+                </div>
+                <div class="col-md-4">
+                    <select name="station_filter" class="form-select form-select-sm">
+                        <option value="">{% trans "Toutes les stations" %}</option>
+                        {% for st in stations_accessibles %}
+                        <option value="{{ st.id }}" {% if station_filter == st.id|stringformat:"i" %}selected{% endif %}>
+                            {{ st.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-filter me-1"></i>{% trans "Filtrer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Liste -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            {% if pesees %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Date" %}</th>
+                            <th class="text-center">{% trans "Nombre de pesées" %}</th>
+                            <th>{% trans "Saisi par" %}</th>
+                            {% if is_admin and not station %}
+                            <th>{% trans "Station" %}</th>
+                            {% endif %}
+                            <th>{% trans "Observations" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pesee in pesees %}
+                        <tr>
+                            <td>
+                                <strong>{{ pesee.date|date:"d/m/Y" }}</strong>
+                                <br>
+                                <small class="text-muted">{{ pesee.date|date:"l" }}</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info fs-6">{{ pesee.nombre_pesees }}</span>
+                            </td>
+                            <td>
+                                {{ pesee.saisi_par.nom_complet|default:"-" }}
+                            </td>
+                            {% if is_admin and not station %}
+                            <td>
+                                <small>{{ pesee.station.nom }}</small>
+                            </td>
+                            {% endif %}
+                            <td>
+                                <small class="text-muted">{{ pesee.observations|default:"-"|truncatewords:10 }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if pesees.has_other_pages %}
+            <div class="card-footer bg-white">
+                <nav aria-label="Pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if pesees.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ pesees.previous_page_number }}{% if station_filter %}&station_filter={{ station_filter }}{% endif %}">&laquo;</a>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="page-item disabled">
+                            <span class="page-link">{{ pesees.number }} / {{ pesees.paginator.num_pages }}</span>
+                        </li>
+                        
+                        {% if pesees.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ pesees.next_page_number }}{% if station_filter %}&station_filter={{ station_filter }}{% endif %}">&raquo;</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                <p class="text-muted">{% trans "Aucune pesée enregistrée" %}</p>
+                <a href="{% url 'inventaire:saisir_pesees' %}" class="btn btn-info text-white">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "Saisir les pesées du jour" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+}
+</style>
+{% endblock %}

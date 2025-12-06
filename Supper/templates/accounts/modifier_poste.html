@@ -5,21 +5,84 @@
 
 {% block extra_css %}
 <style>
-    /* Mêmes styles que creer_poste.html */
-    body { margin: 0 !important; padding: 0 !important; }
-    #content.main-content { background: transparent !important; padding: 0 !important; }
-    .content-wrapper { padding: 0 !important; max-width: none !important; }
+    .form-section {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
     
-    .form-section { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .form-group { margin-bottom: 1.5rem; }
-    .form-group label { display: block; margin-bottom: 0.5rem; color: #475569; font-weight: 500; font-size: 0.9rem; }
-    .required-field::after { content: " *"; color: #ef4444; }
-    .form-control, .form-select { width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; transition: all 0.2s; }
-    .form-control:focus, .form-select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-    .form-help { display: block; margin-top: 0.25rem; font-size: 0.85rem; color: #64748B; }
-    .section-title { font-size: 1.125rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid #f1f5f9; }
-    .section-icon { color: #764ba2; margin-right: 0.5rem; }
-    .readonly-field { background: #f8fafc !important; cursor: not-allowed; }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #475569;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #ef4444;
+    }
+    
+    .form-control, .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-help {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.85rem;
+        color: #64748B;
+    }
+    
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    
+    .section-icon {
+        color: #764ba2;
+        margin-right: 0.5rem;
+    }
+    
+    .poste-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .badge-peage {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+    
+    .badge-pesage {
+        background: #fef3c7;
+        color: #d97706;
+    }
 </style>
 {% endblock %}
 
@@ -30,16 +93,25 @@
         <div>
             <h2 class="mb-0">
                 <i class="fas fa-edit me-2" style="color: #764ba2;"></i>
-                {% trans "Modifier le Poste" %} : {{ poste.nom }}
+                {% trans "Modifier le Poste" %}
             </h2>
             <p class="text-muted mt-2">
-                {% trans "Code" %}: <strong>{{ poste.code }}</strong>
+                <span class="poste-badge {% if poste.type == 'peage' %}badge-peage{% else %}badge-pesage{% endif %}">
+                    {{ poste.get_type_display }}
+                </span>
+                <strong class="ms-2">{{ poste.code }}</strong> - {{ poste.nom }}
             </p>
         </div>
-        <a href="{% url 'accounts:detail_poste' poste.id %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-2"></i>
-            {% trans "Retour au détail" %}
-        </a>
+        <div>
+            <a href="{% url 'accounts:detail_poste' poste.id %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-eye me-1"></i>
+                {% trans "Voir détails" %}
+            </a>
+            <a href="{% url 'accounts:liste_postes' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                {% trans "Retour à la liste" %}
+            </a>
+        </div>
     </div>
 
     <!-- Formulaire -->
@@ -54,19 +126,22 @@
             </h3>
             
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="form-group">
-                        <label>{% trans "Code du Poste" %}</label>
-                        <input type="text" name="code" class="form-control readonly-field" 
-                               value="{{ poste.code }}" readonly>
-                        <small class="form-help">{% trans "Le code ne peut pas être modifié" %}</small>
+                        <label class="required-field">{% trans "Code du Poste" %}</label>
+                        <input type="text" name="code" class="form-control" required 
+                               value="{{ poste.code }}"
+                               placeholder="Ex: PG001, PS001" maxlength="10"
+                               style="text-transform: uppercase;">
+                        <small class="form-help">{% trans "Code unique" %}</small>
                     </div>
                 </div>
                 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="form-group">
                         <label class="required-field">{% trans "Type de Poste" %}</label>
                         <select name="type" class="form-select" required>
+                            <option value="">-- {% trans "Sélectionner" %} --</option>
                             <option value="peage" {% if poste.type == 'peage' %}selected{% endif %}>
                                 {% trans "Poste de Péage" %}
                             </option>
@@ -77,19 +152,35 @@
                     </div>
                 </div>
                 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="form-group">
-                        <label>
-                            <input type="checkbox" name="is_active" {% if poste.is_active %}checked{% endif %} class="me-2">
-                            {% trans "Poste actif" %}
-                        </label>
+                        <label>&nbsp;</label>
+                        <div class="form-check mt-2">
+                            <input type="checkbox" name="is_active" id="is_active" 
+                                   {% if poste.is_active %}checked{% endif %} class="form-check-input">
+                            <label for="is_active" class="form-check-label">{% trans "Poste actif" %}</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <div class="form-check mt-2">
+                            <input type="checkbox" name="nouveau" id="nouveau" 
+                                   {% if poste.nouveau %}checked{% endif %} class="form-check-input">
+                            <label for="nouveau" class="form-check-label">{% trans "Nouveau poste" %}</label>
+                        </div>
+                        <small class="form-help">{% trans "Nouveau pour l'année en cours" %}</small>
                     </div>
                 </div>
             </div>
             
             <div class="form-group">
                 <label class="required-field">{% trans "Nom du Poste" %}</label>
-                <input type="text" name="nom" class="form-control" required value="{{ poste.nom }}">
+                <input type="text" name="nom" class="form-control" required 
+                       value="{{ poste.nom }}"
+                       placeholder="Ex: Péage de Douala-Nord" maxlength="100">
             </div>
             
             <!-- Section Localisation -->
@@ -103,9 +194,10 @@
                     <div class="form-group">
                         <label class="required-field">{% trans "Région" %}</label>
                         <select name="region" id="id_region" class="form-select" required>
-                            <option value="">-- {% trans "Sélectionner" %} --</option>
+                            <option value="">-- {% trans "Sélectionner une région" %} --</option>
                             {% for region in regions %}
-                            <option value="{{ region.id }}" {% if poste.region.id == region.id %}selected{% endif %}>
+                            <option value="{{ region.id }}" 
+                                    {% if region_actuelle == region.id %}selected{% endif %}>
                                 {{ region.nom }}
                             </option>
                             {% endfor %}
@@ -118,23 +210,25 @@
                         <label>{% trans "Département" %}</label>
                         <select name="departement" id="id_departement" class="form-select">
                             <option value="">-- {% trans "Sélectionner" %} --</option>
-                            {% if poste.departement %}
-                            <option value="{{ poste.departement.id }}" selected>{{ poste.departement.nom }}</option>
-                            {% endif %}
+                            <!-- Les options seront chargées par JavaScript -->
                         </select>
+                        <small class="form-help">{% trans "Optionnel" %}</small>
                     </div>
                 </div>
             </div>
             
             <div class="form-group">
                 <label>{% trans "Axe Routier" %}</label>
-                <input type="text" name="axe_routier" class="form-control" value="{{ poste.axe_routier|default:'' }}">
+                <input type="text" name="axe_routier" class="form-control" 
+                       value="{{ poste.axe_routier|default:'' }}"
+                       placeholder="Ex: Yaoundé-Douala, Douala-Bafoussam" maxlength="100">
+                <small class="form-help">{% trans "Axe routier où se situe le poste" %}</small>
             </div>
             
             <!-- Section Coordonnées GPS -->
             <h3 class="section-title mt-4">
                 <i class="fas fa-globe section-icon"></i>
-                {% trans "Coordonnées GPS" %}
+                {% trans "Coordonnées GPS" %} <span class="text-muted fw-normal">({% trans "optionnel" %})</span>
             </h3>
             
             <div class="row">
@@ -142,7 +236,9 @@
                     <div class="form-group">
                         <label>{% trans "Latitude" %}</label>
                         <input type="number" name="latitude" class="form-control" 
-                               step="0.000001" value="{{ poste.latitude|default:'' }}">
+                               value="{{ poste.latitude|default:'' }}"
+                               step="0.000001" min="-90" max="90"
+                               placeholder="Ex: 3.848033">
                     </div>
                 </div>
                 
@@ -150,7 +246,9 @@
                     <div class="form-group">
                         <label>{% trans "Longitude" %}</label>
                         <input type="number" name="longitude" class="form-control" 
-                               step="0.000001" value="{{ poste.longitude|default:'' }}">
+                               value="{{ poste.longitude|default:'' }}"
+                               step="0.000001" min="-180" max="180"
+                               placeholder="Ex: 11.502075">
                     </div>
                 </div>
             </div>
@@ -162,7 +260,19 @@
             </h3>
             
             <div class="form-group">
-                <textarea name="description" class="form-control" rows="4">{{ poste.description|default:'' }}</textarea>
+                <textarea name="description" class="form-control" rows="4" 
+                          placeholder="{% trans 'Description détaillée du poste et de sa situation...' %}">{{ poste.description|default:'' }}</textarea>
+            </div>
+            
+            <!-- Informations système -->
+            <div class="alert alert-light mt-4">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    {% trans "Créé le" %}: {{ poste.date_creation|date:"d/m/Y H:i" }}
+                    {% if poste.date_modification %}
+                    | {% trans "Modifié le" %}: {{ poste.date_modification|date:"d/m/Y H:i" }}
+                    {% endif %}
+                </small>
             </div>
             
             <!-- Actions -->
@@ -171,38 +281,74 @@
                     <i class="fas fa-times me-1"></i>
                     {% trans "Annuler" %}
                 </a>
-                <button type="submit" class="btn btn-warning">
+                <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save me-1"></i>
-                    {% trans "Enregistrer" %}
+                    {% trans "Enregistrer les modifications" %}
                 </button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- Données des départements pré-chargées -->
 <script>
-// Script identique à creer_poste.html
-document.getElementById('id_region').addEventListener('change', function() {
-    const regionId = this.value;
+// Données chargées depuis Django - pas d'appel réseau
+const departementsParRegion = {{ departements_par_region|safe }};
+const departementActuel = {{ departement_actuel|default:"null" }};
+const regionActuelle = {{ region_actuelle|default:"null" }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const regionSelect = document.getElementById('id_region');
     const departementSelect = document.getElementById('id_departement');
     
-    if (!regionId) {
-        departementSelect.innerHTML = '<option value="">-- {% trans "Sélectionner une région d\'abord" %} --</option>';
-        return;
+    // Fonction pour charger les départements d'une région
+    function chargerDepartements(regionId, departementASelectionner) {
+        departementSelect.innerHTML = '';
+        
+        if (!regionId) {
+            departementSelect.innerHTML = '<option value="">-- Sélectionner une région d\'abord --</option>';
+            return;
+        }
+        
+        // Ajouter l'option par défaut
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Sélectionner un département --';
+        departementSelect.appendChild(defaultOption);
+        
+        // Ajouter les départements de cette région
+        const departements = departementsParRegion[regionId] || [];
+        departements.forEach(function(dept) {
+            const option = document.createElement('option');
+            option.value = dept.id;
+            option.textContent = dept.nom;
+            
+            // Sélectionner le département actuel si c'est celui-ci
+            if (departementASelectionner && dept.id == departementASelectionner) {
+                option.selected = true;
+            }
+            
+            departementSelect.appendChild(option);
+        });
     }
     
-    fetch(`/accounts/api/departements/?region=${regionId}`)
-        .then(response => response.json())
-        .then(data => {
-            departementSelect.innerHTML = '<option value="">-- {% trans "Sélectionner" %} --</option>';
-            data.departements.forEach(dept => {
-                const option = document.createElement('option');
-                option.value = dept.id;
-                option.textContent = dept.nom;
-                departementSelect.appendChild(option);
-            });
-        })
-        .catch(error => console.error('Erreur:', error));
+    // Charger les départements au changement de région
+    regionSelect.addEventListener('change', function() {
+        chargerDepartements(this.value, null);
+    });
+    
+    // Charger les départements initiaux si une région est déjà sélectionnée
+    if (regionActuelle) {
+        chargerDepartements(regionActuelle, departementActuel);
+    }
+    
+    // Convertir le code en majuscules automatiquement
+    const codeInput = document.querySelector('input[name="code"]');
+    if (codeInput) {
+        codeInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    }
 });
 </script>
 {% endblock %}

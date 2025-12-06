@@ -1,0 +1,223 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    {% if station %}
+    <!-- EN-TÊTE STATION -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-success text-white shadow">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 me-3">
+                                <i class="fas fa-receipt fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0 fw-bold">{{ station.nom }}</h4>
+                                <p class="mb-0 opacity-75">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ station.get_region_display }} - {{ station.code }}
+                                </p>
+                            </div>
+                        </div>
+                        {% if is_admin %}
+                        <a href="{% url 'inventaire:selectionner_station' %}?action=liste_quittancements" 
+                           class="btn btn-light btn-sm">
+                            <i class="fas fa-exchange-alt me-1"></i>
+                            {% trans "Changer de station" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Titre -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="fas fa-file-invoice-dollar text-success me-2"></i>
+                {{ title }}
+            </h2>
+            {% if stats.total_quittance %}
+            <p class="text-muted mb-0">
+                {% trans "Total quittancé" %}: <strong class="text-success">{{ stats.total_quittance|floatformat:0 }} FCFA</strong>
+            </p>
+            {% endif %}
+        </div>
+        <a href="{% url 'inventaire:saisir_quittancement' %}" class="btn btn-success">
+            <i class="fas fa-plus me-1"></i>
+            {% trans "Nouveau quittancement" %}
+        </a>
+    </div>
+    
+    <!-- Stats rapides -->
+    {% if stats.total_quittance %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h4 class="mb-0 text-success">{{ stats.total_quittance|floatformat:0 }}</h4>
+                    <small class="text-muted">{% trans "Total quittancé (FCFA)" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h4 class="mb-0 text-info">{{ stats.total_attendu|floatformat:0|default:0 }}</h4>
+                    <small class="text-muted">{% trans "Total attendu (FCFA)" %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <h4 class="mb-0 {% if stats.total_ecart >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {% if stats.total_ecart >= 0 %}+{% endif %}{{ stats.total_ecart|floatformat:0|default:0 }}
+                    </h4>
+                    <small class="text-muted">{% trans "Écart total (FCFA)" %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Filtre admin -->
+    {% if is_admin and stations_accessibles %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <label class="form-label mb-0 fw-bold">{% trans "Filtrer" %}:</label>
+                </div>
+                <div class="col-md-4">
+                    <select name="station_filter" class="form-select form-select-sm">
+                        <option value="">{% trans "Toutes les stations" %}</option>
+                        {% for st in stations_accessibles %}
+                        <option value="{{ st.id }}" {% if station_filter == st.id|stringformat:"i" %}selected{% endif %}>
+                            {{ st.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-filter me-1"></i>{% trans "Filtrer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Liste -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            {% if quittancements %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "N° Quittance" %}</th>
+                            <th>{% trans "Période" %}</th>
+                            <th class="text-end">{% trans "Montant quittancé" %}</th>
+                            <th class="text-end">{% trans "Montant attendu" %}</th>
+                            <th class="text-end">{% trans "Écart" %}</th>
+                            {% if is_admin and not station %}
+                            <th>{% trans "Station" %}</th>
+                            {% endif %}
+                            <th>{% trans "Saisi par" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for qt in quittancements %}
+                        <tr>
+                            <td>
+                                <strong>{{ qt.numero_quittance }}</strong>
+                            </td>
+                            <td>
+                                {{ qt.date_debut|date:"d/m/Y" }} - {{ qt.date_fin|date:"d/m/Y" }}
+                            </td>
+                            <td class="text-end fw-bold text-success">
+                                {{ qt.montant_quittance|floatformat:0 }} FCFA
+                            </td>
+                            <td class="text-end">
+                                {{ qt.montant_attendu|floatformat:0|default:"-" }} FCFA
+                            </td>
+                            <td class="text-end">
+                                {% if qt.ecart %}
+                                <span class="{% if qt.ecart >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {% if qt.ecart >= 0 %}+{% endif %}{{ qt.ecart|floatformat:0 }} FCFA
+                                </span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            {% if is_admin and not station %}
+                            <td>
+                                <small>{{ qt.station.nom }}</small>
+                            </td>
+                            {% endif %}
+                            <td>
+                                <small>{{ qt.saisi_par.nom_complet|default:"-" }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if quittancements.has_other_pages %}
+            <div class="card-footer bg-white">
+                <nav>
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if quittancements.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ quittancements.previous_page_number }}">&laquo;</a>
+                        </li>
+                        {% endif %}
+                        <li class="page-item disabled">
+                            <span class="page-link">{{ quittancements.number }}/{{ quittancements.paginator.num_pages }}</span>
+                        </li>
+                        {% if quittancements.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ quittancements.next_page_number }}">&raquo;</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                <p class="text-muted">{% trans "Aucun quittancement enregistré" %}</p>
+                <a href="{% url 'inventaire:saisir_quittancement' %}" class="btn btn-success">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "Saisir un quittancement" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+</style>
+{% endblock %}

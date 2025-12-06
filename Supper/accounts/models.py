@@ -56,9 +56,10 @@ class Habilitation(models.TextChoices):
     """Rôles et habilitations dans le système SUPPER"""
     ADMIN_PRINCIPAL = 'admin_principal', _('Administrateur Principal')
     CHEF_POSTE_PEAGE = 'chef_peage', _('Chef de Poste Péage')
-    CHEF_POSTE_PESAGE = 'chef_pesage', _('Chef de Poste Pesage')
+    CHEF_STATION_PESAGE = 'chef_station_pesage', _('Chef de Station Pesage')
+    CHEF_EQUIPE_PESAGE = 'chef_equipe_pesage', _("Chef d'Équipe Pesage")
+    REGISSEUR_PESAGE = 'regisseur_pesage', _('Régisseur Pesage')
     POINT_FOCAL_REGIONAL = 'focal_regional', _('Point Focal Régional')
-    CAISSIER = 'caissier', _('Caissier')
     AGENT_INVENTAIRE = 'agent_inventaire', _('Agent Inventaire')
     CHEF_SERVICE = 'chef_service', _('Chef de Service')
     COORDONNATEUR_PSRR = 'coord_psrr', _('Coordonnateur PSRR')
@@ -603,7 +604,31 @@ class UtilisateurSUPPER(AbstractUser):
             self.voir_taux_deperdition = True        # SEULEMENT le taux
             self.voir_statistiques_globales = False
             self.acces_tous_postes = False           # Son poste seulement
-        
+            
+        elif self.habilitation == Habilitation.CHEF_STATION_PESAGE:
+            # Chef de station pesage : vue complète sur sa station
+            self.peut_gerer_pesage = True
+            self.peut_saisir_pesage = True
+            self.voir_statistiques_globales = False  # Sa station uniquement
+            self.acces_tous_postes = False
+            self.peut_gerer_inventaire = False
+            
+        elif self.habilitation == Habilitation.CHEF_EQUIPE_PESAGE:
+            # Chef d'équipe pesage : saisie amendes uniquement
+            self.peut_saisir_pesage = True
+            self.peut_gerer_pesage = False  # Ne peut pas valider les paiements
+            self.voir_statistiques_globales = False
+            self.acces_tous_postes = False
+            self.peut_gerer_inventaire = False
+            
+        elif self.habilitation == Habilitation.REGISSEUR_PESAGE:
+            # Régisseur pesage : validation paiements + quittancements
+            self.peut_gerer_pesage = True  # Peut valider les paiements
+            self.peut_saisir_pesage = False  # Ne saisit pas d'amendes
+            self.voir_statistiques_globales = False  # Sa station uniquement
+            self.acces_tous_postes = False
+            self.peut_gerer_inventaire = False
+
         elif self.habilitation == Habilitation.CHEF_POSTE_PESAGE:
             # Chef pesage : similaire chef péage
             self.peut_gerer_pesage = True

@@ -96,6 +96,16 @@ urlpatterns = [
     path('api/stats/', views.stats_api, name='api_stats'),
     path('api/check-admin-permission/', views.check_admin_permission_api, name='api_check_admin'),
     path('api/departements/', views.api_departements, name='api_departements'),
+    path('api/postes/', views.api_postes_par_type, name='api_postes_par_type'),
+    
+    # Récupérer les infos sur une habilitation (type de poste requis)
+    # GET /accounts/api/habilitation/?habilitation=chef_equipe_pesage
+    path('api/habilitation/', views.api_habilitation_info, name='api_habilitation_info'),
+    
+    # Statistiques utilisateurs pesage
+    # GET /accounts/api/stats-pesage/
+    path('api/stats-pesage/', views.stats_utilisateurs_pesage, name='api_stats_utilisateurs_pesage'),
+    
     
     # ================================================================
     # GESTION DES ERREURS

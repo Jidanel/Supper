@@ -16,6 +16,7 @@ from . import views_bordereaux_pdf
 from .views_stock_event_sourcing import *
 from . import views_rapport_defaillants
 from . import views_rapport_inventaires
+from . import views_pesage
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -276,6 +277,24 @@ path(
         name='ajax_series_par_couleur'
     ),
 
+    
+    
+    
+    
+    # ===================================================================
+    # API ENDPOINTS (JSON)
+    # ===================================================================
+    path(
+        'pesage/api/stats/<str:date_str>/',
+        views_pesage.api_stats_jour,
+        name='api_stats_jour'
+    ),
+    path(
+        'pesage/api/recherche/',
+        views_pesage.api_recherche_amende,
+        name='api_recherche_amende'
+    ),
+
 
 
 ]
@@ -335,3 +354,41 @@ event_sourcing_patterns = [
     path('rapports/defaillants/generer/', views_rapport_defaillants.rapport_defaillants_peage, name='rapport_defaillants_peage'),
 ]
 urlpatterns += event_sourcing_patterns
+
+pesage_patterns = [
+    # Liste et recherche des amendes
+    path('pesage/amendes/', views_pesage.liste_amendes, name='liste_amendes'),
+    path('pesage/amendes/<int:pk>/', views_pesage.detail_amende, name='detail_amende'),
+    
+    # Saisie (Chef d'équipe)
+    path('pesage/amendes/saisir/', views_pesage.saisir_amende, name='saisir_amende'),
+    path('pesage/pesees/saisir/', views_pesage.saisir_pesees, name='saisir_pesees'),
+    path('pesage/pesees/', views_pesage.historique_pesees, name='historique_pesees'),
+    
+    # Validation (Régisseur)
+    path('pesage/amendes/a-valider/', views_pesage.liste_amendes_a_valider, name='liste_amendes_a_valider'),
+    path('pesage/amendes/<int:pk>/valider/', views_pesage.valider_paiement, name='valider_paiement'),
+    path('pesage/amendes/valider-masse/', views_pesage.valider_paiements_masse, name='valider_paiements_masse'),
+    
+    # Quittancements
+    path('pesage/quittancements/', views_pesage.liste_quittancements_pesage, name='liste_quittancements_pesage'),
+    path('pesage/quittancements/saisir/', views_pesage.saisir_quittancement_pesage, name='saisir_quittancement_pesage'),
+    
+    # Recettes avec recherche et filtres
+    path('pesage/recettes/', views_pesage.recettes_pesage, name='recettes_pesage'),
+    path('pesage/recettes/imprimer/', views_pesage.imprimer_recette_jour, name='imprimer_recette_jour'),
+    path('recettes/imprimer/<str:date_str>/',views_pesage.imprimer_recette_jour,name='imprimer_recette_jour'),
+    
+    # Statistiques et rapports
+    path('pesage/statistiques/', views_pesage.statistiques_pesage, name='statistiques_pesage'),
+    
+    # API JSON
+    path('pesage/api/paiements-jour/', views_pesage.api_paiements_jour, name='api_paiements_jour'),
+
+    path(
+        'selectionner-station/',
+        views_pesage.selectionner_station,
+        name='selectionner_station'
+    ),
+]
+urlpatterns += pesage_patterns

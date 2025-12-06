@@ -1,0 +1,114 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-6">
+            
+            <!-- En-tête -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-balance-scale fa-3x text-primary"></i>
+                    </div>
+                    <h2 class="card-title mb-2">{% trans "Module Pesage" %}</h2>
+                    <p class="text-muted mb-0">
+                        {% trans "Veuillez sélectionner une station de pesage pour continuer" %}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Formulaire de sélection -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        {% trans "Sélection de la station" %}
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" id="form-selection-station">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="station" class="form-label fw-bold">
+                                {% trans "Station de pesage" %} <span class="text-danger">*</span>
+                            </label>
+                            <select name="station" id="station" class="form-select form-select-lg" required>
+                                <option value="">-- {% trans "Choisir une station" %} --</option>
+                                
+                                {% regroup stations by get_region_display as stations_par_region %}
+                                {% for region in stations_par_region %}
+                                <optgroup label="{{ region.grouper }}">
+                                    {% for station in region.list %}
+                                    <option value="{{ station.id }}">
+                                        {{ station.nom }} ({{ station.code }})
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                {% trans "Les stations sont regroupées par région" %}
+                            </div>
+                        </div>
+                        
+                        <!-- Action demandée (hidden) -->
+                        <input type="hidden" name="action" value="{{ action }}">
+                        
+                        <!-- Info sur action -->
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-arrow-right me-2"></i>
+                            {% if action == 'saisir_amende' %}
+                                {% trans "Vous allez saisir une amende pour la station sélectionnée." %}
+                            {% elif action == 'saisir_pesees' %}
+                                {% trans "Vous allez saisir les pesées journalières pour la station sélectionnée." %}
+                            {% elif action == 'saisir_quittancement' %}
+                                {% trans "Vous allez saisir un quittancement pour la station sélectionnée." %}
+                            {% else %}
+                                {% trans "Vous allez accéder aux données de la station sélectionnée." %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-check me-2"></i>
+                                {% trans "Continuer" %}
+                            </button>
+                            <a href="{% url 'common:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                {% trans "Retour au tableau de bord" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('station').focus();
+    
+    // Mémoriser la dernière station
+    const stationSelect = document.getElementById('station');
+    const lastStation = localStorage.getItem('derniere_station_pesage');
+    
+    if (lastStation && stationSelect.querySelector(`option[value="${lastStation}"]`)) {
+        stationSelect.value = lastStation;
+    }
+    
+    document.getElementById('form-selection-station').addEventListener('submit', function() {
+        localStorage.setItem('derniere_station_pesage', stationSelect.value);
+    });
+});
+</script>
+{% endblock %}
