@@ -30,7 +30,7 @@
                         <i class="fas fa-file-invoice text-primary me-2"></i>
                         {% trans "Amende" %} {{ amende.numero_ticket }}
                     </h5>
-                    <span class="badge {% if amende.statut == 'paye' %}bg-success{% else %}bg-secondary{% endif %} fs-6">
+                    <span class="badge {% if amende.statut == 'paye' %}bg-success{% else %}bg-warning text-dark{% endif %} fs-6">
                         {% if amende.statut == 'paye' %}
                         <i class="fas fa-check me-1"></i>{% trans "Payé" %}
                         {% else %}
@@ -52,15 +52,15 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small">{% trans "Transporteur" %}</label>
-                            <p class="fw-bold mb-0">{{ amende.transporteur }}</p>
+                            <p class="fw-bold mb-0">{{ amende.transporteur|default:"-" }}</p>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small">{% trans "Opérateur" %}</label>
-                            <p class="mb-0">{{ amende.operateur }}</p>
+                            <p class="mb-0">{{ amende.operateur|default:"-" }}</p>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small">{% trans "Produit transporté" %}</label>
-                            <p class="mb-0">{{ amende.produit_transporte }}</p>
+                            <p class="mb-0">{{ amende.produit_transporte|default:"-" }}</p>
                         </div>
 
                         <div class="col-12"><hr class="my-2"></div>
@@ -75,14 +75,14 @@
                             <label class="form-label text-muted small">{% trans "Provenance" %}</label>
                             <p class="mb-0">
                                 <i class="fas fa-map-marker-alt text-success me-1"></i>
-                                {{ amende.provenance }}
+                                {{ amende.provenance|default:"-" }}
                             </p>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small">{% trans "Destination" %}</label>
                             <p class="mb-0">
                                 <i class="fas fa-flag-checkered text-danger me-1"></i>
-                                {{ amende.destination }}
+                                {{ amende.destination|default:"-" }}
                             </p>
                         </div>
 
@@ -106,6 +106,9 @@
                                 <span class="badge bg-info">
                                     <i class="fas fa-expand-arrows-alt me-1"></i>{% trans "Hors Gabarit" %}
                                 </span>
+                                {% endif %}
+                                {% if not amende.est_surcharge and not amende.est_hors_gabarit %}
+                                <span class="text-muted">-</span>
                                 {% endif %}
                             </p>
                             {% if amende.est_surcharge and amende.est_hors_gabarit %}
@@ -194,7 +197,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label text-muted small">{% trans "Saisi par" %}</label>
-                        <p class="mb-0">{{ amende.saisi_par.nom_complet }}</p>
+                        <p class="mb-0">{{ amende.saisi_par.nom_complet|default:amende.saisi_par.username }}</p>
                     </div>
                     {% if amende.statut == 'paye' %}
                     <div class="mb-3">
@@ -203,28 +206,47 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label text-muted small">{% trans "Validé par" %}</label>
-                        <p class="mb-0">{{ amende.valide_par.nom_complet }}</p>
+                        <p class="mb-0">{{ amende.valide_par.nom_complet|default:amende.valide_par.username }}</p>
                     </div>
                     {% endif %}
                 </div>
             </div>
 
             <!-- Actions -->
-            {% if amende.statut == 'non_paye' and user.habilitation == 'regisseur_pesage' or user.is_admin %}
-            <div class="card border-0 shadow-sm bg-success bg-opacity-10">
+            <div class="card border-0 shadow-sm {% if amende.statut == 'non_paye' %}bg-success bg-opacity-10{% else %}bg-secondary bg-opacity-10{% endif %}">
                 <div class="card-body text-center">
-                    <h6 class="text-success mb-3">{% trans "Action disponible" %}</h6>
-                    <form method="post" action="{% url 'inventaire:valider_paiement' amende.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-success btn-lg w-100" 
-                                onclick="return confirm('{% trans "Confirmer la validation du paiement ?" %}')">
-                            <i class="fas fa-check-circle me-2"></i>
-                            {% trans "Valider le paiement" %}
+                    {% if amende.statut == 'non_paye' %}
+                        {% if user.habilitation == 'regisseur_pesage' or user.is_superuser or user.habilitation == 'admin_principal' %}
+                        <h6 class="text-success mb-3">{% trans "Action disponible" %}</h6>
+                        <form method="post" action="{% url 'inventaire:valider_paiement' amende.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-lg w-100" 
+                                    onclick="return confirm('{% trans "Confirmer la validation du paiement ?" %}')">
+                                <i class="fas fa-check-circle me-2"></i>
+                                {% trans "Valider le paiement" %}
+                            </button>
+                        </form>
+                        {% else %}
+                        <h6 class="text-warning mb-3">{% trans "En attente de paiement" %}</h6>
+                        <p class="text-muted small mb-0">
+                            {% trans "Seul le régisseur peut valider le paiement" %}
+                        </p>
+                        {% endif %}
+                    {% else %}
+                        <h6 class="text-secondary mb-3">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            {% trans "Paiement validé" %}
+                        </h6>
+                        <button type="button" class="btn btn-secondary btn-lg w-100" disabled>
+                            <i class="fas fa-check me-2"></i>
+                            {% trans "Déjà payé" %}
                         </button>
-                    </form>
+                        <p class="text-muted small mt-2 mb-0">
+                            {% trans "Validé le" %} {{ amende.date_paiement|date:"d/m/Y à H:i" }}
+                        </p>
+                    {% endif %}
                 </div>
             </div>
-            {% endif %}
 
             <!-- Retour -->
             <div class="d-grid gap-2 mt-4">

@@ -1,5 +1,5 @@
 {% extends 'admin/base_site.html' %}
-{% load i18n %}
+{% load i18n inventaire_extras %}
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
@@ -85,7 +85,7 @@
                 <div class="card-body text-center">
                     <h3 class="mb-0 text-danger">
                         {% if stats.total_non_paye %}
-                        {{ stats.total_non_paye|floatformat:0 }}
+                        {{ stats.total_non_paye|floatformat:0|format_milliers }}
                         {% else %}0{% endif %}
                     </h3>
                     <small class="text-muted">{% trans "FCFA à recouvrer" %}</small>
@@ -189,19 +189,23 @@
                                     {{ amende.numero_ticket }}
                                 </a>
                             </td>
-                            <td>{{ amende.date_emission|date:"d/m/Y H:i" }}</td>
+                            <td>{{ amende.date_heure_emission|date:"d/m/Y H:i" }}</td>
                             <td>
                                 <span class="badge bg-secondary">{{ amende.immatriculation }}</span>
                             </td>
                             <td>
-                                {% if amende.type_infraction == 'HG' or amende.type_infraction == 'S+HG' %}
-                                <span class="badge bg-danger">{{ amende.get_type_infraction_display }}</span>
+                                {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                                <span class="badge bg-danger">S+HG</span>
+                                {% elif amende.est_hors_gabarit %}
+                                <span class="badge bg-danger">HG</span>
+                                {% elif amende.est_surcharge %}
+                                <span class="badge bg-warning text-dark">S</span>
                                 {% else %}
-                                <span class="badge bg-warning text-dark">{{ amende.get_type_infraction_display }}</span>
+                                <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
                             <td class="text-end fw-bold">
-                                {{ amende.montant_amende|floatformat:0 }} FCFA
+                                {{ amende.montant_amende|floatformat:0|format_milliers }} FCFA
                             </td>
                             <td class="text-center">
                                 {% if amende.statut == 'paye' %}

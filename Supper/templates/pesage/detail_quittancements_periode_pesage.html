@@ -1,0 +1,275 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+{% load i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{% trans "Détails Quittancements Pesage" %} - {{ station.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .summary-card h5 {
+        border-bottom: 2px solid #e74c3c;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .table-detail {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .table-detail thead {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+    
+    .stat-box {
+        text-align: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    
+    .stat-box h3 {
+        margin: 0;
+        color: #e74c3c;
+    }
+    
+    .stat-box.success h3 {
+        color: #28a745;
+    }
+    
+    .stat-box.warning h3 {
+        color: #ffc107;
+    }
+    
+    .stat-box.danger h3 {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-2">
+                    <i class="fas fa-search-dollar me-2"></i>
+                    {% trans "Détails des Quittancements Pesage" %}
+                </h2>
+                <p class="mb-0">
+                    <strong>{{ station.nom }}</strong> | 
+                    {{ date_debut|date:"d/m/Y" }} {% trans "au" %} {{ date_fin|date:"d/m/Y" }}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'inventaire:comptabilisation_quittancements_pesage' %}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    {% trans "Retour à la comptabilisation" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stat-box">
+                <p class="mb-1 text-muted">{% trans "Total Amendes Payées" %}</p>
+                <h3>{{ total_amendes|floatformat:0|format_milliers }}</h3>
+                <small>FCFA</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-box">
+                <p class="mb-1 text-muted">{% trans "Total Quittancé" %}</p>
+                <h3>{{ total_quittance|floatformat:0|format_milliers }}</h3>
+                <small>FCFA</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-box {% if ecart|abs < 1 %}success{% elif ecart < 0 %}danger{% else %}warning{% endif %}">
+                <p class="mb-1 text-muted">{% trans "Écart" %}</p>
+                <h3>{{ ecart|floatformat:0|format_milliers }}</h3>
+                <small>FCFA</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des quittancements -->
+    <div class="summary-card">
+        <h5>
+            <i class="fas fa-file-invoice-dollar me-2 text-danger"></i>
+            {% trans "Quittancements de la période" %}
+        </h5>
+        
+        {% if quittancements %}
+        <div class="table-responsive">
+            <table class="table table-hover table-detail">
+                <thead>
+                    <tr>
+                        <th>{% trans "N° Quittance" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Période" %}</th>
+                        <th>{% trans "Date Quittancement" %}</th>
+                        <th class="text-end">{% trans "Montant Quittancé" %}</th>
+                        <th class="text-end">{% trans "Montant Attendu" %}</th>
+                        <th class="text-end">{% trans "Écart" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in quittancements %}
+                    <tr>
+                        <td><strong class="text-danger">{{ q.numero_quittance }}</strong></td>
+                        <td>
+                            <span class="badge bg-info">
+                                {% if q.type_declaration == 'journaliere' %}
+                                    {% trans "Journalière" %}
+                                {% else %}
+                                    {% trans "Décade" %}
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>{{ q.get_periode_display }}</td>
+                        <td>{{ q.date_quittancement|date:"d/m/Y" }}</td>
+                        <td class="text-end">{{ q.montant_quittance|floatformat:0|format_milliers }} FCFA</td>
+                        <td class="text-end">
+                            {% if q.montant_attendu %}
+                                {{ q.montant_attendu|floatformat:0|format_milliers }} FCFA
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if q.ecart %}
+                                <span class="{% if q.ecart|abs < 1 %}text-success{% elif q.ecart < 0 %}text-danger{% else %}text-warning{% endif %}">
+                                    {{ q.ecart|floatformat:0|format_milliers }} FCFA
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="4">{% trans "TOTAL" %}</th>
+                        <th class="text-end">{{ total_quittance|floatformat:0|format_milliers }} FCFA</th>
+                        <th class="text-end">{{ total_amendes|floatformat:0|format_milliers }} FCFA</th>
+                        <th class="text-end">
+                            <span class="{% if ecart|abs < 1 %}text-success{% elif ecart < 0 %}text-danger{% else %}text-warning{% endif %}">
+                                {{ ecart|floatformat:0|format_milliers }} FCFA
+                            </span>
+                        </th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            {% trans "Aucun quittancement enregistré pour cette période." %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Liste des amendes payées -->
+    <div class="summary-card">
+        <h5>
+            <i class="fas fa-money-bill-wave me-2 text-success"></i>
+            {% trans "Amendes payées de la période" %}
+        </h5>
+        
+        {% if amendes_payees %}
+        <div class="table-responsive">
+            <table class="table table-hover table-detail">
+                <thead>
+                    <tr>
+                        <th>{% trans "N° Ticket" %}</th>
+                        <th>{% trans "Immatriculation" %}</th>
+                        <th>{% trans "Type Infraction" %}</th>
+                        <th>{% trans "Date Paiement" %}</th>
+                        <th class="text-end">{% trans "Montant" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for amende in amendes_payees %}
+                    <tr>
+                        <td><strong>{{ amende.numero_ticket }}</strong></td>
+                        <td>{{ amende.immatriculation }}</td>
+                        <td>
+                            {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                                <span class="badge bg-danger">Surcharge + HG</span>
+                            {% elif amende.est_surcharge %}
+                                <span class="badge bg-warning">Surcharge</span>
+                            {% elif amende.est_hors_gabarit %}
+                                <span class="badge bg-info">Hors Gabarit</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ amende.date_paiement|date:"d/m/Y H:i" }}</td>
+                        <td class="text-end">{{ amende.montant_amende|floatformat:0|format_milliers }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="4">{% trans "TOTAL" %} ({{ amendes_payees|length }} amende(s))</th>
+                        <th class="text-end">{{ total_amendes|floatformat:0|format_milliers }} FCFA</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {% trans "Aucune amende payée enregistrée pour cette période." %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <a href="{% url 'inventaire:comptabilisation_quittancements_pesage' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>
+            {% trans "Retour" %}
+        </a>
+        
+        <div>
+            {% if ecart|abs >= 1 %}
+            <a href="{% url 'inventaire:justifier_ecart_pesage' station.id date_debut|date:'Y-m-d' date_fin|date:'Y-m-d' %}" class="btn btn-warning">
+                <i class="fas fa-edit me-2"></i>
+                {% trans "Justifier l'écart" %}
+            </a>
+            {% endif %}
+            
+            <button onclick="window.print()" class="btn btn-outline-danger ms-2">
+                <i class="fas fa-print me-2"></i>
+                {% trans "Imprimer" %}
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

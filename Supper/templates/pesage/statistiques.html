@@ -1,5 +1,5 @@
 {% extends 'admin/base_site.html' %}
-{% load i18n %}
+{% load i18n inventaire_extras %}
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
@@ -117,7 +117,7 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center">
                     <div class="display-6 text-info mb-2">
-                        {{ stats.montant_emis|floatformat:0|default:0 }}
+                        {{ stats.montant_emis|floatformat:0|default:0|format_milliers }}
                     </div>
                     <h6 class="text-muted mb-0">{% trans "Montant émis (FCFA)" %}</h6>
                 </div>
@@ -129,7 +129,7 @@
             <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
                 <div class="card-body text-center">
                     <div class="display-6 text-success mb-2">
-                        {{ stats.montant_recouvre|floatformat:0|default:0 }}
+                        {{ stats.montant_recouvre|floatformat:0|default:0|format_milliers }}
                     </div>
                     <h6 class="text-muted mb-0">{% trans "Montant recouvré (FCFA)" %}</h6>
                 </div>
@@ -141,7 +141,7 @@
             <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10">
                 <div class="card-body text-center">
                     <div class="display-6 text-danger mb-2">
-                        {{ stats.reste_a_recouvrer|floatformat:0|default:0 }}
+                        {{ stats.reste_a_recouvrer|floatformat:0|default:0|format_milliers }}
                     </div>
                     <h6 class="text-muted mb-0">{% trans "Reste à recouvrer (FCFA)" %}</h6>
                 </div>
@@ -175,7 +175,7 @@
         <div class="col-md-4 col-lg-3">
             <div class="card border-0 shadow-sm h-100 bg-info bg-opacity-10">
                 <div class="card-body text-center">
-                    <div class="display-4 text-info mb-2">{{ stats.nombre_pesees|default:0 }}</div>
+                    <div class="display-4 text-info mb-2">{{ stats.nombre_pesees|default:0|format_milliers }}</div>
                     <h6 class="text-muted mb-0">{% trans "Véhicules pesés" %}</h6>
                 </div>
             </div>

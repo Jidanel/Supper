@@ -328,7 +328,7 @@ def index_dashboard(request):
         if user.is_chef_poste and user.poste_affectation:
             actions_rapides.append({
                 'titre': 'Saisir Recette',
-                'url': reverse('inventaire:saisie_recette'),
+                'url': reverse('inventaire:saisir_recette_avec_tickets'),
                 'icon': 'fas fa-coins',
                 'class': 'warning'
             })

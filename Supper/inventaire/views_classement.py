@@ -219,7 +219,7 @@ def is_admin(user):
     """Vérification admin uniquement"""
     return user.is_authenticated and (
         user.is_superuser or
-        (hasattr(user, 'is_admin') and user.is_admin())
+        (hasattr(user, 'is_admin') and user.is_admin)
     )
 
 

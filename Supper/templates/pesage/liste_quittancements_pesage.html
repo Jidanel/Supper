@@ -1,0 +1,457 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+{% load i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{% trans "Liste des Quittancements Pesage" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    
+    .filter-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+    
+    .stat-card.primary {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+    
+    .stat-card.success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+    }
+    
+    .stat-card.info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
+    .stat-card h3 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .table-quittances {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .table-quittances thead {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+    
+    .table-quittances tbody tr {
+        transition: all 0.3s ease;
+    }
+    
+    .table-quittances tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .badge-type {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .btn-action {
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .pagination {
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    
+    .badge-pesage {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- En-tête avec actions -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-2">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>
+                    {% trans "Liste des Quittancements Pesage" %}
+                    <span class="badge bg-light text-dark ms-2">PESAGE</span>
+                </h2>
+                <p class="mb-0">
+                    {% trans "Gestion et consultation des quittancements de recettes pesage (amendes)" %}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" class="btn btn-light btn-lg">
+                    <i class="fas fa-plus-circle me-2"></i>
+                    {% trans "Nouveau Quittancement" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <p class="mb-2">{% trans "Total Quittancements" %}</p>
+            <h3>{{ nombre_quittancements }}</h3>
+            <small>{% trans "Document(s)" %}</small>
+        </div>
+        
+        <div class="stat-card success">
+            <p class="mb-2">{% trans "Montant Total" %}</p>
+            <h3>{{ total_montant|floatformat:0|format_milliers }}</h3>
+            <small>FCFA</small>
+        </div>
+        
+        <div class="stat-card info">
+            <p class="mb-2">{% trans "Mois en cours" %}</p>
+            <h3>{% now "F Y" %}</h3>
+            <small>{% trans "Période actuelle" %}</small>
+        </div>
+        
+        <div class="stat-card">
+            <p class="mb-2">{% trans "Exercice" %}</p>
+            <h3>{{ exercice_courant }}</h3>
+            <small>{% trans "Année en cours" %}</small>
+        </div>
+    </div>
+
+    <!-- Filtres améliorés -->
+    <div class="filter-card">
+        <h5 class="mb-3">
+            <i class="fas fa-filter me-2"></i>
+            {% trans "Filtrer les quittancements" %}
+        </h5>
+        
+        <form method="get" action="{% url 'inventaire:liste_quittancements_pesage' %}">
+            <div class="row g-3">
+                
+                <!-- Filtre Station (Admin/Régisseur seulement) -->
+                {% if stations %}
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Station" %}</label>
+                    <select name="station" class="form-select">
+                        <option value="">{% trans "Toutes les stations" %}</option>
+                        {% for station in stations %}
+                        <option value="{{ station.id }}" {% if request.GET.station == station.id|stringformat:"s" %}selected{% endif %}>
+                            {{ station.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <!-- Filtre Exercice -->
+                <div class="col-md-2">
+                    <label class="form-label">{% trans "Exercice" %}</label>
+                    <select name="exercice" class="form-select">
+                        <option value="">{% trans "Tous" %}</option>
+                        {% for year in years_range %}
+                        <option value="{{ year }}" {% if request.GET.exercice == year|stringformat:"s" %}selected{% endif %}>
+                            {{ year }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre par Mois -->
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Mois" %}</label>
+                    <input type="month" 
+                           name="mois" 
+                           class="form-control"
+                           value="{{ request.GET.mois }}"
+                           max="{% now 'Y-m' %}">
+                </div>
+                
+                <!-- Filtre Type Déclaration -->
+                <div class="col-md-2">
+                    <label class="form-label">{% trans "Type" %}</label>
+                    <select name="type_declaration" class="form-select">
+                        <option value="">{% trans "Tous" %}</option>
+                        <option value="journaliere" {% if request.GET.type_declaration == 'journaliere' %}selected{% endif %}>
+                            {% trans "Journalière" %}
+                        </option>
+                        <option value="decade" {% if request.GET.type_declaration == 'decade' %}selected{% endif %}>
+                            {% trans "Décade" %}
+                        </option>
+                    </select>
+                </div>
+                
+                <!-- Boutons -->
+                <div class="col-md-2 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-danger flex-fill">
+                        <i class="fas fa-search"></i>
+                        {% trans "Filtrer" %}
+                    </button>
+                    <a href="{% url 'inventaire:liste_quittancements_pesage' %}" 
+                       class="btn btn-outline-secondary" 
+                       title="{% trans 'Réinitialiser' %}">
+                        <i class="fas fa-redo"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Ligne supplémentaire pour filtres avancés -->
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Date début" %}</label>
+                    <input type="date" 
+                           name="date_debut" 
+                           class="form-control"
+                           value="{{ request.GET.date_debut }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Date fin" %}</label>
+                    <input type="date" 
+                           name="date_fin" 
+                           class="form-control"
+                           value="{{ request.GET.date_fin }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Numéro quittance" %}</label>
+                    <input type="text" 
+                           name="numero" 
+                           class="form-control"
+                           placeholder="Ex: P12345678"
+                           value="{{ request.GET.numero }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">{% trans "Montant min (FCFA)" %}</label>
+                    <input type="number" 
+                           name="montant_min" 
+                           class="form-control"
+                           placeholder="0"
+                           value="{{ request.GET.montant_min }}">
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau des quittancements -->
+    <div class="table-responsive">
+        <table class="table table-hover table-quittances">
+            <thead>
+                <tr>
+                    <th>{% trans "N° Quittance" %}</th>
+                    <th>{% trans "Station" %}</th>
+                    <th>{% trans "Date Quittancement" %}</th>
+                    <th>{% trans "Mois" %}</th>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Période" %}</th>
+                    <th class="text-end">{% trans "Montant Quittancé" %}</th>
+                    <th class="text-end">{% trans "Montant Attendu" %}</th>
+                    <th class="text-end">{% trans "Écart" %}</th>
+                    <th class="text-center">{% trans "Document" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quittancement in page_obj %}
+                <tr>
+                    <td>
+                        <strong class="text-danger">{{ quittancement.numero_quittance }}</strong>
+                    </td>
+                    <td>{{ quittancement.station.nom }}</td>
+                    <td>{{ quittancement.date_quittancement|date:"d/m/Y" }}</td>
+                    <td>
+                        <span class="badge bg-secondary">{{ quittancement.mois }}</span>
+                    </td>
+                    <td>
+                        <span class="badge badge-type bg-info">
+                            {% if quittancement.type_declaration == 'journaliere' %}
+                                {% trans "Journalière" %}
+                            {% else %}
+                                {% trans "Décade" %}
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>{{ quittancement.get_periode_display }}</td>
+                    <td class="text-end">
+                        <strong>{{ quittancement.montant_quittance|floatformat:0|format_milliers }}</strong> FCFA
+                    </td>
+                    <td class="text-end">
+                        {% if quittancement.montant_attendu %}
+                        {{ quittancement.montant_attendu|floatformat:0|format_milliers }} FCFA
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if quittancement.ecart %}
+                            <span class="{% if quittancement.ecart|abs < 1 %}text-success{% elif quittancement.ecart < 0 %}text-danger{% else %}text-warning{% endif %}">
+                                {{ quittancement.ecart|floatformat:0|format_milliers }} FCFA
+                            </span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if quittancement.image_quittance %}
+                        <a href="{{ quittancement.image_quittance.url }}" 
+                           target="_blank" 
+                           class="btn btn-sm btn-outline-danger btn-action"
+                           title="{% trans 'Voir le document' %}">
+                            <i class="fas fa-file-image"></i>
+                        </a>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        <p class="mb-0">{% trans "Aucun quittancement pesage trouvé" %}</p>
+                        {% if request.GET %}
+                        <a href="{% url 'inventaire:liste_quittancements_pesage' %}" class="btn btn-sm btn-outline-danger mt-2">
+                            {% trans "Réinitialiser les filtres" %}
+                        </a>
+                        {% else %}
+                        <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" class="btn btn-sm btn-danger mt-2">
+                            <i class="fas fa-plus me-1"></i>
+                            {% trans "Créer le premier quittancement" %}
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="{% trans 'Navigation des pages' %}">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <div class="text-center text-muted">
+        <small>
+            {% trans "Page" %} {{ page_obj.number }} {% trans "sur" %} {{ page_obj.paginator.num_pages }} - 
+            {% trans "Total" %} : {{ page_obj.paginator.count }} {% trans "quittancement(s)" %}
+        </small>
+    </div>
+    {% endif %}
+
+    <!-- Actions en bas de page -->
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <a href="{% url 'inventaire:comptabilisation_quittancements_pesage' %}" class="btn btn-danger">
+            <i class="fas fa-calculator me-2"></i>
+            {% trans "Comptabilisation" %}
+        </a>
+        
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-danger">
+                <i class="fas fa-print me-2"></i>
+                {% trans "Imprimer" %}
+            </button>
+            
+            <button onclick="exportToExcel()" class="btn btn-success">
+                <i class="fas fa-file-excel me-2"></i>
+                {% trans "Exporter Excel" %}
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportToExcel() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('format', 'excel');
+    window.location.href = "{% url 'inventaire:export_quittancements_pesage' %}?" + params.toString();
+}
+</script>
+{% endblock %}

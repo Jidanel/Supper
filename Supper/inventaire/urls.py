@@ -371,9 +371,47 @@ pesage_patterns = [
     path('pesage/amendes/valider-masse/', views_pesage.valider_paiements_masse, name='valider_paiements_masse'),
     
     # Quittancements
-    path('pesage/quittancements/', views_pesage.liste_quittancements_pesage, name='liste_quittancements_pesage'),
-    path('pesage/quittancements/saisir/', views_pesage.saisir_quittancement_pesage, name='saisir_quittancement_pesage'),
+    # Saisie de quittancement pesage (3 étapes)
+    path(
+        'pesage/quittancements/saisie/', 
+        views_pesage.saisie_quittancement_pesage, 
+        name='saisie_quittancement_pesage'
+    ),
     
+    # Liste des quittancements pesage
+    path(
+        'pesage/quittancements/', 
+        views_pesage.liste_quittancements_pesage, 
+        name='liste_quittancements_pesage'
+    ),
+    
+    # Comptabilisation des quittancements pesage
+    path(
+        'pesage/quittancements/comptabilisation/', 
+        views_pesage.comptabilisation_quittancements_pesage, 
+        name='comptabilisation_quittancements_pesage'
+    ),
+    
+    # Justification d'écart pesage
+    path(
+        'pesage/quittancements/justifier/<int:station_id>/<str:date_debut>/<str:date_fin>/',
+        views_pesage.justifier_ecart_pesage,
+        name='justifier_ecart_pesage'
+    ),
+    
+    # Détails quittancements période pesage
+    path(
+        'pesage/quittancements/detail/<int:station_id>/<str:date_debut>/<str:date_fin>/',
+        views_pesage.detail_quittancements_periode_pesage,
+        name='detail_quittancements_periode_pesage'
+    ),
+    
+    # Export Excel quittancements pesage
+    path(
+        'quittancements/export/',
+        views_pesage.export_quittancements_pesage,
+        name='export_quittancements_pesage'
+    ),
     # Recettes avec recherche et filtres
     path('pesage/recettes/', views_pesage.recettes_pesage, name='recettes_pesage'),
     path('pesage/recettes/imprimer/', views_pesage.imprimer_recette_jour, name='imprimer_recette_jour'),

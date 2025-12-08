@@ -280,6 +280,46 @@
                 margin: 2cm;
             }
         }
+    /* Menu dropdown large pour pesage */
+.dropdown-menu-lg {
+    min-width: 280px;
+}
+
+    /* Style des badges dans le menu */
+    .dropdown-item .badge {
+        font-size: 0.7rem;
+    }
+
+    /* Couleur violet personnalisée */
+    .text-purple {
+        color: #6f42c1 !important;
+    }
+
+    /* Header de section dans le dropdown */
+    .dropdown-header {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.5rem 1rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Hover effect sur les items */
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .dropdown-item:hover i {
+        transform: scale(1.1);
+        transition: transform 0.2s ease;
+    }
+
+    /* Badge de consultation */
+    .dropdown-item .badge.bg-secondary {
+        font-size: 0.6rem;
+        padding: 0.2em 0.4em;
+    }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -355,6 +395,11 @@
                                 <i class="fas fa-list-check me-2"></i>{% trans "Programmations Actives" %}
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:programmations_desactivees' %}">
+                                <i class="fas fa-ban me-2"></i>{% trans "Programmations Désactivées" %}
+                            </a>
+                        </li>
                         
                         <li><hr class="dropdown-divider"></li>
                         
@@ -368,6 +413,11 @@
                                 <i class="fas fa-table-list me-2"></i>{% trans "Liste Inventaires" %}
                             </a>
                         </li>
+                         <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_administratifs' %}">
+                                <i class="fas fa-file-invoice me-2"></i>{% trans "Liste Inventaires Administratifs" %}
+                            </a>
+                        </li>
                         <li>
                             <a class="dropdown-item" href="{% url 'inventaire:jours_impertinents' %}">
                                 <i class="fas fa-calendar-xmark me-2"></i>{% trans "Jours Impertinents" %}
@@ -379,6 +429,11 @@
                         <li>
                             <a class="dropdown-item" href="{% url 'inventaire:statistiques_taux' %}">
                                 <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques Taux" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:consolider_inventaire_mensuel' %}">
+                                <i class="fas fa-layer-group me-2"></i>{% trans "Consolider Mensuel" %}
                             </a>
                         </li>
                         {% endif %}
@@ -415,6 +470,17 @@
                             </a>
                         </li>
                         <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:import_recettes'%}">
+                                    <i class="fas fa-file-import me-2"></i>{% trans "Importer les Recettes" %}
+                                </a>
+                            </li>
+                        <li>
+                            <a href="{% url 'inventaire:taux_evolution_avance' %}" class="dropdown-item">
+                                <i class="fas fa-arrow-trend-up me-2"></i>
+                                {% trans "Taux D'Évolution et Estimations" %}
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item" href="{% url 'inventaire:gestion_objectifs_annuels' %}">
                                 <i class="fas fa-bullseye me-2"></i>{% trans "Objectifs Annuels" %}
                             </a>
@@ -430,6 +496,24 @@
                                 <i class="fas fa-file-lines me-2"></i>{% trans "Liste Quittances" %}
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:comptabilisation_quittancements' %}">
+                                <i class="fas fa-calculator me-2"></i>{% trans "Comptabilisation et Justifications" %}
+                            </a>
+                        </li>
+                        {% if user.voir_taux_deperdition %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-magnifying-glass-chart me-1"></i>{% trans "Analyse" %}
+                            </h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}?periode=mois">
+                                <i class="fas fa-chart-column me-2"></i>{% trans "Analyse Mensuelle" %}
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                 </li>
                 {% endif %}
@@ -438,98 +522,172 @@
                      MENU PESAGE - NOUVEAU
                      ============================================ -->
                 {% if user.habilitation == 'chef_equipe_pesage' or user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' or user.is_admin %}
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-weight-scale me-1"></i>
-                        {% trans "Pesage" %}
-                    </a>
-                    <ul class="dropdown-menu">
-                        <!-- Saisie (Chef d'équipe et Admin) -->
-                        {% if user.habilitation == 'chef_equipe_pesage' or user.is_admin %}
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-pen-to-square me-1"></i>{% trans "Saisie" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisir_amende' %}">
-                                <i class="fas fa-file-invoice me-2"></i>{% trans "Saisir Amende" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisir_pesees' %}">
-                                <i class="fas fa-balance-scale me-2"></i>{% trans "Saisir Pesées du Jour" %}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        
-                        <!-- Validation (Régisseur, Chef station, Admin) -->
-                        {% if user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' or user.is_admin %}
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-check-double me-1"></i>{% trans "Validation" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_amendes_a_valider' %}">
-                                <i class="fas fa-hourglass-half me-2 text-warning"></i>{% trans "Amendes à Valider" %}
-                                {% if stats_pesage.amendes_non_payees > 0 %}
-                                <span class="menu-badge bg-danger text-white">{{ stats_pesage.amendes_non_payees }}</span>
-                                {% endif %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisir_quittancement_pesage' %}">
-                                <i class="fas fa-receipt me-2"></i>{% trans "Saisir Quittancement" %}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        
-                        <!-- Consultation (Tous les rôles pesage) -->
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-list me-1"></i>{% trans "Consultation" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_amendes' %}">
-                                <i class="fas fa-file-lines me-2"></i>{% trans "Liste des Amendes" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:recettes_pesage' %}">
-                                <i class="fas fa-coins me-2"></i>{% trans "Recettes Pesage" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:historique_pesees' %}">
-                                <i class="fas fa-clock-rotate-left me-2"></i>{% trans "Historique Pesées" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_quittancements_pesage' %}">
-                                <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Quittancements" %}
-                            </a>
-                        </li>
-                        
-                        <li><hr class="dropdown-divider"></li>
-                        
-                        <!-- Statistiques -->
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-chart-pie me-1"></i>{% trans "Statistiques" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:statistiques_pesage' %}">
-                                <i class="fas fa-chart-bar me-2"></i>{% trans "Statistiques Pesage" %}
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                {% endif %}
+                    <li class="dropdown">
+                        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-weight-scale me-1"></i>
+                            {% trans "Pesage" %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-lg">
+                            
+                            <!-- ========================================
+                                SECTION SAISIE (Chef équipe + Admin)
+                                ======================================== -->
+                            {% if user.habilitation == 'chef_equipe_pesage' or user.is_admin %}
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-pen-to-square me-1 text-primary"></i>{% trans "Saisie" %}
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:saisir_amende' %}">
+                                    <i class="fas fa-file-invoice me-2 text-danger"></i>{% trans "Saisir Amende" %}
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <!-- Saisir Pesées: Chef équipe + Régisseur + Admin -->
+                            {% if user.habilitation == 'chef_equipe_pesage' or user.habilitation == 'regisseur_pesage' or user.is_admin %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:saisir_pesees' %}">
+                                    <i class="fas fa-balance-scale me-2 text-info"></i>{% trans "Saisir Pesées du Jour" %}
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            
+                            <!-- ========================================
+                                SECTION VALIDATION (Régisseur + Admin)
+                                Chef station: voir seulement
+                                ======================================== -->
+                            {% if user.habilitation == 'regisseur_pesage' or user.is_admin %}
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-check-double me-1 text-success"></i>{% trans "Validation" %}
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:liste_amendes_a_valider' %}">
+                                    <i class="fas fa-hourglass-half me-2 text-warning"></i>{% trans "Amendes à Valider" %}
+                                    {% if stats_pesage.amendes_a_valider > 0 %}
+                                    <span class="badge bg-danger ms-2 rounded-pill">{{ stats_pesage.amendes_a_valider }}</span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% elif user.habilitation == 'chef_station_pesage' %}
+                            <!-- Chef station: voir uniquement, pas valider -->
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-eye me-1 text-secondary"></i>{% trans "Supervision" %}
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:liste_amendes_a_valider' %}">
+                                    <i class="fas fa-hourglass-half me-2 text-warning"></i>{% trans "Amendes en Attente" %}
+                                    <span class="badge bg-secondary ms-2 rounded-pill" title="Consultation uniquement">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            
+                            <!-- ========================================
+                                SECTION QUITTANCEMENTS (Régisseur + Admin UNIQUEMENT)
+                                ======================================== -->
+                            {% if user.habilitation == 'regisseur_pesage' or user.is_admin %}
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-receipt me-1 text-success"></i>{% trans "Quittancements" %}
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:saisie_quittancement_pesage' %}">
+                                    <i class="fas fa-plus-circle me-2 text-success"></i>{% trans "Saisir Quittancement" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:comptabilisation_quittancements_pesage' %}">
+                                    <i class="fas fa-calculator me-2 text-primary"></i>{% trans "Comptabilisation" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:liste_quittancements_pesage' %}">
+                                    <i class="fas fa-file-invoice-dollar me-2 text-info"></i>{% trans "Liste Quittancements" %}
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            
+                            <!-- ========================================
+                                SECTION CONSULTATION
+                                Liste Amendes: tous
+                                Quittancements (voir): regisseur + chef_station + admin (PAS chef_equipe)
+                                Recettes: regisseur + chef_station + admin (PAS chef_equipe)
+                                Historique Pesées: tous
+                                ======================================== -->
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-list me-1 text-info"></i>{% trans "Consultation" %}
+                                </h6>
+                            </li>
+                            
+                            <!-- Liste Amendes: tous les rôles pesage -->
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:liste_amendes' %}">
+                                    <i class="fas fa-file-lines me-2"></i>{% trans "Liste des Amendes" %}
+                                </a>
+                            </li>
+                            
+                            <!-- Historique Pesées: tous les rôles pesage -->
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:historique_pesees' %}">
+                                    <i class="fas fa-clock-rotate-left me-2"></i>{% trans "Historique Pesées" %}
+                                </a>
+                            </li>
+                            
+                            <!-- Quittancements (consultation): regisseur + chef_station + admin (PAS chef_equipe) -->
+                            {% if user.habilitation == 'chef_station_pesage' %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:liste_quittancements_pesage' %}">
+                                    <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Quittancements" %}
+                                    <span class="badge bg-secondary ms-2 rounded-pill" title="Consultation uniquement">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <!-- Recettes Pesage: regisseur + chef_station + admin (PAS chef_equipe) -->
+                            {% if user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' or user.is_admin %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:recettes_pesage' %}">
+                                    <i class="fas fa-coins me-2 text-warning"></i>{% trans "Recettes Pesage" %}
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <!-- ========================================
+                                SECTION STATISTIQUES (tous les rôles pesage)
+                                ======================================== -->
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-chart-pie me-1 text-purple"></i>{% trans "Statistiques" %}
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inventaire:statistiques_pesage' %}">
+                                    <i class="fas fa-chart-bar me-2 text-primary"></i>{% trans "Statistiques Pesage" %}
+                                </a>
+                            </li>
+                            
+                            
+                        </ul>
+                    </li>
+                    {% endif %}
+
 
                 <!-- Menu STOCKS -->
                 {% if user.is_admin or user.is_chef_poste %}
@@ -546,6 +704,11 @@
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:stock_historique_date_sans_poste' %}">
+                                <i class="fas fa-calendar-check"></i> {% trans "Stock à une date" %}
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item" href="{% url 'inventaire:selection_postes_transfert_tickets' %}">
                                 <i class="fas fa-truck-moving me-2"></i>{% trans "Transférer Stock" %}
                             </a>
@@ -553,6 +716,11 @@
                         <li>
                             <a class="dropdown-item" href="{% url 'inventaire:recherche_tracabilite_ticket' %}">
                                 <i class="fas fa-search me-2"></i>{% trans "Traçabilité Tickets" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:liste_bordereaux' %}">
+                                <i class="fas fa-clipboard-list me-2"></i>{% trans "Liste des Bordereaux" %}
                             </a>
                         </li>
                         {% endif %}
@@ -566,6 +734,11 @@
                         <li>
                             <a class="dropdown-item" href="{% url 'inventaire:historique_stock' user.poste_affectation.id %}">
                                 <i class="fas fa-clock-rotate-left me-2"></i>{% trans "Historique" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:simulateur_commandes'%}">
+                                <i class="fas fa-chart-simple me-2"></i>{% trans "Simulateur de Commandes" %}
                             </a>
                         </li>
                         {% endif %}
@@ -596,6 +769,11 @@
                                 <i class="fas fa-square-plus me-2"></i>{% trans "Ajouter un Poste" %}
                             </a>
                         </li>
+                        <li>
+                        <a class="dropdown-item" href="{% url 'accounts:import_postes' %}">
+                            <i class="fas fa-file-arrow-up me-2"></i>{% trans "Creer postes en masses" %}
+                        </a>
+                    </li>
                         
                         <li><hr class="dropdown-divider"></li>
                         
@@ -622,6 +800,12 @@
                                 <i class="fas fa-book-open me-2"></i>{% trans "Journal d'Audit" %}
                             </a>
                         </li>
+                         <li>
+                            <a class="dropdown-item" href="#" onclick="marquerJourImpertinent(); return false;">
+                                <i class="fas fa-flag-checkered me-2 text-warning"></i>
+                                {% trans "Marquer Jour Impertinent" %}
+                            </a>
+                        </li>
                         {% endif %}
                     </ul>
                 </li>
@@ -641,21 +825,43 @@
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:classement_rendement' %}">
-                                <i class="fas fa-ranking-star me-2"></i>{% trans "Classement Rendement" %}
+                            <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_inventaires' %}">
+                                <i class="fas fa-paperclip text-success"></i>
+                                Rapport des Inventaires
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
-                                <i class="fas fa-file-pdf me-2"></i>{% trans "Générer Rapports" %}
+                            <a class="dropdown-item" href="{% url 'inventaire:classement_rendement' %}">
+                                <i class="fas fa-ranking-star me-2"></i>{% trans "Classement Peage Rendement" %}
+                            </a>
+                        </li>
+                         <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:classement_postes_performances' %}">
+                                <i class="fas fa-award me-2"></i>{% trans "Classement Peage Deperdition" %}
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
-                                <i class="fas fa-cloud-arrow-down me-2"></i>{% trans "Sauvegarde" %}
-                            </a>
-                        </li>
+                <a class="dropdown-item" href="{% url 'inventaire:classement_agents_performances' %}">
+                    <i class="fas fa-medal me-2"></i>{% trans "Classement Agents Inventaires" %}
+                </a>
+            </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
+                        <i class="fas fa-file-pdf me-2"></i>{% trans "Générer Rapports" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:api_inventaire_stats' %}">
+                        <i class="fas fa-chart-gantt me-2"></i>{% trans "Statistiques" %}
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
+                        <i class="fas fa-cloud-arrow-down me-2"></i>{% trans "Sauvegarde" %}
+                    </a>
+                </li>
                     </ul>
                 </li>
                 {% endif %}
@@ -678,6 +884,12 @@
                                 <i class="fas fa-wallet me-2"></i>{% trans "Compte d'emploi" %}
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:authentifier_document' %}">
+                                <i class="fas fa-stamp me-2"></i>{% trans "Authentifier un document" %}
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
                     </ul>
                 </li>
                 {% endif %}

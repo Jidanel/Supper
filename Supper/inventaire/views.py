@@ -173,7 +173,7 @@ class InventaireListView(InventaireMixin, ListView):
         
         # Postes accessibles pour le filtre
         if context['can_admin']:
-            context['postes'] = Poste.objects.filter(is_active=True).order_by('nom')
+            context['postes'] = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
         elif hasattr(self.request.user, 'get_postes_accessibles'):
             context['postes'] = self.request.user.get_postes_accessibles()
         else:
@@ -336,7 +336,7 @@ class SaisieInventaireView(InventaireMixin, View):
                 postes_programmes = Poste.objects.filter(
                     programmations_inventaire__mois=mois_actuel,
                     programmations_inventaire__actif=True,
-                    is_active=True
+                    is_active=True, type='peage'
                 ).distinct().order_by('nom')
                 
                 return render(request, 'inventaire/choix_poste.html', {
@@ -347,7 +347,7 @@ class SaisieInventaireView(InventaireMixin, View):
             else:
                 # Admin avec poste_id
                 try:
-                    poste = Poste.objects.get(id=poste_id, is_active=True)
+                    poste = Poste.objects.get(id=poste_id, is_active=True, type='peage')
                 except Poste.DoesNotExist:
                     messages.error(request, "Poste introuvable ou inactif.")
                     return redirect('inventaire:saisie_inventaire')
@@ -357,7 +357,7 @@ class SaisieInventaireView(InventaireMixin, View):
             if poste_id:
                 # Non-admin avec poste_id fourni
                 try:
-                    poste = Poste.objects.get(id=poste_id, is_active=True)
+                    poste = Poste.objects.get(id=poste_id, is_active=True, type='peage')
                     # Vérifier que c'est bien son poste
                     if request.user.poste_affectation and poste.id != request.user.poste_affectation.id:
                         messages.warning(request, f"Redirection vers votre poste: {request.user.poste_affectation.nom}")
@@ -548,7 +548,7 @@ class SaisieInventaireView(InventaireMixin, View):
         if hasattr(self.request.user, 'get_postes_accessibles'):
             context['postes_accessibles'] = self.request.user.get_postes_accessibles()
         else:
-            context['postes_accessibles'] = Poste.objects.filter(is_active=True)
+            context['postes_accessibles'] = Poste.objects.filter(is_active=True, type='peage')
         
         # 🔧 CORRECTION : Vérifier si aujourd'hui est ouvert - AVEC l'argument date
         try:
@@ -1058,7 +1058,7 @@ def saisir_recette_avec_tickets(request):
         postes = request.user.get_postes_accessibles()
     else:
         if request.user.acces_tous_postes or request.user.is_admin:
-            postes = Poste.objects.filter(is_active=True)
+            postes = Poste.objects.filter(is_active=True, type='peage')
         elif request.user.poste_affectation:
             postes = Poste.objects.filter(id=request.user.poste_affectation.id)
         else:
@@ -1878,7 +1878,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
         
         # Liste des postes pour le filtre
         if self.request.user.is_admin:
-            context['postes'] = Poste.objects.filter(is_active=True).order_by('nom')
+            context['postes'] = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
         else:
             if hasattr(self.request.user, 'get_postes_accessibles'):
                 context['postes'] = self.request.user.get_postes_accessibles()
@@ -1934,7 +1934,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
             date_fin = date.today()
         
         # Filtrer par poste
-        postes_query = Poste.objects.filter(is_active=True)
+        postes_query = Poste.objects.filter(is_active=True, type='peage')
         if poste_id:
             postes_query = postes_query.filter(id=poste_id)
         
@@ -2176,7 +2176,7 @@ def liste_inventaires_mensuels(request):
     context = {
         'inventaires': inventaires,
         'stats': stats,
-        'postes': Poste.objects.filter(is_active=True),
+        'postes': Poste.objects.filter(is_active=True, type='peage'),
         'current_year': timezone.now().year,
         'title': 'Inventaires mensuels'
     }
@@ -2872,7 +2872,7 @@ class RapportInventaireView(AdminRequiredMixin, View):
         """Afficher la page de génération de rapports"""
         context = {
             'title': 'Génération de Rapports',
-            'postes': Poste.objects.filter(is_active=True).order_by('nom'),
+            'postes': Poste.objects.filter(is_active=True, type='peage').order_by('nom'),
             'current_year': timezone.now().year,
             'years': range(timezone.now().year - 5, timezone.now().year + 1),
         }
@@ -3908,7 +3908,7 @@ def programmer_inventaire(request):
             # MOTIF 3: TAUX DE DÉPERDITION AUTOMATIQUE
             elif motif == 'taux_deperdition':
                 # Récupérer tous les postes actifs
-                tous_postes = Poste.objects.filter(is_active=True).order_by('nom')
+                tous_postes = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
                 logger.debug(f"[DEBUG] Total postes actifs: {tous_postes.count()}")
                 
                 # Séparer les postes selon leur taux de déperdition
@@ -3956,7 +3956,7 @@ def programmer_inventaire(request):
             # MOTIF 4: PRÉSENCE ADMINISTRATIVE (NOUVEAU)
             elif motif == 'presence_admin':
                 # Récupérer TOUS les postes, non cochés par défaut
-                tous_postes = Poste.objects.filter(is_active=True).order_by('nom')
+                tous_postes = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
                 context['postes_presence_admin'] = tous_postes
                 logger.debug(f"[DEBUG] Présence administrative: {tous_postes.count()} postes disponibles")
                 
@@ -4168,7 +4168,7 @@ def api_get_postes_par_motif(request):
         
         # Ajouter les autres postes (non sélectionnés)
         autres_postes = Poste.objects.filter(
-            is_active=True
+            is_active=True, type='peage'
         ).exclude(id__in=postes_avec_taux_ids)
         
         for poste in autres_postes:
@@ -4686,7 +4686,7 @@ def jours_impertinents_view(request):
         'periode': periode,
         'date_debut': date_debut,
         'date_fin': date_fin,
-        'postes': Poste.objects.filter(is_active=True),
+        'postes': Poste.objects.filter(is_active=True, type='peage'),
         'poste_selectionne': poste_id
     }
     
@@ -4723,7 +4723,7 @@ def gestion_objectifs_annuels(request):
     annees_disponibles = list(range(annee_actuelle - 5, annee_actuelle + 6))
     
     # CORRECTION : Récupérer TOUS les postes actifs (pas seulement ceux avec objectifs)
-    postes = Poste.objects.filter(is_active=True).select_related('region').order_by('region', 'nom')
+    postes = Poste.objects.filter(is_active=True, type='peage').select_related('region').order_by('region', 'nom')
     
     if request.method == 'POST':
         # Traitement du formulaire
@@ -4851,7 +4851,7 @@ from inventaire.services.forecasting_service import ForecastingService
 def simulateur_commandes(request):
     """Simulateur de commandes amélioré avec prévisions statistiques"""
     
-    postes = Poste.objects.filter(is_active=True).order_by('nom')
+    postes = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
     resultats = None
     erreur = None
     
@@ -5172,21 +5172,16 @@ def saisie_quittancement(request):
                 form_data['date_debut_decade'] = request.POST.get('date_debut_decade')
                 form_data['date_fin_decade'] = request.POST.get('date_fin_decade')
             
-            # ✅ CORRECTION : Gérer l'image uploadée
+            # Gérer l'image uploadée
             has_image = False
             image_name = None
             if 'image_quittance' in request.FILES:
                 image_file = request.FILES['image_quittance']
-                # Sauvegarder temporairement
                 import os
-                from django.conf import settings
                 from django.core.files.storage import default_storage
                 
-                # Créer un nom unique temporaire
                 temp_name = f"temp_{request.user.id}_{timezone.now().timestamp()}_{image_file.name}"
                 temp_path = os.path.join('temp_quittances', temp_name)
-                
-                # Sauvegarder
                 saved_path = default_storage.save(temp_path, image_file)
                 request.session['image_temp_path'] = saved_path
                 has_image = True
@@ -5197,11 +5192,30 @@ def saisie_quittancement(request):
             form_data['has_image'] = has_image
             form_data['image_name'] = image_name
             
-            # Validation basique
+            # =====================================================
+            # VALIDATION COMPLÈTE
+            # =====================================================
             errors = []
             
+            # --- Validation numéro de quittance ---
             if not form_data['numero_quittance']:
                 errors.append("Le numéro de quittance est obligatoire")
+            else:
+                numero = form_data['numero_quittance'].strip().upper()
+                
+                # Vérifier dans la table Quittancement (péage)
+                if Quittancement.objects.filter(numero_quittance__iexact=numero).exists():
+                    errors.append(f"Le numéro de quittance '{numero}' existe déjà dans les quittancements péage")
+                
+                # Vérifier dans la table QuittancementPesage (pesage)
+                try:
+                    from inventaire.models_pesage import QuittancementPesage
+                    if QuittancementPesage.objects.filter(numero_quittance__iexact=numero).exists():
+                        errors.append(f"Le numéro de quittance '{numero}' existe déjà dans les quittancements pesage")
+                except ImportError:
+                    pass
+            
+            # --- Validation autres champs ---
             if not form_data['date_quittancement']:
                 errors.append("La date de quittancement est obligatoire")
             if not form_data['montant']:
@@ -5209,7 +5223,11 @@ def saisie_quittancement(request):
             if not form_data['poste_id']:
                 errors.append("Le poste est obligatoire")
             
-            # Validation dates selon type
+            # --- Image obligatoire ---
+            if not has_image:
+                errors.append("L'image de la quittance est obligatoire")
+            
+            # --- Validation dates selon type ---
             if type_declaration == 'journaliere':
                 if not form_data.get('date_recette'):
                     errors.append("La date de recette est obligatoire")
@@ -5218,14 +5236,65 @@ def saisie_quittancement(request):
                     errors.append("La date de début de décade est obligatoire")
                 if not form_data.get('date_fin_decade'):
                     errors.append("La date de fin de décade est obligatoire")
+                # Vérifier que date_debut <= date_fin
+                elif form_data.get('date_debut_decade') and form_data.get('date_fin_decade'):
+                    if form_data['date_debut_decade'] > form_data['date_fin_decade']:
+                        errors.append("La date de début doit être antérieure à la date de fin")
             
+            # =====================================================
+            # ✅ NOUVEAU : VALIDATION DES DATES DÉJÀ QUITTANCÉES
+            # =====================================================
+            if form_data['poste_id'] and not errors:  # Seulement si pas d'autres erreurs
+                try:
+                    poste = Poste.objects.get(id=form_data['poste_id'])
+                    
+                    # Importer la fonction de validation
+                    from inventaire.utils_quittancement import valider_dates_quittancement_peage
+                    
+                    if type_declaration == 'journaliere':
+                        is_valid, error_msg, _ = valider_dates_quittancement_peage(
+                            poste=poste,
+                            exercice=int(exercice),
+                            mois=mois,
+                            type_declaration='journaliere',
+                            date_recette=form_data.get('date_recette')
+                        )
+                    else:  # decade
+                        is_valid, error_msg, _ = valider_dates_quittancement_peage(
+                            poste=poste,
+                            exercice=int(exercice),
+                            mois=mois,
+                            type_declaration='decade',
+                            date_debut=form_data.get('date_debut_decade'),
+                            date_fin=form_data.get('date_fin_decade')
+                        )
+                    
+                    if not is_valid:
+                        errors.append(error_msg)
+                        
+                except Poste.DoesNotExist:
+                    errors.append("Poste invalide")
+                except Exception as e:
+                    logger.error(f"Erreur validation dates: {e}")
+            
+            # =====================================================
+            # GESTION DES ERREURS
+            # =====================================================
             if errors:
                 for error in errors:
                     messages.error(request, f"❌ {error}")
                 
+                # Supprimer l'image temporaire en cas d'erreur
+                if has_image and request.session.get('image_temp_path'):
+                    from django.core.files.storage import default_storage
+                    temp_path = request.session.get('image_temp_path')
+                    if default_storage.exists(temp_path):
+                        default_storage.delete(temp_path)
+                    request.session.pop('image_temp_path', None)
+                
                 # Réafficher le formulaire avec les données
                 if request.user.is_admin:
-                    postes = Poste.objects.filter(is_active=True)
+                    postes = Poste.objects.filter(is_active=True, type='peage')
                 else:
                     postes = [request.user.poste_affectation] if request.user.poste_affectation else []
                 
@@ -5247,7 +5316,7 @@ def saisie_quittancement(request):
         
         # GET : Afficher le formulaire vide
         if request.user.is_admin:
-            postes = Poste.objects.filter(is_active=True)
+            postes = Poste.objects.filter(is_active=True, type='peage')
         else:
             postes = [request.user.poste_affectation] if request.user.poste_affectation else []
         
@@ -5259,6 +5328,7 @@ def saisie_quittancement(request):
             'postes': postes,
         }
         return render(request, 'inventaire/saisie_quittancement_simple.html', context)
+
     
     # ============================================================
     # ÉTAPE 3 : Confirmation et enregistrement
@@ -5452,7 +5522,7 @@ def liste_quittancements(request):
         'quittancements': page_obj,
         'total_montant': total_montant,
         'nombre_quittancements': quittancements.count(),
-        'postes': Poste.objects.filter(is_active=True) if request.user.is_admin else None,
+        'postes': Poste.objects.filter(is_active=True, type='peage') if request.user.is_admin else None,
         'exercice_courant': current_year,
         'years_range': years_range,
         'types_declaration': [
@@ -5520,9 +5590,9 @@ def comptabilisation_quittancements(request):
     # Filtrer les postes selon permissions
     if request.user.is_admin:
         if poste_id:
-            postes = Poste.objects.filter(id=poste_id, is_active=True)
+            postes = Poste.objects.filter(id=poste_id, is_active=True, type='peage')
         else:
-            postes = Poste.objects.filter(is_active=True)
+            postes = Poste.objects.filter(is_active=True, type='peage')
     else:
         if request.user.poste_affectation:
             postes = Poste.objects.filter(id=request.user.poste_affectation.id)
@@ -5703,7 +5773,7 @@ def comptabilisation_quittancements(request):
     }
     
     # Postes pour filtrage (admin seulement)
-    postes_filtre = Poste.objects.filter(is_active=True).order_by('nom') if request.user.is_admin else None
+    postes_filtre = Poste.objects.filter(is_active=True, type='peage').order_by('nom') if request.user.is_admin else None
     
     # Générer la liste des années disponibles
     current_year = timezone.now().year

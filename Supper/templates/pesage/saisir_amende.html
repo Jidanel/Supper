@@ -320,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
     formAmende.addEventListener('submit', function(e) {
         if (!checkSurcharge.checked && !checkHorsGabarit.checked) {
             e.preventDefault();
-            alert("{% trans 'Veuillez cocher au moins un type d\\'infraction (Surcharge ou Hors Gabarit).' %}");
+            alert("Veuillez cocher au moins un type d\\'infraction (Surcharge ou Hors Gabarit).");
             return false;
         }
     });

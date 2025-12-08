@@ -629,16 +629,6 @@ class UtilisateurSUPPER(AbstractUser):
             self.acces_tous_postes = False
             self.peut_gerer_inventaire = False
 
-        elif self.habilitation == Habilitation.CHEF_POSTE_PESAGE:
-            # Chef pesage : similaire chef péage
-            self.peut_gerer_pesage = True
-            self.peut_saisir_pesage = True
-            self.peut_gerer_inventaire = True
-            # RESTRICTIONS IMPORTANTES
-            self.voir_recettes_potentielles = False  # PAS les recettes potentielles
-            self.voir_taux_deperdition = True        # SEULEMENT le taux
-            self.voir_statistiques_globales = False
-            self.acces_tous_postes = False           # Son poste seulement
         
         elif self.habilitation == Habilitation.AGENT_INVENTAIRE:
             # Agent inventaire : DROITS TRÈS LIMITÉS

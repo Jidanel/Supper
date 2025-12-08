@@ -192,30 +192,6 @@
             </div>
         </div>
 
-        <!-- Statistiques -->
-        <div class="col-md-4">
-            <div class="detail-section">
-                <h3 class="section-title">
-                    <i class="fas fa-chart-bar section-icon"></i>
-                    {% trans "Statistiques du Mois" %}
-                </h3>
-                
-                <div class="stat-card">
-                    <div class="stat-value">{{ stats_poste.nb_inventaires_mois|default:0 }}</div>
-                    <div class="stat-label">{% trans "Inventaires" %}</div>
-                </div>
-                
-                <div class="stat-card success">
-                    <div class="stat-value">{{ stats_poste.nb_recettes_mois|default:0 }}</div>
-                    <div class="stat-label">{% trans "Recettes" %}</div>
-                </div>
-                
-                <div class="stat-card warning">
-                    <div class="stat-value">{{ stats_poste.nb_agents|default:0 }}</div>
-                    <div class="stat-label">{% trans "Agents Affectés" %}</div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 {% endblock %}

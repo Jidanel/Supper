@@ -1,6 +1,6 @@
 {% extends 'admin/base_site.html' %}
 {% load i18n %}
-{% load humanize %}
+{% load inventaire_extras %}
 
 {% block title %}Recettes Pesage{% endblock %}
 
@@ -9,22 +9,18 @@
     
     <!-- En-tête avec station -->
     {% if station %}
-    <div class="card bg-gradient-primary text-white shadow mb-4">
+    <div class="card bg-gradient-primary text-black shadow mb-4">
         <div class="card-body py-3">
             <div class="d-flex align-items-center justify-content-between">
                 <div>
                     <h4 class="mb-1">
                         <i class="fas fa-building me-2"></i>{{ station.nom }}
                     </h4>
-                    <p class="mb-0 opacity-75">
-                        <i class="fas fa-map-marker-alt me-1"></i>
-                        {{ station.get_region_display }} - {{ station.code }}
-                    </p>
                 </div>
                 {% if is_admin %}
                 <a href="{% url 'inventaire:selectionner_station' %}?action=recettes_pesage" 
-                   class="btn btn-outline-light btn-sm">
-                    <i class="fas fa-exchange-alt me-1"></i> Changer de station
+                   class="btn btn-outline-light btn-sm text-black">
+                    <i class="fas fa-exchange-alt me-1 "></i> Changer de station
                 </a>
                 {% endif %}
             </div>
@@ -40,7 +36,7 @@
                 Recettes Pesage
             </h2>
             <p class="text-muted mb-0">
-                Suivi des paiements d'amendes - Du {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}
+                Suivi des paiements d'amendes - {{ periode_label }}
             </p>
         </div>
         <div>
@@ -122,41 +118,62 @@
             </h5>
         </div>
         <div class="card-body">
-            <form method="get" class="row g-3">
+            
+            <!-- Boutons de période rapide -->
+            <!-- IMPORTANT: Ces liens NE contiennent PAS date_debut/date_fin pour forcer l'utilisation de la période prédéfinie -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Période rapide</label>
+                <div class="btn-group flex-wrap" role="group">
+                    <a href="?periode=jour{% if station_filter %}&station_filter={{ station_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" 
+                       class="btn btn-{% if periode == 'jour' %}primary{% else %}outline-primary{% endif %}">
+                        <i class="fas fa-calendar-day me-1"></i> Aujourd'hui
+                    </a>
+                    <a href="?periode=semaine{% if station_filter %}&station_filter={{ station_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" 
+                       class="btn btn-{% if periode == 'semaine' %}primary{% else %}outline-primary{% endif %}">
+                        <i class="fas fa-calendar-week me-1"></i> 7 jours
+                    </a>
+                    <a href="?periode=mois{% if station_filter %}&station_filter={{ station_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" 
+                       class="btn btn-{% if periode == 'mois' %}primary{% else %}outline-primary{% endif %}">
+                        <i class="fas fa-calendar-alt me-1"></i> Ce mois
+                    </a>
+                    <a href="?periode=trimestre{% if station_filter %}&station_filter={{ station_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" 
+                       class="btn btn-{% if periode == 'trimestre' %}primary{% else %}outline-primary{% endif %}">
+                        <i class="fas fa-calendar me-1"></i> Trimestre
+                    </a>
+                    <a href="?periode=annee{% if station_filter %}&station_filter={{ station_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" 
+                       class="btn btn-{% if periode == 'annee' %}primary{% else %}outline-primary{% endif %}">
+                        <i class="fas fa-calendar-check me-1"></i> Année
+                    </a>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <!-- Formulaire de recherche et période personnalisée -->
+            <form method="get" class="row g-3" id="filterForm">
                 <!-- Recherche textuelle -->
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Recherche</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
                         <input type="text" class="form-control" name="q" 
                                value="{{ query }}" 
-                               placeholder="Ticket, immatriculation, nom...">
+                               placeholder="Ticket, immatriculation...">
                     </div>
                 </div>
                 
-                <!-- Période prédéfinie -->
+                <!-- Date de début -->
                 <div class="col-md-2">
-                    <label class="form-label">Période</label>
-                    <select name="periode" class="form-select" id="selectPeriode">
-                        <option value="jour" {% if periode == 'jour' %}selected{% endif %}>Aujourd'hui</option>
-                        <option value="semaine" {% if periode == 'semaine' %}selected{% endif %}>Cette semaine</option>
-                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Ce mois</option>
-                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Ce trimestre</option>
-                        <option value="annee" {% if periode == 'annee' %}selected{% endif %}>Cette année</option>
-                        <option value="personnalise" {% if periode == 'personnalise' %}selected{% endif %}>Personnalisé</option>
-                    </select>
+                    <label class="form-label">Du (9h00)</label>
+                    <input type="date" class="form-control" name="date_debut" 
+                           id="dateDebut" value="{{ date_debut_str }}">
                 </div>
                 
-                <!-- Dates personnalisées -->
-                <div class="col-md-2" id="dateDebutGroup" style="{% if periode != 'personnalise' %}display:none;{% endif %}">
-                    <label class="form-label">Date début</label>
-                    <input type="date" class="form-control" name="date_debut" 
-                           value="{{ date_debut|date:'Y-m-d' }}">
-                </div>
-                <div class="col-md-2" id="dateFinGroup" style="{% if periode != 'personnalise' %}display:none;{% endif %}">
-                    <label class="form-label">Date fin</label>
+                <!-- Date de fin -->
+                <div class="col-md-2">
+                    <label class="form-label">Au (8h59 lendemain)</label>
                     <input type="date" class="form-control" name="date_fin" 
-                           value="{{ date_fin|date:'Y-m-d' }}">
+                           id="dateFin" value="{{ date_fin_str }}">
                 </div>
                 
                 <!-- Filtre station (admin) -->
@@ -174,16 +191,30 @@
                 </div>
                 {% endif %}
                 
+                <!-- IMPORTANT: Forcer periode=personnalise pour le formulaire de dates -->
+                <input type="hidden" name="periode" value="personnalise">
+                
                 <!-- Boutons -->
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary me-2">
-                        <i class="fas fa-search me-1"></i> Filtrer
+                <div class="col-md-{% if is_admin %}3{% else %}5{% endif %} d-flex align-items-end">
+                    <button type="submit" class="btn btn-success me-2">
+                        <i class="fas fa-search me-1"></i> Filtrer par dates
                     </button>
                     <a href="{% url 'inventaire:recettes_pesage' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-times"></i>
+                        <i class="fas fa-times me-1"></i> Réinitialiser
                     </a>
                 </div>
             </form>
+            
+            <!-- Info sur la logique 9h-9h -->
+            <div class="mt-3 alert alert-info py-2 mb-0">
+                <i class="fas fa-info-circle me-1"></i>
+                <strong>Logique 9h-9h :</strong> 
+                La journée de travail commence à <strong>9h00</strong> et se termine à <strong>8h59 le lendemain</strong> (fuseau horaire Cameroun GMT+1).
+                <br>
+                <small class="text-muted">
+                    Exemple: la journée du 07/12 = 07/12 à 9h00 jusqu'au 08/12 à 8h59
+                </small>
+            </div>
         </div>
     </div>
     
@@ -201,7 +232,7 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Date</th>
+                            <th>Date (journée de travail)</th>
                             <th class="text-center">Nb Paiements</th>
                             <th class="text-end">Montant Total</th>
                             <th class="text-center">Actions</th>
@@ -212,28 +243,37 @@
                         <tr>
                             <td>
                                 <i class="fas fa-calendar-day text-muted me-2"></i>
+                                {% if recette.date_jour %}
+                                <strong>{{ recette.date_jour|date:"l d F Y" }}</strong>
+                                <small class="text-muted d-block">
+                                    9h00 → {{ recette.date_jour|date:"d/m" }} lendemain 8h59
+                                </small>
+                                {% else %}
                                 <strong>{{ recette.date|date:"l d F Y" }}</strong>
+                                {% endif %}
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-primary rounded-pill">
-                                    {{ recette.count_paiements }}
+                                    {{ recette.count_paiements|format_milliers }}
                                 </span>
                             </td>
                             <td class="text-end">
-                                <strong class="text-success">{{ recette.total|intcomma }} FCFA</strong>
+                                <strong class="text-success">{{ recette.total|format_milliers }} FCFA</strong>
                             </td>
                             <td class="text-center">
-                                <a href="{% url 'inventaire:imprimer_recette_jour' recette.date|date:'Y-m-d' %}{% if station_filter %}?station={{ station_filter }}{% endif %}" 
+                                {% with date_str=recette.date_jour|default:recette.date_jour|date:'Y-m-d' %}
+                                <a href="{% url 'inventaire:imprimer_recette_jour' date_str %}{% if station_filter %}?station={{ station_filter }}{% endif %}" 
                                    class="btn btn-sm btn-outline-primary"
                                    title="Voir détails">
                                     <i class="fas fa-eye me-1"></i> Détails
                                 </a>
-                                <a href="{% url 'inventaire:imprimer_recette_jour' recette.date|date:'Y-m-d' %}{% if station_filter %}?station={{ station_filter }}{% endif %}&print=1" 
+                                <a href="{% url 'inventaire:imprimer_recette_jour' date_str %}{% if station_filter %}?station={{ station_filter }}{% endif %}&print=1" 
                                    class="btn btn-sm btn-outline-secondary"
                                    target="_blank"
                                    title="Imprimer">
                                     <i class="fas fa-print"></i>
                                 </a>
+                                {% endwith %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -241,8 +281,8 @@
                     <tfoot class="table-light">
                         <tr class="fw-bold">
                             <td>TOTAL PÉRIODE</td>
-                            <td class="text-center">{{ stats.count_paiements }}</td>
-                            <td class="text-end text-success">{{ stats.total_recouvre|default:0|intcomma }} FCFA</td>
+                            <td class="text-center">{{ stats.count_paiements|format_milliers }}</td>
+                            <td class="text-end text-success">{{ stats.total_recouvre|default:0|format_milliers }} FCFA</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -256,7 +296,7 @@
                     <ul class="pagination justify-content-center mb-0">
                         {% if recettes.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ recettes.previous_page_number }}&q={{ query }}&periode={{ periode }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&station_filter={{ station_filter }}">
+                            <a class="page-link" href="?page={{ recettes.previous_page_number }}&periode={{ periode }}{% if periode == 'personnalise' %}&date_debut={{ date_debut_str }}&date_fin={{ date_fin_str }}{% endif %}&q={{ query }}&station_filter={{ station_filter }}">
                                 <i class="fas fa-chevron-left"></i>
                             </a>
                         </li>
@@ -269,7 +309,7 @@
                             </li>
                             {% elif num > recettes.number|add:'-3' and num < recettes.number|add:'3' %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}&q={{ query }}&periode={{ periode }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&station_filter={{ station_filter }}">
+                                <a class="page-link" href="?page={{ num }}&periode={{ periode }}{% if periode == 'personnalise' %}&date_debut={{ date_debut_str }}&date_fin={{ date_fin_str }}{% endif %}&q={{ query }}&station_filter={{ station_filter }}">
                                     {{ num }}
                                 </a>
                             </li>
@@ -278,7 +318,7 @@
                         
                         {% if recettes.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ recettes.next_page_number }}&q={{ query }}&periode={{ periode }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&station_filter={{ station_filter }}">
+                            <a class="page-link" href="?page={{ recettes.next_page_number }}&periode={{ periode }}{% if periode == 'personnalise' %}&date_debut={{ date_debut_str }}&date_fin={{ date_fin_str }}{% endif %}&q={{ query }}&station_filter={{ station_filter }}">
                                 <i class="fas fa-chevron-right"></i>
                             </a>
                         </li>
@@ -304,19 +344,26 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const selectPeriode = document.getElementById('selectPeriode');
-    const dateDebutGroup = document.getElementById('dateDebutGroup');
-    const dateFinGroup = document.getElementById('dateFinGroup');
+    // Validation des dates
+    const dateDebut = document.getElementById('dateDebut');
+    const dateFin = document.getElementById('dateFin');
     
-    selectPeriode.addEventListener('change', function() {
-        if (this.value === 'personnalise') {
-            dateDebutGroup.style.display = 'block';
-            dateFinGroup.style.display = 'block';
-        } else {
-            dateDebutGroup.style.display = 'none';
-            dateFinGroup.style.display = 'none';
-        }
-    });
+    if (dateDebut && dateFin) {
+        dateDebut.addEventListener('change', function() {
+            // La date de fin ne peut pas être avant la date de début
+            if (dateFin.value && dateDebut.value > dateFin.value) {
+                dateFin.value = dateDebut.value;
+            }
+            dateFin.min = dateDebut.value;
+        });
+        
+        dateFin.addEventListener('change', function() {
+            // La date de début ne peut pas être après la date de fin
+            if (dateDebut.value && dateFin.value < dateDebut.value) {
+                dateDebut.value = dateFin.value;
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

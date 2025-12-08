@@ -2,12 +2,12 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{% trans "Saisie Quittancement" %}{% endblock %}
+{% block title %}{% trans "Saisie Quittancement Pesage" %}{% endblock %}
 
 {% block extra_css %}
 <style>
     .page-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         color: white;
         padding: 2rem;
         border-radius: 15px;
@@ -39,7 +39,7 @@
     }
     
     .step.active .step-circle {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         color: white;
     }
     
@@ -68,7 +68,7 @@
     
     .confirmation-card {
         background: #f8f9fa;
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #e74c3c;
         padding: 1.5rem;
         border-radius: 5px;
         margin-bottom: 1rem;
@@ -91,8 +91,16 @@
     }
     
     .alert-info {
-        background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-        border-left: 4px solid #667eea;
+        background: linear-gradient(135deg, #e74c3c20 0%, #c0392b20 100%);
+        border-left: 4px solid #e74c3c;
+    }
+    
+    .badge-pesage {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
     }
 </style>
 {% endblock %}
@@ -104,9 +112,10 @@
     <div class="page-header">
         <h2 class="mb-2">
             <i class="fas fa-file-invoice-dollar me-2"></i>
-            {% trans "Saisie de Quittancement" %}
+            {% trans "Saisie de Quittancement Pesage" %}
+            <span class="badge-pesage ms-2">PESAGE</span>
         </h2>
-        <p class="mb-0">{% trans "Enregistrement d'un quittancement de recette" %}</p>
+        <p class="mb-0">{% trans "Enregistrement d'un quittancement de recette pesage (amendes)" %}</p>
     </div>
     
     <!-- Indicateur d'étapes -->
@@ -139,7 +148,7 @@
                     {% trans "Configuration de la saisie" %}
                 </h4>
                 
-                <form method="post" action="{% url 'inventaire:saisie_quittancement' %}">
+                <form method="post" action="{% url 'inventaire:saisie_quittancement_pesage' %}">
                     {% csrf_token %}
                     <input type="hidden" name="etape" value="1">
                     
@@ -193,12 +202,12 @@
                     
                     <!-- Boutons -->
                     <div class="d-flex justify-content-between">
-                        <a href="{% url 'inventaire:liste_quittancements' %}" 
+                        <a href="{% url 'inventaire:liste_quittancements_pesage' %}" 
                            class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left me-2"></i>
                             {% trans "Annuler" %}
                         </a>
-                        <button type="submit" class="btn btn-primary btn-lg">
+                        <button type="submit" class="btn btn-danger btn-lg">
                             {% trans "Suivant" %}
                             <i class="fas fa-arrow-right ms-2"></i>
                         </button>
@@ -212,7 +221,7 @@
     <!-- ============================================================ -->
     <!-- ÉTAPE 2 : SAISIE -->
     <!-- ============================================================ -->
-    {% if etape == 2 %}
+     {% if etape == 2 %}
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <!-- Récapitulatif paramètres -->
@@ -220,6 +229,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <i class="fas fa-info-circle me-2"></i>
+                        <strong>{% trans "Station" %} :</strong> {{ station.nom }} |
                         <strong>{% trans "Exercice" %} :</strong> {{ exercice }} | 
                         <strong>{% trans "Mois" %} :</strong> {{ mois }} |
                         <strong>{% trans "Type" %} :</strong> 
@@ -235,35 +245,30 @@
             <div class="form-card">
                 <h4 class="mb-4">
                     <i class="fas fa-edit me-2"></i>
-                    {% trans "Informations du quittancement" %}
+                    {% trans "Informations du quittancement pesage" %}
                 </h4>
                 
-                <form method="post" action="{% url 'inventaire:saisie_quittancement' %}" 
+                <form method="post" action="{% url 'inventaire:saisie_quittancement_pesage' %}" 
                       enctype="multipart/form-data">
                     {% csrf_token %}
                     <input type="hidden" name="etape" value="2">
+                    <input type="hidden" name="station" value="{{ station.id }}">
                     
                     <div class="row">
-                        <!-- Poste -->
+                        <!-- Station (lecture seule - déjà sélectionnée) -->
                         <div class="col-md-6 mb-3">
-                            <label for="poste" class="form-label">
-                                {% trans "Poste" %} *
+                            <label class="form-label">
+                                <i class="fas fa-building me-1"></i>
+                                {% trans "Station de pesage" %}
                             </label>
-                            {% if user.is_admin %}
-                            <select name="poste" id="poste" class="form-select" required>
-                                <option value="">{% trans "-- Sélectionner --" %}</option>
-                                {% for poste in postes %}
-                                <option value="{{ poste.id }}" 
-                                        {% if form_data.poste_id == poste.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ poste.nom }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            {% else %}
-                            <input type="hidden" name="poste" value="{{ user.poste_affectation.id }}">
-                            <input type="text" class="form-control" 
-                                   value="{{ user.poste_affectation.nom }}" readonly>
-                            {% endif %}
+                            <input type="text" 
+                                   class="form-control bg-light fw-bold" 
+                                   value="{{ station.nom }}" 
+                                   readonly>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-lock me-1"></i>
+                                {% trans "Sélectionnée à l'étape précédente" %}
+                            </small>
                         </div>
                         
                         <!-- Numéro de quittance -->
@@ -276,7 +281,7 @@
                                    id="numero_quittance" 
                                    class="form-control"
                                    value="{{ form_data.numero_quittance }}"
-                                   placeholder="Ex: H12345678"
+                                   placeholder="Ex: P12345678"
                                    required>
                         </div>
                         
@@ -315,7 +320,7 @@
                         <!-- Date de recette (JOUR) -->
                         <div class="col-md-12 mb-3">
                             <label for="date_recette" class="form-label">
-                                {% trans "Date de la recette" %} *
+                                {% trans "Date des amendes payées" %} *
                             </label>
                             <input type="date" 
                                    name="date_recette" 
@@ -325,7 +330,7 @@
                                    max="{% now 'Y-m-d' %}"
                                    required>
                             <small class="form-text text-muted">
-                                {% trans "Date du jour de la recette concernée" %}
+                                {% trans "Date du jour des amendes concernées" %}
                             </small>
                         </div>
                         {% else %}
@@ -387,12 +392,12 @@
                     
                     <!-- Boutons -->
                     <div class="d-flex justify-content-between">
-                        <a href="{% url 'inventaire:saisie_quittancement' %}" 
+                        <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" 
                            class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left me-2"></i>
                             {% trans "Retour" %}
                         </a>
-                        <button type="submit" class="btn btn-primary btn-lg">
+                        <button type="submit" class="btn btn-danger btn-lg">
                             {% trans "Continuer" %}
                             <i class="fas fa-arrow-right ms-2"></i>
                         </button>
@@ -402,6 +407,7 @@
         </div>
     </div>
     {% endif %}
+
     
     <!-- ============================================================ -->
     <!-- ÉTAPE 3 : CONFIRMATION -->
@@ -422,7 +428,7 @@
                 </div>
                 
                 <div class="confirmation-card">
-                    <h5 class="mb-3">{% trans "Récapitulatif du quittancement" %}</h5>
+                    <h5 class="mb-3">{% trans "Récapitulatif du quittancement pesage" %}</h5>
                     
                     <div class="detail-row">
                         <span class="detail-label">{% trans "Numéro" %} :</span>
@@ -430,8 +436,8 @@
                     </div>
                     
                     <div class="detail-row">
-                        <span class="detail-label">{% trans "Poste" %} :</span>
-                        <span class="detail-value">{{ poste.nom }}</span>
+                        <span class="detail-label">{% trans "Station" %} :</span>
+                        <span class="detail-value">{{ station.nom }}</span>
                     </div>
                     
                     <div class="detail-row">
@@ -467,10 +473,19 @@
                     
                     <div class="detail-row">
                         <span class="detail-label">{% trans "Montant" %} :</span>
-                        <span class="detail-value text-primary fw-bold">
+                        <span class="detail-value text-danger fw-bold">
                             {{ form_data.montant }} FCFA
                         </span>
                     </div>
+                    
+                    {% if has_image %}
+                    <div class="detail-row">
+                        <span class="detail-label">{% trans "Image" %} :</span>
+                        <span class="detail-value text-success">
+                            <i class="fas fa-check me-1"></i>{{ image_name }}
+                        </span>
+                    </div>
+                    {% endif %}
                     
                     {% if form_data.observations %}
                     <div class="detail-row">
@@ -480,7 +495,7 @@
                     {% endif %}
                 </div>
                 
-                <form method="post" action="{% url 'inventaire:saisie_quittancement' %}?etape=3">
+                <form method="post" action="{% url 'inventaire:saisie_quittancement_pesage' %}?etape=3">
                     {% csrf_token %}
                     <input type="hidden" name="etape" value="3">
                     
@@ -493,7 +508,7 @@
                         
                         <div>
                             <button type="submit" name="action" value="annuler" 
-                                    class="btn btn-danger me-2">
+                                    class="btn btn-secondary me-2">
                                 <i class="fas fa-times me-2"></i>
                                 {% trans "Annuler" %}
                             </button>

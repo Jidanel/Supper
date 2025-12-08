@@ -1,6 +1,6 @@
 {% extends 'admin/base_site.html' %}
 {% load i18n %}
-{% load humanize %}
+{% load inventaire_extras %}
 
 {% block title %}Recettes du {{ date|date:"d/m/Y" }}{% endblock %}
 
@@ -41,10 +41,7 @@
                 <button onclick="window.print()" class="btn btn-primary">
                     <i class="fas fa-print me-1"></i> Imprimer
                 </button>
-                <a href="{% url 'inventaire:exporter_recettes_pdf' date|date:'Y-m-d' %}{% if station %}?station={{ station.id }}{% endif %}" 
-                   class="btn btn-danger">
-                    <i class="fas fa-file-pdf me-1"></i> Exporter PDF
-                </a>
+                <!-- Export PDF - fonctionnalité à venir -->
             </div>
         </div>
     </div>
@@ -78,7 +75,6 @@
                     {% if station %}
                     <p class="mb-1"><strong>Station :</strong> {{ station.nom }}</p>
                     <p class="mb-1"><strong>Code :</strong> {{ station.code }}</p>
-                    <p class="mb-0"><strong>Région :</strong> {{ station.get_region_display }}</p>
                     {% else %}
                     <p class="mb-0"><strong>Station :</strong> Toutes les stations</p>
                     {% endif %}
@@ -120,14 +116,16 @@
                         {% for stat in stats_types %}
                         <tr>
                             <td>
-                                {% if stat.type_infraction == 'surcharge' %}
-                                    <span class="badge bg-danger">Surcharge</span>
-                                {% elif stat.type_infraction == 'hors_gabarit' %}
-                                    <span class="badge bg-warning text-dark">Hors Gabarit</span>
-                                {% elif stat.type_infraction == 'defaut_document' %}
-                                    <span class="badge bg-info">Défaut Document</span>
+                                {% if 'Surcharge' in stat.type %}
+                                    {% if 'Gabarit' in stat.type %}
+                                        <span class="badge bg-danger">{{ stat.type }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">{{ stat.type }}</span>
+                                    {% endif %}
+                                {% elif 'Gabarit' in stat.type %}
+                                    <span class="badge bg-danger">{{ stat.type }}</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">{{ stat.type_infraction }}</span>
+                                    <span class="badge bg-secondary">{{ stat.type }}</span>
                                 {% endif %}
                             </td>
                             <td class="text-center">{{ stat.count }}</td>
@@ -186,20 +184,20 @@
                                 <strong>{{ p.immatriculation }}</strong>
                             </td>
                             <td>
-                                {{ p.nom_transporteur|default:"-" }}
-                                {% if p.telephone_transporteur %}
-                                <br><small class="text-muted">{{ p.telephone_transporteur }}</small>
+                                {{ p.transporteur|default:"-" }}
+                                {% if p.provenance or p.destination %}
+                                <br><small class="text-muted">{{ p.provenance|default:"" }} → {{ p.destination|default:"" }}</small>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if p.type_infraction == 'surcharge' %}
-                                    <span class="badge bg-danger">Surcharge</span>
-                                {% elif p.type_infraction == 'hors_gabarit' %}
-                                    <span class="badge bg-warning text-dark">H.G.</span>
-                                {% elif p.type_infraction == 'defaut_document' %}
-                                    <span class="badge bg-info">Doc</span>
+                                {% if p.est_surcharge and p.est_hors_gabarit %}
+                                    <span class="badge bg-danger">S+HG</span>
+                                {% elif p.est_hors_gabarit %}
+                                    <span class="badge bg-danger">HG</span>
+                                {% elif p.est_surcharge %}
+                                    <span class="badge bg-warning text-dark">S</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">{{ p.type_infraction }}</span>
+                                    <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
                             <td class="text-end">
@@ -257,7 +255,7 @@
     <!-- Pied de page -->
     <div class="text-center mt-4 text-muted small">
         <p class="mb-0">
-            Document généré par SUPPER - Système Unifié de Pilotage des Péages et Pesages Routiers
+            Document généré par SUPPER - Suivi des Péages et Pesages Routiers
         </p>
         <p class="mb-0">{% now "d/m/Y H:i:s" %}</p>
     </div>
