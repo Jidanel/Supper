@@ -497,6 +497,7 @@ pesage_patterns = [
     path('pesage/traiter-demande-confirmation/<int:pk>/', 
          views_historique_pesage.traiter_demande_confirmation, 
          name='traiter_demande_confirmation'),
+    path('pesage/validation-bloquee/<int:pk>/', views_historique_pesage.validation_bloquee, name='validation_bloquee'),
     
     # ===================================================================
     # API ENDPOINTS

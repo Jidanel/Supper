@@ -165,7 +165,7 @@ def recherche_historique_vehicule(request):
     
     return render(request, 'pesage/recherche_historique.html', context)
 
-    
+
 @pesage_access_required
 @login_required
 def detail_historique_vehicule(request, immatriculation):
@@ -324,46 +324,188 @@ def verifier_avant_validation(request, pk):
     return render(request, 'pesage/validation_paiement_bloquee.html', context)
 
 
-@regisseur_required
-@require_POST
+# inventaire/views_pesage.py - MODIFIER la vue valider_paiement existante
+
+@login_required
 def valider_paiement_direct(request, pk):
     """
-    Valide directement un paiement (après vérification ou avec confirmations).
+    Validation du paiement d'une amende par le régisseur.
     
-    URL: /pesage/valider-paiement-direct/<pk>/
+    RÈGLES MÉTIER:
+    1. Seul le régisseur de la station peut valider les amendes de SA station
+    2. AVANT validation, vérifier si le véhicule a des amendes NON PAYÉES plus anciennes ailleurs
+    3. Si amendes plus anciennes non payées → BLOCAGE → redirection vers page de blocage
+    4. L'ordre chronologique doit être respecté (FIFO)
     """
-    user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    from django.shortcuts import get_object_or_404, redirect
+    from django.contrib import messages
+    from django.utils import timezone
+    from inventaire.models_pesage import AmendeEmise
+    from inventaire.utils_pesage import normalize_immatriculation
     
     # Récupérer l'amende
-    if is_admin(user):
-        amende = get_object_or_404(AmendeEmise, pk=pk)
-    else:
-        amende = get_object_or_404(AmendeEmise, pk=pk, station=station)
+    amende = get_object_or_404(AmendeEmise, pk=pk)
     
+    # ============================================
+    # VÉRIFICATION 1: L'amende est-elle de ma station ?
+    # ============================================
+    if not request.user.is_admin:
+        if request.user.poste_affectation != amende.station:
+            messages.error(
+                request, 
+                f"Vous ne pouvez pas valider les amendes de la station {amende.station.nom}. "
+                f"Vous êtes affecté à {request.user.poste_affectation.nom}."
+            )
+            return redirect('inventaire:liste_amendes')
+    
+    # ============================================
+    # VÉRIFICATION 2: L'amende est-elle déjà payée ?
+    # ============================================
     if amende.statut == 'paye':
-        messages.warning(request, _("Cette amende a déjà été validée."))
-        return redirect('inventaire:liste_amendes')
+        messages.warning(request, "Cette amende a déjà été validée comme payée.")
+        return redirect('inventaire:detail_amende', pk=pk)
     
-    # Valider le paiement
-    amende.statut = 'paye'
-    amende.date_paiement = timezone.now()
-    amende.valide_par = user
-    amende.save()
+    # ============================================
+    # VÉRIFICATION 3: Y a-t-il des amendes NON PAYÉES plus anciennes ailleurs ?
+    # ============================================
+    immat_norm = normalize_immatriculation(amende.immatriculation)
     
-    messages.success(request,
-        _("Paiement validé pour l'amende %(numero)s - Montant: %(montant)s FCFA") % {
-            'numero': amende.numero_ticket,
-            'montant': f"{amende.montant_amende:,.0f}".replace(',', ' ')
-        })
+    # Chercher les amendes NON PAYÉES du même véhicule, AVANT cette amende, dans d'AUTRES stations
+    amendes_anterieures_non_payees = AmendeEmise.objects.filter(
+        immatriculation_normalise=immat_norm,
+        statut='non_paye',
+        date_heure_emission__lt=amende.date_heure_emission  # Plus anciennes
+    ).exclude(
+        station=amende.station  # Exclure ma station
+    ).select_related('station').order_by('date_heure_emission')
     
-    logger.info(
-        f"Paiement validé par {user.username} - Amende {amende.numero_ticket} "
-        f"- {amende.montant_amende} FCFA"
+    # ============================================
+    # SI AMENDES ANTÉRIEURES NON PAYÉES → BLOCAGE
+    # ============================================
+    if amendes_anterieures_non_payees.exists():
+        # Stocker en session pour la page de blocage
+        request.session['amende_a_valider_pk'] = pk
+        request.session['amendes_bloquantes_pks'] = list(
+            amendes_anterieures_non_payees.values_list('pk', flat=True)
+        )
+        
+        # Rediriger vers la page de blocage
+        return redirect('inventaire:validation_bloquee', pk=pk)
+    
+    # ============================================
+    # SI POST ET PAS DE BLOCAGE → VALIDER LE PAIEMENT
+    # ============================================
+    if request.method == 'POST':
+        # Dernière vérification (au cas où entre temps une amende antérieure aurait été créée)
+        amendes_anterieures_check = AmendeEmise.objects.filter(
+            immatriculation_normalise=immat_norm,
+            statut='non_paye',
+            date_heure_emission__lt=amende.date_heure_emission
+        ).exclude(station=amende.station).exists()
+        
+        if amendes_anterieures_check:
+            messages.error(
+                request,
+                "Impossible de valider : de nouvelles amendes antérieures non payées ont été détectées."
+            )
+            return redirect('inventaire:validation_bloquee', pk=pk)
+        
+        # Valider le paiement
+        amende.statut = 'paye'
+        amende.date_paiement = timezone.now()
+        amende.valide_par = request.user
+        amende.save(update_fields=['statut', 'date_paiement', 'valide_par'])
+        
+        messages.success(
+            request, 
+            f"✅ Paiement validé pour l'amende {amende.numero_ticket} - "
+            f"{amende.montant_amende} FCFA"
+        )
+        
+        logger.info(
+            f"Paiement validé: Amende {amende.numero_ticket} - "
+            f"Véhicule {amende.immatriculation} - "
+            f"Station {amende.station.nom} - "
+            f"Régisseur {request.user.username}"
+        )
+        
+        return redirect('inventaire:liste_amendes_a_valider')
+    
+    # Si GET, afficher la page de confirmation
+    context = {
+        'amende': amende,
+    }
+    return render(request, 'pesage/confirmer_validation_paiement.html', context)
+
+@login_required
+def validation_bloquee(request, pk):
+    """
+    Page affichée quand la validation est bloquée à cause d'amendes antérieures non payées.
+    Affiche l'historique complet et permet de faire des demandes de confirmation.
+    """
+    from django.shortcuts import get_object_or_404
+    from inventaire.models_pesage import AmendeEmise
+    from inventaire.utils_pesage import normalize_immatriculation
+    from django.db.models import Sum, Count, Q
+    
+    amende_a_valider = get_object_or_404(AmendeEmise, pk=pk)
+    immat_norm = normalize_immatriculation(amende_a_valider.immatriculation)
+    
+    # Récupérer les amendes bloquantes (antérieures non payées ailleurs)
+    # Chercher sur les DEUX champs pour compatibilité
+    amendes_bloquantes = AmendeEmise.objects.filter(
+        Q(immatriculation_normalise__iexact=immat_norm) |
+        Q(immatriculation__iexact=amende_a_valider.immatriculation) |
+        Q(immatriculation__iexact=immat_norm),
+        statut='non_paye',
+        date_heure_emission__lt=amende_a_valider.date_heure_emission
+    ).exclude(
+        station=amende_a_valider.station
+    ).exclude(
+        pk=amende_a_valider.pk
+    ).select_related('station', 'saisi_par').order_by('date_heure_emission')
+    
+    # Historique complet du véhicule
+    historique_complet = AmendeEmise.objects.filter(
+        Q(immatriculation_normalise__iexact=immat_norm) |
+        Q(immatriculation__iexact=amende_a_valider.immatriculation) |
+        Q(immatriculation__iexact=immat_norm)
+    ).select_related('station', 'saisi_par', 'valide_par').order_by('-date_heure_emission')
+    
+    # Statistiques du véhicule
+    stats = historique_complet.aggregate(
+        total=Count('id'),
+        payees=Count('id', filter=Q(statut='paye')),
+        non_payees=Count('id', filter=Q(statut='non_paye')),
+        montant_total=Sum('montant_amende'),
+        montant_impaye=Sum('montant_amende', filter=Q(statut='non_paye')),
     )
     
-    return redirect('inventaire:liste_amendes_a_valider')
-
+    # Vérifier les demandes de confirmation déjà envoyées
+    # CORRECTION: Le champ s'appelle amende_non_payee, PAS amende_bloquante
+    from inventaire.models_confirmation import DemandeConfirmationPaiement
+    demandes_existantes = DemandeConfirmationPaiement.objects.filter(
+        amende_a_valider=amende_a_valider,
+        statut__in=['en_attente', 'confirme']
+    ).select_related(
+        'amende_non_payee',           # ← CORRIGÉ (était amende_bloquante)
+        'amende_non_payee__station',  # ← CORRIGÉ
+        'station_concernee'
+    )
+    
+    # Créer un dict pour savoir quelles amendes ont déjà une demande
+    # Utiliser amende_non_payee_id au lieu de amende_bloquante_id
+    amendes_avec_demande = {d.amende_non_payee_id: d for d in demandes_existantes}
+    
+    context = {
+        'amende_a_valider': amende_a_valider,
+        'amendes_bloquantes': amendes_bloquantes,
+        'historique_complet': historique_complet,
+        'stats': stats,
+        'amendes_avec_demande': amendes_avec_demande,
+    }
+    
+    return render(request, 'pesage/validation_bloquee.html', context)
 
 # ===================================================================
 # GESTION DES DEMANDES DE CONFIRMATION

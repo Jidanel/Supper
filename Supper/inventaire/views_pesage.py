@@ -587,8 +587,23 @@ def liste_amendes_a_valider(request):
 
 @validation_pesage_required
 @require_POST
+# ===================================================================
+# VALIDATION DES PAIEMENTS - AVEC VÉRIFICATION FIFO OBLIGATOIRE
+# ===================================================================
+
+@validation_pesage_required
+@require_POST
 def valider_paiement(request, pk):
-    """Valide le paiement d'une amende."""
+    """
+    Valide le paiement d'une amende.
+    
+    RÈGLE FIFO STRICTE:
+    1. Vérifier si le véhicule a des amendes NON PAYÉES plus anciennes dans d'AUTRES stations
+    2. Si oui → BLOQUER et rediriger vers la page de blocage
+    3. Si non → Valider le paiement
+    """
+    from inventaire.utils_pesage import normalize_immatriculation
+    
     user = request.user
     
     if not (is_admin(user) or user.habilitation == 'regisseur_pesage'):
@@ -597,15 +612,69 @@ def valider_paiement(request, pk):
     
     station, _unused = get_station_context(request, user)
     
+    # Récupérer l'amende
     if is_admin(user):
         amende = get_object_or_404(AmendeEmise, pk=pk)
     else:
         amende = get_object_or_404(AmendeEmise, pk=pk, station=station)
     
+    # ============================================
+    # VÉRIFICATION 1: L'amende est-elle déjà payée ?
+    # ============================================
     if amende.statut == 'paye':
         messages.warning(request, _("Cette amende a déjà été validée."))
         return redirect('inventaire:liste_amendes_a_valider')
     
+    # ============================================
+    # VÉRIFICATION 2 (FIFO): Y a-t-il des amendes NON PAYÉES plus anciennes ailleurs ?
+    # ============================================
+    immat_norm = normalize_immatriculation(amende.immatriculation)
+    
+    # Chercher sur les DEUX champs (normalisé ET original) pour compatibilité
+    amendes_anterieures_non_payees = AmendeEmise.objects.filter(
+        Q(immatriculation_normalise__iexact=immat_norm) |
+        Q(immatriculation__iexact=amende.immatriculation) |
+        Q(immatriculation__iexact=immat_norm),
+        statut='non_paye',
+        date_heure_emission__lt=amende.date_heure_emission  # Plus anciennes que celle-ci
+    ).exclude(
+        station=amende.station  # Exclure ma station
+    ).exclude(
+        pk=amende.pk  # Exclure l'amende actuelle
+    ).select_related('station').order_by('date_heure_emission')
+    
+    # ============================================
+    # SI AMENDES ANTÉRIEURES NON PAYÉES → BLOCAGE
+    # ============================================
+    if amendes_anterieures_non_payees.exists():
+        # Construire le message d'erreur détaillé
+        stations_bloquantes = list(amendes_anterieures_non_payees.values_list('station__nom', flat=True).distinct())
+        nb_amendes = amendes_anterieures_non_payees.count()
+        
+        messages.error(
+            request,
+            f"⛔ VALIDATION BLOQUÉE : Ce véhicule ({amende.immatriculation}) a {nb_amendes} amende(s) "
+            f"non payée(s) plus ancienne(s) dans : {', '.join(stations_bloquantes)}. "
+            f"Ces amendes doivent être payées en premier (règle FIFO)."
+        )
+        
+        logger.warning(
+            f"Validation bloquée (FIFO): Amende {amende.numero_ticket} - "
+            f"Véhicule {amende.immatriculation} - "
+            f"{nb_amendes} amendes antérieures non payées dans {stations_bloquantes} - "
+            f"Régisseur {user.username}"
+        )
+        
+        # Stocker en session pour la page de blocage
+        request.session['amende_bloquee_pk'] = pk
+        request.session['amendes_bloquantes_count'] = nb_amendes
+        
+        # Rediriger vers la page de blocage
+        return redirect('inventaire:validation_bloquee', pk=pk)
+    
+    # ============================================
+    # PAS DE BLOCAGE → VALIDER LE PAIEMENT
+    # ============================================
     try:
         amende.statut = 'paye'
         amende.date_paiement = timezone.now()
@@ -613,19 +682,20 @@ def valider_paiement(request, pk):
         amende.save()
         
         messages.success(request,
-            _("Paiement validé pour l'amende %(numero)s - Montant: %(montant)s FCFA") % {
+            _("✅ Paiement validé pour l'amende %(numero)s - Montant: %(montant)s FCFA") % {
                 'numero': amende.numero_ticket,
                 'montant': f"{amende.montant_amende:,.0f}".replace(',', ' ')
             })
         
         log_user_action(user, "Validation paiement amende",
-            f"Amende {amende.numero_ticket} - {amende.montant_amende} FCFA", request)
+            f"Amende {amende.numero_ticket} - {amende.montant_amende} FCFA - "
+            f"Véhicule {amende.immatriculation} - Station {amende.station.nom}", request)
+        
     except Exception as e:
         logger.error(f"Erreur validation paiement: {e}")
         messages.error(request, _("Erreur lors de la validation du paiement."))
     
     return redirect('inventaire:liste_amendes_a_valider')
-
 
 @validation_pesage_required
 @require_POST

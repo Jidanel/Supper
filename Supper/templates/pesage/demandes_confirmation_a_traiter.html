@@ -69,7 +69,7 @@
                             </td>
                             <td>
                                 {{ demande.amende_a_valider.numero_ticket }}
-                                <br><small class="text-success">{{ demande.amende_a_valider.montant_amende|floatformat|format_milliers:0 }} FCFA</small>
+                                <br><small class="text-success">{{ demande.amende_a_valider.montant_amende|floatformat:0|format_milliers }} FCFA</small>
                             </td>
                             <td>
                                 {{ demande.amende_non_payee.numero_ticket }}
