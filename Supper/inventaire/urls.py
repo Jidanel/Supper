@@ -17,6 +17,8 @@ from .views_stock_event_sourcing import *
 from . import views_rapport_defaillants
 from . import views_rapport_inventaires
 from . import views_pesage
+from . import views_pv_confrontation
+from . import views_historique_pesage
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -428,5 +430,91 @@ pesage_patterns = [
         views_pesage.selectionner_station,
         name='selectionner_station'
     ),
+    # PV de Confrontation Pesage
+    path('pesage/pv-confrontation/', 
+         views_pv_confrontation.selection_pv_confrontation, 
+         name='selection_pv_confrontation'),
+    path('pesage/pv-confrontation/apercu/<int:station_id>/<str:date_debut>/<str:date_fin>/', 
+         views_pv_confrontation.apercu_pv_confrontation, 
+         name='apercu_pv_confrontation'),
+    path('pesage/pv-confrontation/pdf/<int:station_id>/<str:date_debut>/<str:date_fin>/', 
+         views_pv_confrontation.generer_pv_confrontation_pdf, 
+         name='generer_pv_confrontation_pdf'),
+    
+     # ===================================================================
+    # RECHERCHE HISTORIQUE VÉHICULE
+    # ===================================================================
+    
+    # Page de recherche d'historique (accessible à tous les rôles pesage)
+    path('pesage/recherche-historique/', 
+         views_historique_pesage.recherche_historique_vehicule, 
+         name='recherche_historique_vehicule'),
+    
+    # Détail historique d'un véhicule spécifique
+    path('pesage/historique-vehicule/<str:immatriculation>/', 
+         views_historique_pesage.detail_historique_vehicule, 
+         name='detail_historique_vehicule'),
+    
+    # ===================================================================
+    # VÉRIFICATION AVANT VALIDATION DE PAIEMENT
+    # ===================================================================
+    
+    # Vérifier les amendes impayées avant validation
+    path('pesage/verifier-avant-validation/<int:pk>/', 
+         views_historique_pesage.verifier_avant_validation, 
+         name='verifier_avant_validation'),
+    
+    # Validation directe (après vérification OK ou avec confirmations)
+    path('pesage/valider-paiement-direct/<int:pk>/', 
+         views_historique_pesage.valider_paiement_direct, 
+         name='valider_paiement_direct'),
+    
+    # ===================================================================
+    # DEMANDES DE CONFIRMATION INTER-STATIONS
+    # ===================================================================
+    
+    # Créer une demande de confirmation
+    path('pesage/creer-demande-confirmation/<int:amende_pk>/<int:amende_bloquante_pk>/', 
+         views_historique_pesage.creer_demande_confirmation, 
+         name='creer_demande_confirmation'),
+    
+    # Liste des demandes envoyées par ma station
+    path('pesage/mes-demandes-confirmation/', 
+         views_historique_pesage.mes_demandes_confirmation, 
+         name='mes_demandes_confirmation'),
+    
+    # Liste des demandes à traiter (reçues)
+    path('pesage/demandes-confirmation-a-traiter/', 
+         views_historique_pesage.demandes_confirmation_a_traiter, 
+         name='demandes_confirmation_a_traiter'),
+    
+    # Détail d'une demande
+    path('pesage/demande-confirmation/<int:pk>/', 
+         views_historique_pesage.detail_demande_confirmation, 
+         name='detail_demande_confirmation'),
+    
+    # Traiter une demande (confirmer/refuser)
+    path('pesage/traiter-demande-confirmation/<int:pk>/', 
+         views_historique_pesage.traiter_demande_confirmation, 
+         name='traiter_demande_confirmation'),
+    
+    # ===================================================================
+    # API ENDPOINTS
+    # ===================================================================
+    
+    # API recherche historique
+    path('api/pesage/recherche-historique/', 
+         views_historique_pesage.api_recherche_historique, 
+         name='api_recherche_historique'),
+    
+    # API vérifier amendes impayées autres stations
+    path('api/pesage/verifier-impaye/', 
+         views_historique_pesage.api_verifier_impaye_autres_stations, 
+         name='api_verifier_impaye_autres_stations'),
+    
+    # API compter demandes en attente
+    path('api/pesage/count-demandes-attente/', 
+         views_historique_pesage.api_count_demandes_attente, 
+         name='api_count_demandes_attente'),
 ]
 urlpatterns += pesage_patterns

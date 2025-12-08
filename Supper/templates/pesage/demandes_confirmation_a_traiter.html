@@ -1,0 +1,175 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-inbox me-2"></i>{{ title }}
+                    </h2>
+                    <p class="text-muted mt-1">
+                        {% trans "Demandes de confirmation envoyées par d'autres stations" %}
+                        {% if station %}- <strong>{{ station.nom }}</strong>{% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'inventaire:mes_demandes_confirmation' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-paper-plane me-1"></i>{% trans "Mes demandes envoyées" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demandes en attente -->
+    {% if demandes_attente %}
+    <div class="card shadow-sm mb-4 border-warning">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">
+                <i class="fas fa-clock me-2"></i>{% trans "Demandes en attente de votre réponse" %}
+                <span class="badge bg-dark ms-2">{{ demandes_attente|length }}</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>{% trans "Référence" %}</th>
+                            <th>{% trans "Station demandeur" %}</th>
+                            <th>{% trans "Véhicule" %}</th>
+                            <th>{% trans "Amende à valider" %}</th>
+                            <th>{% trans "Votre amende" %}</th>
+                            <th>{% trans "Date demande" %}</th>
+                            <th>{% trans "Expire" %}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for demande in demandes_attente %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'inventaire:detail_demande_confirmation' demande.pk %}" class="text-decoration-none">
+                                    <strong>{{ demande.reference }}</strong>
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ demande.station_demandeur.nom }}</span>
+                                <br><small class="text-muted">{{ demande.regisseur_demandeur.nom_complet }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ demande.vehicule_immatriculation }}</strong>
+                                {% if demande.vehicule_transporteur %}
+                                <br><small class="text-muted">{{ demande.vehicule_transporteur|truncatechars:20 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ demande.amende_a_valider.numero_ticket }}
+                                <br><small class="text-success">{{ demande.amende_a_valider.montant_amende|floatformat|format_milliers:0 }} FCFA</small>
+                            </td>
+                            <td>
+                                {{ demande.amende_non_payee.numero_ticket }}
+                                <br><small class="text-danger">{{ demande.amende_non_payee.montant_amende|floatformat:0|format_milliers }} FCFA (non payé)</small>
+                            </td>
+                            <td>
+                                {{ demande.date_demande|date:"d/m/Y" }}
+                                <br><small class="text-muted">{{ demande.date_demande|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if demande.est_expiree %}
+                                    <span class="badge bg-secondary">{% trans "Expirée" %}</span>
+                                {% else %}
+                                    <small>{{ demande.date_expiration|date:"d/m/Y H:i" }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'inventaire:detail_demande_confirmation' demande.pk %}" 
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye me-1"></i>{% trans "Traiter" %}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-success mb-4">
+        <i class="fas fa-check-circle me-2"></i>
+        {% trans "Aucune demande en attente de votre réponse." %}
+    </div>
+    {% endif %}
+
+    <!-- Demandes déjà traitées -->
+    {% if demandes_traitees %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-history me-2"></i>{% trans "Demandes récemment traitées" %}
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Référence" %}</th>
+                            <th>{% trans "Station" %}</th>
+                            <th>{% trans "Véhicule" %}</th>
+                            <th>{% trans "Statut" %}</th>
+                            <th>{% trans "Date traitement" %}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for demande in demandes_traitees %}
+                        <tr>
+                            <td>{{ demande.reference }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ demande.station_demandeur.nom }}</span>
+                            </td>
+                            <td><strong>{{ demande.vehicule_immatriculation }}</strong></td>
+                            <td>
+                                {% if demande.statut == 'confirme' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>{% trans "Confirmé" %}
+                                    </span>
+                                {% elif demande.statut == 'refuse' %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times me-1"></i>{% trans "Refusé" %}
+                                    </span>
+                                {% elif demande.statut == 'expire' %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-clock me-1"></i>{% trans "Expiré" %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if demande.date_reponse %}
+                                    {{ demande.date_reponse|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'inventaire:detail_demande_confirmation' demande.pk %}" 
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

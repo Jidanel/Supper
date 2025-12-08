@@ -528,7 +528,7 @@ def liste_amendes(request):
 def detail_amende(request, pk):
     """Détail d'une amende."""
     user = request.user
-    station, _ = get_station_context(request, user)
+    station, _unused = get_station_context(request, user)
     
     if is_admin(user):
         amende = get_object_or_404(AmendeEmise, pk=pk)
@@ -595,7 +595,7 @@ def valider_paiement(request, pk):
         messages.error(request, _("Vous n'avez pas la permission de valider les paiements."))
         return redirect('inventaire:liste_amendes_a_valider')
     
-    station, _ = get_station_context(request, user)
+    station, _unused = get_station_context(request, user)
     
     if is_admin(user):
         amende = get_object_or_404(AmendeEmise, pk=pk)
@@ -637,7 +637,7 @@ def valider_paiements_masse(request):
         messages.error(request, _("Vous n'avez pas la permission de valider les paiements."))
         return redirect('inventaire:liste_amendes_a_valider')
     
-    station, _ = get_station_context(request, user)
+    station, _unused = get_station_context(request, user)
     amende_ids = request.POST.getlist('amendes')
     
     if not amende_ids:

@@ -1,0 +1,274 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête d'alerte -->
+    <div class="alert alert-danger shadow-sm mb-4">
+        <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle fa-3x me-3"></i>
+            </div>
+            <div class="flex-grow-1">
+                <h4 class="alert-heading mb-1">{% trans "Validation bloquée" %}</h4>
+                <p class="mb-0">
+                    {% trans "Ce véhicule a des amendes non payées dans d'autres stations. Une confirmation est requise avant de pouvoir valider ce paiement." %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Colonne gauche: Amende à valider -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Amende à valider" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">{% trans "N° Ticket" %}</dt>
+                        <dd class="col-sm-8"><strong>{{ amende.numero_ticket }}</strong></dd>
+                        
+                        <dt class="col-sm-4">{% trans "Station" %}</dt>
+                        <dd class="col-sm-8">{{ station.nom }}</dd>
+                        
+                        <dt class="col-sm-4">{% trans "Immatriculation" %}</dt>
+                        <dd class="col-sm-8">
+                            <a href="{% url 'inventaire:detail_historique_vehicule' amende.immatriculation %}" class="text-decoration-none">
+                                <strong>{{ amende.immatriculation }}</strong>
+                                <i class="fas fa-external-link-alt ms-1"></i>
+                            </a>
+                        </dd>
+                        
+                        <dt class="col-sm-4">{% trans "Transporteur" %}</dt>
+                        <dd class="col-sm-8">{{ amende.transporteur }}</dd>
+                        
+                        <dt class="col-sm-4">{% trans "Chauffeur" %}</dt>
+                        <dd class="col-sm-8">{{ amende.operateur }}</dd>
+                        
+                        <dt class="col-sm-4">{% trans "Infraction" %}</dt>
+                        <dd class="col-sm-8">
+                            {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                                <span class="badge bg-danger">Surcharge + Hors Gabarit</span>
+                            {% elif amende.est_surcharge %}
+                                <span class="badge bg-warning text-dark">Surcharge</span>
+                            {% elif amende.est_hors_gabarit %}
+                                <span class="badge bg-primary">Hors Gabarit</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-4">{% trans "Montant" %}</dt>
+                        <dd class="col-sm-8">
+                            <span class="fs-4 text-primary">{{ amende.montant_amende|floatformat:0|format_milliers }}</span> 
+                            <small>FCFA</small>
+                        </dd>
+                        
+                        <dt class="col-sm-4">{% trans "Date" %}</dt>
+                        <dd class="col-sm-8">{{ amende.date_heure_emission|date:"d/m/Y à H:i" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Colonne droite: Amendes bloquantes -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100 border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-ban me-2"></i>
+                        {% trans "Amendes non payées dans d'autres stations" %}
+                        <span class="badge bg-light text-danger ms-2">{{ amendes_impayees|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "Station" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th class="text-end">{% trans "Montant" %}</th>
+                                    <th>{% trans "Statut demande" %}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for amende_imp in amendes_impayees %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-info">{{ amende_imp.station.nom }}</span>
+                                        <br><small class="text-muted">{{ amende_imp.numero_ticket }}</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ amende_imp.date_heure_emission|date:"d/m/Y" }}</small>
+                                        <br><small class="text-muted">{{ amende_imp.date_heure_emission|time:"H:i" }}</small>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong>{{ amende_imp.montant_amende|floatformat:0|format_milliers }}</strong>
+                                        <small>FCFA</small>
+                                    </td>
+                                    <td>
+                                        {% with demande=demandes_existantes|dictsortreversed:"date_demande"|first %}
+                                            {% for d in demandes_existantes %}
+                                                {% if d.amende_non_payee.pk == amende_imp.pk %}
+                                                    {% if d.statut == 'en_attente' %}
+                                                        <span class="badge bg-warning text-dark">
+                                                            <i class="fas fa-clock me-1"></i>{% trans "En attente" %}
+                                                        </span>
+                                                    {% elif d.statut == 'confirme' %}
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-check me-1"></i>{% trans "Confirmé" %}
+                                                        </span>
+                                                    {% elif d.statut == 'refuse' %}
+                                                        <span class="badge bg-danger">
+                                                            <i class="fas fa-times me-1"></i>{% trans "Refusé" %}
+                                                        </span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% empty %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-question me-1"></i>{% trans "Pas de demande" %}
+                                                </span>
+                                            {% endfor %}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% with has_pending=False %}
+                                            {% for d in demandes_existantes %}
+                                                {% if d.amende_non_payee.pk == amende_imp.pk and d.statut == 'en_attente' %}
+                                                    <a href="{% url 'inventaire:detail_demande_confirmation' d.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary"
+                                                       title="{% trans 'Voir demande' %}">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                {% elif d.amende_non_payee.pk == amende_imp.pk and d.statut == 'confirme' %}
+                                                    <i class="fas fa-check-circle text-success"></i>
+                                                {% endif %}
+                                            {% empty %}
+                                                <a href="{% url 'inventaire:creer_demande_confirmation' amende.pk amende_imp.pk %}"
+                                                   class="btn btn-sm btn-warning"
+                                                   title="{% trans 'Demander confirmation' %}">
+                                                    <i class="fas fa-paper-plane me-1"></i>
+                                                    {% trans "Demander" %}
+                                                </a>
+                                            {% endfor %}
+                                        {% endwith %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">
+                <i class="fas fa-info-circle me-2"></i>{% trans "Marche à suivre" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <ol class="mb-0">
+                <li class="mb-2">
+                    {% trans "Pour chaque amende non payée listée ci-dessus, cliquez sur" %}
+                    <span class="badge bg-warning text-dark">{% trans "Demander" %}</span>
+                    {% trans "pour envoyer une demande de confirmation au régisseur de la station concernée." %}
+                </li>
+                <li class="mb-2">
+                    {% trans "Le régisseur de l'autre station recevra une notification et devra confirmer ou refuser." %}
+                </li>
+                <li class="mb-2">
+                    {% trans "Une fois que TOUTES les confirmations sont obtenues" %}
+                    (<span class="badge bg-success"><i class="fas fa-check"></i> {% trans "Confirmé" %}</span>),
+                    {% trans "vous pourrez valider le paiement." %}
+                </li>
+                <li class="mb-0">
+                    {% trans "Si une demande est refusée, vous ne pourrez pas valider le paiement tant que l'amende bloquante n'est pas réglée." %}
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Boutons d'action -->
+    <div class="d-flex justify-content-between">
+        <a href="{% url 'inventaire:liste_amendes_a_valider' %}" class="btn btn-outline-secondary btn-lg">
+            <i class="fas fa-arrow-left me-2"></i>{% trans "Retour à la liste" %}
+        </a>
+        
+        {% comment %}
+        Vérifier si toutes les demandes sont confirmées pour afficher le bouton de validation
+        {% endcomment %}
+        {% with all_confirmed=True %}
+            {% for amende_imp in amendes_impayees %}
+                {% with has_confirm=False %}
+                    {% for d in demandes_existantes %}
+                        {% if d.amende_non_payee.pk == amende_imp.pk and d.statut == 'confirme' %}
+                            {# Confirmation trouvée #}
+                        {% elif d.amende_non_payee.pk == amende_imp.pk %}
+                            {# Demande mais pas confirmée #}
+                        {% endif %}
+                    {% endfor %}
+                {% endwith %}
+            {% endfor %}
+        {% endwith %}
+        
+        <div>
+            <a href="{% url 'inventaire:recherche_historique_vehicule' %}?immatriculation={{ amende.immatriculation }}" 
+               class="btn btn-outline-info btn-lg me-2">
+                <i class="fas fa-history me-2"></i>{% trans "Voir historique complet" %}
+            </a>
+            
+            {# Le bouton de validation sera activé par JavaScript si toutes les confirmations sont OK #}
+            <button type="button" class="btn btn-success btn-lg" id="btnValider" disabled
+                    onclick="window.location.href='{% url 'inventaire:valider_paiement_direct' amende.pk %}'">
+                <i class="fas fa-check me-2"></i>{% trans "Valider le paiement" %}
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier si toutes les demandes sont confirmées
+    const badges = document.querySelectorAll('td span.badge');
+    let allConfirmed = true;
+    let hasAnyDemand = false;
+    
+    {% for amende_imp in amendes_impayees %}
+        let found{{ forloop.counter }} = false;
+        {% for d in demandes_existantes %}
+            {% if d.amende_non_payee.pk == amende_imp.pk %}
+                hasAnyDemand = true;
+                {% if d.statut == 'confirme' %}
+                    found{{ forloop.counter }} = true;
+                {% else %}
+                    allConfirmed = false;
+                {% endif %}
+            {% endif %}
+        {% empty %}
+            allConfirmed = false;
+        {% endfor %}
+        
+        if (!found{{ forloop.counter }}) {
+            allConfirmed = false;
+        }
+    {% endfor %}
+    
+    // Activer le bouton si toutes confirmations obtenues
+    if (allConfirmed && hasAnyDemand) {
+        document.getElementById('btnValider').disabled = false;
+    }
+});
+</script>
+{% endblock %}

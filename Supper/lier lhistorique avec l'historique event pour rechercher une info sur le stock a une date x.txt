@@ -8,3 +8,6 @@ python manage.py verifier_unicite_tickets
 
 generer snapshot 
 python manage.py generer_snapshots --date-debut 2025-10-14 --date-fin 2025-11-13
+
+normaliser les amendes (les plaques immatriculations, les noms des chauffeurs etc..)
+python manage.py normaliser_amendes_pesage

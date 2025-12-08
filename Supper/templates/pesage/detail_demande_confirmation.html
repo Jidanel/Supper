@@ -1,0 +1,288 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>{{ title }}
+                    </h2>
+                    <p class="text-muted mt-1">
+                        {% trans "Demande de confirmation inter-stations" %}
+                    </p>
+                </div>
+                <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>{% trans "Retour" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statut de la demande -->
+    <div class="alert 
+        {% if demande.statut == 'en_attente' %}alert-warning
+        {% elif demande.statut == 'confirme' %}alert-success
+        {% elif demande.statut == 'refuse' %}alert-danger
+        {% else %}alert-secondary{% endif %} 
+        shadow-sm mb-4">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h5 class="mb-1">
+                    {% if demande.statut == 'en_attente' %}
+                        <i class="fas fa-clock me-2"></i>{% trans "En attente de confirmation" %}
+                    {% elif demande.statut == 'confirme' %}
+                        <i class="fas fa-check-circle me-2"></i>{% trans "Confirmé - Paiement autorisé" %}
+                    {% elif demande.statut == 'refuse' %}
+                        <i class="fas fa-times-circle me-2"></i>{% trans "Refusé - Paiement bloqué" %}
+                    {% elif demande.statut == 'expire' %}
+                        <i class="fas fa-hourglass-end me-2"></i>{% trans "Demande expirée" %}
+                    {% elif demande.statut == 'annule' %}
+                        <i class="fas fa-ban me-2"></i>{% trans "Demande annulée" %}
+                    {% endif %}
+                </h5>
+                <p class="mb-0">
+                    {% trans "Référence:" %} <strong>{{ demande.reference }}</strong>
+                </p>
+            </div>
+            {% if demande.statut == 'en_attente' and not demande.est_expiree %}
+            <div>
+                <small class="text-muted">
+                    {% trans "Expire le:" %} {{ demande.date_expiration|date:"d/m/Y H:i" }}
+                </small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Station demandeur -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-paper-plane me-2"></i>{% trans "Station demandeur" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-3">
+                        <dt class="col-sm-5">{% trans "Station" %}</dt>
+                        <dd class="col-sm-7">
+                            <span class="badge bg-info fs-6">{{ demande.station_demandeur.nom }}</span>
+                        </dd>
+                        
+                        <dt class="col-sm-5">{% trans "Régisseur" %}</dt>
+                        <dd class="col-sm-7">{{ demande.regisseur_demandeur.nom_complet }}</dd>
+                        
+                        <dt class="col-sm-5">{% trans "Date demande" %}</dt>
+                        <dd class="col-sm-7">{{ demande.date_demande|date:"d/m/Y H:i" }}</dd>
+                    </dl>
+                    
+                    <hr>
+                    
+                    <h6 class="text-primary">{% trans "Amende à valider" %}</h6>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">{% trans "N° Ticket" %}</dt>
+                        <dd class="col-sm-7"><strong>{{ demande.amende_a_valider.numero_ticket }}</strong></dd>
+                        
+                        <dt class="col-sm-5">{% trans "Montant" %}</dt>
+                        <dd class="col-sm-7">
+                            <span class="text-success">{{ demande.amende_a_valider.montant_amende|floatformat:0|format_milliers }} FCFA</span>
+                        </dd>
+                        
+                        <dt class="col-sm-5">{% trans "Date" %}</dt>
+                        <dd class="col-sm-7">{{ demande.amende_a_valider.date_heure_emission|date:"d/m/Y H:i" }}</dd>
+                    </dl>
+                    
+                    {% if demande.commentaire_demande %}
+                    <hr>
+                    <h6 class="text-muted">{% trans "Commentaire du demandeur:" %}</h6>
+                    <p class="mb-0 fst-italic">{{ demande.commentaire_demande }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Station concernée (amende bloquante) -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100 border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-ban me-2"></i>{% trans "Amende bloquante (non payée)" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-3">
+                        <dt class="col-sm-5">{% trans "Station" %}</dt>
+                        <dd class="col-sm-7">
+                            <span class="badge bg-warning text-dark fs-6">{{ demande.station_concernee.nom }}</span>
+                        </dd>
+                    </dl>
+                    
+                    <hr>
+                    
+                    <h6 class="text-danger">{% trans "Détail de l'amende non payée" %}</h6>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">{% trans "N° Ticket" %}</dt>
+                        <dd class="col-sm-7"><strong>{{ demande.amende_non_payee.numero_ticket }}</strong></dd>
+                        
+                        <dt class="col-sm-5">{% trans "Immatriculation" %}</dt>
+                        <dd class="col-sm-7">
+                            <a href="{% url 'inventaire:detail_historique_vehicule' demande.amende_non_payee.immatriculation %}" 
+                               class="text-decoration-none">
+                                <strong>{{ demande.amende_non_payee.immatriculation }}</strong>
+                                <i class="fas fa-external-link-alt ms-1"></i>
+                            </a>
+                        </dd>
+                        
+                        <dt class="col-sm-5">{% trans "Transporteur" %}</dt>
+                        <dd class="col-sm-7">{{ demande.amende_non_payee.transporteur }}</dd>
+                        
+                        <dt class="col-sm-5">{% trans "Chauffeur" %}</dt>
+                        <dd class="col-sm-7">{{ demande.amende_non_payee.operateur }}</dd>
+                        
+                        <dt class="col-sm-5">{% trans "Montant" %}</dt>
+                        <dd class="col-sm-7">
+                            <span class="text-danger fs-5">{{ demande.amende_non_payee.montant_amende|floatformat:0|format_milliers }} FCFA</span>
+                        </dd>
+                        
+                        <dt class="col-sm-5">{% trans "Date" %}</dt>
+                        <dd class="col-sm-7">{{ demande.amende_non_payee.date_heure_emission|date:"d/m/Y H:i" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Réponse (si traitée) -->
+    {% if demande.date_reponse %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header 
+            {% if demande.statut == 'confirme' %}bg-success
+            {% elif demande.statut == 'refuse' %}bg-danger
+            {% else %}bg-secondary{% endif %} text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-reply me-2"></i>{% trans "Réponse" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">{% trans "Traité par" %}</dt>
+                <dd class="col-sm-9">
+                    {% if demande.regisseur_confirmeur %}
+                        {{ demande.regisseur_confirmeur.nom_complet }}
+                    {% else %}
+                        {% trans "Système (expiration)" %}
+                    {% endif %}
+                </dd>
+                
+                <dt class="col-sm-3">{% trans "Date" %}</dt>
+                <dd class="col-sm-9">{{ demande.date_reponse|date:"d/m/Y H:i" }}</dd>
+                
+                {% if demande.commentaire_reponse %}
+                <dt class="col-sm-3">{% trans "Commentaire" %}</dt>
+                <dd class="col-sm-9">{{ demande.commentaire_reponse }}</dd>
+                {% endif %}
+            </dl>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historique du véhicule -->
+    {% if historique %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-history me-2"></i>
+                {% trans "Historique récent du véhicule" %} {{ demande.vehicule_immatriculation }}
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{% trans "Date" %}</th>
+                            <th>{% trans "Station" %}</th>
+                            <th>{% trans "N° Ticket" %}</th>
+                            <th class="text-end">{% trans "Montant" %}</th>
+                            <th>{% trans "Statut" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in historique %}
+                        <tr class="{% if a.statut == 'non_paye' %}table-warning{% endif %}">
+                            <td>{{ a.date_heure_emission|date:"d/m/Y H:i" }}</td>
+                            <td><span class="badge bg-secondary">{{ a.station.nom }}</span></td>
+                            <td>{{ a.numero_ticket }}</td>
+                            <td class="text-end">{{ a.montant_amende|floatformat:0|format_milliers }} FCFA</td>
+                            <td>
+                                {% if a.statut == 'paye' %}
+                                    <span class="badge bg-success">{% trans "Payé" %}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{% trans "Non payé" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Formulaire de traitement (si peut traiter) -->
+    {% if peut_traiter %}
+    <div class="card shadow-sm mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-gavel me-2"></i>{% trans "Traiter cette demande" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{% url 'inventaire:traiter_demande_confirmation' demande.pk %}">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="commentaire" class="form-label">{% trans "Commentaire (optionnel pour confirmation, requis pour refus)" %}</label>
+                    <textarea class="form-control" id="commentaire" name="commentaire" rows="3"
+                              placeholder="{% trans 'Ajoutez un commentaire si nécessaire...' %}"></textarea>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% trans "En confirmant, vous autorisez la station demandeur à valider le paiement de son amende." %}
+                </div>
+                
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="submit" name="action" value="refuser" class="btn btn-danger btn-lg"
+                            onclick="return confirm('{% trans "Êtes-vous sûr de vouloir REFUSER cette demande?" %}');">
+                        <i class="fas fa-times me-2"></i>{% trans "Refuser" %}
+                    </button>
+                    <button type="submit" name="action" value="confirmer" class="btn btn-success btn-lg"
+                            onclick="return confirm('{% trans "Êtes-vous sûr de vouloir CONFIRMER cette demande?" %}');">
+                        <i class="fas fa-check me-2"></i>{% trans "Confirmer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Boutons de navigation -->
+    <div class="d-flex justify-content-between">
+        <a href="{% url 'inventaire:demandes_confirmation_a_traiter' %}" class="btn btn-outline-secondary btn-lg">
+            <i class="fas fa-inbox me-2"></i>{% trans "Demandes reçues" %}
+        </a>
+        <a href="{% url 'inventaire:mes_demandes_confirmation' %}" class="btn btn-outline-primary btn-lg">
+            <i class="fas fa-paper-plane me-2"></i>{% trans "Mes demandes" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

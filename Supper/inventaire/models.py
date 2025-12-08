@@ -23,6 +23,7 @@ import logging
 from inventaire.models_pesage import *
 from inventaire.models_performance import *
 from inventaire.models_config import *
+from inventaire.models_confirmation import *
 logger = logging.getLogger('supper')
 
 class MoisChoices(models.TextChoices):

@@ -78,7 +78,7 @@ def supper_globals(request):
     """
     return {
         'SUPPER_VERSION': '1.0.0',
-        'SUPPER_NAME': 'Système de Suivi des Péages et Pesages Routiers',
+        'SUPPER_NAME': 'Suivi des  Péages et Pesages Routiers',
         'CURRENT_YEAR': timezone.now().year,
         'DEBUG_MODE': hasattr(request, 'user') and request.user.is_superuser,
     }

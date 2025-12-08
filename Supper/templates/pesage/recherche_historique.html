@@ -1,0 +1,320 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">
+                    <i class="fas fa-search me-2"></i>{{ title }}
+                </h2>
+                <a href="{% url 'inventaire:liste_amendes' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>{% trans "Retour" %}
+                </a>
+            </div>
+            <p class="text-muted mt-2">
+                {% trans "Recherchez l'historique d'un véhicule, transporteur ou chauffeur avant de saisir une amende." %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Formulaire de recherche -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>{% trans "Critères de recherche" %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="" id="searchForm">
+                <div class="row g-3">
+                    <!-- Immatriculation -->
+                    <div class="col-md-4">
+                        <label for="immatriculation" class="form-label">
+                            <i class="fas fa-car me-1"></i>{% trans "Immatriculation" %}
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg" 
+                               id="immatriculation" 
+                               name="immatriculation"
+                               value="{{ immatriculation }}"
+                               placeholder="Ex: ES125P, CE 456 A"
+                               autocomplete="off">
+                        <small class="text-muted">{% trans "Recherche avec ou sans espaces/tirets" %}</small>
+                    </div>
+                    
+                    <!-- Transporteur -->
+                    <div class="col-md-4">
+                        <label for="transporteur" class="form-label">
+                            <i class="fas fa-truck me-1"></i>{% trans "Transporteur" %}
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg" 
+                               id="transporteur" 
+                               name="transporteur"
+                               value="{{ transporteur }}"
+                               placeholder="Ex: CAMTRANS, Société X"
+                               autocomplete="off">
+                        <small class="text-muted">{% trans "Nom de la société de transport" %}</small>
+                    </div>
+                    
+                    <!-- Opérateur/Chauffeur -->
+                    <div class="col-md-4">
+                        <label for="operateur" class="form-label">
+                            <i class="fas fa-user me-1"></i>{% trans "Chauffeur" %}
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg" 
+                               id="operateur" 
+                               name="operateur"
+                               value="{{ operateur }}"
+                               placeholder="Ex: Ibrahim Momo, Jean Pierre"
+                               autocomplete="off">
+                        <small class="text-muted">{% trans "Nom du conducteur" %}</small>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-12 text-center">
+                        <button type="submit" class="btn btn-primary btn-lg px-5">
+                            <i class="fas fa-search me-2"></i>{% trans "Rechercher" %}
+                        </button>
+                        <a href="{% url 'inventaire:recherche_historique_vehicule' %}" class="btn btn-outline-secondary btn-lg ms-2">
+                            <i class="fas fa-times me-1"></i>{% trans "Réinitialiser" %}
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if recherche_effectuee %}
+        <!-- Résumé si recherche par immatriculation -->
+        {% if resume %}
+        <div class="card shadow-sm mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>{% trans "Résumé du véhicule" %} {{ immatriculation }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center border-end">
+                        <h3 class="text-primary mb-1">{{ resume.total_amendes }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total amendes" %}</p>
+                    </div>
+                    <div class="col-md-3 text-center border-end">
+                        <h3 class="text-success mb-1">{{ resume.total_payees }}</h3>
+                        <p class="text-muted mb-0">{% trans "Payées" %}</p>
+                    </div>
+                    <div class="col-md-3 text-center border-end">
+                        <h3 class="text-danger mb-1">{{ resume.total_non_payees }}</h3>
+                        <p class="text-muted mb-0">{% trans "Non payées" %}</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h3 class="text-warning mb-1">
+                            {% if resume.montant_impaye %}
+                                {{ resume.montant_impaye|floatformat:0|format_milliers }}
+                            {% else %}
+                                0
+                            {% endif %}
+                            <small>FCFA</small>
+                        </h3>
+                        <p class="text-muted mb-0">{% trans "Montant impayé" %}</p>
+                    </div>
+                </div>
+                
+                {% if resume.total_non_payees > 0 %}
+                <div class="alert alert-danger mt-3 mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>{% trans "Attention:" %}</strong>
+                    {% trans "Ce véhicule a des amendes non payées!" %}
+                    <a href="{% url 'inventaire:detail_historique_vehicule' immatriculation %}" class="alert-link ms-2">
+                        {% trans "Voir le détail" %} <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Résultats -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>{% trans "Résultats de recherche" %}
+                    {% if resultats %}
+                        <span class="badge bg-light text-dark ms-2">{{ resultats.paginator.count }}</span>
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                {% if resultats and resultats.object_list %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>{% trans "Date/Heure" %}</th>
+                                <th>{% trans "Station" %}</th>
+                                <th>{% trans "N° Ticket" %}</th>
+                                <th>{% trans "Immatriculation" %}</th>
+                                <th>{% trans "Transporteur" %}</th>
+                                <th>{% trans "Chauffeur" %}</th>
+                                <th>{% trans "Infraction" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th class="text-center">{% trans "Statut" %}</th>
+                                <th>{% trans "Paiement" %}</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for amende in resultats %}
+                            <tr class="{% if amende.statut == 'non_paye' %}table-warning{% endif %}">
+                                <td>
+                                    <small>{{ amende.date_heure_emission|date:"d/m/Y" }}</small><br>
+                                    <small class="text-muted">{{ amende.date_heure_emission|time:"H:i" }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ amende.station.nom }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ amende.numero_ticket }}</strong>
+                                </td>
+                                <td>
+                                    <a href="{% url 'inventaire:detail_historique_vehicule' amende.immatriculation %}" class="text-decoration-none">
+                                        <strong>{{ amende.immatriculation }}</strong>
+                                    </a>
+                                </td>
+                                <td>{{ amende.transporteur|truncatechars:20 }}</td>
+                                <td>{{ amende.operateur|truncatechars:20 }}</td>
+                                <td>
+                                    {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                                        <span class="badge bg-danger">S+HG</span>
+                                    {% elif amende.est_surcharge %}
+                                        <span class="badge bg-warning text-dark">S</span>
+                                    {% elif amende.est_hors_gabarit %}
+                                        <span class="badge bg-primary">HG</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <strong>{{ amende.montant_amende|floatformat:0|format_milliers }}</strong>
+                                    <small>FCFA</small>
+                                </td>
+                                <td class="text-center">
+                                    {% if amende.statut == 'paye' %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>{% trans "Payé" %}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times me-1"></i>{% trans "Non payé" %}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if amende.statut == 'paye' and amende.date_paiement %}
+                                        <small>{{ amende.date_paiement|date:"d/m/Y H:i" }}</small>
+                                        {% if amende.valide_par %}
+                                        <br><small class="text-muted">par {{ amende.valide_par.nom_complet|truncatechars:15 }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'inventaire:detail_amende' amende.pk %}" 
+                                       class="btn btn-sm btn-outline-primary"
+                                       title="{% trans 'Voir détail' %}">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if resultats.has_other_pages %}
+                <div class="card-footer">
+                    <nav aria-label="Pagination">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if resultats.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?immatriculation={{ immatriculation }}&transporteur={{ transporteur }}&operateur={{ operateur }}&page={{ resultats.previous_page_number }}">
+                                    &laquo; {% trans "Précédent" %}
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    {{ resultats.number }} / {{ resultats.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if resultats.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?immatriculation={{ immatriculation }}&transporteur={{ transporteur }}&operateur={{ operateur }}&page={{ resultats.next_page_number }}">
+                                    {% trans "Suivant" %} &raquo;
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">{% trans "Aucun résultat trouvé" %}</h5>
+                    <p class="text-muted">{% trans "Essayez avec d'autres critères de recherche." %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <!-- Message initial -->
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-search fa-4x text-primary mb-4"></i>
+                <h4>{% trans "Recherchez avant de saisir une amende" %}</h4>
+                <p class="text-muted">
+                    {% trans "Entrez l'immatriculation du véhicule, le nom du transporteur ou du chauffeur pour vérifier son historique." %}
+                </p>
+                <div class="alert alert-info mt-4 mx-auto" style="max-width: 600px;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {% trans "Cette recherche permet de:" %}
+                    <ul class="text-start mt-2 mb-0">
+                        <li>{% trans "Voir si le véhicule a des amendes non payées" %}</li>
+                        <li>{% trans "Consulter l'historique des stations visitées" %}</li>
+                        <li>{% trans "Vérifier si le véhicule a sauté un contrôle" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-focus sur le premier champ de recherche
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('immatriculation').focus();
+});
+
+// Soumission du formulaire avec Entrée
+document.getElementById('searchForm').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        this.submit();
+    }
+});
+</script>
+{% endblock %}

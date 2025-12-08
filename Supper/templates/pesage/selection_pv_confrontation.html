@@ -1,0 +1,115 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-contract me-2"></i>
+                        Procès Verbal de Confrontation - Pesage
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="pvForm">
+                        {% csrf_token %}
+                        
+                        <!-- Sélection Station (admin seulement) -->
+                        {% if is_admin %}
+                        <div class="mb-4">
+                            <label for="station_id" class="form-label fw-bold">
+                                <i class="fas fa-building me-1"></i> Station de Pesage *
+                            </label>
+                            <select name="station_id" id="station_id" class="form-select form-select-lg" required>
+                                <option value="">-- Sélectionnez une station --</option>
+                                {% for station in stations %}
+                                <option value="{{ station.pk }}">
+                                    {{ station.nom }} ({{ station.get_region_display }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Station :</strong> {{ station_auto.nom }}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Période -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="date_debut" class="form-label fw-bold">
+                                    <i class="fas fa-calendar-alt me-1"></i> Date de début *
+                                </label>
+                                <input type="date" 
+                                       name="date_debut" 
+                                       id="date_debut" 
+                                       class="form-control form-control-lg"
+                                       value="{{ date_debut_suggestion|date:'Y-m-d' }}"
+                                       max="{{ date_max|date:'Y-m-d' }}"
+                                       required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="date_fin" class="form-label fw-bold">
+                                    <i class="fas fa-calendar-check me-1"></i> Date de fin *
+                                </label>
+                                <input type="date" 
+                                       name="date_fin" 
+                                       id="date_fin" 
+                                       class="form-control form-control-lg"
+                                       value="{{ date_fin_suggestion|date:'Y-m-d' }}"
+                                       max="{{ date_max|date:'Y-m-d' }}"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Note :</strong> La période utilise la logique 9h-9h. 
+                            Les données du jour de début commencent à 9h00 et se terminent 
+                            à 8h59 du lendemain du jour de fin.
+                        </div>
+                        
+                        <!-- Boutons -->
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" name="action" value="apercu" class="btn btn-primary btn-lg flex-fill">
+                                <i class="fas fa-eye me-2"></i> Aperçu
+                            </button>
+                            <button type="submit" name="action" value="pdf" class="btn btn-danger btn-lg flex-fill">
+                                <i class="fas fa-file-pdf me-2"></i> Générer PDF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('pvForm').addEventListener('submit', function(e) {
+    var dateDebut = new Date(document.getElementById('date_debut').value);
+    var dateFin = new Date(document.getElementById('date_fin').value);
+    
+    if (dateDebut > dateFin) {
+        e.preventDefault();
+        alert('La date de début doit être antérieure à la date de fin.');
+        return false;
+    }
+    
+    var diffTime = Math.abs(dateFin - dateDebut);
+    var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 365) {
+        e.preventDefault();
+        alert('La période ne peut pas dépasser 1 an.');
+        return false;
+    }
+});
+</script>
+{% endblock %}

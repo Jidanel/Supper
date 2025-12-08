@@ -155,6 +155,32 @@ class AmendeEmise(models.Model):
         verbose_name=_("Validé par"),
         help_text=_("Régisseur qui a validé le paiement")
     )
+
+    # Champs normalisés pour recherche uniforme
+    immatriculation_normalise = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_("Immatriculation normalisée"),
+        help_text=_("Auto-généré pour recherche uniforme"),
+        db_index=True
+    )
+    
+    transporteur_normalise = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Transporteur normalisé"),
+        help_text=_("Auto-généré pour recherche uniforme"),
+        db_index=True
+    )
+    
+    operateur_normalise = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Opérateur normalisé"),
+        help_text=_("Auto-généré pour recherche uniforme (chauffeur)"),
+        db_index=True
+    )
+
     
     # Métadonnées
     date_creation = models.DateTimeField(
@@ -178,6 +204,10 @@ class AmendeEmise(models.Model):
             models.Index(fields=['immatriculation']),
             models.Index(fields=['statut']),
             models.Index(fields=['date_heure_emission']),
+            # Nouveaux index pour recherche normalisée
+            models.Index(fields=['immatriculation_normalise']),
+            models.Index(fields=['transporteur_normalise']),
+            models.Index(fields=['operateur_normalise']),
         ]
     
     def __str__(self):
@@ -341,12 +371,19 @@ class AmendeEmise(models.Model):
         return True
     
     def save(self, *args, **kwargs):
-        """
-        Sauvegarde avec validation métier
-        """
+        '''
+        Sauvegarde avec validation métier et normalisation des champs
+        '''
         # Vérifier qu'au moins un type d'infraction est coché
         if not self.est_surcharge and not self.est_hors_gabarit:
             raise ValueError("Au moins un type d'infraction doit être sélectionné")
+        
+        # Normaliser les champs pour recherche uniforme
+        from inventaire.utils_pesage import normalize_search_text, normalize_immatriculation
+        
+        self.immatriculation_normalise = normalize_immatriculation(self.immatriculation)
+        self.transporteur_normalise = normalize_search_text(self.transporteur)
+        self.operateur_normalise = normalize_search_text(self.operateur)
         
         is_new = self.pk is None
         

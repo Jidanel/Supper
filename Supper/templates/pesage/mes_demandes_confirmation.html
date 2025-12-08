@@ -1,0 +1,215 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras%}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-paper-plane me-2"></i>{{ title }}
+                    </h2>
+                    <p class="text-muted mt-1">
+                        {% trans "Demandes de confirmation que vous avez envoyées" %}
+                        {% if station %}- <strong>{{ station.nom }}</strong>{% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'inventaire:demandes_confirmation_a_traiter' %}" class="btn btn-outline-warning">
+                    <i class="fas fa-inbox me-1"></i>{% trans "Demandes à traiter" %}
+                    <span class="badge bg-danger ms-1" id="badge-attente"></span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body py-2">
+            <form method="GET" class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <label class="col-form-label">{% trans "Filtrer par statut:" %}</label>
+                </div>
+                <div class="col-auto">
+                    <select name="statut" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">{% trans "Tous" %}</option>
+                        {% for code, label in statuts %}
+                        <option value="{{ code }}" {% if statut_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if statut_filter %}
+                <div class="col-auto">
+                    <a href="{% url 'inventaire:mes_demandes_confirmation' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i>{% trans "Réinitialiser" %}
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des demandes -->
+    {% if demandes and demandes.object_list %}
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>{% trans "Référence" %}</th>
+                            <th>{% trans "Véhicule" %}</th>
+                            <th>{% trans "Station concernée" %}</th>
+                            <th>{% trans "Amende à valider" %}</th>
+                            <th>{% trans "Amende bloquante" %}</th>
+                            <th>{% trans "Date demande" %}</th>
+                            <th>{% trans "Statut" %}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for demande in demandes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'inventaire:detail_demande_confirmation' demande.pk %}" class="text-decoration-none">
+                                    <strong>{{ demande.reference }}</strong>
+                                </a>
+                            </td>
+                            <td>
+                                <strong>{{ demande.vehicule_immatriculation }}</strong>
+                                {% if demande.vehicule_transporteur %}
+                                <br><small class="text-muted">{{ demande.vehicule_transporteur|truncatechars:20 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark">{{ demande.station_concernee.nom }}</span>
+                            </td>
+                            <td>
+                                {{ demande.amende_a_valider.numero_ticket }}
+                                <br><small>{{ demande.amende_a_valider.montant_amende|floatformat:0|format_milliers }} FCFA</small>
+                            </td>
+                            <td>
+                                {{ demande.amende_non_payee.numero_ticket }}
+                                <br><small class="text-danger">{{ demande.amende_non_payee.montant_amende|floatformat:0|format_milliers }} FCFA</small>
+                            </td>
+                            <td>
+                                {{ demande.date_demande|date:"d/m/Y" }}
+                                <br><small class="text-muted">{{ demande.date_demande|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if demande.statut == 'en_attente' %}
+                                    {% if demande.est_expiree %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-hourglass-end me-1"></i>{% trans "Expiré" %}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-clock me-1"></i>{% trans "En attente" %}
+                                        </span>
+                                    {% endif %}
+                                {% elif demande.statut == 'confirme' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>{% trans "Confirmé" %}
+                                    </span>
+                                {% elif demande.statut == 'refuse' %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times me-1"></i>{% trans "Refusé" %}
+                                    </span>
+                                {% elif demande.statut == 'expire' %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-hourglass-end me-1"></i>{% trans "Expiré" %}
+                                    </span>
+                                {% elif demande.statut == 'annule' %}
+                                    <span class="badge bg-dark">
+                                        <i class="fas fa-ban me-1"></i>{% trans "Annulé" %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'inventaire:detail_demande_confirmation' demande.pk %}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="{% trans 'Voir détail' %}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if demande.statut == 'confirme' %}
+                                <a href="{% url 'inventaire:verifier_avant_validation' demande.amende_a_valider.pk %}" 
+                                   class="btn btn-sm btn-success ms-1"
+                                   title="{% trans 'Valider paiement' %}">
+                                    <i class="fas fa-check"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if demandes.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if demandes.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if statut_filter %}statut={{ statut_filter }}&{% endif %}page={{ demandes.previous_page_number }}">
+                            &laquo; {% trans "Précédent" %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            {{ demandes.number }} / {{ demandes.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if demandes.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if statut_filter %}statut={{ statut_filter }}&{% endif %}page={{ demandes.next_page_number }}">
+                            {% trans "Suivant" %} &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">{% trans "Aucune demande de confirmation" %}</h5>
+            <p class="text-muted">
+                {% if statut_filter %}
+                    {% trans "Aucune demande avec ce statut." %}
+                {% else %}
+                    {% trans "Vous n'avez pas encore envoyé de demande de confirmation." %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Charger le nombre de demandes en attente
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('{% url "inventaire:api_count_demandes_attente" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.count > 0) {
+                document.getElementById('badge-attente').textContent = data.count;
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+});
+</script>
+{% endblock %}

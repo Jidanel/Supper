@@ -1,0 +1,286 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pv-header {
+        text-align: center;
+        font-size: 0.85rem;
+    }
+    .pv-header h6 {
+        margin-bottom: 0.2rem;
+    }
+    .table-pv th, .table-pv td {
+        vertical-align: middle;
+        text-align: center;
+        font-size: 0.85rem;
+        padding: 0.5rem;
+    }
+    .table-pv th {
+        background-color: #4a5568;
+        color: white;
+    }
+    .table-detail th {
+        background-color: #c0392b;
+        color: white;
+    }
+    .table-detail tr:last-child {
+        background-color: #e2e8f0;
+        font-weight: bold;
+    }
+    .intro-text {
+        font-size: 0.95rem;
+        line-height: 1.6;
+        text-align: justify;
+    }
+    .signature-zone {
+        margin-top: 2rem;
+    }
+    .signature-box {
+        text-align: center;
+        padding: 1rem;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .card { border: none !important; box-shadow: none !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Boutons d'action -->
+    <div class="row mb-3 no-print">
+        <div class="col-12 d-flex gap-2">
+            <a href="{% url 'inventaire:selection_pv_confrontation' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Retour
+            </a>
+            <a href="{% url 'inventaire:generer_pv_confrontation_pdf' station.pk date_debut date_fin %}" 
+               class="btn btn-danger" target="_blank">
+                <i class="fas fa-file-pdf me-1"></i> Télécharger PDF
+            </a>
+            <button onclick="window.print()" class="btn btn-secondary">
+                <i class="fas fa-print me-1"></i> Imprimer
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <!-- EN-TÊTE BILINGUE -->
+            <div class="row mb-4">
+                <div class="col-4 pv-header text-start">
+                    <h6><strong>{{ config.republique_fr }}</strong></h6>
+                    <p class="mb-0">{{ config.devise_fr }}</p>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>{{ config.ministere_fr }}</strong></h6>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>{{ config.direction_fr }}</strong></h6>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>{{ config.programme_fr }}</strong></h6>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>RÉGIE DE RECETTE DU PESAGE DE {{ station.nom|upper }}</strong></h6>
+                </div>
+                <div class="col-4 text-center">
+                    {% if config.logo %}
+                    <img src="{{ config.logo.url }}" alt="Logo" style="max-height: 100px;">
+                    {% else %}
+                    <span class="text-muted">DGI</span>
+                    {% endif %}
+                </div>
+                <div class="col-4 pv-header text-end">
+                    <h6><strong>{{ config.republique_en }}</strong></h6>
+                    <p class="mb-0">{{ config.devise_en }}</p>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>{{ config.ministere_en }}</strong></h6>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>{{ config.direction_en }}</strong></h6>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>{{ config.programme_en }}</strong></h6>
+                    <p class="mb-0">*****</p>
+                    <h6><strong>{{ station.nom|upper }} WEIGH STATION</strong></h6>
+                </div>
+            </div>
+
+            <!-- TITRE -->
+            <div class="text-center mb-4">
+                <h3 class="fw-bold">PROCÈS VERBAL MENSUEL DE CONFRONTATION</h3>
+                <h5>Période du {{ date_debut_obj|date:"d/m/Y" }} au {{ date_fin_obj|date:"d/m/Y" }}</h5>
+            </div>
+
+            <!-- TEXTE INTRODUCTIF -->
+            <div class="intro-text mb-4">
+                <p>
+                    L'an {{ donnees.annee_texte }} et le {{ date_du_jour|date:"d/m/Y" }},
+                </p>
+                <p>
+                    Nous soussignés, <strong>{{ chef_station.nom_complet|default:"[Chef de Station]" }}</strong>, 
+                    Chef de Station du Pesage Routier de <strong>{{ station.nom }}</strong>, 
+                    et <strong>{{ regisseur.nom_complet|default:"[Régisseur]" }}</strong>, 
+                    Régisseur des Recettes à ladite station ;
+                </p>
+                <p>
+                    Reconnaissons avoir confronté les Ordres de Paiement émis de la période allant du 
+                    <strong>{{ date_debut_obj|date:"d/m/Y" }}</strong> au <strong>{{ date_fin_obj|date:"d/m/Y" }}</strong>, 
+                    avec les Déclarations des Recettes d'une part, et les Déclarations des Recettes 
+                    avec les Quittances de Reversement d'autre part.
+                </p>
+                <p>
+                    Il se dégage la situation détaillée dans le tableau ci-après :
+                </p>
+            </div>
+
+            <!-- TABLEAU RÉCAPITULATIF -->
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-pv">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Nombre<br>des<br>pesées</th>
+                            <th rowspan="2">Nombre<br>d'infractions</th>
+                            <th rowspan="2">Montant<br>Ordre des<br>paiements<br>(amendes<br>émises du<br>mois) (A)</th>
+                            <th colspan="3">Montant déclaration des Recettes<br>(Total des amendes recouvrées)</th>
+                            <th rowspan="2">Écart<br>(RAR)<br>(B-A)</th>
+                            <th rowspan="2">Montant des<br>reversements<br>au Trésor<br>public<br>(F)</th>
+                            <th rowspan="2">Écart<br>(F-D)</th>
+                            <th rowspan="2">Observations</th>
+                        </tr>
+                        <tr>
+                            <th>Montant du<br>mois (B)</th>
+                            <th>Montant<br>des mois<br>antérieurs<br>(C)</th>
+                            <th>Total<br>D= B+C</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>{{ donnees.nombre_pesees|default:0|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.nombre_infractions|default:0|format_milliers }}</strong></td>
+                            <td>{{ donnees.montant_emis_A|floatformat:0|default:0|format_milliers }}</td>
+                            <td>{{ donnees.montant_recouvre_mois_B|floatformat:0|default:0|format_milliers }}</td>
+                            <td>{{ donnees.rar_anterieurs_C|floatformat:0|default:0|format_milliers }}</td>
+                            <td><strong>{{ donnees.total_D|floatformat:0|default:0|format_milliers }}</strong></td>
+                            <td class="{% if donnees.ecart_1 < 0 %}text-danger{% endif %}">
+                                {{ donnees.ecart_1|floatformat:0|default:0|format_milliers }}
+                            </td>
+                            <td>{{ donnees.montant_reversements_F|floatformat:0|default:0|format_milliers }}</td>
+                            <td class="{% if donnees.ecart_2 != 0 %}text-warning{% endif %}">
+                                {{ donnees.ecart_2|floatformat:0|default:0|format_milliers }}
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TEXTE DE CONCLUSION -->
+            <p class="intro-text">
+                En foi de quoi, le présent procès-verbal est établi pour servir et valoir ce que de droit.
+            </p>
+
+            <!-- SIGNATURES -->
+            <div class="row signature-zone mt-5">
+                <div class="col-5 signature-box">
+                    <p><strong>Le Régisseur des Recettes</strong></p>
+                    <div style="height: 80px;"></div>
+                    <p class="border-top pt-2">
+                        <strong>{{ regisseur.nom_complet|default:"_______________________" }}</strong>
+                    </p>
+                </div>
+                <div class="col-2"></div>
+                <div class="col-5 signature-box">
+                    <p><strong>Le Chef de Station</strong></p>
+                    <div style="height: 80px;"></div>
+                    <p class="border-top pt-2">
+                        <strong>{{ chef_station.nom_complet|default:"_______________________" }}</strong>
+                    </p>
+                </div>
+            </div>
+
+            <!-- SÉPARATEUR POUR PAGE 2 -->
+            <hr class="my-5">
+
+            <!-- DÉTAIL PAR SEMAINE -->
+            <div class="text-center mb-4">
+                <h4 class="fw-bold">FICHE DE SUIVI DES AMENDES</h4>
+                <h6>STATION DE PESAGE DE {{ station.nom|upper }} - 
+                    PÉRIODE DU {{ date_debut_obj|date:"d/m/Y" }} AU {{ date_fin_obj|date:"d/m/Y" }}</h6>
+            </div>
+
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-detail">
+                    <thead>
+                        <tr>
+                            <th>Semaine</th>
+                            <th>Pesées</th>
+                            <th>Infr.</th>
+                            <th>Amendes<br>émises (A)</th>
+                            <th>Recouvré<br>mois (B)</th>
+                            <th>RAR ant.<br>(C)</th>
+                            <th>Total<br>(D)</th>
+                            <th>Écart 1<br>(B-A)</th>
+                            <th>Reversements<br>(F)</th>
+                            <th>Écart 2<br>(F-D)</th>
+                            <th>Obs.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sem in donnees.donnees_par_semaine %}
+                        <tr>
+                            <td class="text-start">{{ sem.label }}</td>
+                            <td>{{ sem.nombre_pesees|format_milliers }}</td>
+                            <td>{{ sem.nombre_infractions|format_milliers }}</td>
+                            <td>{{ sem.montant_A|floatformat:0|format_milliers }}</td>
+                            <td>{{ sem.montant_B|floatformat:0|format_milliers }}</td>
+                            <td>{{ sem.montant_C|floatformat:0|format_milliers }}</td>
+                            <td>{{ sem.total_D|floatformat:0|format_milliers }}</td>
+                            <td class="{% if sem.ecart_1 < 0 %}text-danger{% endif %}">
+                                {{ sem.ecart_1|floatformat:0|format_milliers }}
+                            </td>
+                            <td>{{ sem.montant_F|floatformat:0|format_milliers }}</td>
+                            <td class="{% if sem.ecart_2 != 0 %}text-warning{% endif %}">
+                                {{ sem.ecart_2|floatformat:0|format_milliers }}
+                            </td>
+                            <td></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td class="text-start"><strong>TOTAL</strong></td>
+                            <td><strong>{{ donnees.nombre_pesees|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.nombre_infractions|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.montant_emis_A|floatformat:0|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.montant_recouvre_mois_B|floatformat:0|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.rar_anterieurs_C|floatformat:0|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.total_D|floatformat:0|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.ecart_1|floatformat:0|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.montant_reversements_F|floatformat:0|format_milliers }}</strong></td>
+                            <td><strong>{{ donnees.ecart_2|floatformat:0|format_milliers }}</strong></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- SIGNATURES PAGE 2 -->
+            <div class="row signature-zone mt-4">
+                <div class="col-5 signature-box">
+                    <p><strong>Le Régisseur des Recettes</strong></p>
+                    <div style="height: 60px;"></div>
+                    <p class="border-top pt-2">
+                        <strong>{{ regisseur.nom_complet|default:"_______________________" }}</strong>
+                    </p>
+                </div>
+                <div class="col-2"></div>
+                <div class="col-5 signature-box">
+                    <p><strong>Le Chef de Station</strong></p>
+                    <div style="height: 60px;"></div>
+                    <p class="border-top pt-2">
+                        <strong>{{ chef_station.nom_complet|default:"_______________________" }}</strong>
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
