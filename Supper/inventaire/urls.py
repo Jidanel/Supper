@@ -20,6 +20,8 @@ from . import views_pesage
 from . import views_pv_confrontation
 from . import views_historique_pesage
 from . import views_classement_pesage
+from . import views_rapports_defaillants_pesage
+
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -501,6 +503,30 @@ pesage_patterns = [
     path('pesage/validation-bloquee/<int:pk>/', views_historique_pesage.validation_bloquee, name='validation_bloquee'),
 
     path('pesage/classement-rendement/', views_classement_pesage.classement_stations_pesage_rendement, name='classement_stations_pesage_rendement'),
+
+     path('pesage/selection-rapport-defaillants/', 
+         views_rapports_defaillants_pesage.selection_rapport_defaillants_pesage, 
+         name='selection_rapport_defaillants_pesage'),
+    
+    path('pesage/rapport-defaillants/', 
+         views_rapports_defaillants_pesage.rapport_defaillants_pesage, 
+         name='rapport_defaillants_pesage'),
+    
+    # =====================================================
+    # OBJECTIFS ANNUELS PESAGE
+    # =====================================================
+    path('objectifs-pesage/', 
+         views_rapports_defaillants_pesage.gestion_objectifs_annuels_pesage, 
+         name='gestion_objectifs_pesage'),
+    
+    path('objectifs-pesage/dupliquer/', 
+         views_rapports_defaillants_pesage.dupliquer_objectifs_annee_pesage, 
+         name='dupliquer_objectifs_pesage'),
+    
+    path('objectifs-pesage/calculer/', 
+         views_rapports_defaillants_pesage.calculer_objectifs_pesage_automatique, 
+         name='calculer_objectifs_pesage'),
+
     
     # ===================================================================
     # API ENDPOINTS

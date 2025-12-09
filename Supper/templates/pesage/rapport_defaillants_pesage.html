@@ -1,0 +1,465 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --teal-principal: #0D9488;
+        --teal-fonce: #0F766E;
+        --teal-clair: #5EEAD4;
+        --blanc-pur: #FFFFFF;
+        --gris-clair: #F0FDFA;
+        --gris-moyen: #64748B;
+        --gris-fonce: #334155;
+        --accent-orange: #F59E0B;
+        --rouge-danger: #dc2626;
+        --vert-success: #16a34a;
+    }
+
+    .synoptique-header {
+        background: linear-gradient(135deg, var(--teal-principal) 0%, var(--teal-fonce) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(13, 148, 136, 0.3);
+    }
+
+    .section-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .section-title {
+        color: var(--teal-principal);
+        font-weight: bold;
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--teal-principal);
+    }
+
+    .realisations-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .realisations-table th {
+        background: var(--gris-clair);
+        color: var(--gris-fonce);
+        padding: 0.75rem;
+        text-align: left;
+        font-size: 0.875rem;
+    }
+
+    .realisations-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+
+    .stat-item {
+        background: var(--gris-clair);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid var(--teal-principal);
+    }
+
+    .stat-label {
+        color: var(--gris-moyen);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+
+    .stat-value {
+        color: var(--gris-fonce);
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .stat-value.positif { color: var(--vert-success); }
+    .stat-value.negatif { color: var(--rouge-danger); }
+
+    .progress-bar-container {
+        background: #e5e7eb;
+        border-radius: 10px;
+        height: 30px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--teal-principal), var(--teal-clair));
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 1rem;
+        color: white;
+        font-weight: bold;
+    }
+
+    .objectif-card {
+        background: linear-gradient(135deg, var(--teal-principal) 0%, var(--teal-fonce) 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+
+    .postes-baisse-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .poste-badge {
+        background: #fee2e2;
+        color: var(--rouge-danger);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+    }
+
+    /* SECTION NOUVEAUX POSTES - STYLE VERT/TEAL */
+    .nouveaux-postes-card {
+        background: linear-gradient(135deg, #10B981, #059669);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+
+    .nouveaux-postes-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        background: rgba(255,255,255,0.15);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .nouveaux-postes-table th {
+        background: rgba(255,255,255,0.2);
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: bold;
+        border-bottom: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .nouveaux-postes-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .nouveaux-postes-table tbody tr:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .nouveaux-postes-table tfoot {
+        background: rgba(255,255,255,0.25);
+        font-weight: bold;
+    }
+
+    .btn-primary-custom {
+        background: linear-gradient(135deg, var(--teal-principal), var(--teal-fonce));
+        color: white;
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 50px;
+        text-decoration: none;
+    }
+
+    .btn-pdf { background: linear-gradient(135deg, #dc2626, #991b1b); }
+
+    .text-end { text-align: right; }
+    .text-center { text-align: center; }
+
+    @media print { .no-print { display: none; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="synoptique-header">
+        <h1><i class="fas fa-weight"></i> Fiche Synoptique du Pesage</h1>
+        <h3>Du {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}</h3>
+        <p class="mb-0 opacity-75">PSRR {{ date_fin.year }} - Recettes pesage (Amendes)</p>
+    </div>
+
+    <div class="action-buttons no-print" style="display:flex;gap:1rem;justify-content:center;margin:2rem 0;">
+        <a href="?date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&action=pdf" class="btn-primary-custom btn-pdf">
+            <i class="fas fa-file-pdf"></i> PDF
+        </a>
+        <button onclick="window.print()" class="btn btn-primary-custom"><i class="fas fa-print"></i> Imprimer</button>
+        <a href="{% url 'inventaire:selection_rapport_defaillants_pesage' %}" class="btn btn-primary-custom" style="background:#6b7280;">
+            <i class="fas fa-calendar-alt"></i> Changer période
+        </a>
+    </div>
+
+    <!-- Réalisations -->
+    <div class="section-card">
+        <h2 class="section-title"><i class="fas fa-chart-bar"></i> Réalisations par Station</h2>
+        <div class="table-responsive">
+            <table class="realisations-table">
+                <thead>
+                    <tr>
+                        <th>Station</th>
+                        <th class="text-end">{{ donnees.libelle_periode }}</th>
+                        <th class="text-end">{{ donnees.nom_mois }} {{ donnees.annee_n1 }}</th>
+                        <th class="text-end">Progression</th>
+                        <th class="text-center">Jours Manquants</th>
+                        <th>Dates Manquantes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in donnees.realisations_periode %}
+                    <tr>
+                        <td><strong>{{ r.station.nom }}</strong></td>
+                        <td class="text-end">{{ r.realisation_periode|floatformat:0|intcomma }}</td>
+                        <td class="text-end">{{ r.realisation_n1|floatformat:0|intcomma }}</td>
+                        <td class="text-end {% if r.progression > 0 %}positif{% elif r.progression < 0 %}negatif{% endif %}">
+                            {% if r.progression > 0 %}+{% endif %}{{ r.progression|floatformat:0|intcomma }}
+                        </td>
+                        <td class="text-center">
+                            {% if r.jours_manquants > 0 %}
+                            <span class="badge bg-danger">{{ r.jours_manquants }}</span>
+                            {% else %}
+                            <span class="badge bg-success">0</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ r.dates_manquantes|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">Aucune station de pesage trouvée</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--gris-clair);font-weight:bold;">
+                        <td>TOTAL</td>
+                        <td class="text-end">{{ donnees.total_realisation_periode|floatformat:0|intcomma }}</td>
+                        <td class="text-end">{{ donnees.total_mois_n1|floatformat:0|intcomma }}</td>
+                        <td class="text-end {% if donnees.progression_vs_n1 > 0 %}positif{% elif donnees.progression_vs_n1 < 0 %}negatif{% endif %}">
+                            {% if donnees.progression_vs_n1 > 0 %}+{% endif %}{{ donnees.progression_vs_n1|floatformat:0|intcomma }}
+                        </td>
+                        <td class="text-center"><span class="badge bg-secondary">{{ donnees.total_jours_manquants }}</span></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Comparaisons Mensuelles -->
+    <div class="section-card">
+        <h2 class="section-title"><i class="fas fa-exchange-alt"></i> Comparaisons Mensuelles</h2>
+        
+        <!-- Ligne 1: Période actuelle vs N-1 -->
+        <h6 class="text-muted mb-2"><small>Comparaison avec {{ donnees.annee_n1 }}</small></h6>
+        <div class="stat-grid">
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_periode }}</div>
+                <div class="stat-value">{{ donnees.total_realisation_periode|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_mois_n1 }}</div>
+                <div class="stat-value">{{ donnees.total_mois_n1|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Écart vs {{ donnees.annee_n1 }}</div>
+                <div class="stat-value {% if donnees.progression_vs_n1 > 0 %}positif{% elif donnees.progression_vs_n1 < 0 %}negatif{% endif %}">
+                    {% if donnees.progression_vs_n1 > 0 %}+{% endif %}{{ donnees.progression_vs_n1|floatformat:0|intcomma }}
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Indice vs {{ donnees.annee_n1 }}</div>
+                <div class="stat-value {% if donnees.indice_progression_n1 > 0 %}positif{% elif donnees.indice_progression_n1 < 0 %}negatif{% endif %}">
+                    {% if donnees.indice_progression_n1 > 0 %}+{% endif %}{{ donnees.indice_progression_n1|floatformat:1 }}%
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ligne 2: Période actuelle vs N-2 -->
+        <h6 class="text-muted mb-2 mt-3"><small>Comparaison avec {{ donnees.annee_n2 }}</small></h6>
+        <div class="stat-grid">
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_periode }}</div>
+                <div class="stat-value">{{ donnees.total_realisation_periode|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_mois_n2 }}</div>
+                <div class="stat-value">{{ donnees.total_mois_n2|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Écart vs {{ donnees.annee_n2 }}</div>
+                <div class="stat-value {% if donnees.progression_vs_n2 > 0 %}positif{% elif donnees.progression_vs_n2 < 0 %}negatif{% endif %}">
+                    {% if donnees.progression_vs_n2 > 0 %}+{% endif %}{{ donnees.progression_vs_n2|floatformat:0|intcomma }}
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Indice vs {{ donnees.annee_n2 }}</div>
+                <div class="stat-value {% if donnees.indice_progression_n2 > 0 %}positif{% elif donnees.indice_progression_n2 < 0 %}negatif{% endif %}">
+                    {% if donnees.indice_progression_n2 > 0 %}+{% endif %}{{ donnees.indice_progression_n2|floatformat:1 }}%
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cumul Annuel -->
+    <div class="section-card">
+        <h2 class="section-title"><i class="fas fa-calendar-alt"></i> Cumul Annuel</h2>
+        
+        <!-- Ligne 1: Cumul actuel vs N-1 -->
+        <h6 class="text-muted mb-2"><small>Comparaison avec {{ donnees.annee_n1 }}</small></h6>
+        <div class="stat-grid">
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_cumul }}</div>
+                <div class="stat-value">{{ donnees.cumul_annuel|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_cumul_n1 }}</div>
+                <div class="stat-value">{{ donnees.cumul_n1_meme_date|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Écart vs {{ donnees.annee_n1 }}</div>
+                <div class="stat-value {% if donnees.ecart_cumul_n1 > 0 %}positif{% elif donnees.ecart_cumul_n1 < 0 %}negatif{% endif %}">
+                    {% if donnees.ecart_cumul_n1 > 0 %}+{% endif %}{{ donnees.ecart_cumul_n1|floatformat:0|intcomma }}
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Indice vs {{ donnees.annee_n1 }}</div>
+                <div class="stat-value {% if donnees.indice_cumul_n1 > 0 %}positif{% elif donnees.indice_cumul_n1 < 0 %}negatif{% endif %}">
+                    {% if donnees.indice_cumul_n1 > 0 %}+{% endif %}{{ donnees.indice_cumul_n1|floatformat:1 }}%
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ligne 2: Cumul actuel vs N-2 -->
+        <h6 class="text-muted mb-2 mt-3"><small>Comparaison avec {{ donnees.annee_n2 }}</small></h6>
+        <div class="stat-grid">
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_cumul }}</div>
+                <div class="stat-value">{{ donnees.cumul_annuel|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">{{ donnees.libelle_cumul_n2 }}</div>
+                <div class="stat-value">{{ donnees.cumul_n2_meme_date|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Écart vs {{ donnees.annee_n2 }}</div>
+                <div class="stat-value {% if donnees.ecart_cumul_n2 > 0 %}positif{% elif donnees.ecart_cumul_n2 < 0 %}negatif{% endif %}">
+                    {% if donnees.ecart_cumul_n2 > 0 %}+{% endif %}{{ donnees.ecart_cumul_n2|floatformat:0|intcomma }}
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Indice vs {{ donnees.annee_n2 }}</div>
+                <div class="stat-value {% if donnees.indice_cumul_n2 > 0 %}positif{% elif donnees.indice_cumul_n2 < 0 %}negatif{% endif %}">
+                    {% if donnees.indice_cumul_n2 > 0 %}+{% endif %}{{ donnees.indice_cumul_n2|floatformat:1 }}%
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Objectif -->
+    <div class="objectif-card">
+        <h3><i class="fas fa-bullseye"></i> Objectif Annuel {{ date_fin.year }}</h3>
+        <div class="row mt-3">
+            <div class="col-md-3"><small class="opacity-75">Objectif</small><h4>{{ donnees.objectif_annuel|floatformat:0|intcomma }}</h4></div>
+            <div class="col-md-3"><small class="opacity-75">Réalisé</small><h4>{{ donnees.realisation_objectif|floatformat:0|intcomma }}</h4></div>
+            <div class="col-md-3"><small class="opacity-75">Écart</small><h4>{{ donnees.ecart_objectif|floatformat:0|intcomma }}</h4></div>
+            <div class="col-md-3"><small class="opacity-75">Taux</small><h4>{{ donnees.taux_realisation_objectif|floatformat:1 }}%</h4></div>
+        </div>
+        <div class="progress-bar-container mt-3">
+            <div class="progress-bar" style="width:{% if donnees.taux_realisation_objectif > 100 %}100{% else %}{{ donnees.taux_realisation_objectif|floatformat:0 }}{% endif %}%;">
+                {{ donnees.taux_realisation_objectif|floatformat:1 }}%
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== NOUVEAUX POSTES - AVEC LISTE DÉTAILLÉE ========== -->
+    {% if donnees.nouveaux_postes %}
+    <div class="nouveaux-postes-card">
+        <h3><i class="fas fa-plus-circle"></i> Contribution des Nouveaux Ouvrages</h3>
+        
+        <!-- Tableau détaillé des nouveaux postes -->
+        <table class="nouveaux-postes-table">
+            <thead>
+                <tr>
+                    <th>Station</th>
+                    <th class="text-end">Contribution Période</th>
+                    <th class="text-end">Contribution Annuelle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for np in donnees.nouveaux_postes_details %}
+                <tr>
+                    <td>
+                        <i class="fas fa-star" style="opacity:0.7;"></i>
+                        <strong>{{ np.station.nom }}</strong>
+                    </td>
+                    <td class="text-end">{{ np.contribution_periode|floatformat:0|intcomma }} FCFA</td>
+                    <td class="text-end">{{ np.contribution_annee|floatformat:0|intcomma }} FCFA</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-center">Aucun nouveau poste</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td><strong>TOTAL ({{ donnees.nouveaux_postes|length }} poste{{ donnees.nouveaux_postes|length|pluralize }})</strong></td>
+                    <td class="text-end"><strong>{{ donnees.contribution_nouveaux_periode|floatformat:0|intcomma }} FCFA</strong></td>
+                    <td class="text-end"><strong>{{ donnees.contribution_nouveaux_annee|floatformat:0|intcomma }} FCFA</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Postes en Baisse Mensuelle -->
+    {% if donnees.postes_baisse_mensuel_n1 %}
+    <div class="section-card">
+        <h2 class="section-title" style="color: var(--rouge-danger); border-color: var(--rouge-danger);">
+            <i class="fas fa-exclamation-triangle"></i> Postes en Baisse Mensuelle (vs {{ donnees.annee_n1 }})
+        </h2>
+        <div class="postes-baisse-list">
+            {% for b in donnees.postes_baisse_mensuel_n1|slice:":15" %}
+            <span class="poste-badge">{{ b.station.nom }} ({{ b.taux|floatformat:1 }}%)</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Postes en Baisse Annuelle -->
+    {% if donnees.postes_baisse_annuel_n1 %}
+    <div class="section-card">
+        <h2 class="section-title" style="color: var(--rouge-danger); border-color: var(--rouge-danger);">
+            <i class="fas fa-chart-line"></i> Postes en Baisse Annuelle (vs {{ donnees.annee_n1 }})
+        </h2>
+        <div class="postes-baisse-list">
+            {% for b in donnees.postes_baisse_annuel_n1|slice:":15" %}
+            <span class="poste-badge">{{ b.station.nom }} ({{ b.taux|floatformat:1 }}%)</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="text-center text-muted mt-5 mb-3">
+        <small>PSRR {{ date_fin.year }} - SUPPER - Généré le {% now "d/m/Y à H:i" %}</small>
+    </div>
+</div>
+{% endblock %}

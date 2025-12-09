@@ -1,0 +1,84 @@
+{% extends 'admin/base_site.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root { --teal-principal: #0D9488; --teal-fonce: #0F766E; }
+    .selection-container { max-width: 600px; margin: 3rem auto; }
+    .selection-card { background: white; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
+    .selection-header { background: linear-gradient(135deg, var(--teal-principal), var(--teal-fonce)); color: white; padding: 2rem; text-align: center; }
+    .selection-body { padding: 2.5rem; }
+    .form-group { margin-bottom: 1.5rem; }
+    .form-label { color: #334155; font-weight: 500; margin-bottom: 0.5rem; display: block; }
+    .form-control { width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 8px; }
+    .form-control:focus { outline: none; border-color: var(--teal-principal); }
+    .date-input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .btn-generate { background: linear-gradient(135deg, var(--teal-principal), var(--teal-fonce)); color: white; padding: 1rem 2rem; border: none; border-radius: 50px; width: 100%; margin-top: 1.5rem; cursor: pointer; }
+    .btn-generate:hover { transform: scale(1.02); }
+    .quick-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .quick-btn { background: #F0FDFA; color: var(--teal-fonce); padding: 0.5rem 1rem; border: none; border-radius: 20px; cursor: pointer; }
+    .quick-btn:hover { background: var(--teal-principal); color: white; }
+    .info-box { background: #F0FDFA; border-left: 4px solid var(--teal-principal); padding: 1rem; border-radius: 5px; margin-top: 2rem; }
+    .back-link { display: inline-flex; align-items: center; color: var(--teal-principal); text-decoration: none; margin-bottom: 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="selection-container">
+        <a href="{% url 'common:dashboard' %}" class="back-link"><i class="fas fa-arrow-left me-2"></i> Retour</a>
+        <div class="selection-card">
+            <div class="selection-header">
+                <h1><i class="fas fa-weight me-2"></i> Rapport Défaillants Pesage</h1>
+                <p>Fiche Synoptique des Stations de Pesage</p>
+            </div>
+            <div class="selection-body">
+                <form method="GET" action="{% url 'inventaire:rapport_defaillants_pesage' %}" id="periodeForm">
+                    <div class="date-input-group">
+                        <div class="form-group">
+                            <label class="form-label">Date de début</label>
+                            <input type="date" class="form-control" id="date_debut" name="date_debut" value="{{ date_debut_default|date:'Y-m-d' }}" max="{{ date_max|date:'Y-m-d' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date de fin</label>
+                            <input type="date" class="form-control" id="date_fin" name="date_fin" value="{{ date_fin_default|date:'Y-m-d' }}" max="{{ date_max|date:'Y-m-d' }}" required>
+                        </div>
+                    </div>
+                    <div style="color:#64748b;font-size:0.875rem;margin-bottom:0.5rem;">Sélection rapide</div>
+                    <div class="quick-buttons">
+                        <button type="button" class="quick-btn" onclick="setPeriod('today')">Aujourd'hui</button>
+                        <button type="button" class="quick-btn" onclick="setPeriod('week')">Semaine</button>
+                        <button type="button" class="quick-btn" onclick="setPeriod('month')">Ce mois</button>
+                        <button type="button" class="quick-btn" onclick="setPeriod('lastMonth')">Mois dernier</button>
+                    </div>
+                    <button type="submit" class="btn-generate"><i class="fas fa-file-alt me-2"></i> Générer</button>
+                </form>
+                <div class="info-box">
+                    <p style="font-size:0.9rem;color:#64748b;margin:0;">Réalisations, comparaisons N-1/N-2, objectifs et postes en baisse.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function setPeriod(p) {
+    const t = new Date(); let s, e;
+    if (p === 'today') { s = e = t; }
+    else if (p === 'week') { s = new Date(t); s.setDate(t.getDate() - t.getDay() + 1); e = t; }
+    else if (p === 'month') { s = new Date(t.getFullYear(), t.getMonth(), 1); e = t; }
+    else if (p === 'lastMonth') { s = new Date(t.getFullYear(), t.getMonth() - 1, 1); e = new Date(t.getFullYear(), t.getMonth(), 0); }
+    document.getElementById('date_debut').value = s.toISOString().split('T')[0];
+    document.getElementById('date_fin').value = e.toISOString().split('T')[0];
+}
+document.getElementById('periodeForm').addEventListener('submit', function(e) {
+    if (new Date(document.getElementById('date_debut').value) > new Date(document.getElementById('date_fin').value)) {
+        e.preventDefault(); alert('Date début > Date fin');
+    }
+});
+</script>
+{% endblock %}

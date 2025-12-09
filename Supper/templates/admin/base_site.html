@@ -654,6 +654,9 @@
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_pesees' %}">
                                         <i class="fas fa-balance-scale me-2 text-info"></i>{% trans "Saisir Pesées du Jour" %}
                                     </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:gestion_objectifs_pesage' %}">
+                                        <i class="fas fa-bullseye me-2 text-teal"></i>{% trans "Objectifs Annuels" %}
+                                    </a>
                                     
                                     <hr class="my-2">
                                     {% endif %}
@@ -903,9 +906,14 @@
                     <ul class="dropdown-menu">
                         <li>
                             <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_defaillants' %}">
-                                <i class="fas fa-exclamation-triangle me-2 text-warning"></i>{% trans "Rapport Défaillants" %}
+                                <i class="fas fa-exclamation-triangle me-2 text-warning"></i>{% trans "Rapport Défaillants Péages" %}
                             </a>
                         </li>
+                        <li>
+                        <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_defaillants_pesage' %}">
+                            <i class="fas fa-chart-line me-2 text-teal"></i> {% trans "Rapport Défaillants Pesages" %}
+                        </a>
+                    </li>
                         <li>
                             <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_inventaires' %}">
                                 <i class="fas fa-paperclip text-success"></i>

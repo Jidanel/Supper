@@ -1233,3 +1233,91 @@ class StatistiquesPesagePeriodique(models.Model):
         )
         
         return obj
+    
+class ObjectifAnnuelPesage(models.Model):
+    """
+    Objectif annuel de recouvrement pour une station de pesage
+    Basé sur les amendes payées (recettes pesage)
+    """
+    
+    station = models.ForeignKey(
+        'accounts.Poste',
+        on_delete=models.CASCADE,
+        related_name='objectifs_annuels_pesage',
+        verbose_name=_("Station de pesage"),
+        limit_choices_to={'type': 'pesage'}
+    )
+    
+    annee = models.IntegerField(
+        verbose_name=_("Année"),
+        validators=[MinValueValidator(2020), MaxValueValidator(2099)]
+    )
+    
+    montant_objectif = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0'))],
+        verbose_name=_("Objectif annuel (FCFA)"),
+        help_text=_("Objectif de recouvrement des amendes pour l'année")
+    )
+    
+    # Traçabilité
+    cree_par = models.ForeignKey(
+        'accounts.UtilisateurSUPPER',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='objectifs_pesage_crees',
+        verbose_name=_("Créé par")
+    )
+    
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Date de création")
+    )
+    
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Date de modification")
+    )
+    
+    observations = models.TextField(
+        blank=True,
+        verbose_name=_("Observations")
+    )
+    
+    class Meta:
+        verbose_name = _("Objectif annuel pesage")
+        verbose_name_plural = _("Objectifs annuels pesage")
+        unique_together = [['station', 'annee']]
+        ordering = ['-annee', 'station__nom']
+        indexes = [
+            models.Index(fields=['station', 'annee']),
+            models.Index(fields=['annee']),
+        ]
+    
+    def __str__(self):
+        return f"Objectif {self.station.nom} - {self.annee}: {self.montant_objectif:,.0f} FCFA"
+    
+    def get_realisation(self):
+        """Calcule le montant réalisé (amendes payées) pour l'année"""
+        total = AmendeEmise.objects.filter(
+            station=self.station,
+            statut=StatutAmende.PAYE,
+            date_paiement__year=self.annee
+        ).aggregate(total=Sum('montant_amende'))['total'] or Decimal('0')
+        return total
+    
+    def get_taux_realisation(self):
+        """Calcule le taux de réalisation"""
+        if self.montant_objectif and self.montant_objectif > 0:
+            realise = self.get_realisation()
+            return float((realise / self.montant_objectif) * 100)
+        return 0
+    
+    def get_reste_a_realiser(self):
+        """Calcule le reste à réaliser"""
+        return self.montant_objectif - self.get_realisation()
+
+
+

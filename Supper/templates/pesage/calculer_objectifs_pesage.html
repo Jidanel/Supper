@@ -1,0 +1,273 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Calculer Objectifs Pesage Automatiquement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .calcul-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        background: white;
+        border-radius: 16px;
+        padding: 2.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .form-control, .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 1rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0D9488;
+        outline: none;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-top: 0.25rem;
+    }
+    
+    .preview-section {
+        background: #f0fdfa;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-top: 2rem;
+        border: 2px solid #99f6e4;
+        display: none;
+    }
+    
+    .preview-section.active {
+        display: block;
+    }
+    
+    .exemple-calcul {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+    
+    .btn-calcul {
+        background: linear-gradient(135deg, #0D9488, #14b8a6);
+        color: white;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 1rem;
+    }
+    
+    .btn-calcul:hover {
+        background: linear-gradient(135deg, #0F766E, #0D9488);
+    }
+    
+    .text-teal {
+        color: #0D9488 !important;
+    }
+    
+    .bg-teal {
+        background-color: #0D9488 !important;
+    }
+    
+    .header-teal {
+        background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px 12px 0 0;
+        margin: -2.5rem -2.5rem 2rem -2.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="calcul-container">
+        <div class="header-teal">
+            <h2 class="mb-0">
+                <i class="fas fa-calculator me-2"></i>
+                Calcul Automatique des Objectifs Pesage
+            </h2>
+        </div>
+        
+        <p class="text-muted mb-4">
+            Générez automatiquement les objectifs d'une année en appliquant un pourcentage 
+            d'augmentation ou de diminution sur les <strong>réalisations</strong> (amendes payées) d'une année de référence.
+        </p>
+        
+        <form method="POST" id="calculForm">
+            {% csrf_token %}
+            
+            <!-- Année source -->
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-calendar-alt text-teal me-2"></i>
+                    Année source (référence)
+                </label>
+                <select name="annee_source" id="annee_source" class="form-select" required>
+                    {% for annee in annees_disponibles %}
+                    <option value="{{ annee }}" {% if annee == annee_courante|add:"-1" %}selected{% endif %}>
+                        {{ annee }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="help-text">
+                    Année dont les réalisations (amendes payées) serviront de base de calcul
+                </div>
+            </div>
+            
+            <!-- Année cible -->
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-calendar-check text-teal me-2"></i>
+                    Année cible (à créer)
+                </label>
+                <select name="annee_cible" id="annee_cible" class="form-select" required>
+                    {% for annee in annees_cibles %}
+                    <option value="{{ annee }}" {% if annee == annee_courante %}selected{% endif %}>
+                        {{ annee }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="help-text">
+                    Année pour laquelle créer les nouveaux objectifs
+                </div>
+            </div>
+            
+            <!-- Pourcentage -->
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-percent text-teal me-2"></i>
+                    Pourcentage d'évolution
+                </label>
+                <input 
+                    type="number" 
+                    name="pourcentage" 
+                    id="pourcentage" 
+                    class="form-control"
+                    value="10"
+                    min="-100"
+                    max="500"
+                    step="0.1"
+                    required
+                >
+                <div class="help-text">
+                    Pourcentage d'augmentation (positif) ou de diminution (négatif).
+                    Exemples : 10 pour +10%, -5 pour -5%
+                </div>
+            </div>
+            
+            <!-- Prévisualisation -->
+            <div class="preview-section" id="previewSection">
+                <h5><i class="fas fa-eye text-teal me-2"></i>Aperçu du calcul</h5>
+                <div class="exemple-calcul">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Année <span id="prev_source">2024</span></strong><br>
+                            <span class="text-muted">Réalisation exemple:</span><br>
+                            <strong id="prev_montant_source">100 000 000</strong> FCFA
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <i class="fas fa-arrow-right fa-2x text-teal"></i><br>
+                            <span class="badge bg-teal" id="prev_evolution">+10%</span>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <strong>Année <span id="prev_cible">2025</span></strong><br>
+                            <span class="text-muted">Nouvel objectif:</span><br>
+                            <strong class="text-teal" id="prev_montant_cible">110 000 000</strong> FCFA
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Boutons -->
+            <div class="mt-4 d-flex gap-2">
+                <a href="{% url 'inventaire:gestion_objectifs_pesage' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Retour
+                </a>
+                <button type="submit" class="btn-calcul flex-grow-1">
+                    <i class="fas fa-magic me-2"></i>
+                    Calculer et Appliquer les Objectifs
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Mise à jour de la prévisualisation en temps réel
+function updatePreview() {
+    const anneeSource = document.getElementById('annee_source').value;
+    const anneeCible = document.getElementById('annee_cible').value;
+    const pourcentage = parseFloat(document.getElementById('pourcentage').value) || 0;
+    
+    // Afficher la section
+    document.getElementById('previewSection').classList.add('active');
+    
+    // Mettre à jour les valeurs
+    document.getElementById('prev_source').textContent = anneeSource;
+    document.getElementById('prev_cible').textContent = anneeCible;
+    
+    const badge = document.getElementById('prev_evolution');
+    badge.textContent = (pourcentage >= 0 ? '+' : '') + pourcentage.toFixed(1) + '%';
+    badge.className = 'badge ' + (pourcentage >= 0 ? 'bg-teal' : 'bg-danger');
+    
+    // Exemple de calcul
+    const montantSource = 100000000;
+    const montantCible = Math.round(montantSource * (1 + pourcentage / 100));
+    
+    document.getElementById('prev_montant_source').textContent = montantSource.toLocaleString('fr-FR');
+    document.getElementById('prev_montant_cible').textContent = montantCible.toLocaleString('fr-FR');
+}
+
+// Écouteurs d'événements
+document.getElementById('annee_source').addEventListener('change', updatePreview);
+document.getElementById('annee_cible').addEventListener('change', updatePreview);
+document.getElementById('pourcentage').addEventListener('input', updatePreview);
+
+// Validation avant soumission - utilise confirm() natif comme le péage
+document.getElementById('calculForm').addEventListener('submit', function(e) {
+    const anneeSource = document.getElementById('annee_source').value;
+    const anneeCible = document.getElementById('annee_cible').value;
+    const pourcentage = parseFloat(document.getElementById('pourcentage').value) || 0;
+    
+    if (anneeSource === anneeCible) {
+        e.preventDefault();
+        alert("L'année source et l'année cible doivent être différentes.");
+        return false;
+    }
+    
+    const confirmation = confirm(
+        `Confirmer le calcul des objectifs ${anneeCible} ?\n\n` +
+        `• Année de référence : ${anneeSource}\n` +
+        `• Évolution : ${pourcentage >= 0 ? '+' : ''}${pourcentage}%\n\n` +
+        `⚠️ Les objectifs existants pour ${anneeCible} seront remplacés.`
+    );
+    
+    if (!confirmation) {
+        e.preventDefault();
+    }
+});
+
+// Initialiser la prévisualisation
+updatePreview();
+</script>
+{% endblock %}
