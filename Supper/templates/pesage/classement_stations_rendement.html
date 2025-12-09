@@ -1,0 +1,385 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Classement des Stations de Pesage par Rendement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .classement-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: calc(100vh - 80px);
+        padding: 2rem;
+    }
+    
+    .content-wrapper {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .page-header {
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+    
+    .filters-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .stat-card.purple::before { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+    .stat-card.green::before { background: linear-gradient(90deg, #10B981, #6EE7B7); }
+    .stat-card.blue::before { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+    .stat-card.orange::before { background: linear-gradient(90deg, #F59E0B, #FCD34D); }
+    
+    .stat-card h3 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        color: #1E293B;
+    }
+    
+    .stat-card p {
+        color: #64748B;
+        font-size: 0.875rem;
+        margin: 0;
+    }
+    
+    .classement-table-wrapper {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .classement-table {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .classement-table thead {
+        background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+        color: white;
+    }
+    
+    .classement-table th {
+        padding: 1rem;
+        font-weight: 600;
+        text-align: left;
+        white-space: nowrap;
+    }
+    
+    .classement-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #E2E8F0;
+        vertical-align: middle;
+    }
+    
+    .classement-table tbody tr:hover {
+        background: #F8FAFC;
+    }
+    
+    .rang-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .rang-1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4); }
+    .rang-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #000; box-shadow: 0 4px 12px rgba(192, 192, 192, 0.4); }
+    .rang-3 { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; box-shadow: 0 4px 12px rgba(205, 127, 50, 0.4); }
+    .rang-other { background: #E2E8F0; color: #334155; }
+    
+    .top-row { background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent); }
+    .bottom-row { background: linear-gradient(90deg, rgba(239, 68, 68, 0.1), transparent); }
+    
+    .taux-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .taux-excellent { background: #D1FAE5; color: #065F46; }
+    .taux-bon { background: #FEF3C7; color: #92400E; }
+    .taux-faible { background: #FEE2E2; color: #991B1B; }
+    
+    .top-alert {
+        background: linear-gradient(135deg, #D1FAE5, #A7F3D0);
+        border: none;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .bottom-alert {
+        background: linear-gradient(135deg, #FEE2E2, #FECACA);
+        border: none;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-select, .btn {
+        border-radius: 8px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #7C3AED, #6D28D9);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="classement-container">
+    <div class="content-wrapper">
+        
+        <!-- En-tête -->
+        <div class="page-header">
+            <h1 style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-trophy" style="color: #8B5CF6;"></i>
+                Classement des Stations de Pesage par Rendement
+            </h1>
+            <p style="margin: 0.5rem 0 0 0; color: #64748B;">
+                Basé sur les recettes recouvrées (amendes payées) - {{ periode_label }}
+            </p>
+        </div>
+        
+        <!-- Filtres -->
+        <div class="filters-card">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Période</label>
+                    <select name="periode" class="form-select" id="periodeSelect">
+                        <option value="cumul" {% if periode == 'cumul' %}selected{% endif %}>Cumul à date</option>
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mois</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestre</option>
+                        <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestre</option>
+                        <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Année complète</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Année</label>
+                    <select name="annee" class="form-select">
+                        {% for y in annees_disponibles %}
+                        <option value="{{ y }}" {% if y == annee %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre Mois -->
+                <div class="col-md-2" id="moisFilter" style="display:none;">
+                    <label class="form-label fw-semibold">Mois</label>
+                    <select name="mois" class="form-select">
+                        <option value="">-- Sélectionner --</option>
+                        {% for num, nom in mois_liste %}
+                        <option value="{{ num }}" {% if mois_selectionne == num|stringformat:"d" %}selected{% endif %}>{{ nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre Trimestre -->
+                <div class="col-md-3" id="trimestreFilter" style="display:none;">
+                    <label class="form-label fw-semibold">Trimestre</label>
+                    <select name="trimestre" class="form-select">
+                        <option value="">-- Sélectionner --</option>
+                        {% for num, nom in trimestres %}
+                        <option value="{{ num }}" {% if trimestre_selectionne == num|stringformat:"d" %}selected{% endif %}>{{ nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre Semestre -->
+                <div class="col-md-3" id="semestreFilter" style="display:none;">
+                    <label class="form-label fw-semibold">Semestre</label>
+                    <select name="semestre" class="form-select">
+                        <option value="">-- Sélectionner --</option>
+                        {% for num, nom in semestres %}
+                        <option value="{{ num }}" {% if semestre_selectionne == num|stringformat:"d" %}selected{% endif %}>{{ nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-2"></i>Filtrer
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Statistiques globales -->
+        <div class="stats-grid">
+            <div class="stat-card purple">
+                <h3>{{ nombre_stations }}</h3>
+                <p><i class="fas fa-map-marker-alt me-1"></i>Stations Actives</p>
+            </div>
+            <div class="stat-card green">
+                <h3>{{ total_global|floatformat:0|intcomma }}</h3>
+                <p><i class="fas fa-coins me-1"></i>Total Recouvré (FCFA)</p>
+            </div>
+            <div class="stat-card blue">
+                <h3>{{ moyenne_globale|floatformat:0|intcomma }}</h3>
+                <p><i class="fas fa-chart-bar me-1"></i>Moyenne par Station</p>
+            </div>
+            <div class="stat-card orange">
+                <h3>{{ taux_global }}%</h3>
+                <p><i class="fas fa-percentage me-1"></i>Taux Recouvrement Global</p>
+            </div>
+        </div>
+        
+        <!-- Top 3 -->
+        {% if top_3 %}
+        <div class="top-alert">
+            <h5 style="margin: 0 0 0.75rem 0; color: #065F46; font-weight: 600;">
+                <i class="fas fa-medal me-2"></i>Top 3 - Meilleures Stations
+            </h5>
+            <div class="row">
+                {% for item in top_3 %}
+                <div class="col-md-4">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: rgba(255,255,255,0.7); border-radius: 8px;">
+                        <span class="rang-badge rang-{{ item.rang }}">{{ item.rang }}</span>
+                        <div>
+                            <strong>{{ item.station.nom }}</strong><br>
+                            <small style="color: #065F46;">{{ item.total_recouvre|floatformat:0|intcomma }} FCFA</small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Tableau de classement -->
+        <div class="classement-table-wrapper">
+            <table class="classement-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Rang</th>
+                        <th>Station</th>
+                        <th>Région</th>
+                        <th style="text-align: right;">Montant Recouvré</th>
+                        <th style="text-align: center;">Paiements</th>
+                        <th style="text-align: right;">Montant Émis</th>
+                        <th style="text-align: center;">Émissions</th>
+                        <th style="text-align: center;">Taux Recouvrement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in classement %}
+                    <tr class="{% if item.rang <= 3 %}top-row{% elif item.rang > nombre_stations|add:'-3' %}bottom-row{% endif %}">
+                        <td>
+                            <span class="rang-badge {% if item.rang == 1 %}rang-1{% elif item.rang == 2 %}rang-2{% elif item.rang == 3 %}rang-3{% else %}rang-other{% endif %}">
+                                {{ item.rang }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong style="color: #1E293B;">{{ item.station.nom }}</strong><br>
+                            <small style="color: #64748B;">{{ item.station.code }}</small>
+                        </td>
+                        <td>{{ item.region }}</td>
+                        <td style="text-align: right;">
+                            <strong style="color: #10B981;">{{ item.total_recouvre|floatformat:0|intcomma }}</strong> FCFA
+                        </td>
+                        <td style="text-align: center;">
+                            <span style="background: #E0E7FF; color: #3730A3; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 600;">
+                                {{ item.nombre_paiements }}
+                            </span>
+                        </td>
+                        <td style="text-align: right;">
+                            <span style="color: #64748B;">{{ item.total_emis|floatformat:0|intcomma }} FCFA</span>
+                        </td>
+                        <td style="text-align: center;">
+                            {{ item.nombre_emissions }}
+                            {% if item.hors_gabarit > 0 %}
+                            <small style="color: #F59E0B;">({{ item.hors_gabarit }} HG)</small>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="taux-badge {% if item.taux_recouvrement >= 80 %}taux-excellent{% elif item.taux_recouvrement >= 50 %}taux-bon{% else %}taux-faible{% endif %}">
+                                {{ item.taux_recouvrement }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 3rem; color: #64748B;">
+                            <i class="fas fa-inbox fa-3x mb-3" style="opacity: 0.3;"></i><br>
+                            Aucune donnée pour cette période
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Légende -->
+        <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.9); border-radius: 8px; font-size: 0.875rem; color: #64748B;">
+            <strong>Légende :</strong>
+            <span class="taux-badge taux-excellent ms-3">≥ 80%</span> Excellent
+            <span class="taux-badge taux-bon ms-3">50-79%</span> Bon
+            <span class="taux-badge taux-faible ms-3">&lt; 50%</span> À améliorer
+        </div>
+        
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const periodeSelect = document.getElementById('periodeSelect');
+    
+    function updateFilters() {
+        const periode = periodeSelect.value;
+        document.getElementById('moisFilter').style.display = periode === 'mois' ? 'block' : 'none';
+        document.getElementById('trimestreFilter').style.display = periode === 'trimestre' ? 'block' : 'none';
+        document.getElementById('semestreFilter').style.display = periode === 'semestre' ? 'block' : 'none';
+    }
+    
+    periodeSelect.addEventListener('change', updateFilters);
+    updateFilters();
+});
+</script>
+{% endblock %}

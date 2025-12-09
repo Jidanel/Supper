@@ -250,125 +250,277 @@
                 </div>
             </div>
         </div>
+    <!-- RANG POSTE PÉAGE -->
+{% if rang_poste_peage and rang_poste_peage.rang %}
+<div style="background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+        <div style="width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.75rem;
+            {% if rang_poste_peage.rang == 1 %}background: linear-gradient(135deg, #FFD700, #FFA500); color: #000;
+            {% elif rang_poste_peage.rang == 2 %}background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #000;
+            {% elif rang_poste_peage.rang == 3 %}background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff;
+            {% else %}background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff;{% endif %}
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            {{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}<sup style="font-size: 0.6em;">er</sup>{% endif %}
+        </div>
+        <div>
+            <div style="font-weight: 700; font-size: 1.1rem; color: #1E40AF;">
+                <i class="fas fa-road me-2"></i>
+                {% if rang_poste_peage.rang == 1 %}
+                🏆 Meilleur poste de péage !
+                {% elif rang_poste_peage.rang <= 3 %}
+                🥈 Top 3 des postes de péage
+                {% elif rang_poste_peage.rang <= 5 %}
+                ⭐ Top 5 des postes
+                {% else %}
+                📊 Votre classement péage
+                {% endif %}
+            </div>
+            <div style="color: #3B82F6; font-size: 0.875rem;">
+                {{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}er{% else %}ème{% endif %} sur {{ rang_poste_peage.total_postes }} postes de péage
+            </div>
+            <div style="color: #64748B; font-size: 0.8rem; margin-top: 0.25rem;">
+                Total recettes {{ current_year }}: {{ rang_poste_peage.total_recettes|floatformat:0|intcomma }} FCFA
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
         {% endif %}
+    
 
-            <!-- STATISTIQUES PESAGE (si l'utilisateur a accès) -->
-            {% if stats_pesage %}
-            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
-                <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #F1F5F9; display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-weight-scale" style="color: #8B5CF6;"></i> 
-                    {% trans "Module Pesage" %}
-                    {% if stats_pesage.station %}
-                    <span style="font-size: 0.875rem; color: #64748B; font-weight: 400; margin-left: auto;">
-                        {{ stats_pesage.station.nom }}
-                    </span>
-                    {% endif %}
-                </h2>
-                
-                <!-- Cartes statistiques Pesage -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                    
-                    <!-- Pesées du jour -->
-                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%); border-radius: 12px; color: white;">
-                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                            <i class="fas fa-balance-scale me-1"></i>{% trans "Pesées Aujourd'hui" %}
-                        </div>
-                        <div style="font-size: 2rem; font-weight: 700;">
-                            {{ stats_pesage.pesees_jour|default:"—" }}
-                        </div>
-                    </div>
-                    
-                    <!-- Amendes émises aujourd'hui -->
-                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #F59E0B 0%, #FCD34D 100%); border-radius: 12px; color: white;">
-                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                            <i class="fas fa-file-invoice me-1"></i>{% trans "Amendes Émises" %}
-                        </div>
-                        <div style="font-size: 2rem; font-weight: 700;">
-                            {{ stats_pesage.emissions_jour|default:0 }}
-                        </div>
-                        <div style="font-size: 0.75rem; opacity: 0.8;">
-                            {% trans "dont" %} {{ stats_pesage.hors_gabarit_jour|default:0 }} HG
-                        </div>
-                    </div>
-                    
-                    <!-- Montant émis -->
-                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%); border-radius: 12px; color: white;">
-                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                            <i class="fas fa-coins me-1"></i>{% trans "Montant Émis" %}
-                        </div>
-                        <div style="font-size: 1.5rem; font-weight: 700;">
-                            {{ stats_pesage.montant_emis_jour|floatformat:0|intcomma }}
-                        </div>
-                        <div style="font-size: 0.75rem; opacity: 0.8;">FCFA</div>
-                    </div>
-                    
-                    <!-- Montant recouvré -->
-                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #10B981 0%, #6EE7B7 100%); border-radius: 12px; color: white;">
-                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                            <i class="fas fa-hand-holding-usd me-1"></i>{% trans "Recouvré" %}
-                        </div>
-                        <div style="font-size: 1.5rem; font-weight: 700;">
-                            {{ stats_pesage.montant_recouvre_jour|floatformat:0|intcomma }}
-                        </div>
-                        <div style="font-size: 0.75rem; opacity: 0.8;">FCFA</div>
-                    </div>
-                    
-                    <!-- Reste à recouvrer -->
-                    <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #EF4444 0%, #FCA5A5 100%); border-radius: 12px; color: white;">
-                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                            <i class="fas fa-clock me-1"></i>{% trans "Reste à Recouvrer" %}
-                        </div>
-                        <div style="font-size: 1.5rem; font-weight: 700;">
-                            {{ stats_pesage.reste_a_recouvrer_jour|floatformat:0|intcomma }}
-                        </div>
-                        <div style="font-size: 0.75rem; opacity: 0.8;">FCFA</div>
-                    </div>
-                    
-                    <!-- Amendes non payées (en attente) -->
-                    <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px; border: 2px dashed #CBD5E1;">
-                        <div style="font-size: 0.875rem; color: #64748B; margin-bottom: 0.5rem;">
-                            <i class="fas fa-hourglass-half me-1"></i>{% trans "En Attente" %}
-                        </div>
-                        <div style="font-size: 2rem; font-weight: 700; color: {% if stats_pesage.amendes_non_payees > 0 %}#F59E0B{% else %}#10B981{% endif %};">
-                            {{ stats_pesage.amendes_non_payees|default:0 }}
-                        </div>
-                        <div style="font-size: 0.75rem; color: #94a3b8;">{% trans "amendes" %}</div>
-                    </div>
-                </div>
-                
-                <!-- Actions rapides Pesage -->
-                <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #E2E8F0;">
-                    {% if user.habilitation == 'chef_equipe_pesage' or user.is_admin %}
-                    <a href="{% url 'inventaire:saisir_amende' %}" 
-                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: #8B5CF6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s;">
-                        <i class="fas fa-plus"></i>{% trans "Saisir Amende" %}
-                    </a>
-                    {% endif %}
-                    
-                    {% if user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' or user.is_admin %}
-                    <a href="{% url 'inventaire:liste_amendes_a_valider' %}" 
-                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: #10B981; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s; position: relative;">
-                        <i class="fas fa-check-double"></i>{% trans "Valider Paiements" %}
-                        {% if stats_pesage.amendes_non_payees > 0 %}
-                        <span style="position: absolute; top: -8px; right: -8px; background: #EF4444; color: white; font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 50px;">
-                            {{ stats_pesage.amendes_non_payees }}
-                        </span>
-                        {% endif %}
-                    </a>
-                    {% endif %}
-                    
-                    <a href="{% url 'inventaire:recettes_pesage' %}" 
-                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: #3B82F6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s;">
-                        <i class="fas fa-coins"></i>{% trans "Voir Recettes" %}
-                    </a>
-                    
-                    <a href="{% url 'inventaire:statistiques_pesage' %}" 
-                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.3s;">
-                        <i class="fas fa-chart-bar"></i>{% trans "Statistiques" %}
-                    </a>
+           <!-- STATISTIQUES PESAGE (si l'utilisateur a accès) -->
+{% if stats_pesage %}
+<div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #F1F5F9; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-weight-scale" style="color: #8B5CF6;"></i> 
+        {% trans "Module Pesage" %}
+        <span style="font-size: 0.875rem; color: #64748B; font-weight: 400; margin-left: auto;">
+            {{ stats_pesage.label_scope }}
+            {% if stats_pesage.jour_travail %}
+            <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #EDE9FE; border-radius: 4px; font-size: 0.75rem;">
+                Jour: {{ stats_pesage.jour_travail|date:"d/m/Y" }} (9h-9h)
+            </span>
+            {% endif %}
+        </span>
+    </h2>
+    
+    <!-- Cartes statistiques Pesage -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+        
+        <!-- Pesées du jour -->
+        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%); border-radius: 12px; color: white;">
+            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                <i class="fas fa-balance-scale me-1"></i>{% trans "Pesées Jour" %}
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 700;">
+                {{ stats_pesage.pesees_jour|default:"—" }}
+            </div>
+        </div>
+        
+        <!-- Amendes émises aujourd'hui -->
+        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #F59E0B 0%, #FCD34D 100%); border-radius: 12px; color: white;">
+            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                <i class="fas fa-file-invoice me-1"></i>{% trans "Émissions Jour" %}
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 700;">
+                {{ stats_pesage.emissions_jour|default:0 }}
+            </div>
+            <div style="font-size: 0.7rem; opacity: 0.8;">
+                {% trans "dont" %} {{ stats_pesage.hors_gabarit_jour|default:0 }} HG
+            </div>
+        </div>
+        
+        <!-- Montant émis jour -->
+        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%); border-radius: 12px; color: white;">
+            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                <i class="fas fa-coins me-1"></i>{% trans "Émis Jour" %}
+            </div>
+            <div style="font-size: 1.25rem; font-weight: 700;">
+                {{ stats_pesage.montant_emis_jour|floatformat:0|intcomma }}
+            </div>
+            <div style="font-size: 0.7rem; opacity: 0.8;">FCFA</div>
+        </div>
+        
+        <!-- Montant recouvré jour -->
+        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #10B981 0%, #6EE7B7 100%); border-radius: 12px; color: white;">
+            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                <i class="fas fa-hand-holding-usd me-1"></i>{% trans "Recouvré Jour" %}
+            </div>
+            <div style="font-size: 1.25rem; font-weight: 700;">
+                {{ stats_pesage.montant_recouvre_jour|floatformat:0|intcomma }}
+            </div>
+            <div style="font-size: 0.7rem; opacity: 0.8;">{{ stats_pesage.paiements_jour }} paiement{{ stats_pesage.paiements_jour|pluralize }}</div>
+        </div>
+        
+        <!-- Reste à recouvrer jour -->
+        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #EF4444 0%, #FCA5A5 100%); border-radius: 12px; color: white;">
+            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
+                <i class="fas fa-clock me-1"></i>{% trans "Reste Jour" %}
+            </div>
+            <div style="font-size: 1.25rem; font-weight: 700;">
+                {{ stats_pesage.reste_a_recouvrer_jour|floatformat:0|intcomma }}
+            </div>
+            <div style="font-size: 0.7rem; opacity: 0.8;">FCFA</div>
+        </div>
+        
+        <!-- Amendes non payées (total) -->
+        <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px; border: 2px dashed {% if stats_pesage.amendes_non_payees > 0 %}#F59E0B{% else %}#10B981{% endif %};">
+            <div style="font-size: 0.8rem; color: #64748B; margin-bottom: 0.5rem;">
+                <i class="fas fa-hourglass-half me-1"></i>{% trans "Non Payées" %}
+            </div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: {% if stats_pesage.amendes_non_payees > 0 %}#F59E0B{% else %}#10B981{% endif %};">
+                {{ stats_pesage.amendes_non_payees|default:0 }}
+            </div>
+            <div style="font-size: 0.7rem; color: #94a3b8;">{{ stats_pesage.montant_non_paye_total|floatformat:0|intcomma }} FCFA</div>
+        </div>
+    </div>
+    
+    <!-- Statistiques du mois -->
+    <div style="margin-top: 1.5rem; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
+        <h3 style="font-size: 0.9rem; font-weight: 600; color: #475569; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-calendar-alt"></i> {% trans "Statistiques du mois" %} ({{ current_month }} {{ current_year }})
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+            <div style="text-align: center;">
+                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Émissions" %}</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #3B82F6;">{{ stats_pesage.emissions_mois }}</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Montant Émis" %}</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #F59E0B;">{{ stats_pesage.montant_emis_mois|floatformat:0|intcomma }}</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Recouvré" %}</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #10B981;">{{ stats_pesage.montant_recouvre_mois|floatformat:0|intcomma }}</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Taux Recouvrement" %}</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: {% if stats_pesage.taux_recouvrement_mois >= 80 %}#10B981{% elif stats_pesage.taux_recouvrement_mois >= 50 %}#F59E0B{% else %}#EF4444{% endif %};">
+                    {{ stats_pesage.taux_recouvrement_mois }}%
                 </div>
             </div>
+            {% if stats_pesage.quittancements_mois is not None %}
+            <div style="text-align: center;">
+                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Quittancements" %}</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #8B5CF6;">{{ stats_pesage.quittancements_mois }}</div>
+            </div>
             {% endif %}
+        </div>
+    </div>
+    <!-- Rang dans le classement -->
+    {% if rang_station_pesage and rang_station_pesage.rang %}
+    <div style="margin-top: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, #EDE9FE, #DDD6FE); border-radius: 12px; display: flex; align-items: center; gap: 1.25rem;">
+        <div style="width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.75rem;
+            {% if rang_station_pesage.rang == 1 %}background: linear-gradient(135deg, #FFD700, #FFA500); color: #000;
+            {% elif rang_station_pesage.rang == 2 %}background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #000;
+            {% elif rang_station_pesage.rang == 3 %}background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff;
+            {% else %}background: white; color: #7C3AED; border: 3px solid #7C3AED;{% endif %}
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            {{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}<sup style="font-size: 0.6em;">er</sup>{% elif rang_station_pesage.rang <= 3 %}<sup style="font-size: 0.6em;">e</sup>{% endif %}
+        </div>
+        <div>
+            <div style="font-weight: 700; font-size: 1.1rem; color: #5B21B6;">
+                {% if rang_station_pesage.rang == 1 %}
+                🏆 Champion des stations !
+                {% elif rang_station_pesage.rang <= 3 %}
+                🥈 Dans le top 3 !
+                {% elif rang_station_pesage.rang <= 5 %}
+                ⭐ Dans le top 5
+                {% else %}
+                📊 Classement actuel
+                {% endif %}
+            </div>
+            <div style="color: #7C3AED; font-size: 0.875rem;">
+                {{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}ère{% else %}ème{% endif %} position sur {{ rang_station_pesage.total_stations }} stations
+            </div>
+            <div style="color: #6D28D9; font-size: 0.8rem; margin-top: 0.25rem;">
+                Total recouvré: {{ rang_station_pesage.total_recouvre|floatformat:0|intcomma }} FCFA
+                {% if rang_station_pesage.taux_recouvrement %}
+                • Taux: {{ rang_station_pesage.taux_recouvrement }}%
+                {% endif %}
+            </div>
+        </div>
+       
+    </div>
+    {% endif %}
+    
+    <!-- Alertes spécifiques au rôle -->
+    {% if stats_pesage.demandes_confirmation_attente and stats_pesage.demandes_confirmation_attente > 0 %}
+    <div style="margin-top: 1rem; padding: 1rem; background: #FEF3C7; border-radius: 8px; border-left: 4px solid #F59E0B; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-bell" style="color: #F59E0B; font-size: 1.25rem;"></i>
+        <div>
+            <strong style="color: #92400E;">{{ stats_pesage.demandes_confirmation_attente }} demande{{ stats_pesage.demandes_confirmation_attente|pluralize }} de confirmation en attente</strong>
+            <div style="font-size: 0.875rem; color: #78350F;">Des régisseurs d'autres stations attendent votre validation.</div>
+        </div>
+        <a href="{% url 'inventaire:demandes_confirmation_a_traiter' %}" style="margin-left: auto; padding: 0.5rem 1rem; background: #F59E0B; color: white; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.875rem;">
+            Traiter
+        </a>
+    </div>
+    {% endif %}
+    
+    {% if stats_pesage.mes_saisies_jour is not None %}
+    <div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #EDE9FE; border-radius: 8px; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="fas fa-user-edit" style="color: #7C3AED;"></i>
+        <span style="color: #5B21B6; font-size: 0.875rem;">
+            <strong>Vos saisies aujourd'hui :</strong> {{ stats_pesage.mes_saisies_jour }} amende{{ stats_pesage.mes_saisies_jour|pluralize }}
+        </span>
+    </div>
+    {% endif %}
+    
+    <!-- Actions rapides Pesage -->
+    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #E2E8F0;">
+        {% if user_stats.habilitation == 'chef_equipe_pesage' or user_stats.is_admin %}
+        <a href="{% url 'inventaire:saisir_amende' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #8B5CF6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
+            <i class="fas fa-plus"></i>{% trans "Saisir Amende" %}
+        </a>
+        <a href="{% url 'inventaire:saisir_pesees' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #6366F1; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
+            <i class="fas fa-balance-scale"></i>{% trans "Saisir Pesées" %}
+        </a>
+        {% endif %}
+        
+        {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.habilitation == 'chef_station_pesage' or user_stats.is_admin %}
+        <a href="{% url 'inventaire:liste_amendes_a_valider' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #10B981; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s; position: relative;">
+            <i class="fas fa-check-double"></i>{% trans "Valider Paiements" %}
+            {% if stats_pesage.amendes_non_payees > 0 %}
+            <span style="position: absolute; top: -6px; right: -6px; background: #EF4444; color: white; font-size: 0.7rem; padding: 0.125rem 0.4rem; border-radius: 50px; font-weight: 600;">
+                {{ stats_pesage.amendes_non_payees }}
+            </span>
+            {% endif %}
+        </a>
+        {% endif %}
+        
+        {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.is_admin %}
+        <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #EC4899; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
+            <i class="fas fa-receipt"></i>{% trans "Quittancement" %}
+        </a>
+        {% endif %}
+        
+        <a href="{% url 'inventaire:liste_amendes' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #3B82F6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
+            <i class="fas fa-list"></i>{% trans "Liste Amendes" %}
+        </a>
+        
+        <a href="{% url 'inventaire:recettes_pesage' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
+            <i class="fas fa-coins"></i>{% trans "Recettes" %}
+        </a>
+        
+        <a href="{% url 'inventaire:statistiques_pesage' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
+            <i class="fas fa-chart-bar"></i>{% trans "Statistiques" %}
+        </a>
+        
+        <a href="{% url 'inventaire:recherche_historique_vehicule' %}" 
+           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
+            <i class="fas fa-search"></i>{% trans "Historique Véhicule" %}
+        </a>
+    </div>
+</div>
+{% endif %}
 
     </div>
 </div>

@@ -467,3 +467,59 @@ class ClassementService:
         )
         
         return resultats
+
+def get_rang_poste_peage(poste, annee=None):
+    """
+    Retourne le rang d'un poste de péage dans le classement cumul à date.
+    Basé sur le montant_declare des RecetteJournaliere.
+    
+    Args:
+        poste: Instance de Poste (poste de péage)
+        annee: Année pour le calcul (par défaut: année en cours)
+    
+    Returns:
+        dict: {'rang': int, 'total_postes': int, 'total_recettes': Decimal}
+    """
+    from accounts.models import Poste
+    from inventaire.models import RecetteJournaliere
+    
+    if annee is None:
+        annee = date.today().year
+    
+    today = date.today()
+    date_debut = date(annee, 1, 1)
+    date_fin = today
+    
+    # Récupérer tous les postes de péage actifs avec leurs totaux
+    postes_stats = []
+    postes_peage = Poste.objects.filter(type='peage', is_active=True)
+    
+    for p in postes_peage:
+        total = RecetteJournaliere.objects.filter(
+            poste=p,
+            date__gte=date_debut,
+            date__lte=date_fin
+        ).aggregate(total=Sum('montant_declare'))['total'] or Decimal('0')
+        
+        postes_stats.append({
+            'poste_id': p.id,
+            'total': float(total)
+        })
+    
+    # Trier par total décroissant
+    postes_stats.sort(key=lambda x: x['total'], reverse=True)
+    
+    # Trouver le rang du poste
+    for i, item in enumerate(postes_stats, 1):
+        if item['poste_id'] == poste.id:
+            return {
+                'rang': i,
+                'total_postes': len(postes_stats),
+                'total_recettes': item['total']
+            }
+    
+    return {
+        'rang': None,
+        'total_postes': len(postes_stats),
+        'total_recettes': 0
+    }

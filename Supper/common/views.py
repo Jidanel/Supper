@@ -1,5 +1,10 @@
 # ===================================================================
-# Fichier : Supper/common/views.py
+# DASHBOARD ADMINISTRATEUR - ACCÈS COMPLET AVEC REDIRECTIONS ADMIN
+# ===================================================================
+
+# ===================================================================
+# common/views.py - Vue Dashboard Index Complète
+# Vue principale pour la vitrine de l'application SUPPER
 # ===================================================================
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -22,38 +27,13 @@ from django.views.decorators.http import require_http_methods
 import calendar
 from datetime import date
 
-from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
+from accounts.models import *
 from inventaire.models import *
 import logging
 
 logger = logging.getLogger('supper')
 
-# ===================================================================
-# DASHBOARD ADMINISTRATEUR - ACCÈS COMPLET AVEC REDIRECTIONS ADMIN
-# ===================================================================
 
-# ===================================================================
-# common/views.py - Vue Dashboard Index Complète
-# Vue principale pour la vitrine de l'application SUPPER
-# ===================================================================
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Avg, Count, Q
-from django.utils import timezone
-from datetime import date, timedelta
-from decimal import Decimal
-import calendar
-
-from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
-from inventaire.models import (
-    InventaireJournalier, RecetteJournaliere, 
-    ConfigurationJour, ProgrammationInventaire,
-    GestionStock, ObjectifAnnuel
-)
-
-
-# common/views.py
 
 @login_required
 def index_dashboard(request):
@@ -173,6 +153,7 @@ def index_dashboard(request):
                 'ecart_mois': montant_mois - montant_potentiel,
             }
         
+        
         # ================================================================
         # 6. OBJECTIFS ANNUELS - UTILISATION DU SERVICE CENTRALISÉ
         # ================================================================
@@ -187,7 +168,189 @@ def index_dashboard(request):
             except Exception as e:
                 logger.error(f"Erreur calcul objectifs dashboard: {str(e)}")
                 stats_objectifs = None
-        
+        # ================================================================
+        # STATISTIQUES PESAGE - SELON HABILITATION
+        # ================================================================
+        stats_pesage = None
+        PESAGE_ROLES = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage']
+
+        # Vérifier si l'utilisateur a accès au module pesage
+        has_pesage_access = user.is_admin or user.habilitation in PESAGE_ROLES
+
+        if has_pesage_access:
+            try:
+                from inventaire.models_pesage import AmendeEmise, PeseesJournalieres, QuittancementPesage
+                from django.db.models import Sum, Count, Q
+                import pytz
+                
+                CAMEROUN_TZ = pytz.timezone('Africa/Douala')
+                
+                # Déterminer la station accessible selon le rôle
+                if user.is_admin:
+                    # Admin: toutes les stations pesage
+                    station_pesage = None
+                    stations_pesage_filter = Poste.objects.filter(type='pesage', is_active=True)
+                    amendes_base = AmendeEmise.objects.filter(station__in=stations_pesage_filter)
+                    pesees_base = PeseesJournalieres.objects.filter(station__in=stations_pesage_filter)
+                    quittancements_base = QuittancementPesage.objects.filter(station__in=stations_pesage_filter)
+                    label_scope = "Toutes stations"
+                else:
+                    # Utilisateur pesage: sa station uniquement
+                    station_pesage = user.poste_affectation if user.poste_affectation and user.poste_affectation.type == 'pesage' else None
+                    
+                    if station_pesage:
+                        amendes_base = AmendeEmise.objects.filter(station=station_pesage)
+                        pesees_base = PeseesJournalieres.objects.filter(station=station_pesage)
+                        quittancements_base = QuittancementPesage.objects.filter(station=station_pesage)
+                        label_scope = station_pesage.nom
+                    else:
+                        amendes_base = AmendeEmise.objects.none()
+                        pesees_base = PeseesJournalieres.objects.none()
+                        quittancements_base = QuittancementPesage.objects.none()
+                        label_scope = "Aucune station"
+                
+                # Calculs pour AUJOURD'HUI (logique 9h-9h Cameroun)
+                from datetime import time, timedelta
+                maintenant_cameroun = timezone.now().astimezone(CAMEROUN_TZ)
+                HEURE_DEBUT = time(9, 0, 0)
+                
+                if maintenant_cameroun.time() < HEURE_DEBUT:
+                    jour_travail = (maintenant_cameroun - timedelta(days=1)).date()
+                else:
+                    jour_travail = maintenant_cameroun.date()
+                
+                datetime_debut_jour = CAMEROUN_TZ.localize(
+                    datetime.combine(jour_travail, HEURE_DEBUT)
+                )
+                datetime_fin_jour = CAMEROUN_TZ.localize(
+                    datetime.combine(jour_travail + timedelta(days=1), time(8, 59, 59))
+                )
+                
+                # Amendes émises aujourd'hui (9h-9h)
+                amendes_jour = amendes_base.filter(
+                    date_heure_emission__gte=datetime_debut_jour,
+                    date_heure_emission__lte=datetime_fin_jour
+                )
+                
+                # Amendes payées aujourd'hui (9h-9h)
+                amendes_payees_jour = amendes_base.filter(
+                    statut='paye',
+                    date_paiement__gte=datetime_debut_jour,
+                    date_paiement__lte=datetime_fin_jour
+                )
+                
+                # Agrégations jour
+                stats_jour = amendes_jour.aggregate(
+                    emissions=Count('id'),
+                    hors_gabarit=Count('id', filter=Q(est_hors_gabarit=True)),
+                    montant_emis=Sum('montant_amende')
+                )
+                
+                stats_payees_jour = amendes_payees_jour.aggregate(
+                    count=Count('id'),
+                    montant=Sum('montant_amende')
+                )
+                
+                # Amendes non payées (global)
+                amendes_non_payees = amendes_base.filter(statut='non_paye')
+                stats_non_payees = amendes_non_payees.aggregate(
+                    count=Count('id'),
+                    montant=Sum('montant_amende')
+                )
+                
+                # Pesées du jour
+                pesees_jour = pesees_base.filter(date=jour_travail).aggregate(
+                    total=Sum('nombre_pesees')
+                )['total'] or 0
+                
+                # Stats du mois en cours
+                premier_jour_mois = today.replace(day=1)
+                amendes_mois = amendes_base.filter(
+                    date_heure_emission__date__gte=premier_jour_mois,
+                    date_heure_emission__date__lte=today
+                )
+                
+                stats_mois = amendes_mois.aggregate(
+                    emissions=Count('id'),
+                    montant_emis=Sum('montant_amende'),
+                    montant_recouvre=Sum('montant_amende', filter=Q(statut='paye'))
+                )
+                
+                montant_emis_mois = float(stats_mois['montant_emis'] or 0)
+                montant_recouvre_mois = float(stats_mois['montant_recouvre'] or 0)
+                taux_recouvrement_mois = (montant_recouvre_mois / montant_emis_mois * 100) if montant_emis_mois > 0 else 0
+                
+                # Construire le dictionnaire stats_pesage
+                stats_pesage = {
+                    'station': station_pesage,
+                    'label_scope': label_scope,
+                    'jour_travail': jour_travail,
+                    'habilitation': user.habilitation,
+                    'is_admin_pesage': user.is_admin,
+                    
+                    # Stats du jour (9h-9h)
+                    'emissions_jour': stats_jour['emissions'] or 0,
+                    'hors_gabarit_jour': stats_jour['hors_gabarit'] or 0,
+                    'montant_emis_jour': float(stats_jour['montant_emis'] or 0),
+                    'paiements_jour': stats_payees_jour['count'] or 0,
+                    'montant_recouvre_jour': float(stats_payees_jour['montant'] or 0),
+                    'pesees_jour': pesees_jour,
+                    
+                    # Reste à recouvrer du jour
+                    'reste_a_recouvrer_jour': float(stats_jour['montant_emis'] or 0) - float(stats_payees_jour['montant'] or 0),
+                    
+                    # Stats globales non payées
+                    'amendes_non_payees': stats_non_payees['count'] or 0,
+                    'montant_non_paye_total': float(stats_non_payees['montant'] or 0),
+                    
+                    # Stats du mois
+                    'emissions_mois': stats_mois['emissions'] or 0,
+                    'montant_emis_mois': montant_emis_mois,
+                    'montant_recouvre_mois': montant_recouvre_mois,
+                    'taux_recouvrement_mois': round(taux_recouvrement_mois, 1),
+                }
+                
+                # Stats spécifiques selon le rôle
+                if user.habilitation == 'regisseur_pesage' or user.is_admin:
+                    # Le régisseur voit aussi les quittancements
+                    quittancements_mois = quittancements_base.filter(
+                        date_quittancement__month=today.month,
+                        date_quittancement__year=today.year
+                    ).aggregate(
+                        count=Count('id'),
+                        montant=Sum('montant_quittance')
+                    )
+                    stats_pesage['quittancements_mois'] = quittancements_mois['count'] or 0
+                    stats_pesage['montant_quittance_mois'] = float(quittancements_mois['montant'] or 0)
+                    
+                    # Demandes de confirmation en attente
+                    from inventaire.models_confirmation import DemandeConfirmationPaiement, StatutDemandeConfirmation
+                    if station_pesage:
+                        demandes_attente = DemandeConfirmationPaiement.objects.filter(
+                            station_concernee=station_pesage,
+                            statut=StatutDemandeConfirmation.EN_ATTENTE
+                        ).count()
+                    else:
+                        demandes_attente = DemandeConfirmationPaiement.objects.filter(
+                            statut=StatutDemandeConfirmation.EN_ATTENTE
+                        ).count()
+                    stats_pesage['demandes_confirmation_attente'] = demandes_attente
+                
+                if user.habilitation == 'chef_equipe_pesage':
+                    # Le chef d'équipe voit ses propres saisies
+                    mes_saisies_jour = AmendeEmise.objects.filter(
+                        saisi_par=user,
+                        date_heure_emission__gte=datetime_debut_jour,
+                        date_heure_emission__lte=datetime_fin_jour
+                    ).count()
+                    stats_pesage['mes_saisies_jour'] = mes_saisies_jour
+                
+            except ImportError as e:
+                logger.warning(f"Module pesage non disponible: {e}")
+                stats_pesage = None
+            except Exception as e:
+                logger.error(f"Erreur calcul stats pesage dashboard: {e}")
+                stats_pesage = None
         # ================================================================
         # 7. ACTIVITÉS RÉCENTES
         # ================================================================
@@ -385,6 +548,56 @@ def index_dashboard(request):
             }
         
         # ================================================================
+        # RANG DU POSTE DANS LE CLASSEMENT (PÉAGE)
+        # ================================================================
+        rang_poste_peage = None
+
+        if user.poste_affectation and user.poste_affectation.type == 'peage':
+            try:
+                from inventaire.services.classement_service import get_rang_poste_peage
+                rang_poste_peage = get_rang_poste_peage(user.poste_affectation, current_year)
+            except Exception as e:
+                logger.error(f"Erreur calcul rang péage: {e}")
+
+        # ================================================================
+        # RANG DE LA STATION DANS LE CLASSEMENT (PESAGE)
+        # ================================================================
+        rang_station_pesage = None
+
+        if stats_pesage and stats_pesage.get('station'):
+            try:
+                from inventaire.views_classement_pesage import get_rang_station_pesage
+                rang_station_pesage = get_rang_station_pesage(stats_pesage['station'], current_year)
+            except Exception as e:
+                logger.error(f"Erreur calcul rang pesage: {e}")
+
+        # Pour les admins, on peut aussi afficher les tops
+        top_postes_peage = None
+        top_stations_pesage = None
+
+        if user.is_admin:
+            try:
+                # Top 5 postes péage
+                top_peage = RecetteJournaliere.objects.filter(
+                    date__year=current_year
+                ).values('poste__nom', 'poste__code').annotate(
+                    total=Sum('montant_declare')
+                ).order_by('-total')[:5]
+                
+                top_postes_peage = [
+                    {'rang': i+1, 'nom': p['poste__nom'], 'code': p['poste__code'], 'total': float(p['total'])}
+                    for i, p in enumerate(top_peage)
+                ]
+                
+                # Top 5 stations pesage
+                from inventaire.views_classement_pesage import calculer_classement_pesage
+                classement_pesage = calculer_classement_pesage()[:5]
+                top_stations_pesage = classement_pesage
+                
+            except Exception as e:
+                logger.error(f"Erreur calcul tops: {e}")
+                
+        # ================================================================
         # CONTEXTE FINAL
         # ================================================================
         context = {
@@ -392,8 +605,13 @@ def index_dashboard(request):
             'stats_globales': stats_globales,
             'stats_inventaires': stats_inventaires,
             'stats_recettes': stats_recettes,
-            'stats_objectifs': stats_objectifs,  # DONNÉES CENTRALISÉES
+            'stats_objectifs': stats_objectifs,  
             'activites_recentes': activites_recentes,
+            'rang_poste_peage': rang_poste_peage,
+            'rang_station_pesage': rang_station_pesage,
+            'top_postes_peage': top_postes_peage,
+            'top_stations_pesage': top_stations_pesage,
+            'stats_pesage': stats_pesage,
             'alertes': alertes[:5],
             'graph_data_json': json.dumps(graph_data, default=str),
             'top_postes': top_postes,
@@ -554,8 +772,6 @@ class DashboardAdminView(LoginRequiredMixin, TemplateView):
         # ================================================================
         
         try:
-            from accounts.models import UtilisateurSUPPER, Poste
-            from inventaire.models import InventaireJournalier, RecetteJournaliere
             
             # Statistiques utilisateurs
             total_utilisateurs = UtilisateurSUPPER.objects.count()
@@ -1881,7 +2097,6 @@ def gerer_jours(request, inventaire_id):
     Vue pour gérer l'activation des jours d'un inventaire mensuel
     """
     try:
-        from inventaire.models import InventaireMensuel
         inventaire = get_object_or_404(InventaireMensuel, id=inventaire_id)
     except ImportError:
         messages.error(request, "Le modèle InventaireMensuel n'est pas disponible")
@@ -1903,7 +2118,6 @@ def gerer_jours(request, inventaire_id):
         elif action == 'fermer_ancien':
             # Fermer tous les jours anciens
             from datetime import date
-            from inventaire.models import ConfigurationJour, StatutJour
             
             today = date.today()
             jours_fermes = ConfigurationJour.objects.filter(
@@ -1919,7 +2133,6 @@ def gerer_jours(request, inventaire_id):
             if date_str:
                 try:
                     from datetime import datetime
-                    from inventaire.models import ConfigurationJour, StatutJour
                     
                     date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
                     
@@ -1948,7 +2161,6 @@ def gerer_jours(request, inventaire_id):
             
             if jour_id and nouveau_statut:
                 try:
-                    from inventaire.models import ConfigurationJour
                     
                     config = ConfigurationJour.objects.get(id=jour_id)
                     config.statut = nouveau_statut
@@ -1981,7 +2193,6 @@ def gerer_jours(request, inventaire_id):
     # GET - Afficher l'interface
     
     # Récupérer les jours configurés récents
-    from inventaire.models import ConfigurationJour
     from datetime import date, timedelta
     
     date_limite = date.today() - timedelta(days=30)
@@ -2123,7 +2334,6 @@ def action_ouvrir_semaine(request):
     Action rapide pour ouvrir tous les jours ouvrables de la semaine courante
     """
     try:
-        from inventaire.models import ConfigurationJour, StatutJour
         
         # Calculer le lundi de la semaine courante
         today = date.today()
@@ -2168,7 +2378,6 @@ def action_fermer_anciens(request):
     Action rapide pour fermer tous les jours antérieurs à aujourd'hui
     """
     try:
-        from inventaire.models import ConfigurationJour, StatutJour
         
         today = date.today()
         
@@ -2197,8 +2406,6 @@ def action_marquer_impertinent(request):
     Action rapide pour marquer un jour comme impertinent
     """
     try:
-        from inventaire.models import ConfigurationJour, StatutJour
-        from datetime import datetime
         
         data = json.loads(request.body)
         date_str = data.get('date')

@@ -18,7 +18,8 @@ def classement_postes_rendement(request):
     UNIQUEMENT basé sur montant_declare (recettes déclarées)
     """
     
-    periode = request.GET.get('periode', 'mois')
+    # Par défaut: cumul à date
+    periode = request.GET.get('periode', 'cumul')
     annee = int(request.GET.get('annee', date.today().year))
     mois = request.GET.get('mois')
     trimestre = request.GET.get('trimestre')
@@ -26,12 +27,17 @@ def classement_postes_rendement(request):
     semaine = request.GET.get('semaine')
     
     # Déterminer les dates selon la période
-    date_debut, date_fin = calculer_dates_periode(
-        periode, annee, mois, trimestre, semestre, semaine
-    )
+    if periode == 'cumul':
+        # Cumul à date = depuis le 1er janvier jusqu'à aujourd'hui
+        date_debut = date(annee, 1, 1)
+        date_fin = date.today()
+    else:
+        date_debut, date_fin = calculer_dates_periode(
+            periode, annee, mois, trimestre, semestre, semaine
+        )
     
     # Récupérer tous les postes actifs
-    postes = Poste.objects.filter(is_active=True)
+    postes = Poste.objects.filter(is_active=True, type="peage")
     
     classement = []
     
@@ -189,6 +195,9 @@ def get_periode_label(periode, annee, mois=None, trimestre=None,
         5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
         9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
     }
+    
+    if periode == 'cumul':
+        return f"Cumul à date - {annee}"
     
     if periode == 'semaine':
         if semaine:

@@ -917,6 +917,11 @@
                                 <i class="fas fa-ranking-star me-2"></i>{% trans "Classement Peage Rendement" %}
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'inventaire:classement_stations_pesage_rendement' %}">
+                                <i class="fas fa-weight-hanging me-2 text-purple"></i>{% trans "Classement Stations Pesage" %}
+                            </a>
+                        </li>
                          <li>
                             <a class="dropdown-item" href="{% url 'inventaire:classement_postes_performances' %}">
                                 <i class="fas fa-award me-2"></i>{% trans "Classement Peage Deperdition" %}
@@ -1009,6 +1014,11 @@
             <div class="user-info">
                 <div class="user-name">{{ user.nom_complet|default:user.username }}</div>
                 <div class="user-role">{{ user.get_habilitation_display }}</div>
+                 {% if user.poste_affectation %}
+                    <br><small class="text-white">
+                        {{ user.poste_affectation.nom }}
+                    </small>
+                    {% endif %}
             </div>
 
             <!-- Menu utilisateur -->

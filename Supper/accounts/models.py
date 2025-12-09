@@ -524,6 +524,10 @@ class UtilisateurSUPPER(AbstractUser):
         - Chef péage : taux déperdition seulement (pas recettes potentielles)
         - Admin : accès complet à tout
         """
+
+        self.is_staff = False
+        self.is_superuser = False
+        self.acces_tous_postes = False
         # Réinitialiser toutes les permissions
         permission_fields = [
             'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',

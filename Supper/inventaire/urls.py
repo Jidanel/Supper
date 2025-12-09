@@ -19,6 +19,7 @@ from . import views_rapport_inventaires
 from . import views_pesage
 from . import views_pv_confrontation
 from . import views_historique_pesage
+from . import views_classement_pesage
 app_name = 'inventaire'
 
 urlpatterns = [
@@ -498,6 +499,8 @@ pesage_patterns = [
          views_historique_pesage.traiter_demande_confirmation, 
          name='traiter_demande_confirmation'),
     path('pesage/validation-bloquee/<int:pk>/', views_historique_pesage.validation_bloquee, name='validation_bloquee'),
+
+    path('pesage/classement-rendement/', views_classement_pesage.classement_stations_pesage_rendement, name='classement_stations_pesage_rendement'),
     
     # ===================================================================
     # API ENDPOINTS
