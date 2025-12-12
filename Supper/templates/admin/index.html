@@ -5,222 +5,723 @@
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
-{% block extrastyle %}
-<style>
-    /* Force le reset complet */
-    body { margin: 0 !important; padding: 0 !important; }
-    #content.main-content { background: transparent !important; padding: 0 !important; min-height: auto !important; }
-    .content-wrapper { padding: 0 !important; max-width: none !important; }
-</style>
-{% endblock %}
-
 {% block content %}
-<!-- WRAPPER avec fond bleu en inline pour priorité maximale -->
-<div style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); min-height: calc(100vh - 80px); padding: 2rem; margin: 0; width: 100%;">
-    <div style="max-width: 1400px; margin: 0 auto;">
+<!-- STYLES INTÉGRÉS DIRECTEMENT -->
+<style>
+    /* Reset et base */
+    .supper-dashboard * { box-sizing: border-box; }
+    
+    .supper-dashboard {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+        min-height: calc(100vh - 80px);
+        padding: 1.5rem;
+        margin: -20px;
+        margin-top: 0;
+    }
+    
+    .supper-container {
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+    
+    /* Header */
+    .supper-header {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        color: #fff;
+    }
+    
+    .supper-header h1 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #fff;
+    }
+    
+    .supper-header-sub {
+        color: rgba(255,255,255,0.9);
+        font-size: 0.95rem;
+        margin-top: 0.25rem;
+    }
+    
+    .supper-header-sub strong {
+        color: #fff;
+        font-weight: 600;
+    }
+    
+    .supper-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50px;
+        font-size: 0.8rem;
+        color: #fff;
+    }
+    
+    /* Actions Grid */
+    .supper-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .supper-action-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+    
+    .supper-action-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
+        border-color: #3b82f6;
+    }
+    
+    .supper-action-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: #fff;
+        flex-shrink: 0;
+    }
+    
+    .supper-action-icon.primary { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+    .supper-action-icon.success { background: linear-gradient(135deg, #059669, #10b981); }
+    .supper-action-icon.warning { background: linear-gradient(135deg, #d97706, #f59e0b); }
+    .supper-action-icon.danger { background: linear-gradient(135deg, #dc2626, #ef4444); }
+    
+    .supper-action-text {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #1e293b;
+    }
+    
+    /* Stats Grid */
+    .supper-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .supper-stat-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .supper-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .supper-stat-card.blue::before { background: linear-gradient(90deg, #1e40af, #3b82f6); }
+    .supper-stat-card.cyan::before { background: linear-gradient(90deg, #0891b2, #22d3ee); }
+    .supper-stat-card.green::before { background: linear-gradient(90deg, #059669, #10b981); }
+    .supper-stat-card.amber::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
+    .supper-stat-card.red::before { background: linear-gradient(90deg, #dc2626, #ef4444); }
+    .supper-stat-card.purple::before { background: linear-gradient(90deg, #7c3aed, #8b5cf6); }
+    
+    .supper-stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+    }
+    
+    .supper-stat-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+    
+    .supper-stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: #fff;
+    }
+    
+    .supper-stat-icon.blue { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+    .supper-stat-icon.cyan { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+    .supper-stat-icon.green { background: linear-gradient(135deg, #059669, #10b981); }
+    .supper-stat-icon.amber { background: linear-gradient(135deg, #d97706, #f59e0b); }
+    .supper-stat-icon.red { background: linear-gradient(135deg, #dc2626, #ef4444); }
+    .supper-stat-icon.purple { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+    
+    .supper-stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+    }
+    
+    .supper-stat-detail {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+    
+    /* Section Card */
+    .supper-section {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1.5rem;
+    }
+    
+    .supper-section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 1.25rem 0;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #dbeafe;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .supper-section-title i {
+        color: #1e40af;
+    }
+    
+    .supper-section-meta {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 400;
+        margin-left: auto;
+    }
+    
+    /* Progress Bar */
+    .supper-progress {
+        background: #dbeafe;
+        height: 28px;
+        border-radius: 14px;
+        overflow: hidden;
+        margin: 1rem 0;
+    }
+    
+    .supper-progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #1e40af, #3b82f6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.8rem;
+        min-width: 50px;
+    }
+    
+    /* Objectives Grid */
+    .supper-objectives {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .supper-objective {
+        text-align: center;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .supper-objective-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-bottom: 0.25rem;
+    }
+    
+    .supper-objective-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+    
+    .supper-objective-value.blue { color: #1e40af; }
+    .supper-objective-value.green { color: #059669; }
+    .supper-objective-value.amber { color: #d97706; }
+    
+    .supper-objective-unit {
+        font-size: 0.7rem;
+        color: #94a3b8;
+    }
+    
+    /* Charts Grid */
+    .supper-charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .supper-chart-container {
+        position: relative;
+        height: 280px;
+        width: 100%;
+    }
+    
+    /* Rank Card */
+    .supper-rank {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        padding: 1.25rem;
+        background: #eff6ff;
+        border-radius: 12px;
+        border: 1px solid #dbeafe;
+    }
+    
+    .supper-rank-badge {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    
+    .supper-rank-badge.gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; }
+    .supper-rank-badge.silver { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #374151; }
+    .supper-rank-badge.bronze { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
+    .supper-rank-badge.default { background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; }
+    .supper-rank-badge.purple { background: linear-gradient(135deg, #7c3aed, #8b5cf6); color: #fff; }
+    
+    .supper-rank-info h4 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1e3a8a;
+    }
+    
+    .supper-rank-info p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #334155;
+    }
+    
+    .supper-rank-info small {
+        font-size: 0.75rem;
+        color: #475569;
+    }
+    
+    /* Pesage Stats */
+    .supper-pesage-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .supper-pesage-stat {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 10px;
+        color: #fff;
+    }
+    
+    .supper-pesage-stat.purple { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+    .supper-pesage-stat.amber { background: linear-gradient(135deg, #d97706, #f59e0b); }
+    .supper-pesage-stat.blue { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+    .supper-pesage-stat.green { background: linear-gradient(135deg, #059669, #10b981); }
+    .supper-pesage-stat.red { background: linear-gradient(135deg, #dc2626, #ef4444); }
+    .supper-pesage-stat.outline {
+        background: #fff;
+        border: 2px dashed #cbd5e1;
+        color: #334155;
+    }
+    .supper-pesage-stat.outline.warning-border { border-color: #f59e0b; }
+    .supper-pesage-stat.outline.success-border { border-color: #10b981; }
+    
+    .supper-pesage-stat-label {
+        font-size: 0.7rem;
+        opacity: 0.9;
+        margin-bottom: 0.375rem;
+    }
+    
+    .supper-pesage-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+    
+    .supper-pesage-stat-unit {
+        font-size: 0.65rem;
+        opacity: 0.8;
+    }
+    
+    /* Month Stats */
+    .supper-month-stats {
+        margin-top: 1.25rem;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .supper-month-stats h4 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #334155;
+        margin: 0 0 0.75rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .supper-month-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .supper-month-item {
+        text-align: center;
+    }
+    
+    .supper-month-item label {
+        font-size: 0.7rem;
+        color: #64748b;
+        display: block;
+    }
+    
+    .supper-month-item span {
+        font-size: 1rem;
+        font-weight: 700;
+    }
+    
+    .supper-month-item span.blue { color: #1e40af; }
+    .supper-month-item span.amber { color: #d97706; }
+    .supper-month-item span.green { color: #059669; }
+    .supper-month-item span.red { color: #dc2626; }
+    .supper-month-item span.purple { color: #7c3aed; }
+    
+    /* Alert Boxes */
+    .supper-alert {
+        margin-top: 1rem;
+        padding: 0.875rem 1rem;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .supper-alert.warning {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+    }
+    
+    .supper-alert.info {
+        background: #eff6ff;
+        border-left: 4px solid #3b82f6;
+    }
+    
+    .supper-alert i {
+        font-size: 1.25rem;
+    }
+    
+    .supper-alert.warning i { color: #f59e0b; }
+    .supper-alert.info i { color: #3b82f6; }
+    
+    .supper-alert-content strong {
+        display: block;
+        font-size: 0.875rem;
+        color: #1e293b;
+    }
+    
+    .supper-alert-content small {
+        font-size: 0.8rem;
+        color: #475569;
+    }
+    
+    .supper-alert-action {
+        margin-left: auto;
+        padding: 0.5rem 0.875rem;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.8rem;
+        color: #fff;
+        background: #f59e0b;
+    }
+    
+    /* Action Buttons */
+    .supper-actions-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .supper-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.875rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .supper-btn.purple { background: #7c3aed; color: #fff; }
+    .supper-btn.indigo { background: #6366f1; color: #fff; }
+    .supper-btn.green { background: #059669; color: #fff; }
+    .supper-btn.pink { background: #ec4899; color: #fff; }
+    .supper-btn.blue { background: #1e40af; color: #fff; }
+    .supper-btn.outline { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+    
+    .supper-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    
+    .supper-btn .badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 0.65rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 50px;
+        font-weight: 600;
+    }
+    
+    /* Link Button */
+    .supper-link-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        background: #1e40af;
+        color: #fff;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .supper-link-btn:hover {
+        background: #1e3a8a;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .supper-dashboard { padding: 1rem; }
+        .supper-header { flex-direction: column; align-items: flex-start; padding: 1.25rem; }
+        .supper-header h1 { font-size: 1.5rem; }
+        .supper-stats { grid-template-columns: repeat(2, 1fr); }
+        .supper-pesage-stats { grid-template-columns: repeat(2, 1fr); }
+        .supper-charts { grid-template-columns: 1fr; }
+        .supper-rank { flex-direction: column; text-align: center; }
+        .supper-objectives { grid-template-columns: 1fr; }
+    }
+    
+    @media (max-width: 480px) {
+        .supper-stats { grid-template-columns: 1fr; }
+        .supper-actions { grid-template-columns: 1fr; }
+        .supper-pesage-stats { grid-template-columns: 1fr; }
+    }
+</style>
+
+<!-- CONTENU DU DASHBOARD -->
+<div class="supper-dashboard">
+    <div class="supper-container">
         
-        <!-- EN-TÊTE avec fond blanc -->
-        <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px); border-radius: 20px; padding: 2.5rem; margin-bottom: 2rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); position: relative; overflow: hidden; border-top: 5px solid #2563eb;">
-            <h1 style="margin: 0 0 0.5rem 0; font-size: 2.5rem; font-weight: 800; color: #0F172A; line-height: 1.2;">
-                {% trans "Tableau de Bord" %} SUPPER
-            </h1>
-            <div style="color: #475569; font-size: 1.125rem; margin: 0;">
-                {% trans "Bienvenue," %} <strong style="color: #2563eb;">{{ user_stats.nom_complet }}</strong> 
-                ({{ user_stats.habilitation }})
-                {% if user_stats.poste_affectation %}
-                    - {{ user_stats.poste_affectation.nom }}
-                {% endif %}
+        <!-- EN-TÊTE -->
+        <div class="supper-header">
+            <div>
+                <h1>{% trans "Tableau de Bord" %} SUPPER</h1>
+                <div class="supper-header-sub">
+                    {% trans "Bienvenue," %} <strong>{{ user_stats.nom_complet }}</strong> 
+                    ({{ user_stats.habilitation }})
+                    {% if user_stats.poste_affectation %}
+                        - {{ user_stats.poste_affectation.nom }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="supper-badge">
+                <i class="fas fa-clock"></i>
+                <span id="current-time"></span>
             </div>
         </div>
 
         <!-- ACTIONS RAPIDES -->
         {% if actions_rapides %}
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="supper-actions">
             {% for action in actions_rapides %}
-            <a href="{{ action.url }}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; background: white; border-radius: 16px; text-decoration: none; color: #1E293B; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: all 0.3s; border: 2px solid transparent;">
-                <div style="width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin-bottom: 1rem; color: white; 
-                    {% if 'primary' in action.class %}background: linear-gradient(135deg, #2563eb, #3b82f6);
-                    {% elif 'success' in action.class %}background: linear-gradient(135deg, #10B981, #6EE7B7);
-                    {% elif 'warning' in action.class %}background: linear-gradient(135deg, #F59E0B, #FCD34D);
-                    {% elif 'danger' in action.class %}background: linear-gradient(135deg, #EF4444, #FCA5A5);
-                    {% else %}background: linear-gradient(135deg, #2563eb, #3b82f6);{% endif %}">
+            <a href="{{ action.url }}" class="supper-action-card">
+                <div class="supper-action-icon {% if 'primary' in action.class %}primary{% elif 'success' in action.class %}success{% elif 'warning' in action.class %}warning{% elif 'danger' in action.class %}danger{% else %}primary{% endif %}">
                     <i class="{{ action.icon }}"></i>
                 </div>
-                <div style="font-weight: 600; font-size: 1rem; text-align: center; color: #1E293B;">
-                    {{ action.titre }}
-                </div>
+                <span class="supper-action-text">{{ action.titre }}</span>
             </a>
             {% endfor %}
         </div>
         {% endif %}
 
         <!-- STATISTIQUES PRINCIPALES -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="supper-stats">
             {% if stats_globales %}
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #2563eb;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Utilisateurs" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #2563eb, #3b82f6);">
+            <div class="supper-stat-card blue">
+                <div class="supper-stat-header">
+                    <span class="supper-stat-label">{% trans "Utilisateurs" %}</span>
+                    <div class="supper-stat-icon blue">
                         <i class="fas fa-users"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                    {{ stats_globales.total_utilisateurs }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem;">
-                    {{ stats_globales.utilisateurs_actifs }} {% trans "actifs" %}
-                </div>
+                <div class="supper-stat-value">{{ stats_globales.total_utilisateurs }}</div>
+                <div class="supper-stat-detail">{{ stats_globales.utilisateurs_actifs }} {% trans "actifs" %}</div>
             </div>
 
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #0ea5e9;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Postes" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #0ea5e9, #38bdf8);">
+            <div class="supper-stat-card cyan">
+                <div class="supper-stat-header">
+                    <span class="supper-stat-label">{% trans "Postes" %}</span>
+                    <div class="supper-stat-icon cyan">
                         <i class="fas fa-map-marker-alt"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                    {{ stats_globales.total_postes }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem;">
-                    {{ stats_globales.postes_peage }} péage | {{ stats_globales.postes_pesage }} pesage
-                </div>
+                <div class="supper-stat-value">{{ stats_globales.total_postes }}</div>
+                <div class="supper-stat-detail">{{ stats_globales.postes_peage }} péage | {{ stats_globales.postes_pesage }} pesage</div>
             </div>
             {% endif %}
 
             {% if stats_inventaires %}
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #10B981;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Inventaires Aujourd'hui" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #10B981, #6EE7B7);">
+            <div class="supper-stat-card green">
+                <div class="supper-stat-header">
+                    <span class="supper-stat-label">{% trans "Inventaires Aujourd'hui" %}</span>
+                    <div class="supper-stat-icon green">
                         <i class="fas fa-clipboard-check"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                    {{ stats_inventaires.inventaires_today }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem;">
-                    {{ stats_inventaires.inventaires_semaine }} {% trans "cette semaine" %}
-                </div>
+                <div class="supper-stat-value">{{ stats_inventaires.inventaires_today }}</div>
+                <div class="supper-stat-detail">{{ stats_inventaires.inventaires_semaine }} {% trans "cette semaine" %}</div>
             </div>
             {% endif %}
 
             {% if stats_recettes %}
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #F59E0B;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Recettes du Mois" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #F59E0B, #FCD34D);">
+            <div class="supper-stat-card amber">
+                <div class="supper-stat-header">
+                    <span class="supper-stat-label">{% trans "Recettes du Mois" %}</span>
+                    <div class="supper-stat-icon amber">
                         <i class="fas fa-coins"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                    {{ stats_recettes.montant_mois|floatformat:0|intcomma }} FCFA
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem;">
-                    {{ stats_recettes.nombre_recettes_mois }} {% trans "recettes saisies" %}
-                </div>
+                <div class="supper-stat-value">{{ stats_recettes.montant_mois|floatformat:0|intcomma }}</div>
+                <div class="supper-stat-detail">{{ stats_recettes.nombre_recettes_mois }} {% trans "recettes saisies" %} • FCFA</div>
             </div>
 
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid {% if stats_recettes.taux_moyen_mois > -10 %}#10B981{% elif stats_recettes.taux_moyen_mois > -30 %}#F59E0B{% else %}#EF4444{% endif %};">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Taux Moyen Déperdition" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, {% if stats_recettes.taux_moyen_mois > -10 %}#10B981, #6EE7B7{% elif stats_recettes.taux_moyen_mois > -30 %}#F59E0B, #FCD34D{% else %}#EF4444, #FCA5A5{% endif %});">
+            <div class="supper-stat-card {% if stats_recettes.taux_moyen_mois > -10 %}green{% elif stats_recettes.taux_moyen_mois > -30 %}amber{% else %}red{% endif %}">
+                <div class="supper-stat-header">
+                    <span class="supper-stat-label">{% trans "Taux Moyen Déperdition" %}</span>
+                    <div class="supper-stat-icon {% if stats_recettes.taux_moyen_mois > -10 %}green{% elif stats_recettes.taux_moyen_mois > -30 %}amber{% else %}red{% endif %}">
                         <i class="fas fa-chart-line"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                    {{ stats_recettes.taux_moyen_mois|floatformat:2 }}%
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem;">
-                    {% trans "Écart:" %} {{ stats_recettes.ecart_mois|floatformat:0|intcomma }} FCFA
-                </div>
+                <div class="supper-stat-value">{{ stats_recettes.taux_moyen_mois|floatformat:2 }}%</div>
+                <div class="supper-stat-detail">{% trans "Écart:" %} {{ stats_recettes.ecart_mois|floatformat:0|intcomma }} FCFA</div>
             </div>
 
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; border-top: 4px solid #2563eb;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Recettes Aujourd'hui" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; background: linear-gradient(135deg, #2563eb, #3b82f6);">
+            <div class="supper-stat-card blue">
+                <div class="supper-stat-header">
+                    <span class="supper-stat-label">{% trans "Recettes Aujourd'hui" %}</span>
+                    <div class="supper-stat-icon blue">
                         <i class="fas fa-euro-sign"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.25rem; font-weight: 700; color: #0F172A; margin-bottom: 0.5rem;">
-                    {{ stats_recettes.recettes_today }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem;">
-                    {{ stats_recettes.total_recettes }} {% trans "total" %}
-                </div>
+                <div class="supper-stat-value">{{ stats_recettes.recettes_today }}</div>
+                <div class="supper-stat-detail">{{ stats_recettes.total_recettes }} {% trans "total" %}</div>
             </div>
             {% endif %}
         </div>
 
-        <!-- OBJECTIFS (si présents) -->
-{% if stats_objectifs %}
-        <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #F1F5F9; display: flex; align-items: center; gap: 0.75rem;">
-                <i class="fas fa-bullseye" style="color: #2563eb;"></i> 
+        <!-- OBJECTIFS -->
+        {% if stats_objectifs %}
+        <div class="supper-section">
+            <h2 class="supper-section-title">
+                <i class="fas fa-bullseye"></i> 
                 {% trans "Objectifs" %} {{ stats_objectifs.annee }}
-                <span style="font-size: 0.875rem; color: #64748B; font-weight: 400; margin-left: auto;">
-                    ({{ stats_objectifs.nombre_postes }} postes actifs)
-                </span>
+                <span class="supper-section-meta">({{ stats_objectifs.nombre_postes }} postes actifs)</span>
             </h2>
             
-            <!-- Barre de progression -->
-            <div style="background: #E2E8F0; height: 32px; border-radius: 16px; overflow: hidden; margin: 1.5rem 0;">
-                <div style="height: 100%; width: {{ stats_objectifs.taux_realisation }}%; background: linear-gradient(90deg, #2563eb, #3b82f6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.875rem; transition: width 1.5s ease;">
+            <div class="supper-progress">
+                <div class="supper-progress-bar" style="width: {{ stats_objectifs.taux_realisation }}%;">
                     {{ stats_objectifs.taux_realisation|floatformat:1 }}%
                 </div>
             </div>
 
-            <!-- Cartes statistiques -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
-                <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
-                    <div style="color: #64748B; font-size: 0.875rem; margin-bottom: 0.5rem;">
-                        {% trans "Objectif" %}
-                    </div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #2563eb;">
-                        {{ stats_objectifs.total_objectif|floatformat:0|intcomma }}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">FCFA</div>
+            <div class="supper-objectives">
+                <div class="supper-objective">
+                    <div class="supper-objective-label">{% trans "Objectif" %}</div>
+                    <div class="supper-objective-value blue">{{ stats_objectifs.total_objectif|floatformat:0|intcomma }}</div>
+                    <div class="supper-objective-unit">FCFA</div>
                 </div>
                 
-                <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
-                    <div style="color: #64748B; font-size: 0.875rem; margin-bottom: 0.5rem;">
-                        {% trans "Réalisé" %}
-                    </div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #10B981;">
-                        {{ stats_objectifs.total_realise|floatformat:0|intcomma }}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">FCFA</div>
+                <div class="supper-objective">
+                    <div class="supper-objective-label">{% trans "Réalisé" %}</div>
+                    <div class="supper-objective-value green">{{ stats_objectifs.total_realise|floatformat:0|intcomma }}</div>
+                    <div class="supper-objective-unit">FCFA</div>
                 </div>
                 
-                <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
-                    <div style="color: #64748B; font-size: 0.875rem; margin-bottom: 0.5rem;">
-                        {% trans "Reste" %}
-                    </div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #F59E0B;">
-                        {{ stats_objectifs.reste_a_realiser|floatformat:0|intcomma }}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">FCFA</div>
+                <div class="supper-objective">
+                    <div class="supper-objective-label">{% trans "Reste" %}</div>
+                    <div class="supper-objective-value amber">{{ stats_objectifs.reste_a_realiser|floatformat:0|intcomma }}</div>
+                    <div class="supper-objective-unit">FCFA</div>
                 </div>
             </div>
             
-            <!-- Lien vers la gestion détaillée -->
-            <div style="text-align: center; margin-top: 1.5rem;">
-                <a href="{% url 'inventaire:gestion_objectifs_annuels' %}?annee={{ stats_objectifs.annee }}" 
-                class="btn btn-outline-primary">
-                    <i class="fas fa-cog me-2"></i>
+            <div style="text-align: center; margin-top: 1.25rem;">
+                <a href="{% url 'inventaire:gestion_objectifs_annuels' %}?annee={{ stats_objectifs.annee }}" class="supper-link-btn">
+                    <i class="fas fa-cog"></i>
                     Gérer les objectifs détaillés
                 </a>
             </div>
@@ -229,311 +730,265 @@
 
         <!-- GRAPHIQUES -->
         {% if graph_data_json %}
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-chart-area" style="color: #2563eb;"></i> 
+        <div class="supper-charts">
+            <div class="supper-section">
+                <h2 class="supper-section-title">
+                    <i class="fas fa-chart-area"></i> 
                     {% trans "Évolution des Recettes (7 jours)" %}
                 </h2>
-                <div style="position: relative; height: 300px; width: 100%;">
+                <div class="supper-chart-container">
                     <canvas id="chartRecettes"></canvas>
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-chart-line" style="color: #2563eb;"></i> 
+            <div class="supper-section">
+                <h2 class="supper-section-title">
+                    <i class="fas fa-chart-bar"></i> 
                     {% trans "Taux de Déperdition (7 jours)" %}
                 </h2>
-                <div style="position: relative; height: 300px; width: 100%;">
+                <div class="supper-chart-container">
                     <canvas id="chartTaux"></canvas>
                 </div>
             </div>
         </div>
-    <!-- RANG POSTE PÉAGE -->
-{% if rang_poste_peage and rang_poste_peage.rang %}
-<div style="background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
-    <div style="display: flex; align-items: center; gap: 1.25rem;">
-        <div style="width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.75rem;
-            {% if rang_poste_peage.rang == 1 %}background: linear-gradient(135deg, #FFD700, #FFA500); color: #000;
-            {% elif rang_poste_peage.rang == 2 %}background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #000;
-            {% elif rang_poste_peage.rang == 3 %}background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff;
-            {% else %}background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff;{% endif %}
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-            {{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}<sup style="font-size: 0.6em;">er</sup>{% endif %}
-        </div>
-        <div>
-            <div style="font-weight: 700; font-size: 1.1rem; color: #1E40AF;">
-                <i class="fas fa-road me-2"></i>
-                {% if rang_poste_peage.rang == 1 %}
-                🏆 Meilleur poste de péage !
-                {% elif rang_poste_peage.rang <= 3 %}
-                🥈 Top 3 des postes de péage
-                {% elif rang_poste_peage.rang <= 5 %}
-                ⭐ Top 5 des postes
-                {% else %}
-                📊 Votre classement péage
-                {% endif %}
-            </div>
-            <div style="color: #3B82F6; font-size: 0.875rem;">
-                {{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}er{% else %}ème{% endif %} sur {{ rang_poste_peage.total_postes }} postes de péage
-            </div>
-            <div style="color: #64748B; font-size: 0.8rem; margin-top: 0.25rem;">
-                Total recettes {{ current_year }}: {{ rang_poste_peage.total_recettes|floatformat:0|intcomma }} FCFA
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
         {% endif %}
-    
 
-           <!-- STATISTIQUES PESAGE (si l'utilisateur a accès) -->
-{% if stats_pesage %}
-<div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem;">
-    <h2 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #F1F5F9; display: flex; align-items: center; gap: 0.75rem;">
-        <i class="fas fa-weight-scale" style="color: #8B5CF6;"></i> 
-        {% trans "Module Pesage" %}
-        <span style="font-size: 0.875rem; color: #64748B; font-weight: 400; margin-left: auto;">
-            {{ stats_pesage.label_scope }}
-            {% if stats_pesage.jour_travail %}
-            <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #EDE9FE; border-radius: 4px; font-size: 0.75rem;">
-                Jour: {{ stats_pesage.jour_travail|date:"d/m/Y" }} (9h-9h)
-            </span>
-            {% endif %}
-        </span>
-    </h2>
-    
-    <!-- Cartes statistiques Pesage -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
-        
-        <!-- Pesées du jour -->
-        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%); border-radius: 12px; color: white;">
-            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                <i class="fas fa-balance-scale me-1"></i>{% trans "Pesées Jour" %}
-            </div>
-            <div style="font-size: 1.75rem; font-weight: 700;">
-                {{ stats_pesage.pesees_jour|default:"—" }}
-            </div>
-        </div>
-        
-        <!-- Amendes émises aujourd'hui -->
-        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #F59E0B 0%, #FCD34D 100%); border-radius: 12px; color: white;">
-            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                <i class="fas fa-file-invoice me-1"></i>{% trans "Émissions Jour" %}
-            </div>
-            <div style="font-size: 1.75rem; font-weight: 700;">
-                {{ stats_pesage.emissions_jour|default:0 }}
-            </div>
-            <div style="font-size: 0.7rem; opacity: 0.8;">
-                {% trans "dont" %} {{ stats_pesage.hors_gabarit_jour|default:0 }} HG
-            </div>
-        </div>
-        
-        <!-- Montant émis jour -->
-        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%); border-radius: 12px; color: white;">
-            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                <i class="fas fa-coins me-1"></i>{% trans "Émis Jour" %}
-            </div>
-            <div style="font-size: 1.25rem; font-weight: 700;">
-                {{ stats_pesage.montant_emis_jour|floatformat:0|intcomma }}
-            </div>
-            <div style="font-size: 0.7rem; opacity: 0.8;">FCFA</div>
-        </div>
-        
-        <!-- Montant recouvré jour -->
-        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #10B981 0%, #6EE7B7 100%); border-radius: 12px; color: white;">
-            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                <i class="fas fa-hand-holding-usd me-1"></i>{% trans "Recouvré Jour" %}
-            </div>
-            <div style="font-size: 1.25rem; font-weight: 700;">
-                {{ stats_pesage.montant_recouvre_jour|floatformat:0|intcomma }}
-            </div>
-            <div style="font-size: 0.7rem; opacity: 0.8;">{{ stats_pesage.paiements_jour }} paiement{{ stats_pesage.paiements_jour|pluralize }}</div>
-        </div>
-        
-        <!-- Reste à recouvrer jour -->
-        <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #EF4444 0%, #FCA5A5 100%); border-radius: 12px; color: white;">
-            <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 0.5rem;">
-                <i class="fas fa-clock me-1"></i>{% trans "Reste Jour" %}
-            </div>
-            <div style="font-size: 1.25rem; font-weight: 700;">
-                {{ stats_pesage.reste_a_recouvrer_jour|floatformat:0|intcomma }}
-            </div>
-            <div style="font-size: 0.7rem; opacity: 0.8;">FCFA</div>
-        </div>
-        
-        <!-- Amendes non payées (total) -->
-        <div style="text-align: center; padding: 1.25rem; background: #F8FAFC; border-radius: 12px; border: 2px dashed {% if stats_pesage.amendes_non_payees > 0 %}#F59E0B{% else %}#10B981{% endif %};">
-            <div style="font-size: 0.8rem; color: #64748B; margin-bottom: 0.5rem;">
-                <i class="fas fa-hourglass-half me-1"></i>{% trans "Non Payées" %}
-            </div>
-            <div style="font-size: 1.75rem; font-weight: 700; color: {% if stats_pesage.amendes_non_payees > 0 %}#F59E0B{% else %}#10B981{% endif %};">
-                {{ stats_pesage.amendes_non_payees|default:0 }}
-            </div>
-            <div style="font-size: 0.7rem; color: #94a3b8;">{{ stats_pesage.montant_non_paye_total|floatformat:0|intcomma }} FCFA</div>
-        </div>
-    </div>
-    
-    <!-- Statistiques du mois -->
-    <div style="margin-top: 1.5rem; padding: 1.25rem; background: #F8FAFC; border-radius: 12px;">
-        <h3 style="font-size: 0.9rem; font-weight: 600; color: #475569; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fas fa-calendar-alt"></i> {% trans "Statistiques du mois" %} ({{ current_month }} {{ current_year }})
-        </h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-            <div style="text-align: center;">
-                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Émissions" %}</div>
-                <div style="font-size: 1.25rem; font-weight: 700; color: #3B82F6;">{{ stats_pesage.emissions_mois }}</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Montant Émis" %}</div>
-                <div style="font-size: 1.25rem; font-weight: 700; color: #F59E0B;">{{ stats_pesage.montant_emis_mois|floatformat:0|intcomma }}</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Recouvré" %}</div>
-                <div style="font-size: 1.25rem; font-weight: 700; color: #10B981;">{{ stats_pesage.montant_recouvre_mois|floatformat:0|intcomma }}</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Taux Recouvrement" %}</div>
-                <div style="font-size: 1.25rem; font-weight: 700; color: {% if stats_pesage.taux_recouvrement_mois >= 80 %}#10B981{% elif stats_pesage.taux_recouvrement_mois >= 50 %}#F59E0B{% else %}#EF4444{% endif %};">
-                    {{ stats_pesage.taux_recouvrement_mois }}%
+        <!-- RANG POSTE PÉAGE -->
+        {% if rang_poste_peage and rang_poste_peage.rang %}
+        <div class="supper-section">
+            <div class="supper-rank">
+                <div class="supper-rank-badge {% if rang_poste_peage.rang == 1 %}gold{% elif rang_poste_peage.rang == 2 %}silver{% elif rang_poste_peage.rang == 3 %}bronze{% else %}default{% endif %}">
+                    {{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}<sup style="font-size: 0.5em;">er</sup>{% endif %}
+                </div>
+                <div class="supper-rank-info">
+                    <h4>
+                        <i class="fas fa-road" style="margin-right: 0.5rem;"></i>
+                        {% if rang_poste_peage.rang == 1 %}
+                        🏆 Meilleur poste de péage !
+                        {% elif rang_poste_peage.rang <= 3 %}
+                        🥈 Top 3 des postes de péage
+                        {% elif rang_poste_peage.rang <= 5 %}
+                        ⭐ Top 5 des postes
+                        {% else %}
+                        📊 Votre classement péage
+                        {% endif %}
+                    </h4>
+                    <p>{{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}er{% else %}ème{% endif %} sur {{ rang_poste_peage.total_postes }} postes de péage</p>
+                    <small>Total recettes {{ current_year }}: {{ rang_poste_peage.total_recettes|floatformat:0|intcomma }} FCFA</small>
                 </div>
             </div>
-            {% if stats_pesage.quittancements_mois is not None %}
-            <div style="text-align: center;">
-                <div style="font-size: 0.75rem; color: #64748B;">{% trans "Quittancements" %}</div>
-                <div style="font-size: 1.25rem; font-weight: 700; color: #8B5CF6;">{{ stats_pesage.quittancements_mois }}</div>
+        </div>
+        {% endif %}
+
+        <!-- STATISTIQUES PESAGE -->
+        {% if stats_pesage %}
+        <div class="supper-section">
+            <h2 class="supper-section-title">
+                <i class="fas fa-weight-scale" style="color: #7c3aed;"></i> 
+                {% trans "Module Pesage" %}
+                <span class="supper-section-meta">
+                    {{ stats_pesage.label_scope }}
+                    {% if stats_pesage.jour_travail %}
+                    <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #ede9fe; border-radius: 4px; font-size: 0.7rem;">
+                        Jour: {{ stats_pesage.jour_travail|date:"d/m/Y" }} (9h-9h)
+                    </span>
+                    {% endif %}
+                </span>
+            </h2>
+            
+            <div class="supper-pesage-stats">
+                <div class="supper-pesage-stat purple">
+                    <div class="supper-pesage-stat-label"><i class="fas fa-balance-scale"></i> {% trans "Pesées Jour" %}</div>
+                    <div class="supper-pesage-stat-value">{{ stats_pesage.pesees_jour|default:"—" }}</div>
+                </div>
+                
+                <div class="supper-pesage-stat amber">
+                    <div class="supper-pesage-stat-label"><i class="fas fa-file-invoice"></i> {% trans "Émissions Jour" %}</div>
+                    <div class="supper-pesage-stat-value">{{ stats_pesage.emissions_jour|default:0 }}</div>
+                    <div class="supper-pesage-stat-unit">{% trans "dont" %} {{ stats_pesage.hors_gabarit_jour|default:0 }} HG</div>
+                </div>
+                
+                <div class="supper-pesage-stat blue">
+                    <div class="supper-pesage-stat-label"><i class="fas fa-coins"></i> {% trans "Émis Jour" %}</div>
+                    <div class="supper-pesage-stat-value">{{ stats_pesage.montant_emis_jour|floatformat:0|intcomma }}</div>
+                    <div class="supper-pesage-stat-unit">FCFA</div>
+                </div>
+                
+                <div class="supper-pesage-stat green">
+                    <div class="supper-pesage-stat-label"><i class="fas fa-hand-holding-usd"></i> {% trans "Recouvré Jour" %}</div>
+                    <div class="supper-pesage-stat-value">{{ stats_pesage.montant_recouvre_jour|floatformat:0|intcomma }}</div>
+                    <div class="supper-pesage-stat-unit">{{ stats_pesage.paiements_jour }} paiement{{ stats_pesage.paiements_jour|pluralize }}</div>
+                </div>
+                
+                <div class="supper-pesage-stat red">
+                    <div class="supper-pesage-stat-label"><i class="fas fa-clock"></i> {% trans "Reste Jour" %}</div>
+                    <div class="supper-pesage-stat-value">{{ stats_pesage.reste_a_recouvrer_jour|floatformat:0|intcomma }}</div>
+                    <div class="supper-pesage-stat-unit">FCFA</div>
+                </div>
+                
+                <div class="supper-pesage-stat outline {% if stats_pesage.amendes_non_payees > 0 %}warning-border{% else %}success-border{% endif %}">
+                    <div class="supper-pesage-stat-label"><i class="fas fa-hourglass-half"></i> {% trans "Non Payées" %}</div>
+                    <div class="supper-pesage-stat-value" style="color: {% if stats_pesage.amendes_non_payees > 0 %}#f59e0b{% else %}#10b981{% endif %};">
+                        {{ stats_pesage.amendes_non_payees|default:0 }}
+                    </div>
+                    <div class="supper-pesage-stat-unit" style="color: #64748b;">{{ stats_pesage.montant_non_paye_total|floatformat:0|intcomma }} FCFA</div>
+                </div>
+            </div>
+            
+            <!-- Stats du mois -->
+            <div class="supper-month-stats">
+                <h4>
+                    <i class="fas fa-calendar-alt"></i> 
+                    {% trans "Statistiques du mois" %} ({{ current_month }} {{ current_year }})
+                </h4>
+                <div class="supper-month-grid">
+                    <div class="supper-month-item">
+                        <label>{% trans "Émissions" %}</label>
+                        <span class="blue">{{ stats_pesage.emissions_mois }}</span>
+                    </div>
+                    <div class="supper-month-item">
+                        <label>{% trans "Montant Émis" %}</label>
+                        <span class="amber">{{ stats_pesage.montant_emis_mois|floatformat:0|intcomma }}</span>
+                    </div>
+                    <div class="supper-month-item">
+                        <label>{% trans "Recouvré" %}</label>
+                        <span class="green">{{ stats_pesage.montant_recouvre_mois|floatformat:0|intcomma }}</span>
+                    </div>
+                    <div class="supper-month-item">
+                        <label>{% trans "Taux Recouvrement" %}</label>
+                        <span class="{% if stats_pesage.taux_recouvrement_mois >= 80 %}green{% elif stats_pesage.taux_recouvrement_mois >= 50 %}amber{% else %}red{% endif %}">
+                            {{ stats_pesage.taux_recouvrement_mois }}%
+                        </span>
+                    </div>
+                    {% if stats_pesage.quittancements_mois is not None %}
+                    <div class="supper-month-item">
+                        <label>{% trans "Quittancements" %}</label>
+                        <span class="purple">{{ stats_pesage.quittancements_mois }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Rang station pesage -->
+            {% if rang_station_pesage and rang_station_pesage.rang %}
+            <div class="supper-rank" style="margin-top: 1.25rem; background: linear-gradient(135deg, #ede9fe, #ddd6fe);">
+                <div class="supper-rank-badge {% if rang_station_pesage.rang == 1 %}gold{% elif rang_station_pesage.rang == 2 %}silver{% elif rang_station_pesage.rang == 3 %}bronze{% else %}purple{% endif %}">
+                    {{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}<sup style="font-size: 0.5em;">er</sup>{% elif rang_station_pesage.rang <= 3 %}<sup style="font-size: 0.5em;">e</sup>{% endif %}
+                </div>
+                <div class="supper-rank-info">
+                    <h4 style="color: #5b21b6;">
+                        {% if rang_station_pesage.rang == 1 %}
+                        🏆 Champion des stations !
+                        {% elif rang_station_pesage.rang <= 3 %}
+                        🥈 Dans le top 3 !
+                        {% elif rang_station_pesage.rang <= 5 %}
+                        ⭐ Dans le top 5
+                        {% else %}
+                        📊 Classement actuel
+                        {% endif %}
+                    </h4>
+                    <p style="color: #7c3aed;">{{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}ère{% else %}ème{% endif %} position sur {{ rang_station_pesage.total_stations }} stations</p>
+                    <small style="color: #6d28d9;">
+                        Total recouvré: {{ rang_station_pesage.total_recouvre|floatformat:0|intcomma }} FCFA
+                        {% if rang_station_pesage.taux_recouvrement %}
+                        • Taux: {{ rang_station_pesage.taux_recouvrement }}%
+                        {% endif %}
+                    </small>
+                </div>
             </div>
             {% endif %}
-        </div>
-    </div>
-    <!-- Rang dans le classement -->
-    {% if rang_station_pesage and rang_station_pesage.rang %}
-    <div style="margin-top: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, #EDE9FE, #DDD6FE); border-radius: 12px; display: flex; align-items: center; gap: 1.25rem;">
-        <div style="width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.75rem;
-            {% if rang_station_pesage.rang == 1 %}background: linear-gradient(135deg, #FFD700, #FFA500); color: #000;
-            {% elif rang_station_pesage.rang == 2 %}background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #000;
-            {% elif rang_station_pesage.rang == 3 %}background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff;
-            {% else %}background: white; color: #7C3AED; border: 3px solid #7C3AED;{% endif %}
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-            {{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}<sup style="font-size: 0.6em;">er</sup>{% elif rang_station_pesage.rang <= 3 %}<sup style="font-size: 0.6em;">e</sup>{% endif %}
-        </div>
-        <div>
-            <div style="font-weight: 700; font-size: 1.1rem; color: #5B21B6;">
-                {% if rang_station_pesage.rang == 1 %}
-                🏆 Champion des stations !
-                {% elif rang_station_pesage.rang <= 3 %}
-                🥈 Dans le top 3 !
-                {% elif rang_station_pesage.rang <= 5 %}
-                ⭐ Dans le top 5
-                {% else %}
-                📊 Classement actuel
-                {% endif %}
+            
+            <!-- Alertes -->
+            {% if stats_pesage.demandes_confirmation_attente and stats_pesage.demandes_confirmation_attente > 0 %}
+            <div class="supper-alert warning">
+                <i class="fas fa-bell"></i>
+                <div class="supper-alert-content">
+                    <strong>{{ stats_pesage.demandes_confirmation_attente }} demande{{ stats_pesage.demandes_confirmation_attente|pluralize }} de confirmation en attente</strong>
+                    <small>Des régisseurs d'autres stations attendent votre validation.</small>
+                </div>
+                <a href="{% url 'inventaire:demandes_confirmation_a_traiter' %}" class="supper-alert-action">Traiter</a>
             </div>
-            <div style="color: #7C3AED; font-size: 0.875rem;">
-                {{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}ère{% else %}ème{% endif %} position sur {{ rang_station_pesage.total_stations }} stations
-            </div>
-            <div style="color: #6D28D9; font-size: 0.8rem; margin-top: 0.25rem;">
-                Total recouvré: {{ rang_station_pesage.total_recouvre|floatformat:0|intcomma }} FCFA
-                {% if rang_station_pesage.taux_recouvrement %}
-                • Taux: {{ rang_station_pesage.taux_recouvrement }}%
-                {% endif %}
-            </div>
-        </div>
-       
-    </div>
-    {% endif %}
-    
-    <!-- Alertes spécifiques au rôle -->
-    {% if stats_pesage.demandes_confirmation_attente and stats_pesage.demandes_confirmation_attente > 0 %}
-    <div style="margin-top: 1rem; padding: 1rem; background: #FEF3C7; border-radius: 8px; border-left: 4px solid #F59E0B; display: flex; align-items: center; gap: 0.75rem;">
-        <i class="fas fa-bell" style="color: #F59E0B; font-size: 1.25rem;"></i>
-        <div>
-            <strong style="color: #92400E;">{{ stats_pesage.demandes_confirmation_attente }} demande{{ stats_pesage.demandes_confirmation_attente|pluralize }} de confirmation en attente</strong>
-            <div style="font-size: 0.875rem; color: #78350F;">Des régisseurs d'autres stations attendent votre validation.</div>
-        </div>
-        <a href="{% url 'inventaire:demandes_confirmation_a_traiter' %}" style="margin-left: auto; padding: 0.5rem 1rem; background: #F59E0B; color: white; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.875rem;">
-            Traiter
-        </a>
-    </div>
-    {% endif %}
-    
-    {% if stats_pesage.mes_saisies_jour is not None %}
-    <div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #EDE9FE; border-radius: 8px; display: flex; align-items: center; gap: 0.5rem;">
-        <i class="fas fa-user-edit" style="color: #7C3AED;"></i>
-        <span style="color: #5B21B6; font-size: 0.875rem;">
-            <strong>Vos saisies aujourd'hui :</strong> {{ stats_pesage.mes_saisies_jour }} amende{{ stats_pesage.mes_saisies_jour|pluralize }}
-        </span>
-    </div>
-    {% endif %}
-    
-    <!-- Actions rapides Pesage -->
-    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #E2E8F0;">
-        {% if user_stats.habilitation == 'chef_equipe_pesage' or user_stats.is_admin %}
-        <a href="{% url 'inventaire:saisir_amende' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #8B5CF6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
-            <i class="fas fa-plus"></i>{% trans "Saisir Amende" %}
-        </a>
-        <a href="{% url 'inventaire:saisir_pesees' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #6366F1; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
-            <i class="fas fa-balance-scale"></i>{% trans "Saisir Pesées" %}
-        </a>
-        {% endif %}
-        
-        {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.habilitation == 'chef_station_pesage' or user_stats.is_admin %}
-        <a href="{% url 'inventaire:liste_amendes_a_valider' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #10B981; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s; position: relative;">
-            <i class="fas fa-check-double"></i>{% trans "Valider Paiements" %}
-            {% if stats_pesage.amendes_non_payees > 0 %}
-            <span style="position: absolute; top: -6px; right: -6px; background: #EF4444; color: white; font-size: 0.7rem; padding: 0.125rem 0.4rem; border-radius: 50px; font-weight: 600;">
-                {{ stats_pesage.amendes_non_payees }}
-            </span>
             {% endif %}
-        </a>
+            
+            {% if stats_pesage.mes_saisies_jour is not None %}
+            <div class="supper-alert info">
+                <i class="fas fa-user-edit"></i>
+                <div class="supper-alert-content">
+                    <strong>Vos saisies aujourd'hui : {{ stats_pesage.mes_saisies_jour }} amende{{ stats_pesage.mes_saisies_jour|pluralize }}</strong>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Actions rapides pesage -->
+            <div class="supper-actions-bar">
+                {% if user_stats.habilitation == 'chef_equipe_pesage' or user_stats.is_admin %}
+                <a href="{% url 'inventaire:saisir_amende' %}" class="supper-btn purple">
+                    <i class="fas fa-plus"></i>{% trans "Saisir Amende" %}
+                </a>
+                <a href="{% url 'inventaire:saisir_pesees' %}" class="supper-btn indigo">
+                    <i class="fas fa-balance-scale"></i>{% trans "Saisir Pesées" %}
+                </a>
+                {% endif %}
+                
+                {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.habilitation == 'chef_station_pesage' or user_stats.is_admin %}
+                <a href="{% url 'inventaire:liste_amendes_a_valider' %}" class="supper-btn green">
+                    <i class="fas fa-check-double"></i>{% trans "Valider Paiements" %}
+                    {% if stats_pesage.amendes_non_payees > 0 %}
+                    <span class="badge">{{ stats_pesage.amendes_non_payees }}</span>
+                    {% endif %}
+                </a>
+                {% endif %}
+                
+                {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.is_admin %}
+                <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" class="supper-btn pink">
+                    <i class="fas fa-receipt"></i>{% trans "Quittancement" %}
+                </a>
+                {% endif %}
+                
+                <a href="{% url 'inventaire:liste_amendes' %}" class="supper-btn blue">
+                    <i class="fas fa-list"></i>{% trans "Liste Amendes" %}
+                </a>
+                
+                <a href="{% url 'inventaire:recettes_pesage' %}" class="supper-btn outline">
+                    <i class="fas fa-coins"></i>{% trans "Recettes" %}
+                </a>
+                
+                <a href="{% url 'inventaire:statistiques_pesage' %}" class="supper-btn outline">
+                    <i class="fas fa-chart-bar"></i>{% trans "Statistiques" %}
+                </a>
+                
+                <a href="{% url 'inventaire:recherche_historique_vehicule' %}" class="supper-btn outline">
+                    <i class="fas fa-search"></i>{% trans "Historique Véhicule" %}
+                </a>
+            </div>
+        </div>
         {% endif %}
-        
-        {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.is_admin %}
-        <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #EC4899; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
-            <i class="fas fa-receipt"></i>{% trans "Quittancement" %}
-        </a>
-        {% endif %}
-        
-        <a href="{% url 'inventaire:liste_amendes' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #3B82F6; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
-            <i class="fas fa-list"></i>{% trans "Liste Amendes" %}
-        </a>
-        
-        <a href="{% url 'inventaire:recettes_pesage' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
-            <i class="fas fa-coins"></i>{% trans "Recettes" %}
-        </a>
-        
-        <a href="{% url 'inventaire:statistiques_pesage' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
-            <i class="fas fa-chart-bar"></i>{% trans "Statistiques" %}
-        </a>
-        
-        <a href="{% url 'inventaire:recherche_historique_vehicule' %}" 
-           style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: white; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.875rem; transition: all 0.3s;">
-            <i class="fas fa-search"></i>{% trans "Historique Véhicule" %}
-        </a>
-    </div>
-</div>
-{% endif %}
 
     </div>
 </div>
 
-<!-- JAVASCRIPT POUR LES GRAPHIQUES -->
+<!-- JAVASCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Horloge en temps réel
+    function updateClock() {
+        const now = new Date();
+        const options = { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' };
+        const timeEl = document.getElementById('current-time');
+        if (timeEl) {
+            timeEl.textContent = now.toLocaleDateString('fr-FR', options);
+        }
+    }
+    updateClock();
+    setInterval(updateClock, 60000);
+
+    // Configuration Chart.js
+    {% if graph_data_json %}
     const graphData = {{ graph_data_json|safe }};
     Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
     Chart.defaults.color = '#475569';
 
-    {% if graph_data_json %}
     if (graphData.evolution_7j && document.getElementById('chartRecettes')) {
         const ctxRecettes = document.getElementById('chartRecettes').getContext('2d');
         new Chart(ctxRecettes, {
@@ -543,14 +998,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 datasets: [{
                     label: 'Recettes (FCFA)',
                     data: graphData.evolution_7j.recettes,
-                    borderColor: '#2563eb',
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    borderColor: '#1e40af',
+                    backgroundColor: 'rgba(30, 64, 175, 0.1)',
                     borderWidth: 3,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 5,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: '#2563eb',
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: '#1e40af',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 }]
@@ -559,17 +1014,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: true, position: 'top' },
-                    tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 12,
-                        cornerRadius: 8
-                    }
+                    legend: { display: true, position: 'top', labels: { usePointStyle: true, padding: 20 } },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12, cornerRadius: 8, titleFont: { weight: 'bold' } }
                 },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
-                    x: { grid: { display: false } }
-                }
+                    y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.04)' }, ticks: { padding: 10 } },
+                    x: { grid: { display: false }, ticks: { padding: 10 } }
+                },
+                interaction: { intersect: false, mode: 'index' }
             }
         });
     }
@@ -577,14 +1029,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (graphData.evolution_7j && document.getElementById('chartTaux')) {
         const ctxTaux = document.getElementById('chartTaux').getContext('2d');
         const backgroundColors = graphData.evolution_7j.taux.map(taux => {
-            if (taux > -10) return 'rgba(16, 185, 129, 0.6)';
-            if (taux >= -30) return 'rgba(245, 158, 11, 0.6)';
-            return 'rgba(239, 68, 68, 0.6)';
+            if (taux > -10) return 'rgba(5, 150, 105, 0.7)';
+            if (taux >= -30) return 'rgba(217, 119, 6, 0.7)';
+            return 'rgba(220, 38, 38, 0.7)';
         });
         const borderColors = graphData.evolution_7j.taux.map(taux => {
-            if (taux > -10) return '#10B981';
-            if (taux >= -30) return '#F59E0B';
-            return '#EF4444';
+            if (taux > -10) return '#059669';
+            if (taux >= -30) return '#d97706';
+            return '#dc2626';
         });
 
         new Chart(ctxTaux, {
@@ -597,23 +1049,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     backgroundColor: backgroundColors,
                     borderColor: borderColors,
                     borderWidth: 2,
-                    borderRadius: 8
+                    borderRadius: 8,
+                    borderSkipped: false
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: true, position: 'top' },
-                    tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 12,
-                        cornerRadius: 8
-                    }
+                    legend: { display: true, position: 'top', labels: { usePointStyle: true, padding: 20 } },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12, cornerRadius: 8, titleFont: { weight: 'bold' } }
                 },
                 scales: {
-                    y: { beginAtZero: false, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
-                    x: { grid: { display: false } }
+                    y: { beginAtZero: false, grid: { color: 'rgba(0, 0, 0, 0.04)' }, ticks: { padding: 10 } },
+                    x: { grid: { display: false }, ticks: { padding: 10 } }
                 }
             }
         });
