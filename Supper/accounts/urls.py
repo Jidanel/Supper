@@ -23,11 +23,7 @@ urlpatterns = [
     
     path('logout/', views.CustomLogoutView.as_view(), name='logout'),
     
-    path('password/change/', auth_views.PasswordChangeView.as_view(
-        template_name='accounts/password_change.html',
-        success_url='/accounts/profile/',
-        extra_context={'title': 'Changer le mot de passe'}
-    ), name='password_change'),
+    path('profile/password/', views.ChangePasswordView.as_view(), name='password_change'),
     
     # ================================================================
     # GESTION DES UTILISATEURS
@@ -76,7 +72,6 @@ urlpatterns = [
     # ================================================================
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('profile/edit/', views.EditProfileView.as_view(), name='profile_edit'),
-    path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
     
     # ================================================================
     # DASHBOARDS
@@ -97,6 +92,7 @@ urlpatterns = [
     path('api/check-admin-permission/', views.check_admin_permission_api, name='api_check_admin'),
     path('api/departements/', views.api_departements, name='api_departements'),
     path('api/postes/', views.api_postes_par_type, name='api_postes_par_type'),
+    path('api/log-details/<int:log_id>/', views.api_log_details, name='api_log_details'),
     
     # Récupérer les infos sur une habilitation (type de poste requis)
     # GET /accounts/api/habilitation/?habilitation=chef_equipe_pesage

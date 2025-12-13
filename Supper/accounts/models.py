@@ -1,7 +1,7 @@
 # ===================================================================
 # Fichier : Supper/accounts/models.py
-# Modèles pour la gestion des utilisateurs SUPPER - VERSION COMPLÈTE
-# Inclut toutes les corrections selon les clarifications
+# Modèles pour la gestion des utilisateurs SUPPER - VERSION FINALE
+# Fusion : Structure existante + Nouvelles habilitations selon matrice PDF
 # ===================================================================
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -26,8 +26,67 @@ class TypePoste(models.TextChoices):
     PEAGE = 'peage', _('Poste de Péage')
     PESAGE = 'pesage', _('Poste de Pesage')
 
+
+class TypeNotification(models.TextChoices):
+    """Types de notifications dans le système"""
+    INFO = 'info', _('Information')
+    SUCCES = 'succes', _('Succès')
+    AVERTISSEMENT = 'avertissement', _('Avertissement')
+    ERREUR = 'erreur', _('Erreur')
+
+
+class Habilitation(models.TextChoices):
+    """
+    Rôles et habilitations dans le système SUPPER
+    MISE À JOUR selon la matrice PDF des habilitations
+    """
+    # Rôles administratifs centraux
+    ADMIN_PRINCIPAL = 'admin_principal', _('Administrateur Principal')
+    COORDONNATEUR_PSRR = 'coord_psrr', _('Coordonnateur PSRR')
+    SERVICE_INFORMATIQUE = 'serv_info', _('Service Informatique')
+    SERVICE_EMISSION = 'serv_emission', _('Service Émissions et Recouvrement')
+    
+    # Services support
+    CHEF_AFFAIRES_GENERALES = 'chef_ag', _('Service des Affaires Générales')
+    SERVICE_CONTROLE_VALIDATION = 'serv_controle', _('Service Contrôle et Validation')
+    SERVICE_ORDRE_SECRETARIAT = 'serv_ordre', _('Service Ordre/Secrétariat')
+    IMPRIMERIE_NATIONALE = 'imprimerie', _('Imprimerie Nationale')
+    
+    # CISOP (Cellules d'Intervention et de Suivi des Opérations) - NOUVEAUX
+    CISOP_PEAGE = 'cisop_peage', _('CISOP Péage')
+    CISOP_PESAGE = 'cisop_pesage', _('CISOP Pesage')
+    
+    # Rôles terrain péage
+    CHEF_POSTE_PEAGE = 'chef_peage', _('Chef de Poste Péage')
+    AGENT_INVENTAIRE = 'agent_inventaire', _('Agent Inventaire')
+    
+    # Rôles terrain pesage
+    CHEF_STATION_PESAGE = 'chef_station_pesage', _('Chef de Station Pesage')
+    REGISSEUR_PESAGE = 'regisseur_pesage', _('Régisseur de Station Pesage')
+    CHEF_EQUIPE_PESAGE = 'chef_equipe_pesage', _("Chef d'Équipe Pesage")
+    
+    # Rôles supplémentaires (conservés pour compatibilité)
+    POINT_FOCAL_REGIONAL = 'focal_regional', _('Point Focal Régional')
+    CHEF_SERVICE = 'chef_service', _('Chef de Service')
+    REGISSEUR = 'regisseur', _('Régisseur Central')
+    COMPTABLE_MATIERES = 'comptable_mat', _('Comptable Matières')
+    
+    # Anciens noms conservés pour compatibilité (alias)
+    CHEF_SERVICE_ORDRE = 'chef_ordre', _('Chef Service Ordre')
+    CHEF_SERVICE_CONTROLE = 'chef_controle', _('Chef Service Contrôle')
+
+
+# ===================================================================
+# MODÈLE REGION
+# ===================================================================
+
 class Region(models.Model):
-    nom = models.CharField(max_length=50, unique=True, verbose_name=_("Région"))
+    """Région administrative du Cameroun"""
+    nom = models.CharField(
+        max_length=50, 
+        unique=True, 
+        verbose_name=_("Région")
+    )
 
     class Meta:
         verbose_name = _("Région")
@@ -37,11 +96,23 @@ class Region(models.Model):
     def __str__(self):
         return self.nom
 
+
+# ===================================================================
+# MODÈLE DEPARTEMENT
+# ===================================================================
+
 class Departement(models.Model):
+    """Département administratif du Cameroun"""
     region = models.ForeignKey(
-        Region, on_delete=models.CASCADE, related_name='departements', verbose_name=_("Région")
+        Region, 
+        on_delete=models.CASCADE, 
+        related_name='departements', 
+        verbose_name=_("Région")
     )
-    nom = models.CharField(max_length=50, verbose_name=_("Département"))
+    nom = models.CharField(
+        max_length=50, 
+        verbose_name=_("Département")
+    )
 
     class Meta:
         verbose_name = _("Département")
@@ -51,34 +122,6 @@ class Departement(models.Model):
 
     def __str__(self):
         return f"{self.nom} ({self.region.nom})"
-    
-class Habilitation(models.TextChoices):
-    """Rôles et habilitations dans le système SUPPER"""
-    ADMIN_PRINCIPAL = 'admin_principal', _('Administrateur Principal')
-    CHEF_POSTE_PEAGE = 'chef_peage', _('Chef de Poste Péage')
-    CHEF_STATION_PESAGE = 'chef_station_pesage', _('Chef de Station Pesage')
-    CHEF_EQUIPE_PESAGE = 'chef_equipe_pesage', _("Chef d'Équipe Pesage")
-    REGISSEUR_PESAGE = 'regisseur_pesage', _('Régisseur Pesage')
-    POINT_FOCAL_REGIONAL = 'focal_regional', _('Point Focal Régional')
-    AGENT_INVENTAIRE = 'agent_inventaire', _('Agent Inventaire')
-    CHEF_SERVICE = 'chef_service', _('Chef de Service')
-    COORDONNATEUR_PSRR = 'coord_psrr', _('Coordonnateur PSRR')
-    SERVICE_INFORMATIQUE = 'serv_info', _('Service Informatique')
-    SERVICE_EMISSION = 'serv_emission', _('Service Émission et Recouvrement')
-    CHEF_AFFAIRES_GENERALES = 'chef_ag', _('Chef Service Affaires Générales')
-    REGISSEUR = 'regisseur', _('Régisseur')
-    COMPTABLE_MATIERES = 'comptable_mat', _('Comptable Matières')
-    CHEF_SERVICE_ORDRE = 'chef_ordre', _('Chef Service Ordre')
-    CHEF_SERVICE_CONTROLE = 'chef_controle', _('Chef Service Contrôle')
-    IMPRIMERIE_NATIONALE = 'imprimerie', _('Imprimerie Nationale')
-
-
-class TypeNotification(models.TextChoices):
-    """Types de notifications dans le système"""
-    INFO = 'info', _('Information')
-    SUCCES = 'succes', _('Succès')
-    AVERTISSEMENT = 'avertissement', _('Avertissement')
-    ERREUR = 'erreur', _('Erreur')
 
 
 # ===================================================================
@@ -132,12 +175,12 @@ class Poste(models.Model):
         on_delete=models.PROTECT,
         verbose_name=_("Département")
     )
-    # CHANGEMENT : arrondissement → axe_routier
+    
     axe_routier = models.CharField(
         max_length=100,
         blank=True,
         verbose_name=_("Axe routier"),
-        help_text=_("Axe routier où se situe le poste (ex: Yaoundé-Douala, Douala-Bafoussam)")
+        help_text=_("Axe routier où se situe le poste (ex: Yaoundé-Douala)")
     )
     
     # Coordonnées GPS optionnelles
@@ -175,7 +218,7 @@ class Poste(models.Model):
         verbose_name=_("Date de création")
     )
     date_modification = models.DateTimeField(
-        auto_now=True,  # CORRIGÉ : auto_now au lieu de auto_now_add
+        auto_now=True,
         verbose_name=_("Date de modification")
     )
     
@@ -191,7 +234,6 @@ class Poste(models.Model):
     
     def __str__(self):
         """Affichage optimisé pour éviter la coupure dans les listes déroulantes"""
-        # Format court pour les listes : Code - Nom (Type)
         return f"{self.code} - {self.nom[:30]}{'...' if len(self.nom) > 30 else ''} ({self.get_type_display()})"
 
     def get_nom_complet(self):
@@ -223,7 +265,7 @@ class Poste(models.Model):
         try:
             objectif = ObjectifAnnuel.objects.get(poste=self, annee=annee)
             objectif_annuel = objectif.montant_objectif
-        except ObjectifAnnuel.DoesNotExist:
+        except:
             return None
         
         if objectif_annuel and objectif_annuel > 0:
@@ -253,7 +295,7 @@ class Poste(models.Model):
 
 
 # ===================================================================
-# MODÈLE UTILISATEUR SUPPER - VERSION COMPLÈTE
+# MANAGER UTILISATEUR PERSONNALISÉ
 # ===================================================================
 
 class UtilisateurSupperManager(BaseUserManager):
@@ -289,24 +331,27 @@ class UtilisateurSupperManager(BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
         
         return self.create_user(username, password, **extra_fields)
+
+
+# ===================================================================
+# MODÈLE UTILISATEUR SUPPER - VERSION COMPLÈTE
+# ===================================================================
+
 class UtilisateurSUPPER(AbstractUser):
     """
     Utilisateur personnalisé pour le système SUPPER
     Étend AbstractUser avec champs spécifiques métier
     """
     
-    # Redéfinir les champs de base
+    # Manager personnalisé
     objects = UtilisateurSupperManager()
+    
+    # Redéfinir le champ username
     username = models.CharField(
         max_length=20,
         unique=True,
         verbose_name=_("Matricule"),
         help_text=_("Matricule unique de l'agent (ex: 1052105M)")
-        #     RegexValidator(
-        #         regex=r'^[A-Z]{2,4}[0-9]{3,4}$',
-        #         message=_("Format: 2-4 lettres + 3-4 chiffres (ex: INV001)")
-        #     )
-        # ]
     )
     
     first_name = None  # Supprimer first_name
@@ -331,7 +376,7 @@ class UtilisateurSUPPER(AbstractUser):
         ]
     )
     
-    # Email optionnel pour réinitialisation mot de passe
+    # Email optionnel
     email = models.EmailField(
         blank=True,
         null=True,
@@ -350,7 +395,7 @@ class UtilisateurSUPPER(AbstractUser):
         help_text=_("Poste principal où l'agent est affecté")
     )
     
-    # Rôle et habilitation dans le système
+    # Rôle et habilitation
     habilitation = models.CharField(
         max_length=30,
         choices=Habilitation.choices,
@@ -360,20 +405,8 @@ class UtilisateurSUPPER(AbstractUser):
     )
     
     # ===============================================================
-    # PERMISSIONS D'ACCÈS AUX DONNÉES
+    # PERMISSIONS D'ACCÈS GLOBALES
     # ===============================================================
-    
-    peut_saisir_peage = models.BooleanField(
-        default=False,
-        verbose_name=_("Peut saisir données péage"),
-        help_text=_("Autorisation de créer/modifier les données de péage")
-    )
-    
-    peut_saisir_pesage = models.BooleanField(
-        default=False,
-        verbose_name=_("Peut saisir données pesage"),
-        help_text=_("Autorisation de créer/modifier les données de pesage")
-    )
     
     acces_tous_postes = models.BooleanField(
         default=False,
@@ -381,70 +414,204 @@ class UtilisateurSUPPER(AbstractUser):
         help_text=_("Si False, accès limité au poste d'affectation uniquement")
     )
     
-    # ===============================================================
-    # NOUVEAUX CHAMPS - CONTRÔLE D'AFFICHAGE PRÉCIS
-    # ===============================================================
+    peut_saisir_peage = models.BooleanField(
+        default=False,
+        verbose_name=_("Peut saisir données péage")
+    )
+    
+    peut_saisir_pesage = models.BooleanField(
+        default=False,
+        verbose_name=_("Peut saisir données pesage")
+    )
     
     voir_recettes_potentielles = models.BooleanField(
-        default=True,
-        verbose_name=_("Peut voir recettes potentielles"),
-        help_text=_("Autorisation de voir les calculs de recettes potentielles")
+        default=False,
+        verbose_name=_("Peut voir recettes potentielles")
     )
     
     voir_taux_deperdition = models.BooleanField(
-        default=True,
-        verbose_name=_("Peut voir taux déperdition"),
-        help_text=_("Autorisation de voir les calculs de taux de déperdition")
+        default=False,
+        verbose_name=_("Peut voir taux déperdition")
     )
     
     voir_statistiques_globales = models.BooleanField(
         default=False,
-        verbose_name=_("Peut voir statistiques globales"),
-        help_text=_("Autorisation de voir stats tous postes (admin/service émission)")
+        verbose_name=_("Peut voir statistiques globales")
     )
     
     peut_saisir_pour_autres_postes = models.BooleanField(
         default=False,
-        verbose_name=_("Peut saisir pour autres postes"),
-        help_text=_("Admin peut saisir inventaires/recettes sur tous postes")
+        verbose_name=_("Peut saisir pour autres postes")
     )
     
     # ===============================================================
-    # PERMISSIONS SUR LES MODULES FONCTIONNELS
+    # ANCIENNES PERMISSIONS MODULES (conservées pour compatibilité)
     # ===============================================================
     
-    peut_gerer_peage = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer le péage")
-    )
-    peut_gerer_pesage = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer le pesage")
-    )
-    peut_gerer_personnel = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer le personnel")
-    )
-    peut_gerer_budget = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer le budget")
-    )
-    peut_gerer_inventaire = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer l'inventaire")
-    )
-    peut_gerer_archives = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer les archives")
-    )
-    peut_gerer_stocks_psrr = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer les stocks PSRR")
-    )
-    peut_gerer_stock_info = models.BooleanField(
-        default=False, 
-        verbose_name=_("Gérer le stock informatique")
-    )
+    peut_gerer_peage = models.BooleanField(default=False, verbose_name=_("Gérer le péage"))
+    peut_gerer_pesage = models.BooleanField(default=False, verbose_name=_("Gérer le pesage"))
+    peut_gerer_personnel = models.BooleanField(default=False, verbose_name=_("Gérer le personnel"))
+    peut_gerer_budget = models.BooleanField(default=False, verbose_name=_("Gérer le budget"))
+    peut_gerer_inventaire = models.BooleanField(default=False, verbose_name=_("Gérer l'inventaire"))
+    peut_gerer_archives = models.BooleanField(default=False, verbose_name=_("Gérer les archives"))
+    peut_gerer_stocks_psrr = models.BooleanField(default=False, verbose_name=_("Gérer les stocks PSRR"))
+    peut_gerer_stock_info = models.BooleanField(default=False, verbose_name=_("Gérer le stock info"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS INVENTAIRES (selon matrice PDF)
+    # ===============================================================
+    
+    peut_saisir_inventaire_normal = models.BooleanField(
+        default=False, verbose_name=_("Saisir inventaire normal"))
+    peut_saisir_inventaire_admin = models.BooleanField(
+        default=False, verbose_name=_("Saisir inventaire administratif"))
+    peut_programmer_inventaire = models.BooleanField(
+        default=False, verbose_name=_("Programmer inventaire"))
+    peut_voir_programmation_active = models.BooleanField(
+        default=False, verbose_name=_("Voir programmation active"))
+    peut_desactiver_programmation = models.BooleanField(
+        default=False, verbose_name=_("Désactiver programmation"))
+    peut_voir_programmation_desactivee = models.BooleanField(
+        default=False, verbose_name=_("Voir programmations désactivées"))
+    peut_voir_liste_inventaires = models.BooleanField(
+        default=False, verbose_name=_("Voir liste inventaires"))
+    peut_voir_liste_inventaires_admin = models.BooleanField(
+        default=False, verbose_name=_("Voir liste inventaires admin"))
+    peut_voir_jours_impertinents = models.BooleanField(
+        default=False, verbose_name=_("Voir jours impertinents"))
+    peut_voir_stats_deperdition = models.BooleanField(
+        default=False, verbose_name=_("Voir stats déperdition"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS RECETTES PEAGE
+    # ===============================================================
+    
+    peut_saisir_recette_peage = models.BooleanField(
+        default=False, verbose_name=_("Saisir recette péage"))
+    peut_voir_liste_recettes_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir liste recettes péage"))
+    peut_voir_stats_recettes_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir stats recettes péage"))
+    peut_importer_recettes_peage = models.BooleanField(
+        default=False, verbose_name=_("Importer recettes péage"))
+    peut_voir_evolution_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir évolution péage"))
+    peut_voir_objectifs_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir objectifs péage"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS QUITTANCES PEAGE
+    # ===============================================================
+    
+    peut_saisir_quittance_peage = models.BooleanField(
+        default=False, verbose_name=_("Saisir quittance péage"))
+    peut_voir_liste_quittances_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir liste quittances péage"))
+    peut_comptabiliser_quittances_peage = models.BooleanField(
+        default=False, verbose_name=_("Comptabiliser quittances péage"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS PESAGE
+    # ===============================================================
+    
+    peut_voir_historique_vehicule_pesage = models.BooleanField(
+        default=False, verbose_name=_("Voir historique véhicule pesage"))
+    peut_saisir_amende = models.BooleanField(
+        default=False, verbose_name=_("Saisir amende"))
+    peut_saisir_pesee_jour = models.BooleanField(
+        default=False, verbose_name=_("Saisir pesée du jour"))
+    peut_voir_objectifs_pesage = models.BooleanField(
+        default=False, verbose_name=_("Voir objectifs pesage"))
+    peut_valider_paiement_amende = models.BooleanField(
+        default=False, verbose_name=_("Valider paiement amende"))
+    peut_lister_amendes = models.BooleanField(
+        default=False, verbose_name=_("Lister amendes"))
+    peut_saisir_quittance_pesage = models.BooleanField(
+        default=False, verbose_name=_("Saisir quittance pesage"))
+    peut_comptabiliser_quittances_pesage = models.BooleanField(
+        default=False, verbose_name=_("Comptabiliser quittances pesage"))
+    peut_voir_liste_quittancements_pesage = models.BooleanField(
+        default=False, verbose_name=_("Voir liste quittancements pesage"))
+    peut_voir_historique_pesees = models.BooleanField(
+        default=False, verbose_name=_("Voir historique pesées"))
+    peut_voir_recettes_pesage = models.BooleanField(
+        default=False, verbose_name=_("Voir recettes pesage"))
+    peut_voir_stats_pesage = models.BooleanField(
+        default=False, verbose_name=_("Voir stats pesage"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS STOCK PEAGE
+    # ===============================================================
+    
+    peut_charger_stock_peage = models.BooleanField(
+        default=False, verbose_name=_("Charger stock péage"))
+    peut_voir_liste_stocks_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir liste stocks péage"))
+    peut_voir_stock_date_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir stock à date péage"))
+    peut_transferer_stock_peage = models.BooleanField(
+        default=False, verbose_name=_("Transférer stock péage"))
+    peut_voir_tracabilite_tickets = models.BooleanField(
+        default=False, verbose_name=_("Voir traçabilité tickets"))
+    peut_voir_bordereaux_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir bordereaux péage"))
+    peut_voir_mon_stock_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir mon stock péage"))
+    peut_voir_historique_stock_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir historique stock péage"))
+    peut_simuler_commandes_peage = models.BooleanField(
+        default=False, verbose_name=_("Simuler commandes péage"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS GESTION
+    # ===============================================================
+    
+    peut_gerer_postes = models.BooleanField(
+        default=False, verbose_name=_("Gérer les postes"))
+    peut_ajouter_poste = models.BooleanField(
+        default=False, verbose_name=_("Ajouter un poste"))
+    peut_creer_poste_masse = models.BooleanField(
+        default=False, verbose_name=_("Créer postes en masse"))
+    peut_gerer_utilisateurs = models.BooleanField(
+        default=False, verbose_name=_("Gérer utilisateurs"))
+    peut_creer_utilisateur = models.BooleanField(
+        default=False, verbose_name=_("Créer utilisateur"))
+    peut_voir_journal_audit = models.BooleanField(
+        default=False, verbose_name=_("Voir journal audit"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS RAPPORTS
+    # ===============================================================
+    
+    peut_voir_rapports_defaillants_peage = models.BooleanField(
+        default=False, verbose_name=_("Voir rapports défaillants péage"))
+    peut_voir_rapports_defaillants_pesage = models.BooleanField(
+        default=False, verbose_name=_("Voir rapports défaillants pesage"))
+    peut_voir_rapport_inventaires = models.BooleanField(
+        default=False, verbose_name=_("Voir rapport inventaires"))
+    peut_voir_classement_peage_rendement = models.BooleanField(
+        default=False, verbose_name=_("Voir classement péage rendement"))
+    peut_voir_classement_station_pesage = models.BooleanField(
+        default=False, verbose_name=_("Voir classement station pesage"))
+    peut_voir_classement_peage_deperdition = models.BooleanField(
+        default=False, verbose_name=_("Voir classement péage déperdition"))
+    peut_voir_classement_agents_inventaire = models.BooleanField(
+        default=False, verbose_name=_("Voir classement agents inventaire"))
+    
+    # ===============================================================
+    # NOUVELLES PERMISSIONS AUTRES
+    # ===============================================================
+    
+    peut_parametrage_global = models.BooleanField(
+        default=False, verbose_name=_("Paramétrage global"))
+    peut_voir_compte_emploi = models.BooleanField(
+        default=False, verbose_name=_("Voir compte d'emploi"))
+    peut_voir_pv_confrontation = models.BooleanField(
+        default=False, verbose_name=_("Voir PV confrontation"))
+    peut_authentifier_document = models.BooleanField(
+        default=False, verbose_name=_("Authentifier document"))
+    peut_voir_tous_postes = models.BooleanField(
+        default=False, verbose_name=_("Voir tous les postes"))
     
     # ===============================================================
     # MÉTADONNÉES ET TRAÇABILITÉ
@@ -456,8 +623,7 @@ class UtilisateurSUPPER(AbstractUser):
         null=True,
         blank=True,
         related_name='utilisateurs_crees',
-        verbose_name=_("Créé par"),
-        help_text=_("Administrateur qui a créé ce compte")
+        verbose_name=_("Créé par")
     )
     
     date_creation = models.DateTimeField(
@@ -486,221 +652,39 @@ class UtilisateurSUPPER(AbstractUser):
     
     def save(self, *args, **kwargs):
         """Sauvegarde avec attribution automatique des permissions"""
-        # Attribuer automatiquement les permissions selon l'habilitation
         self.attribuer_permissions_automatiques()
-        
-        # Sauvegarder l'objet
         super().save(*args, **kwargs)
         
-        # Logger la création/modification
         if hasattr(self, '_state') and self._state.adding:
             logger.info(f"Nouvel utilisateur créé: {self.username} ({self.nom_complet})")
         else:
             logger.info(f"Utilisateur modifié: {self.username}")
+    
+    # ===============================================================
+    # PROPRIÉTÉS
+    # ===============================================================
+    
     @property
     def is_admin(self):
-        # Tu adaptes la logique de _check_admin_permission
+        """Vérifie si l'utilisateur est administrateur"""
         return (
             self.is_superuser or
             self.is_staff or
-            self.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']
+            self.habilitation in [
+                Habilitation.ADMIN_PRINCIPAL,
+                Habilitation.COORDONNATEUR_PSRR,
+                Habilitation.SERVICE_INFORMATIQUE,
+                Habilitation.SERVICE_EMISSION
+            ]
         )
+    
     @property
     def is_chef_poste(self):
-        return self.habilitation in ['chef_peage', 'chef_pesage']
-    
-    def get_absolute_url(self):
-        return reverse('accounts:user_detail', kwargs={'pk': self.pk})
-    
-    # ===============================================================
-    # MÉTHODES POUR ATTRIBUTION AUTOMATIQUE DES PERMISSIONS
-    # ===============================================================
-    
-    def attribuer_permissions_automatiques(self):
-        """
-        Attribue automatiquement les permissions selon l'habilitation
-        MISE À JOUR selon les nouvelles spécifications :
-        - Agent inventaire : accès très restreint, pas de recettes potentielles
-        - Chef péage : taux déperdition seulement (pas recettes potentielles)
-        - Admin : accès complet à tout
-        """
-
-        self.is_staff = False
-        self.is_superuser = False
-        self.acces_tous_postes = False
-        # Réinitialiser toutes les permissions
-        permission_fields = [
-            'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
-            'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
-            'peut_gerer_stocks_psrr', 'peut_gerer_stock_info'
+        """Vérifie si l'utilisateur est chef de poste"""
+        return self.habilitation in [
+            Habilitation.CHEF_POSTE_PEAGE,
+            Habilitation.CHEF_STATION_PESAGE
         ]
-        
-        for field in permission_fields:
-            setattr(self, field, False)
-        
-        # Attribution selon le rôle avec nouvelles restrictions
-        if self.habilitation == Habilitation.ADMIN_PRINCIPAL:
-            # Admin principal : ACCÈS COMPLET À TOUT
-            self.is_staff = True
-            self.is_superuser = True
-            self.acces_tous_postes = True
-            self.peut_saisir_peage = True
-            self.peut_saisir_pesage = True
-            # PEUT TOUT VOIR
-            self.voir_recettes_potentielles = True
-            self.voir_taux_deperdition = True
-            self.voir_statistiques_globales = True
-            self.peut_saisir_pour_autres_postes = True
-            # Tous les modules
-            for field in permission_fields:
-                setattr(self, field, True)
-        
-        elif self.habilitation == Habilitation.COORDONNATEUR_PSRR:
-            # Coordonnateur : accès global mais pas superuser
-            self.acces_tous_postes = True
-            self.is_staff = True
-            self.peut_saisir_peage = True
-            self.peut_saisir_pesage = True
-            # PEUT TOUT VOIR
-            self.voir_recettes_potentielles = True
-            self.voir_taux_deperdition = True
-            self.voir_statistiques_globales = True
-            self.peut_saisir_pour_autres_postes = True
-            # Tous les modules
-            for field in permission_fields:
-                setattr(self, field, True)
-        
-        elif self.habilitation == Habilitation.SERVICE_INFORMATIQUE:
-            # Service informatique : maintenance et suivi complet
-            self.is_staff = True
-            self.is_staff = True
-            self.acces_tous_postes = True
-            self.peut_saisir_peage = True
-            self.peut_saisir_pesage = True
-            # PEUT TOUT VOIR
-            self.voir_recettes_potentielles = True
-            self.voir_taux_deperdition = True
-            self.voir_statistiques_globales = True
-            self.peut_saisir_pour_autres_postes = True
-            # Tous les modules
-            for field in permission_fields:
-                setattr(self, field, True)
-        
-        elif self.habilitation == Habilitation.SERVICE_EMISSION:
-            # Service émission : PEUT VOIR les recettes potentielles + graphiques
-            self.acces_tous_postes = True
-            self.is_staff = True
-            self.peut_gerer_peage = True
-            self.peut_gerer_stocks_psrr = True
-            self.peut_saisir_peage = True
-            # PEUT VOIR recettes potentielles (spécifié dans clarifications)
-            self.voir_recettes_potentielles = True
-            self.voir_taux_deperdition = True
-            self.voir_statistiques_globales = True
-        
-        elif self.habilitation == Habilitation.CHEF_POSTE_PEAGE:
-            # Chef péage : SEULEMENT taux déperdition (PAS recettes potentielles)
-            self.peut_gerer_peage = True
-            self.peut_saisir_peage = True
-            self.peut_gerer_inventaire = False
-            # RESTRICTIONS IMPORTANTES
-            self.voir_recettes_potentielles = False  # PAS les recettes potentielles
-            self.voir_taux_deperdition = True        # SEULEMENT le taux
-            self.voir_statistiques_globales = False
-            self.acces_tous_postes = False           # Son poste seulement
-            
-        elif self.habilitation == Habilitation.CHEF_STATION_PESAGE:
-            # Chef de station pesage : vue complète sur sa station
-            self.peut_gerer_pesage = True
-            self.peut_saisir_pesage = True
-            self.voir_statistiques_globales = False  # Sa station uniquement
-            self.acces_tous_postes = False
-            self.peut_gerer_inventaire = False
-            
-        elif self.habilitation == Habilitation.CHEF_EQUIPE_PESAGE:
-            # Chef d'équipe pesage : saisie amendes uniquement
-            self.peut_saisir_pesage = True
-            self.peut_gerer_pesage = False  # Ne peut pas valider les paiements
-            self.voir_statistiques_globales = False
-            self.acces_tous_postes = False
-            self.peut_gerer_inventaire = False
-            
-        elif self.habilitation == Habilitation.REGISSEUR_PESAGE:
-            # Régisseur pesage : validation paiements + quittancements
-            self.peut_gerer_pesage = True  # Peut valider les paiements
-            self.peut_saisir_pesage = False  # Ne saisit pas d'amendes
-            self.voir_statistiques_globales = False  # Sa station uniquement
-            self.acces_tous_postes = False
-            self.peut_gerer_inventaire = False
-
-        
-        elif self.habilitation == Habilitation.AGENT_INVENTAIRE:
-            # Agent inventaire : DROITS TRÈS LIMITÉS
-            self.peut_gerer_inventaire = True
-            # RESTRICTIONS MAXIMALES
-            self.voir_recettes_potentielles = False  # NE VOIT PAS les recettes potentielles
-            self.voir_taux_deperdition = False       # NE VOIT PAS les taux de déperdition
-            self.voir_statistiques_globales = False
-            self.acces_tous_postes = False           # Son poste seulement
-            self.peut_saisir_peage = False
-            self.peut_saisir_pesage = False
-        
-        elif self.habilitation == Habilitation.CHEF_AFFAIRES_GENERALES:
-            # Chef affaires générales : gestion personnel
-            self.peut_gerer_personnel = True
-            self.acces_tous_postes = True
-            self.voir_statistiques_globales = True
-        
-        elif self.habilitation == Habilitation.REGISSEUR:
-            # Régisseur : gestion budget
-            self.peut_gerer_budget = True
-            self.acces_tous_postes = True
-            self.voir_statistiques_globales = True
-        
-        elif self.habilitation == Habilitation.COMPTABLE_MATIERES:
-            # Comptable matières : archives
-            self.peut_gerer_archives = True
-            self.acces_tous_postes = True
-        
-        elif self.habilitation in [
-            Habilitation.CHEF_SERVICE_ORDRE,
-            Habilitation.CHEF_SERVICE_CONTROLE
-        ]:
-            # Chefs de service : archives et validation
-            self.peut_gerer_archives = True
-            self.acces_tous_postes = True
-        
-        elif self.habilitation == Habilitation.IMPRIMERIE_NATIONALE:
-            # Imprimerie nationale : gestion stocks
-            self.peut_gerer_stocks_psrr = True
-        
-        # Les autres rôles gardent leurs permissions par défaut
-    
-    def peut_voir_poste(self, poste):
-        """Vérifie si l'utilisateur peut voir les données d'un poste"""
-        if self.acces_tous_postes:
-            return True
-        return self.poste_affectation == poste
-    
-    def peut_modifier_poste(self, poste):
-        """Vérifie si l'utilisateur peut modifier les données d'un poste"""
-        if self.peut_saisir_pour_autres_postes:
-            return True
-        return self.peut_voir_poste(poste)
-    def get_postes_accessibles(self):
-        """Retourne la liste des postes auxquels l'utilisateur a accès"""
-        if self.acces_tous_postes or self.is_admin:
-            return Poste.objects.filter(is_active=True)
-        elif self.poste_affectation:
-            return Poste.objects.filter(id=self.poste_affectation.id)
-        else:
-            return Poste.objects.none()
-
-    def peut_acceder_poste(self, poste):
-        """Vérifie si l'utilisateur peut accéder aux données d'un poste"""
-        if self.acces_tous_postes or self.is_admin:
-            return True
-        return self.poste_affectation == poste
     
     @property
     def nom_role(self):
@@ -710,14 +694,594 @@ class UtilisateurSUPPER(AbstractUser):
     @property
     def niveau_acces(self):
         """Retourne le niveau d'accès de l'utilisateur"""
-        if self.habilitation in ['admin_principal', 'coord_psrr', 'serv_info'] or self.is_superuser:
+        if self.habilitation in [
+            Habilitation.ADMIN_PRINCIPAL,
+            Habilitation.COORDONNATEUR_PSRR,
+            Habilitation.SERVICE_INFORMATIQUE
+        ] or self.is_superuser:
             return 'COMPLET'
-        elif self.habilitation in ['chef_peage', 'chef_pesage']:
-            return 'RESTREINT'
-        elif self.habilitation == 'agent_inventaire':
-            return 'LIMITÉ'
-        else:
+        elif self.habilitation in [
+            Habilitation.SERVICE_EMISSION,
+            Habilitation.CHEF_AFFAIRES_GENERALES,
+            Habilitation.SERVICE_CONTROLE_VALIDATION,
+            Habilitation.SERVICE_ORDRE_SECRETARIAT
+        ]:
+            return 'ÉTENDU'
+        elif self.habilitation in [
+            Habilitation.CISOP_PEAGE,
+            Habilitation.CISOP_PESAGE,
+            Habilitation.CHEF_POSTE_PEAGE,
+            Habilitation.CHEF_STATION_PESAGE
+        ]:
             return 'STANDARD'
+        else:
+            return 'LIMITÉ'
+    
+    # ===============================================================
+    # MÉTHODES D'ACCÈS
+    # ===============================================================
+    
+    def get_absolute_url(self):
+        return reverse('accounts:user_detail', kwargs={'pk': self.pk})
+    
+    def peut_voir_poste(self, poste):
+        """Vérifie si l'utilisateur peut voir les données d'un poste"""
+        if self.acces_tous_postes or self.peut_voir_tous_postes:
+            return True
+        return self.poste_affectation == poste
+    
+    def peut_modifier_poste(self, poste):
+        """Vérifie si l'utilisateur peut modifier les données d'un poste"""
+        if self.peut_saisir_pour_autres_postes:
+            return True
+        return self.peut_voir_poste(poste)
+    
+    def get_postes_accessibles(self):
+        """Retourne la liste des postes auxquels l'utilisateur a accès"""
+        if self.acces_tous_postes or self.is_admin or self.peut_voir_tous_postes:
+            return Poste.objects.filter(is_active=True)
+        elif self.poste_affectation:
+            return Poste.objects.filter(id=self.poste_affectation.id)
+        else:
+            return Poste.objects.none()
+    
+    def peut_acceder_poste(self, poste):
+        """Vérifie si l'utilisateur peut accéder aux données d'un poste"""
+        if self.acces_tous_postes or self.is_admin:
+            return True
+        return self.poste_affectation == poste
+    
+    # ===============================================================
+    # ATTRIBUTION AUTOMATIQUE DES PERMISSIONS
+    # ===============================================================
+    
+    def attribuer_permissions_automatiques(self):
+        """
+        Attribue automatiquement les permissions selon l'habilitation
+        BASÉ SUR LA MATRICE PDF DES HABILITATIONS
+        """
+        # ÉTAPE 1: RÉINITIALISATION COMPLÈTE
+        self._reinitialiser_toutes_permissions()
+        
+        # ÉTAPE 2: ATTRIBUTION SELON LE RÔLE
+        config_map = {
+            Habilitation.ADMIN_PRINCIPAL: self._configurer_admin_principal,
+            Habilitation.COORDONNATEUR_PSRR: self._configurer_coordonnateur_psrr,
+            Habilitation.SERVICE_INFORMATIQUE: self._configurer_service_informatique,
+            Habilitation.SERVICE_EMISSION: self._configurer_service_emission,
+            Habilitation.CHEF_AFFAIRES_GENERALES: self._configurer_chef_affaires_generales,
+            Habilitation.SERVICE_CONTROLE_VALIDATION: self._configurer_service_controle_validation,
+            Habilitation.SERVICE_ORDRE_SECRETARIAT: self._configurer_service_ordre_secretariat,
+            Habilitation.IMPRIMERIE_NATIONALE: self._configurer_imprimerie_nationale,
+            Habilitation.CISOP_PEAGE: self._configurer_cisop_peage,
+            Habilitation.CISOP_PESAGE: self._configurer_cisop_pesage,
+            Habilitation.CHEF_POSTE_PEAGE: self._configurer_chef_poste_peage,
+            Habilitation.CHEF_STATION_PESAGE: self._configurer_chef_station_pesage,
+            Habilitation.REGISSEUR_PESAGE: self._configurer_regisseur_pesage,
+            Habilitation.CHEF_EQUIPE_PESAGE: self._configurer_chef_equipe_pesage,
+            Habilitation.AGENT_INVENTAIRE: self._configurer_agent_inventaire,
+            Habilitation.POINT_FOCAL_REGIONAL: self._configurer_point_focal_regional,
+            Habilitation.REGISSEUR: self._configurer_regisseur_central,
+            Habilitation.COMPTABLE_MATIERES: self._configurer_comptable_matieres,
+            # Anciens noms pour compatibilité
+            Habilitation.CHEF_SERVICE_ORDRE: self._configurer_service_ordre_secretariat,
+            Habilitation.CHEF_SERVICE_CONTROLE: self._configurer_service_controle_validation,
+        }
+        
+        config_func = config_map.get(self.habilitation)
+        if config_func:
+            config_func()
+    
+    def _reinitialiser_toutes_permissions(self):
+        """Réinitialise toutes les permissions à False"""
+        self.is_staff = False
+        self.is_superuser = False
+        self.acces_tous_postes = False
+        self.peut_saisir_peage = False
+        self.peut_saisir_pesage = False
+        self.voir_recettes_potentielles = False
+        self.voir_taux_deperdition = False
+        self.voir_statistiques_globales = False
+        self.peut_saisir_pour_autres_postes = False
+        
+        # Anciennes permissions
+        for field in ['peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
+                      'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
+                      'peut_gerer_stocks_psrr', 'peut_gerer_stock_info']:
+            setattr(self, field, False)
+        
+        # Nouvelles permissions granulaires
+        permission_fields = [
+            'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
+            'peut_programmer_inventaire', 'peut_voir_programmation_active',
+            'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+            'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
+            'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+            'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
+            'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
+            'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+            'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
+            'peut_comptabiliser_quittances_peage', 'peut_voir_historique_vehicule_pesage',
+            'peut_saisir_amende', 'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
+            'peut_valider_paiement_amende', 'peut_lister_amendes',
+            'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
+            'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
+            'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+            'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
+            'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
+            'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+            'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
+            'peut_simuler_commandes_peage', 'peut_gerer_postes', 'peut_ajouter_poste',
+            'peut_creer_poste_masse', 'peut_gerer_utilisateurs', 'peut_creer_utilisateur',
+            'peut_voir_journal_audit', 'peut_voir_rapports_defaillants_peage',
+            'peut_voir_rapports_defaillants_pesage', 'peut_voir_rapport_inventaires',
+            'peut_voir_classement_peage_rendement', 'peut_voir_classement_station_pesage',
+            'peut_voir_classement_peage_deperdition', 'peut_voir_classement_agents_inventaire',
+            'peut_parametrage_global', 'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
+            'peut_authentifier_document', 'peut_voir_tous_postes'
+        ]
+        for field in permission_fields:
+            setattr(self, field, False)
+    
+    def _activer_toutes_permissions(self):
+        """Active toutes les permissions (pour admins)"""
+        # Anciennes permissions
+        for field in ['peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
+                      'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
+                      'peut_gerer_stocks_psrr', 'peut_gerer_stock_info']:
+            setattr(self, field, True)
+        
+        # Nouvelles permissions
+        permission_fields = [
+            'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
+            'peut_programmer_inventaire', 'peut_voir_programmation_active',
+            'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+            'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
+            'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+            'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
+            'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
+            'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+            'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
+            'peut_comptabiliser_quittances_peage', 'peut_voir_historique_vehicule_pesage',
+            'peut_saisir_amende', 'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
+            'peut_valider_paiement_amende', 'peut_lister_amendes',
+            'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
+            'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
+            'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+            'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
+            'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
+            'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+            'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
+            'peut_simuler_commandes_peage', 'peut_gerer_postes', 'peut_ajouter_poste',
+            'peut_creer_poste_masse', 'peut_gerer_utilisateurs', 'peut_creer_utilisateur',
+            'peut_voir_journal_audit', 'peut_voir_rapports_defaillants_peage',
+            'peut_voir_rapports_defaillants_pesage', 'peut_voir_rapport_inventaires',
+            'peut_voir_classement_peage_rendement', 'peut_voir_classement_station_pesage',
+            'peut_voir_classement_peage_deperdition', 'peut_voir_classement_agents_inventaire',
+            'peut_parametrage_global', 'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
+            'peut_authentifier_document', 'peut_voir_tous_postes'
+        ]
+        for field in permission_fields:
+            setattr(self, field, True)
+    
+    # ===============================================================
+    # CONFIGURATIONS PAR RÔLE (basées sur la matrice PDF)
+    # ===============================================================
+    
+    def _configurer_admin_principal(self):
+        """ADMINISTRATEUR PRINCIPAL - Accès complet"""
+        self.is_staff = True
+        self.is_superuser = True
+        self.acces_tous_postes = True
+        self.peut_saisir_peage = True
+        self.peut_saisir_pesage = True
+        self.voir_recettes_potentielles = True
+        self.voir_taux_deperdition = True
+        self.voir_statistiques_globales = True
+        self.peut_saisir_pour_autres_postes = True
+        self._activer_toutes_permissions()
+    
+    def _configurer_coordonnateur_psrr(self):
+        """COORDONNATEUR PSRR - Accès complet similaire à admin"""
+        self.is_staff = True
+        self.acces_tous_postes = True
+        self.peut_saisir_peage = True
+        self.peut_saisir_pesage = True
+        self.voir_recettes_potentielles = True
+        self.voir_taux_deperdition = True
+        self.voir_statistiques_globales = True
+        self.peut_saisir_pour_autres_postes = True
+        self._activer_toutes_permissions()
+    
+    def _configurer_service_informatique(self):
+        """SERVICE INFORMATIQUE - Accès complet pour maintenance"""
+        self.is_staff = True
+        self.acces_tous_postes = True
+        self.peut_saisir_peage = True
+        self.peut_saisir_pesage = True
+        self.voir_recettes_potentielles = True
+        self.voir_taux_deperdition = True
+        self.voir_statistiques_globales = True
+        self.peut_saisir_pour_autres_postes = True
+        self._activer_toutes_permissions()
+    
+    def _configurer_service_emission(self):
+        """SERVICE EMISSIONS ET RECOUVREMENT"""
+        self.is_staff = True
+        self.acces_tous_postes = True
+        self.voir_statistiques_globales = True
+        self.voir_recettes_potentielles = True
+        self.voir_taux_deperdition = True
+        
+        # Inventaires
+        self.peut_programmer_inventaire = True
+        self.peut_voir_programmation_active = True
+        self.peut_voir_programmation_desactivee = True
+        self.peut_voir_liste_inventaires = True
+        self.peut_voir_liste_inventaires_admin = True
+        self.peut_voir_jours_impertinents = True
+        self.peut_voir_stats_deperdition = True
+        
+        # Recettes péage
+        self.peut_voir_liste_recettes_peage = True
+        self.peut_voir_stats_recettes_peage = True
+        self.peut_voir_evolution_peage = True
+        self.peut_voir_objectifs_peage = True
+        
+        # Quittances péage
+        self.peut_voir_liste_quittances_peage = True
+        self.peut_comptabiliser_quittances_peage = True
+        
+        # Pesage
+        self.peut_voir_objectifs_pesage = True
+        self.peut_lister_amendes = True
+        self.peut_comptabiliser_quittances_pesage = True
+        self.peut_voir_liste_quittancements_pesage = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_recettes_pesage = True
+        self.peut_voir_stats_pesage = True
+        
+        # Stock péage
+        self.peut_charger_stock_peage = True
+        self.peut_voir_liste_stocks_peage = True
+        self.peut_voir_stock_date_peage = True
+        self.peut_transferer_stock_peage = True
+        self.peut_voir_tracabilite_tickets = True
+        self.peut_voir_bordereaux_peage = True
+        self.peut_voir_mon_stock_peage = True
+        self.peut_voir_historique_stock_peage = True
+        self.peut_simuler_commandes_peage = True
+        
+        # Rapports
+        self.peut_voir_rapports_defaillants_peage = True
+        self.peut_voir_rapport_inventaires = True
+        self.peut_voir_classement_peage_rendement = True
+        self.peut_voir_classement_station_pesage = True
+        self.peut_voir_classement_peage_deperdition = True
+        self.peut_voir_classement_agents_inventaire = True
+        
+        # Autres
+        self.peut_voir_compte_emploi = True
+        self.peut_voir_pv_confrontation = True
+        self.peut_authentifier_document = True
+        self.peut_voir_tous_postes = True
+        
+        # Anciennes permissions
+        self.peut_gerer_peage = True
+        self.peut_gerer_stocks_psrr = True
+        self.peut_saisir_peage = True
+    
+    def _configurer_chef_affaires_generales(self):
+        """SERVICE DES AFFAIRES GENERALES"""
+        self.acces_tous_postes = True
+        self.peut_gerer_personnel = True
+        
+        self.peut_gerer_postes = True
+        self.peut_ajouter_poste = True
+        self.peut_creer_poste_masse = True
+        self.peut_gerer_utilisateurs = True
+        self.peut_creer_utilisateur = True
+        self.peut_voir_journal_audit = True
+        self.peut_parametrage_global = True
+        self.peut_voir_tous_postes = True
+    
+    def _configurer_service_controle_validation(self):
+        """SERVICE CONTROLE ET VALIDATION"""
+        self.acces_tous_postes = True
+        
+        # Recettes péage
+        self.peut_voir_liste_recettes_peage = True
+        self.peut_voir_stats_recettes_peage = True
+        self.peut_voir_evolution_peage = True
+        self.peut_voir_objectifs_peage = True
+        
+        # Quittances péage
+        self.peut_voir_liste_quittances_peage = True
+        self.peut_comptabiliser_quittances_peage = True
+        
+        # Pesage
+        self.peut_voir_objectifs_pesage = True
+        self.peut_lister_amendes = True
+        self.peut_comptabiliser_quittances_pesage = True
+        self.peut_voir_liste_quittancements_pesage = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_recettes_pesage = True
+        self.peut_voir_stats_pesage = True
+        
+        # Stock péage
+        self.peut_voir_liste_stocks_peage = True
+        self.peut_voir_stock_date_peage = True
+        self.peut_voir_tracabilite_tickets = True
+        self.peut_voir_bordereaux_peage = True
+        self.peut_voir_historique_stock_peage = True
+        
+        # Gestion
+        self.peut_voir_journal_audit = True
+        
+        # Rapports
+        self.peut_voir_rapports_defaillants_peage = True
+        self.peut_voir_rapports_defaillants_pesage = True
+        self.peut_voir_rapport_inventaires = True
+        self.peut_voir_classement_peage_rendement = True
+        self.peut_voir_classement_station_pesage = True
+        self.peut_voir_classement_peage_deperdition = True
+        self.peut_voir_classement_agents_inventaire = True
+        
+        # Autres
+        self.peut_parametrage_global = True
+        self.peut_voir_compte_emploi = True
+        self.peut_voir_pv_confrontation = True
+        self.peut_authentifier_document = True
+        self.peut_voir_tous_postes = True
+    
+    def _configurer_service_ordre_secretariat(self):
+        """SERVICE ORDRE/SECRETARIAT"""
+        self.acces_tous_postes = True
+        
+        # Recettes péage
+        self.peut_voir_liste_recettes_peage = True
+        self.peut_voir_stats_recettes_peage = True
+        self.peut_voir_evolution_peage = True
+        self.peut_voir_objectifs_peage = True
+        
+        # Quittances péage
+        self.peut_voir_liste_quittances_peage = True
+        self.peut_comptabiliser_quittances_peage = True
+        
+        # Pesage
+        self.peut_voir_objectifs_pesage = True
+        self.peut_lister_amendes = True
+        self.peut_comptabiliser_quittances_pesage = True
+        self.peut_voir_liste_quittancements_pesage = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_recettes_pesage = True
+        self.peut_voir_stats_pesage = True
+        
+        # Stock péage
+        self.peut_voir_liste_stocks_peage = True
+        self.peut_voir_stock_date_peage = True
+        self.peut_voir_tracabilite_tickets = True
+        self.peut_voir_bordereaux_peage = True
+        self.peut_voir_historique_stock_peage = True
+        
+        # Gestion postes et utilisateurs
+        self.peut_gerer_postes = True
+        self.peut_ajouter_poste = True
+        self.peut_creer_poste_masse = True
+        self.peut_gerer_utilisateurs = True
+        self.peut_creer_utilisateur = True
+        self.peut_voir_journal_audit = True
+        
+        # Rapports
+        self.peut_voir_rapport_inventaires = True
+        self.peut_voir_classement_peage_rendement = True
+        self.peut_voir_classement_station_pesage = True
+        self.peut_voir_classement_peage_deperdition = True
+        self.peut_voir_classement_agents_inventaire = True
+        
+        # Autres
+        self.peut_parametrage_global = True
+        self.peut_voir_compte_emploi = True
+        self.peut_voir_pv_confrontation = True
+        self.peut_authentifier_document = True
+        self.peut_voir_tous_postes = True
+    
+    def _configurer_imprimerie_nationale(self):
+        """IMPRIMERIE NATIONALE"""
+        self.peut_gerer_stocks_psrr = True
+        self.peut_voir_tous_postes = True
+    
+    def _configurer_cisop_peage(self):
+        """CISOP PEAGE"""
+        self.acces_tous_postes = True
+        self.voir_taux_deperdition = True
+        
+        self.peut_voir_stats_deperdition = True
+        self.peut_voir_liste_recettes_peage = True
+        self.peut_voir_stats_recettes_peage = True
+        self.peut_voir_evolution_peage = True
+        self.peut_voir_objectifs_peage = True
+        self.peut_voir_liste_quittances_peage = True
+        self.peut_comptabiliser_quittances_peage = True
+        self.peut_voir_liste_stocks_peage = True
+        self.peut_voir_tracabilite_tickets = True
+        self.peut_voir_bordereaux_peage = True
+        self.peut_voir_historique_stock_peage = True
+        self.peut_voir_classement_peage_rendement = True
+        self.peut_voir_classement_peage_deperdition = True
+        self.peut_voir_compte_emploi = True
+        self.peut_voir_pv_confrontation = True
+        self.peut_authentifier_document = True
+        self.peut_voir_tous_postes = True
+    
+    def _configurer_cisop_pesage(self):
+        """CISOP PESAGE"""
+        self.acces_tous_postes = True
+        
+        self.peut_voir_objectifs_pesage = True
+        self.peut_lister_amendes = True
+        self.peut_comptabiliser_quittances_pesage = True
+        self.peut_voir_liste_quittancements_pesage = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_recettes_pesage = True
+        self.peut_voir_stats_pesage = True
+        self.peut_voir_rapports_defaillants_pesage = True
+        self.peut_voir_classement_station_pesage = True
+        self.peut_voir_tous_postes = True
+    
+    def _configurer_chef_poste_peage(self):
+        """CHEF DE POSTE PEAGE"""
+        self.peut_saisir_peage = True
+        self.voir_taux_deperdition = True
+        self.voir_recettes_potentielles = False  # RESTRICTION IMPORTANTE
+        
+        self.peut_saisir_inventaire_normal = True
+        self.peut_voir_liste_inventaires = True
+        self.peut_voir_jours_impertinents = True
+        self.peut_voir_stats_deperdition = True
+        self.peut_saisir_recette_peage = True
+        self.peut_voir_liste_recettes_peage = True
+        self.peut_voir_stats_recettes_peage = True
+        self.peut_voir_evolution_peage = True
+        self.peut_voir_objectifs_peage = True
+        self.peut_saisir_quittance_peage = True
+        self.peut_voir_liste_quittances_peage = True
+        self.peut_comptabiliser_quittances_peage = True
+        self.peut_voir_liste_stocks_peage = True
+        self.peut_voir_stock_date_peage = True
+        self.peut_transferer_stock_peage = True
+        self.peut_voir_tracabilite_tickets = True
+        self.peut_voir_bordereaux_peage = True
+        self.peut_voir_mon_stock_peage = True
+        self.peut_voir_historique_stock_peage = True
+        self.peut_voir_classement_peage_rendement = True
+        self.peut_voir_classement_peage_deperdition = True
+        self.peut_voir_classement_agents_inventaire = True
+        self.peut_voir_compte_emploi = True
+        self.peut_voir_pv_confrontation = True
+        self.peut_authentifier_document = True
+        
+        # Anciennes permissions
+        self.peut_gerer_peage = True
+    
+    def _configurer_chef_station_pesage(self):
+        """CHEF DE STATION PESAGE"""
+        self.peut_saisir_pesage = True
+        
+        self.peut_voir_historique_vehicule_pesage = True
+        self.peut_saisir_pesee_jour = True
+        self.peut_voir_objectifs_pesage = True
+        self.peut_lister_amendes = True
+        self.peut_comptabiliser_quittances_pesage = True
+        self.peut_voir_liste_quittancements_pesage = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_recettes_pesage = True
+        self.peut_voir_stats_pesage = True
+        self.peut_voir_classement_station_pesage = True
+        
+        # Anciennes permissions
+        self.peut_gerer_pesage = True
+    
+    def _configurer_regisseur_pesage(self):
+        """REGISSEUR DE STATION PESAGE"""
+        self.peut_voir_historique_vehicule_pesage = True
+        self.peut_voir_objectifs_pesage = True
+        self.peut_valider_paiement_amende = True
+        self.peut_lister_amendes = True
+        self.peut_saisir_quittance_pesage = True
+        self.peut_comptabiliser_quittances_pesage = True
+        self.peut_voir_liste_quittancements_pesage = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_recettes_pesage = True
+        self.peut_voir_stats_pesage = True
+        self.peut_voir_classement_station_pesage = True
+        
+        # Anciennes permissions
+        self.peut_gerer_pesage = True
+    
+    def _configurer_chef_equipe_pesage(self):
+        """CHEF D'EQUIPE PESAGE"""
+        self.peut_saisir_pesage = True
+        
+        self.peut_voir_historique_vehicule_pesage = True
+        self.peut_saisir_amende = True
+        self.peut_saisir_pesee_jour = True
+        self.peut_voir_objectifs_pesage = True
+        self.peut_valider_paiement_amende = True
+        self.peut_lister_amendes = True
+        self.peut_voir_liste_quittancements_pesage = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_recettes_pesage = True
+        self.peut_voir_stats_pesage = True
+    
+    def _configurer_agent_inventaire(self):
+        """AGENT INVENTAIRE - Droits limités"""
+        self.voir_recettes_potentielles = False  # RESTRICTION
+        self.voir_taux_deperdition = False       # RESTRICTION
+        self.voir_statistiques_globales = False
+        
+        self.peut_saisir_inventaire_normal = True
+        self.peut_voir_liste_inventaires = True
+        self.peut_voir_jours_impertinents = True
+        self.peut_voir_stats_deperdition = True
+        self.peut_voir_liste_recettes_peage = True
+        self.peut_voir_stats_recettes_peage = True
+        self.peut_voir_liste_quittances_peage = True
+        self.peut_voir_objectifs_pesage = True
+        self.peut_lister_amendes = True
+        self.peut_voir_historique_pesees = True
+        self.peut_voir_stats_pesage = True
+        self.peut_voir_tracabilite_tickets = True
+        self.peut_voir_bordereaux_peage = True
+        self.peut_voir_historique_stock_peage = True
+        self.peut_voir_pv_confrontation = True
+        self.peut_authentifier_document = True
+        
+        # Anciennes permissions
+        self.peut_gerer_inventaire = True
+    
+    def _configurer_point_focal_regional(self):
+        """POINT FOCAL REGIONAL"""
+        self.acces_tous_postes = True
+        self.voir_statistiques_globales = True
+        
+        self.peut_voir_liste_inventaires = True
+        self.peut_voir_stats_deperdition = True
+        self.peut_voir_liste_recettes_peage = True
+        self.peut_voir_stats_recettes_peage = True
+        self.peut_voir_stats_pesage = True
+        self.peut_voir_tous_postes = True
+    
+    def _configurer_regisseur_central(self):
+        """REGISSEUR CENTRAL"""
+        self.peut_gerer_budget = True
+        self.acces_tous_postes = True
+        self.voir_statistiques_globales = True
+    
+    def _configurer_comptable_matieres(self):
+        """COMPTABLE MATIERES"""
+        self.peut_gerer_archives = True
+        self.acces_tous_postes = True
 
 
 # ===================================================================
@@ -823,59 +1387,51 @@ class JournalAudit(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.timestamp} - {self.utilisateur.username} - {self.action}"
+        try:
+            return f"{self.timestamp.strftime('%Y-%m-%d %H:%M')} - {self.utilisateur.username} - {self.action}"
+        except (AttributeError, ValueError):
+            return f"Journal #{self.pk} - {self.action}"
     
-   # Ajout à la classe JournalAudit dans accounts/models.py
-# Remplacer la méthode duree_formatee existante
-
-@property
-def duree_formatee(self):
-    """Retourne la durée d'exécution formatée"""
-    if self.duree_execution:
-        total_seconds = self.duree_execution.total_seconds()
-        if total_seconds < 1:
-            return f"{total_seconds*1000:.0f} ms"
+    @property
+    def duree_formatee(self):
+        """Retourne la durée d'exécution formatée"""
+        if self.duree_execution:
+            total_seconds = self.duree_execution.total_seconds()
+            if total_seconds < 1:
+                return f"{total_seconds*1000:.0f} ms"
+            else:
+                return f"{total_seconds:.2f} s"
+        return "N/A"
+    
+    def get_details_safe(self):
+        """Retourne les détails de manière sécurisée pour l'affichage"""
+        if not self.details:
+            return "Aucun détail"
+        
+        if len(self.details) > 100:
+            return self.details[:97] + "..."
+        return self.details
+    
+    def get_ip_display(self):
+        """Affichage sécurisé de l'IP"""
+        return self.adresse_ip or "Non disponible"
+    
+    def get_user_agent_short(self):
+        """Version courte du user agent"""
+        if not self.user_agent:
+            return "Non disponible"
+        
+        if 'Chrome' in self.user_agent:
+            return "Chrome"
+        elif 'Firefox' in self.user_agent:
+            return "Firefox"
+        elif 'Safari' in self.user_agent:
+            return "Safari"
+        elif 'Edge' in self.user_agent:
+            return "Edge"
         else:
-            return f"{total_seconds:.2f} s"
-    return "N/A"
+            return "Autre navigateur"
 
-def __str__(self):
-    """Représentation string sécurisée"""
-    try:
-        return f"{self.timestamp.strftime('%Y-%m-%d %H:%M')} - {self.utilisateur.username} - {self.action}"
-    except (AttributeError, ValueError):
-        return f"Journal #{self.pk} - {self.action}"
-
-def get_details_safe(self):
-    """Retourne les détails de manière sécurisée pour l'affichage"""
-    if not self.details:
-        return "Aucun détail"
-    
-    # Limiter la taille pour l'affichage en liste
-    if len(self.details) > 100:
-        return self.details[:97] + "..."
-    return self.details
-
-def get_ip_display(self):
-    """Affichage sécurisé de l'IP"""
-    return self.adresse_ip or "Non disponible"
-
-def get_user_agent_short(self):
-    """Version courte du user agent"""
-    if not self.user_agent:
-        return "Non disponible"
-    
-    # Extraire les informations principales du user agent
-    if 'Chrome' in self.user_agent:
-        return "Chrome"
-    elif 'Firefox' in self.user_agent:
-        return "Firefox"
-    elif 'Safari' in self.user_agent:
-        return "Safari"
-    elif 'Edge' in self.user_agent:
-        return "Edge"
-    else:
-        return "Autre navigateur"
 
 # ===================================================================
 # MODÈLE NOTIFICATIONS UTILISATEUR
@@ -973,3 +1529,5 @@ class NotificationUtilisateur(models.Model):
         elif delta.seconds > 60:
             minutes = delta.seconds // 60
             return f"il y a {minutes} minute(s)"
+        else:
+            return "À l'instant"

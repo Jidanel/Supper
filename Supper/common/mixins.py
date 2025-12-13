@@ -1,24 +1,100 @@
 # ===================================================================
-# common/mixins.py - Mixins pour les vues (CORRIGÉ)
-# Chaque ligne est commentée pour faciliter la maintenance
-# Support bilingue FR/EN intégré
+# Fichier : common/mixins.py - VERSION MISE À JOUR
+# Mixins pour les vues avec habilitations granulaires
+# Support bilingue FR/EN intégré, journalisation détaillée
 # ===================================================================
 
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.http import HttpResponseForbidden
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
-from common.utils import log_user_action
+from django.utils import timezone
+import logging
 
+logger = logging.getLogger('supper')
+
+
+# ===================================================================
+# IMPORT DES UTILITAIRES - Éviter les imports circulaires
+# ===================================================================
+
+def _get_utils():
+    """Import différé pour éviter les imports circulaires"""
+    from common.utils import (
+        log_user_action,
+        log_acces_refuse,
+        get_user_description,
+        get_user_short_description,
+        get_user_category,
+        get_niveau_acces,
+        get_habilitation_normalisee,
+        get_habilitation_label,
+        is_admin_user,
+        is_service_central,
+        is_cisop,
+        is_chef_poste,
+        is_chef_peage,
+        is_chef_pesage,
+        is_operationnel_pesage,
+        is_operationnel_peage,
+        HABILITATIONS_ADMIN,
+        HABILITATIONS_SERVICES_CENTRAUX,
+        HABILITATIONS_CISOP,
+        HABILITATIONS_CHEFS,
+        HABILITATIONS_CHEFS_PEAGE,
+        HABILITATIONS_CHEFS_PESAGE,
+        HABILITATIONS_OPERATIONNELS_PESAGE,
+        HABILITATIONS_OPERATIONNELS_PEAGE,
+    )
+    return {
+        'log_user_action': log_user_action,
+        'log_acces_refuse': log_acces_refuse,
+        'get_user_description': get_user_description,
+        'get_user_short_description': get_user_short_description,
+        'get_user_category': get_user_category,
+        'get_niveau_acces': get_niveau_acces,
+        'get_habilitation_normalisee': get_habilitation_normalisee,
+        'get_habilitation_label': get_habilitation_label,
+        'is_admin_user': is_admin_user,
+        'is_service_central': is_service_central,
+        'is_cisop': is_cisop,
+        'is_chef_poste': is_chef_poste,
+        'is_chef_peage': is_chef_peage,
+        'is_chef_pesage': is_chef_pesage,
+        'is_operationnel_pesage': is_operationnel_pesage,
+        'is_operationnel_peage': is_operationnel_peage,
+        'HABILITATIONS_ADMIN': HABILITATIONS_ADMIN,
+        'HABILITATIONS_SERVICES_CENTRAUX': HABILITATIONS_SERVICES_CENTRAUX,
+        'HABILITATIONS_CISOP': HABILITATIONS_CISOP,
+        'HABILITATIONS_CHEFS': HABILITATIONS_CHEFS,
+        'HABILITATIONS_CHEFS_PEAGE': HABILITATIONS_CHEFS_PEAGE,
+        'HABILITATIONS_CHEFS_PESAGE': HABILITATIONS_CHEFS_PESAGE,
+        'HABILITATIONS_OPERATIONNELS_PESAGE': HABILITATIONS_OPERATIONNELS_PESAGE,
+        'HABILITATIONS_OPERATIONNELS_PEAGE': HABILITATIONS_OPERATIONNELS_PEAGE,
+    }
+
+
+# ===================================================================
+# MIXIN DE BASE POUR L'AUDIT
+# ===================================================================
 
 class AuditMixin:
     """
-    Mixin pour ajouter automatiquement la journalisation aux vues
-    Utilise le système d'audit SUPPER pour tracer toutes les actions utilisateur
+    Mixin pour ajouter automatiquement la journalisation détaillée aux vues
+    Utilise le système d'audit SUPPER avec descriptions contextuelles
     Compatible avec les vues basées sur les classes Django
+    
+    Attributs:
+        audit_action: Action à journaliser (définie dans chaque vue)
+        audit_details: Détails supplémentaires (optionnel)
+        audit_log_get: Journaliser les requêtes GET (défaut: False)
+        audit_log_post: Journaliser les requêtes POST (défaut: True)
     """
-    audit_action = None  # Action à journaliser (définie dans chaque vue)
+    audit_action = None
+    audit_details = None
+    audit_log_get = False
+    audit_log_post = True
     
     def dispatch(self, request, *args, **kwargs):
         """
@@ -30,138 +106,627 @@ class AuditMixin:
         Returns:
             Réponse de la vue parente
         """
-        # Vérifier si l'action doit être journalisée et si l'utilisateur est connecté
-        if self.audit_action and request.user.is_authenticated:
-            # Journaliser l'accès à cette vue avec les détails
-            log_user_action(
+        # Vérifier si on doit journaliser cette méthode HTTP
+        should_log = (
+            self.audit_action and 
+            request.user.is_authenticated and
+            ((request.method == 'GET' and self.audit_log_get) or
+             (request.method == 'POST' and self.audit_log_post) or
+             request.method in ['PUT', 'DELETE', 'PATCH'])
+        )
+        
+        if should_log:
+            utils = _get_utils()
+            
+            # Construire les détails contextuels
+            details = f"Vue: {self.__class__.__name__}"
+            if self.audit_details:
+                details += f" | {self.audit_details}"
+            
+            # Ajouter des informations sur les paramètres URL si présents
+            if kwargs:
+                params = ', '.join([f"{k}={v}" for k, v in kwargs.items()])
+                details += f" | Params: {params}"
+            
+            # Journaliser avec description complète de l'utilisateur
+            utils['log_user_action'](
                 user=request.user,
-                action=self.audit_action,
-                details=_("Vue: %(class_name)s") % {'class_name': self.__class__.__name__},
-                request=request
+                action=f"ACCES_{self.audit_action}",
+                details=details,
+                request=request,
+                vue=self.__class__.__name__,
+                methode=request.method
             )
         
-        # Continuer avec la vue normale
         return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        """Ajoute les informations utilisateur au contexte"""
+        context = super().get_context_data(**kwargs)
+        
+        if self.request.user.is_authenticated:
+            utils = _get_utils()
+            context.update({
+                'user_description': utils['get_user_description'](self.request.user),
+                'user_short_description': utils['get_user_short_description'](self.request.user),
+                'user_category': utils['get_user_category'](self.request.user),
+                'user_niveau_acces': utils['get_niveau_acces'](self.request.user),
+                'user_habilitation_label': utils['get_habilitation_label'](
+                    getattr(self.request.user, 'habilitation', '')
+                ),
+            })
+        
+        return context
 
 
-class AdminRequiredMixin(UserPassesTestMixin):
+# ===================================================================
+# MIXIN POUR PERMISSIONS GRANULAIRES
+# ===================================================================
+
+class GranularPermissionMixin(UserPassesTestMixin):
+    """
+    Mixin générique pour vérifier les permissions granulaires SUPPER
+    
+    Attributs à définir dans chaque vue:
+        required_permission: Permission requise (str ou list)
+        required_habilitation: Habilitation requise (str ou list)
+        required_any_permission: Au moins une de ces permissions
+        required_all_permissions: Toutes ces permissions
+        allow_superuser: Les superusers passent automatiquement (défaut: True)
+        allow_staff: Les staff passent automatiquement (défaut: False)
+        redirect_url: URL de redirection en cas de refus (défaut: /common/)
+    """
+    
+    required_permission = None
+    required_habilitation = None
+    required_any_permission = None
+    required_all_permissions = None
+    allow_superuser = True
+    allow_staff = False
+    redirect_url = '/common/'
+    
+    def test_func(self):
+        """Test principal de permissions avec logique flexible"""
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        utils = _get_utils()
+        
+        # Superusers passent automatiquement (sauf si explicitement désactivé)
+        if self.allow_superuser and user.is_superuser:
+            return True
+        
+        # Staff passent si autorisés
+        if self.allow_staff and user.is_staff:
+            return True
+        
+        # Administrateurs passent toujours pour les vues générales
+        if utils['is_admin_user'](user):
+            return True
+        
+        # Vérifier les permissions multiples (ANY)
+        if self.required_any_permission:
+            permissions = self.required_any_permission
+            if isinstance(permissions, str):
+                permissions = [permissions]
+            
+            for perm in permissions:
+                if self._check_single_permission(user, perm):
+                    return True
+            return False
+        
+        # Vérifier les permissions multiples (ALL)
+        if self.required_all_permissions:
+            permissions = self.required_all_permissions
+            if isinstance(permissions, str):
+                permissions = [permissions]
+            
+            for perm in permissions:
+                if not self._check_single_permission(user, perm):
+                    return False
+            return True
+        
+        # Vérifier la permission simple
+        if self.required_permission:
+            return self._check_single_permission(user, self.required_permission)
+        
+        # Vérifier l'habilitation
+        if self.required_habilitation:
+            return self._check_habilitation(user, self.required_habilitation)
+        
+        # Si aucun critère défini, accès autorisé par défaut
+        return True
+    
+    def _check_single_permission(self, user, permission):
+        """Vérifie une permission spécifique sur l'utilisateur"""
+        # Vérifier si c'est un attribut direct
+        if hasattr(user, permission):
+            value = getattr(user, permission, False)
+            # Si c'est une méthode, l'appeler
+            if callable(value):
+                try:
+                    return value()
+                except Exception:
+                    return False
+            return bool(value)
+        
+        return False
+    
+    def _check_habilitation(self, user, habilitation):
+        """Vérifie si l'utilisateur a l'habilitation requise"""
+        utils = _get_utils()
+        user_hab = utils['get_habilitation_normalisee'](getattr(user, 'habilitation', ''))
+        
+        # Si habilitation est une liste
+        if isinstance(habilitation, (list, tuple)):
+            normalized_habs = [utils['get_habilitation_normalisee'](h) for h in habilitation]
+            return user_hab in normalized_habs
+        
+        # Habilitation simple
+        return user_hab == utils['get_habilitation_normalisee'](habilitation)
+    
+    def handle_no_permission(self):
+        """Gestion personnalisée du refus d'accès avec journalisation détaillée"""
+        utils = _get_utils()
+        
+        if self.request.user.is_authenticated:
+            # Construire le message d'erreur contextuel
+            error_message = self._get_error_message()
+            messages.error(self.request, error_message)
+            
+            # Journaliser l'accès refusé avec détails
+            utils['log_acces_refuse'](
+                user=self.request.user,
+                ressource=f"Vue {self.__class__.__name__}",
+                raison=self._get_refusal_reason(),
+                request=self.request
+            )
+            
+            # Log système détaillé
+            logger.warning(
+                f"🚫 ACCÈS REFUSÉ | {utils['get_user_short_description'](self.request.user)} | "
+                f"Vue: {self.__class__.__name__} | Raison: {self._get_refusal_reason()}"
+            )
+            
+            # Redirection intelligente selon le rôle
+            return self._get_redirect_for_user()
+        else:
+            return redirect('accounts:login')
+    
+    def _get_error_message(self):
+        """Génère un message d'erreur contextuel"""
+        utils = _get_utils()
+        
+        if self.required_permission:
+            perm = self.required_permission
+            if isinstance(perm, list):
+                perm = ', '.join(perm)
+            return _("Accès interdit. Permission requise : %(perm)s") % {'perm': perm}
+        
+        if self.required_habilitation:
+            hab = self.required_habilitation
+            if isinstance(hab, list):
+                hab = ', '.join([utils['get_habilitation_label'](h) for h in hab])
+            else:
+                hab = utils['get_habilitation_label'](hab)
+            return _("Accès interdit. Rôle requis : %(hab)s") % {'hab': hab}
+        
+        if self.required_any_permission:
+            perms = ', '.join(self.required_any_permission)
+            return _("Accès interdit. Une de ces permissions est requise : %(perms)s") % {'perms': perms}
+        
+        if self.required_all_permissions:
+            perms = ', '.join(self.required_all_permissions)
+            return _("Accès interdit. Toutes ces permissions sont requises : %(perms)s") % {'perms': perms}
+        
+        return _("Accès interdit. Permissions insuffisantes.")
+    
+    def _get_refusal_reason(self):
+        """Retourne la raison du refus pour la journalisation"""
+        if self.required_permission:
+            return f"Permission manquante: {self.required_permission}"
+        if self.required_habilitation:
+            return f"Habilitation manquante: {self.required_habilitation}"
+        if self.required_any_permission:
+            return f"Aucune des permissions: {self.required_any_permission}"
+        if self.required_all_permissions:
+            return f"Toutes les permissions requises: {self.required_all_permissions}"
+        return "Aucun critère de permission défini"
+    
+    def _get_redirect_for_user(self):
+        """Détermine la redirection appropriée selon le rôle de l'utilisateur"""
+        utils = _get_utils()
+        user = self.request.user
+        habilitation = utils['get_habilitation_normalisee'](getattr(user, 'habilitation', ''))
+        
+        # Redirection selon la catégorie
+        if habilitation in utils['HABILITATIONS_ADMIN']:
+            return redirect('/admin/')
+        elif habilitation in utils['HABILITATIONS_SERVICES_CENTRAUX']:
+            return redirect(self.redirect_url)
+        elif habilitation in utils['HABILITATIONS_CISOP']:
+            return redirect(self.redirect_url)
+        elif habilitation in utils['HABILITATIONS_CHEFS']:
+            return redirect(self.redirect_url)
+        else:
+            try:
+                return redirect('common:dashboard_general')
+            except:
+                return redirect(self.redirect_url)
+
+
+# ===================================================================
+# MIXINS SPÉCIALISÉS POUR ADMINISTRATION
+# ===================================================================
+
+class AdminRequiredMixin(GranularPermissionMixin):
     """
     Mixin pour restreindre l'accès aux utilisateurs administrateurs uniquement
-    Vérifie les permissions avant d'afficher la vue
-    Redirige vers une page appropriée si l'accès est refusé
+    Vérifie: superuser, staff, ou habilitations admin
     """
     
     def test_func(self):
-        """
-        Test de permissions pour l'accès administrateur
-        Returns:
-            bool: True si l'utilisateur est connecté ET administrateur
-        """
-        # Vérifier que l'utilisateur est connecté ET a des droits admin
-        return self.request.user.is_authenticated and (self.request.user.is_superuser or self.request.user.is_staff)
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        utils = _get_utils()
+        
+        # Superuser ou staff
+        if user.is_superuser or user.is_staff:
+            return True
+        
+        # Habilitations admin
+        return utils['is_admin_user'](user)
     
     def handle_no_permission(self):
-        """
-        Gestion du refus d'accès avec journalisation et message d'erreur
-        Returns:
-            HttpResponse: Redirection vers la page appropriée
-        """
-        # Si l'utilisateur est connecté mais n'a pas les droits
+        utils = _get_utils()
+        
         if self.request.user.is_authenticated:
-            # Afficher un message d'erreur en français (par défaut) ou anglais
             messages.error(
                 self.request,
                 _("Accès interdit. Permissions administrateur requises.")
             )
             
-            # Journaliser la tentative d'accès non autorisée
-            log_user_action(
-                user=self.request.user,
-                action=_("ACCÈS REFUSÉ - Permissions admin requises"),
-                details=_("Tentative d'accès à %(class_name)s") % {
-                    'class_name': self.__class__.__name__
-                },
-                request=self.request
+            utils['log_acces_refuse'](
+                self.request.user,
+                f"Vue admin {self.__class__.__name__}",
+                "Permissions administrateur requises",
+                self.request
             )
             
-            # Rediriger vers le dashboard général
-            return redirect('common:dashboard_general')
+            logger.warning(
+                f"🚫 ACCÈS ADMIN REFUSÉ | {utils['get_user_short_description'](self.request.user)} | "
+                f"Vue: {self.__class__.__name__}"
+            )
+            
+            return redirect('/common/')
         else:
-            # Utilisateur non connecté : rediriger vers la page de connexion
             return redirect('accounts:login')
 
 
-class ChefPosteRequiredMixin(UserPassesTestMixin):
+class ServiceCentralRequiredMixin(GranularPermissionMixin):
     """
-    Mixin pour restreindre l'accès aux chefs de poste et administrateurs
-    Les administrateurs ont également accès pour supervision
+    Mixin pour les services centraux (admin + services centraux)
     """
     
     def test_func(self):
-        """
-        Test de permissions pour chef de poste ou administrateur
-        Returns:
-            bool: True si chef de poste OU administrateur
-        """
-        # Vérifier la connexion et les rôles appropriés
-        return (
-            self.request.user.is_authenticated and 
-            (self.request.user.is_chef_poste() or self.request.user.is_superuser or self.request.user.is_staff)
-        )
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        utils = _get_utils()
+        
+        if user.is_superuser or user.is_staff:
+            return True
+        
+        return utils['is_service_central'](user)
     
     def handle_no_permission(self):
-        """
-        Gestion du refus d'accès pour non-chef de poste
-        Returns:
-            HttpResponse: Redirection appropriée
-        """
+        utils = _get_utils()
+        
         if self.request.user.is_authenticated:
-            # Message d'erreur adapté au contexte
+            messages.error(
+                self.request,
+                _("Accès interdit. Réservé aux services centraux.")
+            )
+            
+            utils['log_acces_refuse'](
+                self.request.user,
+                f"Vue service central {self.__class__.__name__}",
+                "Accès services centraux requis",
+                self.request
+            )
+            
+            return redirect('/common/')
+        else:
+            return redirect('accounts:login')
+
+
+class CISOPRequiredMixin(GranularPermissionMixin):
+    """
+    Mixin pour les agents CISOP (+ admin + services centraux)
+    """
+    
+    def test_func(self):
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        utils = _get_utils()
+        
+        if user.is_superuser or user.is_staff:
+            return True
+        
+        if utils['is_service_central'](user):
+            return True
+        
+        return utils['is_cisop'](user)
+    
+    def handle_no_permission(self):
+        utils = _get_utils()
+        
+        if self.request.user.is_authenticated:
+            messages.error(
+                self.request,
+                _("Accès interdit. Réservé aux agents CISOP.")
+            )
+            
+            utils['log_acces_refuse'](
+                self.request.user,
+                f"Vue CISOP {self.__class__.__name__}",
+                "Accès CISOP requis",
+                self.request
+            )
+            
+            return redirect('/common/')
+        else:
+            return redirect('accounts:login')
+
+
+# ===================================================================
+# MIXINS SPÉCIALISÉS POUR CHEFS DE POSTE
+# ===================================================================
+
+class ChefPosteRequiredMixin(GranularPermissionMixin):
+    """
+    Mixin pour les chefs de poste (péage et pesage)
+    Les administrateurs et services centraux ont également accès
+    """
+    
+    def test_func(self):
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        utils = _get_utils()
+        
+        if user.is_superuser or user.is_staff:
+            return True
+        
+        if utils['is_service_central'](user):
+            return True
+        
+        return utils['is_chef_poste'](user)
+    
+    def handle_no_permission(self):
+        utils = _get_utils()
+        
+        if self.request.user.is_authenticated:
             messages.error(
                 self.request,
                 _("Accès interdit. Permissions chef de poste requises.")
             )
-            # Redirection vers le dashboard général
-            return redirect('common:dashboard_general')
+            
+            utils['log_acces_refuse'](
+                self.request.user,
+                f"Vue chef de poste {self.__class__.__name__}",
+                "Permissions chef de poste requises",
+                self.request
+            )
+            
+            return redirect('/common/')
         else:
-            # Redirection vers la connexion
             return redirect('accounts:login')
 
 
-class InventaireRequiredMixin(UserPassesTestMixin):
+class ChefPeageRequiredMixin(GranularPermissionMixin):
     """
-    Mixin pour les utilisateurs autorisés à gérer l'inventaire
-    Vérifie la permission spécifique peut_gerer_inventaire
+    Mixin spécifique pour les chefs de poste péage
     """
     
     def test_func(self):
-        """
-        Test de permission pour la gestion d'inventaire
-        Returns:
-            bool: True si autorisé à gérer l'inventaire
-        """
-        # Vérifier la connexion et la permission spécifique inventaire
-        return (
-            self.request.user.is_authenticated and 
-            self.request.user.peut_gerer_inventaire
-        )
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        utils = _get_utils()
+        
+        if user.is_superuser or user.is_staff:
+            return True
+        
+        if utils['is_service_central'](user):
+            return True
+        
+        return utils['is_chef_peage'](user)
     
     def handle_no_permission(self):
-        """
-        Gestion du refus d'accès pour gestion inventaire
-        Returns:
-            HttpResponse: Redirection avec message d'erreur
-        """
+        utils = _get_utils()
+        
         if self.request.user.is_authenticated:
-            # Message spécifique à l'inventaire
             messages.error(
                 self.request,
-                _("Accès interdit. Permissions de gestion d'inventaire requises.")
+                _("Accès interdit. Réservé aux chefs de poste péage.")
             )
-            return redirect('common:dashboard_general')
+            
+            utils['log_acces_refuse'](
+                self.request.user,
+                f"Vue chef péage {self.__class__.__name__}",
+                "Accès chef de poste péage requis",
+                self.request
+            )
+            
+            return redirect('/common/')
         else:
             return redirect('accounts:login')
 
+
+class ChefPesageRequiredMixin(GranularPermissionMixin):
+    """
+    Mixin spécifique pour les chefs de station pesage
+    """
+    
+    def test_func(self):
+        if not self.request.user.is_authenticated:
+            return False
+        
+        user = self.request.user
+        utils = _get_utils()
+        
+        if user.is_superuser or user.is_staff:
+            return True
+        
+        if utils['is_service_central'](user):
+            return True
+        
+        return utils['is_chef_pesage'](user)
+    
+    def handle_no_permission(self):
+        utils = _get_utils()
+        
+        if self.request.user.is_authenticated:
+            messages.error(
+                self.request,
+                _("Accès interdit. Réservé aux chefs de station pesage.")
+            )
+            
+            utils['log_acces_refuse'](
+                self.request.user,
+                f"Vue chef pesage {self.__class__.__name__}",
+                "Accès chef de station pesage requis",
+                self.request
+            )
+            
+            return redirect('/common/')
+        else:
+            return redirect('accounts:login')
+
+
+# ===================================================================
+# MIXINS SPÉCIALISÉS POUR PERMISSIONS GRANULAIRES PÉAGE
+# ===================================================================
+
+class RecettePeagePermissionMixin(GranularPermissionMixin):
+    """
+    Mixin pour les vues de gestion des recettes péage
+    Permissions granulaires: peut_saisir_recette_peage, peut_voir_liste_recettes_peage, etc.
+    """
+    required_any_permission = [
+        'peut_saisir_recette_peage',
+        'peut_voir_liste_recettes_peage',
+        'peut_importer_recettes_peage',
+        'peut_voir_stats_recettes',
+    ]
+
+
+class StockPeagePermissionMixin(GranularPermissionMixin):
+    """
+    Mixin pour les vues de gestion des stocks péage
+    Permissions granulaires: peut_charger_stock_peage, peut_transferer_stock_peage, etc.
+    """
+    required_any_permission = [
+        'peut_charger_stock_peage',
+        'peut_transferer_stock_peage',
+        'peut_voir_liste_stocks_peage',
+        'peut_voir_tracabilite_tickets',
+        'peut_gerer_series_tickets',
+    ]
+
+
+class InventairePermissionMixin(GranularPermissionMixin):
+    """
+    Mixin pour les vues de gestion d'inventaire
+    Vérifie les permissions granulaires liées à l'inventaire
+    """
+    required_any_permission = [
+        'peut_saisir_inventaire_normal',
+        'peut_programmer_inventaire',
+        'peut_voir_stats_deperdition',
+        'peut_calculer_recette_potentielle',
+        'peut_gerer_inventaire',
+    ]
+
+
+# ===================================================================
+# MIXINS SPÉCIALISÉS POUR PERMISSIONS GRANULAIRES PESAGE
+# ===================================================================
+
+class PesagePermissionMixin(GranularPermissionMixin):
+    """
+    Mixin pour les vues de gestion du pesage
+    Permissions granulaires: peut_saisir_amende, peut_valider_paiement_amende, etc.
+    """
+    required_any_permission = [
+        'peut_saisir_amende',
+        'peut_valider_paiement_amende',
+        'peut_confirmer_paiement_autre_station',
+        'peut_voir_stats_pesage',
+        'peut_generer_rapport_pesage',
+    ]
+
+
+class AmendePermissionMixin(GranularPermissionMixin):
+    """
+    Mixin spécifique pour la gestion des amendes pesage
+    """
+    required_any_permission = [
+        'peut_saisir_amende',
+        'peut_modifier_amende',
+        'peut_annuler_amende',
+        'peut_valider_paiement_amende',
+    ]
+
+
+# ===================================================================
+# MIXINS SPÉCIALISÉS POUR GESTION UTILISATEURS/POSTES
+# ===================================================================
+
+class GestionUtilisateursPermissionMixin(GranularPermissionMixin):
+    """
+    Mixin pour les vues de gestion des utilisateurs
+    """
+    required_any_permission = [
+        'peut_gerer_utilisateurs',
+        'peut_creer_utilisateur',
+        'peut_modifier_utilisateur',
+        'peut_desactiver_utilisateur',
+        'peut_reinitialiser_mot_de_passe',
+    ]
+
+
+class GestionPostesPermissionMixin(GranularPermissionMixin):
+    """
+    Mixin pour les vues de gestion des postes
+    """
+    required_any_permission = [
+        'peut_gerer_postes',
+        'peut_ajouter_poste',
+        'peut_modifier_poste',
+        'peut_creer_poste_masse',
+    ]
+
+
+class AuditPermissionMixin(GranularPermissionMixin):
+    """
+    Mixin pour les vues du journal d'audit
+    """
+    required_permission = 'peut_voir_journal_audit'
+
+
+# ===================================================================
+# MIXIN POUR ACCÈS AU POSTE
+# ===================================================================
 
 class PosteAccessMixin:
     """
@@ -171,29 +736,18 @@ class PosteAccessMixin:
     """
     
     def dispatch(self, request, *args, **kwargs):
-        """
-        Vérification de l'accès au poste avant affichage de la vue
-        Args:
-            request: Requête HTTP
-            *args, **kwargs: Paramètres d'URL (peut contenir poste_id)
-        Returns:
-            HttpResponse: Vue normale ou redirection si accès refusé
-        """
-        # Récupérer l'ID du poste depuis les paramètres d'URL ou GET
-        poste_id = kwargs.get('poste_id') or request.GET.get('poste_id')
+        """Vérification de l'accès au poste avant affichage de la vue"""
+        poste_id = kwargs.get('poste_id') or kwargs.get('pk') or request.GET.get('poste_id')
         
-        # Si un poste est spécifié, vérifier les permissions
         if poste_id:
             try:
-                # Importer ici pour éviter les imports circulaires
                 from accounts.models import Poste
+                utils = _get_utils()
                 
-                # Récupérer le poste depuis la base de données
                 poste = Poste.objects.get(id=poste_id)
                 
                 # Vérifier si l'utilisateur peut accéder à ce poste
                 if not request.user.peut_acceder_poste(poste):
-                    # Afficher un message d'erreur avec le nom du poste
                     messages.error(
                         request,
                         _("Accès interdit au poste %(poste_nom)s.") % {
@@ -201,56 +755,58 @@ class PosteAccessMixin:
                         }
                     )
                     
-                    # Journaliser la tentative d'accès non autorisée
-                    log_user_action(
-                        user=request.user,
-                        action=_("ACCÈS REFUSÉ - Poste non autorisé"),
-                        details=_("Tentative d'accès au poste %(poste_nom)s") % {
-                            'poste_nom': poste.nom
-                        },
-                        request=request
+                    utils['log_acces_refuse'](
+                        request.user,
+                        f"Poste {poste.nom} ({poste.code})",
+                        "Accès au poste non autorisé",
+                        request
                     )
                     
-                    # Rediriger vers le dashboard général
-                    return redirect('common:dashboard_general')
+                    logger.warning(
+                        f"🚫 ACCÈS POSTE REFUSÉ | {utils['get_user_short_description'](request.user)} | "
+                        f"Poste: {poste.nom} ({poste.code})"
+                    )
+                    
+                    return redirect('/common/')
                 
-                # Ajouter le poste au contexte de la requête pour utilisation dans la vue
+                # Ajouter le poste au contexte de la requête
                 request.current_poste = poste
                 
             except Poste.DoesNotExist:
-                # Le poste demandé n'existe pas
-                messages.error(
-                    request, 
-                    _("Le poste demandé n'existe pas.")
-                )
-                return redirect('common:dashboard_general')
+                messages.error(request, _("Le poste demandé n'existe pas."))
+                return redirect('/common/')
         
-        # Continuer avec la vue normale si tout est OK
         return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        """Ajoute le poste au contexte"""
+        context = super().get_context_data(**kwargs)
+        if hasattr(self.request, 'current_poste'):
+            context['current_poste'] = self.request.current_poste
+        return context
 
+
+# ===================================================================
+# MIXIN POUR LE BILINGUISME
+# ===================================================================
 
 class BilingualMixin:
     """
     Mixin pour supporter le bilinguisme FR/EN dans les vues
     Ajoute automatiquement les informations de langue au contexte
-    Facilite la gestion des traductions dans les templates
     """
     
     def get_context_data(self, **kwargs):
-        """
-        Ajoute les informations de langue au contexte des templates
-        Returns:
-            dict: Contexte enrichi avec les données multilingues
-        """
-        # Récupérer le contexte de base de la vue parente
+        """Ajoute les informations de langue au contexte des templates"""
         context = super().get_context_data(**kwargs)
         
-        # Ajouter les informations de langue courante
+        current_lang = getattr(self.request, 'LANGUAGE_CODE', 'fr')
+        
         context.update({
-            'current_language': self.request.LANGUAGE_CODE,  # Code langue actuel (fr/en)
-            'is_french': self.request.LANGUAGE_CODE == 'fr',  # Helper pour les templates
-            'is_english': self.request.LANGUAGE_CODE == 'en',  # Helper pour les templates
-            'available_languages': [  # Langues disponibles avec labels
+            'current_language': current_lang,
+            'is_french': current_lang == 'fr',
+            'is_english': current_lang == 'en',
+            'available_languages': [
                 ('fr', _('Français')),
                 ('en', _('English'))
             ]
@@ -259,52 +815,44 @@ class BilingualMixin:
         return context
 
 
+# ===================================================================
+# MIXIN POUR LA PAGINATION
+# ===================================================================
+
 class PaginationMixin:
     """
     Mixin pour la pagination standardisée dans SUPPER
     Utilise les paramètres de pagination définis dans settings.py
-    Ajoute des informations de pagination utiles aux templates
     """
     
     def get_paginate_by(self, queryset):
-        """
-        Détermine le nombre d'éléments par page selon le type de contenu
-        Returns:
-            int: Nombre d'éléments par page
-        """
+        """Détermine le nombre d'éléments par page selon le type de contenu"""
         from django.conf import settings
         
-        # Récupérer la configuration de pagination
         pagination_config = getattr(settings, 'PAGINATION_CONFIG', {})
         
-        # Retourner la pagination selon le type de vue
         model_name = getattr(self, 'model', None)
         if model_name:
-            # Utiliser le nom du modèle pour déterminer la pagination
             model_class_name = model_name.__name__.upper()
             
-            # Mapping des modèles vers leurs paramètres de pagination
             model_pagination = {
                 'JOURNALAUDIT': pagination_config.get('LOGS_PER_PAGE', 50),
                 'UTILISATEURSUPPER': pagination_config.get('USERS_PER_PAGE', 25),
                 'INVENTAIREJOURNALIER': pagination_config.get('INVENTAIRES_PER_PAGE', 30),
                 'RECETTEJOURNALIERE': pagination_config.get('RECETTES_PER_PAGE', 30),
+                'POSTE': pagination_config.get('POSTES_PER_PAGE', 25),
+                'AMENDE': pagination_config.get('AMENDES_PER_PAGE', 30),
+                'STOCKTICKETS': pagination_config.get('STOCKS_PER_PAGE', 25),
             }
             
-            return model_pagination.get(model_class_name, 25)  # 25 par défaut
+            return model_pagination.get(model_class_name, 25)
         
-        # Pagination par défaut si pas de modèle spécifique
         return 25
     
     def get_context_data(self, **kwargs):
-        """
-        Ajoute des informations de pagination utiles au contexte
-        Returns:
-            dict: Contexte avec métadonnées de pagination
-        """
+        """Ajoute des informations de pagination utiles au contexte"""
         context = super().get_context_data(**kwargs)
         
-        # Ajouter des informations de pagination si applicable
         if 'page_obj' in context:
             page_obj = context['page_obj']
             context.update({
@@ -321,351 +869,217 @@ class PaginationMixin:
         return context
 
 
+# ===================================================================
+# MIXIN POUR L'EXPORT
+# ===================================================================
+
 class ExportMixin:
     """
     Mixin pour ajouter des fonctionnalités d'export aux vues liste
     Permet l'export en CSV/Excel des données affichées
-    Respecte les permissions d'accès de l'utilisateur
     """
+    export_fields = None
+    export_filename = None
     
     def get(self, request, *args, **kwargs):
-        """
-        Gestion des requêtes GET avec support d'export
-        Args:
-            request: Requête HTTP
-        Returns:
-            HttpResponse: Vue normale ou fichier d'export
-        """
-        # Vérifier si un export est demandé
+        """Gestion des requêtes GET avec support d'export"""
         export_format = request.GET.get('export')
         
-        if export_format in ['csv', 'excel']:
-            # Effectuer l'export au lieu d'afficher la vue
+        if export_format in ['csv', 'excel', 'pdf']:
             return self.export_data(export_format)
         
-        # Affichage normal de la vue
         return super().get(request, *args, **kwargs)
     
     def export_data(self, format_type):
-        """
-        Exporte les données au format demandé
-        Args:
-            format_type (str): 'csv' ou 'excel'
-        Returns:
-            HttpResponse: Fichier d'export
-        """
-        # Récupérer le queryset de la vue
+        """Exporte les données au format demandé"""
+        utils = _get_utils()
+        
         queryset = self.get_queryset()
-        
-        # Nom du fichier d'export basé sur la vue
-        filename = f"{self.__class__.__name__.lower()}_{format_type}"
-        
-        # Utiliser la fonction d'export des utilitaires
-        from common.utils import exporter_donnees_csv
-        
-        # Déterminer les champs à exporter selon le modèle
-        if hasattr(self, 'export_fields'):
-            fields = self.export_fields  # Champs définis dans la vue
-        else:
-            # Champs par défaut du modèle
-            fields = self.model._meta.fields
+        filename = self.export_filename or f"{self.__class__.__name__.lower()}"
         
         # Journaliser l'export
-        log_user_action(
+        utils['log_user_action'](
             user=self.request.user,
-            action=_("Export de données"),
-            details=_("Export %(format)s de %(count)d éléments") % {
-                'format': format_type.upper(),
-                'count': queryset.count()
-            },
-            request=self.request
+            action="EXPORT_DONNEES",
+            details=f"Export {format_type.upper()} de {queryset.count()} éléments",
+            request=self.request,
+            format=format_type.upper(),
+            nb_elements=queryset.count(),
+            vue=self.__class__.__name__
         )
         
-        # Retourner le fichier d'export
+        logger.info(
+            f"📤 EXPORT | {utils['get_user_short_description'](self.request.user)} | "
+            f"Format: {format_type.upper()} | {queryset.count()} éléments"
+        )
+        
+        from common.utils import exporter_donnees_csv
+        
+        if hasattr(self, 'export_fields') and self.export_fields:
+            fields = self.export_fields
+        else:
+            fields = self.model._meta.fields
+        
         return exporter_donnees_csv(queryset, fields, filename)
-    
+
+
 # ===================================================================
-# À AJOUTER À LA FIN DE common/mixins.py
-# RoleRequiredMixin - Mixin manquant pour la gestion des permissions
+# MIXIN POUR CRÉATION AVEC AUDIT
 # ===================================================================
 
-class RoleRequiredMixin(UserPassesTestMixin):
+class CreateWithAuditMixin:
     """
-    Mixin générique pour vérifier les rôles et permissions spécifiques
-    Peut vérifier les habilitations, permissions ou méthodes personnalisées
-    Plus flexible que AdminRequiredMixin pour différents types de permissions
+    Mixin pour les vues de création avec journalisation automatique
     """
     
-    # Attributs à définir dans chaque vue utilisant ce mixin
-    required_permission = None  # Permission requise (ex: 'peut_gerer_inventaire')
-    required_role = None        # Rôle requis (ex: 'admin_principal', 'chef_peage')
-    required_habilitation = None # Alias pour required_role (compatibilité)
-    allow_superuser = True      # Les superusers passent automatiquement
+    def form_valid(self, form):
+        """Journalise la création après validation du formulaire"""
+        response = super().form_valid(form)
+        
+        utils = _get_utils()
+        
+        # Journaliser la création
+        obj = self.object
+        model_name = obj.__class__.__name__
+        
+        utils['log_user_action'](
+            user=self.request.user,
+            action=f"CREATION_{model_name.upper()}",
+            details=f"Création de {model_name}: {str(obj)}",
+            request=self.request,
+            objet_cree=str(obj),
+            model=model_name
+        )
+        
+        logger.info(
+            f"✅ CRÉATION | {utils['get_user_short_description'](self.request.user)} | "
+            f"{model_name}: {str(obj)}"
+        )
+        
+        return response
+
+
+# ===================================================================
+# MIXIN POUR MODIFICATION AVEC AUDIT
+# ===================================================================
+
+class UpdateWithAuditMixin:
+    """
+    Mixin pour les vues de modification avec journalisation des changements
+    """
     
-    def test_func(self):
-        """
-        Test principal de permissions avec logique flexible
-        Returns:
-            bool: True si l'utilisateur a les permissions requises
-        """
-        # Vérifier que l'utilisateur est connecté
-        if not self.request.user.is_authenticated:
-            return False
+    def get_object(self, queryset=None):
+        """Capture l'état avant modification"""
+        obj = super().get_object(queryset)
         
-        user = self.request.user
+        # Stocker l'état avant modification
+        self._original_values = {}
+        for field in obj._meta.fields:
+            self._original_values[field.name] = getattr(obj, field.name)
         
-        # Les superusers passent automatiquement (sauf si explicitement désactivé)
-        if self.allow_superuser and user.is_superuser:
-            return True
-        
-        # Vérifier la permission spécifique
-        if self.required_permission:
-            return self._check_permission(user, self.required_permission)
-        
-        # Vérifier le rôle/habilitation
-        role_to_check = self.required_role or self.required_habilitation
-        if role_to_check:
-            return self._check_role(user, role_to_check)
-        
-        # Si aucun critère défini, accès refusé par sécurité
-        return False
+        return obj
     
-    def _check_permission(self, user, permission):
-        """
-        Vérifie une permission spécifique sur l'utilisateur
-        Args:
-            user: Utilisateur à vérifier
-            permission (str): Nom de la permission à vérifier
-        Returns:
-            bool: True si l'utilisateur a la permission
-        """
-        # Vérifier si c'est un attribut direct de l'utilisateur
-        if hasattr(user, permission):
-            return getattr(user, permission, False)
+    def form_valid(self, form):
+        """Journalise les modifications après validation"""
+        response = super().form_valid(form)
         
-        # Vérifier si c'est une méthode de l'utilisateur
-        if hasattr(user, permission) and callable(getattr(user, permission)):
-            try:
-                return getattr(user, permission)()
-            except Exception:
-                return False
+        utils = _get_utils()
+        obj = self.object
+        model_name = obj.__class__.__name__
         
-        # Vérifications spéciales pour SUPPER
-        permission_checks = {
-            'peut_gerer_inventaire': lambda u: getattr(u, 'peut_gerer_inventaire', False),
-            'peut_gerer_peage': lambda u: getattr(u, 'peut_gerer_peage', False),
-            'peut_gerer_pesage': lambda u: getattr(u, 'peut_gerer_pesage', False),
-            'peut_gerer_personnel': lambda u: getattr(u, 'peut_gerer_personnel', False),
-            'peut_gerer_budget': lambda u: getattr(u, 'peut_gerer_budget', False),
-            'peut_gerer_archives': lambda u: getattr(u, 'peut_gerer_archives', False),
-            'peut_gerer_stocks_psrr': lambda u: getattr(u, 'peut_gerer_stocks_psrr', False),
-            'peut_gerer_stock_info': lambda u: getattr(u, 'peut_gerer_stock_info', False),
-            'is_admin': lambda u: u.is_admin() if hasattr(u, 'is_admin') else u.is_superuser,
-            'is_chef_poste': lambda u: u.is_chef_poste() if hasattr(u, 'is_chef_poste') else False,
-            'is_agent_inventaire': lambda u: getattr(u, 'habilitation', '') == 'agent_inventaire',
-        }
+        # Détecter les changements
+        changes = []
+        for field_name, old_value in self._original_values.items():
+            new_value = getattr(obj, field_name)
+            if old_value != new_value:
+                changes.append(f"{field_name}: {old_value} → {new_value}")
         
-        # Appliquer la vérification si elle existe
-        if permission in permission_checks:
-            return permission_checks[permission](user)
-        
-        # Permission inconnue = accès refusé
-        return False
-    
-    def _check_role(self, user, role):
-        """
-        Vérifie si l'utilisateur a le rôle/habilitation requis
-        Args:
-            user: Utilisateur à vérifier
-            role (str ou list): Rôle(s) requis
-        Returns:
-            bool: True si l'utilisateur a le rôle requis
-        """
-        user_habilitation = getattr(user, 'habilitation', '')
-        
-        # Si role est une liste, vérifier si l'utilisateur a l'un des rôles
-        if isinstance(role, (list, tuple)):
-            return user_habilitation in role
-        
-        # Vérification simple du rôle
-        if isinstance(role, str):
-            return user_habilitation == role
-        
-        # Type de rôle non supporté
-        return False
-    
-    def handle_no_permission(self):
-        """
-        Gestion personnalisée du refus d'accès avec messages contextuels
-        Returns:
-            HttpResponse: Redirection appropriée avec message d'erreur
-        """
-        if self.request.user.is_authenticated:
-            # Utilisateur connecté mais sans permissions
-            
-            # Message d'erreur personnalisé selon le type de permission manquante
-            if self.required_permission:
-                error_message = self._get_permission_error_message(self.required_permission)
-            elif self.required_role or self.required_habilitation:
-                role = self.required_role or self.required_habilitation
-                error_message = self._get_role_error_message(role)
-            else:
-                error_message = _("Accès interdit. Permissions insuffisantes.")
-            
-            # Afficher le message d'erreur
-            messages.error(self.request, error_message)
-            
-            # Journaliser la tentative d'accès non autorisée
-            log_user_action(
+        if changes:
+            utils['log_user_action'](
                 user=self.request.user,
-                action=_("ACCÈS REFUSÉ - Permissions insuffisantes"),
-                details=_("Tentative d'accès à %(view)s - Permission: %(perm)s - Rôle: %(role)s") % {
-                    'view': self.__class__.__name__,
-                    'perm': self.required_permission or 'Non définie',
-                    'role': self.required_role or self.required_habilitation or 'Non défini'
-                },
-                request=self.request
+                action=f"MODIFICATION_{model_name.upper()}",
+                details=f"Modification de {model_name}: {str(obj)} | Changements: {', '.join(changes[:5])}",
+                request=self.request,
+                objet_modifie=str(obj),
+                model=model_name,
+                nb_changements=len(changes)
             )
             
-            # Redirection intelligente selon le rôle de l'utilisateur
-            return self._get_redirect_for_user(self.request.user)
-        else:
-            # Utilisateur non connecté : rediriger vers la connexion
-            return redirect('accounts:login')
-    
-    def _get_permission_error_message(self, permission):
-        """
-        Génère un message d'erreur contextualisé selon la permission manquante
-        Args:
-            permission (str): Permission manquante
-        Returns:
-            str: Message d'erreur traduit et contextualisé
-        """
-        permission_messages = {
-            'peut_gerer_inventaire': _("Accès interdit. Permission de gestion d'inventaire requise."),
-            'peut_gerer_peage': _("Accès interdit. Permission de gestion des péages requise."),
-            'peut_gerer_pesage': _("Accès interdit. Permission de gestion des pesages requise."),
-            'peut_gerer_personnel': _("Accès interdit. Permission de gestion du personnel requise."),
-            'peut_gerer_budget': _("Accès interdit. Permission de gestion budgétaire requise."),
-            'peut_gerer_archives': _("Accès interdit. Permission de gestion des archives requise."),
-            'peut_gerer_stocks_psrr': _("Accès interdit. Permission de gestion des stocks PSRR requise."),
-            'peut_gerer_stock_info': _("Accès interdit. Permission de gestion des stocks informatiques requise."),
-            'is_admin': _("Accès interdit. Permissions administrateur requises."),
-            'is_chef_poste': _("Accès interdit. Permissions chef de poste requises."),
-            'is_agent_inventaire': _("Accès interdit. Permissions agent d'inventaire requises."),
-        }
+            logger.info(
+                f"📝 MODIFICATION | {utils['get_user_short_description'](self.request.user)} | "
+                f"{model_name}: {str(obj)} | {len(changes)} changement(s)"
+            )
         
-        return permission_messages.get(
-            permission, 
-            _("Accès interdit. Permission %(permission)s requise.") % {'permission': permission}
-        )
-    
-    def _get_role_error_message(self, role):
-        """
-        Génère un message d'erreur contextualisé selon le rôle manquant
-        Args:
-            role (str ou list): Rôle(s) manquant(s)
-        Returns:
-            str: Message d'erreur traduit et contextualisé
-        """
-        role_messages = {
-            'admin_principal': _("Accès interdit. Rôle administrateur principal requis."),
-            'coord_psrr': _("Accès interdit. Rôle coordinateur PSRR requis."),
-            'serv_info': _("Accès interdit. Rôle service informatique requis."),
-            'serv_emission': _("Accès interdit. Rôle service émission requis."),
-            'chef_peage': _("Accès interdit. Rôle chef de péage requis."),
-            'chef_pesage': _("Accès interdit. Rôle chef de pesage requis."),
-            'agent_inventaire': _("Accès interdit. Rôle agent d'inventaire requis."),
-        }
-        
-        if isinstance(role, (list, tuple)):
-            roles_str = ', '.join(role)
-            return _("Accès interdit. L'un de ces rôles est requis : %(roles)s") % {'roles': roles_str}
-        
-        return role_messages.get(
-            role,
-            _("Accès interdit. Rôle %(role)s requis.") % {'role': role}
-        )
-    
-    def _get_redirect_for_user(self, user):
-        """
-        Détermine la redirection appropriée selon le rôle de l'utilisateur
-        Args:
-            user: Utilisateur connecté
-        Returns:
-            HttpResponse: Redirection vers le dashboard approprié
-        """
-        # Redirection intelligente selon l'habilitation
-        if hasattr(user, 'habilitation'):
-            if user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission']:
-                return redirect('/admin/')  # Dashboard admin
-            elif user.habilitation in ['chef_peage', 'chef_pesage']:
-                return redirect('/admin/')  # Dashboard chef (temporairement admin)
-            elif user.habilitation == 'agent_inventaire':
-                return redirect('/admin/')  # Dashboard agent (temporairement admin)
-        
-        # Redirection par défaut vers le dashboard général
-        try:
-            return redirect('common:dashboard_general')
-        except:
-            # Fallback si les URLs common ne sont pas configurées
-            return redirect('/admin/')
+        return response
 
 
 # ===================================================================
-# MIXINS SPÉCIALISÉS BASÉS SUR RoleRequiredMixin
+# MIXIN POUR SUPPRESSION AVEC AUDIT
 # ===================================================================
 
-class InventaireRequiredMixin(RoleRequiredMixin):
+class DeleteWithAuditMixin:
     """
-    Mixin spécialisé pour les vues de gestion d'inventaire
-    Remplace l'ancienne version pour plus de cohérence
+    Mixin pour les vues de suppression avec journalisation
     """
-    required_permission = 'peut_gerer_inventaire'
+    
+    def delete(self, request, *args, **kwargs):
+        """Journalise avant la suppression"""
+        utils = _get_utils()
+        
+        obj = self.get_object()
+        model_name = obj.__class__.__name__
+        obj_str = str(obj)
+        
+        # Journaliser avant suppression
+        utils['log_user_action'](
+            user=request.user,
+            action=f"SUPPRESSION_{model_name.upper()}",
+            details=f"Suppression de {model_name}: {obj_str}",
+            request=request,
+            objet_supprime=obj_str,
+            model=model_name
+        )
+        
+        logger.info(
+            f"🗑️ SUPPRESSION | {utils['get_user_short_description'](request.user)} | "
+            f"{model_name}: {obj_str}"
+        )
+        
+        return super().delete(request, *args, **kwargs)
 
 
-class PeageRequiredMixin(RoleRequiredMixin):
-    """Mixin pour les vues de gestion des péages"""
-    required_permission = 'peut_gerer_peage'
+# ===================================================================
+# MIXIN COMBINÉ POUR VUES CRUD COMPLÈTES
+# ===================================================================
+
+class FullAuditMixin(AuditMixin, BilingualMixin, PaginationMixin):
+    """
+    Mixin combinant toutes les fonctionnalités d'audit, bilinguisme et pagination
+    À utiliser pour les vues CRUD standard
+    """
+    pass
 
 
-class PesageRequiredMixin(RoleRequiredMixin):
-    """Mixin pour les vues de gestion des pesages"""
-    required_permission = 'peut_gerer_pesage'
+class FullPermissionMixin(GranularPermissionMixin, AuditMixin, BilingualMixin):
+    """
+    Mixin combinant permissions granulaires, audit et bilinguisme
+    """
+    pass
 
 
-class PersonnelRequiredMixin(RoleRequiredMixin):
-    """Mixin pour les vues de gestion du personnel"""
-    required_permission = 'peut_gerer_personnel'
+# ===================================================================
+# ALIAS POUR RÉTROCOMPATIBILITÉ
+# ===================================================================
 
-
-class BudgetRequiredMixin(RoleRequiredMixin):
-    """Mixin pour les vues de gestion budgétaire"""
-    required_permission = 'peut_gerer_budget'
-
-
-class ArchivesRequiredMixin(RoleRequiredMixin):
-    """Mixin pour les vues de gestion des archives"""
-    required_permission = 'peut_gerer_archives'
-
-
-class StocksPSRRRequiredMixin(RoleRequiredMixin):
-    """Mixin pour les vues de gestion des stocks PSRR"""
-    required_permission = 'peut_gerer_stocks_psrr'
-
-
-class StockInfoRequiredMixin(RoleRequiredMixin):
-    """Mixin pour les vues de gestion des stocks informatiques"""
-    required_permission = 'peut_gerer_stock_info'
-
-
-class ChefPosteOnlyMixin(RoleRequiredMixin):
-    """Mixin strict pour les chefs de poste uniquement"""
-    required_role = ['chef_peage', 'chef_pesage']
-    allow_superuser = False  # Les superusers doivent avoir le rôle approprié
-
-
-class AgentInventaireOnlyMixin(RoleRequiredMixin):
-    """Mixin strict pour les agents d'inventaire uniquement"""
-    required_role = 'agent_inventaire'
-    allow_superuser = False  # Les superusers doivent avoir le rôle approprié
+# Anciens noms de mixins pour compatibilité avec le code existant
+RoleRequiredMixin = GranularPermissionMixin
+InventaireRequiredMixin = InventairePermissionMixin
+PeageRequiredMixin = RecettePeagePermissionMixin
+PesageRequiredMixin = PesagePermissionMixin
+PersonnelRequiredMixin = GestionUtilisateursPermissionMixin
+BudgetRequiredMixin = GranularPermissionMixin
+ArchivesRequiredMixin = GranularPermissionMixin
+StocksPSRRRequiredMixin = StockPeagePermissionMixin
+StockInfoRequiredMixin = GranularPermissionMixin
+ChefPosteOnlyMixin = ChefPosteRequiredMixin
+AgentInventaireOnlyMixin = InventairePermissionMixin

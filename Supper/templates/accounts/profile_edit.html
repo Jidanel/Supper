@@ -1,0 +1,318 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-edit-header {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .profile-edit-card {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .form-section h5 {
+        color: #6366f1;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+    }
+    
+    .photo-preview {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #e5e7eb;
+    }
+    
+    .photo-placeholder {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+        color: #9ca3af;
+        border: 3px solid #e5e7eb;
+    }
+    
+    .photo-upload-btn {
+        margin-top: 1rem;
+    }
+    
+    .readonly-info {
+        background: #f9fafb;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .readonly-info p {
+        margin-bottom: 0.5rem;
+    }
+    
+    .readonly-info p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .help-text {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    
+    .btn-group-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="profile-edit-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="mb-1">
+                    <i class="fas fa-user-edit me-2"></i>{{ title }}
+                </h3>
+                <p class="mb-0 opacity-75">{{ user_description }}</p>
+            </div>
+            <a href="{% url 'accounts:profile' %}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-1"></i>{% trans "Retour au profil" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="profile-edit-card">
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Section Photo -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-camera me-2"></i>{% trans "Photo de profil" %}</h5>
+                        
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                {% if form.instance.photo_profil %}
+                                    <img src="{{ form.instance.photo_profil.url }}" 
+                                         alt="Photo actuelle" 
+                                         class="photo-preview"
+                                         id="photoPreview">
+                                {% else %}
+                                    <div class="photo-placeholder" id="photoPlaceholder">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <img src="" alt="" class="photo-preview d-none" id="photoPreview">
+                                {% endif %}
+                            </div>
+                            <div class="col">
+                                <div class="mb-3">
+                                    <input type="file" 
+                                           name="photo_profil" 
+                                           id="id_photo_profil" 
+                                           class="form-control"
+                                           accept="image/*"
+                                           onchange="previewPhoto(this)">
+                                    <p class="help-text">
+                                        {% trans "Formats acceptés : JPG, PNG. Taille maximale : 2 Mo" %}
+                                    </p>
+                                </div>
+                                {% if form.instance.photo_profil %}
+                                <div class="form-check">
+                                    <input type="checkbox" 
+                                           name="photo_profil-clear" 
+                                           id="photo_profil-clear" 
+                                           class="form-check-input">
+                                    <label for="photo_profil-clear" class="form-check-label text-danger">
+                                        {% trans "Supprimer la photo actuelle" %}
+                                    </label>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section Informations personnelles -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-user me-2"></i>{% trans "Informations personnelles" %}</h5>
+                        
+                        <div class="mb-3">
+                            <label for="id_nom_complet" class="form-label">
+                                {% trans "Nom complet" %} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   name="nom_complet" 
+                                   id="id_nom_complet" 
+                                   class="form-control {% if form.nom_complet.errors %}is-invalid{% endif %}"
+                                   value="{{ form.nom_complet.value|default:'' }}"
+                                   required>
+                            {% if form.nom_complet.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.nom_complet.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_telephone" class="form-label">
+                                    {% trans "Téléphone" %} <span class="text-danger">*</span>
+                                </label>
+                                <input type="tel" 
+                                       name="telephone" 
+                                       id="id_telephone" 
+                                       class="form-control {% if form.telephone.errors %}is-invalid{% endif %}"
+                                       value="{{ form.telephone.value|default:'' }}"
+                                       placeholder="+237 6XX XXX XXX"
+                                       required>
+                                {% if form.telephone.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.telephone.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <p class="help-text">{% trans "Format : +237XXXXXXXXX ou 6XXXXXXXX" %}</p>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="id_email" class="form-label">{% trans "Email" %}</label>
+                                <input type="email" 
+                                       name="email" 
+                                       id="id_email" 
+                                       class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                                       value="{{ form.email.value|default:'' }}"
+                                       placeholder="exemple@email.com">
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.email.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <p class="help-text">{% trans "Optionnel - utilisé pour la récupération de mot de passe" %}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations non modifiables -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-lock me-2"></i>{% trans "Informations non modifiables" %}</h5>
+                        
+                        <div class="readonly-info">
+                            <p>
+                                <strong>{% trans "Matricule :" %}</strong> 
+                                <code>{{ request.user.username }}</code>
+                            </p>
+                            <p>
+                                <strong>{% trans "Habilitation :" %}</strong> 
+                                {{ request.user.get_habilitation_display }}
+                            </p>
+                            <p>
+                                <strong>{% trans "Poste d'affectation :" %}</strong> 
+                                {% if request.user.poste_affectation %}
+                                    {{ request.user.poste_affectation.nom }}
+                                {% else %}
+                                    <span class="text-muted">{% trans "Non affecté" %}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <p class="help-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            {% trans "Pour modifier ces informations, contactez un administrateur." %}
+                        </p>
+                    </div>
+
+                    <!-- Boutons d'action -->
+                    <div class="btn-group-actions">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save me-2"></i>{% trans "Enregistrer les modifications" %}
+                        </button>
+                        <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-times me-2"></i>{% trans "Annuler" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Colonne d'aide -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-question-circle me-2 text-primary"></i>
+                        {% trans "Aide" %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">{% trans "Informations modifiables" %}</h6>
+                    <ul class="small text-muted">
+                        <li>{% trans "Nom complet" %}</li>
+                        <li>{% trans "Numéro de téléphone" %}</li>
+                        <li>{% trans "Adresse email" %}</li>
+                        <li>{% trans "Photo de profil" %}</li>
+                    </ul>
+                    
+                    <hr>
+                    
+                    <h6 class="fw-bold">{% trans "Mot de passe" %}</h6>
+                    <p class="small text-muted">
+                        {% trans "Pour changer votre mot de passe, utilisez le lien dédié depuis votre profil." %}
+                    </p>
+                    <a href="{% url 'accounts:password_change' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-key me-1"></i>{% trans "Changer mot de passe" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewPhoto(input) {
+    const preview = document.getElementById('photoPreview');
+    const placeholder = document.getElementById('photoPlaceholder');
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.classList.remove('d-none');
+            if (placeholder) {
+                placeholder.classList.add('d-none');
+            }
+        };
+        
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+{% endblock %}

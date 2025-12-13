@@ -1,224 +1,984 @@
-{% extends "admin/base_site.html" %}
-{% load static i18n %}
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
 
-{% block title %}{{ title }} - SUPPER{% endblock %}
+{% block title %}{{ user_detail.nom_complet }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4f46e5;
+        --primary-light: #818cf8;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-500: #6b7280;
+        --gray-700: #374151;
+        --gray-900: #111827;
+    }
+
+    .page-container {
+        background: var(--gray-50);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    /* ===== HEADER PROFIL ===== */
+    .profile-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.35);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .profile-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 60%;
+        height: 200%;
+        background: rgba(255,255,255,0.05);
+        transform: rotate(15deg);
+        pointer-events: none;
+    }
+
+    .profile-avatar {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 700;
+        border: 4px solid rgba(255,255,255,0.3);
+        backdrop-filter: blur(10px);
+    }
+
+    .profile-name {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .profile-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .badge-pill {
+        padding: 0.4rem 0.9rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .badge-pill.primary {
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .badge-pill.success {
+        background: var(--success);
+    }
+
+    .badge-pill.danger {
+        background: var(--danger);
+    }
+
+    .badge-pill.warning {
+        background: var(--warning);
+        color: #1f2937;
+    }
+
+    .badge-pill.info {
+        background: #3b82f6;
+    }
+
+    .profile-meta {
+        margin-top: 1rem;
+        opacity: 0.9;
+        font-size: 0.9rem;
+    }
+
+    .profile-meta i {
+        margin-right: 0.35rem;
+    }
+
+    .profile-meta span {
+        margin-right: 1.5rem;
+    }
+
+    /* ===== CARTES ===== */
+    .info-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        border: 1px solid var(--gray-200);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .card-header-custom {
+        background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--gray-200);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .card-header-custom .icon-box {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        border-radius: 10px;
+        font-size: 1rem;
+    }
+
+    .card-header-custom h5 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+
+    .card-body-custom {
+        padding: 1.5rem;
+    }
+
+    /* ===== INFOS ITEMS ===== */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .info-item {
+        background: var(--gray-50);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        border: 1px solid var(--gray-100);
+    }
+
+    .info-item .label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray-500);
+        margin-bottom: 0.35rem;
+    }
+
+    .info-item .value {
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--gray-900);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-item .value i {
+        color: var(--primary);
+        width: 18px;
+    }
+
+    /* ===== NIVEAU D'ACCÈS ===== */
+    .access-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .access-badge {
+        padding: 0.6rem 1.25rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .access-badge.complet {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        border: 1px solid #fcd34d;
+    }
+
+    .access-badge.etendu {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+    }
+
+    .access-badge.standard {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #065f46;
+        border: 1px solid #6ee7b7;
+    }
+
+    .access-badge.limite {
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+
+    .access-badge.global {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+    }
+
+    /* ===== PERMISSIONS ===== */
+    .permission-category {
+        background: var(--gray-50);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid var(--gray-100);
+    }
+
+    .permission-category:last-child {
+        margin-bottom: 0;
+    }
+
+    .permission-category-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .permission-category-title i {
+        color: var(--primary);
+    }
+
+    .permission-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .permission-tag {
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .permission-tag.active {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .permission-tag.inactive {
+        background: var(--gray-100);
+        color: var(--gray-400);
+        border: 1px solid var(--gray-200);
+        text-decoration: line-through;
+    }
+
+    /* ===== STATS ===== */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+    }
+
+    @media (max-width: 992px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    .stat-box {
+        background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        border: 1px solid var(--gray-200);
+    }
+
+    .stat-box .number {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+
+    .stat-box .label {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+        margin-top: 0.25rem;
+    }
+
+    /* ===== ACTIVITÉS ===== */
+    .activity-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .activity-item {
+        padding: 1rem;
+        border-left: 3px solid transparent;
+        transition: all 0.2s ease;
+        border-bottom: 1px solid var(--gray-100);
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-item:hover {
+        background: var(--gray-50);
+    }
+
+    .activity-item.success {
+        border-left-color: var(--success);
+    }
+
+    .activity-item.error {
+        border-left-color: var(--danger);
+    }
+
+    .activity-item .title {
+        font-weight: 600;
+        color: var(--gray-900);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .activity-item .title i.success { color: var(--success); }
+    .activity-item .title i.error { color: var(--danger); }
+
+    .activity-item .details {
+        font-size: 0.85rem;
+        color: var(--gray-500);
+        margin-top: 0.35rem;
+    }
+
+    .activity-item .meta {
+        font-size: 0.75rem;
+        color: var(--gray-400);
+        margin-top: 0.5rem;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        border: 1px solid var(--gray-200);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .sidebar-card h6 {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .sidebar-card h6 i {
+        color: var(--primary);
+    }
+
+    .info-line {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--gray-100);
+    }
+
+    .info-line:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .info-line .label {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        margin-bottom: 0.25rem;
+    }
+
+    .info-line .value {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--gray-900);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-line .value i {
+        color: var(--primary);
+        width: 16px;
+    }
+
+    /* ===== BOUTONS ===== */
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: var(--gray-700);
+        border: 2px solid var(--gray-300);
+    }
+
+    .btn-secondary:hover {
+        background: var(--gray-100);
+        color: var(--gray-900);
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);
+        color: white;
+    }
+
+    .btn-warning:hover {
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.85rem 1rem;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 10px;
+        color: var(--gray-700);
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        margin-bottom: 0.5rem;
+    }
+
+    .action-btn:last-child {
+        margin-bottom: 0;
+    }
+
+    .action-btn:hover {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        transform: translateX(4px);
+    }
+
+    .action-btn i {
+        width: 20px;
+        text-align: center;
+    }
+
+    /* ===== EMPTY STATE ===== */
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: var(--gray-400);
+    }
+
+    .empty-state i {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-state p {
+        margin: 0;
+    }
+
+    /* ===== PERMISSIONS GRID ===== */
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .permissions-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row">
-        <!-- Colonne principale -->
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h2 class="mb-0">
-                            <i class="fas fa-user text-primary me-2"></i>
-                            {{ user_detail.nom_complet }}
-                        </h2>
-                        <div class="btn-group">
-                            <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary">
-                                <i class="fas fa-arrow-left me-2"></i>Retour
-                            </a>
-                            <a href="{% url 'accounts:modifier_utilisateur' user_detail.id %}" class="btn btn-primary">
-                                <i class="fas fa-edit me-2"></i>Modifier
-                            </a>
-                        </div>
+<div class="page-container">
+    <div class="container">
+        <!-- En-tête du profil -->
+        <div class="profile-header">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="profile-avatar">
+                        {{ user_detail.nom_complet|slice:":2"|upper }}
                     </div>
                 </div>
-                
-                <div class="card-body">
-                    <!-- Informations principales -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded">
-                                <label class="text-muted small">Matricule</label>
-                                <div class="fw-bold">{{ user_detail.username }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded">
-                                <label class="text-muted small">Habilitation</label>
-                                <div>
-                                    <span class="badge bg-primary">{{ user_detail.get_habilitation_display }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded">
-                                <label class="text-muted small">Téléphone</label>
-                                <div class="fw-bold">{{ user_detail.telephone }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 border rounded">
-                                <label class="text-muted small">Email</label>
-                                <div>{{ user_detail.email|default:"—" }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-12">
-                            <div class="p-3 border rounded">
-                                <label class="text-muted small">Poste d'affectation</label>
-                                <div class="fw-bold">
-                                    {% if user_detail.poste_affectation %}
-                                    {{ user_detail.poste_affectation.nom }}
-                                    {% else %}
-                                    <span class="text-muted">Aucun poste affecté</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Statut -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2">Statut</h5>
-                        <div class="d-flex gap-2 mt-3">
-                            {% if user_detail.is_active %}
-                            <span class="badge bg-success p-2">
-                                <i class="fas fa-check-circle me-1"></i>Compte Actif
-                            </span>
-                            {% else %}
-                            <span class="badge bg-danger p-2">
-                                <i class="fas fa-ban me-1"></i>Compte Inactif
-                            </span>
-                            {% endif %}
-                            
-                            {% if user_detail.is_staff %}
-                            <span class="badge bg-warning p-2">
-                                <i class="fas fa-shield-alt me-1"></i>Staff
-                            </span>
-                            {% endif %}
-                            
-                            {% if user_detail.is_superuser %}
-                            <span class="badge bg-danger p-2">
-                                <i class="fas fa-crown me-1"></i>Superuser
-                            </span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Activités récentes -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-history me-2"></i>
-                        Activités Récentes
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% if activites_recentes %}
-                    <div class="list-group list-group-flush">
-                        {% for activite in activites_recentes %}
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <strong>{{ activite.action }}</strong>
-                                    <p class="mb-0 text-muted small">{{ activite.details|truncatewords:20 }}</p>
-                                </div>
-                                <small class="text-muted">{{ activite.timestamp|timesince }}</small>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="text-muted text-center">Aucune activité récente</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Colonne latérale -->
-        <div class="col-lg-4">
-            <!-- Statistiques -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-chart-bar me-2"></i>
-                        Statistiques
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Connexions</span>
-                            <strong>{{ stats_user.nb_connexions }}</strong>
-                        </div>
-                        <div class="progress" style="height: 5px;">
-                            <div class="progress-bar bg-primary" style="width: 100%"></div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Actions ce mois</span>
-                            <strong>{{ stats_user.nb_actions_mois }}</strong>
-                        </div>
-                        <div class="progress" style="height: 5px;">
-                            <div class="progress-bar bg-success" style="width: 75%"></div>
-                        </div>
-                    </div>
-                    <div class="mb-0">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Dernière connexion</span>
-                        </div>
-                        <small class="text-muted">
-                            {% if stats_user.derniere_connexion %}
-                            {{ stats_user.derniere_connexion.timestamp|date:"d/m/Y H:i" }}
-                            {% else %}
-                            Jamais connecté
-                            {% endif %}
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Actions rapides -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-tools me-2"></i>
-                        Actions Rapides
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'accounts:modifier_utilisateur' user_detail.id %}" class="btn btn-outline-primary">
-                            <i class="fas fa-edit me-2"></i>Modifier
-                        </a>
-                        <button class="btn btn-outline-warning" onclick="resetPassword({{ user_detail.id }})">
-                            <i class="fas fa-key me-2"></i>Réinitialiser mot de passe
-                        </button>
+                <div class="col">
+                    <h1 class="profile-name">{{ user_detail.nom_complet }}</h1>
+                    <div class="profile-badges">
+                        <span class="badge-pill primary">
+                            <i class="fas fa-id-badge"></i>
+                            {{ user_detail.get_habilitation_display }}
+                        </span>
                         {% if user_detail.is_active %}
-                        <button class="btn btn-outline-danger" onclick="toggleActive({{ user_detail.id }}, false)">
-                            <i class="fas fa-ban me-2"></i>Désactiver
-                        </button>
+                        <span class="badge-pill success">
+                            <i class="fas fa-check-circle"></i> Actif
+                        </span>
                         {% else %}
-                        <button class="btn btn-outline-success" onclick="toggleActive({{ user_detail.id }}, true)">
-                            <i class="fas fa-check-circle me-2"></i>Activer
-                        </button>
+                        <span class="badge-pill danger">
+                            <i class="fas fa-ban"></i> Inactif
+                        </span>
+                        {% endif %}
+                        {% if user_detail.is_superuser %}
+                        <span class="badge-pill warning">
+                            <i class="fas fa-crown"></i> Superuser
+                        </span>
+                        {% endif %}
+                        {% if user_detail.is_staff %}
+                        <span class="badge-pill info">
+                            <i class="fas fa-shield-alt"></i> Staff
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="profile-meta">
+                        <span><i class="fas fa-fingerprint"></i> {{ user_detail.username }}</span>
+                        {% if user_detail.poste_affectation %}
+                        <span><i class="fas fa-map-marker-alt"></i> {{ user_detail.poste_affectation.nom }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Retour
+                        </a>
+                        {% if can_edit %}
+                        <a href="{% url 'accounts:modifier_utilisateur' user_detail.id %}" class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Modifier
+                        </a>
                         {% endif %}
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="row">
+            <!-- Colonne principale -->
+            <div class="col-lg-8">
+                <!-- Informations personnelles -->
+                <div class="info-card">
+                    <div class="card-header-custom">
+                        <div class="icon-box"><i class="fas fa-user"></i></div>
+                        <h5>Informations Personnelles</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="label">Matricule</div>
+                                <div class="value">
+                                    <i class="fas fa-id-card"></i>
+                                    {{ user_detail.username }}
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Nom Complet</div>
+                                <div class="value">
+                                    <i class="fas fa-user"></i>
+                                    {{ user_detail.nom_complet }}
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Téléphone</div>
+                                <div class="value">
+                                    <i class="fas fa-phone"></i>
+                                    {{ user_detail.telephone }}
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Email</div>
+                                <div class="value">
+                                    <i class="fas fa-envelope"></i>
+                                    {{ user_detail.email|default:"Non renseigné" }}
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Poste d'affectation</div>
+                                <div class="value">
+                                    <i class="fas fa-building"></i>
+                                    {% if user_detail.poste_affectation %}
+                                    {{ user_detail.poste_affectation.nom }}
+                                    <small class="text-muted">({{ user_detail.poste_affectation.code }})</small>
+                                    {% else %}
+                                    <span class="text-muted">Aucun poste affecté</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">Habilitation</div>
+                                <div class="value">
+                                    <i class="fas fa-user-tag"></i>
+                                    {{ user_detail.get_habilitation_display }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Niveau d'accès et permissions -->
+                <div class="info-card">
+                    <div class="card-header-custom">
+                        <div class="icon-box"><i class="fas fa-shield-alt"></i></div>
+                        <h5>Niveau d'Accès et Permissions</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <!-- Badges de niveau -->
+                        <div class="access-badges">
+                            {% if user_detail.niveau_acces == 'COMPLET' %}
+                            <span class="access-badge complet">
+                                <i class="fas fa-crown"></i> Accès COMPLET
+                            </span>
+                            {% elif user_detail.niveau_acces == 'ÉTENDU' %}
+                            <span class="access-badge etendu">
+                                <i class="fas fa-star"></i> Accès ÉTENDU
+                            </span>
+                            {% elif user_detail.niveau_acces == 'STANDARD' %}
+                            <span class="access-badge standard">
+                                <i class="fas fa-user-check"></i> Accès STANDARD
+                            </span>
+                            {% else %}
+                            <span class="access-badge limite">
+                                <i class="fas fa-user"></i> Accès LIMITÉ
+                            </span>
+                            {% endif %}
+                            
+                            {% if user_detail.acces_tous_postes %}
+                            <span class="access-badge global">
+                                <i class="fas fa-globe"></i> Tous les postes
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Permissions par catégorie -->
+                        <div class="permissions-grid">
+                            <!-- Accès Global -->
+                            <div class="permission-category">
+                                <div class="permission-category-title">
+                                    <i class="fas fa-globe"></i> Accès Global
+                                </div>
+                                <div class="permission-tags">
+                                    <span class="permission-tag {% if user_detail.acces_tous_postes %}active{% else %}inactive{% endif %}">
+                                        <i class="fas fa-{% if user_detail.acces_tous_postes %}check{% else %}times{% endif %}"></i>
+                                        Tous postes
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_saisir_peage %}active{% else %}inactive{% endif %}">
+                                        <i class="fas fa-{% if user_detail.peut_saisir_peage %}check{% else %}times{% endif %}"></i>
+                                        Saisie péage
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_saisir_pesage %}active{% else %}inactive{% endif %}">
+                                        <i class="fas fa-{% if user_detail.peut_saisir_pesage %}check{% else %}times{% endif %}"></i>
+                                        Saisie pesage
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Inventaires -->
+                            <div class="permission-category">
+                                <div class="permission-category-title">
+                                    <i class="fas fa-clipboard-list"></i> Inventaires
+                                </div>
+                                <div class="permission-tags">
+                                    <span class="permission-tag {% if user_detail.peut_saisir_inventaire_normal %}active{% else %}inactive{% endif %}">
+                                        Saisie normale
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_saisir_inventaire_admin %}active{% else %}inactive{% endif %}">
+                                        Saisie admin
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_programmer_inventaire %}active{% else %}inactive{% endif %}">
+                                        Programmer
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Recettes Péage -->
+                            <div class="permission-category">
+                                <div class="permission-category-title">
+                                    <i class="fas fa-coins"></i> Recettes Péage
+                                </div>
+                                <div class="permission-tags">
+                                    <span class="permission-tag {% if user_detail.peut_saisir_recette_peage %}active{% else %}inactive{% endif %}">
+                                        Saisie
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_voir_liste_recettes_peage %}active{% else %}inactive{% endif %}">
+                                        Consulter
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_importer_recettes_peage %}active{% else %}inactive{% endif %}">
+                                        Importer
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Pesage -->
+                            <div class="permission-category">
+                                <div class="permission-category-title">
+                                    <i class="fas fa-weight"></i> Pesage
+                                </div>
+                                <div class="permission-tags">
+                                    <span class="permission-tag {% if user_detail.peut_saisir_amende %}active{% else %}inactive{% endif %}">
+                                        Saisie amendes
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_valider_paiement_amende %}active{% else %}inactive{% endif %}">
+                                        Valider paiements
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_lister_amendes %}active{% else %}inactive{% endif %}">
+                                        Lister amendes
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Stock -->
+                            <div class="permission-category">
+                                <div class="permission-category-title">
+                                    <i class="fas fa-boxes"></i> Stock Péage
+                                </div>
+                                <div class="permission-tags">
+                                    <span class="permission-tag {% if user_detail.peut_charger_stock_peage %}active{% else %}inactive{% endif %}">
+                                        Charger
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_transferer_stock_peage %}active{% else %}inactive{% endif %}">
+                                        Transférer
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_voir_tracabilite_tickets %}active{% else %}inactive{% endif %}">
+                                        Traçabilité
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Gestion -->
+                            <div class="permission-category">
+                                <div class="permission-category-title">
+                                    <i class="fas fa-cogs"></i> Gestion
+                                </div>
+                                <div class="permission-tags">
+                                    <span class="permission-tag {% if user_detail.peut_gerer_postes %}active{% else %}inactive{% endif %}">
+                                        Postes
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_gerer_utilisateurs %}active{% else %}inactive{% endif %}">
+                                        Utilisateurs
+                                    </span>
+                                    <span class="permission-tag {% if user_detail.peut_voir_journal_audit %}active{% else %}inactive{% endif %}">
+                                        Journal audit
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activités récentes -->
+                <div class="info-card">
+                    <div class="card-header-custom">
+                        <div class="icon-box"><i class="fas fa-history"></i></div>
+                        <h5>Activités Récentes</h5>
+                    </div>
+                    <div class="card-body-custom p-0">
+                        {% if activites_recentes %}
+                        <div class="activity-list">
+                            {% for activite in activites_recentes %}
+                            <div class="activity-item {% if activite.succes %}success{% else %}error{% endif %}">
+                                <div class="title">
+                                    {% if activite.succes %}
+                                    <i class="fas fa-check-circle success"></i>
+                                    {% else %}
+                                    <i class="fas fa-exclamation-circle error"></i>
+                                    {% endif %}
+                                    {{ activite.action }}
+                                </div>
+                                <div class="details">{{ activite.details|truncatewords:25 }}</div>
+                                <div class="meta">
+                                    <i class="fas fa-clock me-1"></i> {{ activite.timestamp|timesince }}
+                                    {% if activite.adresse_ip %}
+                                    <span class="ms-2"><i class="fas fa-globe me-1"></i> {{ activite.adresse_ip }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Aucune activité récente enregistrée</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne latérale -->
+            <div class="col-lg-4">
+                <!-- Statistiques -->
+                <div class="sidebar-card">
+                    <h6><i class="fas fa-chart-pie"></i> Statistiques</h6>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="number">{{ stats_user.nb_connexions|default:0 }}</div>
+                            <div class="label">Connexions</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="number">{{ stats_user.nb_actions_mois|default:0 }}</div>
+                            <div class="label">Ce mois</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="number">{{ stats_user.nb_actions_today|default:0 }}</div>
+                            <div class="label">Aujourd'hui</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="number">
+                                {% if stats_user.derniere_connexion %}
+                                <i class="fas fa-check text-success"></i>
+                                {% else %}
+                                <i class="fas fa-times text-danger"></i>
+                                {% endif %}
+                            </div>
+                            <div class="label">
+                                {% if stats_user.derniere_connexion %}
+                                {{ stats_user.derniere_connexion|timesince }}
+                                {% else %}
+                                Jamais
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informations du compte -->
+                <div class="sidebar-card">
+                    <h6><i class="fas fa-calendar-alt"></i> Informations du Compte</h6>
+                    
+                    <div class="info-line">
+                        <div class="label">Date de création</div>
+                        <div class="value">
+                            <i class="fas fa-calendar-plus"></i>
+                            {{ user_detail.date_creation|date:"d/m/Y à H:i" }}
+                        </div>
+                    </div>
+                    <div class="info-line">
+                        <div class="label">Dernière modification</div>
+                        <div class="value">
+                            <i class="fas fa-edit"></i>
+                            {{ user_detail.date_modification|date:"d/m/Y à H:i" }}
+                        </div>
+                    </div>
+                    <div class="info-line">
+                        <div class="label">Dernière connexion</div>
+                        <div class="value">
+                            <i class="fas fa-sign-in-alt"></i>
+                            {% if user_detail.last_login %}
+                            {{ user_detail.last_login|date:"d/m/Y à H:i" }}
+                            {% else %}
+                            <span class="text-muted">Jamais connecté</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if user_detail.cree_par %}
+                    <div class="info-line">
+                        <div class="label">Créé par</div>
+                        <div class="value">
+                            <i class="fas fa-user-plus"></i>
+                            {{ user_detail.cree_par.nom_complet }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Actions rapides -->
+                {% if can_edit %}
+                <div class="sidebar-card">
+                    <h6><i class="fas fa-bolt"></i> Actions Rapides</h6>
+                    
+                    <a href="{% url 'accounts:modifier_utilisateur' user_detail.id %}" class="action-btn">
+                        <i class="fas fa-edit"></i>
+                        Modifier le profil
+                    </a>
+                    
+                    <a href="{% url 'accounts:password_reset' user_detail.id %}" class="action-btn">
+                        <i class="fas fa-key"></i>
+                        Réinitialiser mot de passe
+                    </a>
+                    
+                    <a href="{% url 'accounts:journal_audit' %}?user={{ user_detail.username }}" class="action-btn">
+                        <i class="fas fa-history"></i>
+                        Voir tout l'historique
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
-
-<script>
-function resetPassword(userId) {
-    if (confirm('Réinitialiser le mot de passe de cet utilisateur ?')) {
-        // Implémenter l'appel AJAX
-        alert('Fonctionnalité à implémenter');
-    }
-}
-
-function toggleActive(userId, activate) {
-    const action = activate ? 'activer' : 'désactiver';
-    if (confirm(`Voulez-vous vraiment ${action} cet utilisateur ?`)) {
-        // Implémenter l'appel AJAX
-        alert('Fonctionnalité à implémenter');
-    }
-}
-</script>
 {% endblock %}

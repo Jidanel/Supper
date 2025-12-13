@@ -1,147 +1,295 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
-{% load i18n %}
+{% load static i18n %}
 
-{% block title %}{{ title }} - SUPPER{% endblock %}
+{% block title %}Modifier {{ user_edit.nom_complet }} - SUPPER{% endblock %}
 
-{% block extrahead %}
+{% block content %}
 <style>
+    .page-header {
+        background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%) !important;
+        color: white !important;
+        border-radius: 12px !important;
+        padding: 1.5rem 2rem !important;
+        margin-bottom: 1.5rem !important;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3) !important;
+    }
+    
     .form-container {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e0e0e0;
-    }
-    
-    .header-section {
-        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-    }
-    
-    .form-group { margin-bottom: 1.5rem; }
-    .form-label { font-weight: 600; color: #334155; margin-bottom: 0.5rem; }
-    
-    .form-control, .form-select {
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        transition: all 0.3s ease;
-    }
-    
-    .form-control:focus, .form-select:focus {
-        border-color: #F59E0B;
-        box-shadow: 0 0 0 0.2rem rgba(245, 158, 11, 0.25);
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-        border: none; padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600;
-    }
-    
-    .btn-secondary {
-        background: #64748B; border: none; padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600;
+        background: white !important;
+        border-radius: 12px !important;
+        padding: 2rem !important;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08) !important;
+        border: 1px solid #E2E8F0 !important;
     }
     
     .section-title {
-        color: #F59E0B;
-        border-bottom: 2px solid #e0e0e0;
-        padding-bottom: 0.5rem;
-        margin-bottom: 1.5rem;
-        font-weight: 600;
+        color: #8B5CF6 !important;
+        border-bottom: 2px solid #E2E8F0 !important;
+        padding-bottom: 0.75rem !important;
+        margin-bottom: 1.5rem !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
     }
     
-    .help-text { font-size: 0.875rem; color: #64748B; margin-top: 0.25rem; }
-    .required { color: #dc3545; }
-    
-    .warning-box {
-        background: #fef3c7;
-        border: 1px solid #f59e0b;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
+    .form-label {
+        font-weight: 600 !important;
+        color: #334155 !important;
+        margin-bottom: 0.5rem !important;
     }
     
-    .form-check { margin-bottom: 1rem; }
-    .form-check-input:checked { background-color: #F59E0B; border-color: #F59E0B; }
-    
-    .permissions-section {
-        background: #F8FAFC;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        border: 1px solid #e0e0e0;
+    .form-control, .form-select {
+        border: 2px solid #E2E8F0 !important;
+        border-radius: 8px !important;
+        padding: 0.75rem 1rem !important;
+        transition: all 0.3s ease !important;
     }
     
-    .readonly-field { background: #f8f9fa; color: #6c757d; }
-    .invalid-feedback { display: block; color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem; }
-    .is-invalid { border-color: #dc3545 !important; }
+    .form-control:focus, .form-select:focus {
+        border-color: #8B5CF6 !important;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+    }
     
-    /* Alertes de filtrage */
+    .form-control:disabled, .form-control[readonly] {
+        background-color: #F1F5F9 !important;
+        color: #64748B !important;
+    }
+    
+    .btn-primary-gradient {
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
+        border: none !important;
+        color: white !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+    }
+    
+    .btn-primary-gradient:hover {
+        background: linear-gradient(135deg, #7C3AED, #6D28D9) !important;
+        color: white !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4) !important;
+    }
+    
+    .btn-secondary {
+        background: #64748B !important;
+        border: none !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        color: white !important;
+    }
+    
+    .required { color: #EF4444 !important; }
+    .help-text { font-size: 0.875rem !important; color: #64748B !important; margin-top: 0.25rem !important; }
+    
+    .user-badge {
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 8px !important;
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+    }
+    
+    .user-badge.active {
+        background: rgba(16, 185, 129, 0.2) !important;
+        color: #059669 !important;
+    }
+    
+    .user-badge.inactive {
+        background: rgba(239, 68, 68, 0.2) !important;
+        color: #DC2626 !important;
+    }
+    
+    .user-info-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%) !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        padding: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+    
+    .user-info-card .user-avatar {
+        width: 80px !important;
+        height: 80px !important;
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: white !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+    }
+    
+    .user-info-card .info-label {
+        font-size: 0.75rem !important;
+        color: #64748B !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+    
+    .user-info-card .info-value {
+        font-weight: 600 !important;
+        color: #334155 !important;
+    }
+    
+    .filter-alert {
+        border-radius: 8px !important;
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+        display: none;
+    }
+    
     .filter-alert-pesage {
-        background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
-        border: 1px solid #8B5CF6; border-left: 4px solid #8B5CF6;
-        border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
-        display: none; animation: fadeIn 0.3s ease;
+        background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%) !important;
+        border: 1px solid #8B5CF6 !important;
+        border-left: 4px solid #8B5CF6 !important;
     }
-    .filter-alert-pesage .icon { color: #8B5CF6; }
     
     .filter-alert-peage {
-        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
-        border: 1px solid #3B82F6; border-left: 4px solid #3B82F6;
-        border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
-        display: none; animation: fadeIn 0.3s ease;
+        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+        border: 1px solid #3B82F6 !important;
+        border-left: 4px solid #3B82F6 !important;
     }
-    .filter-alert-peage .icon { color: #3B82F6; }
     
     .filter-alert-multi {
-        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-        border: 1px solid #F59E0B; border-left: 4px solid #F59E0B;
-        border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
-        display: none; animation: fadeIn 0.3s ease;
-    }
-    .filter-alert-multi .icon { color: #F59E0B; }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
+        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%) !important;
+        border: 1px solid #F59E0B !important;
+        border-left: 4px solid #F59E0B !important;
     }
     
-    .postes-stats { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
+    .postes-stats {
+        display: flex !important;
+        gap: 1rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
     .postes-stats .stat-item {
-        font-size: 0.8rem; padding: 0.25rem 0.5rem;
-        border-radius: 4px; background: #f1f5f9;
+        font-size: 0.8rem !important;
+        padding: 0.25rem 0.75rem !important;
+        border-radius: 6px !important;
+        background: #F1F5F9 !important;
     }
-    .postes-stats .stat-item.peage { border-left: 3px solid #3B82F6; }
-    .postes-stats .stat-item.pesage { border-left: 3px solid #8B5CF6; }
+    
+    .postes-stats .stat-item.peage { border-left: 3px solid #3B82F6 !important; }
+    .postes-stats .stat-item.pesage { border-left: 3px solid #8B5CF6 !important; }
+    
+    .permissions-preview {
+        background: #F8FAFC !important;
+        border-radius: 8px !important;
+        padding: 1.5rem !important;
+        margin-top: 1rem !important;
+        border: 1px solid #E2E8F0 !important;
+    }
+    
+    .permission-badge {
+        display: inline-block !important;
+        padding: 0.25rem 0.5rem !important;
+        border-radius: 4px !important;
+        font-size: 0.75rem !important;
+        margin: 0.15rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .permission-badge.active {
+        background: #D1FAE5 !important;
+        color: #065F46 !important;
+    }
+    
+    .permission-badge.inactive {
+        background: #FEE2E2 !important;
+        color: #991B1B !important;
+    }
+    
+    .form-check-input:checked {
+        background-color: #8B5CF6 !important;
+        border-color: #8B5CF6 !important;
+    }
+    
+    .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%) !important;
+        color: #6D28D9 !important;
+    }
 </style>
-{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="header-section">
-        <div class="d-flex align-items-center">
-            <div class="flex-grow-1">
-                <h1 class="h3 mb-0"><i class="fas fa-user-edit me-2"></i>{{ title }}</h1>
-                <p class="mb-0 mt-2 opacity-75">Modification du compte utilisateur {{ user_edit.nom_complet }}</p>
-            </div>
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
-                <a href="{% url 'accounts:detail_utilisateur' user_edit.id %}" class="btn btn-light">
-                    <i class="fas fa-arrow-left me-2"></i>Retour au profil
+                <h2 class="mb-1" style="color: white;">
+                    <i class="fas fa-user-edit me-2"></i>Modifier l'utilisateur
+                </h2>
+                <p class="mb-0" style="opacity: 0.85; color: white;">
+                    {{ user_edit.nom_complet }} ({{ user_edit.username }})
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <span class="user-badge {% if user_edit.is_active %}active{% else %}inactive{% endif %}">
+                    <i class="fas fa-{% if user_edit.is_active %}check-circle{% else %}times-circle{% endif %} me-2"></i>
+                    {% if user_edit.is_active %}Actif{% else %}Inactif{% endif %}
+                </span>
+                <a href="{% url 'accounts:user_list' %}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>Retour à la liste
                 </a>
             </div>
         </div>
     </div>
 
     <div class="row justify-content-center">
-        <div class="col-xl-8 col-lg-10">
+        <div class="col-xl-10 col-lg-11">
+            
+            <!-- Carte info utilisateur -->
+            <div class="user-info-card">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <div class="user-avatar">
+                            {{ user_edit.nom_complet|slice:":1"|upper }}
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="info-item">
+                                    <div class="info-label">Matricule</div>
+                                    <div class="info-value">{{ user_edit.username }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="info-item">
+                                    <div class="info-label">Rôle actuel</div>
+                                    <div class="info-value">{{ user_edit.get_habilitation_display }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="info-item">
+                                    <div class="info-label">Poste</div>
+                                    <div class="info-value">
+                                        {% if user_edit.poste_affectation %}
+                                            {{ user_edit.poste_affectation.nom }}
+                                        {% else %}
+                                            <span class="text-muted">Aucun</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="info-item">
+                                    <div class="info-label">Créé le</div>
+                                    <div class="info-value">{{ user_edit.date_joined|date:"d/m/Y" }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="form-container">
-                <form method="post" novalidate id="form-modifier-utilisateur">
+                <form method="post" enctype="multipart/form-data" id="form-modifier-utilisateur" novalidate>
                     {% csrf_token %}
                     
+                    <!-- Messages d'erreur globaux -->
                     {% if messages %}
                         {% for message in messages %}
                         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -154,199 +302,737 @@
                     {% if form.non_field_errors %}
                         {% for error in form.non_field_errors %}
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            {{ error }}
+                            <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                         {% endfor %}
                     {% endif %}
 
-                    <div class="warning-box">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                            <div>
-                                <strong>Attention :</strong>
-                                La modification des permissions peut affecter l'accès de l'utilisateur au système.
+                    <!-- Section: Identification -->
+                    <h5 class="section-title">
+                        <i class="fas fa-id-card me-2"></i>Identification
+                    </h5>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="id_username" class="form-label">Matricule</label>
+                            <input type="text" 
+                                   id="id_username"
+                                   class="form-control"
+                                   value="{{ user_edit.username }}"
+                                   readonly
+                                   disabled>
+                            <div class="help-text">
+                                <i class="fas fa-lock me-1"></i>Le matricule ne peut pas être modifié
                             </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_nom_complet" class="form-label">
+                                Nom Complet <span class="required">*</span>
+                            </label>
+                            <input type="text" 
+                                   name="nom_complet" 
+                                   id="id_nom_complet"
+                                   class="form-control {% if form.nom_complet.errors %}is-invalid{% endif %}"
+                                   value="{{ user_edit.nom_complet }}"
+                                   placeholder="Nom et prénom(s)"
+                                   required>
+                            {% if form.nom_complet.errors %}
+                            <div class="invalid-feedback">{{ form.nom_complet.errors.0 }}</div>
+                            {% endif %}
                         </div>
                     </div>
 
-                    <div class="section-title"><i class="fas fa-user me-2"></i>Informations de base</div>
-
-                    <div class="row">
+                    <!-- Section: Contact -->
+                    <h5 class="section-title">
+                        <i class="fas fa-address-book me-2"></i>Contact
+                    </h5>
+                    
+                    <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <div class="form-group">
-                                <label class="form-label">Matricule</label>
-                                <input type="text" class="form-control readonly-field" value="{{ user_edit.username }}" readonly>
-                                <div class="help-text">Le matricule ne peut pas être modifié</div>
-                            </div>
+                            <label for="id_telephone" class="form-label">
+                                Téléphone <span class="required">*</span>
+                            </label>
+                            <input type="tel" 
+                                   name="telephone" 
+                                   id="id_telephone"
+                                   class="form-control {% if form.telephone.errors %}is-invalid{% endif %}"
+                                   value="{{ user_edit.telephone }}"
+                                   placeholder="+237XXXXXXXXX"
+                                   required>
+                            <div class="help-text">Format camerounais: +237XXXXXXXXX</div>
+                            {% if form.telephone.errors %}
+                            <div class="invalid-feedback">{{ form.telephone.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="{{ form.nom_complet.id_for_label }}" class="form-label">
-                                    {{ form.nom_complet.label }} <span class="required">*</span>
-                                </label>
-                                {{ form.nom_complet }}
-                                {% if form.nom_complet.errors %}<div class="invalid-feedback">{{ form.nom_complet.errors.0 }}</div>{% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="{{ form.telephone.id_for_label }}" class="form-label">
-                                    {{ form.telephone.label }} <span class="required">*</span>
-                                </label>
-                                {{ form.telephone }}
-                                {% if form.telephone.errors %}<div class="invalid-feedback">{{ form.telephone.errors.0 }}</div>{% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
-                                {{ form.email }}
-                                {% if form.email.errors %}<div class="invalid-feedback">{{ form.email.errors.0 }}</div>{% endif %}
-                                <div class="help-text">Optionnel - Pour la réinitialisation de mot de passe</div>
-                            </div>
+                            <label for="id_email" class="form-label">Email</label>
+                            <input type="email" 
+                                   name="email" 
+                                   id="id_email"
+                                   class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                                   value="{{ user_edit.email|default:'' }}"
+                                   placeholder="email@exemple.com">
+                            <div class="help-text">Optionnel - pour réinitialisation mot de passe</div>
+                            {% if form.email.errors %}
+                            <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
+                            {% endif %}
                         </div>
                     </div>
 
-                    <div class="section-title"><i class="fas fa-briefcase me-2"></i>Affectation professionnelle</div>
-
-                    <div class="row">
+                    <!-- Section: Affectation professionnelle -->
+                    <h5 class="section-title">
+                        <i class="fas fa-briefcase me-2"></i>Affectation Professionnelle
+                    </h5>
+                    
+                    <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="id_habilitation" class="form-label">Rôle <span class="required">*</span></label>
-                                <select name="habilitation" id="id_habilitation" 
-                                        class="form-select {% if form.habilitation.errors %}is-invalid{% endif %}"
-                                        onchange="filterPostes()" required>
-                                    <option value="">-- Sélectionner un rôle --</option>
-                                    <optgroup label="Administration">
-                                        {% for value, label in habilitations %}
-                                            {% if value == 'admin_principal' or value == 'coord_psrr' or value == 'serv_info' or value == 'serv_emission' or value == 'chef_ag' or value == 'regisseur' or value == 'comptable_mat' or value == 'chef_ordre' or value == 'chef_controle' or value == 'imprimerie' or value == 'focal_regional' or value == 'chef_service' %}
-                                            <option value="{{ value }}" data-type="multi" {% if form.habilitation.value == value %}selected{% endif %}>{{ label }}</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </optgroup>
-                                    <optgroup label="Péage">
-                                        {% for value, label in habilitations %}
-                                            {% if value == 'chef_peage'  or value == 'agent_inventaire' %}
-                                            <option value="{{ value }}" data-type="peage" {% if form.habilitation.value == value %}selected{% endif %}>{{ label }}</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </optgroup>
-                                    <optgroup label="Pesage">
-                                        {% for value, label in habilitations %}
-                                            {% if value == 'chef_equipe_pesage' or value == 'regisseur_pesage' or value == 'chef_station_pesage' or value == 'chef_pesage' %}
-                                            <option value="{{ value }}" data-type="pesage" {% if form.habilitation.value == value %}selected{% endif %}>{{ label }}</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </optgroup>
-                                </select>
-                                {% if form.habilitation.errors %}<div class="invalid-feedback">{{ form.habilitation.errors.0 }}</div>{% endif %}
-                            </div>
+                            <label for="id_habilitation" class="form-label">
+                                Rôle / Habilitation <span class="required">*</span>
+                            </label>
+                            <select name="habilitation" 
+                                    id="id_habilitation" 
+                                    class="form-select {% if form.habilitation.errors %}is-invalid{% endif %}"
+                                    onchange="filterPostes(); updatePermissionsPreview();"
+                                    required>
+                                <option value="">-- Sélectionner un rôle --</option>
+                                {% for value, label in habilitations %}
+                                <option value="{{ value }}" 
+                                        {% if user_edit.habilitation == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.habilitation.errors %}
+                            <div class="invalid-feedback">{{ form.habilitation.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         
                         <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="id_poste_affectation" class="form-label" id="label-poste">Poste d'affectation</label>
-                                <div class="postes-stats">
-                                    <span class="stat-item peage"><i class="fas fa-road me-1"></i><span id="count-peage">{{ count_peage|default:0 }}</span> péage</span>
-                                    <span class="stat-item pesage"><i class="fas fa-weight me-1"></i><span id="count-pesage">{{ count_pesage|default:0 }}</span> pesage</span>
-                                </div>
-                                
-                                <!-- SELECT avec options générées directement -->
-                                <select name="poste_affectation" id="id_poste_affectation" class="form-select {% if form.poste_affectation.errors %}is-invalid{% endif %}">
-                                        <option value="">-- Aucun poste --</option>
-                                        
-                                        <optgroup label="Postes de Péage" id="optgroup-peage">
-                                            {% for poste in postes_peage %}
-                                            <option value="{{ poste.id }}" 
-                                                    data-type="peage"
-                                                    {% if form.poste_affectation.value|stringformat:"s" == poste.id|stringformat:"s" %}selected{% endif %}>
-                                                {{ poste.nom }} ({{ poste.code }})
-                                            </option>
-                                            {% endfor %}
-                                        </optgroup>
-                                        
-                                        <optgroup label="Stations de Pesage" id="optgroup-pesage">
-                                            {% for poste in postes_pesage %}
-                                            <option value="{{ poste.id }}" 
-                                                    data-type="pesage"
-                                                    {% if form.poste_affectation.value|stringformat:"s" == poste.id|stringformat:"s" %}selected{% endif %}>
-                                                {{ poste.nom }} ({{ poste.code }})
-                                            </option>
-                                            {% endfor %}
-                                        </optgroup>
-                                    </select>
-                                {% if form.poste_affectation.errors %}<div class="invalid-feedback">{{ form.poste_affectation.errors.0 }}</div>{% endif %}
+                            <label for="id_poste_affectation" class="form-label" id="label-poste">
+                                Poste d'affectation
+                            </label>
+                            <div class="postes-stats">
+                                <span class="stat-item peage">
+                                    <i class="fas fa-road me-1"></i>{{ count_peage }} péage
+                                </span>
+                                <span class="stat-item pesage">
+                                    <i class="fas fa-weight me-1"></i>{{ count_pesage }} pesage
+                                </span>
                             </div>
+                            <select name="poste_affectation" 
+                                    id="id_poste_affectation" 
+                                    class="form-select {% if form.poste_affectation.errors %}is-invalid{% endif %}">
+                                <option value="">-- Aucun poste --</option>
+                                
+                                <optgroup label="🔵 Postes de Péage" id="optgroup-peage">
+                                    {% for poste in postes_peage %}
+                                    <option value="{{ poste.id }}" data-type="peage"
+                                            {% if user_edit.poste_affectation_id == poste.id %}selected{% endif %}>
+                                        {{ poste.nom }} ({{ poste.code }})
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                
+                                <optgroup label="🟣 Stations de Pesage" id="optgroup-pesage">
+                                    {% for poste in postes_pesage %}
+                                    <option value="{{ poste.id }}" data-type="pesage"
+                                            {% if user_edit.poste_affectation_id == poste.id %}selected{% endif %}>
+                                        {{ poste.nom }} ({{ poste.code }})
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                            </select>
+                            {% if form.poste_affectation.errors %}
+                            <div class="invalid-feedback">{{ form.poste_affectation.errors.0 }}</div>
+                            {% endif %}
                         </div>
                     </div>
                     
                     <!-- Alertes de filtrage -->
-                    <div id="filter-alert-pesage" class="filter-alert-pesage">
+                    <div id="filter-alert-pesage" class="filter-alert filter-alert-pesage">
                         <div class="d-flex align-items-center">
-                            <i class="fas fa-weight icon me-2"></i>
-                            <div><strong>Rôle Pesage</strong><br><small>Une station de pesage est obligatoire pour ce rôle.</small></div>
-                        </div>
-                    </div>
-                    <div id="filter-alert-peage" class="filter-alert-peage">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-road icon me-2"></i>
-                            <div><strong>Rôle Péage</strong><br><small>Un poste de péage est obligatoire pour ce rôle.</small></div>
-                        </div>
-                    </div>
-                    <div id="filter-alert-multi" class="filter-alert-multi">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-users-cog icon me-2"></i>
-                            <div><strong>Rôle Administration</strong><br><small>L'affectation à un poste est optionnelle.</small></div>
-                        </div>
-                    </div>
-
-                    <div class="permissions-section">
-                        <h5 class="mb-3"><i class="fas fa-key me-2"></i>Permissions associées au rôle</h5>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p class="fw-bold text-muted small">Permissions de saisie:</p>
-                                <div id="permissions-saisie"><span class="text-muted">Sélectionnez un rôle</span></div>
-                            </div>
-                            <div class="col-md-6">
-                                <p class="fw-bold text-muted small">Permissions de gestion:</p>
-                                <div id="permissions-gestion"><span class="text-muted">Sélectionnez un rôle</span></div>
+                            <i class="fas fa-weight me-3 fa-lg" style="color: #8B5CF6;"></i>
+                            <div>
+                                <strong>Rôle Pesage sélectionné</strong><br>
+                                <small>Une station de pesage est <strong>obligatoire</strong> pour ce rôle.</small>
                             </div>
                         </div>
                     </div>
-
-                    <div class="section-title"><i class="fas fa-shield-alt me-2"></i>Permissions détaillées</div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6 class="text-muted mb-3">Statut et accès</h6>
-                            <div class="form-check">{{ form.is_active }}<label for="{{ form.is_active.id_for_label }}" class="form-check-label">{{ form.is_active.label }}</label></div>
-                            <div class="form-check">{{ form.acces_tous_postes }}<label for="{{ form.acces_tous_postes.id_for_label }}" class="form-check-label">{{ form.acces_tous_postes.label }}</label></div>
-                            <h6 class="text-muted mb-3 mt-4">Permissions de saisie</h6>
-                            <div class="form-check">{{ form.peut_saisir_peage }}<label for="{{ form.peut_saisir_peage.id_for_label }}" class="form-check-label">{{ form.peut_saisir_peage.label }}</label></div>
-                            <div class="form-check">{{ form.peut_saisir_pesage }}<label for="{{ form.peut_saisir_pesage.id_for_label }}" class="form-check-label">{{ form.peut_saisir_pesage.label }}</label></div>
+                    
+                    <div id="filter-alert-peage" class="filter-alert filter-alert-peage">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-road me-3 fa-lg" style="color: #3B82F6;"></i>
+                            <div>
+                                <strong>Rôle Péage sélectionné</strong><br>
+                                <small>Un poste de péage est <strong>obligatoire</strong> pour ce rôle.</small>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <h6 class="text-muted mb-3">Permissions de gestion</h6>
-                            <div class="form-check">{{ form.peut_gerer_peage }}<label for="{{ form.peut_gerer_peage.id_for_label }}" class="form-check-label">{{ form.peut_gerer_peage.label }}</label></div>
-                            <div class="form-check">{{ form.peut_gerer_pesage }}<label for="{{ form.peut_gerer_pesage.id_for_label }}" class="form-check-label">{{ form.peut_gerer_pesage.label }}</label></div>
-                            <div class="form-check">{{ form.peut_gerer_personnel }}<label for="{{ form.peut_gerer_personnel.id_for_label }}" class="form-check-label">{{ form.peut_gerer_personnel.label }}</label></div>
-                            <div class="form-check">{{ form.peut_gerer_budget }}<label for="{{ form.peut_gerer_budget.id_for_label }}" class="form-check-label">{{ form.peut_gerer_budget.label }}</label></div>
-                            <div class="form-check">{{ form.peut_gerer_inventaire }}<label for="{{ form.peut_gerer_inventaire.id_for_label }}" class="form-check-label">{{ form.peut_gerer_inventaire.label }}</label></div>
-                            <div class="form-check">{{ form.peut_gerer_archives }}<label for="{{ form.peut_gerer_archives.id_for_label }}" class="form-check-label">{{ form.peut_gerer_archives.label }}</label></div>
-                            <div class="form-check">{{ form.peut_gerer_stocks_psrr }}<label for="{{ form.peut_gerer_stocks_psrr.id_for_label }}" class="form-check-label">{{ form.peut_gerer_stocks_psrr.label }}</label></div>
-                            <div class="form-check">{{ form.peut_gerer_stock_info }}<label for="{{ form.peut_gerer_stock_info.id_for_label }}" class="form-check-label">{{ form.peut_gerer_stock_info.label }}</label></div>
+                    </div>
+                    
+                    <div id="filter-alert-multi" class="filter-alert filter-alert-multi">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-globe me-3 fa-lg" style="color: #F59E0B;"></i>
+                            <div>
+                                <strong>Rôle Administration/Service Central</strong><br>
+                                <small>L'affectation à un poste est <strong>optionnelle</strong>.</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Aperçu des permissions -->
+                    <div class="permissions-preview" id="permissions-preview">
+                        <h6><i class="fas fa-key me-2"></i>Permissions automatiques selon le rôle</h6>
+                        <div id="permissions-content">
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Sélectionnez un rôle pour voir les permissions attribuées automatiquement.
+                            </p>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-between pt-3">
-                        <a href="{% url 'accounts:detail_utilisateur' user_edit.id %}" class="btn btn-secondary">
-                            <i class="fas fa-times me-2"></i>Annuler
-                        </a>
-                        <button type="submit" class="btn btn-primary">
+                    <!-- Section: Statut du compte -->
+                    <h5 class="section-title mt-4">
+                        <i class="fas fa-toggle-on me-2"></i>Statut du compte
+                    </h5>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" 
+                                       name="is_active" 
+                                       id="id_is_active"
+                                       class="form-check-input"
+                                       role="switch"
+                                       {% if user_edit.is_active %}checked{% endif %}>
+                                <label for="id_is_active" class="form-check-label">
+                                    Compte actif
+                                </label>
+                            </div>
+                            <div class="help-text">
+                                Un compte inactif ne peut pas se connecter au système.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'accounts:password_reset' user_edit.id %}" class="btn btn-outline-warning">
+                                <i class="fas fa-key me-2"></i>Réinitialiser le mot de passe
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Section: Permissions manuelles -->
+                    <h5 class="section-title">
+                        <i class="fas fa-sliders-h me-2"></i>Personnalisation des permissions
+                        <small class="text-muted ms-2">(optionnel)</small>
+                    </h5>
+                    
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Les permissions sont attribuées automatiquement selon le rôle. 
+                        Vous pouvez les personnaliser ci-dessous si nécessaire.
+                    </div>
+                    
+                    <div class="accordion" id="accordionPermissions">
+                        <!-- Accès Global -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapseAcces">
+                                    <i class="fas fa-globe me-2"></i>Accès Global
+                                </button>
+                            </h2>
+                            <div id="collapseAcces" class="accordion-collapse collapse" 
+                                 data-bs-parent="#accordionPermissions">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="acces_tous_postes" 
+                                                       id="id_acces_tous_postes" class="form-check-input"
+                                                       {% if user_edit.acces_tous_postes %}checked{% endif %}>
+                                                <label for="id_acces_tous_postes" class="form-check-label">
+                                                    Accès à tous les postes
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_saisir_peage" 
+                                                       id="id_peut_saisir_peage" class="form-check-input"
+                                                       {% if user_edit.peut_saisir_peage %}checked{% endif %}>
+                                                <label for="id_peut_saisir_peage" class="form-check-label">
+                                                    Peut saisir données péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_saisir_pesage" 
+                                                       id="id_peut_saisir_pesage" class="form-check-input"
+                                                       {% if user_edit.peut_saisir_pesage %}checked{% endif %}>
+                                                <label for="id_peut_saisir_pesage" class="form-check-label">
+                                                    Peut saisir données pesage
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="voir_recettes_potentielles" 
+                                                       id="id_voir_recettes_potentielles" class="form-check-input"
+                                                       {% if user_edit.voir_recettes_potentielles %}checked{% endif %}>
+                                                <label for="id_voir_recettes_potentielles" class="form-check-label">
+                                                    Voir recettes potentielles
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="voir_taux_deperdition" 
+                                                       id="id_voir_taux_deperdition" class="form-check-input"
+                                                       {% if user_edit.voir_taux_deperdition %}checked{% endif %}>
+                                                <label for="id_voir_taux_deperdition" class="form-check-label">
+                                                    Voir taux de déperdition
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="voir_statistiques_globales" 
+                                                       id="id_voir_statistiques_globales" class="form-check-input"
+                                                       {% if user_edit.voir_statistiques_globales %}checked{% endif %}>
+                                                <label for="id_voir_statistiques_globales" class="form-check-label">
+                                                    Voir statistiques globales
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Inventaires -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapseInventaires">
+                                    <i class="fas fa-clipboard-list me-2"></i>Inventaires
+                                </button>
+                            </h2>
+                            <div id="collapseInventaires" class="accordion-collapse collapse" 
+                                 data-bs-parent="#accordionPermissions">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_saisir_inventaire_normal" 
+                                                       id="id_peut_saisir_inventaire_normal" class="form-check-input"
+                                                       {% if user_edit.peut_saisir_inventaire_normal %}checked{% endif %}>
+                                                <label for="id_peut_saisir_inventaire_normal" class="form-check-label">
+                                                    Saisir inventaire normal
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_saisir_inventaire_admin" 
+                                                       id="id_peut_saisir_inventaire_admin" class="form-check-input"
+                                                       {% if user_edit.peut_saisir_inventaire_admin %}checked{% endif %}>
+                                                <label for="id_peut_saisir_inventaire_admin" class="form-check-label">
+                                                    Saisir inventaire administratif
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_programmer_inventaire" 
+                                                       id="id_peut_programmer_inventaire" class="form-check-input"
+                                                       {% if user_edit.peut_programmer_inventaire %}checked{% endif %}>
+                                                <label for="id_peut_programmer_inventaire" class="form-check-label">
+                                                    Programmer inventaires
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_liste_inventaires" 
+                                                       id="id_peut_voir_liste_inventaires" class="form-check-input"
+                                                       {% if user_edit.peut_voir_liste_inventaires %}checked{% endif %}>
+                                                <label for="id_peut_voir_liste_inventaires" class="form-check-label">
+                                                    Voir liste inventaires
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_jours_impertinents" 
+                                                       id="id_peut_voir_jours_impertinents" class="form-check-input"
+                                                       {% if user_edit.peut_voir_jours_impertinents %}checked{% endif %}>
+                                                <label for="id_peut_voir_jours_impertinents" class="form-check-label">
+                                                    Voir jours impertinents
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_stats_deperdition" 
+                                                       id="id_peut_voir_stats_deperdition" class="form-check-input"
+                                                       {% if user_edit.peut_voir_stats_deperdition %}checked{% endif %}>
+                                                <label for="id_peut_voir_stats_deperdition" class="form-check-label">
+                                                    Voir stats déperdition
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recettes Péage -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapseRecettes">
+                                    <i class="fas fa-cash-register me-2"></i>Recettes Péage
+                                </button>
+                            </h2>
+                            <div id="collapseRecettes" class="accordion-collapse collapse" 
+                                 data-bs-parent="#accordionPermissions">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_saisir_recette_peage" 
+                                                       id="id_peut_saisir_recette_peage" class="form-check-input"
+                                                       {% if user_edit.peut_saisir_recette_peage %}checked{% endif %}>
+                                                <label for="id_peut_saisir_recette_peage" class="form-check-label">
+                                                    Saisir recette péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_liste_recettes_peage" 
+                                                       id="id_peut_voir_liste_recettes_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_liste_recettes_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_liste_recettes_peage" class="form-check-label">
+                                                    Voir liste recettes péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_stats_recettes_peage" 
+                                                       id="id_peut_voir_stats_recettes_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_stats_recettes_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_stats_recettes_peage" class="form-check-label">
+                                                    Voir stats recettes péage
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_importer_recettes_peage" 
+                                                       id="id_peut_importer_recettes_peage" class="form-check-input"
+                                                       {% if user_edit.peut_importer_recettes_peage %}checked{% endif %}>
+                                                <label for="id_peut_importer_recettes_peage" class="form-check-label">
+                                                    Importer recettes péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_evolution_peage" 
+                                                       id="id_peut_voir_evolution_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_evolution_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_evolution_peage" class="form-check-label">
+                                                    Voir évolution péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_objectifs_peage" 
+                                                       id="id_peut_voir_objectifs_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_objectifs_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_objectifs_peage" class="form-check-label">
+                                                    Voir objectifs péage
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Pesage -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapsePesage">
+                                    <i class="fas fa-weight me-2"></i>Pesage
+                                </button>
+                            </h2>
+                            <div id="collapsePesage" class="accordion-collapse collapse" 
+                                 data-bs-parent="#accordionPermissions">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_saisir_amende" 
+                                                       id="id_peut_saisir_amende" class="form-check-input"
+                                                       {% if user_edit.peut_saisir_amende %}checked{% endif %}>
+                                                <label for="id_peut_saisir_amende" class="form-check-label">
+                                                    Saisir amende
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_saisir_pesee_jour" 
+                                                       id="id_peut_saisir_pesee_jour" class="form-check-input"
+                                                       {% if user_edit.peut_saisir_pesee_jour %}checked{% endif %}>
+                                                <label for="id_peut_saisir_pesee_jour" class="form-check-label">
+                                                    Saisir pesée du jour
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_valider_paiement_amende" 
+                                                       id="id_peut_valider_paiement_amende" class="form-check-input"
+                                                       {% if user_edit.peut_valider_paiement_amende %}checked{% endif %}>
+                                                <label for="id_peut_valider_paiement_amende" class="form-check-label">
+                                                    Valider paiement amende
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_lister_amendes" 
+                                                       id="id_peut_lister_amendes" class="form-check-input"
+                                                       {% if user_edit.peut_lister_amendes %}checked{% endif %}>
+                                                <label for="id_peut_lister_amendes" class="form-check-label">
+                                                    Lister amendes
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_historique_pesees" 
+                                                       id="id_peut_voir_historique_pesees" class="form-check-input"
+                                                       {% if user_edit.peut_voir_historique_pesees %}checked{% endif %}>
+                                                <label for="id_peut_voir_historique_pesees" class="form-check-label">
+                                                    Voir historique pesées
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_recettes_pesage" 
+                                                       id="id_peut_voir_recettes_pesage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_recettes_pesage %}checked{% endif %}>
+                                                <label for="id_peut_voir_recettes_pesage" class="form-check-label">
+                                                    Voir recettes pesage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_stats_pesage" 
+                                                       id="id_peut_voir_stats_pesage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_stats_pesage %}checked{% endif %}>
+                                                <label for="id_peut_voir_stats_pesage" class="form-check-label">
+                                                    Voir stats pesage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_objectifs_pesage" 
+                                                       id="id_peut_voir_objectifs_pesage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_objectifs_pesage %}checked{% endif %}>
+                                                <label for="id_peut_voir_objectifs_pesage" class="form-check-label">
+                                                    Voir objectifs pesage
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Stock Péage -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapseStock">
+                                    <i class="fas fa-boxes me-2"></i>Stock Péage
+                                </button>
+                            </h2>
+                            <div id="collapseStock" class="accordion-collapse collapse" 
+                                 data-bs-parent="#accordionPermissions">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_charger_stock_peage" 
+                                                       id="id_peut_charger_stock_peage" class="form-check-input"
+                                                       {% if user_edit.peut_charger_stock_peage %}checked{% endif %}>
+                                                <label for="id_peut_charger_stock_peage" class="form-check-label">
+                                                    Charger stock péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_transferer_stock_peage" 
+                                                       id="id_peut_transferer_stock_peage" class="form-check-input"
+                                                       {% if user_edit.peut_transferer_stock_peage %}checked{% endif %}>
+                                                <label for="id_peut_transferer_stock_peage" class="form-check-label">
+                                                    Transférer stock péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_liste_stocks_peage" 
+                                                       id="id_peut_voir_liste_stocks_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_liste_stocks_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_liste_stocks_peage" class="form-check-label">
+                                                    Voir liste stocks péage
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_tracabilite_tickets" 
+                                                       id="id_peut_voir_tracabilite_tickets" class="form-check-input"
+                                                       {% if user_edit.peut_voir_tracabilite_tickets %}checked{% endif %}>
+                                                <label for="id_peut_voir_tracabilite_tickets" class="form-check-label">
+                                                    Voir traçabilité tickets
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_bordereaux_peage" 
+                                                       id="id_peut_voir_bordereaux_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_bordereaux_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_bordereaux_peage" class="form-check-label">
+                                                    Voir bordereaux péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_historique_stock_peage" 
+                                                       id="id_peut_voir_historique_stock_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_historique_stock_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_historique_stock_peage" class="form-check-label">
+                                                    Voir historique stock péage
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Gestion -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapseGestion">
+                                    <i class="fas fa-cogs me-2"></i>Gestion
+                                </button>
+                            </h2>
+                            <div id="collapseGestion" class="accordion-collapse collapse" 
+                                 data-bs-parent="#accordionPermissions">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_gerer_postes" 
+                                                       id="id_peut_gerer_postes" class="form-check-input"
+                                                       {% if user_edit.peut_gerer_postes %}checked{% endif %}>
+                                                <label for="id_peut_gerer_postes" class="form-check-label">
+                                                    Gérer les postes
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_gerer_utilisateurs" 
+                                                       id="id_peut_gerer_utilisateurs" class="form-check-input"
+                                                       {% if user_edit.peut_gerer_utilisateurs %}checked{% endif %}>
+                                                <label for="id_peut_gerer_utilisateurs" class="form-check-label">
+                                                    Gérer les utilisateurs
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_creer_utilisateur" 
+                                                       id="id_peut_creer_utilisateur" class="form-check-input"
+                                                       {% if user_edit.peut_creer_utilisateur %}checked{% endif %}>
+                                                <label for="id_peut_creer_utilisateur" class="form-check-label">
+                                                    Créer utilisateur
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_journal_audit" 
+                                                       id="id_peut_voir_journal_audit" class="form-check-input"
+                                                       {% if user_edit.peut_voir_journal_audit %}checked{% endif %}>
+                                                <label for="id_peut_voir_journal_audit" class="form-check-label">
+                                                    Voir journal audit
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_parametrage_global" 
+                                                       id="id_peut_parametrage_global" class="form-check-input"
+                                                       {% if user_edit.peut_parametrage_global %}checked{% endif %}>
+                                                <label for="id_peut_parametrage_global" class="form-check-label">
+                                                    Paramétrage global
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Rapports -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapseRapports">
+                                    <i class="fas fa-chart-bar me-2"></i>Rapports
+                                </button>
+                            </h2>
+                            <div id="collapseRapports" class="accordion-collapse collapse" 
+                                 data-bs-parent="#accordionPermissions">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_rapports_defaillants_peage" 
+                                                       id="id_peut_voir_rapports_defaillants_peage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_rapports_defaillants_peage %}checked{% endif %}>
+                                                <label for="id_peut_voir_rapports_defaillants_peage" class="form-check-label">
+                                                    Rapports défaillants péage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_rapports_defaillants_pesage" 
+                                                       id="id_peut_voir_rapports_defaillants_pesage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_rapports_defaillants_pesage %}checked{% endif %}>
+                                                <label for="id_peut_voir_rapports_defaillants_pesage" class="form-check-label">
+                                                    Rapports défaillants pesage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_rapport_inventaires" 
+                                                       id="id_peut_voir_rapport_inventaires" class="form-check-input"
+                                                       {% if user_edit.peut_voir_rapport_inventaires %}checked{% endif %}>
+                                                <label for="id_peut_voir_rapport_inventaires" class="form-check-label">
+                                                    Rapport inventaires
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_classement_peage_rendement" 
+                                                       id="id_peut_voir_classement_peage_rendement" class="form-check-input"
+                                                       {% if user_edit.peut_voir_classement_peage_rendement %}checked{% endif %}>
+                                                <label for="id_peut_voir_classement_peage_rendement" class="form-check-label">
+                                                    Classement péage rendement
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_classement_station_pesage" 
+                                                       id="id_peut_voir_classement_station_pesage" class="form-check-input"
+                                                       {% if user_edit.peut_voir_classement_station_pesage %}checked{% endif %}>
+                                                <label for="id_peut_voir_classement_station_pesage" class="form-check-label">
+                                                    Classement station pesage
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="peut_voir_classement_agents_inventaire" 
+                                                       id="id_peut_voir_classement_agents_inventaire" class="form-check-input"
+                                                       {% if user_edit.peut_voir_classement_agents_inventaire %}checked{% endif %}>
+                                                <label for="id_peut_voir_classement_agents_inventaire" class="form-check-label">
+                                                    Classement agents inventaire
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Boutons d'action -->
+                    <div class="d-flex justify-content-between pt-4 mt-4 border-top">
+                        <div>
+                            <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary me-2">
+                                <i class="fas fa-times me-2"></i>Annuler
+                            </a>
+                        </div>
+                        <button type="submit" class="btn btn-primary-gradient">
                             <i class="fas fa-save me-2"></i>Enregistrer les modifications
                         </button>
                     </div>
@@ -357,39 +1043,40 @@
 </div>
 
 <script>
-// Constantes pour le filtrage
-const HABILITATIONS_PESAGE = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage', 'chef_pesage'];
+const HABILITATIONS_PESAGE = ['chef_station_pesage', 'chef_equipe_pesage', 'regisseur_pesage'];
 const HABILITATIONS_PEAGE = ['chef_peage', 'agent_inventaire'];
+const HABILITATIONS_MULTI = [
+    'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission',
+    'chef_ag', 'serv_controle', 'serv_ordre', 'imprimerie',
+    'focal_regional', 'regisseur', 'comptable_mat', 'cisop_peage', 'cisop_pesage'
+];
 
-// Fonction de filtrage des postes
+const PERMISSIONS_PAR_ROLE = {
+    'admin_principal': { titre: 'Administrateur Principal - Accès COMPLET', permissions: ['Toutes les permissions'] },
+    'coord_psrr': { titre: 'Coordonnateur PSRR - Accès COMPLET', permissions: ['Toutes les permissions'] },
+    'serv_info': { titre: 'Service Informatique - Accès COMPLET', permissions: ['Toutes les permissions'] },
+    'serv_emission': { titre: 'Service Émissions - Accès ÉTENDU', permissions: ['Stats globales', 'Recettes péage', 'Stock péage'] },
+    'chef_peage': { titre: 'Chef de Poste Péage', permissions: ['Inventaire', 'Recettes péage', 'Stock poste'], restrictions: ['Ne voit PAS les recettes potentielles'] },
+    'agent_inventaire': { titre: 'Agent Inventaire - Saisie limitée', permissions: ['Inventaire normal', 'Liste inventaires'], restrictions: ['Ne voit PAS les recettes potentielles'] },
+    'chef_station_pesage': { titre: 'Chef Station Pesage', permissions: ['Pesées', 'Amendes', 'Recettes pesage'] },
+    'chef_equipe_pesage': { titre: 'Chef Équipe Pesage', permissions: ['Saisie amendes', 'Pesées jour'] },
+    'regisseur_pesage': { titre: 'Régisseur Pesage', permissions: ['Validation paiements', 'Recettes pesage'] }
+};
+
 function filterPostes() {
     const habilitation = document.getElementById('id_habilitation').value;
     const posteSelect = document.getElementById('id_poste_affectation');
     const labelPoste = document.getElementById('label-poste');
-    
-    // Récupérer tous les optgroups
-    const optgroups = posteSelect.querySelectorAll('optgroup');
-    let optgroupPeage = null;
-    let optgroupPesage = null;
-    
-    optgroups.forEach(og => {
-        if (og.label.includes('Péage') || og.id === 'optgroup-peage') {
-            optgroupPeage = og;
-        } else if (og.label.includes('Pesage') || og.id === 'optgroup-pesage') {
-            optgroupPesage = og;
-        }
-    });
-    
+    const optgroupPeage = document.getElementById('optgroup-peage');
+    const optgroupPesage = document.getElementById('optgroup-pesage');
     const alertPesage = document.getElementById('filter-alert-pesage');
     const alertPeage = document.getElementById('filter-alert-peage');
     const alertMulti = document.getElementById('filter-alert-multi');
     
-    // Cacher toutes les alertes
     alertPesage.style.display = 'none';
     alertPeage.style.display = 'none';
     alertMulti.style.display = 'none';
     
-    // Afficher tous les optgroups par défaut
     if (optgroupPeage) optgroupPeage.style.display = '';
     if (optgroupPesage) optgroupPesage.style.display = '';
     
@@ -400,44 +1087,50 @@ function filterPostes() {
     }
     
     if (HABILITATIONS_PESAGE.includes(habilitation)) {
-        // Rôle PESAGE: masquer péage, afficher pesage
         if (optgroupPeage) optgroupPeage.style.display = 'none';
-        if (optgroupPesage) optgroupPesage.style.display = '';
         labelPoste.innerHTML = "Station de Pesage <span class='required'>*</span>";
         posteSelect.required = true;
         alertPesage.style.display = 'block';
-        
-        // Désélectionner si le poste actuel est un péage
-        const currentOption = posteSelect.options[posteSelect.selectedIndex];
-        if (currentOption && currentOption.dataset && currentOption.dataset.type === 'peage') {
-            posteSelect.value = '';
-        }
-        
     } else if (HABILITATIONS_PEAGE.includes(habilitation)) {
-        // Rôle PÉAGE: masquer pesage, afficher péage
-        if (optgroupPeage) optgroupPeage.style.display = '';
         if (optgroupPesage) optgroupPesage.style.display = 'none';
         labelPoste.innerHTML = "Poste de Péage <span class='required'>*</span>";
         posteSelect.required = true;
         alertPeage.style.display = 'block';
-        
-        // Désélectionner si le poste actuel est un pesage
-        const currentOption = posteSelect.options[posteSelect.selectedIndex];
-        if (currentOption && currentOption.dataset && currentOption.dataset.type === 'pesage') {
-            posteSelect.value = '';
-        }
-        
     } else {
-        // Rôle ADMIN/MULTI: afficher tous les postes
         labelPoste.innerHTML = "Poste d'affectation <small class='text-muted'>(optionnel)</small>";
         posteSelect.required = false;
         alertMulti.style.display = 'block';
     }
-    
-    updatePermissionsDisplay();
 }
 
-// Validation avant soumission
+function updatePermissionsPreview() {
+    const habilitation = document.getElementById('id_habilitation').value;
+    const contentDiv = document.getElementById('permissions-content');
+    
+    if (!habilitation || !PERMISSIONS_PAR_ROLE[habilitation]) {
+        contentDiv.innerHTML = '<p class="text-muted mb-0"><i class="fas fa-info-circle me-1"></i>Sélectionnez un rôle pour voir les permissions.</p>';
+        return;
+    }
+    
+    const config = PERMISSIONS_PAR_ROLE[habilitation];
+    let html = '<h6 class="mb-3">' + config.titre + '</h6>';
+    html += '<div class="mb-2"><strong style="color: #059669;">Permissions:</strong></div><div class="mb-3">';
+    config.permissions.forEach(perm => {
+        html += '<span class="permission-badge active"><i class="fas fa-check me-1"></i>' + perm + '</span>';
+    });
+    html += '</div>';
+    
+    if (config.restrictions) {
+        html += '<div class="mb-2"><strong style="color: #DC2626;">Restrictions:</strong></div><div>';
+        config.restrictions.forEach(r => {
+            html += '<span class="permission-badge inactive">⚠️ ' + r + '</span>';
+        });
+        html += '</div>';
+    }
+    
+    contentDiv.innerHTML = html;
+}
+
 document.getElementById('form-modifier-utilisateur').addEventListener('submit', function(e) {
     const habilitation = document.getElementById('id_habilitation').value;
     const poste = document.getElementById('id_poste_affectation').value;
@@ -457,37 +1150,10 @@ document.getElementById('form-modifier-utilisateur').addEventListener('submit', 
     }
 });
 
-// Configuration des permissions par rôle
-const permissionsParRole = {
-    'admin_principal': { saisie: ['Toutes les données'], gestion: ['Tous les modules'] },
-    'chef_peage': { saisie: ['Données péage'], gestion: ['Péage', 'Inventaire'] },
-    'chef_pesage': { saisie: ['Données pesage'], gestion: ['Pesage', 'Inventaire'] },
-    'chef_equipe_pesage': { saisie: ['Amendes', 'Pesées'], gestion: ['Aucune'] },
-    'regisseur_pesage': { saisie: ['Aucune'], gestion: ['Validation paiements'] },
-    'chef_station_pesage': { saisie: ['Amendes', 'Pesées'], gestion: ['Validation', 'Pesage'] },
-    'agent_inventaire': { saisie: ['Aucune'], gestion: ['Inventaire'] },
-    'coord_psrr': { saisie: ['Péage et pesage'], gestion: ['Personnel', 'Péage', 'Pesage'] },
-    'serv_info': { saisie: ['Toutes les données'], gestion: ['Tous les modules'] }
-};
-
-function updatePermissionsDisplay() {
-    const selectedRole = document.getElementById('id_habilitation').value;
-    const saisieDiv = document.getElementById('permissions-saisie');
-    const gestionDiv = document.getElementById('permissions-gestion');
-    
-    if (selectedRole && permissionsParRole[selectedRole]) {
-        const p = permissionsParRole[selectedRole];
-        saisieDiv.innerHTML = p.saisie.map(x => '<span class="badge bg-success me-1">' + x + '</span>').join('');
-        gestionDiv.innerHTML = p.gestion.map(x => '<span class="badge bg-primary me-1">' + x + '</span>').join('');
-    } else {
-        saisieDiv.innerHTML = '<span class="text-muted">Permissions par défaut</span>';
-        gestionDiv.innerHTML = '<span class="text-muted">Selon configuration</span>';
-    }
-}
-
-// Initialisation au chargement
 document.addEventListener('DOMContentLoaded', function() {
     filterPostes();
+    updatePermissionsPreview();
 });
 </script>
+<script src="{% static 'js/permissions_auto.js' %}"></script>
 {% endblock %}

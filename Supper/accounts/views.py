@@ -1,101 +1,280 @@
 # ===================================================================
-# accounts/views.py - VERSION COMPLÈTE avec toutes les fonctions
-# CORRECTION : Intégration de toutes les vues de redirection admin
-# Support bilingue FR/EN intégré, commentaires détaillés
+# accounts/views.py - VERSION COMPLÈTE avec PERMISSIONS GRANULAIRES
+# Intégration des mixins granulaires, gestion profil utilisateur
+# Support bilingue FR/EN, journalisation détaillée contextuelle
 # ===================================================================
 
 from django.contrib.auth.views import LoginView, PasswordChangeView as DjangoPasswordChangeView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, TemplateView, View
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.views.generic import (
+    ListView, DetailView, CreateView, UpdateView, 
+    TemplateView, View, DeleteView, FormView
+)
 from django.shortcuts import redirect, get_object_or_404, render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django.contrib import messages
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.db import transaction
-from django.db.models import Q, Count  # Ajout des imports manquants
+from django.db.models import Q, Count, Sum, Avg
 from django.http import JsonResponse, HttpResponseRedirect, HttpResponseForbidden
-from django.utils.translation import gettext_lazy as _  # Support bilingue FR/EN
-from django.contrib.auth import login, authenticate, logout
-from django.core.exceptions import ValidationError
-from django.utils import timezone  # Ajout import manquant
+from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
+from django.core.exceptions import ValidationError, PermissionDenied
+from django.utils import timezone
 from django.contrib.auth.views import LogoutView as DjangoLogoutView
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
+from django.core.paginator import Paginator
 from datetime import datetime, timedelta
 from django.conf import settings
-from django.views.decorators.http import require_http_methods
+from functools import wraps
 import logging
 import json
 
-# Import des modèles SUPPER
-from .models import *
-from .forms import *
+# ===================================================================
+# IMPORTS DES MODÈLES ET FORMULAIRES SUPPER
+# ===================================================================
+from .models import (
+    UtilisateurSUPPER, Poste, JournalAudit, NotificationUtilisateur,
+    Habilitation, TypePoste, Region, Departement
+)
+from .forms import (
+    CustomLoginForm, UserCreateForm, UserUpdateForm, UserEditForm,
+    PasswordChangeForm, PasswordResetForm, BulkUserCreateForm,
+    ProfileEditForm, HABILITATIONS_PESAGE, HABILITATIONS_PEAGE,
+    HABILITATIONS_MULTI_POSTES, clean_habilitation_poste,
+    get_postes_pour_habilitation, habilitation_requiert_poste,
+    get_type_poste_requis, FILTRAGE_POSTES_JS, PERMISSIONS_CSS
+)
 
-# Import des utilitaires communs avec journalisation
-from common.utils import log_user_action
-from common.mixins import AuditMixin, AdminRequiredMixin, BilingualMixin
+# ===================================================================
+# IMPORTS DES UTILITAIRES COMMUNS AVEC PERMISSIONS GRANULAIRES
+# ===================================================================
+from common.utils import *
+
+# ===================================================================
+# IMPORTS DES MIXINS AVEC PERMISSIONS GRANULAIRES
+# ===================================================================
+from common.mixins import *
 
 logger = logging.getLogger('supper')
 
 
-
-# Habilitations qui DOIVENT être affectées à une station de PESAGE
-HABILITATIONS_PESAGE = [
-    'chef_equipe_pesage',
-    'regisseur_pesage', 
-    'chef_station_pesage',
-]
-
-# Habilitations qui DOIVENT être affectées à un poste de PÉAGE
-HABILITATIONS_PEAGE = [
-    'chef_peage',
-    'agent_inventaire',
-]
-
-# Habilitations qui peuvent accéder à TOUS les postes (ou aucun)
-HABILITATIONS_MULTI_POSTES = [
-    'admin_principal',
-    'coord_psrr',
-    'serv_info',
-    'serv_emission',
-    'chef_ag',
-    'regisseur',
-    'comptable_mat',
-    'chef_ordre',
-    'chef_controle',
-    'imprimerie',
-    'focal_regional',
-    'chef_service',
-]
 # ===================================================================
-# FONCTIONS UTILITAIRES POUR L'ADMIN DJANGO
+# FONCTIONS UTILITAIRES DE VÉRIFICATION DES PERMISSIONS
 # ===================================================================
 
-def _check_admin_permission(user):
-    """Vérifier les permissions administrateur"""
-    return (user.is_superuser or 
-            user.is_staff or 
-            user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'])
+def check_granular_permission(user, permission_field):
+    """
+    Vérifie une permission granulaire spécifique sur l'utilisateur.
+    
+    Args:
+        user: Instance UtilisateurSUPPER
+        permission_field: Nom du champ de permission (ex: 'peut_gerer_utilisateurs')
+    
+    Returns:
+        bool: True si permission accordée
+    """
+    if not user.is_authenticated:
+        return False
+    
+    # Superuser a toutes les permissions
+    if user.is_superuser:
+        return True
+    
+    # Vérifier la permission spécifique
+    return getattr(user, permission_field, False)
+
+
+def check_admin_permission(user):
+    """
+    Vérifie les permissions administrateur (version améliorée avec granularité).
+    Compatible avec l'ancienne fonction _check_admin_permission.
+    
+    Args:
+        user: Instance UtilisateurSUPPER
+    
+    Returns:
+        bool: True si l'utilisateur a des droits admin
+    """
+    if not user.is_authenticated:
+        return False
+    
+    # Superuser ou staff
+    if user.is_superuser or user.is_staff:
+        return True
+    
+    # Habilitations avec droits admin
+    if user.habilitation in HABILITATIONS_ADMIN:
+        return True
+    
+    # Services centraux avec droits étendus
+    if user.habilitation in HABILITATIONS_SERVICES_CENTRAUX:
+        return True
+    
+    return False
+
+
+def check_user_management_permission(user):
+    """
+    Vérifie si l'utilisateur peut gérer les utilisateurs.
+    
+    Args:
+        user: Instance UtilisateurSUPPER
+    
+    Returns:
+        bool: True si peut gérer les utilisateurs
+    """
+    if not user.is_authenticated:
+        return False
+    
+    if user.is_superuser:
+        return True
+    
+    return getattr(user, 'peut_gerer_utilisateurs', False)
+
+
+def check_poste_management_permission(user):
+    """
+    Vérifie si l'utilisateur peut gérer les postes.
+    
+    Args:
+        user: Instance UtilisateurSUPPER
+    
+    Returns:
+        bool: True si peut gérer les postes
+    """
+    if not user.is_authenticated:
+        return False
+    
+    if user.is_superuser:
+        return True
+    
+    return getattr(user, 'peut_gerer_postes', False)
+
+
+def check_audit_permission(user):
+    """
+    Vérifie si l'utilisateur peut consulter le journal d'audit.
+    
+    Args:
+        user: Instance UtilisateurSUPPER
+    
+    Returns:
+        bool: True si peut voir le journal d'audit
+    """
+    if not user.is_authenticated:
+        return False
+    
+    if user.is_superuser:
+        return True
+    
+    return getattr(user, 'peut_voir_journal_audit', False)
+
+
+# Alias pour compatibilité avec l'ancien code
+_check_admin_permission = check_admin_permission
 
 
 def _log_admin_access(request, action):
-    """Journaliser l'accès aux sections admin"""
+    """
+    Journalise l'accès aux sections admin avec description contextuelle.
+    
+    Args:
+        request: HttpRequest
+        action: Description de l'action
+    """
     try:
+        user_desc = get_user_short_description(request.user)
+        
         JournalAudit.objects.create(
             utilisateur=request.user,
-            action=f"Accès admin Django - {action}",
-            details=f"Redirection depuis SUPPER vers {action}",
+            action=f"Accès admin - {action}",
+            details=f"{user_desc} a accédé à: {action}",
             adresse_ip=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             url_acces=request.path,
             methode_http=request.method,
             succes=True
         )
         
-        logger.info(f"REDIRECTION ADMIN DJANGO - {request.user.username} -> {action}")
+        logger.info(f"ACCÈS ADMIN - {request.user.username} -> {action}")
         
     except Exception as e:
         logger.error(f"Erreur journalisation admin access: {str(e)}")
+
+
+# ===================================================================
+# DÉCORATEURS DE PERMISSIONS GRANULAIRES POUR VUES FONCTIONNELLES
+# ===================================================================
+
+def permission_required_granular(permission_field, redirect_url=None):
+    """
+    Décorateur pour exiger une permission granulaire sur une vue fonctionnelle.
+    
+    Args:
+        permission_field: Nom du champ de permission
+        redirect_url: URL de redirection si permission refusée
+    
+    Usage:
+        @permission_required_granular('peut_gerer_utilisateurs')
+        def ma_vue(request):
+            ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapper(request, *args, **kwargs):
+            if not check_granular_permission(request.user, permission_field):
+                log_acces_refuse(
+                    request.user,
+                    f"Permission '{permission_field}' requise",
+                    request
+                )
+                messages.error(
+                    request,
+                    _("Vous n'avez pas la permission requise pour cette action.")
+                )
+                if redirect_url:
+                    return redirect(redirect_url)
+                return redirect('common:dashboard')
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def habilitation_required_view(*habilitations):
+    """
+    Décorateur pour exiger une habilitation spécifique sur une vue fonctionnelle.
+    
+    Args:
+        habilitations: Liste des habilitations acceptées
+    
+    Usage:
+        @habilitation_required_view('admin_principal', 'coord_psrr')
+        def ma_vue(request):
+            ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapper(request, *args, **kwargs):
+            if request.user.habilitation not in habilitations:
+                if not request.user.is_superuser:
+                    log_acces_refuse(
+                        request.user,
+                        f"Habilitation requise: {', '.join(habilitations)}",
+                        request
+                    )
+                    messages.error(
+                        request,
+                        _("Votre habilitation ne permet pas d'accéder à cette fonction.")
+                    )
+                    return redirect('common:dashboard')
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 # ===================================================================
@@ -104,13 +283,13 @@ def _log_admin_access(request, action):
 
 class CustomLoginView(BilingualMixin, LoginView):
     """
-    Vue de connexion personnalisée avec journalisation automatique
-    SOLUTION PROBLÈME 2: Utilisation de CustomLoginForm pour messages détaillés
+    Vue de connexion personnalisée avec journalisation automatique.
+    Utilise CustomLoginForm pour messages d'erreur détaillés.
     """
     
     template_name = 'accounts/login.html'
     redirect_authenticated_user = True
-    form_class = CustomLoginForm  # Utiliser notre formulaire personnalisé
+    form_class = CustomLoginForm
     
     def get_form_kwargs(self):
         """Ajouter la requête au formulaire pour l'authentification"""
@@ -120,43 +299,40 @@ class CustomLoginView(BilingualMixin, LoginView):
     
     def form_valid(self, form):
         """
-        Traitement du formulaire de connexion valide
-        Redirection vers l'admin Django pour tous les utilisateurs
+        Traitement du formulaire de connexion valide.
+        Journalise la connexion avec description contextuelle.
         """
-        # Effectuer la connexion standard Django
         response = super().form_valid(form)
-        
-        # Récupérer l'utilisateur connecté
         user = self.request.user
         
-        # Message de bienvenue
+        # Description contextuelle de l'utilisateur
+        user_desc = get_user_description(user)
+        
+        # Message de bienvenue personnalisé selon le rôle
         messages.success(
             self.request,
             f"✓ Bienvenue {user.nom_complet} ! Connexion réussie."
         )
         
-        # Journaliser la connexion réussie
+        # Journaliser la connexion avec contexte
         log_user_action(
             user=user,
             action="Connexion réussie",
-            details=f"Connexion depuis {self.request.META.get('REMOTE_ADDR', 'IP inconnue')}",
+            details=f"{user_desc} s'est connecté depuis {self.request.META.get('REMOTE_ADDR', 'IP inconnue')}",
             request=self.request
         )
         
-        # Redirection vers l'admin Django
-        return redirect('/common/')
+        # Redirection vers le dashboard commun
+        return redirect('common:dashboard')
     
     def form_invalid(self, form):
         """
-        Traitement du formulaire de connexion invalide
-        Les messages d'erreur spécifiques sont maintenant gérés dans CustomLoginForm
+        Traitement du formulaire de connexion invalide.
+        Les messages d'erreur spécifiques sont gérés dans CustomLoginForm.
         """
-        # Les erreurs sont déjà dans le formulaire grâce à CustomLoginForm
-        # Pas besoin d'ajouter de messages supplémentaires ici
-        
-        # Si on veut journaliser les tentatives échouées pour l'audit
-        if form.cleaned_data.get('username'):
-            username = form.cleaned_data['username'].upper()
+        # Journaliser les tentatives échouées
+        username = form.data.get('username', '').upper()
+        if username:
             try:
                 user = UtilisateurSUPPER.objects.get(username=username)
                 log_user_action(
@@ -166,9 +342,9 @@ class CustomLoginView(BilingualMixin, LoginView):
                     request=self.request
                 )
             except UtilisateurSUPPER.DoesNotExist:
-                # Journaliser aussi les tentatives avec matricule inexistant
                 logger.warning(
-                    f"Tentative connexion matricule inexistant: {username} depuis IP: {self.request.META.get('REMOTE_ADDR')}"
+                    f"Tentative connexion matricule inexistant: {username} "
+                    f"depuis IP: {self.request.META.get('REMOTE_ADDR')}"
                 )
         
         return super().form_invalid(form)
@@ -183,6 +359,7 @@ class CustomLoginView(BilingualMixin, LoginView):
         })
         return context
 
+
 class CustomLogoutView(View):
     """Vue personnalisée pour la déconnexion avec journalisation"""
     
@@ -194,147 +371,366 @@ class CustomLogoutView(View):
     
     def logout_user(self, request):
         if request.user.is_authenticated:
-            # Journaliser la déconnexion
+            user_desc = get_user_short_description(request.user)
+            
             log_user_action(
                 request.user,
                 "Déconnexion volontaire",
-                f"Utilisateur {request.user.username} s'est déconnecté",
+                f"{user_desc} s'est déconnecté",
                 request
             )
             
-            # Message de confirmation
             messages.success(request, _("Vous avez été déconnecté avec succès."))
-            
-            # Déconnecter l'utilisateur
             logout(request)
         
-        # Rediriger vers la page de connexion
         return redirect('accounts:login')
 
 
-# # ===================================================================
-# # VUES DE REDIRECTION VERS ADMIN DJANGO
-# # ===================================================================
+# ===================================================================
+# GESTION DU PROFIL UTILISATEUR
+# ===================================================================
 
-# @login_required
-# def redirect_to_django_admin(request):
-#     """Redirection générale vers l'admin Django principal"""
-#     user = request.user
+class ProfileView(LoginRequiredMixin, BilingualMixin, AuditMixin, TemplateView):
+    """
+    Vue du profil utilisateur personnel.
+    Accessible à tous les utilisateurs connectés.
+    """
     
-#     if not _check_admin_permission(user):
-#         messages.error(request, _("Accès non autorisé au panel d'administration Django."))
-#         logger.warning(f"ACCÈS REFUSÉ ADMIN DJANGO - {user.username}")
-#         return redirect('accounts:dashboard_redirect')
+    template_name = 'accounts/profile.html'
+    audit_action = _("Consultation profil personnel")
+    audit_log_get = False  # Ne pas journaliser les simples consultations
     
-#     _log_admin_access(request, "Panel administrateur principal")
-#     messages.success(request, _("Accès autorisé au panel d'administration Django."))
+    def get_context_data(self, **kwargs):
+        """Préparer les données du profil utilisateur"""
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Description contextuelle de l'utilisateur
+        user_desc = get_user_description(user)
+        user_category = get_user_category(user)
+        niveau_acces = get_niveau_acces(user)
+        
+        # Permissions organisées par catégorie
+        permissions_by_category = self._get_permissions_by_category(user)
+        
+        # Actions récentes de l'utilisateur
+        recent_actions = JournalAudit.objects.filter(
+            utilisateur=user
+        ).order_by('-timestamp')[:10]
+        
+        # Statistiques personnelles
+        stats_user = self._get_user_stats(user)
+        
+        # Notifications non lues
+        notifications_non_lues = NotificationUtilisateur.objects.filter(
+            destinataire=user,
+            lu=False
+        ).count()
+        
+        context.update({
+            'user': user,
+            'user_description': user_desc,
+            'user_category': user_category,
+            'niveau_acces': niveau_acces,
+            'permissions_by_category': permissions_by_category,
+            'poste_affectation': user.poste_affectation,
+            'recent_actions': recent_actions,
+            'stats_user': stats_user,
+            'notifications_non_lues': notifications_non_lues,
+            'account_info': {
+                'created_date': user.date_creation,
+                'last_modified': user.date_modification,
+                'last_login': user.last_login,
+                'account_age_days': (timezone.now() - user.date_creation).days,
+            },
+            'title': _('Mon Profil'),
+        })
+        
+        return context
     
-#     return redirect('/admin/')
+    def _get_permissions_by_category(self, user):
+        """Organise les permissions par catégorie pour l'affichage"""
+        categories = {
+            'Accès Global': [],
+            'Inventaires': [],
+            'Recettes Péage': [],
+            'Quittances Péage': [],
+            'Pesage': [],
+            'Stock Péage': [],
+            'Gestion': [],
+            'Rapports': [],
+        }
+        
+        # Mapping des permissions vers catégories
+        permission_mapping = {
+            # Accès Global
+            'acces_tous_postes': ('Accès Global', 'Accès à tous les postes'),
+            'peut_saisir_peage': ('Accès Global', 'Saisie données péage'),
+            'peut_saisir_pesage': ('Accès Global', 'Saisie données pesage'),
+            'voir_recettes_potentielles': ('Accès Global', 'Voir recettes potentielles'),
+            'voir_taux_deperdition': ('Accès Global', 'Voir taux de déperdition'),
+            # Inventaires
+            'peut_saisir_inventaire_normal': ('Inventaires', 'Saisie inventaire normal'),
+            'peut_saisir_inventaire_admin': ('Inventaires', 'Saisie inventaire administratif'),
+            'peut_programmer_inventaire': ('Inventaires', 'Programmer inventaires'),
+            'peut_voir_stats_deperdition': ('Inventaires', 'Statistiques déperdition'),
+            # Recettes Péage
+            'peut_saisir_recette_peage': ('Recettes Péage', 'Saisie recettes'),
+            'peut_voir_liste_recettes_peage': ('Recettes Péage', 'Consulter recettes'),
+            'peut_importer_recettes_peage': ('Recettes Péage', 'Importer recettes'),
+            # Quittances
+            'peut_saisir_quittance_peage': ('Quittances Péage', 'Saisie quittances'),
+            'peut_comptabiliser_quittances_peage': ('Quittances Péage', 'Comptabiliser'),
+            # Pesage
+            'peut_saisir_amende': ('Pesage', 'Saisie amendes'),
+            'peut_valider_paiement_amende': ('Pesage', 'Valider paiements'),
+            'peut_voir_stats_pesage': ('Pesage', 'Statistiques pesage'),
+            # Stock
+            'peut_charger_stock_peage': ('Stock Péage', 'Charger stock'),
+            'peut_transferer_stock_peage': ('Stock Péage', 'Transférer stock'),
+            'peut_voir_tracabilite_tickets': ('Stock Péage', 'Traçabilité tickets'),
+            # Gestion
+            'peut_gerer_postes': ('Gestion', 'Gérer postes'),
+            'peut_gerer_utilisateurs': ('Gestion', 'Gérer utilisateurs'),
+            'peut_voir_journal_audit': ('Gestion', 'Journal d\'audit'),
+            # Rapports
+            'peut_voir_rapports_defaillants_peage': ('Rapports', 'Rapports défaillants péage'),
+            'peut_voir_rapports_defaillants_pesage': ('Rapports', 'Rapports défaillants pesage'),
+            'peut_voir_classement_peage_rendement': ('Rapports', 'Classement rendement'),
+        }
+        
+        for field_name, (category, label) in permission_mapping.items():
+            if hasattr(user, field_name) and getattr(user, field_name):
+                categories[category].append(label)
+        
+        # Retirer les catégories vides
+        return {k: v for k, v in categories.items() if v}
+    
+    def _get_user_stats(self, user):
+        """Calcule les statistiques de l'utilisateur"""
+        today = timezone.now().date()
+        month_start = today.replace(day=1)
+        
+        return {
+            'nb_connexions': JournalAudit.objects.filter(
+                utilisateur=user,
+                action__icontains='connexion'
+            ).count(),
+            'derniere_connexion': user.last_login,
+            'nb_actions_mois': JournalAudit.objects.filter(
+                utilisateur=user,
+                timestamp__gte=month_start
+            ).count(),
+            'nb_actions_today': JournalAudit.objects.filter(
+                utilisateur=user,
+                timestamp__date=today
+            ).count(),
+        }
 
 
-# @login_required
-# def redirect_to_users_admin(request):
-#     """Redirection vers la gestion des utilisateurs dans l'admin Django"""
-#     user = request.user
+class EditProfileView(LoginRequiredMixin, BilingualMixin, AuditMixin, UpdateView):
+    """
+    Vue pour permettre à un utilisateur de modifier son propre profil.
+    Champs modifiables limités (nom, téléphone, email, photo).
+    """
     
-#     if not _check_admin_permission(user):
-#         messages.error(request, _("Accès non autorisé à la gestion des utilisateurs."))
-#         return redirect('accounts:dashboard_redirect')
+    model = UtilisateurSUPPER
+    form_class = ProfileEditForm
+    template_name = 'accounts/profile_edit.html'
+    success_url = reverse_lazy('accounts:profile')
+    audit_action = _("Modification profil personnel")
     
-#     _log_admin_access(request, "Gestion utilisateurs")
-#     messages.info(request, _("Redirection vers la gestion des utilisateurs."))
+    def get_object(self, queryset=None):
+        """Retourne l'utilisateur connecté"""
+        return self.request.user
     
-#     return redirect('/admin/accounts/utilisateursupper/')
+    def form_valid(self, form):
+        """Traitement après validation du formulaire"""
+        # Détecter les changements
+        changes = []
+        if form.has_changed():
+            for field in form.changed_data:
+                old_value = getattr(self.request.user, field, None)
+                new_value = form.cleaned_data.get(field)
+                changes.append(f"{field}: {old_value} → {new_value}")
+        
+        response = super().form_valid(form)
+        
+        # Message de succès
+        messages.success(
+            self.request, 
+            _("Votre profil a été mis à jour avec succès.")
+        )
+        
+        # Journalisation détaillée
+        user_desc = get_user_short_description(self.request.user)
+        log_user_action(
+            self.request.user,
+            "Modification profil personnel",
+            f"{user_desc} a modifié son profil. Changements: {', '.join(changes)}" if changes else f"{user_desc} a consulté son profil sans modifications",
+            self.request
+        )
+        
+        return response
+    
+    def get_context_data(self, **kwargs):
+        """Ajouter des données au contexte"""
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'title': _("Modifier mon profil"),
+            'user_description': get_user_description(self.request.user),
+        })
+        return context
 
 
-# @login_required
-# def redirect_to_postes_admin(request):
-#     """Redirection vers la gestion des postes dans l'admin Django"""
-#     user = request.user
+class ChangePasswordView(LoginRequiredMixin, BilingualMixin, AuditMixin, FormView):
+    """
+    Vue pour permettre aux utilisateurs de changer leur mot de passe.
+    Validation simplifiée (4 caractères minimum) selon les specs SUPPER.
+    """
     
-#     if not _check_admin_permission(user):
-#         messages.error(request, _("Accès non autorisé à la gestion des postes."))
-#         return redirect('accounts:dashboard_redirect')
+    template_name = 'accounts/password_change.html'
+    form_class = PasswordChangeForm
+    success_url = reverse_lazy('accounts:profile')
+    audit_action = _("Changement de mot de passe")
     
-#     _log_admin_access(request, "Gestion postes")
-#     messages.info(request, _("Redirection vers la gestion des postes."))
+    def get_form_kwargs(self):
+        """Passer l'utilisateur au formulaire"""
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
     
-#     return redirect('/admin/accounts/poste/')
+    def form_valid(self, form):
+        """Traitement du changement de mot de passe réussi"""
+        user = self.request.user
+        
+        # Changer le mot de passe
+        user.set_password(form.cleaned_data['nouveau_mot_de_passe'])
+        user.save()
+        
+        # Maintenir la session active après le changement
+        update_session_auth_hash(self.request, user)
+        
+        # Message de succès
+        messages.success(
+            self.request, 
+            _("Votre mot de passe a été modifié avec succès.")
+        )
+        
+        # Journalisation
+        user_desc = get_user_short_description(user)
+        log_user_action(
+            user,
+            "Changement mot de passe",
+            f"{user_desc} a changé son mot de passe",
+            self.request
+        )
+        
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        """Ajouter des données au contexte"""
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'title': _("Changer mon mot de passe"),
+            'user_description': get_user_description(self.request.user),
+        })
+        return context
+
+
+# ===================================================================
+# GESTION DES UTILISATEURS (AVEC PERMISSIONS GRANULAIRES)
+# ===================================================================
+
+class UserListView(GestionUtilisateursPermissionMixin, BilingualMixin, 
+                   PaginationMixin, AuditMixin, ListView):
+    """
+    Liste des utilisateurs avec filtres et pagination.
+    Requiert la permission 'peut_gerer_utilisateurs'.
+    """
+    
+    model = UtilisateurSUPPER
+    template_name = 'accounts/liste_utilisateurs.html'
+    context_object_name = 'users'
+    paginate_by = 25
+    audit_action = _("Consultation liste utilisateurs")
+    audit_log_get = False
+    
+    def get_queryset(self):
+        """Filtrer selon les paramètres GET"""
+        queryset = super().get_queryset().select_related('poste_affectation')
+        
+        # Filtres
+        search = self.request.GET.get('search', '')
+        habilitation_filter = self.request.GET.get('habilitation', '')
+        actif_filter = self.request.GET.get('actif', '')
+        poste_filter = self.request.GET.get('poste', '')
+        
+        if search:
+            queryset = queryset.filter(
+                Q(nom_complet__icontains=search) |
+                Q(username__icontains=search) |
+                Q(telephone__icontains=search) |
+                Q(email__icontains=search)
+            )
+        
+        if habilitation_filter:
+            queryset = queryset.filter(habilitation=habilitation_filter)
+        
+        if actif_filter:
+            queryset = queryset.filter(is_active=actif_filter == 'true')
+        
+        if poste_filter:
+            queryset = queryset.filter(poste_affectation_id=poste_filter)
+        
+        return queryset.order_by('-date_creation')
+    
+    def get_context_data(self, **kwargs):
+        """Enrichir le contexte avec statistiques et filtres"""
+        context = super().get_context_data(**kwargs)
+        
+        # Statistiques
+        context['stats'] = {
+            'total': UtilisateurSUPPER.objects.count(),
+            'actifs': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+            'admins': UtilisateurSUPPER.objects.filter(
+                habilitation__in=HABILITATIONS_ADMIN
+            ).count(),
+            'agents_peage': UtilisateurSUPPER.objects.filter(
+                habilitation__in=HABILITATIONS_CHEFS_PEAGE + HABILITATIONS_OPERATIONNELS_PEAGE
+            ).count(),
+            'agents_pesage': UtilisateurSUPPER.objects.filter(
+                habilitation__in=HABILITATIONS_CHEFS_PESAGE + HABILITATIONS_OPERATIONNELS_PESAGE
+            ).count(),
+        }
+        
+        # Valeurs des filtres actuels
+        context['search'] = self.request.GET.get('search', '')
+        context['habilitation_filter'] = self.request.GET.get('habilitation', '')
+        context['actif_filter'] = self.request.GET.get('actif', '')
+        context['poste_filter'] = self.request.GET.get('poste', '')
+        
+        # Listes pour les filtres
+        context['habilitations'] = Habilitation.choices
+        context['postes'] = Poste.objects.filter(is_active=True).order_by('nom')
+        
+        context['title'] = _('Gestion des Utilisateurs')
+        
+        return context
 
 
 @login_required
-def redirect_to_inventaires_admin(request):
-    """Redirection vers la gestion des inventaires dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la gestion des inventaires."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Gestion inventaires")
-    messages.info(request, _("Redirection vers la gestion des inventaires."))
-    
-    return redirect('/admin/inventaire/inventairejournalier/')
-
-
-@login_required
-def redirect_to_recettes_admin(request):
-    """Redirection vers la gestion des recettes dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la gestion des recettes."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Gestion recettes")
-    messages.info(request, _("Redirection vers la gestion des recettes."))
-    
-    return redirect('/admin/inventaire/recettejournaliere/')
-
-
-@login_required
-def redirect_to_journal_admin(request):
-    """Redirection vers le journal d'audit dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé au journal d'audit."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Journal d'audit")
-    messages.info(request, _("Redirection vers le journal d'audit."))
-    
-    return redirect('/admin/accounts/journalaudit/')
-
-
-@login_required
-def redirect_to_add_user_admin(request):
-    """Redirection vers l'ajout d'utilisateur dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la création d'utilisateurs."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Ajout utilisateur")
-    messages.info(request, _("Redirection vers l'ajout d'utilisateur."))
-    
-    return redirect('/admin/accounts/utilisateursupper/add/')
-
-@login_required
+@permission_required_granular('peut_gerer_utilisateurs')
 def liste_utilisateurs(request):
     """
-    NOUVELLE VUE PRINCIPALE - Vue pour lister tous les utilisateurs
-    SOLUTION PROBLÈME 3 : Cette vue remplace UserListView
+    Vue fonctionnelle pour lister tous les utilisateurs.
+    Alternative à UserListView pour plus de flexibilité.
     """
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('/common/')
-    
     # Filtres
     search = request.GET.get('search', '')
     habilitation_filter = request.GET.get('habilitation', '')
     actif_filter = request.GET.get('actif', '')
+    poste_filter = request.GET.get('poste', '')
     
     # Construction de la requête
     users = UtilisateurSUPPER.objects.select_related('poste_affectation').all()
@@ -343,7 +739,8 @@ def liste_utilisateurs(request):
         users = users.filter(
             Q(nom_complet__icontains=search) |
             Q(username__icontains=search) |
-            Q(telephone__icontains=search)
+            Q(telephone__icontains=search) |
+            Q(email__icontains=search)
         )
     
     if habilitation_filter:
@@ -352,20 +749,37 @@ def liste_utilisateurs(request):
     if actif_filter:
         users = users.filter(is_active=actif_filter == 'true')
     
+    if poste_filter:
+        users = users.filter(poste_affectation_id=poste_filter)
+    
     users = users.order_by('-date_creation')
     
     # Pagination
-    from django.core.paginator import Paginator
     paginator = Paginator(users, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Statistiques
+    # Statistiques - CORRIGÉES
     stats = {
         'total': UtilisateurSUPPER.objects.count(),
         'actifs': UtilisateurSUPPER.objects.filter(is_active=True).count(),
-        'admins': UtilisateurSUPPER.objects.filter(habilitation='admin_principal').count(),
-        'agents': UtilisateurSUPPER.objects.filter(habilitation='agent_inventaire').count(),
+        'admins': UtilisateurSUPPER.objects.filter(
+            habilitation__in=['admin_principal', 'coord_psrr', 'serv_info']
+        ).count(),
+        # AJOUT: Agents affectés à des postes de péage
+        'agents_peage': UtilisateurSUPPER.objects.filter(
+            poste_affectation__type='peage',
+            is_active=True
+        ).count(),
+        # AJOUT: Agents affectés à des postes de pesage
+        'agents_pesage': UtilisateurSUPPER.objects.filter(
+            poste_affectation__type='pesage',
+            is_active=True
+        ).count(),
+        # Agents inventaire
+        'agents': UtilisateurSUPPER.objects.filter(
+            habilitation='agent_inventaire'
+        ).count(),
     }
     
     context = {
@@ -374,53 +788,68 @@ def liste_utilisateurs(request):
         'search': search,
         'habilitation_filter': habilitation_filter,
         'actif_filter': actif_filter,
+        'poste_filter': poste_filter,
         'habilitations': Habilitation.choices,
-        'title': 'Gestion des Utilisateurs'
+        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
+        'title': _('Gestion des Utilisateurs'),
+        'user_description': get_user_short_description(request.user),
     }
-    
-    log_user_action(request.user, "Consultation liste utilisateurs", "", request)
     
     return render(request, 'accounts/liste_utilisateurs.html', context)
 
-
-@login_required  
+@login_required
+@permission_required_granular('peut_gerer_utilisateurs')
 def creer_utilisateur(request):
     """
-    Vue pour créer un nouvel utilisateur avec formulaire
-    AMÉLIORATION: Utilisation du formulaire UserCreateForm
+    Vue pour créer un nouvel utilisateur avec formulaire.
+    Utilise UserCreateForm avec validation habilitation/poste.
     """
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('accounts:liste_utilisateurs')
-    
     if request.method == 'POST':
-        form = UserCreateForm(request.POST)
+        form = UserCreateForm(request.POST, request.FILES)
         
         if form.is_valid():
-            # Créer l'utilisateur
-            user = form.save(created_by=request.user)
-            
-            # Journalisation
-            log_user_action(
-                request.user,
-                "Création utilisateur",
-                f"Utilisateur créé: {user.username} ({user.nom_complet}) - {user.habilitation}",
-                request
-            )
-            
-            messages.success(request, f"Utilisateur {user.nom_complet} créé avec succès.")
-            return redirect('accounts:detail_utilisateur', user_id=user.id)
+            try:
+                with transaction.atomic():
+                    user = form.save(created_by=request.user)
+                    
+                    # Journalisation détaillée
+                    user_desc = get_user_short_description(request.user)
+                    new_user_desc = get_user_description(user)
+                    
+                    log_user_action(
+                        request.user,
+                        "Création utilisateur",
+                        f"{user_desc} a créé: {new_user_desc}",
+                        request,
+                        utilisateur_cible=user.username,
+                        habilitation=user.habilitation,
+                        poste=str(user.poste_affectation) if user.poste_affectation else "Aucun"
+                    )
+                    
+                    messages.success(
+                        request, 
+                        f"Utilisateur {user.nom_complet} créé avec succès."
+                    )
+                    return redirect('accounts:detail_utilisateur', user_id=user.id)
+                    
+            except Exception as e:
+                logger.error(f"Erreur création utilisateur: {str(e)}")
+                messages.error(request, f"Erreur lors de la création: {str(e)}")
         else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error if field == '__all__' else f"{error}")
     else:
-        # GET: Formulaire vide
         form = UserCreateForm()
     
     context = {
         'form': form,
-        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
+        'postes_peage': Poste.objects.filter(is_active=True, type='peage').order_by('nom'),
+        'postes_pesage': Poste.objects.filter(is_active=True, type='pesage').order_by('nom'),
         'habilitations': Habilitation.choices,
-        'title': 'Créer un Utilisateur'
+        'title': _('Créer un Utilisateur'),
+        'filtrage_postes_js': FILTRAGE_POSTES_JS,
+        'permissions_css': PERMISSIONS_CSS,
     }
     
     return render(request, 'accounts/creer_utilisateur.html', context)
@@ -429,61 +858,94 @@ def creer_utilisateur(request):
 @login_required
 def detail_utilisateur(request, user_id):
     """
-    NOUVELLE VUE PRINCIPALE - Vue pour afficher les détails d'un utilisateur
-    SOLUTION PROBLÈME 3 : Cette vue remplace UserDetailView
+    Vue pour afficher les détails d'un utilisateur.
+    Accessible par l'utilisateur lui-même ou par les gestionnaires.
     """
-    user = get_object_or_404(UtilisateurSUPPER, id=user_id)
+    user_detail = get_object_or_404(UtilisateurSUPPER, id=user_id)
     
     # Vérification des permissions
-    if not _check_admin_permission(request.user) and request.user != user:
-        messages.error(request, "Accès non autorisé.")
-        return redirect('/common/')
+    can_view = (
+        request.user == user_detail or  # L'utilisateur consulte son propre profil
+        check_user_management_permission(request.user)  # Gestionnaire d'utilisateurs
+    )
+    
+    if not can_view:
+        log_acces_refuse(
+            request.user,
+            f"Tentative consultation profil de {user_detail.username}",
+            request
+        )
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard')
+    
+    # Description contextuelle
+    user_desc = get_user_description(user_detail)
     
     # Activités récentes
     activites_recentes = JournalAudit.objects.filter(
-        utilisateur=user
-    ).order_by('-timestamp')[:10]
+        utilisateur=user_detail
+    ).order_by('-timestamp')[:15]
     
     # Statistiques utilisateur
+    today = timezone.now().date()
+    month_start = today.replace(day=1)
+    
     stats_user = {
         'nb_connexions': JournalAudit.objects.filter(
-            utilisateur=user,
+            utilisateur=user_detail,
             action__icontains='connexion'
         ).count(),
-        'derniere_connexion': JournalAudit.objects.filter(
-            utilisateur=user,
-            action__icontains='connexion'
-        ).first(),
+        'derniere_connexion': user_detail.last_login,
         'nb_actions_mois': JournalAudit.objects.filter(
-            utilisateur=user,
-            timestamp__gte=timezone.now().replace(day=1)
-        ).count()
+            utilisateur=user_detail,
+            timestamp__gte=month_start
+        ).count(),
+        'nb_actions_today': JournalAudit.objects.filter(
+            utilisateur=user_detail,
+            timestamp__date=today
+        ).count(),
     }
     
+    # Permissions de l'utilisateur consulté (organisées)
+    permissions_list = []
+    permission_fields = [
+        ('peut_gerer_utilisateurs', 'Gérer utilisateurs'),
+        ('peut_gerer_postes', 'Gérer postes'),
+        ('peut_saisir_inventaire_normal', 'Saisie inventaire'),
+        ('peut_saisir_recette_peage', 'Saisie recettes péage'),
+        ('peut_saisir_amende', 'Saisie amendes'),
+        ('peut_voir_journal_audit', 'Journal d\'audit'),
+        ('acces_tous_postes', 'Accès tous postes'),
+    ]
+    
+    for field, label in permission_fields:
+        if hasattr(user_detail, field) and getattr(user_detail, field):
+            permissions_list.append(label)
+    
     context = {
-        'user_detail': user,
+        'user_detail': user_detail,
+        'user_description': user_desc,
         'activites_recentes': activites_recentes,
         'stats_user': stats_user,
-        'title': f'Profil - {user.nom_complet}'
+        'permissions_list': permissions_list,
+        'can_edit': check_user_management_permission(request.user),
+        'title': f'Profil - {user_detail.nom_complet}',
     }
     
     return render(request, 'accounts/detail_utilisateur.html', context)
 
 
 @login_required
+@permission_required_granular('peut_gerer_utilisateurs')
 def modifier_utilisateur(request, user_id):
     """
-    Vue pour modifier un utilisateur avec filtrage dynamique des postes
+    Vue pour modifier un utilisateur avec filtrage dynamique des postes.
+    Utilise UserUpdateForm avec validation habilitation/poste.
     """
     user_to_edit = get_object_or_404(UtilisateurSUPPER, id=user_id)
     
-    # Vérification des permissions
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('accounts:detail_utilisateur', user_id=user_to_edit.id)
-    
     if request.method == 'POST':
-        form = UserUpdateForm(request.POST, instance=user_to_edit)
+        form = UserUpdateForm(request.POST, request.FILES, instance=user_to_edit)
         
         if form.is_valid():
             # Détecter les changements pour la journalisation
@@ -505,28 +967,33 @@ def modifier_utilisateur(request, user_id):
                         old_display = "Actif" if old_value else "Inactif"
                         new_display = "Actif" if new_value else "Inactif"
                         changes.append(f"Statut: {old_display} → {new_display}")
+                    else:
+                        changes.append(f"{field}: modifié")
             
             user_updated = form.save()
             
-            details = f"Utilisateur modifié: {user_updated.username} ({user_updated.nom_complet})"
+            # Journalisation détaillée
+            user_desc = get_user_short_description(request.user)
+            target_desc = get_user_short_description(user_updated)
+            details = f"{user_desc} a modifié: {target_desc}"
             if changes:
-                details += f" | Modifications: {', '.join(changes)}"
+                details += f" | Changements: {', '.join(changes)}"
             
             log_user_action(request.user, "Modification utilisateur", details, request)
             
-            messages.success(request, f"Utilisateur {user_updated.nom_complet} modifié avec succès.")
+            messages.success(
+                request, 
+                f"Utilisateur {user_updated.nom_complet} modifié avec succès."
+            )
             return redirect('accounts:detail_utilisateur', user_id=user_updated.id)
         else:
             for field, errors in form.errors.items():
                 for error in errors:
-                    if field == '__all__':
-                        messages.error(request, error)
-                    else:
-                        messages.error(request, f"{error}")
+                    messages.error(request, error if field == '__all__' else f"{error}")
     else:
         form = UserUpdateForm(instance=user_to_edit)
     
-   
+    # Postes filtrés par type
     postes_peage = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
     postes_pesage = Poste.objects.filter(is_active=True, type='pesage').order_by('nom')
 
@@ -538,281 +1005,18 @@ def modifier_utilisateur(request, user_id):
         'count_peage': postes_peage.count(),
         'count_pesage': postes_pesage.count(),
         'habilitations': Habilitation.choices,
-        'title': f'Modifier - {user_to_edit.nom_complet}'
+        'title': f'Modifier - {user_to_edit.nom_complet}',
+        'filtrage_postes_js': FILTRAGE_POSTES_JS,
     }
     
     return render(request, 'accounts/modifier_utilisateur.html', context)
 
-@login_required
-@require_GET
-def api_postes_par_type(request):
+
+class PasswordResetView(GestionUtilisateursPermissionMixin, BilingualMixin, 
+                        AuditMixin, View):
     """
-    API pour récupérer les postes filtrés par type.
-    
-    Paramètres GET:
-        - type: 'peage', 'pesage' ou 'all'
-    
-    Retourne:
-        JSON avec liste des postes [{id, code, nom, type}]
-    """
-    if not _check_admin_permission(request.user):
-        return JsonResponse({'error': 'Non autorisé'}, status=403)
-    
-    type = request.GET.get('type', 'all')
-    
-    queryset = Poste.objects.filter(is_active=True)
-    
-    if type == 'peage':
-        queryset = queryset.filter(type='peage')
-    elif type == 'pesage':
-        queryset = queryset.filter(type='pesage')
-    
-    queryset = queryset.order_by('nom')
-    
-    postes = [{
-        'id': p.id,
-        'code': p.code,
-        'nom': p.nom,
-        'type': p.type,
-        'type_display': p.get_type_display(),
-        'region': p.get_region_display() if hasattr(p, 'region') else '',
-    } for p in queryset]
-    
-    return JsonResponse({
-        'postes': postes,
-        'count': len(postes)
-    })
-
-
-@login_required
-@require_GET
-def api_habilitation_info(request):
-    """
-    API pour récupérer les infos sur une habilitation.
-    
-    Paramètres GET:
-        - habilitation: code de l'habilitation
-    
-    Retourne:
-        JSON avec infos sur le type de poste requis
-    """
-    habilitation = request.GET.get('habilitation', '')
-    
-    # Mapping
-    HABILITATIONS_PESAGE = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage']
-    HABILITATIONS_PEAGE = ['chef_peage', 'caissier', 'agent_inventaire']
-    HABILITATIONS_ADMIN = ['admin_principal', 'coord_psrr', 'serv_info']
-    
-    if habilitation in HABILITATIONS_PESAGE:
-        return JsonResponse({
-            'type_requis': 'pesage',
-            'poste_obligatoire': True,
-            'message': _("Ce rôle doit être affecté à une station de pesage.")
-        })
-    
-    elif habilitation in HABILITATIONS_PEAGE:
-        return JsonResponse({
-            'type_requis': 'peage',
-            'poste_obligatoire': True,
-            'message': _("Ce rôle doit être affecté à un poste de péage.")
-        })
-    
-    elif habilitation in HABILITATIONS_ADMIN:
-        return JsonResponse({
-            'type_requis': 'all',
-            'poste_obligatoire': False,
-            'message': _("Ce rôle a accès à tous les postes (affectation optionnelle).")
-        })
-    
-    else:
-        return JsonResponse({
-            'type_requis': 'all',
-            'poste_obligatoire': False,
-            'message': _("Sélectionnez un poste si nécessaire.")
-        })
-
-
-# ===================================================================
-# STATISTIQUES UTILISATEURS PAR TYPE
-# ===================================================================
-
-@login_required
-def stats_utilisateurs_pesage(request):
-    """
-    Statistiques des utilisateurs affectés aux stations de pesage.
-    """
-    if not _check_admin_permission(request.user):
-        return JsonResponse({'error': 'Non autorisé'}, status=403)
-    
-    from django.db.models import Count
-    
-    # Utilisateurs pesage par station
-    stats_par_station = UtilisateurSUPPER.objects.filter(
-        habilitation__in=['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage'],
-        poste_affectation__isnull=False,
-        is_active=True
-    ).values(
-        'poste_affectation__id',
-        'poste_affectation__nom',
-        'poste_affectation__code'
-    ).annotate(
-        count=Count('id')
-    ).order_by('poste_affectation__nom')
-    
-    # Stations sans personnel
-    stations_avec_personnel = [s['poste_affectation__id'] for s in stats_par_station]
-    stations_sans_personnel = Poste.objects.filter(
-        type='pesage',
-        is_active=True
-    ).exclude(id__in=stations_avec_personnel)
-    
-    # Comptage par rôle
-    stats_par_role = UtilisateurSUPPER.objects.filter(
-        habilitation__in=['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage'],
-        is_active=True
-    ).values('habilitation').annotate(
-        count=Count('id')
-    )
-    
-    return JsonResponse({
-        'par_station': list(stats_par_station),
-        'par_role': list(stats_par_role),
-        'stations_sans_personnel': list(stations_sans_personnel.values('id', 'nom', 'code')),
-        'total_utilisateurs_pesage': sum(s['count'] for s in stats_par_station),
-        'total_stations_pesage': Poste.objects.filter(type='pesage', is_active=True).count(),
-    })
-
-
-
-# ===================================================================
-# REDIRECTIONS AVEC PARAMÈTRES
-# ===================================================================
-
-@login_required
-def redirect_to_edit_user_admin(request, user_id):
-    """Redirection vers l'édition d'un utilisateur spécifique dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à l'édition des utilisateurs."))
-        return redirect('accounts:dashboard_redirect')
-    
-    # Vérifier que l'utilisateur existe
-    try:
-        target_user = UtilisateurSUPPER.objects.get(id=user_id)
-        _log_admin_access(request, f"Édition utilisateur {target_user.username}")
-        messages.info(request, f"Redirection vers l'édition de {target_user.nom_complet}.")
-        
-        return redirect(f'/admin/accounts/utilisateursupper/{user_id}/change/')
-        
-    except UtilisateurSUPPER.DoesNotExist:
-        messages.error(request, _("Utilisateur non trouvé."))
-        return redirect('/admin/accounts/utilisateursupper/')
-
-
-# @login_required
-# def redirect_to_edit_poste_admin(request, poste_id):
-#     """Redirection vers l'édition d'un poste spécifique dans l'admin Django"""
-#     user = request.user
-    
-#     if not _check_admin_permission(user):
-#         messages.error(request, _("Accès non autorisé à l'édition des postes."))
-#         return redirect('accounts:dashboard_redirect')
-    
-#     # Vérifier que le poste existe
-#     try:
-#         poste = Poste.objects.get(id=poste_id)
-#         _log_admin_access(request, f"Édition poste {poste.nom}")
-#         messages.info(request, f"Redirection vers l'édition du poste {poste.nom}.")
-        
-#         return redirect(f'/admin/accounts/poste/{poste_id}/change/')
-        
-#     except Poste.DoesNotExist:
-#         messages.error(request, _("Poste non trouvé."))
-#         return redirect('/admin/accounts/poste/')
-
-
-# ===================================================================
-# VUES DE REDIRECTION POUR LE MODULE INVENTAIRE
-# ===================================================================
-
-@login_required
-def redirect_to_config_jours_admin(request):
-    """Redirection vers la configuration des jours dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la configuration des jours."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Configuration jours")
-    messages.info(request, _("Redirection vers la configuration des jours."))
-    
-    return redirect('/admin/inventaire/configurationjour/')
-
-
-@login_required
-def redirect_to_add_inventaire_admin(request):
-    """Redirection vers l'ajout d'inventaire dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la création d'inventaires."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Ajout inventaire")
-    messages.info(request, _("Redirection vers l'ajout d'inventaire."))
-    
-    return redirect('/admin/inventaire/inventairejournalier/add/')
-
-
-@login_required
-def redirect_to_add_recette_admin(request):
-    """Redirection vers l'ajout de recette dans l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé à la création de recettes."))
-        return redirect('accounts:dashboard_redirect')
-    
-    _log_admin_access(request, "Ajout recette")
-    messages.info(request, _("Redirection vers l'ajout de recette."))
-    
-    return redirect('/admin/inventaire/recettejournaliere/add/')
-
-
-# ===================================================================
-# GESTION DES MOTS DE PASSE
-# ===================================================================
-
-class ChangePasswordView(LoginRequiredMixin, BilingualMixin, AuditMixin, DjangoPasswordChangeView):
-    """
-    Vue pour permettre aux utilisateurs de changer leur mot de passe
-    Validation simplifiée (4 caractères minimum) selon les specs
-    """
-    
-    template_name = 'accounts/password_change.html'
-    form_class = PasswordChangeForm
-    success_url = reverse_lazy('accounts:profile')
-    audit_action = _("Changement de mot de passe")
-    
-    def form_valid(self, form):
-        """
-        Traitement du changement de mot de passe réussi
-        """
-        response = super().form_valid(form)
-        
-        messages.success(
-            self.request, 
-            _("Votre mot de passe a été modifié avec succès.")
-        )
-        
-        return response
-
-
-class PasswordResetView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, View):
-    """
-    Vue pour la réinitialisation de mot de passe par un administrateur
+    Vue pour la réinitialisation de mot de passe par un administrateur.
+    Requiert la permission 'peut_gerer_utilisateurs'.
     """
     
     template_name = 'accounts/password_reset.html'
@@ -843,6 +1047,17 @@ class PasswordResetView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, 
             user_to_reset.set_password(new_password)
             user_to_reset.save()
             
+            # Journalisation détaillée
+            user_desc = get_user_short_description(request.user)
+            target_desc = get_user_short_description(user_to_reset)
+            
+            log_user_action(
+                user=request.user,
+                action="Réinitialisation mot de passe administrateur",
+                details=f"{user_desc} a réinitialisé le mot de passe de {target_desc}",
+                request=request
+            )
+            
             messages.success(
                 request,
                 _("Mot de passe de %(nom)s réinitialisé avec succès.") % {
@@ -850,92 +1065,25 @@ class PasswordResetView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, 
                 }
             )
             
-            log_user_action(
-                user=request.user,
-                action=_("Réinitialisation mot de passe administrateur"),
-                details=_("Mot de passe réinitialisé pour %(username)s (%(nom)s)") % {
-                    'username': user_to_reset.username,
-                    'nom': user_to_reset.nom_complet
-                },
-                request=request
-            )
-            
             return redirect('accounts:user_list')
         
         context = {
             'user_to_reset': user_to_reset,
             'form': form,
+            'title': _('Réinitialiser le mot de passe de %(nom)s') % {
+                'nom': user_to_reset.nom_complet
+            }
         }
         
         return render(request, self.template_name, context)
 
 
-# ===================================================================
-# GESTION DES UTILISATEURS
-# ===================================================================
-
-# class UserListView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, ListView):
-#     """Liste des utilisateurs du système - accès administrateur uniquement"""
-    
-#     model = UtilisateurSUPPER
-#     template_name = 'accounts/user_list.html'
-#     context_object_name = 'users'
-#     paginate_by = 25
-#     audit_action = _("Consultation liste utilisateurs")
-    
-#     def get_queryset(self):
-#         """Récupérer la liste des utilisateurs avec optimisations et filtres"""
-#         queryset = UtilisateurSUPPER.objects.select_related('poste_affectation').order_by('nom_complet')
-        
-#         search_query = self.request.GET.get('search', '').strip()
-#         if search_query:
-#             queryset = queryset.filter(
-#                 Q(username__icontains=search_query) |
-#                 Q(nom_complet__icontains=search_query) |
-#                 Q(telephone__icontains=search_query)
-#             )
-        
-#         return queryset
-    
-#     def get_context_data(self, **kwargs):
-#         """Ajouter des statistiques au contexte"""
-#         context = super().get_context_data(**kwargs)
-        
-#         context.update({
-#             'total_users': UtilisateurSUPPER.objects.count(),
-#             'active_users': UtilisateurSUPPER.objects.filter(is_active=True).count(),
-#         })
-        
-#         return context
-
-
-# class CreateUserView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, CreateView):
-#     """Création d'un nouvel utilisateur - accès administrateur uniquement"""
-    
-#     model = UtilisateurSUPPER
-#     form_class = UserCreateForm
-#     template_name = 'accounts/user_create.html'
-#     success_url = reverse_lazy('accounts:user_list')
-#     audit_action = _("Création utilisateur")
-    
-#     def form_valid(self, form):
-#         """Traitement de la création d'utilisateur réussie"""
-#         form.instance.cree_par = self.request.user
-#         response = super().form_valid(form)
-        
-#         messages.success(
-#             self.request,
-#             _("Utilisateur %(username)s (%(nom)s) créé avec succès.") % {
-#                 'username': form.instance.username,
-#                 'nom': form.instance.nom_complet
-#             }
-#         )
-        
-#         return response
-
-
-class CreateBulkUsersView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, AuditMixin, TemplateView):
-    """Création en masse d'utilisateurs avec paramètres communs"""
+class CreateBulkUsersView(GestionUtilisateursPermissionMixin, BilingualMixin, 
+                          AuditMixin, TemplateView):
+    """
+    Création en masse d'utilisateurs avec paramètres communs.
+    Requiert la permission 'peut_gerer_utilisateurs'.
+    """
     
     template_name = 'accounts/user_bulk_create.html'
     audit_action = _("Création utilisateurs en masse")
@@ -948,6 +1096,7 @@ class CreateBulkUsersView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin
             'form': BulkUserCreateForm(),
             'title': _('Création en masse d\'utilisateurs'),
             'postes': Poste.objects.filter(is_active=True).order_by('region', 'nom'),
+            'habilitations': Habilitation.choices,
         })
         
         return context
@@ -961,6 +1110,15 @@ class CreateBulkUsersView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin
                 with transaction.atomic():
                     users_created = form.create_users(created_by=request.user)
                     
+                    # Journalisation
+                    user_desc = get_user_short_description(request.user)
+                    log_user_action(
+                        request.user,
+                        "Création utilisateurs en masse",
+                        f"{user_desc} a créé {len(users_created)} utilisateurs en masse",
+                        request
+                    )
+                    
                     messages.success(
                         request,
                         _("%(count)d utilisateurs créés avec succès.") % {
@@ -968,519 +1126,28 @@ class CreateBulkUsersView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin
                         }
                     )
                     
-                    return redirect('accounts:user_list')
+                    return redirect('accounts:liste_utilisateurs')
                     
             except Exception as e:
+                logger.error(f"Erreur création en masse: {str(e)}")
                 messages.error(request, _("Erreur système lors de la création."))
         
-        return self.render_to_response({'form': form})
-
-
-class UserDetailView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, DetailView):
-    """Affichage détaillé d'un utilisateur avec historique d'actions"""
-    
-    model = UtilisateurSUPPER
-    template_name = 'accounts/user_detail.html'
-    context_object_name = 'user_detail'
-    
-    def get_context_data(self, **kwargs):
-        """Enrichir le contexte avec informations détaillées"""
-        context = super().get_context_data(**kwargs)
-        user_detail = self.object
-        
-        recent_actions = JournalAudit.objects.filter(
-            utilisateur=user_detail
-        ).order_by('-timestamp')[:10]
-        
-        context.update({
-            'recent_actions': recent_actions,
-            'permissions_list': user_detail.get_permissions_list(),
-        })
-        
-        return context
-
-
-class UserUpdateView(LoginRequiredMixin, AdminRequiredMixin, BilingualMixin, UpdateView):
-    """Modification des informations d'un utilisateur"""
-    
-    model = UtilisateurSUPPER
-    form_class = UserUpdateForm
-    template_name = 'accounts/user_edit.html'
-    
-    def get_success_url(self):
-        """Redirection vers le détail de l'utilisateur modifié"""
-        return reverse_lazy('accounts:user_detail', kwargs={'pk': self.object.pk})
-    
-    def form_valid(self, form):
-        """Traitement de la modification réussie"""
-        response = super().form_valid(form)
-        
-        messages.success(
-            self.request,
-            _("Informations de %(nom)s mises à jour avec succès.") % {
-                'nom': self.object.nom_complet
-            }
-        )
-        
-        return response
-
-
-# ===================================================================
-# GESTION DU PROFIL
-# ===================================================================
-
-class ProfileView(LoginRequiredMixin, BilingualMixin, AuditMixin, TemplateView):
-    """Vue du profil utilisateur personnel"""
-    
-    template_name = 'accounts/profile.html'
-    audit_action = _("Consultation profil personnel")
-    
-    def get_context_data(self, **kwargs):
-        """Préparer les données du profil utilisateur"""
-        context = super().get_context_data(**kwargs)
-        user = self.request.user
-        
-        context.update({
-            'user': user,
-            'permissions': user.get_permissions_list(),
-            'poste_affectation': user.poste_affectation,
-            
-            'recent_actions': JournalAudit.objects.filter(
-                utilisateur=user
-            ).order_by('-timestamp')[:5],
-            
-            'account_info': {
-                'created_date': user.date_creation,
-                'last_modified': user.date_modification,
-                'account_age_days': (timezone.now() - user.date_creation).days,
-            }
-        })
-        
-        return context
-
-
-class EditProfileView(LoginRequiredMixin, UpdateView):
-    """Vue pour permettre à un utilisateur de modifier son profil"""
-    
-    model = UtilisateurSUPPER
-    form_class = ProfileEditForm
-    template_name = 'accounts/profile_edit.html'
-    success_url = reverse_lazy('accounts:profile')
-    
-    def get_object(self):
-        """Retourne l'utilisateur connecté"""
-        return self.request.user
-    
-    def form_valid(self, form):
-        """Traitement après validation du formulaire"""
-        messages.success(
-            self.request, 
-            _("Votre profil a été mis à jour avec succès.")
-        )
-        
-        JournalAudit.objects.create(
-            utilisateur=self.request.user,
-            action="Modification profil",
-            details=f"Profil mis à jour: {self.request.user.username}",
-            succes=True
-        )
-        
-        return super().form_valid(form)
-    
-    def get_context_data(self, **kwargs):
-        """Ajouter des données au contexte"""
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = _("Modifier mon profil")
-        return context
-
-
-# ===================================================================
-# REDIRECTION INTELLIGENTE SELON RÔLE
-# ===================================================================
-
-@login_required
-def dashboard_redirect(request):
-    """Redirection intelligente vers le bon dashboard selon le rôle - TEMPORAIRE"""
-    user = request.user
-    
-    # Message d'information
-    messages.info(
-        request, 
-        f"Bonjour {user.nom_complet}! Vous êtes redirigé vers l'interface d'administration."
-    )
-    
-    # CORRECTION : Tous les utilisateurs vont vers l'admin Django temporairement
-    return redirect('/common/')
-
-
-# ===================================================================
-# DASHBOARDS SPÉCIALISÉS (TEMPORAIREMENT DÉSACTIVÉS)
-# ===================================================================
-
-@method_decorator(login_required, name='dispatch')
-class AdminDashboardView(TemplateView):
-    """Dashboard pour les administrateurs"""
-    template_name = 'admin/dashboard.html'
-    
-    def dispatch(self, request, *args, **kwargs):
-        if not _check_admin_permission(request.user):
-            return HttpResponseForbidden("Accès réservé aux administrateurs")
-        return super().dispatch(request, *args, **kwargs)
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['stats'] = self._get_admin_stats()
-        context['recent_actions'] = JournalAudit.objects.select_related('utilisateur').order_by('-timestamp')[:10]
-        return context
-    
-    def _get_admin_stats(self):
-        today = timezone.now().date()
-        week_ago = today - timedelta(days=7)
-        
-        return {
-            'users_total': UtilisateurSUPPER.objects.count(),
-            'users_active': UtilisateurSUPPER.objects.filter(is_active=True).count(),
-            'users_this_week': UtilisateurSUPPER.objects.filter(date_creation__gte=week_ago).count(),
-            'postes_total': Poste.objects.count(),
-            'postes_active': Poste.objects.filter(is_active=True).count(),
-            'actions_today': JournalAudit.objects.filter(timestamp__date=today).count(),
-            'actions_week': JournalAudit.objects.filter(timestamp__gte=week_ago).count(),
-        }
-
-
-@method_decorator(login_required, name='dispatch')
-class ChefPosteDashboardView(TemplateView):
-    """Dashboard pour les chefs de poste"""
-    template_name = 'accounts/chef_dashboard.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['poste'] = self.request.user.poste_affectation
-        return context
-
-
-@method_decorator(login_required, name='dispatch')
-class AgentInventaireDashboardView(TemplateView):
-    """Dashboard pour les agents d'inventaire"""
-    template_name = 'accounts/agent_dashboard.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['poste'] = self.request.user.poste_affectation
-        return context
-
-
-@method_decorator(login_required, name='dispatch')
-class GeneralDashboardView(TemplateView):
-    """Dashboard général pour les autres rôles"""
-    template_name = 'accounts/general_dashboard.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['user_role'] = self.request.user.get_habilitation_display()
-        return context
-
-
-# ===================================================================
-# API ENDPOINTS
-# ===================================================================
-
-class ValidateUsernameAPIView(LoginRequiredMixin, AdminRequiredMixin, View):
-    """API pour valider l'unicité d'un nom d'utilisateur en temps réel"""
-    
-    def get(self, request):
-        """Valide si un matricule est disponible"""
-        username = request.GET.get('username', '').strip().upper()
-        
-        if not username:
-            return JsonResponse({
-                'valid': False,
-                'message': 'Matricule requis'
-            })
-        
-        # Vérifier le format
-        import re
-        if not re.match(r'^[A-Z0-9]{6,20}$', username):
-            return JsonResponse({
-                'valid': False,
-                'message': 'Format invalide (6-20 caractères alphanumériques)'
-            })
-        
-        # Vérifier l'unicité
-        exists = UtilisateurSUPPER.objects.filter(username=username).exists()
-        
-        return JsonResponse({
-            'valid': not exists,
-            'message': 'Matricule déjà utilisé' if exists else 'Matricule disponible'
+        return self.render_to_response({
+            'form': form,
+            'title': _('Création en masse d\'utilisateurs'),
+            'postes': Poste.objects.filter(is_active=True).order_by('region', 'nom'),
+            'habilitations': Habilitation.choices,
         })
 
 
-class UserSearchAPIView(LoginRequiredMixin, AdminRequiredMixin, View):
-    """API pour la recherche d'utilisateurs (autocomplete)"""
-    
-    def get(self, request):
-        """Recherche des utilisateurs selon un terme"""
-        query = request.GET.get('q', '').strip()
-        
-        if len(query) < 2:
-            return JsonResponse({'results': []})
-        
-        # Rechercher dans username et nom_complet
-        users = UtilisateurSUPPER.objects.filter(
-            Q(username__icontains=query) |
-            Q(nom_complet__icontains=query)
-        ).filter(is_active=True)[:10]
-        
-        results = []
-        for user in users:
-            results.append({
-                'id': user.id,
-                'username': user.username,
-                'nom_complet': user.nom_complet,
-                'habilitation': user.get_habilitation_display(),
-                'poste': user.poste_affectation.nom if user.poste_affectation else None
-            })
-        
-        return JsonResponse({'results': results})
-
-
-@login_required
-def postes_api(request):
-    """API pour récupérer la liste des postes"""
-    postes = Poste.objects.filter(is_active=True).values(
-        'id', 'nom', 'code', 'type', 'region'
-    )
-    
-    return JsonResponse({
-        'success': True,
-        'postes': list(postes)
-    })
-
-
-@login_required
-def stats_api(request):
-    """API pour les statistiques en temps réel"""
-    if not _check_admin_permission(request.user):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-    
-    today = timezone.now().date()
-    
-    stats = {
-        'users_online': UtilisateurSUPPER.objects.filter(
-            last_login__gte=timezone.now() - timedelta(minutes=30)
-        ).count(),
-        'actions_today': JournalAudit.objects.filter(timestamp__date=today).count(),
-        'timestamp': timezone.now().isoformat(),
-    }
-    
-    return JsonResponse(stats)
-
-
-@login_required
-@require_http_methods(["GET"])
-def check_admin_permission_api(request):
-    """API pour vérifier si l'utilisateur a les permissions admin"""
-    user = request.user
-    
-    has_permission = _check_admin_permission(user)
-    
-    response_data = {
-        'has_admin_permission': has_permission,
-        'user_habilitation': user.habilitation,
-        'is_superuser': user.is_superuser,
-        'is_staff': user.is_staff,
-        'username': user.username,
-        'nom_complet': user.nom_complet,
-    }
-    
-    if has_permission:
-        response_data['admin_urls'] = {
-            'main': '/common/',
-            'users': '/admin/accounts/utilisateursupper/',
-            'postes': '/admin/accounts/poste/',
-            'inventaires': '/admin/inventaire/inventairejournalier/',
-            'recettes': '/admin/inventaire/recettejournaliere/',
-            'journal': '/admin/accounts/journalaudit/',
-        }
-    
-    return JsonResponse(response_data)
-
-
 # ===================================================================
-# VUES D'AIDE ET DOCUMENTATION
+# GESTION DES POSTES (AVEC PERMISSIONS GRANULAIRES)
 # ===================================================================
 
 @login_required
-def admin_help_view(request):
-    """Vue d'aide pour l'utilisation de l'admin Django"""
-    user = request.user
-    
-    if not _check_admin_permission(user):
-        messages.error(request, _("Accès non autorisé."))
-        return redirect('accounts:dashboard_redirect')
-    
-    context = {
-        'title': 'Aide - Administration Django',
-        'user_permissions': {
-            'can_manage_users': True,
-            'can_manage_postes': True,
-            'can_manage_inventaires': True,
-            'can_view_audit': True,
-        },
-        'admin_urls': {
-            'main': '/common/',
-            'users': '/admin/accounts/utilisateursupper/',
-            'postes': '/admin/accounts/poste/',
-            'inventaires': '/admin/inventaire/inventairejournalier/',
-            'recettes': '/admin/inventaire/recettejournaliere/',
-            'journal': '/admin/accounts/journalaudit/',
-        }
-    }
-    
-    return render(request, 'accounts/admin_help.html', context)
-
-
-# ===================================================================
-# GESTION DES ERREURS DE REDIRECTION
-# ===================================================================
-
-@login_required
-def redirect_error_handler(request, error_type='permission'):
-    """Gestionnaire d'erreurs pour les redirections"""
-    user = request.user
-    
-    if error_type == 'permission':
-        messages.error(request, _(
-            "Vous n'avez pas les permissions nécessaires pour accéder à cette section. "
-            "Contactez un administrateur si vous pensez que c'est une erreur."
-        ))
-        
-        # Journaliser la tentative d'accès non autorisée
-        try:
-            JournalAudit.objects.create(
-                utilisateur=user,
-                action="ACCÈS REFUSÉ - Redirection admin Django",
-                details=f"Tentative d'accès non autorisée depuis {request.META.get('HTTP_REFERER', 'URL inconnue')}",
-                adresse_ip=request.META.get('REMOTE_ADDR'),
-                url_acces=request.path,
-                methode_http=request.method,
-                succes=False
-            )
-        except Exception as e:
-            logger.error(f"Erreur journalisation tentative accès: {str(e)}")
-    
-    elif error_type == 'not_found':
-        messages.error(request, _("La ressource demandée n'a pas été trouvée."))
-    
-    else:
-        messages.error(request, _("Une erreur est survenue lors de la redirection."))
-    
-    # Rediriger vers le dashboard approprié selon le rôle
-    if _check_admin_permission(user):
-        return redirect('/common/')
-    else:
-        return redirect('accounts:dashboard_redirect')
-
-
-# ===================================================================
-# FONCTIONS POUR LE TEMPLATE (si nécessaire)
-# ===================================================================
-
-def get_admin_navigation_context(user):
-    """Retourne le contexte de navigation pour les templates admin"""
-    
-    if not _check_admin_permission(user):
-        return {}
-    
-    return {
-        'admin_navigation': {
-            'main_admin': {
-                'url': '/admin/',
-                'title': 'Panel Administrateur',
-                'icon': 'fas fa-crown',
-                'description': 'Accès principal à l\'administration Django'
-            },
-            'users_admin': {
-                'url': '/admin/accounts/utilisateursupper/',
-                'title': 'Gérer Utilisateurs',
-                'icon': 'fas fa-users',
-                'description': 'Gestion complète des utilisateurs'
-            },
-            'postes_admin': {
-                'url': '/admin/accounts/poste/',
-                'title': 'Gérer Postes',
-                'icon': 'fas fa-map-marker-alt',
-                'description': 'Gestion des postes de péage et pesage'
-            },
-            'inventaires_admin': {
-                'url': '/admin/inventaire/inventairejournalier/',
-                'title': 'Gérer Inventaires',
-                'icon': 'fas fa-clipboard-list',
-                'description': 'Gestion des inventaires journaliers'
-            },
-            'recettes_admin': {
-                'url': '/admin/inventaire/recettejournaliere/',
-                'title': 'Gérer Recettes',
-                'icon': 'fas fa-euro-sign',
-                'description': 'Gestion des recettes journalières'
-            },
-            'journal_admin': {
-                'url': '/admin/accounts/journalaudit/',
-                'title': 'Journal d\'Audit',
-                'icon': 'fas fa-file-alt',
-                'description': 'Consultation du journal d\'audit'
-            }
-        }
-    }
-
-@login_required
-def api_departements(request):
-    """API pour récupérer les départements d'une région"""
-    region_id = request.GET.get('region')
-    
-    if not region_id:
-        return JsonResponse({'departements': []})
-    
-    try:
-        departements = Departement.objects.filter(region_id=region_id).values('id', 'nom')
-        return JsonResponse({'departements': list(departements)})
-    except Exception as e:
-        logger.error(f"Erreur API départements: {str(e)}")
-        return JsonResponse({'departements': [], 'error': str(e)})
-# ===================================================================
-# GESTIONNAIRES D'ERREURS PERSONNALISÉS
-# ===================================================================
-
-def custom_404(request, exception=None):
-    """Page 404 personnalisée"""
-    return render(request, 'errors/404.html', {
-        'title': 'Page non trouvée',
-        'message': 'La page que vous cherchez n\'existe pas.',
-    }, status=404)
-
-
-def custom_500(request):
-    """Page 500 personnalisée"""
-    return render(request, 'errors/500.html', {
-        'title': 'Erreur serveur',
-        'message': 'Une erreur interne s\'est produite.',
-    }, status=500)
-
-
-def custom_403(request, exception=None):
-    """Page 403 personnalisée"""
-    return render(request, 'errors/403.html', {
-        'title': 'Accès interdit',
-        'message': 'Vous n\'avez pas les permissions nécessaires.',
-    }, status=403)
-
-@login_required
+@permission_required_granular('peut_gerer_postes')
 def liste_postes(request):
-    """Liste des postes - remplace l'admin Django"""
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('/common/')
-    
+    """Liste des postes avec filtres et pagination."""
     # Filtres
     search = request.GET.get('search', '')
     type_filter = request.GET.get('type', '')
@@ -1488,7 +1155,7 @@ def liste_postes(request):
     actif_filter = request.GET.get('actif', '')
     
     # Construction de la requête
-    postes = Poste.objects.all()
+    postes = Poste.objects.select_related('region', 'departement').all()
     
     if search:
         postes = postes.filter(
@@ -1500,15 +1167,14 @@ def liste_postes(request):
         postes = postes.filter(type=type_filter)
     
     if region_filter:
-        postes = postes.filter(region__nom=region_filter)
+        postes = postes.filter(region_id=region_filter)
     
     if actif_filter:
         postes = postes.filter(is_active=actif_filter == 'true')
     
-    postes = postes.select_related('region', 'departement').order_by('nom')
+    postes = postes.order_by('nom')
     
     # Pagination
-    from django.core.paginator import Paginator
     paginator = Paginator(postes, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -1521,14 +1187,6 @@ def liste_postes(request):
         'pesages': Poste.objects.filter(type='pesage').count(),
     }
     
-    # Régions disponibles
-    from accounts.models import Region
-    regions = Region.objects.all()
-    
-    # CORRECTION : Récupérer les choix de type depuis la classe TypePoste
-    # Au lieu de 'types': Poste.type (incorrect - c'est un champ, pas une liste)
-    from accounts.models import TypePoste  # Import de la classe Enum
-    
     context = {
         'page_obj': page_obj,
         'stats': stats,
@@ -1536,65 +1194,71 @@ def liste_postes(request):
         'type_filter': type_filter,
         'region_filter': region_filter,
         'actif_filter': actif_filter,
-        'regions': regions,
-        'types': TypePoste.choices,  # ✅ CORRECTION : Utiliser .choices de l'enum
-        'title': 'Gestion des Postes'
+        'regions': Region.objects.all().order_by('nom'),
+        'types': TypePoste.choices,
+        'title': _('Gestion des Postes'),
     }
-    
-    log_user_action(request.user, "Consultation liste postes", "", request)
     
     return render(request, 'accounts/liste_postes.html', context)
 
+
 @login_required
+@permission_required_granular('peut_gerer_postes')
 def detail_poste(request, poste_id):
-    """Détails d'un poste"""
+    """Détails d'un poste avec statistiques."""
     poste = get_object_or_404(Poste, id=poste_id)
     
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('accounts:liste_postes')
+    # Agents affectés au poste
+    agents_affectes = UtilisateurSUPPER.objects.filter(
+        poste_affectation=poste,
+        is_active=True
+    ).select_related('poste_affectation')
     
     # Statistiques du poste
-    from inventaire.models import InventaireJournalier, RecetteJournaliere
     from datetime import date
+    today = date.today()
+    month_start = today.replace(day=1)
     
     stats_poste = {
-        'nb_inventaires_mois': InventaireJournalier.objects.filter(
-            poste=poste,
-            date__gte=date.today().replace(day=1)
-        ).count(),
-        'nb_recettes_mois': RecetteJournaliere.objects.filter(
-            poste=poste,
-            date__gte=date.today().replace(day=1)
-        ).count(),
-        'nb_agents': UtilisateurSUPPER.objects.filter(
-            poste_affectation=poste
-        ).count()
+        'nb_agents': agents_affectes.count(),
+        'agents_par_role': agents_affectes.values('habilitation').annotate(
+            count=Count('id')
+        ),
     }
+    
+    # Essayer d'obtenir les statistiques d'inventaires si le module existe
+    try:
+        from inventaire.models import InventaireJournalier, RecetteJournaliere
+        stats_poste['nb_inventaires_mois'] = InventaireJournalier.objects.filter(
+            poste=poste,
+            date__gte=month_start
+        ).count()
+        stats_poste['nb_recettes_mois'] = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__gte=month_start
+        ).count()
+    except ImportError:
+        stats_poste['nb_inventaires_mois'] = 0
+        stats_poste['nb_recettes_mois'] = 0
     
     context = {
         'poste': poste,
         'stats_poste': stats_poste,
-        'title': f'Poste - {poste.nom}'
+        'agents_affectes': agents_affectes,
+        'title': f'Poste - {poste.nom}',
     }
     
     return render(request, 'accounts/detail_poste.html', context)
 
 
 @login_required
+@permission_required_granular('peut_gerer_postes')
 def creer_poste(request):
-    """Créer un nouveau poste"""
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('accounts:liste_postes')
-    
-    from accounts.models import Region, Departement
-    import json
-    
-    # Charger toutes les régions avec leurs départements
+    """Créer un nouveau poste."""
+    # Charger régions avec départements
     regions = Region.objects.prefetch_related('departements').all().order_by('nom')
     
-    # Créer un dictionnaire région_id -> liste de départements pour le JavaScript
+    # Créer dictionnaire pour JavaScript
     departements_par_region = {}
     for region in regions:
         departements_par_region[region.id] = [
@@ -1603,7 +1267,6 @@ def creer_poste(request):
         ]
     
     if request.method == 'POST':
-        # Récupérer les données du formulaire
         code = request.POST.get('code', '').upper().strip()
         nom = request.POST.get('nom', '').strip()
         type_poste = request.POST.get('type', '')
@@ -1620,37 +1283,32 @@ def creer_poste(request):
         errors = []
         
         if not code:
-            errors.append("Le code du poste est obligatoire.")
+            errors.append(_("Le code du poste est obligatoire."))
         elif Poste.objects.filter(code=code).exists():
-            errors.append(f"Le code '{code}' existe déjà.")
+            errors.append(_(f"Le code '{code}' existe déjà."))
             
         if not nom:
-            errors.append("Le nom du poste est obligatoire.")
+            errors.append(_("Le nom du poste est obligatoire."))
             
         if not type_poste:
-            errors.append("Le type de poste est obligatoire.")
+            errors.append(_("Le type de poste est obligatoire."))
             
         if not region_id:
-            errors.append("La région est obligatoire.")
+            errors.append(_("La région est obligatoire."))
         
         if errors:
             for error in errors:
                 messages.error(request, error)
         else:
             try:
-                # Récupérer la région
                 region = Region.objects.get(id=region_id)
-                
-                # Récupérer le département (optionnel)
                 departement = None
                 if departement_id:
                     departement = Departement.objects.get(id=departement_id)
                 
-                # Convertir latitude/longitude en float
                 lat = float(latitude) if latitude else None
                 lng = float(longitude) if longitude else None
                 
-                # Créer le poste
                 poste = Poste.objects.create(
                     code=code,
                     nom=nom,
@@ -1665,48 +1323,41 @@ def creer_poste(request):
                     description=description
                 )
                 
+                user_desc = get_user_short_description(request.user)
                 log_user_action(
                     request.user,
                     "Création poste",
-                    f"Poste créé: {poste.code} - {poste.nom}",
+                    f"{user_desc} a créé le poste: {poste.code} - {poste.nom} ({poste.get_type_display()})",
                     request
                 )
                 
                 messages.success(request, f"Poste {poste.nom} créé avec succès.")
                 return redirect('accounts:detail_poste', poste_id=poste.id)
                 
-            except Region.DoesNotExist:
-                messages.error(request, "Région invalide.")
-            except Departement.DoesNotExist:
-                messages.error(request, "Département invalide.")
+            except (Region.DoesNotExist, Departement.DoesNotExist) as e:
+                messages.error(request, _("Région ou département invalide."))
             except Exception as e:
+                logger.error(f"Erreur création poste: {str(e)}")
                 messages.error(request, f"Erreur lors de la création: {str(e)}")
     
     context = {
         'regions': regions,
         'departements_par_region': json.dumps(departements_par_region),
-        'title': 'Créer un Poste'
+        'types': TypePoste.choices,
+        'title': _('Créer un Poste'),
     }
     
     return render(request, 'accounts/creer_poste.html', context)
 
 
 @login_required
+@permission_required_granular('peut_gerer_postes')
 def modifier_poste(request, poste_id):
-    """Modifier un poste"""
+    """Modifier un poste existant."""
     poste = get_object_or_404(Poste, id=poste_id)
     
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('accounts:detail_poste', poste_id=poste.id)
-    
-    from accounts.models import Region, Departement
-    import json
-    
-    # Charger toutes les régions avec leurs départements
     regions = Region.objects.prefetch_related('departements').all().order_by('nom')
     
-    # Créer un dictionnaire région_id -> liste de départements
     departements_par_region = {}
     for region in regions:
         departements_par_region[region.id] = [
@@ -1714,12 +1365,10 @@ def modifier_poste(request, poste_id):
             for d in region.departements.all().order_by('nom')
         ]
     
-    # Déterminer le département et la région actuels
     region_actuelle = poste.region.id if poste.region else None
     departement_actuel = poste.departement.id if poste.departement else None
     
     if request.method == 'POST':
-        # Récupérer les données du formulaire
         code = request.POST.get('code', '').upper().strip()
         nom = request.POST.get('nom', '').strip()
         type_poste = request.POST.get('type', '')
@@ -1736,37 +1385,43 @@ def modifier_poste(request, poste_id):
         errors = []
         
         if not code:
-            errors.append("Le code du poste est obligatoire.")
+            errors.append(_("Le code du poste est obligatoire."))
         elif Poste.objects.filter(code=code).exclude(id=poste.id).exists():
-            errors.append(f"Le code '{code}' existe déjà pour un autre poste.")
+            errors.append(_(f"Le code '{code}' existe déjà pour un autre poste."))
             
         if not nom:
-            errors.append("Le nom du poste est obligatoire.")
+            errors.append(_("Le nom du poste est obligatoire."))
             
         if not type_poste:
-            errors.append("Le type de poste est obligatoire.")
+            errors.append(_("Le type de poste est obligatoire."))
             
         if not region_id:
-            errors.append("La région est obligatoire.")
+            errors.append(_("La région est obligatoire."))
         
         if errors:
             for error in errors:
                 messages.error(request, error)
         else:
             try:
-                # Récupérer la région
                 region = Region.objects.get(id=region_id)
-                
-                # Récupérer le département (optionnel)
                 departement = None
                 if departement_id:
                     departement = Departement.objects.get(id=departement_id)
                 
-                # Convertir latitude/longitude en float
                 lat = float(latitude) if latitude else None
                 lng = float(longitude) if longitude else None
                 
-                # Mettre à jour le poste
+                # Détecter les changements
+                changes = []
+                if poste.code != code:
+                    changes.append(f"Code: {poste.code} → {code}")
+                if poste.nom != nom:
+                    changes.append(f"Nom: {poste.nom} → {nom}")
+                if poste.type != type_poste:
+                    changes.append(f"Type: {poste.type} → {type_poste}")
+                if poste.is_active != is_active:
+                    changes.append(f"Actif: {poste.is_active} → {is_active}")
+                
                 poste.code = code
                 poste.nom = nom
                 poste.type = type_poste
@@ -1780,21 +1435,20 @@ def modifier_poste(request, poste_id):
                 poste.description = description
                 poste.save()
                 
-                log_user_action(
-                    request.user,
-                    "Modification poste",
-                    f"Poste modifié: {poste.code} - {poste.nom}",
-                    request
-                )
+                user_desc = get_user_short_description(request.user)
+                details = f"{user_desc} a modifié le poste: {poste.code} - {poste.nom}"
+                if changes:
+                    details += f" | Changements: {', '.join(changes)}"
+                
+                log_user_action(request.user, "Modification poste", details, request)
                 
                 messages.success(request, f"Poste {poste.nom} modifié avec succès.")
                 return redirect('accounts:detail_poste', poste_id=poste.id)
                 
-            except Region.DoesNotExist:
-                messages.error(request, "Région invalide.")
-            except Departement.DoesNotExist:
-                messages.error(request, "Département invalide.")
+            except (Region.DoesNotExist, Departement.DoesNotExist):
+                messages.error(request, _("Région ou département invalide."))
             except Exception as e:
+                logger.error(f"Erreur modification poste: {str(e)}")
                 messages.error(request, f"Erreur lors de la modification: {str(e)}")
     
     context = {
@@ -1803,18 +1457,21 @@ def modifier_poste(request, poste_id):
         'departements_par_region': json.dumps(departements_par_region),
         'departement_actuel': departement_actuel,
         'region_actuelle': region_actuelle,
-        'title': f'Modifier - {poste.nom}'
+        'types': TypePoste.choices,
+        'title': f'Modifier - {poste.nom}',
     }
     
     return render(request, 'accounts/modifier_poste.html', context)
 
+
+# ===================================================================
+# JOURNAL D'AUDIT (AVEC PERMISSIONS GRANULAIRES)
+# ===================================================================
+
 @login_required
+@permission_required_granular('peut_voir_journal_audit')
 def journal_audit(request):
-    """Liste complète du journal d'audit - remplace l'admin Django"""
-    if not _check_admin_permission(request.user):
-        messages.error(request, "Accès non autorisé.")
-        return redirect('/common/')
-    
+    """Liste complète du journal d'audit avec filtres avancés."""
     # Filtres
     search = request.GET.get('search', '')
     action_filter = request.GET.get('action', '')
@@ -1844,36 +1501,42 @@ def journal_audit(request):
         logs = logs.filter(succes=succes_filter == 'true')
     
     if date_debut:
-        from datetime import datetime
-        logs = logs.filter(timestamp__gte=datetime.strptime(date_debut, '%Y-%m-%d'))
+        try:
+            logs = logs.filter(timestamp__gte=datetime.strptime(date_debut, '%Y-%m-%d'))
+        except ValueError:
+            pass
     
     if date_fin:
-        from datetime import datetime
-        logs = logs.filter(timestamp__lte=datetime.strptime(date_fin, '%Y-%m-%d'))
+        try:
+            logs = logs.filter(timestamp__lte=datetime.strptime(date_fin, '%Y-%m-%d'))
+        except ValueError:
+            pass
     
     logs = logs.order_by('-timestamp')
     
     # Pagination
-    from django.core.paginator import Paginator
     paginator = Paginator(logs, 50)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Stats
+    # Statistiques
+    today = timezone.now().date()
     stats = {
         'total': JournalAudit.objects.count(),
-        'today': JournalAudit.objects.filter(timestamp__date=timezone.now().date()).count(),
+        'today': JournalAudit.objects.filter(timestamp__date=today).count(),
         'success': JournalAudit.objects.filter(succes=True).count(),
         'errors': JournalAudit.objects.filter(succes=False).count(),
     }
     
-    # Actions uniques
-    actions_uniques = JournalAudit.objects.values_list('action', flat=True).distinct()[:20]
+    # Actions uniques pour filtre
+    actions_uniques = JournalAudit.objects.values_list(
+        'action', flat=True
+    ).distinct()[:30]
     
-    # Utilisateurs actifs
+    # Utilisateurs actifs récemment
     users_actifs = UtilisateurSUPPER.objects.filter(
         actions_journal__timestamp__gte=timezone.now() - timedelta(days=7)
-    ).distinct()
+    ).distinct()[:20]
     
     context = {
         'page_obj': page_obj,
@@ -1886,7 +1549,841 @@ def journal_audit(request):
         'date_fin': date_fin,
         'actions_uniques': actions_uniques,
         'users_actifs': users_actifs,
-        'title': 'Journal d\'Audit'
+        'title': _('Journal d\'Audit'),
     }
     
     return render(request, 'accounts/journal_audit.html', context)
+
+
+# ===================================================================
+# API ENDPOINTS AVEC PERMISSIONS GRANULAIRES
+# ===================================================================
+
+@login_required
+@require_GET
+def api_postes_par_type(request):
+    """
+    API pour récupérer les postes filtrés par type.
+    
+    Paramètres GET:
+        - type: 'peage', 'pesage' ou 'all'
+    
+    Returns:
+        JSON avec liste des postes
+    """
+    type_param = request.GET.get('type', 'all')
+    
+    queryset = Poste.objects.filter(is_active=True)
+    
+    if type_param == 'peage':
+        queryset = queryset.filter(type='peage')
+    elif type_param == 'pesage':
+        queryset = queryset.filter(type='pesage')
+    
+    queryset = queryset.select_related('region').order_by('nom')
+    
+    postes = [{
+        'id': p.id,
+        'code': p.code,
+        'nom': p.nom,
+        'type': p.type,
+        'type_display': p.get_type_display(),
+        'region': p.region.nom if p.region else '',
+    } for p in queryset]
+    
+    return JsonResponse({
+        'postes': postes,
+        'count': len(postes)
+    })
+
+
+@login_required
+@require_GET
+def api_habilitation_info(request):
+    """
+    API pour récupérer les infos sur une habilitation.
+    
+    Paramètres GET:
+        - habilitation: code de l'habilitation
+    
+    Returns:
+        JSON avec infos sur le type de poste requis
+    """
+    habilitation = request.GET.get('habilitation', '')
+    
+    if habilitation in HABILITATIONS_PESAGE:
+        return JsonResponse({
+            'type_requis': 'pesage',
+            'poste_obligatoire': True,
+            'message': _("Ce rôle doit être affecté à une station de pesage.")
+        })
+    
+    elif habilitation in HABILITATIONS_PEAGE:
+        return JsonResponse({
+            'type_requis': 'peage',
+            'poste_obligatoire': True,
+            'message': _("Ce rôle doit être affecté à un poste de péage.")
+        })
+    
+    elif habilitation in HABILITATIONS_MULTI_POSTES:
+        return JsonResponse({
+            'type_requis': 'all',
+            'poste_obligatoire': False,
+            'message': _("Ce rôle a accès à tous les postes (affectation optionnelle).")
+        })
+    
+    else:
+        return JsonResponse({
+            'type_requis': 'all',
+            'poste_obligatoire': False,
+            'message': _("Sélectionnez un poste si nécessaire.")
+        })
+
+
+@login_required
+@require_GET
+def api_departements(request):
+    """API pour récupérer les départements d'une région."""
+    region_id = request.GET.get('region')
+    
+    if not region_id:
+        return JsonResponse({'departements': []})
+    
+    try:
+        departements = Departement.objects.filter(
+            region_id=region_id
+        ).values('id', 'nom').order_by('nom')
+        return JsonResponse({'departements': list(departements)})
+    except Exception as e:
+        logger.error(f"Erreur API départements: {str(e)}")
+        return JsonResponse({'departements': [], 'error': str(e)})
+
+
+@login_required
+@permission_required_granular('peut_gerer_utilisateurs')
+@require_GET
+def stats_utilisateurs_pesage(request):
+    """Statistiques des utilisateurs affectés aux stations de pesage."""
+    # Utilisateurs pesage par station
+    stats_par_station = UtilisateurSUPPER.objects.filter(
+        habilitation__in=HABILITATIONS_OPERATIONNELS_PESAGE + HABILITATIONS_CHEFS_PESAGE,
+        poste_affectation__isnull=False,
+        is_active=True
+    ).values(
+        'poste_affectation__id',
+        'poste_affectation__nom',
+        'poste_affectation__code'
+    ).annotate(
+        count=Count('id')
+    ).order_by('poste_affectation__nom')
+    
+    # Stations sans personnel
+    stations_avec_personnel = [s['poste_affectation__id'] for s in stats_par_station]
+    stations_sans_personnel = Poste.objects.filter(
+        type='pesage',
+        is_active=True
+    ).exclude(id__in=stations_avec_personnel)
+    
+    # Comptage par rôle
+    stats_par_role = UtilisateurSUPPER.objects.filter(
+        habilitation__in=HABILITATIONS_OPERATIONNELS_PESAGE + HABILITATIONS_CHEFS_PESAGE,
+        is_active=True
+    ).values('habilitation').annotate(
+        count=Count('id')
+    )
+    
+    return JsonResponse({
+        'par_station': list(stats_par_station),
+        'par_role': list(stats_par_role),
+        'stations_sans_personnel': list(stations_sans_personnel.values('id', 'nom', 'code')),
+        'total_utilisateurs_pesage': sum(s['count'] for s in stats_par_station),
+        'total_stations_pesage': Poste.objects.filter(type='pesage', is_active=True).count(),
+    })
+
+
+class ValidateUsernameAPIView(LoginRequiredMixin, View):
+    """API pour valider l'unicité d'un nom d'utilisateur en temps réel."""
+    
+    def get(self, request):
+        username = request.GET.get('username', '').strip().upper()
+        
+        if not username:
+            return JsonResponse({
+                'valid': False,
+                'message': _('Matricule requis')
+            })
+        
+        import re
+        if not re.match(r'^[A-Z0-9]{6,20}$', username):
+            return JsonResponse({
+                'valid': False,
+                'message': _('Format invalide (6-20 caractères alphanumériques)')
+            })
+        
+        exists = UtilisateurSUPPER.objects.filter(username=username).exists()
+        
+        return JsonResponse({
+            'valid': not exists,
+            'message': _('Matricule déjà utilisé') if exists else _('Matricule disponible')
+        })
+
+
+class UserSearchAPIView(LoginRequiredMixin, View):
+    """API pour la recherche d'utilisateurs (autocomplete)."""
+    
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+        
+        if len(query) < 2:
+            return JsonResponse({'results': []})
+        
+        users = UtilisateurSUPPER.objects.filter(
+            Q(username__icontains=query) |
+            Q(nom_complet__icontains=query)
+        ).filter(is_active=True).select_related('poste_affectation')[:10]
+        
+        results = [{
+            'id': user.id,
+            'username': user.username,
+            'nom_complet': user.nom_complet,
+            'habilitation': user.get_habilitation_display(),
+            'poste': user.poste_affectation.nom if user.poste_affectation else None
+        } for user in users]
+        
+        return JsonResponse({'results': results})
+
+
+@login_required
+def postes_api(request):
+    """API pour récupérer la liste des postes."""
+    postes = Poste.objects.filter(is_active=True).select_related('region').values(
+        'id', 'nom', 'code', 'type', 'region__nom'
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'postes': list(postes)
+    })
+
+
+@login_required
+@permission_required_granular('peut_voir_journal_audit')
+def stats_api(request):
+    """API pour les statistiques en temps réel."""
+    today = timezone.now().date()
+    
+    stats = {
+        'users_online': UtilisateurSUPPER.objects.filter(
+            last_login__gte=timezone.now() - timedelta(minutes=30)
+        ).count(),
+        'actions_today': JournalAudit.objects.filter(timestamp__date=today).count(),
+        'timestamp': timezone.now().isoformat(),
+    }
+    
+    return JsonResponse(stats)
+
+
+@login_required
+@require_http_methods(["GET"])
+def check_admin_permission_api(request):
+    """API pour vérifier les permissions de l'utilisateur."""
+    user = request.user
+    
+    has_admin = check_admin_permission(user)
+    has_user_mgmt = check_user_management_permission(user)
+    has_poste_mgmt = check_poste_management_permission(user)
+    has_audit = check_audit_permission(user)
+    
+    response_data = {
+        'has_admin_permission': has_admin,
+        'has_user_management': has_user_mgmt,
+        'has_poste_management': has_poste_mgmt,
+        'has_audit_permission': has_audit,
+        'user_habilitation': user.habilitation,
+        'user_habilitation_display': user.get_habilitation_display(),
+        'is_superuser': user.is_superuser,
+        'is_staff': user.is_staff,
+        'username': user.username,
+        'nom_complet': user.nom_complet,
+        'user_category': get_user_category(user),
+        'niveau_acces': get_niveau_acces(user),
+    }
+    
+    # URLs accessibles selon les permissions
+    accessible_urls = {'dashboard': '/common/'}
+    
+    if has_user_mgmt:
+        accessible_urls['users'] = '/accounts/utilisateurs/'
+    if has_poste_mgmt:
+        accessible_urls['postes'] = '/accounts/postes/'
+    if has_audit:
+        accessible_urls['journal'] = '/accounts/journal-audit/'
+    
+    response_data['accessible_urls'] = accessible_urls
+    
+    return JsonResponse(response_data)
+
+
+# ===================================================================
+# REDIRECTION INTELLIGENTE SELON RÔLE
+# ===================================================================
+
+@login_required
+def dashboard_redirect(request):
+    """Redirection intelligente vers le bon dashboard selon le rôle."""
+    user = request.user
+    user_desc = get_user_short_description(user)
+    
+    messages.info(
+        request, 
+        f"Bonjour {user.nom_complet} ! Vous êtes redirigé vers votre espace de travail."
+    )
+    
+    # Redirection vers le dashboard commun
+    return redirect('common:dashboard')
+
+
+# ===================================================================
+# DASHBOARDS SPÉCIALISÉS
+# ===================================================================
+
+@method_decorator(login_required, name='dispatch')
+class AdminDashboardView(AdminRequiredMixin, BilingualMixin, AuditMixin, TemplateView):
+    """Dashboard pour les administrateurs."""
+    
+    template_name = 'accounts/admin_dashboard.html'
+    audit_action = _("Accès dashboard admin")
+    audit_log_get = False
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stats'] = self._get_admin_stats()
+        context['recent_actions'] = JournalAudit.objects.select_related(
+            'utilisateur'
+        ).order_by('-timestamp')[:15]
+        context['title'] = _('Dashboard Administrateur')
+        return context
+    
+    def _get_admin_stats(self):
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
+        
+        return {
+            'users_total': UtilisateurSUPPER.objects.count(),
+            'users_active': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+            'users_this_week': UtilisateurSUPPER.objects.filter(
+                date_creation__gte=week_ago
+            ).count(),
+            'postes_total': Poste.objects.count(),
+            'postes_active': Poste.objects.filter(is_active=True).count(),
+            'postes_peage': Poste.objects.filter(type='peage', is_active=True).count(),
+            'postes_pesage': Poste.objects.filter(type='pesage', is_active=True).count(),
+            'actions_today': JournalAudit.objects.filter(timestamp__date=today).count(),
+            'actions_week': JournalAudit.objects.filter(timestamp__gte=week_ago).count(),
+            'actions_month': JournalAudit.objects.filter(timestamp__gte=month_ago).count(),
+        }
+
+
+@method_decorator(login_required, name='dispatch')
+class ChefPosteDashboardView(ChefPosteRequiredMixin, BilingualMixin, 
+                              AuditMixin, TemplateView):
+    """Dashboard pour les chefs de poste."""
+    
+    template_name = 'accounts/chef_dashboard.html'
+    audit_action = _("Accès dashboard chef de poste")
+    audit_log_get = False
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        poste = user.poste_affectation
+        
+        context['poste'] = poste
+        context['user_description'] = get_user_description(user)
+        
+        if poste:
+            # Agents du poste
+            context['agents_poste'] = UtilisateurSUPPER.objects.filter(
+                poste_affectation=poste,
+                is_active=True
+            ).exclude(id=user.id)
+        
+        context['title'] = _('Dashboard Chef de Poste')
+        return context
+
+
+@method_decorator(login_required, name='dispatch')
+class AgentInventaireDashboardView(LoginRequiredMixin, BilingualMixin, 
+                                    AuditMixin, TemplateView):
+    """Dashboard pour les agents d'inventaire."""
+    
+    template_name = 'accounts/agent_dashboard.html'
+    audit_action = _("Accès dashboard agent")
+    audit_log_get = False
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        context['poste'] = user.poste_affectation
+        context['user_description'] = get_user_description(user)
+        context['title'] = _('Dashboard Agent')
+        return context
+
+
+@method_decorator(login_required, name='dispatch')
+class GeneralDashboardView(LoginRequiredMixin, BilingualMixin, 
+                           AuditMixin, TemplateView):
+    """Dashboard général pour les autres rôles."""
+    
+    template_name = 'accounts/general_dashboard.html'
+    audit_action = _("Accès dashboard général")
+    audit_log_get = False
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        context['user_role'] = user.get_habilitation_display()
+        context['user_description'] = get_user_description(user)
+        context['user_category'] = get_user_category(user)
+        context['title'] = _('Dashboard')
+        return context
+
+
+# ===================================================================
+# VUES D'AIDE ET DOCUMENTATION
+# ===================================================================
+
+@login_required
+def admin_help_view(request):
+    """Vue d'aide pour l'utilisation du système."""
+    user = request.user
+    
+    # Construire la liste des fonctionnalités accessibles selon les permissions
+    accessible_features = []
+    
+    if check_user_management_permission(user):
+        accessible_features.append({
+            'name': _('Gestion des utilisateurs'),
+            'url': reverse('accounts:liste_utilisateurs'),
+            'icon': 'fas fa-users',
+            'description': _('Créer, modifier et gérer les utilisateurs')
+        })
+    
+    if check_poste_management_permission(user):
+        accessible_features.append({
+            'name': _('Gestion des postes'),
+            'url': reverse('accounts:liste_postes'),
+            'icon': 'fas fa-map-marker-alt',
+            'description': _('Gérer les postes de péage et pesage')
+        })
+    
+    if check_audit_permission(user):
+        accessible_features.append({
+            'name': _('Journal d\'audit'),
+            'url': reverse('accounts:journal_audit'),
+            'icon': 'fas fa-file-alt',
+            'description': _('Consulter l\'historique des actions')
+        })
+    
+    context = {
+        'title': _('Aide - Système SUPPER'),
+        'user_description': get_user_description(user),
+        'accessible_features': accessible_features,
+    }
+    
+    return render(request, 'accounts/admin_help.html', context)
+
+
+# ===================================================================
+# REDIRECTIONS VERS ADMIN DJANGO (COMPATIBILITÉ)
+# ===================================================================
+
+@login_required
+def redirect_to_add_user_admin(request):
+    """Redirection vers l'ajout d'utilisateur dans l'admin Django."""
+    if not check_user_management_permission(request.user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard')
+    
+    _log_admin_access(request, "Ajout utilisateur (admin Django)")
+    return redirect('/admin/accounts/utilisateursupper/add/')
+
+
+@login_required
+def redirect_to_edit_user_admin(request, user_id):
+    """Redirection vers l'édition d'un utilisateur dans l'admin Django."""
+    if not check_user_management_permission(request.user):
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard')
+    
+    try:
+        target_user = UtilisateurSUPPER.objects.get(id=user_id)
+        _log_admin_access(request, f"Édition utilisateur {target_user.username}")
+        return redirect(f'/admin/accounts/utilisateursupper/{user_id}/change/')
+    except UtilisateurSUPPER.DoesNotExist:
+        messages.error(request, _("Utilisateur non trouvé."))
+        return redirect('accounts:liste_utilisateurs')
+
+
+# ===================================================================
+# GESTION DES ERREURS
+# ===================================================================
+
+@login_required
+def redirect_error_handler(request, error_type='permission'):
+    """Gestionnaire d'erreurs pour les redirections."""
+    user = request.user
+    
+    if error_type == 'permission':
+        messages.error(request, _(
+            "Vous n'avez pas les permissions nécessaires pour accéder à cette section. "
+            "Contactez un administrateur si vous pensez que c'est une erreur."
+        ))
+        
+        log_acces_refuse(
+            user,
+            f"Redirection erreur depuis {request.META.get('HTTP_REFERER', 'URL inconnue')}",
+            request
+        )
+    
+    elif error_type == 'not_found':
+        messages.error(request, _("La ressource demandée n'a pas été trouvée."))
+    
+    else:
+        messages.error(request, _("Une erreur est survenue lors de la redirection."))
+    
+    return redirect('common:dashboard')
+
+
+def custom_404(request, exception=None):
+    """Page 404 personnalisée."""
+    return render(request, 'errors/404.html', {
+        'title': _('Page non trouvée'),
+        'message': _('La page que vous cherchez n\'existe pas.'),
+    }, status=404)
+
+
+def custom_500(request):
+    """Page 500 personnalisée."""
+    return render(request, 'errors/500.html', {
+        'title': _('Erreur serveur'),
+        'message': _('Une erreur interne s\'est produite.'),
+    }, status=500)
+
+
+def custom_403(request, exception=None):
+    """Page 403 personnalisée."""
+    return render(request, 'errors/403.html', {
+        'title': _('Accès interdit'),
+        'message': _('Vous n\'avez pas les permissions nécessaires.'),
+    }, status=403)
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES POUR LES TEMPLATES
+# ===================================================================
+
+def get_admin_navigation_context(user):
+    """Retourne le contexte de navigation pour les templates."""
+    if not user.is_authenticated:
+        return {}
+    
+    navigation = {'admin_navigation': {}}
+    
+    if check_user_management_permission(user):
+        navigation['admin_navigation']['users'] = {
+            'url': reverse('accounts:liste_utilisateurs'),
+            'title': _('Gérer Utilisateurs'),
+            'icon': 'fas fa-users',
+        }
+    
+    if check_poste_management_permission(user):
+        navigation['admin_navigation']['postes'] = {
+            'url': reverse('accounts:liste_postes'),
+            'title': _('Gérer Postes'),
+            'icon': 'fas fa-map-marker-alt',
+        }
+    
+    if check_audit_permission(user):
+        navigation['admin_navigation']['journal'] = {
+            'url': reverse('accounts:journal_audit'),
+            'title': _('Journal d\'Audit'),
+            'icon': 'fas fa-file-alt',
+        }
+    
+    return navigation
+
+
+# ===================================================================
+# VUES DE CLASSE HÉRITÉES (COMPATIBILITÉ AVEC ANCIEN CODE)
+# ===================================================================
+
+class UserDetailView(GestionUtilisateursPermissionMixin, BilingualMixin, 
+                     AuditMixin, DetailView):
+    """Affichage détaillé d'un utilisateur (vue basée sur classe)."""
+    
+    model = UtilisateurSUPPER
+    template_name = 'accounts/detail_utilisateur.html'
+    context_object_name = 'user_detail'
+    audit_action = _("Consultation détail utilisateur")
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user_detail = self.object
+        
+        context['user_description'] = get_user_description(user_detail)
+        context['activites_recentes'] = JournalAudit.objects.filter(
+            utilisateur=user_detail
+        ).order_by('-timestamp')[:10]
+        context['permissions_list'] = user_detail.get_permissions_list() if hasattr(
+            user_detail, 'get_permissions_list'
+        ) else []
+        context['can_edit'] = check_user_management_permission(self.request.user)
+        
+        return context
+
+
+class UserUpdateView(GestionUtilisateursPermissionMixin, BilingualMixin, 
+                     UpdateWithAuditMixin, UpdateView):
+    """Modification des informations d'un utilisateur (vue basée sur classe)."""
+    
+    model = UtilisateurSUPPER
+    form_class = UserUpdateForm
+    template_name = 'accounts/modifier_utilisateur.html'
+    audit_action = _("Modification utilisateur")
+    
+    def get_success_url(self):
+        return reverse_lazy('accounts:detail_utilisateur', kwargs={'user_id': self.object.pk})
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user_edit'] = self.object
+        context['postes_peage'] = Poste.objects.filter(is_active=True, type='peage')
+        context['postes_pesage'] = Poste.objects.filter(is_active=True, type='pesage')
+        context['habilitations'] = Habilitation.choices
+        context['filtrage_postes_js'] = FILTRAGE_POSTES_JS
+        return context
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            _("Informations de %(nom)s mises à jour avec succès.") % {
+                'nom': self.object.nom_complet
+            }
+        )
+        return response
+
+
+
+# ===================================================================
+# 1. API POUR VOIR LES DÉTAILS D'UN LOG
+# ===================================================================
+
+@login_required
+@require_GET
+def api_log_details(request, log_id):
+    """
+    API pour récupérer les détails complets d'une entrée du journal d'audit.
+    
+    URL: /accounts/api/log-details/<log_id>/
+    
+    Retourne un JSON avec tous les détails du log.
+    """
+    # Vérifier la permission
+    if not check_granular_permission(request.user, 'peut_voir_journal_audit'):
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission insuffisante'
+        }, status=403)
+    
+    try:
+        log = get_object_or_404(JournalAudit, id=log_id)
+        
+        # Parser les détails JSON si c'est du JSON
+        details_parsed = log.details
+        details_structured = None
+        
+        try:
+            if log.details and log.details.startswith('{'):
+                details_structured = json.loads(log.details)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        
+        # Construire la réponse
+        response_data = {
+            'success': True,
+            'log': {
+                'id': log.id,
+                'timestamp': log.timestamp.strftime('%d/%m/%Y à %H:%M:%S'),
+                'timestamp_iso': log.timestamp.isoformat(),
+                
+                # Informations utilisateur
+                'utilisateur': {
+                    'id': log.utilisateur.id,
+                    'username': log.utilisateur.username,
+                    'nom_complet': log.utilisateur.nom_complet,
+                    'habilitation': log.utilisateur.get_habilitation_display(),
+                    'habilitation_code': log.utilisateur.habilitation,
+                    'poste': log.utilisateur.poste_affectation.nom if log.utilisateur.poste_affectation else None,
+                    'description': get_user_description(log.utilisateur),
+                },
+                
+                # Action et détails
+                'action': log.action,
+                'details': details_parsed,
+                'details_structured': details_structured,
+                
+                # Informations techniques
+                'adresse_ip': log.adresse_ip,
+                'user_agent': log.user_agent,
+                'user_agent_short': _parse_user_agent(log.user_agent) if log.user_agent else None,
+                'session_key': log.session_key[:20] + '...' if log.session_key and len(log.session_key) > 20 else log.session_key,
+                'url_acces': log.url_acces,
+                'methode_http': log.methode_http,
+                
+                # Statut
+                'succes': log.succes,
+                'statut_reponse': log.statut_reponse,
+                'statut_label': _get_status_label(log.statut_reponse),
+                
+                # Durée
+                'duree_execution': str(log.duree_execution) if log.duree_execution else None,
+                'duree_ms': int(log.duree_execution.total_seconds() * 1000) if log.duree_execution else None,
+            }
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+def _parse_user_agent(user_agent):
+    """Parse le user agent pour extraire les infos principales"""
+    if not user_agent:
+        return None
+    
+    browser = "Navigateur inconnu"
+    os_info = "OS inconnu"
+    
+    # Détection navigateur
+    if 'Chrome' in user_agent and 'Edg' not in user_agent:
+        browser = "Chrome"
+    elif 'Firefox' in user_agent:
+        browser = "Firefox"
+    elif 'Safari' in user_agent and 'Chrome' not in user_agent:
+        browser = "Safari"
+    elif 'Edg' in user_agent:
+        browser = "Edge"
+    elif 'MSIE' in user_agent or 'Trident' in user_agent:
+        browser = "Internet Explorer"
+    
+    # Détection OS
+    if 'Windows' in user_agent:
+        os_info = "Windows"
+    elif 'Mac OS' in user_agent:
+        os_info = "macOS"
+    elif 'Linux' in user_agent:
+        os_info = "Linux"
+    elif 'Android' in user_agent:
+        os_info = "Android"
+    elif 'iPhone' in user_agent or 'iPad' in user_agent:
+        os_info = "iOS"
+    
+    return f"{browser} sur {os_info}"
+
+
+def _get_status_label(status_code):
+    """Retourne un label pour le code de statut HTTP"""
+    if status_code is None:
+        return "Non défini"
+    
+    labels = {
+        200: "OK - Succès",
+        201: "Créé",
+        302: "Redirection",
+        400: "Requête invalide",
+        401: "Non authentifié",
+        403: "Accès interdit",
+        404: "Non trouvé",
+        500: "Erreur serveur",
+    }
+    
+    return labels.get(status_code, f"Code {status_code}")
+
+
+
+def audit_view(action_name, get_context=None, skip_middleware=True):
+    """
+    Décorateur pour journaliser automatiquement une vue avec contexte détaillé.
+    
+    Usage:
+    ------
+    @audit_view(
+        "SAISIE_RECETTE",
+        get_context=lambda request, response, **kwargs: {
+            'montant': request.POST.get('montant'),
+            'poste_id': kwargs.get('poste_id')
+        }
+    )
+    def saisir_recette(request, poste_id):
+        ...
+    
+    Paramètres:
+    -----------
+    - action_name: Nom de l'action à journaliser
+    - get_context: Fonction optionnelle pour extraire le contexte métier
+    - skip_middleware: Si True, évite la double journalisation
+    """
+    from functools import wraps
+    
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            # Marquer pour éviter la journalisation automatique du middleware
+            if skip_middleware:
+                request._skip_audit_middleware = True
+            
+            try:
+                # Exécuter la vue
+                response = view_func(request, *args, **kwargs)
+                
+                # Extraire le contexte si une fonction est fournie
+                context = {}
+                if get_context and callable(get_context):
+                    try:
+                        context = get_context(request, response, *args, **kwargs) or {}
+                    except Exception:
+                        pass
+                
+                # Journaliser l'action avec le contexte
+                log_user_action(
+                    user=request.user,
+                    action=action_name,
+                    details=f"Action {action_name} exécutée avec succès",
+                    request=request,
+                    **context
+                )
+                
+                return response
+                
+            except Exception as e:
+                # Journaliser l'erreur
+                log_erreur_action(
+                    request.user,
+                    action_name,
+                    str(e),
+                    request
+                )
+                raise
+        
+        return wrapper
+    return decorator
+
