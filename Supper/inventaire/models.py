@@ -4142,11 +4142,6 @@ class DetailVenteTicket(models.Model):
         super().save(*args, **kwargs)
 
 
-from django.db import models
-from django.db.models import Sum, Q
-from decimal import Decimal
-from datetime import datetime, date, timedelta
-
 class StockEvent(models.Model):
     """
     Modèle Event Sourcing pour les mouvements de stock

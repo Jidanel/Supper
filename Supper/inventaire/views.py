@@ -8,7 +8,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required,user_passes_test, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponse
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.utils.translation import gettext_lazy as _
@@ -26,43 +26,182 @@ from datetime import datetime, date, timedelta
 import json
 from django.views.decorators.csrf import csrf_exempt
 import logging
+
+from .forms import *
+from .models import *
 from django.forms import formset_factory
 
 logger = logging.getLogger('supper')
 
-# Import des modèles
-from .models import *
-from accounts.models import UtilisateurSUPPER, Poste, JournalAudit
-from common.utils import *
-from .forms import *
+# ===================================================================
+# IMPORTS DES DÉCORATEURS ET PERMISSIONS GRANULAIRES
+# Ces imports proviennent de common/decorators.py et common/permissions.py
+# ===================================================================
+from common.decorators import *
+from common.permissions import *
+# Import de la fonction de logging depuis common/utils.py
+from common.utils import log_user_action, require_permission
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES MISES À JOUR
+# ===================================================================
+
+def _check_admin_permission(user):
+    """
+    Vérifie les permissions administrateur avec les nouvelles habilitations.
+    MISE À JOUR: Utilise is_admin_user() de common/permissions.py
+    """
+    return is_admin_user(user)
+
+
+def _check_inventaire_view_permission(user):
+    """
+    Vérifie si l'utilisateur peut voir les inventaires.
+    Permission: peut_voir_liste_inventaires OU peut_voir_liste_inventaires_admin
+    """
+    return has_any_permission(user, [
+        'peut_voir_liste_inventaires',
+        'peut_voir_liste_inventaires_admin'
+    ])
+
+
+def _check_inventaire_edit_permission(user):
+    """
+    Vérifie si l'utilisateur peut saisir/modifier des inventaires.
+    Permission: peut_saisir_inventaire_normal OU peut_saisir_inventaire_admin
+    """
+    return has_any_permission(user, [
+        'peut_saisir_inventaire_normal',
+        'peut_saisir_inventaire_admin'
+    ])
+
+
+def _check_recette_view_permission(user):
+    """
+    Vérifie si l'utilisateur peut voir les recettes péage.
+    Permission: peut_voir_liste_recettes_peage
+    """
+    return has_permission(user, 'peut_voir_liste_recettes_peage')
+
+
+def _check_recette_edit_permission(user):
+    """
+    Vérifie si l'utilisateur peut saisir des recettes péage.
+    Permission: peut_saisir_recette_peage
+    """
+    return has_permission(user, 'peut_saisir_recette_peage')
+
+
+def _check_programmation_permission(user):
+    """
+    Vérifie si l'utilisateur peut programmer des inventaires.
+    Permission: peut_programmer_inventaire
+    """
+    return has_permission(user, 'peut_programmer_inventaire')
+
+
+def _check_stats_deperdition_permission(user):
+    """
+    Vérifie si l'utilisateur peut voir les stats de déperdition.
+    Permission: peut_voir_stats_deperdition
+    """
+    return has_permission(user, 'peut_voir_stats_deperdition')
+
+
+def _check_jours_impertinents_permission(user):
+    """
+    Vérifie si l'utilisateur peut voir les jours impertinents.
+    Permission: peut_voir_jours_impertinents
+    """
+    return has_permission(user, 'peut_voir_jours_impertinents')
+
+
+def _check_quittance_permission(user):
+    """
+    Vérifie si l'utilisateur peut saisir des quittances péage.
+    Permission: peut_saisir_quittance_peage
+    """
+    return has_permission(user, 'peut_saisir_quittance_peage')
+
+
+def _check_comptabilisation_permission(user):
+    """
+    Vérifie si l'utilisateur peut comptabiliser les quittances péage.
+    Permission: peut_comptabiliser_quittances_peage
+    """
+    return has_permission(user, 'peut_comptabiliser_quittances_peage')
+
 
 # ===================================================================
 # MIXINS ET FONCTIONS UTILITAIRES
 # ===================================================================
 
 class InventaireMixin(LoginRequiredMixin):
-    """Mixin de base pour les vues inventaire avec permissions"""
+    """
+    Mixin de base pour les vues inventaire avec permissions granulaires.
+    MISE À JOUR: Vérifie peut_voir_liste_inventaires au lieu de peut_gerer_inventaire
+    """
     
     def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request.user, 'peut_gerer_inventaire') or not request.user.peut_gerer_inventaire:
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        
+        # Vérifier permission de visualisation d'inventaires
+        if not _check_inventaire_view_permission(request.user):
+            log_user_action(
+                request.user,
+                "ACCÈS REFUSÉ - Liste inventaires",
+                f"Permission peut_voir_liste_inventaires manquante | IP: {request.META.get('REMOTE_ADDR')}",
+                request
+            )
             messages.error(request, _("Vous n'avez pas les permissions pour accéder aux inventaires."))
             return redirect('common:dashboard')
+        
         return super().dispatch(request, *args, **kwargs)
 
 
 class AdminRequiredMixin(UserPassesTestMixin):
-    """Mixin pour les vues nécessitant des droits admin"""
+    """
+    Mixin pour les vues nécessitant des droits admin.
+    MISE À JOUR: Utilise is_admin_user() de common/permissions.py
+    """
     
     def test_func(self):
-        return (self.request.user.is_superuser or 
-                self.request.user.is_staff or 
-                self.request.user.habilitation in [
-                    'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission'
-                ])
+        return is_admin_user(self.request.user)
     
     def handle_no_permission(self):
+        log_user_action(
+            self.request.user,
+            "ACCÈS REFUSÉ - Zone admin",
+            f"Habilitation: {getattr(self.request.user, 'habilitation', 'N/A')} | IP: {self.request.META.get('REMOTE_ADDR')}",
+            self.request
+        )
         messages.error(self.request, _("Accès non autorisé à cette fonctionnalité."))
         return redirect('common:dashboard')
+
+class RecetteMixin(LoginRequiredMixin):
+    """
+    Mixin pour les vues recettes avec permissions granulaires.
+    NOUVEAU: Vérifie peut_voir_liste_recettes_peage
+    """
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        
+        # Vérifier permission de visualisation des recettes
+        if not _check_recette_view_permission(request.user):
+            log_user_action(
+                request.user,
+                "ACCÈS REFUSÉ - Liste recettes",
+                f"Permission peut_voir_liste_recettes_peage manquante | IP: {request.META.get('REMOTE_ADDR')}",
+                request
+            )
+            messages.error(request, _("Vous n'avez pas les permissions pour accéder aux recettes."))
+            return redirect('common:dashboard')
+        
+        return super().dispatch(request, *args, **kwargs)
 
 
 def _check_admin_permission(user):
@@ -100,7 +239,10 @@ def _log_inventaire_action(request, action, details=""):
 # ===================================================================
 
 class InventaireListView(InventaireMixin, ListView):
-    """Liste des inventaires avec filtres et recherche"""
+    """
+    Liste des inventaires avec filtres et recherche.
+    MISE À JOUR: Permissions granulaires pour l'affichage
+    """
     model = InventaireJournalier
     template_name = 'inventaire/inventaire_list.html'
     context_object_name = 'inventaires'
@@ -109,30 +251,54 @@ class InventaireListView(InventaireMixin, ListView):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('accounts:login')
-        if not hasattr(request.user, 'peut_gerer_inventaire') or not request.user.peut_gerer_inventaire:
+        
+        # Vérifier permission avec système granulaire
+        if not _check_inventaire_view_permission(request.user):
+            log_user_action(
+                request.user,
+                "ACCÈS REFUSÉ - Liste inventaires",
+                f"Permission manquante: peut_voir_liste_inventaires | "
+                f"Habilitation: {getattr(request.user, 'habilitation', 'N/A')} | "
+                f"IP: {request.META.get('REMOTE_ADDR')}",
+                request
+            )
             messages.error(request, "Vous n'avez pas les permissions pour accéder aux inventaires.")
             return redirect('common:dashboard')
+        
+        # Log de l'accès autorisé
+        log_user_action(
+            request.user,
+            "Consultation liste inventaires",
+            f"Accès autorisé | Habilitation: {getattr(request.user, 'habilitation', 'N/A')}",
+            request
+        )
+        
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = InventaireJournalier.objects.filter(
-            type_inventaire='normal'  # Exclure les inventaires administratifs
+            type_inventaire='normal'
         ).select_related(
             'poste', 'agent_saisie',
         ).prefetch_related('details_periodes')
         
         # Filtrer selon les postes accessibles à l'utilisateur
-        if not _check_admin_permission(self.request.user):
-            if hasattr(self.request.user, 'get_postes_accessibles'):
-                queryset = queryset.filter(
-                    poste__in=self.request.user.get_postes_accessibles()
-                )
-            elif self.request.user.poste_affectation:
-                queryset = queryset.filter(poste=self.request.user.poste_affectation)
-            else:
-                queryset = queryset.none()
+        # Utilisation des permissions granulaires
+        user = self.request.user
         
-        # Filtres de recherche
+        # Si l'utilisateur a peut_voir_liste_inventaires_admin, il voit tout
+        if has_permission(user, 'peut_voir_liste_inventaires_admin'):
+            pass  # Pas de filtre
+        elif hasattr(user, 'get_postes_accessibles'):
+            queryset = queryset.filter(
+                poste__in=user.get_postes_accessibles()
+            )
+        elif user.poste_affectation:
+            queryset = queryset.filter(poste=user.poste_affectation)
+        else:
+            queryset = queryset.none()
+        
+        # Filtres de recherche (inchangé)
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -164,32 +330,33 @@ class InventaireListView(InventaireMixin, ListView):
             except ValueError:
                 pass
         
-        
         return queryset.order_by('-date', 'poste__nom')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['can_admin'] = _check_admin_permission(self.request.user)
+        user = self.request.user
+        
+        # Permissions granulaires pour le contexte
+        context['can_admin'] = has_permission(user, 'peut_voir_liste_inventaires_admin')
+        context['can_edit'] = _check_inventaire_edit_permission(user)
+        context['can_program'] = _check_programmation_permission(user)
+        context['can_view_stats'] = _check_stats_deperdition_permission(user)
         
         # Postes accessibles pour le filtre
         if context['can_admin']:
             context['postes'] = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
-        elif hasattr(self.request.user, 'get_postes_accessibles'):
-            context['postes'] = self.request.user.get_postes_accessibles()
+        elif hasattr(user, 'get_postes_accessibles'):
+            context['postes'] = user.get_postes_accessibles()
         else:
             context['postes'] = Poste.objects.none()
         
         # Statistiques rapides
         total_inventaires = self.get_queryset().count()
         inventaires_today = self.get_queryset().filter(date=timezone.now().date()).count()
-        #inventaires_verrouilles = self.get_queryset().filter(verrouille=True).count()
         
         context.update({
-            'postes': context['postes'],
             'total_inventaires': total_inventaires,
             'inventaires_today': inventaires_today,
-            #'inventaires_verrouilles': inventaires_verrouilles,
-            'can_admin': _check_admin_permission(self.request.user),
             'current_filters': {
                 'search': self.request.GET.get('search', ''),
                 'poste': self.request.GET.get('poste', ''),
@@ -203,7 +370,10 @@ class InventaireListView(InventaireMixin, ListView):
 
 
 class InventaireDetailView(InventaireMixin, DetailView):
-    """Détail d'un inventaire avec calculs et historique"""
+    """
+    Détail d'un inventaire avec calculs et historique.
+    MISE À JOUR: Permissions granulaires
+    """
     model = InventaireJournalier
     template_name = 'inventaire/inventaire_detail.html'
     context_object_name = 'inventaire'
@@ -211,24 +381,51 @@ class InventaireDetailView(InventaireMixin, DetailView):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('accounts:login')
+        
+        # Vérifier permission de visualisation
+        if not _check_inventaire_view_permission(request.user):
+            log_user_action(
+                request.user,
+                "ACCÈS REFUSÉ - Détail inventaire",
+                f"Permission manquante | Inventaire ID: {kwargs.get('pk')}",
+                request
+            )
+            messages.error(request, "Vous n'avez pas accès à ce détail d'inventaire.")
+            return redirect('common:dashboard')
+        
         return super().dispatch(request, *args, **kwargs)
     
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
+        user = self.request.user
         
-        # Vérifier l'accès au poste
-        if hasattr(self.request.user, 'peut_acceder_poste'):
-            if not self.request.user.peut_acceder_poste(obj.poste):
+        # Vérifier l'accès au poste avec permissions granulaires
+        if not has_permission(user, 'peut_voir_liste_inventaires_admin'):
+            if not check_poste_access(user, obj.poste):
+                log_user_action(
+                    user,
+                    "ACCÈS REFUSÉ - Détail inventaire (poste)",
+                    f"Poste non autorisé: {obj.poste.nom} | Inventaire ID: {obj.pk}",
+                    self.request
+                )
                 raise PermissionError("Accès non autorisé à ce poste.")
+        
+        # Log de l'accès autorisé
+        log_user_action(
+            user,
+            "Consultation détail inventaire",
+            f"Poste: {obj.poste.nom} | Date: {obj.date} | Total véhicules: {obj.total_vehicules}",
+            self.request
+        )
         
         return obj
     
     def get_context_data(self, **kwargs):
-        """Méthode get_context_data corrigée"""
         context = super().get_context_data(**kwargs)
         inventaire = self.object
+        user = self.request.user
         
-        # Calculs principaux avec gestion sécurisée
+        # Calculs principaux avec gestion sécurisée (inchangé)
         context['total_vehicules'] = inventaire.total_vehicules or 0
         
         try:
@@ -253,22 +450,18 @@ class InventaireDetailView(InventaireMixin, DetailView):
         # Détails par période
         details_periodes = inventaire.details_periodes.all().order_by('periode')
         context['details_periodes'] = details_periodes
-        # Préparer les données du graphique côté serveur
+        
+        # Préparer les données du graphique
         graph_periodes = []
         graph_vehicules = []
-        
         for detail in details_periodes:
             graph_periodes.append(detail.get_periode_display())
             graph_vehicules.append(detail.nombre_vehicules)
         
-        # Passer les données formatées au template
         context['graph_data'] = {
             'periodes': graph_periodes,
             'vehicules': graph_vehicules,
         }
-        
-        # Convertir en JSON pour le JavaScript
-        import json
         context['graph_data_json'] = json.dumps(context['graph_data'])
         
         # Recette associée
@@ -281,11 +474,13 @@ class InventaireDetailView(InventaireMixin, DetailView):
         except RecetteJournaliere.DoesNotExist:
             context['recette'] = None
         
-        # Permissions
+        # Permissions granulaires pour les actions
         context['can_edit'] = (
-            self.request.user.is_admin or 
-            inventaire.agent_saisie == self.request.user
+            has_permission(user, 'peut_saisir_inventaire_admin') or 
+            (has_permission(user, 'peut_saisir_inventaire_normal') and inventaire.agent_saisie == user)
         )
+        context['can_delete'] = has_permission(user, 'peut_saisir_inventaire_admin')
+        context['can_view_stats'] = _check_stats_deperdition_permission(user)
         
         # Vérifier si jour impertinent
         try:
@@ -295,40 +490,52 @@ class InventaireDetailView(InventaireMixin, DetailView):
         except:
             context['jour_impertinent'] = False
         
-         
-            import logging
-            logger = logging.getLogger('supper')
-            logger.error(f"Erreur calculs inventaire {inventaire.pk}: {str(e)}")
-        
         return context
-
-class SaisieInventaireView(InventaireMixin, View):
-    """Vue pour la saisie d'inventaire par les agents"""
+    
+class SaisieInventaireView(LoginRequiredMixin, View):
+    """
+    Vue pour la saisie d'inventaire par les agents.
+    MISE À JOUR: Permissions granulaires peut_saisir_inventaire_normal
+                 et peut_saisir_inventaire_admin
+    """
     template_name = 'inventaire/saisie_inventaire.html'
     
     def dispatch(self, request, *args, **kwargs):
-        # Vérification des permissions sans décorateur
         if not request.user.is_authenticated:
             messages.error(request, "Vous devez être connecté.")
             return redirect('accounts:login')
         
-        if not request.user.peut_gerer_inventaire:
-            messages.error(request, "Vous n'avez pas la permission de gérer les inventaires.")
+        # Vérifier les permissions de saisie avec système granulaire
+        user = request.user
+        can_saisie_normal = has_permission(user, 'peut_saisir_inventaire_normal')
+        can_saisie_admin = has_permission(user, 'peut_saisir_inventaire_admin')
+        
+        if not (can_saisie_normal or can_saisie_admin):
+            log_user_action(
+                user,
+                "ACCÈS REFUSÉ - Saisie inventaire",
+                f"Permissions manquantes: peut_saisir_inventaire_normal/admin | "
+                f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | "
+                f"IP: {request.META.get('REMOTE_ADDR')}",
+                request
+            )
+            messages.error(request, "Vous n'avez pas la permission de saisir des inventaires.")
             return HttpResponseForbidden("Accès non autorisé")
         
         return super().dispatch(request, *args, **kwargs)
     
     def get(self, request, poste_id=None, date_str=None):
         """Affichage du formulaire de saisie"""
-        
-        # Importer les dépendances nécessaires
         from datetime import date, datetime
         
-        # Initialiser poste à None
+        user = request.user
         poste = None
         
-        # 1. GESTION ADMIN
-        if request.user.is_admin:
+        # Déterminer si l'utilisateur a des droits admin
+        is_admin = has_permission(user, 'peut_saisir_inventaire_admin')
+        
+        # 1. GESTION ADMIN (permission peut_saisir_inventaire_admin)
+        if is_admin:
             if not poste_id:
                 # Admin sans poste_id : afficher la sélection
                 mois_actuel = date.today().replace(day=1)
@@ -338,6 +545,13 @@ class SaisieInventaireView(InventaireMixin, View):
                     programmations_inventaire__actif=True,
                     is_active=True, type='peage'
                 ).distinct().order_by('nom')
+                
+                log_user_action(
+                    user,
+                    "Accès sélection poste inventaire",
+                    f"Mode admin | Postes programmés: {postes_programmes.count()}",
+                    request
+                )
                 
                 return render(request, 'inventaire/choix_poste.html', {
                     'postes': postes_programmes,
@@ -352,31 +566,40 @@ class SaisieInventaireView(InventaireMixin, View):
                     messages.error(request, "Poste introuvable ou inactif.")
                     return redirect('inventaire:saisie_inventaire')
         
-        # 2. GESTION NON-ADMIN
+        # 2. GESTION NON-ADMIN (permission peut_saisir_inventaire_normal)
         else:
             if poste_id:
-                # Non-admin avec poste_id fourni
                 try:
                     poste = Poste.objects.get(id=poste_id, is_active=True, type='peage')
                     # Vérifier que c'est bien son poste
-                    if request.user.poste_affectation and poste.id != request.user.poste_affectation.id:
-                        messages.warning(request, f"Redirection vers votre poste: {request.user.poste_affectation.nom}")
-                        return redirect('inventaire:saisie_inventaire_avec_poste', poste_id=request.user.poste_affectation.id)
+                    if user.poste_affectation and poste.id != user.poste_affectation.id:
+                        log_user_action(
+                            user,
+                            "Redirection poste inventaire",
+                            f"Tentative accès poste {poste.nom} | Redirigé vers {user.poste_affectation.nom}",
+                            request
+                        )
+                        messages.warning(request, f"Redirection vers votre poste: {user.poste_affectation.nom}")
+                        return redirect('inventaire:saisie_inventaire_avec_poste', poste_id=user.poste_affectation.id)
                 except Poste.DoesNotExist:
                     messages.error(request, "Poste introuvable.")
                     return redirect('inventaire:inventaire_list')
             else:
-                # Non-admin sans poste_id : utiliser son poste d'affectation
-                if not request.user.poste_affectation:
+                if not user.poste_affectation:
                     messages.error(request, "Aucun poste d'affectation configuré.")
                     return redirect('common:dashboard')
-                poste = request.user.poste_affectation
+                poste = user.poste_affectation
             
             # Vérification des droits d'accès pour non-admin
-            if hasattr(request.user, 'peut_acceder_poste'):
-                if not request.user.peut_acceder_poste(poste):
-                    messages.error(request, "Accès non autorisé à ce poste.")
-                    return redirect('inventaire:inventaire_list')
+            if not check_poste_access(user, poste):
+                log_user_action(
+                    user,
+                    "ACCÈS REFUSÉ - Saisie inventaire (poste)",
+                    f"Poste non autorisé: {poste.nom}",
+                    request
+                )
+                messages.error(request, "Accès non autorisé à ce poste.")
+                return redirect('inventaire:inventaire_list')
         
         # 3. À CE STADE, ON A FORCÉMENT UN POSTE
         if not poste:
@@ -402,6 +625,12 @@ class SaisieInventaireView(InventaireMixin, View):
         ).exists()
         
         if not programmation_existe:
+            log_user_action(
+                user,
+                "Saisie inventaire - Poste non programmé",
+                f"Poste: {poste.nom} | Mois: {target_date.strftime('%B %Y')}",
+                request
+            )
             messages.error(
                 request, 
                 f"Le poste {poste.nom} n'est pas programmé pour {target_date.strftime('%B %Y')}. "
@@ -413,7 +642,16 @@ class SaisieInventaireView(InventaireMixin, View):
         inventaire, created = InventaireJournalier.objects.get_or_create(
             poste=poste,
             date=target_date,
-            defaults={'agent_saisie': request.user}
+            defaults={'agent_saisie': user}
+        )
+        
+        # Log de l'action
+        action = "Création inventaire" if created else "Accès inventaire existant"
+        log_user_action(
+            user,
+            action,
+            f"Poste: {poste.nom} | Date: {target_date} | Type: {'Normal' if not is_admin else 'Admin'}",
+            request
         )
         
         # 7. PRÉPARER LES DONNÉES
@@ -439,19 +677,20 @@ class SaisieInventaireView(InventaireMixin, View):
             'target_date': target_date,
             'periodes_data': periodes_data,
             'is_new': created,
+            'is_admin': is_admin,
         }
         
-        # 8. RETOURNER LA RÉPONSE
         return render(request, self.template_name, context)
     
     def post(self, request, poste_id=None, date_str=None):
         """Traitement de la saisie d'inventaire"""
+        user = request.user
         
         # Récupérer les paramètres
         if poste_id:
             poste = get_object_or_404(Poste, id=poste_id)
         else:
-            poste = request.user.poste_affectation
+            poste = user.poste_affectation
             if not poste:
                 messages.error(request, "Aucun poste d'affectation configuré.")
                 return redirect('common:dashboard')
@@ -461,8 +700,16 @@ class SaisieInventaireView(InventaireMixin, View):
         else:
             target_date = timezone.now().date()
         
-        # Vérifications de sécurité
-        if not request.user.peut_acceder_poste(poste):
+        # Vérifications de sécurité avec permissions granulaires
+        is_admin = has_permission(user, 'peut_saisir_inventaire_admin')
+        
+        if not is_admin and not check_poste_access(user, poste):
+            log_user_action(
+                user,
+                "ACCÈS REFUSÉ - POST Saisie inventaire",
+                f"Poste non autorisé: {poste.nom} | Date: {target_date}",
+                request
+            )
             return JsonResponse({'error': 'Accès non autorisé'}, status=403)
         
         try:
@@ -470,186 +717,77 @@ class SaisieInventaireView(InventaireMixin, View):
             inventaire, created = InventaireJournalier.objects.get_or_create(
                 poste=poste,
                 date=target_date,
-                type_inventaire='normal',  # Spécifier le type
+                type_inventaire='normal',
                 defaults={
-                    'agent_saisie': request.user,
-                    'type_inventaire': 'normal'  # Inventaire normal
+                    'agent_saisie': user,
+                    'type_inventaire': 'normal'
                 }
             )
             
-            # Vérifier si peut être modifié
-            if not inventaire.peut_etre_modifie_par(request.user):
+            # Vérifier si peut être modifié (permissions granulaires)
+            can_modify = is_admin or inventaire.peut_etre_modifie_par(user)
+            if not can_modify:
+                log_user_action(
+                    user,
+                    "Modification inventaire refusée",
+                    f"Inventaire ID: {inventaire.pk} | Agent original: {inventaire.agent_saisie}",
+                    request
+                )
                 messages.error(request, 
                     "Cet inventaire a déjà été saisi et ne peut être modifié que par un administrateur.")
                 return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
             
-            # Traiter les données des périodes
-            details_saved = 0
+            # Traiter les données de période
             total_vehicules = 0
+            details_saved = 0
             
             for periode_choice in PeriodeHoraire.choices:
                 periode_code, _ = periode_choice
+                field_name = f'periode_{periode_code.replace("-", "_")}'
+                value = request.POST.get(field_name)
                 
-                nombre_vehicules = request.POST.get(f'periode_{periode_code}', '').strip()
-                observations = request.POST.get(f'observations_{periode_code}', '').strip()
-                
-                if nombre_vehicules:
+                if value and value.strip():
                     try:
-                        nombre_vehicules = int(nombre_vehicules)
-                        if 0 <= nombre_vehicules <= 5000:
-                            detail, created = DetailInventairePeriode.objects.update_or_create(
+                        nombre = int(value)
+                        if nombre >= 0:
+                            DetailInventairePeriode.objects.update_or_create(
                                 inventaire=inventaire,
                                 periode=periode_code,
-                                defaults={
-                                    'nombre_vehicules': nombre_vehicules,
-                                    'observations_periode': observations,
-                                }
+                                defaults={'nombre_vehicules': nombre}
                             )
+                            total_vehicules += nombre
                             details_saved += 1
-                            total_vehicules += nombre_vehicules
                     except ValueError:
                         continue
             
-            # Mettre à jour l'inventaire
+            # Mettre à jour le total
             inventaire.total_vehicules = total_vehicules
-            inventaire.nombre_periodes_saisies = details_saved
-            inventaire.observations = request.POST.get('observations', '')
-            
-            # Marquer comme verrouillé après première saisie complète
-            if details_saved > 0 and not request.user.is_admin:
-                inventaire.verrouille = True
-                
+            inventaire.derniere_modification_par = user
             inventaire.save()
             
-            # Journaliser l'action
-            # log_user_action(
-            #     request.user,
-            #     "Saisie inventaire",
-            #     f"Poste: {poste.nom}, Date: {target_date}, Véhicules: {total_vehicules}",
-            #     request
-            # )
+            # Log détaillé de la saisie
+            log_user_action(
+                user,
+                "Saisie inventaire réussie",
+                f"Poste: {poste.nom} | Date: {target_date} | "
+                f"Total véhicules: {total_vehicules} | Périodes saisies: {details_saved} | "
+                f"Mode: {'Admin' if is_admin else 'Normal'}",
+                request
+            )
             
             messages.success(request, "Inventaire sauvegardé avec succès.")
             return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
         
         except Exception as e:
             logger.error(f"Erreur saisie inventaire: {str(e)}")
+            log_user_action(
+                user,
+                "ERREUR - Saisie inventaire",
+                f"Poste: {poste.nom} | Date: {target_date} | Erreur: {str(e)}",
+                request
+            )
             messages.error(request, "Erreur lors de la sauvegarde de l'inventaire.")
             return redirect('inventaire:saisie_inventaire')
-        
-    def get_context_data(self, **kwargs):
-        """Ajouter des données au contexte"""
-        context = super().get_context_data(**kwargs)
-        
-        # Ajouter la date d'aujourd'hui
-        context['today'] = date.today()
-        
-        # Ajouter les postes accessibles
-        if hasattr(self.request.user, 'get_postes_accessibles'):
-            context['postes_accessibles'] = self.request.user.get_postes_accessibles()
-        else:
-            context['postes_accessibles'] = Poste.objects.filter(is_active=True, type='peage')
-        
-        # 🔧 CORRECTION : Vérifier si aujourd'hui est ouvert - AVEC l'argument date
-        try:
-            today = date.today()
-            context['jour_ouvert_inventaire'] = ConfigurationJour.est_jour_ouvert_pour_inventaire(
-                date=today,  # 🔧 AJOUT de l'argument date manquant
-                poste=None   # Configuration globale
-            )
-            context['message_statut_jour'] = self._get_message_statut_jour(today)
-        except Exception as e:
-            # En cas d'erreur, considérer comme fermé par sécurité
-            context['jour_ouvert_inventaire'] = False
-            context['message_statut_jour'] = f"Impossible de vérifier le statut du jour : {str(e)}"
-        
-        return context
-    
-    def _get_message_statut_jour(self, date_check):
-        """
-        🔧 MÉTHODE CORRIGÉE : Obtenir le message de statut du jour
-        """
-        try:
-            # Vérifier la configuration globale
-            config_globale = ConfigurationJour.objects.filter(
-                date=date_check, 
-                poste__isnull=True
-            ).first()
-            
-            if config_globale:
-                if config_globale.statut == 'ouvert':
-                    if getattr(config_globale, 'permet_saisie_inventaire', False):
-                        return "✅ Jour ouvert pour la saisie d'inventaires"
-                    else:
-                        return "⚠️ Jour ouvert mais saisie d'inventaires non autorisée"
-                elif config_globale.statut == 'ferme':
-                    return "🔒 Jour fermé pour toutes les saisies"
-                elif config_globale.statut == 'impertinent':
-                    return "⚠️ Jour marqué comme impertinent"
-            else:
-                return "❌ Aucune configuration trouvée pour ce jour - Saisie fermée par défaut"
-                
-        except Exception as e:
-            return f"❌ Erreur lors de la vérification : {str(e)}"
-    
-    def get_form_kwargs(self):
-        """Passer l'utilisateur au formulaire"""
-        kwargs = super().get_form_kwargs()
-        kwargs['request'] = self.request
-        return kwargs
-    
-    def form_valid(self, form):
-        """Traitement lors de la soumission valide du formulaire"""
-        # 🔧 VALIDATION CORRIGÉE : Vérifier que le jour est ouvert AVANT la sauvegarde
-        try:
-            date_inventaire = form.cleaned_data.get('date', date.today())
-            poste_inventaire = form.cleaned_data.get('poste')
-            
-            # Vérification avec les bons arguments
-            if not ConfigurationJour.est_jour_ouvert_pour_inventaire(
-                date=date_inventaire,  # 🔧 Argument date correct
-                poste=poste_inventaire  # 🔧 Argument poste correct
-            ):
-                messages.error(
-                    self.request, 
-                    f"La saisie d'inventaire n'est pas autorisée pour le "
-                    f"{date_inventaire.strftime('%d/%m/%Y')}. "
-                    "Contactez un administrateur pour ouvrir ce jour."
-                )
-                return self.form_invalid(form)
-            
-            # Définir l'agent de saisie
-            form.instance.agent_saisie = self.request.user
-            
-            # Sauvegarder
-            response = super().form_valid(form)
-            
-            messages.success(
-                self.request, 
-                f'Inventaire créé avec succès pour le {date_inventaire.strftime("%d/%m/%Y")} '
-                f'au poste {poste_inventaire.nom if poste_inventaire else "non spécifié"}!'
-            )
-            
-            return response
-            
-        except Exception as e:
-            messages.error(
-                self.request, 
-                f"Erreur lors de la création de l'inventaire : {str(e)}"
-            )
-            return self.form_invalid(form)
-    
-    def form_invalid(self, form):
-        """Traitement lors d'un formulaire invalide"""
-        messages.error(
-            self.request, 
-            "Erreur dans le formulaire. Veuillez vérifier les données saisies."
-        )
-        return super().form_invalid(form)
-    
-    def get_success_url(self):
-        """URL de redirection après succès"""
-        return '/admin/inventaire/inventairejournalier/'
 
 @login_required
 @require_permission('peut_gerer_inventaire')
@@ -816,230 +954,7 @@ def supprimer_inventaire(request, pk):
     }
     
     return render(request, 'inventaire/confirmer_suppression.html', context)
-# @login_required
-# def saisir_recette(request):
-#     """
-#     Interface de saisie de recette pour les chefs de poste
-#     Version complète avec confirmation et gestion des stocks
-#     """
-#     from django.db import transaction
-#     from decimal import Decimal, InvalidOperation
-#     from django.urls import reverse
-    
-#     # Vérifier que l'utilisateur peut saisir des recettes
-#     if not (request.user.is_chef_poste or request.user.is_admin):
-#         messages.error(request, "Vous n'avez pas la permission de saisir des recettes.")
-#         return HttpResponseForbidden("Accès non autorisé")
-    
-#     # Déterminer les postes accessibles
-#     if hasattr(request.user, 'get_postes_accessibles'):
-#         postes = request.user.get_postes_accessibles()
-#     else:
-#         if request.user.acces_tous_postes or request.user.is_admin:
-#             postes = Poste.objects.filter(is_active=True)
-#         elif request.user.poste_affectation:
-#             postes = Poste.objects.filter(id=request.user.poste_affectation.id)
-#         else:
-#             postes = Poste.objects.none()
-    
-#     if request.method == 'POST':
-#         # Vérifier si c'est une confirmation
-#         if request.POST.get('action') == 'confirmer':
-#             try:
-#                 poste_id = request.POST.get('poste_id')
-#                 date_str = request.POST.get('date')
-#                 montant_str = request.POST.get('montant')
-#                 observations = request.POST.get('observations', '')
-#                 lier_inventaire = request.POST.get('lier_inventaire') == 'true'
-                
-#                 # Validation des données
-#                 poste = Poste.objects.get(id=poste_id)
-#                 date_recette = datetime.strptime(date_str, '%Y-%m-%d').date()
-#                 montant = Decimal(montant_str)
-                
-#                 # Vérifier qu'une recette n'existe pas déjà
-#                 if RecetteJournaliere.objects.filter(poste=poste, date=date_recette).exists():
-#                     messages.error(request, f"Une recette existe déjà pour {poste.nom} le {date_recette}")
-#                     return redirect('inventaire:liste_recettes')
-                
-#                 # Vérifier le stock AVANT de créer la recette
-#                 from inventaire.models import GestionStock, HistoriqueStock
-                
-#                 stock, created = GestionStock.objects.get_or_create(
-#                     poste=poste,
-#                     defaults={'valeur_monetaire': Decimal('0')}
-#                 )
-                
-#                 stock_avant = stock.valeur_monetaire
-                
-#                 # Si stock insuffisant, différencier admin et chef de poste
-#                 if stock.valeur_monetaire < montant:
-#                     messages.warning(
-#                         request, 
-#                         f"Stock insuffisant ({stock.valeur_monetaire:.0f} FCFA disponible). "
-#                         f"Il faut {montant:.0f} FCFA."
-#                     )
-                    
-#                     # DIFFÉRENCIATION : Admin vers charger stock, Chef vers nouvelle saisie
-#                     if request.user.is_admin:
-#                         messages.info(request, "Veuillez d'abord approvisionner le stock.")
-#                         return redirect('inventaire:charger_stock', poste_id=poste.id)
-#                     else:
-#                         messages.info(request, "Veuillez saisir une recette avec un montant inférieur ou contacter l'administrateur.")
-#                         return redirect('inventaire:saisie_recette')
-                
-#                 # Si stock suffisant, procéder à l'enregistrement
-#                 with transaction.atomic():
-#                     # Créer la recette
-#                     recette = RecetteJournaliere.objects.create(
-#                         poste=poste,
-#                         date=date_recette,
-#                         montant_declare=montant,
-#                         chef_poste=request.user,
-#                         modifiable_par_chef=False,
-#                         observations=observations,
-#                         prolongation_accordee=False
-#                     )
-                    
-#                     # Chercher l'inventaire associé si demandé
-#                     if lier_inventaire:
-#                         try:
-#                             inventaire = InventaireJournalier.objects.get(
-#                                 poste=poste,
-#                                 date=date_recette
-#                             )
-#                             recette.inventaire_associe = inventaire
-#                             recette.save()
-#                         except InventaireJournalier.DoesNotExist:
-#                             pass
-                    
-#                     # Déduire du stock
-#                     stock.valeur_monetaire -= montant
-#                     stock.save()
-                    
-#                     # Créer l'historique
-#                     HistoriqueStock.objects.create(
-#                         poste=poste,
-#                         type_mouvement='DEBIT',
-#                         montant=montant,
-#                         nombre_tickets=int(montant / 500),
-#                         stock_avant=stock_avant,
-#                         stock_apres=stock.valeur_monetaire,
-#                         effectue_par=request.user,
-#                         reference_recette=recette,
-#                         commentaire=f"Vente du {date_recette.strftime('%d/%m/%Y')}"
-#                     )
-                    
-#                     # # Journaliser
-#                     # log_user_action(
-#                     #     request.user,
-#                     #     "Saisie recette confirmée",
-#                     #     f"Recette: {montant:.0f} FCFA pour {poste.nom} - {date_recette}",
-#                     #     request
-#                     # )
-                    
-#                     messages.success(
-#                         request, 
-#                         f"Recette enregistrée avec succès. Stock restant: {stock.valeur_monetaire:.0f} FCFA"
-#                     )
-                    
-#                     # Redirection selon le type d'utilisateur
-#                     if request.user.is_admin:
-#                         return redirect('inventaire:liste_recettes')
-#                     else:
-#                         return redirect(f"{reverse('inventaire:liste_recettes')}?poste={poste.id}")
-                        
-#             except Exception as e:
-#                 messages.error(request, f"Erreur lors de l'enregistrement: {str(e)}")
-#                 return redirect('inventaire:saisie_recette')
-        
-#         else:
-#             # Premier POST : validation du formulaire
-#             form = RecetteJournaliereForm(request.POST, user=request.user)
-            
-#             if form.is_valid():
-#                 poste = form.cleaned_data['poste']
-#                 date_recette = form.cleaned_data['date']
-#                 montant = form.cleaned_data['montant_declare']
-#                 observations = form.cleaned_data.get('observations', '')
-#                 lier_inventaire = form.cleaned_data.get('lier_inventaire', True)
-                
-#                 # Vérifier le stock actuel
-#                 from inventaire.models import GestionStock
-#                 stock_actuel = Decimal('0')
-#                 try:
-#                     stock = GestionStock.objects.get(poste=poste)
-#                     stock_actuel = stock.valeur_monetaire
-#                 except GestionStock.DoesNotExist:
-#                     pass
-                
-#                 # Afficher la page de confirmation même si stock insuffisant
-#                 # L'alerte sera affichée sur la page de confirmation
-#                 return render(request, 'inventaire/confirmer_recette.html', {
-#                     'poste': poste,
-#                     'date': date_recette,
-#                     'montant': montant,
-#                     'observations': observations,
-#                     'lier_inventaire': lier_inventaire,
-#                     'stock_actuel': stock_actuel,
-#                     'stock_apres': stock_actuel - montant,
-#                     'stock_suffisant': stock_actuel >= montant,
-#                     'is_admin': request.user.is_admin
-#                 })
-#     else:
-#         # GET : afficher le formulaire
-#         initial_data = {
-#             'date': timezone.now().date(),
-#             'lier_inventaire': True
-#         }
-#         if request.user.poste_affectation:
-#             initial_data['poste'] = request.user.poste_affectation
-            
-#         form = RecetteJournaliereForm(initial=initial_data, user=request.user)
-    
-#     # Reste du code pour les statistiques...
-#     recettes_query = RecetteJournaliere.objects.filter(
-#         chef_poste=request.user
-#     ).select_related('poste', 'inventaire_associe').order_by('-date')
-    
-#     stats = {
-#         'total_mois': 0,
-#         'moyenne_taux': 0
-#     }
-    
-#     if recettes_query.exists():
-#         recettes_mois = recettes_query.filter(
-#             date__month=timezone.now().month,
-#             date__year=timezone.now().year
-#         )
-        
-#         total_result = recettes_mois.aggregate(total=Sum('montant_declare'))['total']
-#         if total_result:
-#             stats['total_mois'] = float(total_result)
-        
-#         taux_values = []
-#         for recette in recettes_query.filter(taux_deperdition__isnull=False):
-#             if recette.taux_deperdition is not None:
-#                 try:
-#                     val = float(recette.taux_deperdition)
-#                     taux_values.append(val)
-#                 except (TypeError, ValueError, InvalidOperation):
-#                     continue
-        
-#         if taux_values:
-#             stats['moyenne_taux'] = sum(taux_values) / len(taux_values)
-    
-#     recettes_recentes = recettes_query[:10]
-    
-#     context = {
-#         'form': form,
-#         'postes': postes,
-#         'recettes_recentes': recettes_recentes,
-#         'stats': stats,
-#         'title': 'Saisir une recette journalière'
-#     }
-    
-#     return render(request, 'inventaire/saisir_recette.html', context)
+
 
 
 @login_required
@@ -3820,11 +3735,41 @@ def redirect_to_dashboard(request):
 
 
 @login_required
-@require_permission('peut_gerer_inventaire')
 def programmer_inventaire(request):
-    """Vue pour programmer des inventaires avec sélection automatique/manuelle"""
+    """
+    Vue pour programmer des inventaires avec sélection automatique/manuelle
+    
+    MISE À JOUR - Permissions granulaires:
+    - Permission requise: peut_programmer_inventaire
+    - Log détaillé de chaque action utilisateur
+    """
     import logging
     logger = logging.getLogger('supper')
+    
+    user = request.user
+    
+    # =========================================
+    # VÉRIFICATION PERMISSION GRANULAIRE
+    # =========================================
+    if not has_permission(user, 'peut_programmer_inventaire'):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Programmation inventaire",
+            f"Permission manquante: peut_programmer_inventaire | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | "
+            f"IP: {request.META.get('REMOTE_ADDR')}",
+            request
+        )
+        messages.error(request, _("Vous n'avez pas la permission de programmer des inventaires."))
+        return redirect('common:dashboard')
+    
+    # Log de l'accès autorisé
+    log_user_action(
+        user,
+        "Accès page programmation inventaire",
+        f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | Méthode: {request.method}",
+        request
+    )
     
     context = {
         'mois_disponibles': [
@@ -3852,6 +3797,14 @@ def programmer_inventaire(request):
         motif = request.POST.get('motif')
         logger.info(f"[INFO] Génération pour motif: {motif}, mois: {mois_str}")
         context['motif_selectionne'] = motif
+        
+        # Log de la génération
+        log_user_action(
+            user,
+            "Génération postes pour programmation",
+            f"Motif: {motif} | Mois: {mois_str}",
+            request
+        )
         
         try:
             # MOTIF 1: RISQUE DE BAISSE ANNUEL
@@ -3934,18 +3887,6 @@ def programmer_inventaire(request):
                         if derniere_recette.taux_deperdition < -30:
                             poste_data['selection_auto'] = True
                             postes_auto_selectionnes.append(poste_data)
-                        # else:
-                        #     poste_data['selection_auto'] = False
-                        #     postes_non_selectionnes.append(poste_data)
-                    # # else:
-                    # #     # Pas de taux disponible, non sélectionné par défaut
-                    # #     postes_non_selectionnes.append({
-                    # #         'poste': poste,
-                    # #         'taux_deperdition': None,
-                    # #         'date_calcul': None,
-                    # #         'alerte': 'secondary',
-                    # #         'selection_auto': False
-                    #     })
                 
                 context['postes_taux_auto'] = postes_auto_selectionnes
                 context['postes_taux_manuel'] = postes_non_selectionnes
@@ -3975,6 +3916,12 @@ def programmer_inventaire(request):
                 
         except Exception as e:
             logger.error(f"[ERROR] Erreur lors de la génération: {str(e)}")
+            log_user_action(
+                user,
+                "ERREUR - Génération programmation",
+                f"Motif: {motif} | Erreur: {str(e)}",
+                request
+            )
             messages.error(request, f"Erreur lors de la génération: {str(e)}")
     
     # Si on soumet le formulaire final de programmation
@@ -4042,6 +3989,17 @@ def programmer_inventaire(request):
                 except Exception as e:
                     logger.error(f"[ERROR] Erreur pour poste {poste_id}: {str(e)}")
                     messages.error(request, f"Erreur pour le poste: {str(e)}")
+            
+            # Log détaillé de la programmation
+            log_user_action(
+                user,
+                "Programmation inventaires créée",
+                f"Motif: {motif} | Mois: {mois_str} | "
+                f"Postes programmés: {len(postes_programmes)} | "
+                f"Déjà programmés: {len(postes_deja_programmes)} | "
+                f"Liste: {', '.join(postes_programmes[:5])}{'...' if len(postes_programmes) > 5 else ''}",
+                request
+            )
             
             # Messages de confirmation
             if postes_programmes:
@@ -4533,17 +4491,44 @@ def selection_date_inventaire(request, poste_id=None):
     })
 
 @login_required
-@require_permission('peut_gerer_inventaire')
 def programmations_desactivees(request):
-    """Liste des programmations désactivées"""
+    """
+    Liste des programmations désactivées.
+    MISE À JOUR: Permission peut_voir_programmation_desactivee requise
+    """
+    user = request.user
+    
+    # Vérifier permission avec système granulaire
+    if not has_permission(user, 'peut_voir_programmation_desactivee'):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Programmations désactivées",
+            f"Permission manquante: peut_voir_programmation_desactivee",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de voir les programmations désactivées.")
+        return redirect('inventaire:liste_programmations')
     
     programmations = ProgrammationInventaire.objects.filter(
         actif=False
     ).select_related('poste', 'cree_par').order_by('-date_creation')
     
+    # Log de l'accès
+    log_user_action(
+        user,
+        "Consultation programmations désactivées",
+        f"Total: {programmations.count()}",
+        request
+    )
+    
     if request.method == 'POST':
         prog_id = request.POST.get('programmation_id')
         action = request.POST.get('action')
+        
+        # Vérifier permission de modification
+        if not _check_programmation_permission(user):
+            messages.error(request, "Vous n'avez pas la permission de modifier les programmations.")
+            return redirect('inventaire:programmations_desactivees')
         
         try:
             prog = ProgrammationInventaire.objects.get(id=prog_id)
@@ -4566,10 +4551,25 @@ def programmations_desactivees(request):
                 else:
                     prog.actif = True
                     prog.save()
+                    
+                    log_user_action(
+                        user,
+                        "Réactivation programmation",
+                        f"Poste: {prog.poste.nom} | Mois: {prog.mois} | Motif: {prog.get_motif_display()}",
+                        request
+                    )
                     messages.success(request, "Programmation réactivée avec succès")
                     
             elif action == 'supprimer':
+                info_prog = f"{prog.poste.nom} - {prog.mois} - {prog.get_motif_display()}"
                 prog.delete()
+                
+                log_user_action(
+                    user,
+                    "Suppression programmation",
+                    f"Programmation supprimée: {info_prog}",
+                    request
+                )
                 messages.success(request, "Programmation supprimée définitivement")
                 
         except ProgrammationInventaire.DoesNotExist:
@@ -4577,7 +4577,8 @@ def programmations_desactivees(request):
     
     context = {
         'programmations': programmations,
-        'title': 'Programmations désactivées'
+        'title': 'Programmations désactivées',
+        'can_edit': _check_programmation_permission(user),
     }
     
     return render(request, 'inventaire/programmations_desactivees.html', context)
@@ -4602,11 +4603,24 @@ def check_inventaire_exists(request):
         return JsonResponse({'exists': False})
 
 @login_required
-@user_passes_test(is_admin)
 def jours_impertinents_view(request):
-    """Vue pour afficher les jours impertinents avec détails"""
-    from django.db.models import Q
-    from datetime import date, timedelta, datetime
+    """
+    Vue pour afficher les jours impertinents avec détails.
+    MISE À JOUR: Permission peut_voir_jours_impertinents requise
+    """
+    user = request.user
+    
+    # Vérifier permission avec système granulaire
+    if not _check_jours_impertinents_permission(user):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Jours impertinents",
+            f"Permission manquante: peut_voir_jours_impertinents | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de voir les jours impertinents.")
+        return redirect('common:dashboard')
     
     # Récupération des paramètres
     periode = request.GET.get('periode', 'mois')
@@ -4638,7 +4652,6 @@ def jours_impertinents_view(request):
     # Récupérer les recettes avec taux > -5%
     jours_enrichis = []
     
-    # Requête pour les recettes impertinentes (taux > -5% avec inventaire associé)
     recettes_impertinentes = RecetteJournaliere.objects.filter(
         date__range=[date_debut, date_fin],
         inventaire_associe__isnull=False,
@@ -4667,18 +4680,25 @@ def jours_impertinents_view(request):
     }
     
     for jour in jours_enrichis:
-        # Par agent
         if jour['agent_inventaire']:
             agent_nom = jour['agent_inventaire'].nom_complet
             if agent_nom not in stats['par_agent']:
                 stats['par_agent'][agent_nom] = 0
             stats['par_agent'][agent_nom] += 1
         
-        # Par poste
         poste_nom = jour['poste'].nom
         if poste_nom not in stats['par_poste']:
             stats['par_poste'][poste_nom] = 0
         stats['par_poste'][poste_nom] += 1
+    
+    # Log de la consultation
+    log_user_action(
+        user,
+        "Consultation jours impertinents",
+        f"Période: {periode} | Du {date_debut} au {date_fin} | "
+        f"Poste: {poste_id} | Total: {len(jours_enrichis)}",
+        request
+    )
     
     context = {
         'jours_impertinents': jours_enrichis,
@@ -4687,10 +4707,12 @@ def jours_impertinents_view(request):
         'date_debut': date_debut,
         'date_fin': date_fin,
         'postes': Poste.objects.filter(is_active=True, type='peage'),
-        'poste_selectionne': poste_id
+        'poste_selectionne': poste_id,
+        'can_view_stats': _check_stats_deperdition_permission(user),
     }
     
     return render(request, 'inventaire/jours_impertinents.html', context)
+
 @login_required
 def redirect_to_delete_recette_admin(request, recette_id):
     """Redirection vers la suppression dans l'admin Django"""
@@ -4709,9 +4731,35 @@ def redirect_to_delete_recette_admin(request, recette_id):
         return redirect('inventaire:liste_recettes')
 
 @login_required
-@user_passes_test(lambda u: u.is_admin)
 def gestion_objectifs_annuels(request):
-    """Vue pour gérer tous les objectifs annuels - CORRIGÉE"""
+    """
+    Vue pour gérer les objectifs annuels.
+    MISE À JOUR: Permission peut_voir_objectifs_peage requise
+    """
+    user = request.user
+    
+    # Vérifier permission avec système granulaire
+    if not has_permission(user, 'peut_voir_objectifs_peage'):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Objectifs annuels",
+            f"Permission manquante: peut_voir_objectifs_peage | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de voir les objectifs annuels.")
+        return redirect('common:dashboard')
+    
+    # Récupérer l'année (paramètre ou année en cours)
+    annee = int(request.GET.get('annee', date.today().year))
+    
+    # Log de l'accès
+    log_user_action(
+        user,
+        "Consultation objectifs annuels",
+        f"Année: {annee}",
+        request
+    )
     
     from inventaire.services.objectifs_service import ObjectifsService
     from django.db import transaction
@@ -4811,18 +4859,53 @@ def gestion_objectifs_annuels(request):
         'objectifs_data': objectifs_data,  # TOUS LES POSTES
         'total_global': stats_globales['total_objectif'],
         'total_realise': stats_globales['total_realise'],
+        'title': f'Objectifs Annuels {annee}',
+        'can_edit': is_admin_user(user),
         'taux_global': stats_globales['taux_realisation']
     }
     
     return render(request, 'inventaire/gestion_objectifs_annuels.html', context)
 
 @login_required
-@user_passes_test(lambda u: u.is_admin)
 def dupliquer_objectifs_annee(request):
-    """Duplique les objectifs d'une année vers une autre"""
+    """
+    Duplique les objectifs d'une année vers une autre
+    
+    MISE À JOUR - Permissions granulaires:
+    - Permission requise: utilisateur admin (is_admin_user)
+    - Log détaillé de chaque action utilisateur
+    """
+    user = request.user
+    
+    # =========================================
+    # VÉRIFICATION PERMISSION GRANULAIRE
+    # =========================================
+    if not is_admin_user(user):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Duplication objectifs",
+            f"Permission admin requise | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | "
+            f"IP: {request.META.get('REMOTE_ADDR')}",
+            request
+        )
+        messages.error(request, _("Seuls les administrateurs peuvent dupliquer les objectifs."))
+        return redirect('common:dashboard')
+    
     if request.method == 'POST':
         annee_source = int(request.POST.get('annee_source'))
         annee_cible = int(request.POST.get('annee_cible'))
+        
+        # Validation des années
+        if annee_cible <= annee_source:
+            messages.error(request, "L'année cible doit être supérieure à l'année source.")
+            log_user_action(
+                user,
+                "ERREUR - Duplication objectifs",
+                f"Validation échouée: année source ({annee_source}) >= année cible ({annee_cible})",
+                request
+            )
+            return redirect('inventaire:gestion_objectifs_annuels')
         
         objectifs_source = ObjectifAnnuel.objects.filter(annee=annee_source)
         count = 0
@@ -4839,6 +4922,16 @@ def dupliquer_objectifs_annee(request):
             if created:
                 count += 1
         
+        # Log détaillé de la duplication
+        log_user_action(
+            user,
+            "Duplication objectifs annuels",
+            f"Année source: {annee_source} | Année cible: {annee_cible} | "
+            f"Objectifs source: {objectifs_source.count()} | "
+            f"Objectifs dupliqués: {count}",
+            request
+        )
+        
         messages.success(request, f"✓ {count} objectifs dupliqués de {annee_source} vers {annee_cible}")
     
     return redirect('inventaire:gestion_objectifs_annuels')
@@ -4847,9 +4940,24 @@ def dupliquer_objectifs_annee(request):
 from inventaire.services.forecasting_service import ForecastingService
 
 @login_required
-@user_passes_test(is_admin)
 def simulateur_commandes(request):
-    """Simulateur de commandes amélioré avec prévisions statistiques"""
+    """
+    Simulateur de commandes avec prévisions statistiques.
+    MISE À JOUR: Permission peut_simuler_commandes_peage requise
+    """
+    user = request.user
+    
+    # Vérifier permission avec système granulaire
+    if not has_permission(user, 'peut_simuler_commandes_peage'):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Simulateur commandes",
+            f"Permission manquante: peut_simuler_commandes_peage | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission d'accéder au simulateur de commandes.")
+        return redirect('common:dashboard')
     
     postes = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
     resultats = None
@@ -4861,21 +4969,30 @@ def simulateur_commandes(request):
         if poste_id:
             poste = get_object_or_404(Poste, id=poste_id)
             
-            # Utiliser le nouveau service de prévisions
+            # Utiliser le service de prévisions
+            from inventaire.services.forecasting_service import ForecastingService
             resultats_prevision = ForecastingService.calculer_commande_tickets_optimale(poste)
             
             if resultats_prevision['success']:
                 resultats = resultats_prevision
                 
-                # Log l'action
+                # Log de la simulation
                 log_user_action(
-                    request.user,
-                    "Simulation commande (prévisions avancées)",
-                    f"Poste: {poste.nom}, Scénario moyen: {resultats['scenarios']['moyen']['montant']:.0f} FCFA",
+                    user,
+                    "Simulation commande tickets",
+                    f"Poste: {poste.nom} | "
+                    f"Scénario moyen: {resultats['scenarios']['moyen']['montant']:.0f} FCFA | "
+                    f"Jours analysés: {resultats.get('jours_analyses', 'N/A')}",
                     request
                 )
             else:
                 erreur = resultats_prevision.get('error', 'Erreur inconnue')
+                log_user_action(
+                    user,
+                    "ERREUR - Simulation commande",
+                    f"Poste: {poste.nom} | Erreur: {erreur}",
+                    request
+                )
                 messages.error(request, erreur)
     
     context = {
@@ -5011,16 +5128,37 @@ def api_inventaire_stats(request):
     })
 
 
-# inventaire/views.py (ou dans le fichier approprié)
 
 @login_required
-@user_passes_test(lambda u: u.is_admin)
 def calculer_objectifs_automatique(request):
     """
     Vue pour calculer automatiquement les objectifs d'une année
     en appliquant un pourcentage sur l'année précédente
+    
+    MISE À JOUR - Permissions granulaires:
+    - Permission requise: utilisateur admin (is_admin_user)
+    - Suppression de @user_passes_test(lambda u: u.is_admin)
+    - Log détaillé de chaque action utilisateur
     """
     from inventaire.services.objectifs_service import ObjectifsService
+    
+    user = request.user
+    
+    # =========================================
+    # VÉRIFICATION PERMISSION GRANULAIRE
+    # (Remplace @user_passes_test(lambda u: u.is_admin))
+    # =========================================
+    if not is_admin_user(user):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Calcul objectifs automatique",
+            f"Permission admin requise | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | "
+            f"IP: {request.META.get('REMOTE_ADDR')}",
+            request
+        )
+        messages.error(request, _("Seuls les administrateurs peuvent calculer les objectifs automatiquement."))
+        return redirect('common:dashboard')
     
     if request.method == 'POST':
         annee_source = int(request.POST.get('annee_source'))
@@ -5030,10 +5168,22 @@ def calculer_objectifs_automatique(request):
         # Validation
         if annee_cible <= annee_source:
             messages.error(request, "L'année cible doit être supérieure à l'année source.")
+            log_user_action(
+                user,
+                "ERREUR - Calcul objectifs automatique",
+                f"Validation échouée: année cible ({annee_cible}) <= année source ({annee_source})",
+                request
+            )
             return redirect('inventaire:gestion_objectifs')
         
         if pourcentage < -100 or pourcentage > 500:
             messages.error(request, "Le pourcentage doit être entre -100% et +500%.")
+            log_user_action(
+                user,
+                "ERREUR - Calcul objectifs automatique",
+                f"Validation échouée: pourcentage hors limites ({pourcentage}%)",
+                request
+            )
             return redirect('inventaire:gestion_objectifs')
         
         # Appliquer le calcul
@@ -5042,6 +5192,18 @@ def calculer_objectifs_automatique(request):
         )
         
         if resultats['success']:
+            # Log détaillé du succès
+            log_user_action(
+                user,
+                "Calcul objectifs automatique réussi",
+                f"Année source: {annee_source} | Année cible: {annee_cible} | "
+                f"Pourcentage: {pourcentage:+.1f}% | "
+                f"Objectifs créés: {resultats['objectifs_crees']} | "
+                f"Objectifs modifiés: {resultats['objectifs_modifies']} | "
+                f"Total: {resultats['total_objectif_cible']:,.0f} FCFA",
+                request
+            )
+            
             messages.success(
                 request,
                 f"✓ Objectifs {annee_cible} calculés avec succès : "
@@ -5050,6 +5212,14 @@ def calculer_objectifs_automatique(request):
                 f"({pourcentage:+.1f}% par rapport à {annee_source})"
             )
         else:
+            # Log de l'échec
+            log_user_action(
+                user,
+                "ERREUR - Calcul objectifs automatique",
+                f"Année source: {annee_source} | Année cible: {annee_cible} | "
+                f"Message: {resultats.get('message', 'Erreur inconnue')}",
+                request
+            )
             messages.error(request, resultats.get('message', 'Erreur lors du calcul'))
         
         return redirect(f"/inventaire/objectifs-annuels/?annee={annee_cible}")
@@ -5057,6 +5227,14 @@ def calculer_objectifs_automatique(request):
     # GET : afficher le formulaire de calcul
     annee_actuelle = date.today().year
     annees = list(range(annee_actuelle - 5, annee_actuelle + 6))
+    
+    # Log de l'accès à la page
+    log_user_action(
+        user,
+        "Accès page calcul objectifs automatique",
+        f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+        request
+    )
     
     context = {
         'annees': annees,
@@ -5071,15 +5249,21 @@ def calculer_objectifs_automatique(request):
 @login_required
 def saisie_quittancement(request):
     """
-    Vue pour saisir un quittancement (version simplifiée sans formset)
-    Gestion en 3 étapes sans JavaScript
-    
-    ✅ CORRECTION : Gestion de l'image avec nouvelle approche
+    Vue pour saisir un quittancement.
+    MISE À JOUR: Permission peut_saisir_quittance_peage requise
     """
+    user = request.user
     
-    # Vérification permissions
-    if not (request.user.is_admin or request.user.is_chef_poste):
-        messages.error(request, "❌ Accès non autorisé")
+    # Vérifier permission avec système granulaire
+    if not _check_quittance_permission(user):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Saisie quittancement",
+            f"Permission manquante: peut_saisir_quittance_peage | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de saisir des quittancements.")
         return redirect('common:dashboard')
     
     # Nettoyer la session au début si nouvelle saisie
@@ -5089,6 +5273,14 @@ def saisie_quittancement(request):
             request.session.pop(key, None)
     
     etape = int(request.POST.get('etape', request.GET.get('etape', 1)))
+    
+    # Log de l'accès à l'étape
+    log_user_action(
+        user,
+        f"Saisie quittancement - Étape {etape}",
+        f"Méthode: {request.method}",
+        request
+    )
     
     # ============================================================
     # ÉTAPE 1 : Paramètres globaux
@@ -5121,13 +5313,13 @@ def saisie_quittancement(request):
             # Rediriger vers étape 2
             return redirect(f"{reverse('inventaire:saisie_quittancement')}?etape=2")
         
-        # GET : Afficher le formulaire
+       # Retourner le rendu de l'étape 1 par défaut
         from datetime import datetime
         annee_courante = datetime.now().year
         annees = list(range(annee_courante - 5, annee_courante + 2))
         
         context = {
-            'etape': 1,
+            'etape': etape,
             'annees': annees,
             'annee_courante': annee_courante,
             'types_declaration': [
@@ -5135,8 +5327,7 @@ def saisie_quittancement(request):
                 ('decade', 'Par décade')
             ],
         }
-        return render(request, 'inventaire/saisie_quittancement_simple.html', context)
-    
+        return render(request, 'inventaire/saisie_quittancement_simple.html', context)    
     # ============================================================
     # ÉTAPE 2 : Saisie du quittancement + IMAGE
     # ============================================================
@@ -5469,78 +5660,215 @@ def saisie_quittancement(request):
     
 @login_required
 def liste_quittancements(request):
-    if request.user.is_admin:
+    """
+    Liste des quittancements avec pagination et statistiques.
+    
+    MISE À JOUR - Corrections:
+    1. Permission peut_voir_liste_quittances_peage requise
+    2. Ajout de toutes les variables de contexte pour le template
+    3. Pagination avec page_obj
+    4. Statistiques (nombre_quittancements, total_montant)
+    5. Log détaillé des actions utilisateur
+    """
+    user = request.user
+    
+    # =========================================
+    # VÉRIFICATION PERMISSION GRANULAIRE
+    # =========================================
+    if not has_permission(user, 'peut_voir_liste_quittances_peage'):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Liste quittancements",
+            f"Permission manquante: peut_voir_liste_quittances_peage | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | "
+            f"IP: {request.META.get('REMOTE_ADDR')}",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de voir les quittancements.")
+        return redirect('common:dashboard')
+    
+    # =========================================
+    # FILTRAGE SELON LES PERMISSIONS
+    # =========================================
+    
+    # Déterminer l'accès aux postes
+    if user_has_acces_tous_postes(user):
         quittancements = Quittancement.objects.all()
-    elif request.user.poste_affectation:
-        quittancements = Quittancement.objects.filter(poste=request.user.poste_affectation)
+        postes_disponibles = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
+    elif user.poste_affectation:
+        quittancements = Quittancement.objects.filter(poste=user.poste_affectation)
+        postes_disponibles = None  # Pas de filtre poste si accès limité
     else:
         quittancements = Quittancement.objects.none()
-
+        postes_disponibles = None
+    
+    # =========================================
+    # APPLICATION DES FILTRES GET
+    # =========================================
+    
     poste_id = request.GET.get('poste')
     exercice = request.GET.get('exercice')
     type_declaration = request.GET.get('type_declaration')
-    mois = request.GET.get('mois')
+    mois = request.GET.get('mois')  # Format: YYYY-MM
     date_debut = request.GET.get('date_debut')
     date_fin = request.GET.get('date_fin')
     numero = request.GET.get('numero')
     montant_min = request.GET.get('montant_min')
-
+    
+    # Appliquer les filtres
     if poste_id:
         quittancements = quittancements.filter(poste_id=poste_id)
+    
     if exercice:
         quittancements = quittancements.filter(exercice=exercice)
+    
     if type_declaration:
         quittancements = quittancements.filter(type_declaration=type_declaration)
+    
     if mois:
+        # Format attendu: YYYY-MM
         quittancements = quittancements.filter(mois=mois)
+    
     if date_debut:
         quittancements = quittancements.filter(date_quittancement__gte=date_debut)
+    
     if date_fin:
         quittancements = quittancements.filter(date_quittancement__lte=date_fin)
+    
     if numero:
         quittancements = quittancements.filter(numero_quittance__icontains=numero)
+    
     if montant_min:
         try:
-            quittancements = quittancements.filter(montant__gte=Decimal(montant_min))
-        except:
+            montant_min_val = Decimal(montant_min)
+            quittancements = quittancements.filter(montant__gte=montant_min_val)
+        except (ValueError, InvalidOperation):
             pass
-
-    quittancements = quittancements.select_related('poste', 'saisi_par').order_by('-date_quittancement', '-id')
-
-    paginator = Paginator(quittancements, 25)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    total_montant = quittancements.aggregate(Sum('montant'))['montant__sum'] or Decimal('0')
-
-    import datetime
-    current_year = datetime.datetime.now().year
-    years_range = list(range(current_year, current_year - 5, -1))
-
+    
+    # =========================================
+    # OPTIMISATION ET TRI
+    # =========================================
+    
+    quittancements = quittancements.select_related(
+        'poste', 
+        'saisi_par'
+    ).order_by('-date_saisie', '-date_quittancement')
+    
+    # =========================================
+    # CALCUL DES STATISTIQUES
+    # =========================================
+    
+    # Nombre total de quittancements (avant pagination)
+    nombre_quittancements = quittancements.count()
+    
+    # Montant total (avant pagination)
+    total_montant = quittancements.aggregate(
+        total=Sum('montant')
+    )['total'] or Decimal('0')
+    
+    # =========================================
+    # PAGINATION
+    # =========================================
+    
+    paginator = Paginator(quittancements, 25)  # 25 éléments par page
+    page_number = request.GET.get('page', 1)
+    
+    try:
+        page_obj = paginator.get_page(page_number)
+    except Exception:
+        page_obj = paginator.get_page(1)
+    
+    # =========================================
+    # PRÉPARATION DES DONNÉES POUR LES FILTRES
+    # =========================================
+    
+    # Année courante et plage d'années pour le filtre
+    annee_courante = timezone.now().year
+    years_range = list(range(annee_courante - 5, annee_courante + 2))
+    
+    # =========================================
+    # LOG DE LA CONSULTATION
+    # =========================================
+    
+    filtres_actifs = []
+    if poste_id:
+        filtres_actifs.append(f"poste={poste_id}")
+    if exercice:
+        filtres_actifs.append(f"exercice={exercice}")
+    if mois:
+        filtres_actifs.append(f"mois={mois}")
+    if type_declaration:
+        filtres_actifs.append(f"type={type_declaration}")
+    if numero:
+        filtres_actifs.append(f"numero={numero}")
+    
+    log_user_action(
+        user,
+        "Consultation liste quittancements",
+        f"Total résultats: {nombre_quittancements} | "
+        f"Page: {page_number} | "
+        f"Filtres: {', '.join(filtres_actifs) if filtres_actifs else 'Aucun'}",
+        request
+    )
+    
+    # =========================================
+    # CONTEXTE POUR LE TEMPLATE
+    # =========================================
+    
     context = {
+        # Variables de pagination (CRITIQUE - le template utilise page_obj)
         'page_obj': page_obj,
-        'quittancements': page_obj,
+        
+        # Statistiques affichées dans les cartes
+        'nombre_quittancements': nombre_quittancements,
         'total_montant': total_montant,
-        'nombre_quittancements': quittancements.count(),
-        'postes': Poste.objects.filter(is_active=True, type='peage') if request.user.is_admin else None,
-        'exercice_courant': current_year,
+        'exercice_courant': annee_courante,
+        
+        # Liste des postes pour le filtre (admin uniquement)
+        'postes': postes_disponibles,
+        
+        # Plage d'années pour le filtre exercice
         'years_range': years_range,
-        'types_declaration': [
-            ('journaliere', 'Journalière'),
-            ('decade', 'Par décade')
-        ],
+        
+        # Permissions pour les boutons d'action
+        'can_edit': _check_quittance_permission(user),
+        'can_comptabiliser': _check_comptabilisation_permission(user),
+        
+        # Accès admin pour affichage conditionnel
+        'is_admin': user_has_acces_tous_postes(user),
     }
+    
     return render(request, 'inventaire/liste_quittancements.html', context)
+
 
 
 @login_required
 def comptabilisation_quittancements(request):
     """
-    Vue corrigée pour la comptabilisation des quittancements
-    Logique mise à jour :
-    - Journalière : Compare directement recette du jour vs quittancement du jour
-    - Décade : Somme des recettes journalières vs montant total de la décade
+    Vue pour comptabiliser les quittancements.
+    MISE À JOUR: Permission peut_comptabiliser_quittances_peage requise
     """
+    user = request.user
+    
+    # Vérifier permission avec système granulaire
+    if not _check_comptabilisation_permission(user):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Comptabilisation quittancements",
+            f"Permission manquante: peut_comptabiliser_quittances_peage | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de comptabiliser les quittancements.")
+        return redirect('common:dashboard')
+    
+    # Log de l'accès autorisé
+    log_user_action(
+        user,
+        "Accès comptabilisation quittancements",
+        f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+        request
+    )
     import calendar
     from datetime import timedelta, date
     from decimal import Decimal
@@ -5799,15 +6127,22 @@ def comptabilisation_quittancements(request):
         'postes_filtre': postes_filtre,
         'poste_selectionne': int(poste_id) if poste_id else None,
         'postes': postes_filtre,  
+        'title': 'Comptabilisation des Quittancements',
+        'can_justify': _check_comptabilisation_permission(user),
+
     }
     
     return render(request, 'inventaire/comptabilisation_quittancements.html', context)
+
 @login_required
 def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
     """
     Vue pour justifier un écart entre quittancements et déclarations
     
-    CORRECTION : Renommée pour cohérence avec les URLs et accepte les bons paramètres
+    MISE À JOUR - Permissions granulaires:
+    - Remplace: request.user.is_admin or request.user.is_chef_poste
+    - Par: is_admin_user(user) or is_chef_poste(user) avec check_poste_access()
+    - Log détaillé de chaque action utilisateur
     
     Args:
         request: Requête HTTP
@@ -5815,23 +6150,51 @@ def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
         date_debut: Date de début au format 'YYYY-MM-DD' (str)
         date_fin: Date de fin au format 'YYYY-MM-DD' (str)
     """
+    user = request.user
     
     # Récupérer le poste
     poste = get_object_or_404(Poste, id=poste_id)
     
-    # Vérifier les permissions
-    if not (request.user.is_admin or request.user.is_chef_poste):
+    # =========================================
+    # VÉRIFICATION PERMISSIONS GRANULAIRES
+    # (Remplace: request.user.is_admin or request.user.is_chef_poste)
+    # =========================================
+    
+    # Vérifier si l'utilisateur a les droits de base (admin ou chef de poste)
+    has_base_permission = is_admin_user(user) or is_chef_poste(user)
+    
+    if not has_base_permission:
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Justification écart",
+            f"Habilitation insuffisante | "
+            f"Habilitation actuelle: {getattr(user, 'habilitation', 'N/A')} | "
+            f"Poste demandé: {poste.nom} | "
+            f"IP: {request.META.get('REMOTE_ADDR')}",
+            request
+        )
         messages.error(
             request,
             "Seuls les administrateurs et chefs de poste peuvent justifier les écarts."
         )
-        log_user_action(
-            request.user,
-            "ACCÈS REFUSÉ - Justification écart",
-            f"Poste: {poste.nom}",
-            request
-        )
         return redirect('inventaire:comptabilisation_quittancements')
+    
+    # Pour les chefs de poste non-admin, vérifier l'accès au poste spécifique
+    if not is_admin_user(user):
+        if not check_poste_access(user, poste):
+            log_user_action(
+                user,
+                "ACCÈS REFUSÉ - Justification écart (poste non autorisé)",
+                f"Chef de poste sans accès au poste demandé | "
+                f"Poste demandé: {poste.nom} (ID: {poste_id}) | "
+                f"Poste affectation: {getattr(user.poste_affectation, 'nom', 'Aucun')}",
+                request
+            )
+            messages.error(
+                request,
+                "Vous n'avez pas accès à ce poste pour justifier les écarts."
+            )
+            return redirect('inventaire:comptabilisation_quittancements')
     
     # Convertir les dates
     try:
@@ -5839,6 +6202,12 @@ def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
     except ValueError as e:
         messages.error(request, f"Format de date invalide : {str(e)}")
+        log_user_action(
+            user,
+            "ERREUR - Justification écart (format date)",
+            f"Date début: {date_debut} | Date fin: {date_fin} | Erreur: {str(e)}",
+            request
+        )
         return redirect('inventaire:comptabilisation_quittancements')
     
     # Calculer les totaux et l'écart
@@ -5862,6 +6231,16 @@ def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
         date_fin=date_fin_obj
     ).select_related('justifie_par').first()
     
+    # Log de l'accès à la page
+    log_user_action(
+        user,
+        "Accès page justification écart",
+        f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | "
+        f"Écart calculé: {ecart} FCFA ({ecart_pourcentage:.1f}%) | "
+        f"Justification existante: {'Oui' if justification_existante else 'Non'}",
+        request
+    )
+    
     # Traitement du formulaire
     if request.method == 'POST':
         justification_texte = request.POST.get('justification', '').strip()
@@ -5871,6 +6250,12 @@ def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
             messages.error(
                 request,
                 "❌ La justification doit contenir au moins 20 caractères."
+            )
+            log_user_action(
+                user,
+                "ERREUR - Justification écart (texte trop court)",
+                f"Poste: {poste.nom} | Longueur texte: {len(justification_texte)} caractères",
+                request
             )
         else:
             try:
@@ -5883,6 +6268,15 @@ def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
                     justification_existante.montant_declare = total_declare
                     justification_existante.ecart = ecart
                     justification_existante.save()
+                    
+                    log_user_action(
+                        user,
+                        "Mise à jour justification écart",
+                        f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | "
+                        f"Écart: {ecart} FCFA | "
+                        f"Extrait: {justification_texte[:50]}...",
+                        request
+                    )
                     
                     messages.success(
                         request,
@@ -5901,29 +6295,36 @@ def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
                         justifie_par=request.user
                     )
                     
+                    log_user_action(
+                        user,
+                        "Création justification écart",
+                        f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | "
+                        f"Écart: {ecart} FCFA | "
+                        f"Extrait: {justification_texte[:50]}...",
+                        request
+                    )
+                    
                     messages.success(
                         request,
                         "✅ Justification enregistrée avec succès."
                     )
                 
-                # Journaliser l'action
-                log_user_action(
-                    request.user,
-                    "Justification écart quittancement",
-                    f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | Écart: {ecart} FCFA",
-                    request
-                )
-                
                 return redirect('inventaire:comptabilisation_quittancements')
                 
             except Exception as e:
+                log_user_action(
+                    user,
+                    "ERREUR - Enregistrement justification écart",
+                    f"Poste: {poste.nom} | Erreur: {str(e)}",
+                    request
+                )
                 messages.error(
                     request,
                     f"❌ Erreur lors de l'enregistrement : {str(e)}"
                 )
                 logger.error(f"Erreur justification écart: {str(e)}")
     
-    # Contexte pour le template
+    # Contexte pour le template (VARIABLES IDENTIQUES pour compatibilité template)
     context = {
         'poste': poste,
         'date_debut': date_debut_obj,
@@ -5943,7 +6344,23 @@ def justifier_ecart_periode(request, poste_id, date_debut, date_fin):
 
 @login_required
 def authentifier_document(request):
-    """Vue pour authentifier un document - VERSION CORRIGÉE"""
+    """
+    Vue pour authentifier un document.
+    MISE À JOUR: Permission peut_authentifier_document requise
+    """
+    user = request.user
+    
+    # Vérifier permission avec système granulaire
+    if not has_permission(user, 'peut_authentifier_document'):
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Authentification document",
+            f"Permission manquante: peut_authentifier_document | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission d'authentifier des documents.")
+        return redirect('common:dashboard')
     
     resultat = None
     type_document = None
@@ -5955,57 +6372,55 @@ def authentifier_document(request):
         if not numero:
             messages.error(request, "Veuillez saisir un numéro de document.")
         else:
-            if type_recherche == 'auto':
-                # Chercher dans les quittancements
-                try:
-                    quittancement = Quittancement.objects.select_related(
-                        'poste', 'saisi_par'
-                    ).get(numero_quittance=numero)
-                    
+            # Recherche dans les quittancements
+            try:
+                quittancement = Quittancement.objects.select_related(
+                    'poste', 'saisi_par'
+                ).get(numero_quittance=numero)
+                
+                resultat = {
+                    'trouve': True,
+                    'type': 'quittance',
+                    'document': quittancement,
+                    'details': {
+                        'numero': quittancement.numero_quittance,
+                        'poste': quittancement.poste.nom,
+                        'montant': quittancement.montant,
+                        'date_quittancement': quittancement.date_quittancement,
+                        'periode': quittancement.get_periode_display(),
+                        'saisi_par': quittancement.saisi_par.nom_complet if quittancement.saisi_par else 'Non défini',
+                        'date_saisie': quittancement.date_saisie,
+                    }
+                }
+                type_document = 'quittance'
+                
+            except Quittancement.DoesNotExist:
+                # Chercher dans les bordereaux
+                bordereaux = HistoriqueStock.objects.filter(
+                    numero_bordereau=numero
+                ).select_related('poste', 'effectue_par')
+                
+                if bordereaux.exists():
                     resultat = {
                         'trouve': True,
-                        'type': 'quittance',
-                        'document': quittancement,
-                        'details': {
-                            'numero': quittancement.numero_quittance,
-                            'poste': quittancement.poste.nom,
-                            'montant': quittancement.montant,
-                            'date_quittancement': quittancement.date_quittancement,
-                            'periode': quittancement.get_periode_display(),
-                            'saisi_par': quittancement.saisi_par.nom_complet if quittancement.saisi_par else 'Non défini',
-                            'date_saisie': quittancement.date_saisie,
-                            'image_url': quittancement.image_quittance.url if quittancement.image_quittance else None
-                        }
+                        'type': 'bordereau',
+                        'documents': bordereaux,
                     }
-                    type_document = 'quittance'
-                    
-                except Quittancement.DoesNotExist:
-                    # Chercher dans les bordereaux - Afficher tous
-                    bordereaux = HistoriqueStock.objects.filter(
-                        numero_bordereau=numero
-                    ).select_related(
-                        'poste', 'effectue_par', 'poste_origine', 'poste_destination'
-                    ).order_by('-date_mouvement')
-                    
-                    if bordereaux.exists():
-                        resultat = {
-                            'trouve': True,
-                            'type': 'bordereau',
-                            'documents': bordereaux,  # passer tous les bordereaux ici
-                        }
-                        type_document = 'bordereau'
-                    else:
-                        resultat = {
-                            'trouve': False,
-                            'message': f"Aucun document trouvé avec le numéro : {numero}"
-                        }
-                        messages.warning(request, f"Aucun document trouvé avec le numéro : {numero}")
+                    type_document = 'bordereau'
+                else:
+                    resultat = {
+                        'trouve': False,
+                        'message': f"Aucun document trouvé avec le numéro : {numero}"
+                    }
+                    messages.warning(request, f"Aucun document trouvé avec le numéro : {numero}")
             
-            # Journaliser la recherche
+            # Log de la recherche
             log_user_action(
-                request.user,
+                user,
                 "Authentification document",
-                f"Recherche : {numero} | Type: {type_recherche} | Résultat: {'Trouvé' if resultat and resultat.get('trouve') else 'Non trouvé'}",
+                f"Numéro recherché: {numero} | Type: {type_recherche} | "
+                f"Résultat: {'Trouvé' if resultat and resultat.get('trouve') else 'Non trouvé'} | "
+                f"Type document: {type_document or 'N/A'}",
                 request
             )
     
@@ -6017,19 +6432,21 @@ def authentifier_document(request):
     
     return render(request, 'inventaire/authentifier_document.html', context)
 
+ 
 
 
-# ===================================================================
-# CORRECTION CRITIQUE : inventaire/views.py
-# Fonction detail_quittancements_periode - Logique de comptabilisation
-# ===================================================================
 
 @login_required
 def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
     """
     Vue pour afficher les détails des quittancements d'un poste sur une période
     
-    NOUVELLE LOGIQUE :
+    MISE À JOUR - Permissions granulaires:
+    - Remplace: request.user.is_admin et request.user.poste_affectation.id != poste.id
+    - Par: user_has_acces_tous_postes(user) et check_poste_access(user, poste)
+    - Log détaillé de chaque action utilisateur
+    
+    LOGIQUE DE CALCUL :
     - Pour les quittancements journaliers : comparaison directe jour par jour
     - Pour les décades : vérification que tous les jours ont des recettes, 
       puis somme des recettes vs montant de la décade
@@ -6038,18 +6455,27 @@ def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
     from decimal import Decimal
     from django.db.models import Sum
     
+    user = request.user
     poste = get_object_or_404(Poste, id=poste_id)
     
-    # Vérification des permissions
-    if not request.user.is_admin:
-        if not request.user.poste_affectation or request.user.poste_affectation.id != poste.id:
-            messages.error(request, "Vous n'avez pas accès aux données de ce poste.")
+    # =========================================
+    # VÉRIFICATION PERMISSIONS GRANULAIRES
+    # (Remplace: if not request.user.is_admin: if not request.user.poste_affectation...)
+    # =========================================
+    
+    # Vérifier l'accès au poste avec le nouveau système
+    if not user_has_acces_tous_postes(user):
+        if not check_poste_access(user, poste):
             log_user_action(
-                request.user,
+                user,
                 "ACCÈS REFUSÉ - Détails quittancements",
-                f"Poste: {poste.nom}",
+                f"Poste non autorisé | "
+                f"Poste demandé: {poste.nom} (ID: {poste_id}) | "
+                f"Poste affectation: {getattr(user.poste_affectation, 'nom', 'Aucun')} | "
+                f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
                 request
             )
+            messages.error(request, "Vous n'avez pas accès aux données de ce poste.")
             return redirect('inventaire:comptabilisation_quittancements')
     
     # Conversion des dates
@@ -6057,6 +6483,12 @@ def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
         date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
     except ValueError as e:
+        log_user_action(
+            user,
+            "ERREUR - Détails quittancements (format date)",
+            f"Date début: {date_debut} | Date fin: {date_fin} | Erreur: {str(e)}",
+            request
+        )
         messages.error(request, f"Format de date invalide : {str(e)}")
         return redirect('inventaire:comptabilisation_quittancements')
     
@@ -6083,7 +6515,7 @@ def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
         date__range=[date_debut_obj, date_fin_obj]
     ).order_by('date')
     
-    # === NOUVELLE LOGIQUE DE CALCUL ===
+    # === LOGIQUE DE CALCUL ===
     
     # Traiter les décades
     decades_details = []
@@ -6235,14 +6667,18 @@ def detail_quittancements_periode(request, poste_id, date_debut, date_fin):
         date_fin=date_fin_obj
     ).select_related('justifie_par')
     
-    # Journaliser l'action
+    # Log détaillé de la consultation
     log_user_action(
-        request.user,
+        user,
         "Consultation détails quittancements",
-        f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | Écart: {ecart} FCFA",
+        f"Poste: {poste.nom} | Période: {date_debut_obj} - {date_fin_obj} | "
+        f"Quittancements journaliers: {quittancements_journaliers.count()} | "
+        f"Décades: {quittancements_decades.count()} | "
+        f"Écart global: {ecart} FCFA",
         request
     )
     
+    # Contexte pour le template (VARIABLES IDENTIQUES pour compatibilité template)
     context = {
         'poste': poste,
         'date_debut': date_debut_obj,
@@ -6347,6 +6783,11 @@ def ajouter_image_quittancement(request, quittancement_id):
     """
     Vue pour ajouter/modifier l'image d'un quittancement existant
     
+    MISE À JOUR - Permissions granulaires:
+    - Remplace: request.user.is_admin
+    - Par: is_admin_user(user)
+    - Log détaillé de chaque action utilisateur
+    
     UTILISATION :
     - Après avoir créé un quittancement sans image (étapes 1-2-3)
     - L'utilisateur peut cliquer sur "Ajouter une image" dans la liste
@@ -6358,22 +6799,32 @@ def ajouter_image_quittancement(request, quittancement_id):
     - Interface simple et intuitive
     - Modifiable à tout moment
     """
+    user = request.user
     
     # Récupérer le quittancement
     quittancement = get_object_or_404(Quittancement, id=quittancement_id)
     
-    # Vérifier permissions
+    # =========================================
+    # VÉRIFICATION PERMISSIONS GRANULAIRES
+    # (Remplace: request.user.is_admin or request.user == quittancement.saisi_par)
+    # =========================================
+    
     # Seuls l'admin ou la personne qui a créé le quittancement peuvent modifier
-    if not (request.user.is_admin or request.user == quittancement.saisi_par):
+    can_modify = is_admin_user(user) or user == quittancement.saisi_par
+    
+    if not can_modify:
+        log_user_action(
+            user,
+            "ACCÈS REFUSÉ - Modification image quittancement",
+            f"N°{quittancement.numero_quittance} | "
+            f"Saisi par: {quittancement.saisi_par.nom_complet if quittancement.saisi_par else 'N/A'} | "
+            f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | "
+            f"IP: {request.META.get('REMOTE_ADDR')}",
+            request
+        )
         messages.error(
             request, 
             "❌ Vous n'avez pas les droits pour modifier ce quittancement"
-        )
-        log_user_action(
-            request.user,
-            "ACCÈS REFUSÉ - Modification image quittancement",
-            f"N°{quittancement.numero_quittance}",
-            request
         )
         return redirect('inventaire:liste_quittancements')
     
@@ -6381,6 +6832,12 @@ def ajouter_image_quittancement(request, quittancement_id):
         # Vérifier qu'une image est uploadée
         if 'image_quittance' not in request.FILES:
             messages.error(request, "❌ Aucune image sélectionnée")
+            log_user_action(
+                user,
+                "ERREUR - Ajout image quittancement (aucun fichier)",
+                f"N°{quittancement.numero_quittance}",
+                request
+            )
             return redirect('inventaire:ajouter_image_quittancement', quittancement_id=quittancement_id)
         
         image_file = request.FILES['image_quittance']
@@ -6388,6 +6845,12 @@ def ajouter_image_quittancement(request, quittancement_id):
         # Validation de la taille (5 MB max)
         max_size = 5 * 1024 * 1024  # 5 MB
         if image_file.size > max_size:
+            log_user_action(
+                user,
+                "ERREUR - Ajout image quittancement (fichier trop volumineux)",
+                f"N°{quittancement.numero_quittance} | Taille: {image_file.size / (1024*1024):.1f} MB",
+                request
+            )
             messages.error(
                 request, 
                 f"❌ Fichier trop volumineux ({image_file.size / (1024*1024):.1f} MB). Maximum : 5 MB"
@@ -6397,6 +6860,12 @@ def ajouter_image_quittancement(request, quittancement_id):
         # Validation du type de fichier
         allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf']
         if image_file.content_type not in allowed_types:
+            log_user_action(
+                user,
+                "ERREUR - Ajout image quittancement (type non autorisé)",
+                f"N°{quittancement.numero_quittance} | Type: {image_file.content_type}",
+                request
+            )
             messages.error(
                 request,
                 f"❌ Type de fichier non autorisé. Formats acceptés : JPG, PNG, GIF, PDF"
@@ -6405,6 +6874,7 @@ def ajouter_image_quittancement(request, quittancement_id):
         
         try:
             # Supprimer l'ancienne image si elle existe
+            old_path = None
             if quittancement.image_quittance:
                 # Sauvegarder l'ancien chemin pour le log
                 old_path = quittancement.image_quittance.name
@@ -6418,11 +6888,14 @@ def ajouter_image_quittancement(request, quittancement_id):
             quittancement.image_quittance = image_file
             quittancement.save()
             
-            # Journaliser l'action
+            # Log détaillé de l'action
             log_user_action(
-                request.user,
+                user,
                 "Ajout/Modification image quittancement",
-                f"N°{quittancement.numero_quittance} - Fichier : {image_file.name} ({image_file.size / 1024:.1f} KB)",
+                f"N°{quittancement.numero_quittance} | "
+                f"Poste: {quittancement.poste.nom} | "
+                f"Nouveau fichier: {image_file.name} ({image_file.size / 1024:.1f} KB) | "
+                f"Ancien fichier: {old_path or 'Aucun'}",
                 request
             )
             
@@ -6434,11 +6907,27 @@ def ajouter_image_quittancement(request, quittancement_id):
             return redirect('inventaire:liste_quittancements')
             
         except Exception as e:
+            log_user_action(
+                user,
+                "ERREUR - Enregistrement image quittancement",
+                f"N°{quittancement.numero_quittance} | Erreur: {str(e)}",
+                request
+            )
             messages.error(request, f"❌ Erreur lors de l'enregistrement : {str(e)}")
             logger.error(f"Erreur ajout image quittancement {quittancement_id}: {str(e)}", exc_info=True)
             return redirect('inventaire:ajouter_image_quittancement', quittancement_id=quittancement_id)
     
     # GET : Afficher le formulaire d'upload
+    # Log de l'accès à la page
+    log_user_action(
+        user,
+        "Accès page ajout image quittancement",
+        f"N°{quittancement.numero_quittance} | Poste: {quittancement.poste.nom} | "
+        f"Image existante: {'Oui' if quittancement.image_quittance else 'Non'}",
+        request
+    )
+    
+    # Contexte pour le template (VARIABLES IDENTIQUES pour compatibilité template)
     context = {
         'quittancement': quittancement,
         'poste': quittancement.poste,

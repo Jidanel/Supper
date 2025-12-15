@@ -1,8 +1,4 @@
 # ===================================================================
-# DASHBOARD ADMINISTRATEUR - ACCÈS COMPLET AVEC REDIRECTIONS ADMIN
-# ===================================================================
-
-# ===================================================================
 # common/views.py - Vue Dashboard Index Complète
 # Vue principale pour la vitrine de l'application SUPPER
 # ===================================================================
@@ -32,298 +28,444 @@ from inventaire.models import *
 import logging
 
 logger = logging.getLogger('supper')
+# ===================================================================
+# IMPORTS DES NOUVELLES PERMISSIONS ET DÉCORATEURS
+# ===================================================================
+from common.permissions import (
+    has_permission,
+    has_any_permission,
+    is_admin_user,
+    is_service_central,
+    is_cisop,
+    is_chef_poste,
+    is_operationnel_pesage,
+    user_has_acces_tous_postes,
+    get_postes_accessibles,
+    get_permissions_summary,
+)
 
+from common.decorators import (
+    permission_required_granular,
+    inventaire_admin_required,
+    liste_inventaires_admin_required,
+    tracabilite_tickets_required,
+    api_permission_required,
+)
+
+
+
+
+# ===================================================================
+# common/views.py - Fonction index_dashboard CORRIGÉE
+# Vue principale pour le dashboard SUPPER avec permissions granulaires
+# CHEMIN: Supper/common/views.py (modifier uniquement cette fonction)
+# ===================================================================
+
+"""
+INSTRUCTIONS:
+1. Remplacer UNIQUEMENT la fonction index_dashboard existante par celle-ci
+2. Ne pas modifier les autres fonctions du fichier
+3. Vérifier que tous les imports sont présents en haut du fichier
+"""
+
+# ===================================================================
+# IMPORTS REQUIS (vérifier qu'ils sont en haut du fichier)
+# ===================================================================
+"""
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+from common.utils import log_user_action
+from .mixins import AdminRequiredMixin
+from django.views.generic import TemplateView
+from django.http import JsonResponse
+from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
+from django.db.models import Count, Sum, Avg, Q, Min, Max
+from django.utils import timezone
+from django.urls import reverse
+from datetime import datetime, timedelta
+import json
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.http import require_http_methods
+import calendar
+from datetime import date
+
+from accounts.models import *
+from inventaire.models import *
+import logging
+
+logger = logging.getLogger('supper')
+
+from common.permissions import (
+    has_permission,
+    has_any_permission,
+    is_admin_user,
+    is_service_central,
+    is_cisop,
+    is_chef_poste,
+    is_operationnel_pesage,
+    user_has_acces_tous_postes,
+    get_postes_accessibles,
+    get_permissions_summary,
+)
+
+from common.decorators import (
+    permission_required_granular,
+    inventaire_admin_required,
+    liste_inventaires_admin_required,
+    tracabilite_tickets_required,
+    api_permission_required,
+)
+"""
 
 
 @login_required
 def index_dashboard(request):
-        """
-        Dashboard principal SUPPER avec statistiques complètes et cohérentes
-        Utilise les services centralisés pour garantir la cohérence des données
-        """
-        
-        from inventaire.services.objectifs_service import ObjectifsService
-        from datetime import timedelta
-        from django.db.models import Sum, Avg, Count
-        import json
-        import calendar
-        
-        user = request.user
-        today = timezone.now().date()
-        week_ago = today - timedelta(days=7)
-        month_ago = today - timedelta(days=30)
-        current_year = today.year
-        
-        # ================================================================
-        # 1. INFORMATIONS UTILISATEUR
-        # ================================================================
-        user_stats = {
-            'nom_complet': user.nom_complet,
-            'habilitation': user.get_habilitation_display(),
-            'poste_affectation': user.poste_affectation,
-            'is_admin': user.is_admin,
-            'is_chef': user.is_chef_poste,
-            'derniere_connexion': user.last_login,
+    """
+    Dashboard principal SUPPER avec statistiques complètes et permissions granulaires.
+    Chaque section est conditionnée par les permissions de l'utilisateur.
+    
+    LOGS:
+    - Consultation du dashboard avec nombre d'alertes
+    - Permissions utilisées pour le filtrage
+    """
+    
+    from inventaire.services.objectifs_service import ObjectifsService
+    
+    user = request.user
+    today = timezone.now().date()
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+    current_year = today.year
+    
+    logger.info(f"[DASHBOARD] Utilisateur {user.username} ({user.habilitation}) accède au dashboard")
+    
+    # ================================================================
+    # 1. RÉCUPÉRER LES PERMISSIONS GRANULAIRES
+    # ================================================================
+    user_perms = get_permissions_summary(user)
+    
+    logger.debug(f"[DASHBOARD] Permissions chargées pour {user.username}")
+    
+    # ================================================================
+    # 2. INFORMATIONS UTILISATEUR - Toujours visible
+    # ================================================================
+    user_stats = {
+        'nom_complet': user.nom_complet,
+        'habilitation': user.get_habilitation_display(),
+        'habilitation_code': user.habilitation,
+        'poste_affectation': user.poste_affectation,
+        'is_admin': is_admin_user(user),
+        'is_chef': is_chef_poste(user),
+        'is_service_central': is_service_central(user),
+        'is_cisop': is_cisop(user),
+        'is_operationnel_pesage': is_operationnel_pesage(user),
+        'derniere_connexion': user.last_login,
+        'permissions': user_perms,
+    }
+    
+    # ================================================================
+    # 3. DÉTERMINER LES POSTES ACCESSIBLES
+    # ================================================================
+    if user_has_acces_tous_postes(user):
+        postes_accessibles = Poste.objects.filter(is_active=True)
+        logger.debug(f"[DASHBOARD] {user.username} a accès à tous les postes actifs")
+    elif user.poste_affectation:
+        postes_accessibles = Poste.objects.filter(id=user.poste_affectation.id)
+        logger.debug(f"[DASHBOARD] {user.username} limité au poste: {user.poste_affectation.nom}")
+    else:
+        postes_accessibles = Poste.objects.none()
+        logger.debug(f"[DASHBOARD] {user.username} n'a accès à aucun poste")
+    
+    # ================================================================
+    # 4. STATISTIQUES GLOBALES - Permissions: is_admin ou voir_statistiques_globales
+    # ================================================================
+    stats_globales = None
+    
+    can_view_global_stats = (
+        is_admin_user(user) or 
+        has_permission(user, 'voir_statistiques_globales')
+    )
+    
+    if can_view_global_stats:
+        stats_globales = {
+            'total_utilisateurs': UtilisateurSUPPER.objects.count(),
+            'utilisateurs_actifs': UtilisateurSUPPER.objects.filter(is_active=True).count(),
+            'total_postes': Poste.objects.filter(is_active=True).count(),
+            'postes_peage': Poste.objects.filter(type='peage', is_active=True).count(),
+            'postes_pesage': Poste.objects.filter(type='pesage', is_active=True).count(),
         }
-        
-        # ================================================================
-        # 2. DÉTERMINER LES POSTES ACCESSIBLES
-        # ================================================================
-        if user.acces_tous_postes or user.is_admin:
-            postes_accessibles = Poste.objects.filter(is_active=True)
-        elif user.poste_affectation:
-            postes_accessibles = Poste.objects.filter(id=user.poste_affectation.id)
-        else:
-            postes_accessibles = Poste.objects.none()
-        
-        # ================================================================
-        # 3. STATISTIQUES GLOBALES (ADMINS UNIQUEMENT)
-        # ================================================================
-        stats_globales = None
-        
-        if user.is_admin:
-            stats_globales = {
-                'total_utilisateurs': UtilisateurSUPPER.objects.count(),
-                'utilisateurs_actifs': UtilisateurSUPPER.objects.filter(is_active=True).count(),
-                'total_postes': Poste.objects.filter(is_active=True).count(),
-                'postes_peage': Poste.objects.filter(type='peage', is_active=True).count(),
-                'postes_pesage': Poste.objects.filter(type='pesage', is_active=True).count(),
-            }
-        
-        # ================================================================
-        # 4. STATISTIQUES INVENTAIRES
-        # ================================================================
-        stats_inventaires = None
-        
-        if postes_accessibles.exists():
-            stats_inventaires = {
-                'total_inventaires': InventaireJournalier.objects.filter(
-                    poste__in=postes_accessibles
-                ).count(),
-                'inventaires_today': InventaireJournalier.objects.filter(
-                    poste__in=postes_accessibles,
-                    date=today
-                ).count(),
-                'inventaires_semaine': InventaireJournalier.objects.filter(
-                    poste__in=postes_accessibles,
-                    date__gte=week_ago
-                ).count(),
-                'inventaires_mois': InventaireJournalier.objects.filter(
-                    poste__in=postes_accessibles,
-                    date__gte=month_ago
-                ).count(),
-            }
-        
-        # ================================================================
-        # 5. STATISTIQUES RECETTES
-        # ================================================================
-        stats_recettes = None
-        
-        if postes_accessibles.exists():
-            # Recettes du mois
-            recettes_mois = RecetteJournaliere.objects.filter(
+        logger.debug(f"[DASHBOARD] Stats globales chargées pour {user.username}")
+    
+    # ================================================================
+    # 5. STATISTIQUES INVENTAIRES - Permission: peut_voir_liste_inventaires
+    # ================================================================
+    stats_inventaires = None
+    
+    can_view_inventaires = (
+        postes_accessibles.exists() and 
+        has_any_permission(user, ['peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin'])
+    )
+    
+    if can_view_inventaires:
+        stats_inventaires = {
+            'total_inventaires': InventaireJournalier.objects.filter(
+                poste__in=postes_accessibles
+            ).count(),
+            'inventaires_today': InventaireJournalier.objects.filter(
                 poste__in=postes_accessibles,
-                date__month=today.month,
-                date__year=today.year
+                date=today
+            ).count(),
+            'inventaires_semaine': InventaireJournalier.objects.filter(
+                poste__in=postes_accessibles,
+                date__gte=week_ago
+            ).count(),
+            'inventaires_mois': InventaireJournalier.objects.filter(
+                poste__in=postes_accessibles,
+                date__gte=month_ago
+            ).count(),
+        }
+        logger.debug(f"[DASHBOARD] Stats inventaires chargées pour {user.username}")
+    
+    # ================================================================
+    # 6. STATISTIQUES RECETTES PÉAGE - Permissions: peut_voir_liste_recettes_peage
+    # ================================================================
+    stats_recettes = None
+    
+    can_view_recettes_peage = (
+        postes_accessibles.exists() and
+        has_any_permission(user, [
+            'peut_voir_liste_recettes_peage', 
+            'peut_voir_stats_recettes_peage'
+        ])
+    )
+    
+    if can_view_recettes_peage:
+        recettes_mois = RecetteJournaliere.objects.filter(
+            poste__in=postes_accessibles,
+            date__month=today.month,
+            date__year=today.year
+        )
+        
+        aggregations = recettes_mois.aggregate(
+            total_montant=Sum('montant_declare'),
+            total_potentiel=Sum('recette_potentielle'),
+            taux_moyen=Avg('taux_deperdition'),
+            nombre_recettes=Count('id')
+        )
+        
+        montant_mois = float(aggregations['total_montant'] or 0)
+        montant_potentiel = float(aggregations['total_potentiel'] or 0)
+        
+        # Vérifier si l'utilisateur peut voir les recettes potentielles
+        can_view_potentiel = has_permission(user, 'voir_recettes_potentielles')
+        
+        stats_recettes = {
+            'total_recettes': RecetteJournaliere.objects.filter(
+                poste__in=postes_accessibles
+            ).count(),
+            'recettes_today': RecetteJournaliere.objects.filter(
+                poste__in=postes_accessibles,
+                date=today
+            ).count(),
+            'montant_mois': montant_mois,
+            'montant_potentiel_mois': montant_potentiel if can_view_potentiel else None,
+            'taux_moyen_mois': float(aggregations['taux_moyen'] or 0) if has_permission(user, 'voir_taux_deperdition') else None,
+            'nombre_recettes_mois': aggregations['nombre_recettes'],
+            'ecart_mois': (montant_mois - montant_potentiel) if can_view_potentiel else None,
+            # Flags pour le template
+            'can_view_potentiel': can_view_potentiel,
+            'can_view_taux': has_permission(user, 'voir_taux_deperdition'),
+        }
+        logger.debug(f"[DASHBOARD] Stats recettes péage chargées pour {user.username}")
+    
+    # ================================================================
+    # 7. OBJECTIFS ANNUELS - Permission: peut_voir_objectifs_peage
+    # ================================================================
+    stats_objectifs = None
+    
+    can_view_objectifs = has_permission(user, 'peut_voir_objectifs_peage')
+    
+    if can_view_objectifs:
+        try:
+            stats_objectifs = ObjectifsService.calculer_objectifs_annuels(
+                annee=current_year,
+                inclure_postes_inactifs=False
+            )
+            logger.debug(f"[DASHBOARD] Objectifs annuels chargés pour {user.username}")
+        except Exception as e:
+            logger.error(f"[DASHBOARD] Erreur calcul objectifs: {str(e)}")
+            stats_objectifs = None
+    
+    # ================================================================
+    # 8. STATISTIQUES PESAGE - Permissions pesage
+    # ================================================================
+    stats_pesage = None
+    
+    # Vérifier les permissions pesage
+    has_pesage_access = has_any_permission(user, [
+        'peut_voir_stats_pesage',
+        'peut_lister_amendes',
+        'peut_saisir_amende',
+        'peut_voir_recettes_pesage',
+        'peut_valider_paiement_amende',
+        'peut_saisir_quittance_pesage'
+    ])
+
+    if has_pesage_access:
+        try:
+            from inventaire.models_pesage import AmendeEmise, PeseesJournalieres, QuittancementPesage
+            import pytz
+            
+            CAMEROUN_TZ = pytz.timezone('Africa/Douala')
+            
+            # Déterminer la station accessible selon les permissions
+            if user_has_acces_tous_postes(user):
+                station_pesage = None
+                stations_pesage_filter = Poste.objects.filter(type='pesage', is_active=True)
+                amendes_base = AmendeEmise.objects.filter(station__in=stations_pesage_filter)
+                pesees_base = PeseesJournalieres.objects.filter(station__in=stations_pesage_filter)
+                quittancements_base = QuittancementPesage.objects.filter(station__in=stations_pesage_filter)
+                label_scope = "Toutes stations"
+            else:
+                station_pesage = user.poste_affectation if user.poste_affectation and user.poste_affectation.type == 'pesage' else None
+                
+                if station_pesage:
+                    amendes_base = AmendeEmise.objects.filter(station=station_pesage)
+                    pesees_base = PeseesJournalieres.objects.filter(station=station_pesage)
+                    quittancements_base = QuittancementPesage.objects.filter(station=station_pesage)
+                    label_scope = station_pesage.nom
+                else:
+                    amendes_base = AmendeEmise.objects.none()
+                    pesees_base = PeseesJournalieres.objects.none()
+                    quittancements_base = QuittancementPesage.objects.none()
+                    label_scope = "Aucune station"
+            
+            # Calculs pour AUJOURD'HUI (logique 9h-9h Cameroun)
+            from datetime import time
+            maintenant_cameroun = timezone.now().astimezone(CAMEROUN_TZ)
+            HEURE_DEBUT = time(9, 0, 0)
+            
+            if maintenant_cameroun.time() < HEURE_DEBUT:
+                jour_travail = (maintenant_cameroun - timedelta(days=1)).date()
+            else:
+                jour_travail = maintenant_cameroun.date()
+            
+            datetime_debut_jour = CAMEROUN_TZ.localize(
+                datetime.combine(jour_travail, HEURE_DEBUT)
+            )
+            datetime_fin_jour = CAMEROUN_TZ.localize(
+                datetime.combine(jour_travail + timedelta(days=1), time(8, 59, 59))
             )
             
-            # Agrégations
-            aggregations = recettes_mois.aggregate(
-                total_montant=Sum('montant_declare'),
-                total_potentiel=Sum('recette_potentielle'),
-                taux_moyen=Avg('taux_deperdition'),
-                nombre_recettes=Count('id')
+            # Amendes émises aujourd'hui (9h-9h)
+            amendes_jour = amendes_base.filter(
+                date_heure_emission__gte=datetime_debut_jour,
+                date_heure_emission__lte=datetime_fin_jour
             )
             
-            montant_mois = float(aggregations['total_montant'] or 0)
-            montant_potentiel = float(aggregations['total_potentiel'] or 0)
+            # Amendes payées aujourd'hui (9h-9h)
+            amendes_payees_jour = amendes_base.filter(
+                statut='paye',
+                date_paiement__gte=datetime_debut_jour,
+                date_paiement__lte=datetime_fin_jour
+            )
             
-            stats_recettes = {
-                'total_recettes': RecetteJournaliere.objects.filter(
-                    poste__in=postes_accessibles
-                ).count(),
-                'recettes_today': RecetteJournaliere.objects.filter(
-                    poste__in=postes_accessibles,
-                    date=today
-                ).count(),
-                'montant_mois': montant_mois,
-                'montant_potentiel_mois': montant_potentiel,
-                'taux_moyen_mois': float(aggregations['taux_moyen'] or 0),
-                'nombre_recettes_mois': aggregations['nombre_recettes'],
-                'ecart_mois': montant_mois - montant_potentiel,
-            }
-        
-        
-        # ================================================================
-        # 6. OBJECTIFS ANNUELS - UTILISATION DU SERVICE CENTRALISÉ
-        # ================================================================
-        stats_objectifs = None
-        
-        if user.is_admin:
-            try:
-                stats_objectifs = ObjectifsService.calculer_objectifs_annuels(
-                    annee=current_year,
-                    inclure_postes_inactifs=False
-                )
-            except Exception as e:
-                logger.error(f"Erreur calcul objectifs dashboard: {str(e)}")
-                stats_objectifs = None
-        # ================================================================
-        # STATISTIQUES PESAGE - SELON HABILITATION
-        # ================================================================
-        stats_pesage = None
-        PESAGE_ROLES = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage']
-
-        # Vérifier si l'utilisateur a accès au module pesage
-        has_pesage_access = user.is_admin or user.habilitation in PESAGE_ROLES
-
-        if has_pesage_access:
-            try:
-                from inventaire.models_pesage import AmendeEmise, PeseesJournalieres, QuittancementPesage
-                from django.db.models import Sum, Count, Q
-                import pytz
-                
-                CAMEROUN_TZ = pytz.timezone('Africa/Douala')
-                
-                # Déterminer la station accessible selon le rôle
-                if user.is_admin:
-                    # Admin: toutes les stations pesage
-                    station_pesage = None
-                    stations_pesage_filter = Poste.objects.filter(type='pesage', is_active=True)
-                    amendes_base = AmendeEmise.objects.filter(station__in=stations_pesage_filter)
-                    pesees_base = PeseesJournalieres.objects.filter(station__in=stations_pesage_filter)
-                    quittancements_base = QuittancementPesage.objects.filter(station__in=stations_pesage_filter)
-                    label_scope = "Toutes stations"
-                else:
-                    # Utilisateur pesage: sa station uniquement
-                    station_pesage = user.poste_affectation if user.poste_affectation and user.poste_affectation.type == 'pesage' else None
-                    
-                    if station_pesage:
-                        amendes_base = AmendeEmise.objects.filter(station=station_pesage)
-                        pesees_base = PeseesJournalieres.objects.filter(station=station_pesage)
-                        quittancements_base = QuittancementPesage.objects.filter(station=station_pesage)
-                        label_scope = station_pesage.nom
-                    else:
-                        amendes_base = AmendeEmise.objects.none()
-                        pesees_base = PeseesJournalieres.objects.none()
-                        quittancements_base = QuittancementPesage.objects.none()
-                        label_scope = "Aucune station"
-                
-                # Calculs pour AUJOURD'HUI (logique 9h-9h Cameroun)
-                from datetime import time, timedelta
-                maintenant_cameroun = timezone.now().astimezone(CAMEROUN_TZ)
-                HEURE_DEBUT = time(9, 0, 0)
-                
-                if maintenant_cameroun.time() < HEURE_DEBUT:
-                    jour_travail = (maintenant_cameroun - timedelta(days=1)).date()
-                else:
-                    jour_travail = maintenant_cameroun.date()
-                
-                datetime_debut_jour = CAMEROUN_TZ.localize(
-                    datetime.combine(jour_travail, HEURE_DEBUT)
-                )
-                datetime_fin_jour = CAMEROUN_TZ.localize(
-                    datetime.combine(jour_travail + timedelta(days=1), time(8, 59, 59))
-                )
-                
-                # Amendes émises aujourd'hui (9h-9h)
-                amendes_jour = amendes_base.filter(
-                    date_heure_emission__gte=datetime_debut_jour,
-                    date_heure_emission__lte=datetime_fin_jour
-                )
-                
-                # Amendes payées aujourd'hui (9h-9h)
-                amendes_payees_jour = amendes_base.filter(
-                    statut='paye',
-                    date_paiement__gte=datetime_debut_jour,
-                    date_paiement__lte=datetime_fin_jour
-                )
-                
-                # Agrégations jour
-                stats_jour = amendes_jour.aggregate(
-                    emissions=Count('id'),
-                    hors_gabarit=Count('id', filter=Q(est_hors_gabarit=True)),
-                    montant_emis=Sum('montant_amende')
-                )
-                
-                stats_payees_jour = amendes_payees_jour.aggregate(
-                    count=Count('id'),
-                    montant=Sum('montant_amende')
-                )
-                
-                # Amendes non payées (global)
-                amendes_non_payees = amendes_base.filter(statut='non_paye')
-                stats_non_payees = amendes_non_payees.aggregate(
-                    count=Count('id'),
-                    montant=Sum('montant_amende')
-                )
-                
-                # Pesées du jour
+            # Agrégations jour
+            stats_jour = amendes_jour.aggregate(
+                emissions=Count('id'),
+                hors_gabarit=Count('id', filter=Q(est_hors_gabarit=True)),
+                montant_emis=Sum('montant_amende')
+            )
+            
+            stats_payees_jour = amendes_payees_jour.aggregate(
+                count=Count('id'),
+                montant=Sum('montant_amende')
+            )
+            
+            # Amendes non payées (global)
+            amendes_non_payees = amendes_base.filter(statut='non_paye')
+            stats_non_payees = amendes_non_payees.aggregate(
+                count=Count('id'),
+                montant=Sum('montant_amende')
+            )
+            
+            # Pesées du jour - seulement si permission
+            pesees_jour = 0
+            if has_permission(user, 'peut_saisir_pesee_jour') or has_permission(user, 'peut_voir_historique_pesees'):
                 pesees_jour = pesees_base.filter(date=jour_travail).aggregate(
                     total=Sum('nombre_pesees')
                 )['total'] or 0
+            
+            # Stats du mois en cours
+            premier_jour_mois = today.replace(day=1)
+            amendes_mois = amendes_base.filter(
+                date_heure_emission__date__gte=premier_jour_mois,
+                date_heure_emission__date__lte=today
+            )
+            
+            stats_mois = amendes_mois.aggregate(
+                emissions=Count('id'),
+                montant_emis=Sum('montant_amende'),
+                montant_recouvre=Sum('montant_amende', filter=Q(statut='paye'))
+            )
+            
+            montant_emis_mois = float(stats_mois['montant_emis'] or 0)
+            montant_recouvre_mois = float(stats_mois['montant_recouvre'] or 0)
+            taux_recouvrement_mois = (montant_recouvre_mois / montant_emis_mois * 100) if montant_emis_mois > 0 else 0
+            
+            stats_pesage = {
+                'station': station_pesage,
+                'label_scope': label_scope,
+                'jour_travail': jour_travail,
+                'habilitation': user.habilitation,
+                'is_admin_pesage': is_admin_user(user),
                 
-                # Stats du mois en cours
-                premier_jour_mois = today.replace(day=1)
-                amendes_mois = amendes_base.filter(
-                    date_heure_emission__date__gte=premier_jour_mois,
-                    date_heure_emission__date__lte=today
+                # Stats du jour
+                'emissions_jour': stats_jour['emissions'] or 0,
+                'hors_gabarit_jour': stats_jour['hors_gabarit'] or 0,
+                'montant_emis_jour': float(stats_jour['montant_emis'] or 0),
+                'paiements_jour': stats_payees_jour['count'] or 0,
+                'montant_recouvre_jour': float(stats_payees_jour['montant'] or 0),
+                'pesees_jour': pesees_jour,
+                'reste_a_recouvrer_jour': float(stats_jour['montant_emis'] or 0) - float(stats_payees_jour['montant'] or 0),
+                
+                # Stats globales non payées
+                'amendes_non_payees': stats_non_payees['count'] or 0,
+                'montant_non_paye_total': float(stats_non_payees['montant'] or 0),
+                
+                # Stats du mois
+                'emissions_mois': stats_mois['emissions'] or 0,
+                'montant_emis_mois': montant_emis_mois,
+                'montant_recouvre_mois': montant_recouvre_mois,
+                'taux_recouvrement_mois': round(taux_recouvrement_mois, 1),
+                
+                # Flags de permissions pour le template
+                'can_saisir_amende': has_permission(user, 'peut_saisir_amende'),
+                'can_valider_paiement': has_permission(user, 'peut_valider_paiement_amende'),
+                'can_saisir_quittance': has_permission(user, 'peut_saisir_quittance_pesage'),
+                'can_saisir_pesee': has_permission(user, 'peut_saisir_pesee_jour'),
+                'can_voir_stats': has_permission(user, 'peut_voir_stats_pesage'),
+                'can_voir_historique': has_permission(user, 'peut_voir_historique_pesees'),
+                'can_voir_recettes': has_permission(user, 'peut_voir_recettes_pesage'),
+            }
+            
+            # Stats quittancements si permission
+            if has_permission(user, 'peut_saisir_quittance_pesage') or has_permission(user, 'peut_voir_liste_quittancements_pesage'):
+                quittancements_mois = quittancements_base.filter(
+                    date_quittancement__month=today.month,
+                    date_quittancement__year=today.year
+                ).aggregate(
+                    count=Count('id'),
+                    montant=Sum('montant_quittance')
                 )
+                stats_pesage['quittancements_mois'] = quittancements_mois['count'] or 0
+                stats_pesage['montant_quittance_mois'] = float(quittancements_mois['montant'] or 0)
                 
-                stats_mois = amendes_mois.aggregate(
-                    emissions=Count('id'),
-                    montant_emis=Sum('montant_amende'),
-                    montant_recouvre=Sum('montant_amende', filter=Q(statut='paye'))
-                )
-                
-                montant_emis_mois = float(stats_mois['montant_emis'] or 0)
-                montant_recouvre_mois = float(stats_mois['montant_recouvre'] or 0)
-                taux_recouvrement_mois = (montant_recouvre_mois / montant_emis_mois * 100) if montant_emis_mois > 0 else 0
-                
-                # Construire le dictionnaire stats_pesage
-                stats_pesage = {
-                    'station': station_pesage,
-                    'label_scope': label_scope,
-                    'jour_travail': jour_travail,
-                    'habilitation': user.habilitation,
-                    'is_admin_pesage': user.is_admin,
-                    
-                    # Stats du jour (9h-9h)
-                    'emissions_jour': stats_jour['emissions'] or 0,
-                    'hors_gabarit_jour': stats_jour['hors_gabarit'] or 0,
-                    'montant_emis_jour': float(stats_jour['montant_emis'] or 0),
-                    'paiements_jour': stats_payees_jour['count'] or 0,
-                    'montant_recouvre_jour': float(stats_payees_jour['montant'] or 0),
-                    'pesees_jour': pesees_jour,
-                    
-                    # Reste à recouvrer du jour
-                    'reste_a_recouvrer_jour': float(stats_jour['montant_emis'] or 0) - float(stats_payees_jour['montant'] or 0),
-                    
-                    # Stats globales non payées
-                    'amendes_non_payees': stats_non_payees['count'] or 0,
-                    'montant_non_paye_total': float(stats_non_payees['montant'] or 0),
-                    
-                    # Stats du mois
-                    'emissions_mois': stats_mois['emissions'] or 0,
-                    'montant_emis_mois': montant_emis_mois,
-                    'montant_recouvre_mois': montant_recouvre_mois,
-                    'taux_recouvrement_mois': round(taux_recouvrement_mois, 1),
-                }
-                
-                # Stats spécifiques selon le rôle
-                if user.habilitation == 'regisseur_pesage' or user.is_admin:
-                    # Le régisseur voit aussi les quittancements
-                    quittancements_mois = quittancements_base.filter(
-                        date_quittancement__month=today.month,
-                        date_quittancement__year=today.year
-                    ).aggregate(
-                        count=Count('id'),
-                        montant=Sum('montant_quittance')
-                    )
-                    stats_pesage['quittancements_mois'] = quittancements_mois['count'] or 0
-                    stats_pesage['montant_quittance_mois'] = float(quittancements_mois['montant'] or 0)
-                    
-                    # Demandes de confirmation en attente
+                # Demandes de confirmation en attente
+                try:
                     from inventaire.models_confirmation import DemandeConfirmationPaiement, StatutDemandeConfirmation
                     if station_pesage:
                         demandes_attente = DemandeConfirmationPaiement.objects.filter(
@@ -335,249 +477,324 @@ def index_dashboard(request):
                             statut=StatutDemandeConfirmation.EN_ATTENTE
                         ).count()
                     stats_pesage['demandes_confirmation_attente'] = demandes_attente
+                except ImportError:
+                    stats_pesage['demandes_confirmation_attente'] = 0
+            
+            # Stats propres saisies si l'utilisateur peut saisir des amendes
+            if has_permission(user, 'peut_saisir_amende'):
+                mes_saisies_jour = AmendeEmise.objects.filter(
+                    saisi_par=user,
+                    date_heure_emission__gte=datetime_debut_jour,
+                    date_heure_emission__lte=datetime_fin_jour
+                ).count()
+                stats_pesage['mes_saisies_jour'] = mes_saisies_jour
+            
+            logger.debug(f"[DASHBOARD] Stats pesage chargées pour {user.username}")
                 
-                if user.habilitation == 'chef_equipe_pesage':
-                    # Le chef d'équipe voit ses propres saisies
-                    mes_saisies_jour = AmendeEmise.objects.filter(
-                        saisi_par=user,
-                        date_heure_emission__gte=datetime_debut_jour,
-                        date_heure_emission__lte=datetime_fin_jour
-                    ).count()
-                    stats_pesage['mes_saisies_jour'] = mes_saisies_jour
-                
-            except ImportError as e:
-                logger.warning(f"Module pesage non disponible: {e}")
-                stats_pesage = None
-            except Exception as e:
-                logger.error(f"Erreur calcul stats pesage dashboard: {e}")
-                stats_pesage = None
-        # ================================================================
-        # 7. ACTIVITÉS RÉCENTES
-        # ================================================================
-        if user.is_admin:
-            activites_recentes = JournalAudit.objects.select_related(
-                'utilisateur'
-            ).order_by('-timestamp')[:10]
-        else:
-            activites_recentes = JournalAudit.objects.filter(
-                utilisateur=user
-            ).order_by('-timestamp')[:10]
-        
-        # ================================================================
-        # 8. ALERTES CONTEXTUELLES
-        # ================================================================
-        alertes = []
-        
-        # Alertes stocks faibles
-        if user.is_admin or user.is_chef_poste:
+        except ImportError as e:
+            logger.warning(f"[DASHBOARD] Module pesage non disponible: {e}")
+            stats_pesage = None
+        except Exception as e:
+            logger.error(f"[DASHBOARD] Erreur calcul stats pesage: {e}")
+            stats_pesage = None
+    
+    # ================================================================
+    # 9. ACTIVITÉS RÉCENTES - Permission: peut_voir_journal_audit
+    # ================================================================
+    if has_permission(user, 'peut_voir_journal_audit'):
+        # Admin: toutes les activités
+        activites_recentes = JournalAudit.objects.select_related(
+            'utilisateur'
+        ).order_by('-timestamp')[:10]
+        logger.debug(f"[DASHBOARD] Activités globales chargées pour {user.username}")
+    else:
+        # Utilisateur normal: uniquement ses propres activités
+        activites_recentes = JournalAudit.objects.filter(
+            utilisateur=user
+        ).order_by('-timestamp')[:10]
+        logger.debug(f"[DASHBOARD] Activités personnelles chargées pour {user.username}")
+    
+    # ================================================================
+    # 10. ALERTES CONTEXTUELLES - Basées sur les permissions
+    # ================================================================
+    alertes = []
+    
+    # Alertes stocks faibles - uniquement si permission stock
+    if has_any_permission(user, ['peut_voir_liste_stocks_peage', 'peut_voir_mon_stock_peage']):
+        if user_has_acces_tous_postes(user):
             stocks_faibles = GestionStock.objects.select_related('poste').filter(
                 poste__is_active=True,
                 valeur_monetaire__lt=50000
             )[:5]
-            
-            for stock in stocks_faibles:
-                alertes.append({
-                    'type': 'warning',
-                    'titre': f'Stock faible - {stock.poste.nom}',
-                    'message': f'Stock: {stock.valeur_monetaire:,.0f} FCFA',
-                    'icon': 'fas fa-exclamation-triangle',
-                    'date': stock.derniere_mise_a_jour,
-                })
-        
-        # Alertes jours non configurés
-        if user.is_admin:
-            jours_futurs = [today + timedelta(days=i) for i in range(1, 8)]
-            jours_non_configures = []
-            
-            for jour in jours_futurs:
-                if not ConfigurationJour.objects.filter(date=jour).exists():
-                    jours_non_configures.append(jour)
-            
-            if jours_non_configures:
-                alertes.append({
-                    'type': 'info',
-                    'titre': 'Configuration manquante',
-                    'message': f'{len(jours_non_configures)} jour(s) non configuré(s)',
-                    'icon': 'fas fa-calendar-times',
-                    'date': today,
-                })
-        
-        # Alertes inventaires en attente
-        if user.peut_gerer_inventaire and user.poste_affectation:
-            inventaire_today = InventaireJournalier.objects.filter(
+        elif user.poste_affectation:
+            stocks_faibles = GestionStock.objects.filter(
                 poste=user.poste_affectation,
-                date=today
-            ).exists()
-            
-            if not inventaire_today:
-                alertes.append({
-                    'type': 'warning',
-                    'titre': 'Inventaire en attente',
-                    'message': f'Aucun inventaire saisi aujourd\'hui',
-                    'icon': 'fas fa-clipboard-check',
-                    'date': today,
-                })
+                valeur_monetaire__lt=50000
+            )
+        else:
+            stocks_faibles = []
         
-        # ================================================================
-        # 9. GRAPHIQUES - DONNÉES POUR CHART.JS
-        # ================================================================
-        graph_data = {}
-        
-        if postes_accessibles.exists():
-            # Évolution 7 derniers jours
-            jours = [(today - timedelta(days=i)) for i in range(6, -1, -1)]
-            
-            labels = []
-            recettes = []
-            taux = []
-            
-            for jour in jours:
-                labels.append(jour.strftime('%d/%m'))
-                
-                stats_jour = RecetteJournaliere.objects.filter(
-                    poste__in=postes_accessibles,
-                    date=jour
-                ).aggregate(
-                    total=Sum('montant_declare'),
-                    taux_moyen=Avg('taux_deperdition')
-                )
-                
-                recettes.append(float(stats_jour['total'] or 0))
-                taux.append(float(stats_jour['taux_moyen'] or 0))
-            
-            graph_data['evolution_7j'] = {
-                'labels': labels,
-                'recettes': recettes,
-                'taux': taux
-            }
-        
-        # ================================================================
-        # 10. TOP POSTES (ADMINS)
-        # ================================================================
-        top_postes = []
-        
-        if user.is_admin:
-            top_query = RecetteJournaliere.objects.filter(
-                date__gte=month_ago
-            ).values(
-                'poste__nom', 'poste__code'
-            ).annotate(
-                total_recettes=Sum('montant_declare')
-            ).order_by('-total_recettes')[:5]
-            
-            for idx, item in enumerate(top_query):
-                top_postes.append({
-                    'rang': idx + 1,
-                    'nom': item['poste__nom'],
-                    'code': item['poste__code'],
-                    'total': float(item['total_recettes'])
-                })
-        
-        # ================================================================
-        # 11. ACTIONS RAPIDES CONTEXTUELLES
-        # ================================================================
-        actions_rapides = []
-        
-        # Agent inventaire
-        if user.peut_gerer_inventaire and user.poste_affectation:
-            actions_rapides.append({
-                'titre': 'Saisir Inventaire',
-                'url': reverse('inventaire:saisie_inventaire'),
-                'icon': 'fas fa-clipboard-list',
-                'class': 'primary'
+        for stock in stocks_faibles:
+            alertes.append({
+                'type': 'warning',
+                'titre': f'Stock faible - {stock.poste.nom}',
+                'message': f'Stock: {stock.valeur_monetaire:,.0f} FCFA',
+                'icon': 'fas fa-exclamation-triangle',
+                'date': stock.derniere_mise_a_jour,
             })
+    
+    # Alertes jours non configurés - uniquement si peut programmer
+    if has_permission(user, 'peut_programmer_inventaire'):
+        jours_futurs = [today + timedelta(days=i) for i in range(1, 8)]
+        jours_non_configures = []
         
-        # Chef de poste
-        if user.is_chef_poste and user.poste_affectation:
-            actions_rapides.append({
-                'titre': 'Saisir Recette',
-                'url': reverse('inventaire:saisir_recette_avec_tickets'),
+        for jour in jours_futurs:
+            if not ConfigurationJour.objects.filter(date=jour).exists():
+                jours_non_configures.append(jour)
+        
+        if jours_non_configures:
+            alertes.append({
+                'type': 'info',
+                'titre': 'Configuration manquante',
+                'message': f'{len(jours_non_configures)} jour(s) non configuré(s)',
+                'icon': 'fas fa-calendar-times',
+                'date': today,
+            })
+    
+    # Alertes inventaires en attente - uniquement si peut saisir
+    if has_permission(user, 'peut_saisir_inventaire_normal') and user.poste_affectation:
+        inventaire_today = InventaireJournalier.objects.filter(
+            poste=user.poste_affectation,
+            date=today
+        ).exists()
+        
+        if not inventaire_today:
+            alertes.append({
+                'type': 'warning',
+                'titre': 'Inventaire en attente',
+                'message': f'Aucun inventaire saisi aujourd\'hui pour {user.poste_affectation.nom}',
+                'icon': 'fas fa-clipboard-check',
+                'date': today,
+            })
+    
+    # Alertes recettes en attente - uniquement si chef de poste péage
+    if has_permission(user, 'peut_saisir_recette_peage') and user.poste_affectation:
+        recette_today = RecetteJournaliere.objects.filter(
+            poste=user.poste_affectation,
+            date=today
+        ).exists()
+        
+        if not recette_today:
+            alertes.append({
+                'type': 'info',
+                'titre': 'Recette à saisir',
+                'message': f'Recette du jour non saisie pour {user.poste_affectation.nom}',
                 'icon': 'fas fa-coins',
-                'class': 'warning'
+                'date': today,
             })
+    
+    # ================================================================
+    # 11. GRAPHIQUES - Permission: peut_voir_stats_recettes_peage
+    # ================================================================
+    graph_data = {}
+    
+    can_view_graphs = (
+        postes_accessibles.exists() and
+        has_any_permission(user, ['peut_voir_stats_recettes_peage', 'peut_voir_stats_deperdition'])
+    )
+    
+    if can_view_graphs:
+        jours = [(today - timedelta(days=i)) for i in range(6, -1, -1)]
         
-        # Admin
-        if user.is_admin:
-            actions_rapides.extend([
-                {
-                    'titre': 'Gérer Utilisateurs',
-                    'url': reverse('accounts:user_list'),
-                    'icon': 'fas fa-users',
-                    'class': 'primary'
-                },
-                {
-                    'titre': 'Gérer Postes',
-                    'url': reverse('accounts:liste_postes'),
-                    'icon': 'fas fa-map-marker-alt',
-                    'class': 'info'
-                },
-                {
-                    'titre': 'Programmer Inventaires',
-                    'url': reverse('inventaire:programmer_inventaire'),
-                    'icon': 'fas fa-calendar-plus',
-                    'class': 'success'
-                },
-                {
-                    'titre': 'Gérer Objectifs',
-                    'url': reverse('inventaire:gestion_objectifs_annuels'),
-                    'icon': 'fas fa-bullseye',
-                    'class': 'danger'
-                }
-            ])
+        labels = []
+        recettes = []
+        taux = []
         
-        # ================================================================
-        # 12. STATISTIQUES SYSTÈME (ADMINS)
-        # ================================================================
-        stats_systeme = None
+        for jour in jours:
+            labels.append(jour.strftime('%d/%m'))
+            
+            stats_jour = RecetteJournaliere.objects.filter(
+                poste__in=postes_accessibles,
+                date=jour
+            ).aggregate(
+                total=Sum('montant_declare'),
+                taux_moyen=Avg('taux_deperdition')
+            )
+            
+            recettes.append(float(stats_jour['total'] or 0))
+            
+            # Taux uniquement si permission
+            if has_permission(user, 'voir_taux_deperdition'):
+                taux.append(float(stats_jour['taux_moyen'] or 0))
+            else:
+                taux.append(None)
         
-        if user.is_admin:
-            stats_systeme = {
-                'actions_today': JournalAudit.objects.filter(
-                    timestamp__date=today
-                ).count(),
-                'actions_succes': JournalAudit.objects.filter(
-                    timestamp__date=today,
-                    succes=True
-                ).count(),
-                'derniere_saisie': InventaireJournalier.objects.order_by(
-                    '-date_creation'
-                ).first(),
-                'derniere_recette': RecetteJournaliere.objects.order_by(
-                    '-date_saisie'
-                ).first()
-            }
+        graph_data['evolution_7j'] = {
+            'labels': labels,
+            'recettes': recettes,
+            'taux': taux if has_permission(user, 'voir_taux_deperdition') else [],
+            'show_taux': has_permission(user, 'voir_taux_deperdition'),
+        }
+        logger.debug(f"[DASHBOARD] Données graphiques chargées pour {user.username}")
+    
+    # ================================================================
+    # 12. TOP POSTES - Permission: peut_voir_classement_peage_rendement
+    # ================================================================
+    top_postes = []
+    
+    can_view_classement = has_permission(user, 'peut_voir_classement_peage_rendement')
+    
+    if can_view_classement:
+        top_query = RecetteJournaliere.objects.filter(
+            date__gte=month_ago
+        ).values(
+            'poste__nom', 'poste__code'
+        ).annotate(
+            total_recettes=Sum('montant_declare')
+        ).order_by('-total_recettes')[:5]
         
-        # ================================================================
-        # RANG DU POSTE DANS LE CLASSEMENT (PÉAGE)
-        # ================================================================
-        rang_poste_peage = None
+        for idx, item in enumerate(top_query):
+            top_postes.append({
+                'rang': idx + 1,
+                'nom': item['poste__nom'],
+                'code': item['poste__code'],
+                'total': float(item['total_recettes'])
+            })
+        logger.debug(f"[DASHBOARD] Top postes chargé pour {user.username}")
+    
+    # ================================================================
+    # 13. ACTIONS RAPIDES CONTEXTUELLES - Basées sur permissions
+    # ================================================================
+    actions_rapides = []
+    
+    # Saisie inventaire
+    if has_permission(user, 'peut_saisir_inventaire_normal') and user.poste_affectation:
+        actions_rapides.append({
+            'titre': 'Saisir Inventaire',
+            'url': reverse('inventaire:saisie_inventaire'),
+            'icon': 'fas fa-clipboard-list',
+            'class': 'primary'
+        })
+    
+    # Saisie recette péage
+    if has_permission(user, 'peut_saisir_recette_peage') and user.poste_affectation:
+        actions_rapides.append({
+            'titre': 'Saisir Recette',
+            'url': reverse('inventaire:saisir_recette_avec_tickets'),
+            'icon': 'fas fa-coins',
+            'class': 'warning'
+        })
+    
+    # Gestion utilisateurs
+    if has_permission(user, 'peut_gerer_utilisateurs'):
+        actions_rapides.append({
+            'titre': 'Gérer Utilisateurs',
+            'url': reverse('accounts:user_list'),
+            'icon': 'fas fa-users',
+            'class': 'primary'
+        })
+    
+    # Gestion postes
+    if has_permission(user, 'peut_gerer_postes'):
+        actions_rapides.append({
+            'titre': 'Gérer Postes',
+            'url': reverse('accounts:liste_postes'),
+            'icon': 'fas fa-map-marker-alt',
+            'class': 'info'
+        })
+    
+    # Programmer inventaires
+    if has_permission(user, 'peut_programmer_inventaire'):
+        actions_rapides.append({
+            'titre': 'Programmer Inventaires',
+            'url': reverse('inventaire:programmer_inventaire'),
+            'icon': 'fas fa-calendar-plus',
+            'class': 'success'
+        })
+    
+    # Gérer objectifs
+    if has_permission(user, 'peut_voir_objectifs_peage'):
+        actions_rapides.append({
+            'titre': 'Gérer Objectifs',
+            'url': reverse('inventaire:gestion_objectifs_annuels'),
+            'icon': 'fas fa-bullseye',
+            'class': 'danger'
+        })
+    
+    # Saisir amende pesage
+    if has_permission(user, 'peut_saisir_amende'):
+        actions_rapides.append({
+            'titre': 'Saisir Amende',
+            'url': reverse('inventaire:saisir_amende'),
+            'icon': 'fas fa-balance-scale',
+            'class': 'warning'
+        })
+    
+    # Journal d'audit
+    if has_permission(user, 'peut_voir_journal_audit'):
+        actions_rapides.append({
+            'titre': 'Journal Audit',
+            'url': reverse('accounts:journal_audit'),
+            'icon': 'fas fa-history',
+            'class': 'secondary'
+        })
+    
+    # ================================================================
+    # 14. STATISTIQUES SYSTÈME - Permission: peut_voir_journal_audit
+    # ================================================================
+    stats_systeme = None
+    
+    if has_permission(user, 'peut_voir_journal_audit'):
+        stats_systeme = {
+            'actions_today': JournalAudit.objects.filter(
+                timestamp__date=today
+            ).count(),
+            'actions_succes': JournalAudit.objects.filter(
+                timestamp__date=today,
+                succes=True
+            ).count(),
+            'derniere_saisie': InventaireJournalier.objects.order_by(
+                '-date_creation'
+            ).first(),
+            'derniere_recette': RecetteJournaliere.objects.order_by(
+                '-date_saisie'
+            ).first()
+        }
+        logger.debug(f"[DASHBOARD] Stats système chargées pour {user.username}")
+    
+    # ================================================================
+    # 15. RANGS ET CLASSEMENTS
+    # ================================================================
+    rang_poste_peage = None
+    rang_station_pesage = None
+    top_postes_peage = None
+    top_stations_pesage = None
 
-        if user.poste_affectation and user.poste_affectation.type == 'peage':
+    # Rang poste péage - pour chef de poste péage affecté
+    if user.poste_affectation and user.poste_affectation.type == 'peage':
+        if has_permission(user, 'peut_voir_classement_peage_rendement'):
             try:
                 from inventaire.services.classement_service import get_rang_poste_peage
                 rang_poste_peage = get_rang_poste_peage(user.poste_affectation, current_year)
+                logger.debug(f"[DASHBOARD] Rang péage calculé pour {user.poste_affectation.nom}")
             except Exception as e:
-                logger.error(f"Erreur calcul rang péage: {e}")
+                logger.error(f"[DASHBOARD] Erreur calcul rang péage: {e}")
 
-        # ================================================================
-        # RANG DE LA STATION DANS LE CLASSEMENT (PESAGE)
-        # ================================================================
-        rang_station_pesage = None
-
-        if stats_pesage and stats_pesage.get('station'):
+    # Rang station pesage - pour opérationnels pesage
+    if stats_pesage and stats_pesage.get('station'):
+        if has_permission(user, 'peut_voir_classement_station_pesage'):
             try:
                 from inventaire.views_classement_pesage import get_rang_station_pesage
                 rang_station_pesage = get_rang_station_pesage(stats_pesage['station'], current_year)
+                logger.debug(f"[DASHBOARD] Rang pesage calculé pour {stats_pesage['station'].nom}")
             except Exception as e:
-                logger.error(f"Erreur calcul rang pesage: {e}")
+                logger.error(f"[DASHBOARD] Erreur calcul rang pesage: {e}")
 
-        # Pour les admins, on peut aussi afficher les tops
-        top_postes_peage = None
-        top_stations_pesage = None
-
-        if user.is_admin:
-            try:
-                # Top 5 postes péage
+    # Tops pour les admins uniquement
+    if is_admin_user(user):
+        try:
+            # Top postes péage
+            if has_permission(user, 'peut_voir_classement_peage_rendement'):
                 top_peage = RecetteJournaliere.objects.filter(
                     date__year=current_year
                 ).values('poste__nom', 'poste__code').annotate(
@@ -588,50 +805,80 @@ def index_dashboard(request):
                     {'rang': i+1, 'nom': p['poste__nom'], 'code': p['poste__code'], 'total': float(p['total'])}
                     for i, p in enumerate(top_peage)
                 ]
-                
-                # Top 5 stations pesage
+            
+            # Top stations pesage
+            if has_permission(user, 'peut_voir_classement_station_pesage'):
                 from inventaire.views_classement_pesage import calculer_classement_pesage
                 classement_pesage = calculer_classement_pesage()[:5]
                 top_stations_pesage = classement_pesage
                 
-            except Exception as e:
-                logger.error(f"Erreur calcul tops: {e}")
-                
-        # ================================================================
-        # CONTEXTE FINAL
-        # ================================================================
-        context = {
-            'user_stats': user_stats,
-            'stats_globales': stats_globales,
-            'stats_inventaires': stats_inventaires,
-            'stats_recettes': stats_recettes,
-            'stats_objectifs': stats_objectifs,  
-            'activites_recentes': activites_recentes,
-            'rang_poste_peage': rang_poste_peage,
-            'rang_station_pesage': rang_station_pesage,
-            'top_postes_peage': top_postes_peage,
-            'top_stations_pesage': top_stations_pesage,
-            'stats_pesage': stats_pesage,
-            'alertes': alertes[:5],
-            'graph_data_json': json.dumps(graph_data, default=str),
-            'top_postes': top_postes,
-            'actions_rapides': actions_rapides,
-            'stats_systeme': stats_systeme,
-            'today': today,
-            'current_month': calendar.month_name[today.month],
-            'current_year': current_year,
-            'title': 'Tableau de Bord SUPPER'
-        }
+        except Exception as e:
+            logger.error(f"[DASHBOARD] Erreur calcul tops: {e}")
+    
+    # ================================================================
+    # CONTEXTE FINAL
+    # ================================================================
+    context = {
+        # Informations utilisateur
+        'user_stats': user_stats,
         
-        # Journalisation
-        log_user_action(
-            user,
-            "Consultation dashboard",
-            f"Dashboard consulté - {len(alertes)} alertes affichées",
-            request
-        )
+        # Statistiques conditionnées par permissions
+        'stats_globales': stats_globales,
+        'stats_inventaires': stats_inventaires,
+        'stats_recettes': stats_recettes,
+        'stats_objectifs': stats_objectifs,
+        'stats_pesage': stats_pesage,
+        'stats_systeme': stats_systeme,
         
-        return render(request, 'admin/index.html', context)
+        # Classements
+        'rang_poste_peage': rang_poste_peage,
+        'rang_station_pesage': rang_station_pesage,
+        'top_postes_peage': top_postes_peage,
+        'top_stations_pesage': top_stations_pesage,
+        'top_postes': top_postes,
+        
+        # Activités et alertes
+        'activites_recentes': activites_recentes,
+        'alertes': alertes[:5],
+        
+        # Données graphiques
+        'graph_data_json': json.dumps(graph_data, default=str),
+        
+        # Actions
+        'actions_rapides': actions_rapides,
+        
+        # Méta-données
+        'today': today,
+        'current_month': calendar.month_name[today.month],
+        'current_year': current_year,
+        'title': 'Tableau de Bord SUPPER',
+        
+        # Permissions pour le template (référence directe)
+        'user_permissions': user_perms,
+        
+        # Flags de capacités pour simplifier les conditions template
+        'can_view_global_stats': can_view_global_stats,
+        'can_view_inventaires': can_view_inventaires,
+        'can_view_recettes_peage': can_view_recettes_peage,
+        'can_view_objectifs': can_view_objectifs,
+        'can_view_graphs': can_view_graphs,
+        'can_view_classement': can_view_classement,
+        'has_pesage_access': has_pesage_access,
+    }
+    
+    # Journalisation
+    log_user_action(
+        user,
+        "Consultation dashboard",
+        f"Dashboard consulté - Habilitation: {user.habilitation} - {len(alertes)} alertes",
+        request
+    )
+    
+    logger.info(f"[DASHBOARD] Rendu terminé pour {user.username} avec {len(actions_rapides)} actions rapides")
+    
+    return render(request, 'admin/index.html', context)
+
+
 class DashboardAdminView(LoginRequiredMixin, TemplateView):
     """
     Dashboard complet pour administrateurs avec redirections vers admin Django
@@ -1844,7 +2091,7 @@ class AuditLogView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     Affichage des logs système pour les administrateurs
     """
     model = JournalAudit
-    template_name = 'common/audit_log.html'
+    template_name = 'accounts/journal_audit.html'
     context_object_name = 'logs'
     paginate_by = 50
     ordering = ['-timestamp']

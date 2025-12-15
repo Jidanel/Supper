@@ -1,4 +1,6 @@
-<!-- templates/admin/base_site.html - Version avec module Pesage intégré -->
+<!-- templates/admin/base_site.html - Version avec tous les menus en 2 colonnes -->
+<!-- VERSION 4.0 - Menus mega en 2 colonnes avec permissions granulaires -->
+<!-- NE PAS MODIFIER LE CSS - Seule la structure des menus a été mise à jour -->
 {% load static i18n %}
 
 <!DOCTYPE html>
@@ -280,52 +282,175 @@
                 margin: 2cm;
             }
         }
-    /* Menu dropdown large pour pesage */
-.dropdown-menu-lg {
-    min-width: 280px;
-}
 
-    /* Style des badges dans le menu */
-    .dropdown-item .badge {
-        font-size: 0.7rem;
-    }
+        /* ============================================
+           STYLES MENUS MEGA 2 COLONNES
+           ============================================ */
 
-    /* Couleur violet personnalisée */
-    .text-purple {
-        color: #6f42c1 !important;
-    }
+        /* Menu dropdown large pour tous les menus mega */
+        .dropdown-menu-lg {
+            min-width: 280px;
+        }
 
-    /* Header de section dans le dropdown */
-    .dropdown-header {
-        font-weight: 600;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 0.5rem 1rem;
-        margin-top: 0.25rem;
-    }
+        /* Style des badges dans le menu */
+        .dropdown-item .badge {
+            font-size: 0.7rem;
+        }
 
-    /* Hover effect sur les items */
-    .dropdown-item:hover {
-        background-color: #f8f9fa;
-    }
+        /* Couleur violet personnalisée */
+        .text-purple {
+            color: #6f42c1 !important;
+        }
 
-    .dropdown-item:hover i {
-        transform: scale(1.1);
-        transition: transform 0.2s ease;
-    }
+        /* Couleur teal personnalisée */
+        .text-teal {
+            color: #20c997 !important;
+        }
 
-    /* Badge de consultation */
-    .dropdown-item .badge.bg-secondary {
-        font-size: 0.6rem;
-        padding: 0.2em 0.4em;
-    }
+        /* Header de section dans le dropdown */
+        .dropdown-header {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.5rem 1rem;
+            margin-top: 0.25rem;
+        }
 
-            /* ============================================
-        MENU PESAGE 2 COLONNES - STYLES
-        ============================================ */
+        /* Hover effect sur les items */
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
 
-        /* Container principal du menu */
+        .dropdown-item:hover i {
+            transform: scale(1.1);
+            transition: transform 0.2s ease;
+        }
+
+        /* Badge de consultation */
+        .dropdown-item .badge.bg-secondary {
+            font-size: 0.6rem;
+            padding: 0.2em 0.4em;
+        }
+
+        /* ============================================
+           CONTAINER PRINCIPAL MENUS MEGA
+           ============================================ */
+
+        /* Container menu mega générique */
+        .dropdown-menu-mega {
+            min-width: 480px !important;
+            max-width: 520px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Container menu mega large (pesage, rapports) */
+        .dropdown-menu-mega-lg {
+            min-width: 520px !important;
+            max-width: 560px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Container menu mega petit (administration) */
+        .dropdown-menu-mega-sm {
+            min-width: 400px !important;
+            max-width: 440px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Items du menu mega */
+        .dropdown-menu-mega .dropdown-item,
+        .dropdown-menu-mega-lg .dropdown-item,
+        .dropdown-menu-mega-sm .dropdown-item {
+            padding: 0.45rem 0.6rem;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-menu-mega .dropdown-item:hover,
+        .dropdown-menu-mega-lg .dropdown-item:hover,
+        .dropdown-menu-mega-sm .dropdown-item:hover {
+            background-color: #e9ecef;
+            transform: translateX(3px);
+        }
+
+        /* Headers de section dans menus mega */
+        .dropdown-menu-mega .dropdown-header,
+        .dropdown-menu-mega-lg .dropdown-header,
+        .dropdown-menu-mega-sm .dropdown-header {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.3rem 0;
+            margin-top: 0.15rem;
+            margin-bottom: 0.15rem;
+            border-bottom: none;
+        }
+
+        /* Séparateurs */
+        .dropdown-menu-mega hr,
+        .dropdown-menu-mega-lg hr,
+        .dropdown-menu-mega-sm hr {
+            margin: 0.4rem 0;
+            opacity: 0.15;
+        }
+
+        /* Bordure centrale */
+        .dropdown-menu-mega .border-end,
+        .dropdown-menu-mega-lg .border-end,
+        .dropdown-menu-mega-sm .border-end {
+            border-color: #dee2e6 !important;
+        }
+
+        /* Badges */
+        .dropdown-menu-mega .badge,
+        .dropdown-menu-mega-lg .badge,
+        .dropdown-menu-mega-sm .badge {
+            font-size: 0.65rem;
+            padding: 0.25rem 0.45rem;
+        }
+
+        /* ============================================
+           RESPONSIVE - Mobile
+           ============================================ */
+        @media (max-width: 768px) {
+            .dropdown-menu-mega,
+            .dropdown-menu-mega-lg,
+            .dropdown-menu-mega-sm {
+                min-width: 100% !important;
+                max-width: 100%;
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .dropdown-menu-mega .row,
+            .dropdown-menu-mega-lg .row,
+            .dropdown-menu-mega-sm .row {
+                flex-direction: column;
+            }
+            
+            .dropdown-menu-mega .col-6,
+            .dropdown-menu-mega-lg .col-6,
+            .dropdown-menu-mega-sm .col-6 {
+                width: 100%;
+                padding: 0 !important;
+                border: none !important;
+            }
+            
+            .dropdown-menu-mega .col-6:first-child,
+            .dropdown-menu-mega-lg .col-6:first-child,
+            .dropdown-menu-mega-sm .col-6:first-child {
+                border-bottom: 1px solid #dee2e6 !important;
+                padding-bottom: 0.5rem !important;
+                margin-bottom: 0.5rem !important;
+            }
+        }
+
+        /* Alias pour pesage (rétrocompatibilité) */
         .dropdown-menu-pesage {
             min-width: 520px !important;
             max-width: 560px;
@@ -333,7 +458,6 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }
 
-        /* Items du menu */
         .dropdown-menu-pesage .dropdown-item {
             padding: 0.45rem 0.6rem;
             font-size: 0.875rem;
@@ -345,7 +469,6 @@
             transform: translateX(3px);
         }
 
-        /* Headers de section */
         .dropdown-menu-pesage .dropdown-header {
             font-size: 0.7rem;
             font-weight: 700;
@@ -356,31 +479,24 @@
             margin-bottom: 0.15rem;
         }
 
-        /* Couleur purple personnalisée */
         .dropdown-menu-pesage .text-purple {
             color: #6f42c1 !important;
         }
 
-        /* Séparateurs */
         .dropdown-menu-pesage hr {
             margin: 0.4rem 0;
             opacity: 0.15;
         }
 
-        /* Bordure centrale */
         .dropdown-menu-pesage .border-end {
             border-color: #dee2e6 !important;
         }
 
-        /* Badges */
         .dropdown-menu-pesage .badge {
             font-size: 0.65rem;
             padding: 0.25rem 0.45rem;
         }
 
-        /* ============================================
-        RESPONSIVE - Mobile
-        ============================================ */
         @media (max-width: 768px) {
             .dropdown-menu-pesage {
                 min-width: 100% !important;
@@ -431,7 +547,7 @@
         <!-- Navigation principale -->
         <nav class="main-navigation">
             <ul class="nav-links">
-                <!-- Dashboard -->
+                <!-- Dashboard - Accessible à tous les utilisateurs authentifiés -->
                 <li>
                     <a href="{% url 'common:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                         <i class="fas fa-gauge-high me-1"></i>
@@ -439,562 +555,731 @@
                     </a>
                 </li>
                 
-                <!-- Menu INVENTAIRES -->
-                {% if user.peut_gerer_inventaire %}
+                <!-- ============================================
+                     MENU INVENTAIRES - 2 COLONNES
+                     10 fonctionnalités
+                     ============================================ -->
+                {% if user.peut_saisir_inventaire_normal or user.peut_saisir_inventaire_admin or user.peut_programmer_inventaire or user.peut_voir_liste_inventaires or user.peut_gerer_inventaire %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-clipboard-check me-1"></i>
                         {% trans "Inventaires" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-pen-to-square me-1"></i>{% trans "Saisie" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisie_inventaire' %}">
-                                <i class="fas fa-keyboard me-2"></i>{% trans "Saisir Inventaire" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:inventaire_administratif' %}">
-                                <i class="fas fa-robot me-2"></i>{% trans "Inventaire Automatique" %}
-                            </a>
-                        </li>
-                        
-                        <li><hr class="dropdown-divider"></li>
-                        
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-calendar-check me-1"></i>{% trans "Programmation" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:programmer_inventaire' %}">
-                                <i class="fas fa-calendar-plus me-2"></i>{% trans "Programmer Inventaire" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_programmations' %}">
-                                <i class="fas fa-list-check me-2"></i>{% trans "Programmations Actives" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:programmations_desactivees' %}">
-                                <i class="fas fa-ban me-2"></i>{% trans "Programmations Désactivées" %}
-                            </a>
-                        </li>
-                        
-                        <li><hr class="dropdown-divider"></li>
-                        
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-search me-1"></i>{% trans "Consultation" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:inventaire_list' %}">
-                                <i class="fas fa-table-list me-2"></i>{% trans "Liste Inventaires" %}
-                            </a>
-                        </li>
-                         <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_inventaires_administratifs' %}">
-                                <i class="fas fa-file-invoice me-2"></i>{% trans "Liste Inventaires Administratifs" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:jours_impertinents' %}">
-                                <i class="fas fa-calendar-xmark me-2"></i>{% trans "Jours Impertinents" %}
-                            </a>
-                        </li>
-                        
-                        {% if user.is_admin %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:statistiques_taux' %}">
-                                <i class="fas fa-chart-line me-2"></i>{% trans "Statistiques Taux" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:consolider_inventaire_mensuel' %}">
-                                <i class="fas fa-layer-group me-2"></i>{% trans "Consolider Mensuel" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
+                    
+                    <!-- Menu mega 2 colonnes -->
+                    <div class="dropdown-menu dropdown-menu-mega p-3">
+                        <div class="row g-0">
+                            
+                            <!-- COLONNE GAUCHE - Saisie & Programmation -->
+                            <div class="col-6 pe-3 border-end">
+                                
+                                <!-- Section Saisie -->
+                                {% if user.peut_saisir_inventaire_normal or user.peut_saisir_inventaire_admin %}
+                                <h6 class="dropdown-header px-0 text-primary">
+                                    <i class="fas fa-pen-to-square me-1"></i>{% trans "Saisie" %}
+                                </h6>
+                                {% if user.peut_saisir_inventaire_normal %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:saisie_inventaire' %}">
+                                    <i class="fas fa-keyboard me-2 text-primary"></i>{% trans "Saisir Inventaire" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_saisir_inventaire_admin %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:inventaire_administratif' %}">
+                                    <i class="fas fa-robot me-2 text-info"></i>{% trans "Inventaire Automatique" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Programmation -->
+                                {% if user.peut_programmer_inventaire or user.peut_voir_programmation_active or user.peut_voir_programmation_desactivee %}
+                                <h6 class="dropdown-header px-0 text-success">
+                                    <i class="fas fa-calendar-check me-1"></i>{% trans "Programmation" %}
+                                </h6>
+                                {% if user.peut_programmer_inventaire %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:programmer_inventaire' %}">
+                                    <i class="fas fa-calendar-plus me-2 text-success"></i>{% trans "Programmer Inventaire" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_programmation_active %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_programmations' %}">
+                                    <i class="fas fa-list-check me-2 text-info"></i>{% trans "Programmations Actives" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_programmation_desactivee %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:programmations_desactivees' %}">
+                                    <i class="fas fa-ban me-2 text-secondary"></i>{% trans "Programmations Désactivées" %}
+                                </a>
+                                {% endif %}
+                                {% endif %}
+                                
+                            </div>
+                            
+                            <!-- COLONNE DROITE - Consultation & Statistiques -->
+                            <div class="col-6 ps-3">
+                                
+                                <!-- Section Consultation -->
+                                {% if user.peut_voir_liste_inventaires or user.peut_voir_liste_inventaires_admin or user.peut_voir_jours_impertinents %}
+                                <h6 class="dropdown-header px-0 text-info">
+                                    <i class="fas fa-search me-1"></i>{% trans "Consultation" %}
+                                </h6>
+                                {% if user.peut_voir_liste_inventaires %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:inventaire_list' %}">
+                                    <i class="fas fa-table-list me-2 text-primary"></i>{% trans "Liste Inventaires" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_liste_inventaires_admin %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_inventaires_administratifs' %}">
+                                    <i class="fas fa-file-invoice me-2 text-info"></i>{% trans "Liste Inv. Administratifs" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_jours_impertinents %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:jours_impertinents' %}">
+                                    <i class="fas fa-calendar-xmark me-2 text-warning"></i>{% trans "Jours Impertinents" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Statistiques -->
+                                {% if user.peut_voir_stats_deperdition %}
+                                <h6 class="dropdown-header px-0 text-purple">
+                                    <i class="fas fa-chart-line me-1"></i>{% trans "Statistiques" %}
+                                </h6>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:statistiques_taux' %}">
+                                    <i class="fas fa-chart-line me-2 text-purple"></i>{% trans "Statistiques Taux" %}
+                                </a>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:consolider_inventaire_mensuel' %}">
+                                    <i class="fas fa-layer-group me-2 text-success"></i>{% trans "Consolider Mensuel" %}
+                                </a>
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                    </div>
                 </li>
                 {% endif %}
 
-                <!-- Menu PÉAGE (Recettes) -->
-                {% if user.is_chef_poste or user.is_admin %}
+                <!-- ============================================
+                     MENU PÉAGE - 2 COLONNES
+                     10 fonctionnalités
+                     ============================================ -->
+                {% if user.peut_saisir_recette_peage or user.peut_voir_liste_recettes_peage or user.peut_saisir_quittance_peage or user.peut_comptabiliser_quittances_peage or user.peut_gerer_peage %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-car me-1"></i>
                         {% trans "Péage" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-money-bill-wave me-1"></i>{% trans "Recettes" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisir_recette_avec_tickets' %}">
-                                <i class="fas fa-cash-register me-2"></i>{% trans "Saisir Recette" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}">
-                                <i class="fas fa-receipt me-2"></i>{% trans "Liste des Recettes" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:statistiques_recettes' %}">
-                                <i class="fas fa-chart-pie me-2"></i>{% trans "Statistiques Recettes" %}
-                            </a>
-                        </li>
-                        <li>
-                                <a class="dropdown-item" href="{% url 'inventaire:import_recettes'%}">
-                                    <i class="fas fa-file-import me-2"></i>{% trans "Importer les Recettes" %}
+                    
+                    <!-- Menu mega 2 colonnes -->
+                    <div class="dropdown-menu dropdown-menu-mega p-3">
+                        <div class="row g-0">
+                            
+                            <!-- COLONNE GAUCHE - Recettes -->
+                            <div class="col-6 pe-3 border-end">
+                                
+                                <!-- Section Recettes -->
+                                {% if user.peut_saisir_recette_peage or user.peut_voir_liste_recettes_peage or user.peut_voir_stats_recettes_peage %}
+                                <h6 class="dropdown-header px-0 text-success">
+                                    <i class="fas fa-money-bill-wave me-1"></i>{% trans "Recettes" %}
+                                </h6>
+                                {% if user.peut_saisir_recette_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_recette_avec_tickets' %}">
+                                    <i class="fas fa-cash-register me-2 text-success"></i>{% trans "Saisir Recette" %}
                                 </a>
-                            </li>
-                        <li>
-                            <a href="{% url 'inventaire:taux_evolution_avance' %}" class="dropdown-item">
-                                <i class="fas fa-arrow-trend-up me-2"></i>
-                                {% trans "Taux D'Évolution et Estimations" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:gestion_objectifs_annuels' %}">
-                                <i class="fas fa-bullseye me-2"></i>{% trans "Objectifs Annuels" %}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:saisie_quittancement' %}">
-                                <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Saisir Quittance" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_quittancements' %}">
-                                <i class="fas fa-file-lines me-2"></i>{% trans "Liste Quittances" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:comptabilisation_quittancements' %}">
-                                <i class="fas fa-calculator me-2"></i>{% trans "Comptabilisation et Justifications" %}
-                            </a>
-                        </li>
-                        {% if user.voir_taux_deperdition %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-magnifying-glass-chart me-1"></i>{% trans "Analyse" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_recettes' %}?periode=mois">
-                                <i class="fas fa-chart-column me-2"></i>{% trans "Analyse Mensuelle" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
+                                {% endif %}
+                                {% if user.peut_voir_liste_recettes_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_recettes' %}">
+                                    <i class="fas fa-receipt me-2 text-info"></i>{% trans "Liste des Recettes" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_stats_recettes_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:statistiques_recettes' %}">
+                                    <i class="fas fa-chart-pie me-2 text-purple"></i>{% trans "Statistiques Recettes" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_importer_recettes_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:import_recettes' %}">
+                                    <i class="fas fa-file-import me-2 text-warning"></i>{% trans "Importer Recettes" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Évolution -->
+                                {% if user.peut_voir_evolution_peage or user.peut_voir_objectifs_peage %}
+                                <h6 class="dropdown-header px-0 text-info">
+                                    <i class="fas fa-arrow-trend-up me-1"></i>{% trans "Évolution" %}
+                                </h6>
+                                {% if user.peut_voir_evolution_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:taux_evolution_avance' %}">
+                                    <i class="fas fa-arrow-trend-up me-2 text-info"></i>{% trans "Taux D'Évolution" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_objectifs_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:gestion_objectifs_annuels' %}">
+                                    <i class="fas fa-bullseye me-2 text-danger"></i>{% trans "Objectifs Annuels" %}
+                                </a>
+                                {% endif %}
+                                {% endif %}
+                                
+                            </div>
+                            
+                            <!-- COLONNE DROITE - Quittances & Analyse -->
+                            <div class="col-6 ps-3">
+                                
+                                <!-- Section Quittances -->
+                                {% if user.peut_saisir_quittance_peage or user.peut_voir_liste_quittances_peage or user.peut_comptabiliser_quittances_peage %}
+                                <h6 class="dropdown-header px-0 text-primary">
+                                    <i class="fas fa-file-invoice-dollar me-1"></i>{% trans "Quittances" %}
+                                </h6>
+                                {% if user.peut_saisir_quittance_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:saisie_quittancement' %}">
+                                    <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>{% trans "Saisir Quittance" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_liste_quittances_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_quittancements' %}">
+                                    <i class="fas fa-file-lines me-2 text-info"></i>{% trans "Liste Quittances" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_comptabiliser_quittances_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:comptabilisation_quittancements' %}">
+                                    <i class="fas fa-calculator me-2 text-success"></i>{% trans "Comptabilisation" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Analyse -->
+                                {% if user.voir_taux_deperdition %}
+                                <h6 class="dropdown-header px-0 text-warning">
+                                    <i class="fas fa-magnifying-glass-chart me-1"></i>{% trans "Analyse" %}
+                                </h6>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_recettes' %}?periode=mois">
+                                    <i class="fas fa-chart-column me-2 text-warning"></i>{% trans "Analyse Mensuelle" %}
+                                </a>
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                    </div>
                 </li>
                 {% endif %}
 
                 <!-- ============================================
-                     MENU PESAGE - NOUVEAU
+                     MENU PESAGE - 2 COLONNES
+                     14 fonctionnalités
                      ============================================ -->
-                        <!-- ============================================
-                    MENU PESAGE - VERSION 2 COLONNES
-                    Toutes fonctionnalités préservées
-                    ============================================ -->
-                {% if user.habilitation == 'chef_equipe_pesage' or user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' or user.is_admin %}
-                    <li class="dropdown">
-                        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-weight-scale me-1"></i>
-                            {% trans "Pesage" %}
-                            <!-- Badge global si demandes en attente (régisseur uniquement) -->
-                            {% if user.habilitation == 'regisseur_pesage' or user.is_admin %}
-                            <span id="badge-pesage-global" class="badge bg-danger rounded-pill ms-1 d-none">0</span>
-                            {% endif %}
-                        </a>
-                        
-                        <!-- Menu mega en 2 colonnes -->
-                        <div class="dropdown-menu dropdown-menu-pesage p-3">
-                            <div class="row g-0">
+                {% if user.peut_voir_historique_vehicule_pesage or user.peut_saisir_amende or user.peut_saisir_pesee_jour or user.peut_valider_paiement_amende or user.peut_lister_amendes or user.peut_saisir_quittance_pesage or user.peut_voir_stats_pesage or user.peut_gerer_pesage %}
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-weight-scale me-1"></i>
+                        {% trans "Pesage" %}
+                        {% if user.peut_valider_paiement_amende %}
+                        <span id="badge-pesage-global" class="badge bg-danger rounded-pill ms-1 d-none">0</span>
+                        {% endif %}
+                    </a>
+                    
+                    <!-- Menu mega 2 colonnes -->
+                    <div class="dropdown-menu dropdown-menu-mega-lg p-3">
+                        <div class="row g-0">
+                            
+                            <!-- COLONNE GAUCHE -->
+                            <div class="col-6 pe-3 border-end">
                                 
-                                <!-- ==================== COLONNE GAUCHE ==================== -->
-                                <div class="col-6 pe-3 border-end">
-                                    
-                                    <!-- ======== SECTION RECHERCHE (Tous les rôles pesage) ======== -->
-                                    <h6 class="dropdown-header px-0 text-info">
-                                        <i class="fas fa-magnifying-glass me-1"></i>{% trans "Recherche" %}
-                                    </h6>
-                                    <!-- #1 - Historique Véhicule - Tous -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:recherche_historique_vehicule' %}">
-                                        <i class="fas fa-car-side me-2 text-info"></i>{% trans "Historique Véhicule" %}
-                                    </a>
-                                    
-                                    <hr class="my-2">
-                                    
-                                    <!-- ======== SECTION SAISIE (Chef équipe + Régisseur + Admin) ======== -->
-                                    {% if user.habilitation == 'chef_equipe_pesage' or user.habilitation == 'regisseur_pesage' or user.is_admin %}
-                                    <h6 class="dropdown-header px-0 text-primary">
-                                        <i class="fas fa-pen-to-square me-1"></i>{% trans "Saisie" %}
-                                    </h6>
-                                    <!-- #2 - Saisir Amende - chef_equipe + admin -->
-                                    {% if user.habilitation == 'chef_equipe_pesage' or user.is_admin %}
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_amende' %}">
-                                        <i class="fas fa-file-invoice me-2 text-danger"></i>{% trans "Saisir Amende" %}
-                                    </a>
-                                    {% endif %}
-                                    <!-- #3 - Saisir Pesées du Jour - chef_equipe + regisseur + admin -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_pesees' %}">
-                                        <i class="fas fa-balance-scale me-2 text-info"></i>{% trans "Saisir Pesées du Jour" %}
-                                    </a>
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:gestion_objectifs_pesage' %}">
-                                        <i class="fas fa-bullseye me-2 text-teal"></i>{% trans "Objectifs Annuels" %}
-                                    </a>
-                                    
-                                    <hr class="my-2">
-                                    {% endif %}
-                                    
-                                    <!-- ======== SECTION VALIDATION (Régisseur + Admin) ======== -->
-                                    {% if user.habilitation == 'regisseur_pesage' or user.is_admin %}
-                                    <h6 class="dropdown-header px-0 text-success">
-                                        <i class="fas fa-check-double me-1"></i>{% trans "Validation" %}
-                                    </h6>
-                                    <!-- #4 - Amendes à Valider - regisseur + admin -->
-                                    <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:liste_amendes_a_valider' %}">
-                                        <i class="fas fa-hourglass-half me-2 text-warning"></i>{% trans "Amendes à Valider" %}
-                                        {% if stats_pesage.amendes_a_valider > 0 %}
-                                        <span class="badge bg-danger ms-auto rounded-pill">{{ stats_pesage.amendes_a_valider }}</span>
-                                        {% endif %}
-                                    </a>
-                                    
-                                    <hr class="my-2">
-                                    
-                                    <!-- ======== SECTION CONFIRMATIONS (Régisseur + Admin) ======== -->
-                                    <h6 class="dropdown-header px-0 text-purple">
-                                        <i class="fas fa-handshake me-1"></i>{% trans "Confirmations" %}
-                                    </h6>
-                                    <!-- #6 - Demandes Reçues - regisseur + admin -->
-                                    <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:demandes_confirmation_a_traiter' %}">
-                                        <i class="fas fa-inbox me-2 text-danger"></i>{% trans "Demandes Reçues" %}
-                                        <span id="badge-demandes-attente" class="badge bg-danger ms-auto rounded-pill d-none">0</span>
-                                    </a>
-                                    <!-- #7 - Mes Demandes Envoyées - regisseur + admin -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:mes_demandes_confirmation' %}">
-                                        <i class="fas fa-paper-plane me-2 text-primary"></i>{% trans "Mes Demandes Envoyées" %}
-                                    </a>
-                                    
-                                    {% elif user.habilitation == 'chef_station_pesage' %}
-                                    <!-- ======== SECTION SUPERVISION (Chef station seulement) ======== -->
-                                    <h6 class="dropdown-header px-0 text-secondary">
-                                        <i class="fas fa-eye me-1"></i>{% trans "Supervision" %}
-                                    </h6>
-                                    <!-- #5 - Amendes en Attente (consultation) - chef_station -->
-                                    <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:liste_amendes_a_valider' %}">
-                                        <i class="fas fa-hourglass-half me-2 text-warning"></i>{% trans "Amendes en Attente" %}
-                                        <span class="badge bg-secondary ms-auto rounded-pill" title="{% trans 'Consultation uniquement' %}">
-                                            <i class="fas fa-eye"></i>
-                                        </span>
-                                    </a>
-                                    {% endif %}
-                                    
-                                </div>
+                                <!-- Section Recherche -->
+                                {% if user.peut_voir_historique_vehicule_pesage or user.peut_lister_amendes %}
+                                <h6 class="dropdown-header px-0 text-info">
+                                    <i class="fas fa-magnifying-glass me-1"></i>{% trans "Recherche" %}
+                                </h6>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:recherche_historique_vehicule' %}">
+                                    <i class="fas fa-car-side me-2 text-info"></i>{% trans "Historique Véhicule" %}
+                                </a>
+                                <hr class="my-2">
+                                {% endif %}
                                 
-                                <!-- ==================== COLONNE DROITE ==================== -->
-                                <div class="col-6 ps-3">
-                                    
-                                    <!-- ======== SECTION QUITTANCEMENTS (Régisseur + Admin) ======== -->
-                                    {% if user.habilitation == 'regisseur_pesage' or user.is_admin %}
-                                    <h6 class="dropdown-header px-0 text-success">
-                                        <i class="fas fa-receipt me-1"></i>{% trans "Quittancements" %}
-                                    </h6>
-                                    <!-- #8 - Saisir Quittancement - regisseur + admin -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:saisie_quittancement_pesage' %}">
-                                        <i class="fas fa-plus-circle me-2 text-success"></i>{% trans "Saisir Quittancement" %}
-                                    </a>
-                                    <!-- #9 - Comptabilisation - regisseur + admin -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:comptabilisation_quittancements_pesage' %}">
-                                        <i class="fas fa-calculator me-2 text-primary"></i>{% trans "Comptabilisation" %}
-                                    </a>
-                                    <!-- #10 - Liste Quittancements - regisseur + admin -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:liste_quittancements_pesage' %}">
-                                        <i class="fas fa-file-invoice-dollar me-2 text-info"></i>{% trans "Liste Quittancements" %}
-                                    </a>
-                                    
-                                    <hr class="my-2">
+                                <!-- Section Saisie -->
+                                {% if user.peut_saisir_amende or user.peut_saisir_pesee_jour or user.peut_voir_objectifs_pesage %}
+                                <h6 class="dropdown-header px-0 text-primary">
+                                    <i class="fas fa-pen-to-square me-1"></i>{% trans "Saisie" %}
+                                </h6>
+                                {% if user.peut_saisir_amende %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_amende' %}">
+                                    <i class="fas fa-file-invoice me-2 text-danger"></i>{% trans "Saisir Amende" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_saisir_pesee_jour %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_pesees' %}">
+                                    <i class="fas fa-balance-scale me-2 text-info"></i>{% trans "Saisir Pesées du Jour" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_objectifs_pesage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:gestion_objectifs_pesage' %}">
+                                    <i class="fas fa-bullseye me-2 text-teal"></i>{% trans "Objectifs Annuels" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Validation -->
+                                {% if user.peut_valider_paiement_amende %}
+                                <h6 class="dropdown-header px-0 text-success">
+                                    <i class="fas fa-check-double me-1"></i>{% trans "Validation" %}
+                                </h6>
+                                <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:liste_amendes_a_valider' %}">
+                                    <i class="fas fa-hourglass-half me-2 text-warning"></i>{% trans "Amendes à Valider" %}
+                                    {% if stats_pesage.amendes_a_valider > 0 %}
+                                    <span class="badge bg-danger ms-auto rounded-pill">{{ stats_pesage.amendes_a_valider }}</span>
                                     {% endif %}
-                                    
-                                    <!-- ======== SECTION CONSULTATION (Tous avec variantes) ======== -->
-                                    <h6 class="dropdown-header px-0 text-info">
-                                        <i class="fas fa-list me-1"></i>{% trans "Consultation" %}
-                                    </h6>
-                                    <!-- #11 - Liste des Amendes - Tous -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:liste_amendes' %}">
-                                        <i class="fas fa-file-lines me-2"></i>{% trans "Liste des Amendes" %}
-                                    </a>
-                                    <!-- #12 - Historique Pesées - Tous -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:historique_pesees' %}">
-                                        <i class="fas fa-clock-rotate-left me-2"></i>{% trans "Historique Pesées" %}
-                                    </a>
-                                    <!-- #13 - Quittancements (consultation) - chef_station -->
-                                    {% if user.habilitation == 'chef_station_pesage' %}
-                                    <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:liste_quittancements_pesage' %}">
-                                        <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Quittancements" %}
-                                        <span class="badge bg-secondary ms-auto rounded-pill" title="{% trans 'Consultation uniquement' %}">
-                                            <i class="fas fa-eye"></i>
-                                        </span>
-                                    </a>
-                                    {% endif %}
-                                    <!-- #14 - Recettes Pesage - regisseur + chef_station + admin -->
-                                    {% if user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' or user.is_admin %}
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:recettes_pesage' %}">
-                                        <i class="fas fa-coins me-2 text-warning"></i>{% trans "Recettes Pesage" %}
-                                    </a>
-                                    {% endif %}
-                                    
-                                    <hr class="my-2">
-                                    
-                                    <!-- ======== SECTION STATISTIQUES (Tous) ======== -->
-                                    <h6 class="dropdown-header px-0 text-purple">
-                                        <i class="fas fa-chart-pie me-1"></i>{% trans "Statistiques" %}
-                                    </h6>
-                                    <!-- #15 - Statistiques Pesage - Tous -->
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:statistiques_pesage' %}">
-                                        <i class="fas fa-chart-bar me-2 text-primary"></i>{% trans "Statistiques Pesage" %}
-                                    </a>
-                                    
-                                </div>
+                                </a>
+                                <hr class="my-2">
+                                
+                                <!-- Section Confirmations -->
+                                <h6 class="dropdown-header px-0 text-purple">
+                                    <i class="fas fa-handshake me-1"></i>{% trans "Confirmations" %}
+                                </h6>
+                                <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:demandes_confirmation_a_traiter' %}">
+                                    <i class="fas fa-inbox me-2 text-danger"></i>{% trans "Demandes Reçues" %}
+                                    <span id="badge-demandes-attente" class="badge bg-danger ms-auto rounded-pill d-none">0</span>
+                                </a>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:mes_demandes_confirmation' %}">
+                                    <i class="fas fa-paper-plane me-2 text-primary"></i>{% trans "Mes Demandes Envoyées" %}
+                                </a>
+                                
+                                {% elif user.peut_lister_amendes and not user.peut_valider_paiement_amende %}
+                                <!-- Section Supervision (consultation) -->
+                                <h6 class="dropdown-header px-0 text-secondary">
+                                    <i class="fas fa-eye me-1"></i>{% trans "Supervision" %}
+                                </h6>
+                                <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:liste_amendes_a_valider' %}">
+                                    <i class="fas fa-hourglass-half me-2 text-warning"></i>{% trans "Amendes en Attente" %}
+                                    <span class="badge bg-secondary ms-auto rounded-pill" title="{% trans 'Consultation uniquement' %}">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </a>
+                                {% endif %}
+                                
+                            </div>
+                            
+                            <!-- COLONNE DROITE -->
+                            <div class="col-6 ps-3">
+                                
+                                <!-- Section Quittancements -->
+                                {% if user.peut_saisir_quittance_pesage or user.peut_comptabiliser_quittances_pesage or user.peut_voir_liste_quittancements_pesage or user.peut_valider_paiement_amende %}
+                                <h6 class="dropdown-header px-0 text-success">
+                                    <i class="fas fa-receipt me-1"></i>{% trans "Quittancements" %}
+                                </h6>
+                                {% if user.peut_saisir_quittance_pesage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:saisie_quittancement_pesage' %}">
+                                    <i class="fas fa-plus-circle me-2 text-success"></i>{% trans "Saisir Quittancement" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_comptabiliser_quittances_pesage or user.peut_valider_paiement_amende %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:comptabilisation_quittancements_pesage' %}">
+                                    <i class="fas fa-calculator me-2 text-primary"></i>{% trans "Comptabilisation" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_liste_quittancements_pesage or user.peut_valider_paiement_amende %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_quittancements_pesage' %}">
+                                    <i class="fas fa-file-invoice-dollar me-2 text-info"></i>{% trans "Liste Quittancements" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Consultation -->
+                                {% if user.peut_lister_amendes or user.peut_voir_historique_pesees or user.peut_voir_recettes_pesage %}
+                                <h6 class="dropdown-header px-0 text-info">
+                                    <i class="fas fa-list me-1"></i>{% trans "Consultation" %}
+                                </h6>
+                                {% if user.peut_lister_amendes %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_amendes' %}">
+                                    <i class="fas fa-file-lines me-2"></i>{% trans "Liste des Amendes" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_historique_pesees %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:historique_pesees' %}">
+                                    <i class="fas fa-clock-rotate-left me-2"></i>{% trans "Historique Pesées" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_liste_quittancements_pesage and not user.peut_saisir_quittance_pesage %}
+                                <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:liste_quittancements_pesage' %}">
+                                    <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Quittancements" %}
+                                    <span class="badge bg-secondary ms-auto rounded-pill" title="{% trans 'Consultation uniquement' %}">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_recettes_pesage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:recettes_pesage' %}">
+                                    <i class="fas fa-coins me-2 text-warning"></i>{% trans "Recettes Pesage" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Statistiques -->
+                                {% if user.peut_voir_stats_pesage %}
+                                <h6 class="dropdown-header px-0 text-purple">
+                                    <i class="fas fa-chart-pie me-1"></i>{% trans "Statistiques" %}
+                                </h6>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:statistiques_pesage' %}">
+                                    <i class="fas fa-chart-bar me-2 text-primary"></i>{% trans "Statistiques Pesage" %}
+                                </a>
+                                {% endif %}
+                                
                             </div>
                         </div>
-                    </li>
+                    </div>
+                </li>
                 {% endif %}
-                <!-- Menu STOCKS -->
-                {% if user.is_admin or user.is_chef_poste %}
+                
+                <!-- ============================================
+                     MENU STOCKS - 2 COLONNES
+                     8 fonctionnalités
+                     ============================================ -->
+                {% if user.peut_charger_stock_peage or user.peut_voir_liste_stocks_peage or user.peut_transferer_stock_peage or user.peut_voir_mon_stock_peage or user.peut_gerer_stocks_psrr %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-boxes-stacked me-1"></i>
                         {% trans "Stocks" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        {% if user.is_admin %}
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_postes_stocks' %}">
-                                <i class="fas fa-warehouse me-2"></i>{% trans "Tous les stocks" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:stock_historique_date_sans_poste' %}">
-                                <i class="fas fa-calendar-check"></i> {% trans "Stock à une date" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:selection_postes_transfert_tickets' %}">
-                                <i class="fas fa-truck-moving me-2"></i>{% trans "Transférer Stock" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:recherche_tracabilite_ticket' %}">
-                                <i class="fas fa-search me-2"></i>{% trans "Traçabilité Tickets" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:liste_bordereaux' %}">
-                                <i class="fas fa-clipboard-list me-2"></i>{% trans "Liste des Bordereaux" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                        
-                        {% if user.poste_affectation %}
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:mon_stock' %}">
-                                <i class="fas fa-box-open me-2"></i>{% trans "Mon stock" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:historique_stock' user.poste_affectation.id %}">
-                                <i class="fas fa-clock-rotate-left me-2"></i>{% trans "Historique" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:simulateur_commandes'%}">
-                                <i class="fas fa-chart-simple me-2"></i>{% trans "Simulateur de Commandes" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
+                    
+                    <!-- Menu mega 2 colonnes -->
+                    <div class="dropdown-menu dropdown-menu-mega p-3">
+                        <div class="row g-0">
+                            
+                            <!-- COLONNE GAUCHE - Administration Stocks -->
+                            <div class="col-6 pe-3 border-end">
+                                
+                                <!-- Section Gestion Globale -->
+                                {% if user.peut_voir_liste_stocks_peage or user.peut_voir_stock_date_peage or user.peut_transferer_stock_peage %}
+                                <h6 class="dropdown-header px-0 text-primary">
+                                    <i class="fas fa-warehouse me-1"></i>{% trans "Gestion Globale" %}
+                                </h6>
+                                {% if user.peut_voir_liste_stocks_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_postes_stocks' %}">
+                                    <i class="fas fa-warehouse me-2 text-primary"></i>{% trans "Tous les stocks" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_stock_date_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:stock_historique_date_sans_poste' %}">
+                                    <i class="fas fa-calendar-check me-2 text-info"></i>{% trans "Stock à une date" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_transferer_stock_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:selection_postes_transfert_tickets' %}">
+                                    <i class="fas fa-truck-moving me-2 text-success"></i>{% trans "Transférer Stock" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Traçabilité -->
+                                {% if user.peut_voir_tracabilite_tickets or user.peut_voir_bordereaux_peage %}
+                                <h6 class="dropdown-header px-0 text-warning">
+                                    <i class="fas fa-search me-1"></i>{% trans "Traçabilité" %}
+                                </h6>
+                                {% if user.peut_voir_tracabilite_tickets %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:recherche_tracabilite_ticket' %}">
+                                    <i class="fas fa-search me-2 text-warning"></i>{% trans "Traçabilité Tickets" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_bordereaux_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:liste_bordereaux' %}">
+                                    <i class="fas fa-clipboard-list me-2 text-secondary"></i>{% trans "Liste des Bordereaux" %}
+                                </a>
+                                {% endif %}
+                                {% endif %}
+                                
+                            </div>
+                            
+                            <!-- COLONNE DROITE - Mon Stock -->
+                            <div class="col-6 ps-3">
+                                
+                                <!-- Section Mon Poste -->
+                                {% if user.poste_affectation %}
+                                <h6 class="dropdown-header px-0 text-success">
+                                    <i class="fas fa-box-open me-1"></i>{% trans "Mon Poste" %}
+                                </h6>
+                                {% if user.peut_voir_mon_stock_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:mon_stock' %}">
+                                    <i class="fas fa-box-open me-2 text-success"></i>{% trans "Mon stock" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_historique_stock_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:historique_stock' user.poste_affectation.id %}">
+                                    <i class="fas fa-clock-rotate-left me-2 text-info"></i>{% trans "Historique" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                
+                                <!-- Section Prévisions -->
+                                {% if user.peut_simuler_commandes_peage %}
+                                <h6 class="dropdown-header px-0 text-purple">
+                                    <i class="fas fa-chart-simple me-1"></i>{% trans "Prévisions" %}
+                                </h6>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:simulateur_commandes' %}">
+                                    <i class="fas fa-chart-simple me-2 text-purple"></i>{% trans "Simulateur Commandes" %}
+                                </a>
+                                {% endif %}
+                                {% else %}
+                                <!-- Message si pas de poste -->
+                                <h6 class="dropdown-header px-0 text-secondary">
+                                    <i class="fas fa-info-circle me-1"></i>{% trans "Information" %}
+                                </h6>
+                                <span class="dropdown-item-text text-muted small">
+                                    <i class="fas fa-exclamation-circle me-2"></i>
+                                    {% trans "Aucun poste affecté" %}
+                                </span>
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                    </div>
                 </li>
                 {% endif %}
 
-                <!-- Menu GESTION -->
-                {% if user.peut_gerer_personnel or user.is_admin %}
+                <!-- ============================================
+                     MENU GESTION - 2 COLONNES
+                     7 fonctionnalités
+                     ============================================ -->
+                {% if user.peut_gerer_postes or user.peut_gerer_utilisateurs or user.peut_voir_journal_audit or user.peut_gerer_personnel %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-sliders me-1"></i>
                         {% trans "Gestion" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-location-dot me-1"></i>{% trans "Postes" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'accounts:liste_postes' %}">
-                                <i class="fas fa-map-location-dot me-2"></i>{% trans "Gestion des Postes" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'accounts:creer_poste' %}">
-                                <i class="fas fa-square-plus me-2"></i>{% trans "Ajouter un Poste" %}
-                            </a>
-                        </li>
-                        <li>
-                        <a class="dropdown-item" href="{% url 'accounts:import_postes' %}">
-                            <i class="fas fa-file-arrow-up me-2"></i>{% trans "Creer postes en masses" %}
-                        </a>
-                    </li>
-                        
-                        <li><hr class="dropdown-divider"></li>
-                        
-                        <li>
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-users-gear me-1"></i>{% trans "Utilisateurs" %}
-                            </h6>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'accounts:user_list' %}">
-                                <i class="fas fa-users-cog me-2"></i>{% trans "Gestion Utilisateurs" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'accounts:user_create' %}">
-                                <i class="fas fa-user-plus me-2"></i>{% trans "Nouvel Utilisateur" %}
-                            </a>
-                        </li>
-                        
-                        {% if user.is_admin %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'accounts:journal_audit' %}">
-                                <i class="fas fa-book-open me-2"></i>{% trans "Journal d'Audit" %}
-                            </a>
-                        </li>
-                         <li>
-                            <a class="dropdown-item" href="#" onclick="marquerJourImpertinent(); return false;">
-                                <i class="fas fa-flag-checkered me-2 text-warning"></i>
-                                {% trans "Marquer Jour Impertinent" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
+                    
+                    <!-- Menu mega 2 colonnes -->
+                    <div class="dropdown-menu dropdown-menu-mega p-3">
+                        <div class="row g-0">
+                            
+                            <!-- COLONNE GAUCHE - Postes -->
+                            <div class="col-6 pe-3 border-end">
+                                
+                                <!-- Section Postes -->
+                                {% if user.peut_gerer_postes or user.peut_ajouter_poste or user.peut_creer_poste_masse %}
+                                <h6 class="dropdown-header px-0 text-primary">
+                                    <i class="fas fa-location-dot me-1"></i>{% trans "Postes" %}
+                                </h6>
+                                {% if user.peut_gerer_postes %}
+                                <a class="dropdown-item rounded" href="{% url 'accounts:liste_postes' %}">
+                                    <i class="fas fa-map-location-dot me-2 text-primary"></i>{% trans "Gestion des Postes" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_ajouter_poste %}
+                                <a class="dropdown-item rounded" href="{% url 'accounts:creer_poste' %}">
+                                    <i class="fas fa-square-plus me-2 text-success"></i>{% trans "Ajouter un Poste" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_creer_poste_masse %}
+                                <a class="dropdown-item rounded" href="{% url 'accounts:import_postes' %}">
+                                    <i class="fas fa-file-arrow-up me-2 text-info"></i>{% trans "Créer postes en masses" %}
+                                </a>
+                                {% endif %}
+                                {% endif %}
+                                
+                            </div>
+                            
+                            <!-- COLONNE DROITE - Utilisateurs & Audit -->
+                            <div class="col-6 ps-3">
+                                
+                                <!-- Section Utilisateurs -->
+                                {% if user.peut_gerer_utilisateurs or user.peut_creer_utilisateur %}
+                                <h6 class="dropdown-header px-0 text-success">
+                                    <i class="fas fa-users-gear me-1"></i>{% trans "Utilisateurs" %}
+                                </h6>
+                                {% if user.peut_gerer_utilisateurs %}
+                                <a class="dropdown-item rounded" href="{% url 'accounts:user_list' %}">
+                                    <i class="fas fa-users-cog me-2 text-primary"></i>{% trans "Gestion Utilisateurs" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_creer_utilisateur %}
+                                <a class="dropdown-item rounded" href="{% url 'accounts:user_create' %}">
+                                    <i class="fas fa-user-plus me-2 text-success"></i>{% trans "Nouvel Utilisateur" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Audit -->
+                                {% if user.peut_voir_journal_audit %}
+                                <h6 class="dropdown-header px-0 text-warning">
+                                    <i class="fas fa-book-open me-1"></i>{% trans "Audit" %}
+                                </h6>
+                                <a class="dropdown-item rounded" href="{% url 'accounts:journal_audit' %}">
+                                    <i class="fas fa-book-open me-2 text-warning"></i>{% trans "Journal d'Audit" %}
+                                </a>
+                                <a class="dropdown-item rounded" href="#" onclick="marquerJourImpertinent(); return false;">
+                                    <i class="fas fa-flag-checkered me-2 text-danger"></i>{% trans "Marquer Jour Impertinent" %}
+                                </a>
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                    </div>
                 </li>
                 {% endif %}
 
-                <!-- Menu RAPPORTS -->
-                {% if user.peut_gerer_inventaire or user.is_admin %}
+                <!-- ============================================
+                     MENU RAPPORTS - 2 COLONNES
+                     10 fonctionnalités
+                     ============================================ -->
+                {% if user.peut_voir_rapports_defaillants_peage or user.peut_voir_rapports_defaillants_pesage or user.peut_voir_rapport_inventaires or user.peut_voir_classement_peage_rendement or user.peut_voir_classement_station_pesage or user.peut_voir_classement_peage_deperdition or user.peut_voir_classement_agents_inventaire %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-chart-mixed me-1"></i>
                         {% trans "Rapports" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_defaillants' %}">
-                                <i class="fas fa-exclamation-triangle me-2 text-warning"></i>{% trans "Rapport Défaillants Péages" %}
-                            </a>
-                        </li>
-                        <li>
-                        <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_defaillants_pesage' %}">
-                            <i class="fas fa-chart-line me-2 text-teal"></i> {% trans "Rapport Défaillants Pesages" %}
-                        </a>
-                    </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:selection_rapport_inventaires' %}">
-                                <i class="fas fa-paperclip text-success"></i>
-                                Rapport des Inventaires
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:classement_rendement' %}">
-                                <i class="fas fa-ranking-star me-2"></i>{% trans "Classement Peage Rendement" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:classement_stations_pesage_rendement' %}">
-                                <i class="fas fa-weight-hanging me-2 text-purple"></i>{% trans "Classement Stations Pesage" %}
-                            </a>
-                        </li>
-                         <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:classement_postes_performances' %}">
-                                <i class="fas fa-award me-2"></i>{% trans "Classement Peage Deperdition" %}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                <a class="dropdown-item" href="{% url 'inventaire:classement_agents_performances' %}">
-                    <i class="fas fa-medal me-2"></i>{% trans "Classement Agents Inventaires" %}
-                </a>
-            </li>
-                <li>
-                    <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
-                        <i class="fas fa-file-pdf me-2"></i>{% trans "Générer Rapports" %}
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="{% url 'inventaire:api_inventaire_stats' %}">
-                        <i class="fas fa-chart-gantt me-2"></i>{% trans "Statistiques" %}
-                    </a>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
-                        <i class="fas fa-cloud-arrow-down me-2"></i>{% trans "Sauvegarde" %}
-                    </a>
-                </li>
-                    </ul>
+                    
+                    <!-- Menu mega 2 colonnes -->
+                    <div class="dropdown-menu dropdown-menu-mega-lg p-3">
+                        <div class="row g-0">
+                            
+                            <!-- COLONNE GAUCHE - Rapports & Classements -->
+                            <div class="col-6 pe-3 border-end">
+                                
+                                <!-- Section Rapports Défaillants -->
+                                {% if user.peut_voir_rapports_defaillants_peage or user.peut_voir_rapports_defaillants_pesage or user.peut_voir_rapport_inventaires %}
+                                <h6 class="dropdown-header px-0 text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>{% trans "Défaillants" %}
+                                </h6>
+                                {% if user.peut_voir_rapports_defaillants_peage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:selection_rapport_defaillants' %}">
+                                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>{% trans "Défaillants Péages" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_rapports_defaillants_pesage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:selection_rapport_defaillants_pesage' %}">
+                                    <i class="fas fa-chart-line me-2 text-teal"></i>{% trans "Défaillants Pesages" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_rapport_inventaires %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:selection_rapport_inventaires' %}">
+                                    <i class="fas fa-paperclip me-2 text-success"></i>{% trans "Rapport Inventaires" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Classements Péage -->
+                                {% if user.peut_voir_classement_peage_rendement or user.peut_voir_classement_peage_deperdition %}
+                                <h6 class="dropdown-header px-0 text-primary">
+                                    <i class="fas fa-ranking-star me-1"></i>{% trans "Classements Péage" %}
+                                </h6>
+                                {% if user.peut_voir_classement_peage_rendement %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:classement_rendement' %}">
+                                    <i class="fas fa-ranking-star me-2 text-primary"></i>{% trans "Rendement Péage" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_classement_peage_deperdition %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:classement_postes_performances' %}">
+                                    <i class="fas fa-award me-2 text-info"></i>{% trans "Déperdition Péage" %}
+                                </a>
+                                {% endif %}
+                                {% endif %}
+                                
+                            </div>
+                            
+                            <!-- COLONNE DROITE - Classements & Outils -->
+                            <div class="col-6 ps-3">
+                                
+                                <!-- Section Classements Pesage & Agents -->
+                                {% if user.peut_voir_classement_station_pesage or user.peut_voir_classement_agents_inventaire %}
+                                <h6 class="dropdown-header px-0 text-purple">
+                                    <i class="fas fa-medal me-1"></i>{% trans "Autres Classements" %}
+                                </h6>
+                                {% if user.peut_voir_classement_station_pesage %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:classement_stations_pesage_rendement' %}">
+                                    <i class="fas fa-weight-hanging me-2 text-purple"></i>{% trans "Stations Pesage" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_classement_agents_inventaire %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:classement_agents_performances' %}">
+                                    <i class="fas fa-medal me-2 text-warning"></i>{% trans "Agents Inventaires" %}
+                                </a>
+                                {% endif %}
+                                <hr class="my-2">
+                                {% endif %}
+                                
+                                <!-- Section Outils -->
+                                {% if user.peut_voir_rapports_defaillants_peage or user.peut_voir_rapports_defaillants_pesage %}
+                                <h6 class="dropdown-header px-0 text-success">
+                                    <i class="fas fa-tools me-1"></i>{% trans "Outils" %}
+                                </h6>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:rapport_generation' %}">
+                                    <i class="fas fa-file-pdf me-2 text-danger"></i>{% trans "Générer Rapports" %}
+                                </a>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:api_inventaire_stats' %}">
+                                    <i class="fas fa-chart-gantt me-2 text-info"></i>{% trans "Statistiques" %}
+                                </a>
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:backup_inventaires' %}">
+                                    <i class="fas fa-cloud-arrow-down me-2 text-success"></i>{% trans "Sauvegarde" %}
+                                </a>
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                    </div>
                 </li>
                 {% endif %}
 
-                <!-- Menu ADMINISTRATION (superuser) -->
-                {% if user.is_superuser %}
+                <!-- ============================================
+                     MENU ADMINISTRATION - 2 COLONNES
+                     4 fonctionnalités
+                     ============================================ -->
+                {% if user.peut_parametrage_global or user.peut_voir_compte_emploi or user.peut_voir_pv_confrontation or user.peut_authentifier_document or user.is_superuser %}
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-screwdriver-wrench me-1"></i>
                         {% trans "Administration" %}
                     </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:parametrage_global' %}">
-                                <i class="fas fa-gears me-2"></i>{% trans "Paramétrage Global" %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:selection_compte_emploi' %}">
-                                <i class="fas fa-wallet me-2"></i>{% trans "Compte d'emploi" %}
-                            </a>
-                        </li>
-                        <!-- Dans votre sidebar ou navbar -->
-            {% if user.habilitation == 'admin_principal' or user.habilitation == 'coord_psrr' or user.habilitation == 'serv_info' or user.habilitation == 'regisseur_pesage' or user.habilitation == 'chef_station_pesage' %}
-            <li>
-                <a class="dropdown-item" href="{% url 'inventaire:selection_pv_confrontation' %}">
-                    <i class="fas fa-balance-scale"></i>
-                    <span>PV Confrontation</span>
-                </a>
-            </li>
-            {% endif %}
-                        <li>
-                            <a class="dropdown-item" href="{% url 'inventaire:authentifier_document' %}">
-                                <i class="fas fa-stamp me-2"></i>{% trans "Authentifier un document" %}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                    </ul>
+                    
+                    <!-- Menu mega 2 colonnes (petit) -->
+                    <div class="dropdown-menu dropdown-menu-mega-sm p-3">
+                        <div class="row g-0">
+                            
+                            <!-- COLONNE GAUCHE - Configuration -->
+                            <div class="col-6 pe-3 border-end">
+                                
+                                <h6 class="dropdown-header px-0 text-primary">
+                                    <i class="fas fa-cogs me-1"></i>{% trans "Configuration" %}
+                                </h6>
+                                {% if user.peut_parametrage_global %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:parametrage_global' %}">
+                                    <i class="fas fa-gears me-2 text-primary"></i>{% trans "Paramétrage Global" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_voir_compte_emploi %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:selection_compte_emploi' %}">
+                                    <i class="fas fa-wallet me-2 text-success"></i>{% trans "Compte d'emploi" %}
+                                </a>
+                                {% endif %}
+                                
+                            </div>
+                            
+                            <!-- COLONNE DROITE - Documents -->
+                            <div class="col-6 ps-3">
+                                
+                                <h6 class="dropdown-header px-0 text-warning">
+                                    <i class="fas fa-file-signature me-1"></i>{% trans "Documents" %}
+                                </h6>
+                                {% if user.peut_voir_pv_confrontation %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:selection_pv_confrontation' %}">
+                                    <i class="fas fa-balance-scale me-2 text-warning"></i>{% trans "PV Confrontation" %}
+                                </a>
+                                {% endif %}
+                                {% if user.peut_authentifier_document %}
+                                <a class="dropdown-item rounded" href="{% url 'inventaire:authentifier_document' %}">
+                                    <i class="fas fa-stamp me-2 text-info"></i>{% trans "Authentifier Document" %}
+                                </a>
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                    </div>
                 </li>
                 {% endif %}
             </ul>
@@ -1022,11 +1307,11 @@
             <div class="user-info">
                 <div class="user-name">{{ user.nom_complet|default:user.username }}</div>
                 <div class="user-role">{{ user.get_habilitation_display }}</div>
-                 {% if user.poste_affectation %}
-                    <br><small class="text-white">
-                        {{ user.poste_affectation.nom }}
-                    </small>
-                    {% endif %}
+                {% if user.poste_affectation %}
+                <br><small class="text-white">
+                    {{ user.poste_affectation.nom }}
+                </small>
+                {% endif %}
             </div>
 
             <!-- Menu utilisateur -->
@@ -1094,7 +1379,7 @@
                     <div class="card">
                         <div class="card-body text-center py-5">
                             <h2>{% trans "Bienvenue dans SUPPER" %}</h2>
-                            <p class="text-muted">{% trans "Suivi des  Péages et Pesages Routiers" %}</p>
+                            <p class="text-muted">{% trans "Suivi des Péages et Pesages Routiers" %}</p>
                         </div>
                     </div>
                 </div>
@@ -1110,12 +1395,12 @@
         <div class="row">
             <div class="col-md-6">
                 <small class="text-muted">
-                    © {% now "Y" %} SUPPER - {% trans "Suivi des  Péages et Pesages Routiers" %} - SI/PSRR
+                    © {% now "Y" %} SUPPER - {% trans "Suivi des Péages et Pesages Routiers" %} - SI/PSRR
                 </small>
             </div>
             <div class="col-md-6 text-end">
                 <small class="text-muted">
-                    {% trans "Version" %} 2.0 | {% trans "Connecté:" %} <strong>{{ user.username }}</strong>
+                    {% trans "Version" %} 4.0 | {% trans "Connecté:" %} <strong>{{ user.username }}</strong>
                 </small>
             </div>
         </div>
@@ -1130,8 +1415,9 @@
 const SUPPER_CONFIG = {
     CSRF_TOKEN: '{{ csrf_token }}',
     USER: {
-        IS_ADMIN: {{ user.is_admin|yesno:"true,false" }},
-        USERNAME: "{{ user.username }}"
+        IS_ADMIN: {{ user.is_superuser|yesno:"true,false" }},
+        USERNAME: "{{ user.username }}",
+        PEUT_VALIDER_AMENDE: {{ user.peut_valider_paiement_amende|yesno:"true,false" }}
     }
 };
 
@@ -1142,10 +1428,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 });
-{% if user.habilitation == 'regisseur_pesage' or user.is_admin %}
+
+// Script pour les badges de demandes en attente (utilisateurs avec permission validation)
+{% if user.peut_valider_paiement_amende %}
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Fonction pour mettre à jour les badges de demandes en attente
     function updateDemandesConfirmationBadges() {
         fetch('{% url "inventaire:api_count_demandes_attente" %}')
             .then(response => {
@@ -1153,13 +1440,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.json();
             })
             .then(data => {
-                // Badge dans le menu déroulant
                 const badgeMenu = document.getElementById('badge-demandes-attente');
-                // Badge global sur le titre "Pesage"
                 const badgeGlobal = document.getElementById('badge-pesage-global');
                 
                 if (data.count > 0) {
-                    // Afficher les badges avec le compteur
                     if (badgeMenu) {
                         badgeMenu.textContent = data.count;
                         badgeMenu.classList.remove('d-none');
@@ -1169,7 +1453,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         badgeGlobal.classList.remove('d-none');
                     }
                 } else {
-                    // Masquer les badges si aucune demande
                     if (badgeMenu) badgeMenu.classList.add('d-none');
                     if (badgeGlobal) badgeGlobal.classList.add('d-none');
                 }
@@ -1179,14 +1462,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
-    // Mettre à jour au chargement de la page
     updateDemandesConfirmationBadges();
-    
-    // Mettre à jour toutes les 30 secondes
     setInterval(updateDemandesConfirmationBadges, 30000);
-    
-});</script>
+});
 {% endif %}
+</script>
 
 {% block extra_js %}{% endblock %}
 

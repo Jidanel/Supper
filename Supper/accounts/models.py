@@ -383,6 +383,29 @@ class UtilisateurSUPPER(AbstractUser):
         verbose_name=_("Adresse email"),
         help_text=_("Email optionnel pour la réinitialisation de mot de passe")
     )
+
+    permissions_personnalisees = models.BooleanField(
+        default=False,
+        verbose_name=_("Permissions personnalisées"),
+        help_text=_("Si True, les permissions ont été modifiées manuellement et ne seront pas écrasées par fix_user_permissions")
+    )
+
+    date_personnalisation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de personnalisation"),
+        help_text=_("Date de la dernière modification manuelle des permissions")
+    )
+
+    personnalise_par = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='utilisateurs_personnalises',
+        verbose_name=_("Personnalisé par"),
+        help_text=_("Administrateur qui a personnalisé les permissions")
+    )
     
     # Affectation professionnelle
     poste_affectation = models.ForeignKey(
@@ -651,14 +674,61 @@ class UtilisateurSUPPER(AbstractUser):
         return f"{self.username} - {self.nom_complet}"
     
     def save(self, *args, **kwargs):
-        """Sauvegarde avec attribution automatique des permissions"""
-        self.attribuer_permissions_automatiques()
+        """
+        Sauvegarde l'utilisateur avec gestion intelligente des permissions.
+        
+        Paramètres kwargs spéciaux:
+            - skip_auto_permissions: Ne pas recalculer les permissions automatiques
+            - force_auto_permissions: Forcer le recalcul (réinitialise permissions_personnalisees)
+            - mark_customized: Marquer comme personnalisé (avec qui et quand)
+            - customized_by: Utilisateur qui personnalise (pour mark_customized)
+        
+        Comportement:
+            - Création: Toujours attribuer les permissions automatiques
+            - Modification avec skip: Conserver les permissions actuelles
+            - Modification avec force: Recalculer et retirer le flag personnalisé
+        """
+        from django.utils import timezone
+        
+        # Extraire les paramètres spéciaux
+        skip_auto_permissions = kwargs.pop('skip_auto_permissions', False)
+        force_auto_permissions = kwargs.pop('force_auto_permissions', False)
+        mark_customized = kwargs.pop('mark_customized', False)
+        customized_by = kwargs.pop('customized_by', None)
+        
+        # Détecter si c'est une création
+        is_new = self._state.adding or self.pk is None
+        
+        # Gestion des permissions
+        if force_auto_permissions:
+            # Forcer le recalcul et retirer le flag personnalisé
+            self.attribuer_permissions_automatiques()
+            self.permissions_personnalisees = False
+            self.date_personnalisation = None
+            self.personnalise_par = None
+        elif is_new:
+            # Nouvelle création: permissions par défaut
+            self.attribuer_permissions_automatiques()
+        elif not skip_auto_permissions:
+            # Modification standard: recalculer
+            self.attribuer_permissions_automatiques()
+        # Si skip_auto_permissions=True: ne pas toucher aux permissions
+        
+        # Marquer comme personnalisé si demandé
+        if mark_customized:
+            self.permissions_personnalisees = True
+            self.date_personnalisation = timezone.now()
+            if customized_by:
+                self.personnalise_par = customized_by
+        
         super().save(*args, **kwargs)
         
-        if hasattr(self, '_state') and self._state.adding:
+        if is_new:
             logger.info(f"Nouvel utilisateur créé: {self.username} ({self.nom_complet})")
         else:
-            logger.info(f"Utilisateur modifié: {self.username}")
+            logger.info(f"Utilisateur modifié: {self.username}" + 
+                    (" [permissions personnalisées]" if self.permissions_personnalisees else ""))
+
     
     # ===============================================================
     # PROPRIÉTÉS
@@ -757,40 +827,39 @@ class UtilisateurSUPPER(AbstractUser):
     
     def attribuer_permissions_automatiques(self):
         """
-        Attribue automatiquement les permissions selon l'habilitation
-        BASÉ SUR LA MATRICE PDF DES HABILITATIONS
+        Attribue les permissions automatiquement selon l'habilitation.
+        Appelle d'abord _reinitialiser_toutes_permissions() puis la méthode
+        de configuration spécifique au rôle.
         """
-        # ÉTAPE 1: RÉINITIALISATION COMPLÈTE
+        # D'abord réinitialiser toutes les permissions à False
         self._reinitialiser_toutes_permissions()
         
-        # ÉTAPE 2: ATTRIBUTION SELON LE RÔLE
-        config_map = {
-            Habilitation.ADMIN_PRINCIPAL: self._configurer_admin_principal,
-            Habilitation.COORDONNATEUR_PSRR: self._configurer_coordonnateur_psrr,
-            Habilitation.SERVICE_INFORMATIQUE: self._configurer_service_informatique,
-            Habilitation.SERVICE_EMISSION: self._configurer_service_emission,
-            Habilitation.CHEF_AFFAIRES_GENERALES: self._configurer_chef_affaires_generales,
-            Habilitation.SERVICE_CONTROLE_VALIDATION: self._configurer_service_controle_validation,
-            Habilitation.SERVICE_ORDRE_SECRETARIAT: self._configurer_service_ordre_secretariat,
-            Habilitation.IMPRIMERIE_NATIONALE: self._configurer_imprimerie_nationale,
-            Habilitation.CISOP_PEAGE: self._configurer_cisop_peage,
-            Habilitation.CISOP_PESAGE: self._configurer_cisop_pesage,
-            Habilitation.CHEF_POSTE_PEAGE: self._configurer_chef_poste_peage,
-            Habilitation.CHEF_STATION_PESAGE: self._configurer_chef_station_pesage,
-            Habilitation.REGISSEUR_PESAGE: self._configurer_regisseur_pesage,
-            Habilitation.CHEF_EQUIPE_PESAGE: self._configurer_chef_equipe_pesage,
-            Habilitation.AGENT_INVENTAIRE: self._configurer_agent_inventaire,
-            Habilitation.POINT_FOCAL_REGIONAL: self._configurer_point_focal_regional,
-            Habilitation.REGISSEUR: self._configurer_regisseur_central,
-            Habilitation.COMPTABLE_MATIERES: self._configurer_comptable_matieres,
-            # Anciens noms pour compatibilité
-            Habilitation.CHEF_SERVICE_ORDRE: self._configurer_service_ordre_secretariat,
-            Habilitation.CHEF_SERVICE_CONTROLE: self._configurer_service_controle_validation,
+        # Mapping habilitation → méthode de configuration
+        CONFIG_MAP = {
+            'admin_principal': self._configurer_admin_principal,
+            'coord_psrr': self._configurer_coordonnateur_psrr,
+            'serv_info': self._configurer_service_informatique,
+            'serv_emission': self._configurer_service_emission,
+            'chef_ag': self._configurer_chef_affaires_generales,
+            'serv_controle': self._configurer_service_controle_validation,
+            'serv_ordre': self._configurer_service_ordre_secretariat,
+            'imprimerie': self._configurer_imprimerie_nationale,
+            'cisop_peage': self._configurer_cisop_peage,
+            'cisop_pesage': self._configurer_cisop_pesage,
+            'chef_peage': self._configurer_chef_poste_peage,
+            'chef_station_pesage': self._configurer_chef_station_pesage,
+            'regisseur_pesage': self._configurer_regisseur_pesage,
+            'chef_equipe_pesage': self._configurer_chef_equipe_pesage,
+            'agent_inventaire': self._configurer_agent_inventaire,
+            'comptable_mat': self._configurer_comptable_matieres,
         }
         
-        config_func = config_map.get(self.habilitation)
-        if config_func:
-            config_func()
+        # Appeler la méthode de configuration correspondante
+        if self.habilitation and self.habilitation in CONFIG_MAP:
+            CONFIG_MAP[self.habilitation]()
+        else:
+            logger.warning(f"Habilitation non reconnue: {self.habilitation}")
+
     
     def _reinitialiser_toutes_permissions(self):
         """Réinitialise toutes les permissions à False"""
@@ -1108,7 +1177,7 @@ class UtilisateurSUPPER(AbstractUser):
     
     def _configurer_imprimerie_nationale(self):
         """IMPRIMERIE NATIONALE"""
-        self.peut_gerer_stocks_psrr = True
+        self.peut_voir_historique_stock_peage = True
         self.peut_voir_tous_postes = True
     
     def _configurer_cisop_peage(self):
@@ -1155,7 +1224,6 @@ class UtilisateurSUPPER(AbstractUser):
         self.voir_taux_deperdition = True
         self.voir_recettes_potentielles = False  # RESTRICTION IMPORTANTE
         
-        self.peut_saisir_inventaire_normal = True
         self.peut_voir_liste_inventaires = True
         self.peut_voir_jours_impertinents = True
         self.peut_voir_stats_deperdition = True
@@ -1199,8 +1267,6 @@ class UtilisateurSUPPER(AbstractUser):
         self.peut_voir_stats_pesage = True
         self.peut_voir_classement_station_pesage = True
         
-        # Anciennes permissions
-        self.peut_gerer_pesage = True
     
     def _configurer_regisseur_pesage(self):
         """REGISSEUR DE STATION PESAGE"""
@@ -1227,9 +1293,7 @@ class UtilisateurSUPPER(AbstractUser):
         self.peut_saisir_amende = True
         self.peut_saisir_pesee_jour = True
         self.peut_voir_objectifs_pesage = True
-        self.peut_valider_paiement_amende = True
         self.peut_lister_amendes = True
-        self.peut_voir_liste_quittancements_pesage = True
         self.peut_voir_historique_pesees = True
         self.peut_voir_recettes_pesage = True
         self.peut_voir_stats_pesage = True
@@ -1237,46 +1301,16 @@ class UtilisateurSUPPER(AbstractUser):
     def _configurer_agent_inventaire(self):
         """AGENT INVENTAIRE - Droits limités"""
         self.voir_recettes_potentielles = False  # RESTRICTION
-        self.voir_taux_deperdition = False       # RESTRICTION
+        self.voir_taux_deperdition = True 
         self.voir_statistiques_globales = False
         
         self.peut_saisir_inventaire_normal = True
         self.peut_voir_liste_inventaires = True
         self.peut_voir_jours_impertinents = True
         self.peut_voir_stats_deperdition = True
-        self.peut_voir_liste_recettes_peage = True
-        self.peut_voir_stats_recettes_peage = True
-        self.peut_voir_liste_quittances_peage = True
-        self.peut_voir_objectifs_pesage = True
-        self.peut_lister_amendes = True
-        self.peut_voir_historique_pesees = True
-        self.peut_voir_stats_pesage = True
-        self.peut_voir_tracabilite_tickets = True
-        self.peut_voir_bordereaux_peage = True
-        self.peut_voir_historique_stock_peage = True
-        self.peut_voir_pv_confrontation = True
-        self.peut_authentifier_document = True
         
         # Anciennes permissions
         self.peut_gerer_inventaire = True
-    
-    def _configurer_point_focal_regional(self):
-        """POINT FOCAL REGIONAL"""
-        self.acces_tous_postes = True
-        self.voir_statistiques_globales = True
-        
-        self.peut_voir_liste_inventaires = True
-        self.peut_voir_stats_deperdition = True
-        self.peut_voir_liste_recettes_peage = True
-        self.peut_voir_stats_recettes_peage = True
-        self.peut_voir_stats_pesage = True
-        self.peut_voir_tous_postes = True
-    
-    def _configurer_regisseur_central(self):
-        """REGISSEUR CENTRAL"""
-        self.peut_gerer_budget = True
-        self.acces_tous_postes = True
-        self.voir_statistiques_globales = True
     
     def _configurer_comptable_matieres(self):
         """COMPTABLE MATIERES"""

@@ -296,7 +296,7 @@
                                 {% if serie.couleur %}
                                     {{ serie.couleur.libelle_affichage }}
                                 {% else %}
-                                    {{ serie.couleur_nom|default:"Inconnu" }}
+                                    {{ serie.couleur_nom }}
                                 {% endif %}
                             </span>
                         </td>

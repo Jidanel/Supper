@@ -1,36 +1,71 @@
-# inventaire/views_classement_pesage.py
+# ===================================================================
+# inventaire/views_classement_pesage.py - Vues de classement pesage SUPPER
+# VERSION MISE À JOUR - Intégration des permissions granulaires
+# ===================================================================
 """
-Vues pour le classement des stations de pesage par rendement
-Basé sur les montants recouvrés (amendes payées/quittancées)
+Vues pour le classement des stations de pesage par rendement.
+Basé sur les montants recouvrés (amendes payées/quittancées).
+
+RÈGLES D'ACCÈS:
+- Classement pesage: peut_voir_classement_station_pesage
+- Filtrage automatique des stations selon l'habilitation de l'utilisateur
 """
 
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Avg, Q
 from datetime import date, timedelta
 import calendar
 from decimal import Decimal
+import logging
 
 from accounts.models import Poste
-from inventaire.models_pesage import AmendeEmise, QuittancementPesage
+
+# Import des fonctions de permissions et décorateurs
+from common.permissions import (
+    has_permission,
+    get_postes_accessibles,
+    get_postes_pesage_accessibles,
+    check_poste_access,
+    user_has_acces_tous_postes,
+    is_admin_user,
+    is_service_central,
+    is_cisop_pesage,
+    is_operationnel_pesage,
+)
+from common.decorators import (
+    permission_required_granular,
+    classement_pesage_required,
+)
+from common.utils import log_user_action
+
+logger = logging.getLogger('supper.classement_pesage')
 
 
-def is_admin(user):
-    """Vérification admin uniquement"""
-    return user.is_authenticated and (
-        user.is_superuser or
-        user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']
-    )
-
+# ===================================================================
+# FONCTIONS UTILITAIRES
+# ===================================================================
 
 def calculer_dates_periode_pesage(periode, annee, mois=None, trimestre=None, 
                                    semestre=None, semaine=None):
-    """Calcule les dates de début et fin selon la période"""
+    """
+    Calcule les dates de début et fin selon la période pour le pesage.
     
+    Args:
+        periode: Type de période ('cumul', 'semaine', 'mois', 'trimestre', 'semestre', 'annuel')
+        annee: Année de référence
+        mois: Numéro du mois (optionnel)
+        trimestre: Numéro du trimestre (optionnel)
+        semestre: Numéro du semestre (optionnel)
+        semaine: Numéro de la semaine (optionnel)
+    
+    Returns:
+        tuple: (date_debut, date_fin)
+    """
     today = date.today()
     
     if periode == 'cumul':
-        # Cumul à date (depuis le début de l'année ou depuis toujours)
+        # Cumul à date (depuis le début de l'année jusqu'à aujourd'hui)
         date_debut = date(annee, 1, 1)
         date_fin = today
     
@@ -96,8 +131,12 @@ def calculer_dates_periode_pesage(periode, annee, mois=None, trimestre=None,
 
 def get_periode_label_pesage(periode, annee, mois=None, trimestre=None, 
                               semestre=None, semaine=None):
-    """Génère le label de la période pour l'affichage"""
+    """
+    Génère le label de la période pour l'affichage pesage.
     
+    Returns:
+        str: Label formaté de la période
+    """
     MOIS_NOMS = {
         1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
         5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
@@ -131,14 +170,21 @@ def get_periode_label_pesage(periode, annee, mois=None, trimestre=None,
         return f"Année {annee}"
 
 
-def calculer_classement_pesage(date_debut=None, date_fin=None):
+def calculer_classement_pesage(date_debut=None, date_fin=None, user=None):
     """
     Calcule le classement des stations de pesage par rendement.
     Basé sur le montant total recouvré (amendes payées).
     
+    Args:
+        date_debut: Date de début de la période
+        date_fin: Date de fin de la période
+        user: Utilisateur pour le filtrage des postes accessibles (optionnel)
+    
     Returns:
         list: Liste triée des stations avec leurs statistiques
     """
+    from inventaire.models_pesage import AmendeEmise, QuittancementPesage
+    
     today = date.today()
     
     if date_debut is None:
@@ -146,8 +192,15 @@ def calculer_classement_pesage(date_debut=None, date_fin=None):
     if date_fin is None:
         date_fin = today
     
-    # Récupérer toutes les stations de pesage actives
-    stations = Poste.objects.filter(type='pesage', is_active=True)
+    # =====================================================
+    # FILTRAGE DES STATIONS SELON L'HABILITATION
+    # =====================================================
+    if user and not user_has_acces_tous_postes(user):
+        # Utilisateur mono-poste -> uniquement sa station
+        stations = get_postes_pesage_accessibles(user)
+    else:
+        # Admin, services centraux, CISOP pesage -> toutes les stations
+        stations = Poste.objects.filter(type='pesage', is_active=True)
     
     classement = []
     
@@ -212,13 +265,14 @@ def calculer_classement_pesage(date_debut=None, date_fin=None):
     return classement
 
 
-def get_rang_station_pesage(station, annee=None):
+def get_rang_station_pesage(station, annee=None, user=None):
     """
     Retourne le rang d'une station dans le classement cumul à date.
     
     Args:
         station: Instance de Poste (station de pesage)
         annee: Année pour le calcul (par défaut: année en cours)
+        user: Utilisateur pour le filtrage (optionnel)
     
     Returns:
         dict: {'rang': int, 'total_stations': int, 'total_recouvre': Decimal}
@@ -230,7 +284,7 @@ def get_rang_station_pesage(station, annee=None):
     date_debut = date(annee, 1, 1)
     date_fin = today
     
-    classement = calculer_classement_pesage(date_debut, date_fin)
+    classement = calculer_classement_pesage(date_debut, date_fin, user)
     
     for item in classement:
         if item['station'].id == station.id:
@@ -249,15 +303,36 @@ def get_rang_station_pesage(station, annee=None):
     }
 
 
+# ===================================================================
+# VUE PRINCIPALE: CLASSEMENT DES STATIONS DE PESAGE
+# ===================================================================
+
 @login_required
-@user_passes_test(is_admin)
+@permission_required_granular('peut_voir_classement_station_pesage')
 def classement_stations_pesage_rendement(request):
     """
-    Vue pour classer les stations de pesage par rendement
-    Basé sur les montants recouvrés (amendes payées)
-    """
+    Vue pour classer les stations de pesage par rendement.
+    Basé sur les montants recouvrés (amendes payées).
     
-    # Par défaut: cumul à date
+    PERMISSIONS REQUISES:
+    - peut_voir_classement_station_pesage
+    
+    ACCÈS AUX STATIONS:
+    - Admin/Services centraux/CISOP Pesage: Toutes les stations
+    - Opérationnels pesage (chef station, régisseur, chef équipe): Leur station uniquement
+    """
+    user = request.user
+    
+    # Log de l'action utilisateur
+    log_user_action(
+        user=user,
+        action="Consultation classement pesage rendement",
+        details=f"Accès à la page de classement des stations de pesage par rendement",
+        request=request
+    )
+    logger.info(f"[CLASSEMENT_PESAGE] Utilisateur {user.username} ({user.habilitation}) accède au classement pesage")
+    
+    # Récupérer les filtres
     periode = request.GET.get('periode', 'cumul')
     annee = int(request.GET.get('annee', date.today().year))
     mois = request.GET.get('mois')
@@ -270,8 +345,8 @@ def classement_stations_pesage_rendement(request):
         periode, annee, mois, trimestre, semestre, semaine
     )
     
-    # Calculer le classement
-    classement = calculer_classement_pesage(date_debut, date_fin)
+    # Calculer le classement (avec filtrage automatique selon l'utilisateur)
+    classement = calculer_classement_pesage(date_debut, date_fin, user)
     
     # Calculer statistiques globales
     if classement:
@@ -290,6 +365,9 @@ def classement_stations_pesage_rendement(request):
         taux_global = 0
         top_3 = []
         bottom_3 = []
+    
+    # Log du résultat
+    logger.info(f"[CLASSEMENT_PESAGE] {user.username} - Période: {periode} - {len(classement)} stations affichées")
     
     # Noms des mois pour le filtre
     MOIS_NOMS = {
@@ -329,7 +407,9 @@ def classement_stations_pesage_rendement(request):
         'nombre_stations': len(classement),
         'top_3': top_3,
         'bottom_3': bottom_3,
-        'title': 'Classement des Stations de Pesage par Rendement'
+        'title': 'Classement des Stations de Pesage par Rendement',
+        # Indicateur d'accès complet pour le template
+        'acces_tous_postes': user_has_acces_tous_postes(user),
     }
     
     return render(request, 'pesage/classement_stations_rendement.html', context)

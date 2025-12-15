@@ -1,11 +1,27 @@
+# ===================================================================
 # inventaire/views_rapports_defaillants.py
+# Vue améliorée pour générer le rapport des postes défaillants avec estimations
+# VERSION CORRIGÉE - Intégration des permissions granulaires
+# ===================================================================
 """
-Vue améliorée pour générer le rapport des postes défaillants avec estimations
-Version corrigée avec calculs complets du mois
+Module de génération du rapport des postes défaillants pour le péage.
+
+Ce rapport identifie les postes de péage qui n'ont pas soumis leurs déclarations
+de recettes pour certains jours, avec des estimations basées sur l'historique.
+
+Permissions requises (granulaires):
+- peut_voir_rapports_defaillants_peage: Accès au rapport des défaillants péage
+
+Habilitations ayant cette permission selon la matrice:
+- admin_principal, coord_psrr, serv_info (admins)
+- serv_emission (service émission et recouvrement)
+- serv_controle (service contrôle)
+- focal_regional (point focal régional)
+- chef_service (chef de service)
 """
 
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
 from django.db.models import Sum, Avg, Count, Q
@@ -13,43 +29,117 @@ from django.utils import timezone
 from datetime import date, timedelta, datetime
 from decimal import Decimal
 import calendar
+import logging
 
 from accounts.models import Poste
 from inventaire.models import RecetteJournaliere
+from common.utils import log_user_action
 
-import logging
+# Import des fonctions de permissions granulaires depuis common.permissions
+from common.permissions import (
+    # Fonctions de vérification de permissions
+    has_permission,
+    user_has_acces_tous_postes,
+    get_postes_peage_accessibles,
+    
+    # Fonctions de classification utilisateurs
+    is_admin_user,
+    is_service_central,
+    
+    # Utilitaires de logging
+    log_acces_refuse,
+)
+
 logger = logging.getLogger('supper')
 
 
-def is_admin_or_manager(user):
-    """Vérifie si l'utilisateur peut accéder aux rapports"""
-    if not user.is_authenticated:
+# ===================================================================
+# FONCTIONS DE VÉRIFICATION DES PERMISSIONS
+# ===================================================================
+
+def peut_acceder_rapport_defaillants_peage(user):
+    """
+    Vérifie si l'utilisateur peut accéder au rapport des défaillants péage.
+    
+    Utilise la permission granulaire 'peut_voir_rapports_defaillants_peage'.
+    
+    Habilitations ayant cette permission selon la matrice:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - serv_emission (service émission et recouvrement)
+    - serv_controle (service contrôle)
+    - focal_regional (point focal régional)
+    - chef_service (chef de service)
+    
+    Args:
+        user: L'utilisateur à vérifier
+        
+    Returns:
+        bool: True si l'utilisateur a la permission d'accès
+    """
+    if not user or not user.is_authenticated:
+        logger.debug(f"[RAPPORT_DEFAILLANTS] Accès refusé: utilisateur non authentifié")
         return False
     
-    allowed_roles = [
-        'admin_principal',
-        'coord_psrr',
-        'serv_info',
-        'serv_emission',
-        'chef_service',
-        'focal_regional'
-    ]
+    # Vérifier la permission granulaire
+    has_perm = has_permission(user, 'peut_voir_rapports_defaillants_peage')
     
-    return (
-        user.is_superuser or 
-        user.is_staff or
-        user.habilitation in allowed_roles
+    logger.debug(
+        f"[RAPPORT_DEFAILLANTS] Vérification permission pour {user.username} "
+        f"(habilitation={user.habilitation}): {'ACCORDÉE' if has_perm else 'REFUSÉE'}"
     )
+    
+    return has_perm
 
+
+# ===================================================================
+# VUES PRINCIPALES
+# ===================================================================
 
 @login_required
-@user_passes_test(is_admin_or_manager)
 def selection_rapport_defaillants(request):
-    """Vue pour sélectionner la période du rapport"""
+    """
+    Vue pour sélectionner la période du rapport des défaillants.
     
+    Accès basé sur la permission 'peut_voir_rapports_defaillants_peage'.
+    
+    Variables de contexte (IDENTIQUES au fichier original):
+    - date_debut_default: Date de début par défaut (1er du mois en cours)
+    - date_fin_default: Date de fin par défaut (aujourd'hui)
+    - date_max: Date maximale sélectionnable (aujourd'hui)
+    - title: Titre de la page
+    """
+    user = request.user
+    
+    # === Vérification des permissions granulaires ===
+    if not peut_acceder_rapport_defaillants_peage(user):
+        log_user_action(
+            user,
+            "Tentative accès sélection rapport défaillants",
+            f"Permission 'peut_voir_rapports_defaillants_peage' refusée - Habilitation: {user.habilitation}",
+            request
+        )
+        log_acces_refuse(
+            user, 
+            "selection_rapport_defaillants", 
+            "Permission peut_voir_rapports_defaillants_peage manquante"
+        )
+        messages.error(
+            request, 
+            "Vous n'avez pas la permission d'accéder au rapport des postes défaillants."
+        )
+        return redirect('common:dashboard')
+    
+    # Log de l'accès à la page de sélection
+    logger.info(
+        f"[RAPPORT_DEFAILLANTS] Accès sélection par {user.username} "
+        f"(habilitation={user.habilitation})"
+    )
+    
+    # Dates par défaut
     date_fin_default = date.today()
     date_debut_default = date(date_fin_default.year, date_fin_default.month, 1)
     
+    # Variables de contexte IDENTIQUES au fichier original
     context = {
         'date_debut_default': date_debut_default,
         'date_fin_default': date_fin_default,
@@ -61,12 +151,44 @@ def selection_rapport_defaillants(request):
 
 
 @login_required
-@user_passes_test(is_admin_or_manager)
 def rapport_defaillants_peage(request):
     """
-    Vue principale pour générer le rapport des postes défaillants
-    Version améliorée avec calculs complets du mois
+    Vue principale pour générer le rapport des postes défaillants.
+    Version améliorée avec calculs complets du mois.
+    
+    Accès basé sur la permission 'peut_voir_rapports_defaillants_peage'.
+    
+    Paramètres GET:
+    - date_debut: Date de début (format YYYY-MM-DD)
+    - date_fin: Date de fin (format YYYY-MM-DD)
+    - action: 'preview' (HTML) ou 'pdf' (génération PDF)
+    
+    Variables de contexte (IDENTIQUES au fichier original):
+    - date_debut: Date de début de la période
+    - date_fin: Date de fin de la période
+    - donnees: Dictionnaire complet des données calculées
+    - title: Titre de la page
     """
+    user = request.user
+    
+    # === Vérification des permissions granulaires ===
+    if not peut_acceder_rapport_defaillants_peage(user):
+        log_user_action(
+            user,
+            "Tentative accès rapport défaillants péage",
+            f"Permission 'peut_voir_rapports_defaillants_peage' refusée - Habilitation: {user.habilitation}",
+            request
+        )
+        log_acces_refuse(
+            user, 
+            "rapport_defaillants_peage", 
+            "Permission peut_voir_rapports_defaillants_peage manquante"
+        )
+        messages.error(
+            request, 
+            "Vous n'avez pas la permission d'accéder à ce rapport."
+        )
+        return redirect('common:dashboard')
     
     # Récupérer les paramètres de date
     date_debut_str = request.GET.get('date_debut')
@@ -78,6 +200,9 @@ def rapport_defaillants_peage(request):
         try:
             date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date()
         except ValueError:
+            logger.warning(
+                f"[RAPPORT_DEFAILLANTS] Format de date_fin invalide: {date_fin_str}"
+            )
             date_fin = date.today()
     else:
         date_fin = date.today()
@@ -87,6 +212,9 @@ def rapport_defaillants_peage(request):
         try:
             date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date()
         except ValueError:
+            logger.warning(
+                f"[RAPPORT_DEFAILLANTS] Format de date_debut invalide: {date_debut_str}"
+            )
             date_debut = date(date_fin.year, date_fin.month, 1)
     else:
         date_debut = date(date_fin.year, date_fin.month, 1)
@@ -94,17 +222,34 @@ def rapport_defaillants_peage(request):
     # Vérifier la cohérence des dates
     if date_debut > date_fin:
         messages.error(request, "La date de début doit être antérieure à la date de fin")
+        log_user_action(
+            user,
+            "Erreur sélection période rapport défaillants",
+            f"Dates incohérentes: {date_debut} > {date_fin}",
+            request
+        )
         return redirect('inventaire:selection_rapport_defaillants')
+    
+    # Log de l'action
+    logger.info(
+        f"[RAPPORT_DEFAILLANTS] Génération rapport par {user.username} "
+        f"- Période: {date_debut} au {date_fin}, Action: {action}"
+    )
+    log_user_action(
+        user,
+        "Génération rapport défaillants péage",
+        f"Période: {date_debut} au {date_fin}, Action: {action}",
+        request
+    )
     
     # Calculer toutes les données nécessaires
     donnees = calculer_donnees_defaillants_complet(date_debut, date_fin)
     
     if action == 'pdf':
-        return generer_pdf_defaillants_complet(donnees, date_debut, date_fin)
-    # elif action == 'excel':
-    #     return generer_excel_defaillants(donnees, date_debut, date_fin)
+        return generer_pdf_defaillants_complet(donnees, date_debut, date_fin, user, request)
     
     # Afficher la vue HTML
+    # Variables de contexte IDENTIQUES au fichier original
     context = {
         'date_debut': date_debut,
         'date_fin': date_fin,
@@ -115,11 +260,23 @@ def rapport_defaillants_peage(request):
     return render(request, 'inventaire/rapport_defaillants_peage.html', context)
 
 
+# ===================================================================
+# FONCTIONS DE CALCUL DES DONNÉES
+# ===================================================================
+
 def calculer_donnees_defaillants_complet(date_debut, date_fin):
     """
-    Calcule toutes les données nécessaires pour le rapport des défaillants
-    Version améliorée avec calculs du mois complet
+    Calcule toutes les données nécessaires pour le rapport des défaillants.
+    Version améliorée avec calculs du mois complet.
+    
+    Args:
+        date_debut: Date de début de la période
+        date_fin: Date de fin de la période
+        
+    Returns:
+        dict: Dictionnaire contenant toutes les données calculées
     """
+    logger.info(f"[RAPPORT_DEFAILLANTS] Début calcul données - Période: {date_debut} au {date_fin}")
     
     annee = date_fin.year
     mois = date_fin.month
@@ -141,11 +298,11 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
         'estimation_jours_non_declares': Decimal('0'),
         'estimation_date_fin': Decimal('0'),
         'estimation_fin_mois': Decimal('0'),
-        'date_fin_mois': fin_mois,  # Variable pour le template
+        'date_fin_mois': fin_mois,
 
         # NOUVELLE SECTION: Comparaison mensuelle même mois N-1 et N-2
         'comparaison_mois_n1': {
-            'annee': annee - 1,  # Entier, pas de décimal
+            'annee': annee - 1,
             'mois_nom': calendar.month_name[mois],
             'recettes_mois_complet': Decimal('0'),
             'estimation_mois_actuel': Decimal('0'),
@@ -153,7 +310,7 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
             'indice': 0.0
         },
         'comparaison_mois_n2': {
-            'annee': annee - 2,  # Entier, pas de décimal
+            'annee': annee - 2,
             'mois_nom': calendar.month_name[mois],
             'recettes_mois_complet': Decimal('0'),
             'estimation_mois_actuel': Decimal('0'),
@@ -190,7 +347,7 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
         # Objectif annuel
         'objectif_annuel': Decimal('10000000000'),  # 10 milliards
         'reste_a_realiser': Decimal('0'),
-        'taux_progression_objectif': 0.0,  # Nouveau : taux de progression
+        'taux_progression_objectif': 0.0,
         
         # Section C: Contribution nouveaux postes
         'nouveaux_postes': [],
@@ -203,8 +360,10 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
     }
     
     # ========== SECTION A: POSTES DÉFAILLANTS (du 1er du mois à date) ==========
+    logger.debug(f"[RAPPORT_DEFAILLANTS] Calcul défaillants du {debut_mois} au {date_fin}")
     
-    postes_actifs = Poste.objects.filter(is_active=True)
+    postes_actifs = Poste.objects.filter(is_active=True, type='peage')
+    logger.debug(f"[RAPPORT_DEFAILLANTS] Nombre de postes actifs: {postes_actifs.count()}")
     
     # Pour chaque poste, vérifier les jours manquants DU DÉBUT DU MOIS
     for poste in postes_actifs:
@@ -212,7 +371,7 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
         jours_declares = set(
             RecetteJournaliere.objects.filter(
                 poste=poste,
-                date__range=[debut_mois, date_fin]  # Du 1er du mois à la date de fin
+                date__range=[debut_mois, date_fin]
             ).values_list('date', flat=True)
         )
         
@@ -243,6 +402,16 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
             
             donnees['total_jours_manquants'] += len(jours_manquants)
             donnees['total_estimation_manquante'] += estimation
+            
+            logger.debug(
+                f"[RAPPORT_DEFAILLANTS] Poste {poste.nom}: {len(jours_manquants)} jours manquants, "
+                f"estimation: {estimation}"
+            )
+    
+    logger.info(
+        f"[RAPPORT_DEFAILLANTS] Total défaillants: {len(donnees['defaillants'])} postes, "
+        f"{donnees['total_jours_manquants']} jours, estimation: {donnees['total_estimation_manquante']}"
+    )
     
     # ========== SECTION B: RECETTES COMPARÉES ==========
     
@@ -250,6 +419,8 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
     donnees['recettes_declarees'] = RecetteJournaliere.objects.filter(
         date__range=[date_debut, date_fin]
     ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+    
+    logger.debug(f"[RAPPORT_DEFAILLANTS] Recettes déclarées: {donnees['recettes_declarees']}")
     
     # Estimation des jours non déclarés (du 1er du mois à date_fin)
     donnees['estimation_jours_non_declares'] = donnees['total_estimation_manquante']
@@ -275,6 +446,8 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
         donnees['estimation_fin_mois'] = donnees['estimation_date_fin'] + estimation_future_totale
     else:
         donnees['estimation_fin_mois'] = donnees['estimation_date_fin']
+    
+    logger.debug(f"[RAPPORT_DEFAILLANTS] Estimation fin mois: {donnees['estimation_fin_mois']}")
     
     # ========== COMPARAISONS AVEC N-1 et N-2 ==========
     
@@ -303,6 +476,11 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
         donnees['indice_n2_mois'] = float(
             (donnees['ecart_n2_mois'] / donnees['rendement_n2_mois']) * 100
         )
+    
+    logger.debug(
+        f"[RAPPORT_DEFAILLANTS] Comparaisons: N-1={donnees['rendement_n1_mois']}, "
+        f"N-2={donnees['rendement_n2_mois']}"
+    )
     
     # ========== CUMUL ANNUEL (1er janvier à date) ==========
     
@@ -382,17 +560,33 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
             (donnees['estimation_cumul_annuel'] / donnees['objectif_annuel']) * 100
         )
     
+    logger.debug(
+        f"[RAPPORT_DEFAILLANTS] Progression objectif: {donnees['taux_progression_objectif']:.1f}%"
+    )
+    
     # ========== POSTES À RISQUE ==========
     
     identifier_postes_risque_complet(donnees, postes_actifs, annee, mois, date_fin)
     donnees['annee_n1'] = annee - 1
     donnees['annee_n2'] = annee - 2
     
+    logger.info(f"[RAPPORT_DEFAILLANTS] Calcul terminé")
+    
     return donnees
 
 
 def identifier_postes_risque_complet(donnees, postes_actifs, annee, mois, date_fin):
-    """Identifie les postes à risque de baisse - version améliorée"""
+    """
+    Identifie les postes à risque de baisse - version améliorée.
+    
+    Args:
+        donnees: Dictionnaire des données à enrichir
+        postes_actifs: QuerySet des postes actifs
+        annee: Année en cours
+        mois: Mois en cours
+        date_fin: Date de fin de la période
+    """
+    logger.debug(f"[RAPPORT_DEFAILLANTS] Identification des postes à risque")
     
     # Postes à risque mensuel N-1
     for poste in postes_actifs:
@@ -433,6 +627,10 @@ def identifier_postes_risque_complet(donnees, postes_actifs, annee, mois, date_f
     # Trier par taux de baisse
     donnees['postes_risque_mensuel_n1'].sort(key=lambda x: x['taux'])
     
+    logger.debug(
+        f"[RAPPORT_DEFAILLANTS] Postes à risque N-1: {len(donnees['postes_risque_mensuel_n1'])}"
+    )
+    
     # Même chose pour N-2
     for poste in postes_actifs:
         recettes_mois_actuel = RecetteJournaliere.objects.filter(
@@ -468,12 +666,22 @@ def identifier_postes_risque_complet(donnees, postes_actifs, annee, mois, date_f
                 })
     
     donnees['postes_risque_mensuel_n2'].sort(key=lambda x: x['taux'])
+    
+    logger.debug(
+        f"[RAPPORT_DEFAILLANTS] Postes à risque N-2: {len(donnees['postes_risque_mensuel_n2'])}"
+    )
 
 
 def formater_dates_consecutives(dates):
     """
-    Formate une liste de dates en groupant les dates consécutives
+    Formate une liste de dates en groupant les dates consécutives.
     Ex: [1,2,3,5,7,8] -> "1er au 3, 5, 7 et 8"
+    
+    Args:
+        dates: Liste d'objets date triés
+        
+    Returns:
+        str: Chaîne formatée des dates
     """
     if not dates:
         return ""
@@ -521,8 +729,15 @@ def formater_dates_consecutives(dates):
 
 def estimer_recettes_manquantes(poste, jours_manquants):
     """
-    Estime les recettes pour les jours manquants d'un poste
-    Utilise la moyenne historique des 30 derniers jours
+    Estime les recettes pour les jours manquants d'un poste.
+    Utilise la moyenne historique des 30 derniers jours.
+    
+    Args:
+        poste: Instance de Poste
+        jours_manquants: Liste des dates manquantes
+        
+    Returns:
+        Decimal: Estimation des recettes
     """
     if not jours_manquants:
         return Decimal('0')
@@ -566,9 +781,23 @@ def estimer_recettes_manquantes(poste, jours_manquants):
     return Decimal('0')
 
 
-def generer_pdf_defaillants_complet(donnees, date_debut, date_fin):
+# ===================================================================
+# GÉNÉRATION PDF
+# ===================================================================
+
+def generer_pdf_defaillants_complet(donnees, date_debut, date_fin, user, request):
     """
-    Génère le PDF complet du rapport des défaillants avec toutes les statistiques
+    Génère le PDF complet du rapport des défaillants avec toutes les statistiques.
+    
+    Args:
+        donnees: Dictionnaire des données calculées
+        date_debut: Date de début de la période
+        date_fin: Date de fin de la période
+        user: Utilisateur qui génère le rapport
+        request: Requête HTTP (pour le logging)
+        
+    Returns:
+        HttpResponse: Réponse avec le PDF
     """
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
@@ -577,6 +806,11 @@ def generer_pdf_defaillants_complet(donnees, date_debut, date_fin):
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
     from io import BytesIO
+    
+    logger.info(
+        f"[RAPPORT_DEFAILLANTS] Génération PDF par {user.username} "
+        f"- Période: {date_debut} au {date_fin}"
+    )
     
     # Créer le buffer
     buffer = BytesIO()
@@ -755,7 +989,7 @@ def generer_pdf_defaillants_complet(donnees, date_debut, date_fin):
     elements.append(Spacer(1, 1*cm))
     footer = Paragraph(
         f"<i>PSRR {date_fin.year} - Extrait des recettes du péage routier - "
-        f"Édition du {datetime.now().strftime('%d/%m/%Y, %H:%M')}</i>",
+        f"Édition du {datetime.now().strftime('%d/%m/%Y, %H:%M')} par {user.username}</i>",
         ParagraphStyle('Footer', fontSize=7, textColor=colors.grey, alignment=TA_CENTER)
     )
     elements.append(footer)
@@ -763,10 +997,24 @@ def generer_pdf_defaillants_complet(donnees, date_debut, date_fin):
     # Construire le PDF
     doc.build(elements)
     
+    # Log de l'action
+    log_user_action(
+        user,
+        "Génération PDF Rapport Défaillants Péage",
+        f"Période: {date_debut} au {date_fin}, "
+        f"Défaillants: {len(donnees['defaillants'])}, "
+        f"Total estimation: {donnees['total_estimation_manquante']}",
+        request
+    )
+    
     # Préparer la réponse
     buffer.seek(0)
     response = HttpResponse(buffer.read(), content_type='application/pdf')
     filename = f'fiche_synoptique_peage_{date_fin.strftime("%Y%m%d")}.pdf'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    logger.info(
+        f"[RAPPORT_DEFAILLANTS] PDF généré avec succès: {filename}"
+    )
     
     return response

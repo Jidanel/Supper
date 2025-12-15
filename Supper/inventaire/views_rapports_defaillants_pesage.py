@@ -1,10 +1,32 @@
 # ===================================================================
 # inventaire/views_rapports_defaillants_pesage.py
 # Vues pour les rapports défaillants du pesage
+# VERSION MISE À JOUR avec permissions granulaires et logs détaillés
 # ===================================================================
+"""
+MISE À JOUR DES PERMISSIONS:
+- Remplacement de is_admin par les permissions granulaires
+- Ajout des logs détaillés avec log_user_action
+- Utilisation des décorateurs du module common.decorators
+- Ajout de peut_modifier pour contrôler l'affichage des boutons
+
+Permissions utilisées:
+- peut_voir_rapports_defaillants_pesage: Pour les rapports défaillants pesage
+- peut_voir_objectifs_pesage: Pour la consultation des objectifs
+- peut_parametrage_global: Pour les modifications d'objectifs
+
+
+Variables de contexte:
+- selection_rapport_defaillants_pesage: date_debut_default, date_fin_default
+- rapport_defaillants_pesage: date_debut, date_fin, donnees, title
+- gestion_objectifs_annuels_pesage: annee, annees, stations_data, total_objectif, 
+                                     total_realise, taux_global, peut_modifier
+- calculer_objectifs_pesage_automatique: annee_courante, annees_disponibles, annees_cibles
+- dupliquer_objectifs_annee_pesage: (redirection, pas de contexte)
+"""
 
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
 from datetime import datetime, date, timedelta
@@ -12,21 +34,43 @@ from decimal import Decimal
 from django.db.models import Sum
 
 from accounts.models import Poste
-from inventaire.models_pesage import *
+from inventaire.models_pesage import ObjectifAnnuelPesage, AmendeEmise, StatutAmende
 from .services.pesage_defaillants_service import PesageDefaillantsService
 
+# Import des permissions granulaires et utilitaires
+from common.decorators import permission_required_granular
+from common.utils import log_user_action
 
-def is_admin(user):
-    """Vérifie si l'utilisateur est admin ou gestionnaire pesage"""
-    return user.is_superuser or user.is_admin() or user.habilitation in [
-        'admin_principal', 'chef_pesage', 'coord_psrr', 'serv_info'
-    ]
+import logging
+logger = logging.getLogger('supper')
 
+
+# ===================================================================
+# SECTION 1: VUES RAPPORTS DÉFAILLANTS PESAGE
+# ===================================================================
 
 @login_required
+@permission_required_granular('peut_voir_rapports_defaillants_pesage')
 def selection_rapport_defaillants_pesage(request):
-    """Vue pour sélectionner la période du rapport"""
+    """
+    Vue pour sélectionner la période du rapport défaillants pesage
+    
+    Permission requise: peut_voir_rapports_defaillants_pesage
+    Habilitations autorisées (selon matrice):
+        - admin_principal, coord_psrr, serv_info
+        - serv_controle, cisop_pesage
+    """
     today = date.today()
+    
+    # Log de l'accès
+    log_user_action(
+        user=request.user,
+        action="ACCES_SELECTION_RAPPORT_DEFAILLANTS_PESAGE",
+        details="Accès à la page de sélection de période pour le rapport défaillants pesage",
+        request=request,
+        module="pesage",
+        sous_module="rapport_defaillants"
+    )
     
     context = {
         'date_debut_default': date(today.year, today.month, 1).strftime('%Y-%m-%d'),
@@ -37,10 +81,15 @@ def selection_rapport_defaillants_pesage(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@permission_required_granular('peut_voir_rapports_defaillants_pesage')
 def rapport_defaillants_pesage(request):
     """
     Vue principale pour générer le rapport des postes défaillants du pesage
+    
+    Permission requise: peut_voir_rapports_defaillants_pesage
+    Habilitations autorisées (selon matrice):
+        - admin_principal, coord_psrr, serv_info
+        - serv_controle, cisop_pesage
     """
     
     # Récupérer les paramètres de date
@@ -69,12 +118,52 @@ def rapport_defaillants_pesage(request):
     # Vérifier la cohérence des dates
     if date_debut > date_fin:
         messages.error(request, "La date de début doit être antérieure à la date de fin")
+        
+        # Log de l'erreur
+        log_user_action(
+            user=request.user,
+            action="ERREUR_RAPPORT_DEFAILLANTS_PESAGE",
+            details=f"Dates incohérentes: début={date_debut_str}, fin={date_fin_str}",
+            request=request,
+            module="pesage",
+            sous_module="rapport_defaillants",
+            succes=False
+        )
+        
         return redirect('inventaire:selection_rapport_defaillants_pesage')
+    
+    # Log de la génération du rapport
+    log_user_action(
+        user=request.user,
+        action="GENERATION_RAPPORT_DEFAILLANTS_PESAGE",
+        details=(
+            f"Génération du rapport défaillants pesage | "
+            f"Période: {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} | "
+            f"Action: {action}"
+        ),
+        request=request,
+        module="pesage",
+        sous_module="rapport_defaillants",
+        date_debut=date_debut.isoformat(),
+        date_fin=date_fin.isoformat()
+    )
     
     # Calculer toutes les données nécessaires
     donnees = PesageDefaillantsService.calculer_donnees_defaillants_complet(date_debut, date_fin)
     
     if action == 'pdf':
+        # Log de l'export PDF
+        log_user_action(
+            user=request.user,
+            action="EXPORT_PDF_RAPPORT_DEFAILLANTS_PESAGE",
+            details=(
+                f"Export PDF du rapport défaillants pesage | "
+                f"Période: {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')}"
+            ),
+            request=request,
+            module="pesage",
+            sous_module="rapport_defaillants"
+        )
         return generer_pdf_defaillants_pesage(donnees, date_debut, date_fin)
     
     # Afficher la vue HTML
@@ -294,23 +383,87 @@ def generer_pdf_defaillants_pesage(donnees, date_debut, date_fin):
     return response
 
 
-# =====================================================
-# GESTION DES OBJECTIFS PESAGE
-# =====================================================
+# ===================================================================
+# SECTION 2: GESTION DES OBJECTIFS PESAGE
+# ===================================================================
+
+def utilisateur_peut_modifier_objectifs(user):
+    """
+    Vérifie si l'utilisateur peut modifier les objectifs pesage
+    
+    Retourne True si:
+    - L'utilisateur est superuser, OU
+    - L'utilisateur a la permission peut_parametrage_global
+    """
+    if user.is_superuser:
+        return True
+    
+    # Vérifier la permission granulaire
+    if getattr(user, 'peut_parametrage_global', False):
+        return True
+    
+    return False
+
 
 @login_required
-@user_passes_test(is_admin)
+@permission_required_granular('peut_voir_objectifs_pesage')
 def gestion_objectifs_annuels_pesage(request):
-    """Vue pour gérer les objectifs annuels de pesage"""
+    """
+    Vue pour gérer les objectifs annuels de pesage
+    
+    Permission consultation: peut_voir_objectifs_pesage
+    Permission modification (POST): peut_parametrage_global OU is_superuser
+    
+    Habilitations consultation (selon matrice):
+        - admin_principal, coord_psrr, serv_info
+        - serv_emission, serv_controle, cisop_pesage
+        - chef_station_pesage, regisseur_pesage, chef_equipe_pesage
+    
+    Habilitations modification:
+        - admin_principal, coord_psrr, serv_info
+        - chef_ag, serv_controle, serv_ordre
+    """
     
     annee = int(request.GET.get('annee', date.today().year))
+    
+    # Vérifier si l'utilisateur peut modifier
+    peut_modifier = utilisateur_peut_modifier_objectifs(request.user)
+    
+    # Log de l'accès
+    log_user_action(
+        user=request.user,
+        action="ACCES_GESTION_OBJECTIFS_PESAGE",
+        details=f"Consultation des objectifs pesage pour l'année {annee} | Mode: {'modification' if peut_modifier else 'lecture'}",
+        request=request,
+        module="pesage",
+        sous_module="objectifs",
+        annee=annee
+    )
     
     # Récupérer toutes les stations de pesage
     stations = Poste.objects.filter(type='pesage', is_active=True).order_by('region', 'nom')
     
     if request.method == 'POST':
+        # Vérifier la permission de modification
+        if not peut_modifier:
+            messages.error(request, "Vous n'avez pas la permission de modifier les objectifs.")
+            
+            log_user_action(
+                user=request.user,
+                action="TENTATIVE_MODIFICATION_OBJECTIFS_PESAGE_NON_AUTORISEE",
+                details=f"Tentative de modification des objectifs sans permission",
+                request=request,
+                module="pesage",
+                sous_module="objectifs",
+                succes=False
+            )
+            
+            return redirect(f"{request.path}?annee={annee}")
+        
         # Sauvegarder les objectifs
         nb_modifies = 0
+        details_modifications = []
+        
         for station in stations:
             montant_str = request.POST.get(f'objectif_{station.id}', '0')
             try:
@@ -328,6 +481,23 @@ def gestion_objectifs_annuels_pesage(request):
                     }
                 )
                 nb_modifies += 1
+                details_modifications.append(f"{station.nom}: {montant:,.0f} FCFA")
+        
+        # Log de la modification
+        log_user_action(
+            user=request.user,
+            action="MODIFICATION_OBJECTIFS_PESAGE",
+            details=(
+                f"Modification des objectifs pesage {annee} | "
+                f"{nb_modifies} stations modifiées | "
+                f"Détails: {', '.join(details_modifications[:5])}{'...' if len(details_modifications) > 5 else ''}"
+            ),
+            request=request,
+            module="pesage",
+            sous_module="objectifs",
+            annee=annee,
+            nb_modifies=nb_modifies
+        )
         
         messages.success(request, f"{nb_modifies} objectifs enregistrés pour {annee}")
         return redirect(f"{request.path}?annee={annee}")
@@ -380,20 +550,36 @@ def gestion_objectifs_annuels_pesage(request):
         'total_objectif': total_objectif,
         'total_realise': total_realise,
         'taux_global': taux_global,
+        # NOUVELLE VARIABLE pour contrôler l'affichage des boutons de modification
+        'peut_modifier': peut_modifier,
     }
     
-    return render(request, 'pesage/gestion_objectifs_pesage.html', context)
+    return render(request, 'pesage/gestion_objectifs_annuels_pesage.html', context)
 
 
 @login_required
-@user_passes_test(is_admin)
+@permission_required_granular(['peut_voir_objectifs_pesage', 'peut_parametrage_global'])
 def calculer_objectifs_pesage_automatique(request):
     """
     Vue pour calculer automatiquement les objectifs pesage 
     à partir des OBJECTIFS d'une année source avec un pourcentage
+    
+    Permissions requises: peut_voir_objectifs_pesage ET peut_parametrage_global
+    Habilitations autorisées (selon matrice):
+        - admin_principal, coord_psrr, serv_info
     """
     
     annee_courante = date.today().year
+    
+    # Log de l'accès
+    log_user_action(
+        user=request.user,
+        action="ACCES_CALCUL_AUTO_OBJECTIFS_PESAGE",
+        details="Accès à la page de calcul automatique des objectifs pesage",
+        request=request,
+        module="pesage",
+        sous_module="objectifs"
+    )
     
     # Années disponibles pour la source (avec des objectifs)
     annees_disponibles = list(range(annee_courante - 5, annee_courante + 3))
@@ -410,10 +596,32 @@ def calculer_objectifs_pesage_automatique(request):
             # Validation
             if annee_source == annee_cible:
                 messages.error(request, "L'année source et l'année cible doivent être différentes.")
+                
+                log_user_action(
+                    user=request.user,
+                    action="ERREUR_CALCUL_OBJECTIFS_PESAGE",
+                    details=f"Années identiques: source={annee_source}, cible={annee_cible}",
+                    request=request,
+                    module="pesage",
+                    sous_module="objectifs",
+                    succes=False
+                )
+                
                 return redirect('inventaire:calculer_objectifs_pesage')
             
             if pourcentage < -100 or pourcentage > 500:
                 messages.error(request, "Le pourcentage doit être entre -100% et +500%.")
+                
+                log_user_action(
+                    user=request.user,
+                    action="ERREUR_CALCUL_OBJECTIFS_PESAGE",
+                    details=f"Pourcentage invalide: {pourcentage}%",
+                    request=request,
+                    module="pesage",
+                    sous_module="objectifs",
+                    succes=False
+                )
+                
                 return redirect('inventaire:calculer_objectifs_pesage')
             
             # Récupérer les OBJECTIFS de l'année source
@@ -421,6 +629,17 @@ def calculer_objectifs_pesage_automatique(request):
             
             if not objectifs_source.exists():
                 messages.error(request, f"Aucun objectif trouvé pour l'année {annee_source}. Veuillez d'abord définir les objectifs de cette année.")
+                
+                log_user_action(
+                    user=request.user,
+                    action="ERREUR_CALCUL_OBJECTIFS_PESAGE",
+                    details=f"Aucun objectif source pour {annee_source}",
+                    request=request,
+                    module="pesage",
+                    sous_module="objectifs",
+                    succes=False
+                )
+                
                 return redirect('inventaire:calculer_objectifs_pesage')
             
             # Calculer le multiplicateur
@@ -448,6 +667,26 @@ def calculer_objectifs_pesage_automatique(request):
                 else:
                     nb_modifies += 1
             
+            # Log du succès
+            log_user_action(
+                user=request.user,
+                action="CALCUL_AUTO_OBJECTIFS_PESAGE",
+                details=(
+                    f"Calcul automatique des objectifs pesage | "
+                    f"Source: {annee_source} → Cible: {annee_cible} | "
+                    f"Ajustement: {pourcentage:+.0f}% | "
+                    f"Créés: {nb_crees}, Modifiés: {nb_modifies}"
+                ),
+                request=request,
+                module="pesage",
+                sous_module="objectifs",
+                annee_source=annee_source,
+                annee_cible=annee_cible,
+                pourcentage=pourcentage,
+                nb_crees=nb_crees,
+                nb_modifies=nb_modifies
+            )
+            
             messages.success(
                 request,
                 f"Objectifs {annee_cible} calculés avec succès ! "
@@ -455,13 +694,35 @@ def calculer_objectifs_pesage_automatique(request):
                 f"(base: objectifs {annee_source}, ajustement: {pourcentage:+.0f}%)"
             )
             
-            return redirect('inventaire:gestion_objectifs_pesage')
+            return redirect('inventaire:gestion_objectifs_annuels_pesage')
             
         except (ValueError, TypeError) as e:
             messages.error(request, f"Erreur dans les paramètres : {str(e)}")
+            
+            log_user_action(
+                user=request.user,
+                action="ERREUR_CALCUL_OBJECTIFS_PESAGE",
+                details=f"Erreur de paramètres: {str(e)}",
+                request=request,
+                module="pesage",
+                sous_module="objectifs",
+                succes=False
+            )
+            
             return redirect('inventaire:calculer_objectifs_pesage')
         except Exception as e:
             messages.error(request, f"Erreur lors du calcul : {str(e)}")
+            
+            log_user_action(
+                user=request.user,
+                action="ERREUR_CALCUL_OBJECTIFS_PESAGE",
+                details=f"Erreur inattendue: {str(e)}",
+                request=request,
+                module="pesage",
+                sous_module="objectifs",
+                succes=False
+            )
+            
             return redirect('inventaire:calculer_objectifs_pesage')
     
     # GET - Afficher le formulaire
@@ -475,9 +736,15 @@ def calculer_objectifs_pesage_automatique(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@permission_required_granular(['peut_voir_objectifs_pesage', 'peut_parametrage_global'])
 def dupliquer_objectifs_annee_pesage(request):
-    """Dupliquer les objectifs d'une année vers une autre"""
+    """
+    Dupliquer les objectifs d'une année vers une autre
+    
+    Permissions requises: peut_voir_objectifs_pesage ET peut_parametrage_global
+    Habilitations autorisées (selon matrice):
+        - admin_principal, coord_psrr, serv_info
+    """
     
     if request.method == 'POST':
         annee_source = int(request.POST.get('annee_source'))
@@ -485,13 +752,35 @@ def dupliquer_objectifs_annee_pesage(request):
         
         if annee_source == annee_cible:
             messages.error(request, "Les années source et cible doivent être différentes.")
-            return redirect('inventaire:gestion_objectifs_pesage')
+            
+            log_user_action(
+                user=request.user,
+                action="ERREUR_DUPLICATION_OBJECTIFS_PESAGE",
+                details=f"Tentative de duplication vers la même année: {annee_source}",
+                request=request,
+                module="pesage",
+                sous_module="objectifs",
+                succes=False
+            )
+            
+            return redirect('inventaire:gestion_objectifs_annuels_pesage')
         
         objectifs_source = ObjectifAnnuelPesage.objects.filter(annee=annee_source)
         
         if not objectifs_source.exists():
             messages.error(request, f"Aucun objectif trouvé pour {annee_source}")
-            return redirect('inventaire:gestion_objectifs_pesage')
+            
+            log_user_action(
+                user=request.user,
+                action="ERREUR_DUPLICATION_OBJECTIFS_PESAGE",
+                details=f"Aucun objectif source pour {annee_source}",
+                request=request,
+                module="pesage",
+                sous_module="objectifs",
+                succes=False
+            )
+            
+            return redirect('inventaire:gestion_objectifs_annuels_pesage')
         
         nb_dupliques = 0
         for obj in objectifs_source:
@@ -505,7 +794,24 @@ def dupliquer_objectifs_annee_pesage(request):
             )
             nb_dupliques += 1
         
+        # Log de la duplication
+        log_user_action(
+            user=request.user,
+            action="DUPLICATION_OBJECTIFS_PESAGE",
+            details=(
+                f"Duplication des objectifs pesage | "
+                f"Source: {annee_source} → Cible: {annee_cible} | "
+                f"{nb_dupliques} objectifs dupliqués"
+            ),
+            request=request,
+            module="pesage",
+            sous_module="objectifs",
+            annee_source=annee_source,
+            annee_cible=annee_cible,
+            nb_dupliques=nb_dupliques
+        )
+        
         messages.success(request, f"{nb_dupliques} objectifs dupliqués de {annee_source} vers {annee_cible}")
         return redirect(f"/pesage/objectifs-pesage/?annee={annee_cible}")
     
-    return redirect('inventaire:gestion_objectifs_pesage')
+    return redirect('inventaire:gestion_objectifs_annuels_pesage')

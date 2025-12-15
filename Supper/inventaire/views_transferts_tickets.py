@@ -1,15 +1,17 @@
 # ===================================================================
-# inventaire/views_transferts_tickets.py - NOUVEAU FICHIER
+# inventaire/views_transferts_tickets.py - VERSION MISE À JOUR
 # Vues pour le transfert de tickets avec saisie de séries
+# MISE À JOUR: Intégration des permissions granulaires
 # ===================================================================
 
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from decimal import Decimal
-from datetime import date, timezone
+from datetime import date
+from django.utils import timezone
 
 from accounts.models import Poste, NotificationUtilisateur
 from inventaire.models import *
@@ -20,25 +22,151 @@ import logging
 
 logger = logging.getLogger('supper')
 
-def is_admin(user):
-    return user.is_authenticated and (
-        user.is_superuser or 
-        user.is_staff or
-        (hasattr(user, 'is_admin') and user.is_admin())
-    )
 
+# ===================================================================
+# FONCTIONS UTILITAIRES DE VÉRIFICATION DES PERMISSIONS
+# ===================================================================
+
+def has_permission(user, permission_name):
+    """
+    Vérifie si l'utilisateur possède une permission spécifique.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return getattr(user, permission_name, False)
+
+
+def has_any_permission(user, permission_names):
+    """
+    Vérifie si l'utilisateur possède AU MOINS UNE des permissions.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return any(getattr(user, perm, False) for perm in permission_names)
+
+
+def user_has_acces_tous_postes(user):
+    """
+    Vérifie si l'utilisateur a accès à tous les postes.
+    """
+    HABILITATIONS_MULTI_POSTES = [
+        'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission',
+        'chef_ag', 'serv_controle', 'serv_ordre', 'imprimerie',
+        'cisop_peage', 'cisop_pesage', 'focal_regional', 'chef_service',
+        'regisseur', 'comptable_mat', 'chef_ordre', 'chef_controle',
+    ]
+    
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    if getattr(user, 'acces_tous_postes', False):
+        return True
+    if getattr(user, 'peut_voir_tous_postes', False):
+        return True
+    return getattr(user, 'habilitation', None) in HABILITATIONS_MULTI_POSTES
+
+
+def check_poste_access(user, poste):
+    """
+    Vérifie si l'utilisateur a accès à un poste spécifique.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user_has_acces_tous_postes(user):
+        return True
+    if isinstance(poste, int):
+        try:
+            poste = Poste.objects.get(id=poste)
+        except Poste.DoesNotExist:
+            return False
+    poste_affectation = getattr(user, 'poste_affectation', None)
+    return poste_affectation and poste_affectation.id == poste.id
+
+
+def peut_transferer_stock(user):
+    """
+    Vérifie si l'utilisateur peut transférer du stock péage.
+    Habilitations: admin_principal, coord_psrr, serv_info, serv_emission, chef_peage
+    """
+    return has_permission(user, 'peut_transferer_stock_peage')
+
+
+def peut_voir_bordereaux(user):
+    """
+    Vérifie si l'utilisateur peut voir les bordereaux péage.
+    Habilitations: admin, services centraux, cisop_peage, chef_peage*, agent_inventaire*
+    """
+    return has_permission(user, 'peut_voir_bordereaux_peage')
+
+
+def log_acces_refuse(user, ressource, raison, request=None):
+    """
+    Journalise un accès refusé.
+    """
+    logger.warning(
+        f"ACCÈS REFUSÉ - Utilisateur: {user.username if user else 'Anonyme'} | "
+        f"Ressource: {ressource} | Raison: {raison}"
+    )
+    if user and user.is_authenticated:
+        try:
+            log_user_action(
+                user,
+                "ACCES_REFUSE",
+                f"Accès refusé à {ressource}: {raison}",
+                request
+            )
+        except Exception as e:
+            logger.error(f"Erreur lors de la journalisation de l'accès refusé: {e}")
+
+
+# ===================================================================
+# VUES DE TRANSFERT DE TICKETS
+# ===================================================================
 
 @login_required
-@user_passes_test(is_admin)
 def selection_postes_transfert_tickets(request):
     """
     ÉTAPE 1 AMÉLIORÉE : Sélection des postes avec pré-chargement du stock
+    
+    PERMISSIONS REQUISES: peut_transferer_stock_peage
+    
+    HABILITATIONS AUTORISÉES:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - serv_emission (service émission)
+    - chef_peage (chef de poste péage - peut transférer depuis son poste)
     
     COMPORTEMENT :
     - GET initial : Affiche le formulaire vide
     - POST avec poste_origine seul : Recharge la page avec le stock affiché
     - POST avec poste_origine ET poste_destination : Passe à l'étape 2
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permission peut_transferer_stock_peage - Admin, serv_emission, chef_peage
+    
+    VARIABLES CONTEXTE: form, postes, poste_origine, stock_origine_data, title
     """
+    user = request.user
+    
+    # Vérification des permissions
+    if not peut_transferer_stock(user):
+        log_acces_refuse(
+            user, 
+            "Selection postes transfert tickets",
+            f"Permission peut_transferer_stock_peage manquante (habilitation: {user.habilitation})",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de transférer du stock.")
+        return redirect('common:dashboard')
+    
+    logger.info(
+        f"TRANSFERT_TICKETS - Accès sélection postes par {user.username} "
+        f"(habilitation: {user.habilitation})"
+    )
     
     poste_origine = None
     stock_origine_data = None
@@ -55,36 +183,53 @@ def selection_postes_transfert_tickets(request):
         try:
             poste_origine = Poste.objects.get(id=poste_origine_id, is_active=True)
             
-            # Récupérer les séries en stock pour ce poste
-            series_stock = SerieTicket.objects.filter(
-                poste=poste_origine,
-                statut='stock'
-            ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
-            
-            # Grouper par couleur
-            stock_par_couleur = {}
-            for serie in series_stock:
-                couleur_key = serie.couleur.libelle_affichage
-                if couleur_key not in stock_par_couleur:
-                    stock_par_couleur[couleur_key] = {
-                        'couleur': serie.couleur,
-                        'series': [],
-                        'total_tickets': 0,
-                        'valeur_totale': Decimal('0')
-                    }
+            # Vérifier l'accès au poste d'origine
+            if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste_origine):
+                log_acces_refuse(
+                    user,
+                    f"Poste origine {poste_origine.nom}",
+                    "Accès au poste non autorisé",
+                    request
+                )
+                messages.error(request, "Vous n'avez pas accès à ce poste d'origine.")
+                poste_origine = None
+                poste_origine_id = None
+            else:
+                # Récupérer les séries en stock pour ce poste
+                series_stock = SerieTicket.objects.filter(
+                    poste=poste_origine,
+                    statut='stock'
+                ).select_related('couleur').order_by('couleur__code_normalise', 'numero_premier')
                 
-                stock_par_couleur[couleur_key]['series'].append({
-                    'id': serie.id,
-                    'numero_premier': serie.numero_premier,
-                    'numero_dernier': serie.numero_dernier,
-                    'nombre_tickets': serie.nombre_tickets,
-                    'valeur_monetaire': serie.valeur_monetaire
-                })
-                stock_par_couleur[couleur_key]['total_tickets'] += serie.nombre_tickets
-                stock_par_couleur[couleur_key]['valeur_totale'] += serie.valeur_monetaire
-            
-            stock_origine_data = stock_par_couleur
-            
+                # Grouper par couleur
+                stock_par_couleur = {}
+                for serie in series_stock:
+                    couleur_key = serie.couleur.libelle_affichage
+                    if couleur_key not in stock_par_couleur:
+                        stock_par_couleur[couleur_key] = {
+                            'couleur': serie.couleur,
+                            'series': [],
+                            'total_tickets': 0,
+                            'valeur_totale': Decimal('0')
+                        }
+                    
+                    stock_par_couleur[couleur_key]['series'].append({
+                        'id': serie.id,
+                        'numero_premier': serie.numero_premier,
+                        'numero_dernier': serie.numero_dernier,
+                        'nombre_tickets': serie.nombre_tickets,
+                        'valeur_monetaire': serie.valeur_monetaire
+                    })
+                    stock_par_couleur[couleur_key]['total_tickets'] += serie.nombre_tickets
+                    stock_par_couleur[couleur_key]['valeur_totale'] += serie.valeur_monetaire
+                
+                stock_origine_data = stock_par_couleur
+                
+                logger.debug(
+                    f"TRANSFERT_TICKETS - Stock chargé pour {poste_origine.nom}: "
+                    f"{len(series_stock)} séries, {sum(s.nombre_tickets for s in series_stock)} tickets"
+                )
+                
         except Poste.DoesNotExist:
             messages.error(request, "Poste origine introuvable")
             poste_origine = None
@@ -100,6 +245,17 @@ def selection_postes_transfert_tickets(request):
             poste_origine_valid = form.cleaned_data['poste_origine']
             poste_destination_valid = form.cleaned_data['poste_destination']
             
+            # Vérifier l'accès au poste d'origine
+            if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste_origine_valid):
+                log_acces_refuse(
+                    user,
+                    f"Transfert depuis {poste_origine_valid.nom}",
+                    "Accès au poste d'origine non autorisé",
+                    request
+                )
+                messages.error(request, "Vous n'avez pas accès au poste d'origine sélectionné.")
+                return redirect('inventaire:selection_postes_transfert_tickets')
+            
             # Vérifier que le poste origine a du stock
             if not stock_origine_data:
                 messages.error(request, f"Le poste {poste_origine_valid.nom} n'a aucun stock de tickets à transférer.")
@@ -109,6 +265,13 @@ def selection_postes_transfert_tickets(request):
                     'origine_id': poste_origine_valid.id,
                     'destination_id': poste_destination_valid.id
                 }
+                
+                log_user_action(
+                    user,
+                    "TRANSFERT_TICKETS_SELECTION",
+                    f"Sélection transfert: {poste_origine_valid.nom} → {poste_destination_valid.nom}",
+                    request
+                )
                 
                 messages.success(
                     request, 
@@ -133,11 +296,18 @@ def selection_postes_transfert_tickets(request):
         form = SelectionPostesTransfertFormAmeliore(initial=initial_data)
     
     # ============================================================
-    # Récupérer tous les postes avec leur stock pour la vue d'ensemble
+    # Récupérer les postes accessibles à l'utilisateur
     # ============================================================
-    postes = Poste.objects.filter(is_active=True).order_by('nom')
-    postes_data = []
+    if user_has_acces_tous_postes(user):
+        postes = Poste.objects.filter(is_active=True).order_by('nom')
+    else:
+        # Utilisateur limité à son poste
+        if user.poste_affectation:
+            postes = Poste.objects.filter(id=user.poste_affectation.id, is_active=True)
+        else:
+            postes = Poste.objects.none()
     
+    postes_data = []
     for poste in postes:
         stock = GestionStock.objects.filter(poste=poste).first()
         postes_data.append({
@@ -158,11 +328,34 @@ def selection_postes_transfert_tickets(request):
 
 
 @login_required
-@user_passes_test(is_admin)
 def saisie_tickets_transfert(request):
     """
     ÉTAPE 2 AMÉLIORÉE : Saisie avec couleurs pré-chargées et validation améliorée
+    
+    PERMISSIONS REQUISES: peut_transferer_stock_peage
+    
+    HABILITATIONS AUTORISÉES:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - serv_emission (service émission)
+    - chef_peage (chef de poste péage)
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permission peut_transferer_stock_peage
+    
+    VARIABLES CONTEXTE: form, poste_origine, poste_destination, stock_origine, series_par_couleur, title
     """
+    user = request.user
+    
+    # Vérification des permissions
+    if not peut_transferer_stock(user):
+        log_acces_refuse(
+            user,
+            "Saisie tickets transfert",
+            f"Permission peut_transferer_stock_peage manquante (habilitation: {user.habilitation})",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de transférer du stock.")
+        return redirect('common:dashboard')
     
     # Récupérer les postes de la session
     postes_data = request.session.get('transfert_tickets')
@@ -173,6 +366,24 @@ def saisie_tickets_transfert(request):
     
     poste_origine = get_object_or_404(Poste, id=postes_data['origine_id'])
     poste_destination = get_object_or_404(Poste, id=postes_data['destination_id'])
+    
+    # Vérifier l'accès au poste d'origine
+    if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste_origine):
+        log_acces_refuse(
+            user,
+            f"Saisie transfert depuis {poste_origine.nom}",
+            "Accès au poste d'origine non autorisé",
+            request
+        )
+        messages.error(request, "Vous n'avez pas accès au poste d'origine.")
+        if 'transfert_tickets' in request.session:
+            del request.session['transfert_tickets']
+        return redirect('inventaire:selection_postes_transfert_tickets')
+    
+    logger.info(
+        f"TRANSFERT_TICKETS - Saisie par {user.username}: "
+        f"{poste_origine.nom} → {poste_destination.nom}"
+    )
     
     # Récupérer le stock et les séries disponibles
     stock_origine = GestionStock.objects.filter(poste=poste_origine).first()
@@ -227,9 +438,6 @@ def saisie_tickets_transfert(request):
                 )
                 return redirect('inventaire:saisie_tickets_transfert')
             
-            # 3. NOTE: Pas de vérification de chevauchement au poste destination
-            # Les tickets peuvent coexister avec d'autres séries de même couleur
-            
             # Calculer montant
             nombre_tickets = numero_dernier - numero_premier + 1
             montant = Decimal(nombre_tickets) * Decimal('500')
@@ -244,6 +452,14 @@ def saisie_tickets_transfert(request):
                 'montant': str(montant),
                 'commentaire': commentaire
             }
+            
+            log_user_action(
+                user,
+                "TRANSFERT_TICKETS_SAISIE",
+                f"Saisie transfert: {nombre_tickets} tickets {couleur_obj.libelle_affichage} "
+                f"#{numero_premier}-{numero_dernier} ({montant:,.0f} FCFA)",
+                request
+            )
             
             return redirect('inventaire:confirmation_transfert_tickets')
     else:
@@ -278,11 +494,38 @@ def saisie_tickets_transfert(request):
 
 
 @login_required
-@user_passes_test(is_admin)
 def confirmation_transfert_tickets(request):
     """
     ÉTAPE 3 : Confirmation avec le nouveau service
+    
+    PERMISSIONS REQUISES: peut_transferer_stock_peage
+    
+    HABILITATIONS AUTORISÉES:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - serv_emission (service émission)
+    - chef_peage (chef de poste péage)
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permission peut_transferer_stock_peage
+    
+    VARIABLES CONTEXTE: poste_origine, poste_destination, couleur, numero_premier, 
+                        numero_dernier, nombre_tickets, montant, commentaire,
+                        stock_origine_avant, stock_origine_apres, 
+                        stock_destination_avant, stock_destination_apres, title
     """
+    user = request.user
+    
+    # Vérification des permissions
+    if not peut_transferer_stock(user):
+        log_acces_refuse(
+            user,
+            "Confirmation transfert tickets",
+            f"Permission peut_transferer_stock_peage manquante (habilitation: {user.habilitation})",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de transférer du stock.")
+        return redirect('common:dashboard')
+    
     postes_data = request.session.get('transfert_tickets')
     details_data = request.session.get('transfert_tickets_details')
     
@@ -293,6 +536,21 @@ def confirmation_transfert_tickets(request):
     poste_origine = get_object_or_404(Poste, id=postes_data['origine_id'])
     poste_destination = get_object_or_404(Poste, id=postes_data['destination_id'])
     couleur = get_object_or_404(CouleurTicket, id=details_data['couleur_id'])
+    
+    # Vérifier l'accès au poste d'origine
+    if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste_origine):
+        log_acces_refuse(
+            user,
+            f"Confirmation transfert depuis {poste_origine.nom}",
+            "Accès au poste d'origine non autorisé",
+            request
+        )
+        messages.error(request, "Vous n'avez pas accès au poste d'origine.")
+        if 'transfert_tickets' in request.session:
+            del request.session['transfert_tickets']
+        if 'transfert_tickets_details' in request.session:
+            del request.session['transfert_tickets_details']
+        return redirect('inventaire:selection_postes_transfert_tickets')
     
     # Récupérer stocks actuels pour affichage
     stock_origine, _ = GestionStock.objects.get_or_create(
@@ -340,7 +598,7 @@ def confirmation_transfert_tickets(request):
                 couleur=couleur,
                 numero_premier=numero_premier,
                 numero_dernier=numero_dernier,
-                user=request.user,
+                user=user,
                 commentaire=commentaire
             )
             
@@ -351,18 +609,35 @@ def confirmation_transfert_tickets(request):
                 
                 messages.success(request, f"✅ {message}")
                 
-                # Journaliser
+                # Journaliser avec détails complets
                 log_user_action(
-                    request.user,
-                    "Transfert de tickets",
-                    f"{details_data['nombre_tickets']} tickets {couleur.libelle_affichage} "
-                    f"#{numero_premier}-{numero_dernier} de {poste_origine.nom} vers {poste_destination.nom}",
+                    user,
+                    "TRANSFERT_TICKETS_EXECUTE",
+                    f"Transfert exécuté: {details_data['nombre_tickets']} tickets "
+                    f"{couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+                    f"de {poste_origine.nom} vers {poste_destination.nom} "
+                    f"(montant: {montant:,.0f} FCFA)",
                     request
+                )
+                
+                logger.info(
+                    f"TRANSFERT_TICKETS_SUCCES - Par {user.username}: "
+                    f"{details_data['nombre_tickets']} tickets {couleur.libelle_affichage} "
+                    f"#{numero_premier}-{numero_dernier} | "
+                    f"{poste_origine.code} → {poste_destination.code} | "
+                    f"Montant: {montant:,.0f} FCFA"
                 )
                 
                 return redirect('inventaire:liste_bordereaux')
             else:
                 messages.error(request, f"❌ {message}")
+                
+                logger.error(
+                    f"TRANSFERT_TICKETS_ECHEC - Par {user.username}: "
+                    f"{details_data['nombre_tickets']} tickets {couleur.libelle_affichage} "
+                    f"| Erreur: {message}"
+                )
+                
                 return redirect('inventaire:saisie_tickets_transfert')
         
         elif action == 'annuler':
@@ -370,6 +645,13 @@ def confirmation_transfert_tickets(request):
                 del request.session['transfert_tickets']
             if 'transfert_tickets_details' in request.session:
                 del request.session['transfert_tickets_details']
+            
+            log_user_action(
+                user,
+                "TRANSFERT_TICKETS_ANNULE",
+                f"Transfert annulé: {poste_origine.nom} → {poste_destination.nom}",
+                request
+            )
             
             messages.info(request, "Transfert annulé")
             return redirect('inventaire:selection_postes_transfert_tickets')
@@ -394,16 +676,57 @@ def confirmation_transfert_tickets(request):
 
 
 @login_required
-@user_passes_test(is_admin)
 def ajax_series_par_couleur(request):
     """
     Vue AJAX pour récupérer les séries disponibles par couleur
+    
+    PERMISSIONS REQUISES: 
+    - peut_transferer_stock_peage (pour transferts)
+    - OU peut_voir_mon_stock_peage (pour consultation de son propre stock)
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permissions peut_transferer_stock_peage OU peut_voir_mon_stock_peage
     """
+    user = request.user
     poste_id = request.GET.get('poste_id')
     couleur_id = request.GET.get('couleur_id')
     
     if not poste_id or not couleur_id:
         return JsonResponse({'error': 'Paramètres manquants'}, status=400)
+    
+    # Vérifier les permissions
+    peut_transferer = peut_transferer_stock(user)
+    peut_voir_stock = has_permission(user, 'peut_voir_mon_stock_peage')
+    
+    if not peut_transferer and not peut_voir_stock:
+        log_acces_refuse(
+            user,
+            f"AJAX series par couleur (poste {poste_id})",
+            f"Permissions manquantes (habilitation: {user.habilitation})",
+            request
+        )
+        return JsonResponse({
+            'error': 'Permission refusée',
+            'code': 'permission_denied'
+        }, status=403)
+    
+    # Vérifier l'accès au poste
+    try:
+        poste = Poste.objects.get(id=poste_id, is_active=True)
+    except Poste.DoesNotExist:
+        return JsonResponse({'error': 'Poste introuvable'}, status=404)
+    
+    if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste):
+        log_acces_refuse(
+            user,
+            f"AJAX series par couleur - Poste {poste.nom}",
+            "Accès au poste non autorisé",
+            request
+        )
+        return JsonResponse({
+            'error': 'Accès au poste refusé',
+            'code': 'poste_access_denied'
+        }, status=403)
     
     try:
         series = SerieTicket.objects.filter(
@@ -415,22 +738,46 @@ def ajax_series_par_couleur(request):
             'nombre_tickets', 'valeur_monetaire'
         )
         
+        logger.debug(
+            f"AJAX_SERIES - {user.username} consulte {series.count()} séries "
+            f"(poste: {poste.code}, couleur_id: {couleur_id})"
+        )
+        
         return JsonResponse({
             'series': list(series),
             'count': series.count()
         })
         
     except Exception as e:
+        logger.error(f"AJAX_SERIES - Erreur: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
-
 
 
 @login_required
 def detail_bordereau_transfert(request, numero_bordereau):
     """
     Vue qui affiche CESSION + RÉCEPTION sur une seule page
-    (pas besoin de spécifier type_bordereau)
+    
+    PERMISSIONS REQUISES:
+    - peut_voir_bordereaux_peage (accès global à tous les bordereaux)
+    - OU appartenance à l'un des postes concernés par le transfert
+    
+    HABILITATIONS AVEC ACCÈS GLOBAL:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - services centraux (serv_emission, serv_controle, serv_ordre)
+    - cisop_peage
+    
+    HABILITATIONS AVEC ACCÈS LIMITÉ À LEUR POSTE:
+    - chef_peage, agent_inventaire
+    
+    AVANT: Vérification manuelle is_admin + check poste
+    APRÈS: Permission peut_voir_bordereaux_peage OU check poste concerné
+    
+    VARIABLES CONTEXTE: numero_bordereau, hist_cession, hist_reception, poste_origine,
+                        poste_destination, montant, nombre_tickets, date_transfert,
+                        effectue_par, series_par_couleur, title
     """
+    user = request.user
     
     # Récupérer les 2 historiques
     hist_cession = get_object_or_404(
@@ -446,12 +793,28 @@ def detail_bordereau_transfert(request, numero_bordereau):
     )
     
     # Vérifier permissions
-    if not request.user.is_admin:
+    peut_voir_global = peut_voir_bordereaux(user)
+    
+    if not peut_voir_global:
+        # Vérifier si l'utilisateur a accès à l'un des postes concernés
         postes_autorises = [hist_cession.poste.id, hist_reception.poste.id]
-        if not request.user.poste_affectation or \
-           request.user.poste_affectation.id not in postes_autorises:
-            messages.error(request, "Accès non autorisé")
+        poste_user = getattr(user, 'poste_affectation', None)
+        
+        if not poste_user or poste_user.id not in postes_autorises:
+            log_acces_refuse(
+                user,
+                f"Bordereau {numero_bordereau}",
+                f"Ni permission peut_voir_bordereaux_peage ni poste concerné "
+                f"(habilitation: {user.habilitation}, poste: {poste_user.code if poste_user else 'Aucun'})",
+                request
+            )
+            messages.error(request, "Vous n'avez pas accès à ce bordereau.")
             return redirect('common:dashboard')
+    
+    logger.info(
+        f"BORDEREAU_DETAIL - {user.username} consulte bordereau {numero_bordereau} "
+        f"(habilitation: {user.habilitation})"
+    )
     
     # Récupérer les séries transférées
     series_transferees = SerieTicket.objects.filter(

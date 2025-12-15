@@ -1,14 +1,16 @@
 # inventaire/views_stock_event_sourcing.py
-# Nouvelles vues pour exploiter le système Event Sourcing
+# Vues pour exploiter le système Event Sourcing
+# CORRIGÉ: get_stock_at_date retourne un tuple (valeur, tickets), pas un dict
 
 from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.urls import reverse
 from django.utils import timezone
+from django.contrib import messages
 from datetime import datetime, date, timedelta
 from decimal import Decimal
-import json
+import csv
 
 from accounts.models import Poste
 from inventaire.models import StockEvent, StockSnapshot
@@ -26,8 +28,6 @@ def is_admin(user):
     )
 
 
-# inventaire/views_stock_event_sourcing.py - MODIFICATION DE LA FONCTION stock_historique_date
-
 @login_required
 def stock_historique_date(request, poste_id=None):
     """
@@ -35,7 +35,6 @@ def stock_historique_date(request, poste_id=None):
     Admin : peut sélectionner n'importe quel poste
     Chef de poste : voit uniquement son poste
     """
-    from django.shortcuts import redirect
     
     # Si pas de poste_id, rediriger vers la vue de sélection
     if poste_id is None:
@@ -46,7 +45,6 @@ def stock_historique_date(request, poste_id=None):
     # Vérification des permissions
     if not request.user.is_admin:
         if not request.user.peut_acceder_poste(poste):
-            from django.http import HttpResponseForbidden
             return HttpResponseForbidden("Accès non autorisé à ce poste")
     
     # Récupérer la date demandée (par défaut aujourd'hui)
@@ -59,8 +57,24 @@ def stock_historique_date(request, poste_id=None):
     else:
         target_date = date.today()
     
-    # Obtenir le stock à cette date
-    stock_data = StockEvent.get_stock_at_date(poste, target_date)
+    # ========================================
+    # CORRECTION: get_stock_at_date retourne un tuple (valeur, tickets)
+    # ========================================
+    stock_valeur, stock_tickets = StockEvent.get_stock_at_date(poste, target_date)
+    
+    # Obtenir le dernier événement jusqu'à cette date
+    dernier_event = StockEvent.objects.filter(
+        poste=poste,
+        event_datetime__date__lte=target_date,
+        is_cancelled=False
+    ).order_by('-event_datetime').first()
+    
+    # Compter le nombre total d'événements jusqu'à cette date
+    nombre_events = StockEvent.objects.filter(
+        poste=poste,
+        event_datetime__date__lte=target_date,
+        is_cancelled=False
+    ).count()
     
     # Obtenir l'historique des 30 derniers jours
     date_debut = target_date - timedelta(days=30)
@@ -81,13 +95,13 @@ def stock_historique_date(request, poste_id=None):
     context = {
         'poste': poste,
         'date_selectionnee': target_date,
-        'stock_valeur': stock_data['valeur'],
-        'stock_tickets': stock_data['nombre_tickets'],
-        'dernier_event': stock_data['dernier_event'],
-        'nombre_events_total': stock_data['nombre_events'],
+        'stock_valeur': stock_valeur,
+        'stock_tickets': stock_tickets,
+        'dernier_event': dernier_event,
+        'nombre_events_total': nombre_events,
         'events_jour': events_jour,
         'history': history,
-        'postes_disponibles': postes_disponibles,  # Pour le sélecteur admin
+        'postes_disponibles': postes_disponibles,
         'is_admin': request.user.is_admin,
         'title': f'Stock de {poste.nom} au {target_date.strftime("%d/%m/%Y")}'
     }
@@ -124,7 +138,6 @@ def stock_selection_date(request):
             except Poste.DoesNotExist:
                 pass
         
-        from django.contrib import messages
         messages.error(request, "Veuillez sélectionner un poste valide.")
     
     # Pour un chef de poste avec un seul poste, rediriger directement
@@ -139,6 +152,7 @@ def stock_selection_date(request):
     }
     
     return render(request, 'inventaire/stock_selection_date.html', context)
+
 
 @login_required
 def api_stock_timeline(request, poste_id):
@@ -171,7 +185,7 @@ def api_stock_timeline(request, poste_id):
     except ValueError:
         return JsonResponse({'error': 'Format de date invalide'}, status=400)
     
-    # Obtenir l'historique
+    # Obtenir l'historique (retourne une liste de dicts avec 'date', 'valeur', 'nombre_tickets')
     history = StockEvent.get_stock_history(poste, date_debut, date_fin, interval)
     
     # Formater pour Chart.js
@@ -204,13 +218,17 @@ def api_stock_timeline(request, poste_id):
                 'value': float(event.montant_variation)
             })
     
+    # Calculer le résumé
+    stock_debut = history[0]['valeur'] if history else Decimal('0')
+    stock_fin = history[-1]['valeur'] if history else Decimal('0')
+    
     return JsonResponse({
         'chart_data': data,
         'annotations': annotations,
         'summary': {
-            'stock_debut': float(history[0]['valeur']) if history else 0,
-            'stock_fin': float(history[-1]['valeur']) if history else 0,
-            'variation': float(history[-1]['valeur'] - history[0]['valeur']) if history else 0,
+            'stock_debut': float(stock_debut),
+            'stock_fin': float(stock_fin),
+            'variation': float(stock_fin - stock_debut),
             'nombre_events': events.count()
         }
     })
@@ -230,6 +248,8 @@ def comparer_stocks_dates(request):
     date2_str = request.GET.get('date2')
     
     comparaison_data = []
+    date1 = None
+    date2 = None
     
     if date1_str and date2_str:
         try:
@@ -237,27 +257,32 @@ def comparer_stocks_dates(request):
             date2 = datetime.strptime(date2_str, '%Y-%m-%d').date()
             
             for poste in postes:
-                stock1 = StockEvent.get_stock_at_date(poste, date1)
-                stock2 = StockEvent.get_stock_at_date(poste, date2)
+                # ========================================
+                # CORRECTION: get_stock_at_date retourne un tuple
+                # ========================================
+                stock1_valeur, stock1_tickets = StockEvent.get_stock_at_date(poste, date1)
+                stock2_valeur, stock2_tickets = StockEvent.get_stock_at_date(poste, date2)
+                
+                # Calculer la variation en pourcentage
+                if stock1_valeur > 0:
+                    variation_pourcentage = ((stock2_valeur - stock1_valeur) / stock1_valeur * 100)
+                else:
+                    variation_pourcentage = Decimal('0')
                 
                 comparaison_data.append({
                     'poste': poste,
-                    'stock_date1': stock1['valeur'],
-                    'tickets_date1': stock1['nombre_tickets'],
-                    'stock_date2': stock2['valeur'],
-                    'tickets_date2': stock2['nombre_tickets'],
-                    'variation_valeur': stock2['valeur'] - stock1['valeur'],
-                    'variation_tickets': stock2['nombre_tickets'] - stock1['nombre_tickets'],
-                    'variation_pourcentage': (
-                        ((stock2['valeur'] - stock1['valeur']) / stock1['valeur'] * 100)
-                        if stock1['valeur'] > 0 else 0
-                    )
+                    'stock_date1': stock1_valeur,
+                    'tickets_date1': stock1_tickets,
+                    'stock_date2': stock2_valeur,
+                    'tickets_date2': stock2_tickets,
+                    'variation_valeur': stock2_valeur - stock1_valeur,
+                    'variation_tickets': stock2_tickets - stock1_tickets,
+                    'variation_pourcentage': variation_pourcentage
                 })
                 
         except ValueError:
+            messages.error(request, "Format de date invalide.")
             date1 = date2 = None
-    else:
-        date1 = date2 = None
     
     context = {
         'postes': postes,
@@ -275,14 +300,11 @@ def export_stock_history_csv(request, poste_id):
     """
     Exporte l'historique complet du stock en CSV
     """
-    import csv
-    
     poste = get_object_or_404(Poste, id=poste_id)
     
     # Vérification des permissions
     if not request.user.is_admin:
         if not request.user.peut_acceder_poste(poste):
-            from django.http import HttpResponseForbidden
             return HttpResponseForbidden("Accès non autorisé")
     
     # Récupérer tous les événements
@@ -324,7 +346,7 @@ def export_stock_history_csv(request, poste_id):
             event.stock_resultant,
             event.tickets_resultants,
             event.effectue_par.nom_complet if event.effectue_par else '-',
-            event.commentaire[:100]
+            event.commentaire[:100] if event.commentaire else ''
         ])
         stock_precedent = event.stock_resultant
     
@@ -359,13 +381,15 @@ def rebuild_stock_events(request, poste_id):
                 event.save(update_fields=['stock_resultant', 'tickets_resultants'])
                 events_corriges += 1
         
-        # Mettre à jour le stock actuel
-        from inventaire.models import GestionStock
-        stock_obj, created = GestionStock.objects.get_or_create(poste=poste)
-        stock_obj.valeur_monetaire = stock_courant
-        stock_obj.save()
+        # Mettre à jour le stock actuel dans GestionStock
+        try:
+            from inventaire.models import GestionStock
+            stock_obj, created = GestionStock.objects.get_or_create(poste=poste)
+            stock_obj.valeur_monetaire = stock_courant
+            stock_obj.save()
+        except Exception as e:
+            logger.warning(f"Impossible de mettre à jour GestionStock: {e}")
         
-        from django.contrib import messages
         messages.success(
             request,
             f"Reconstruction terminée : {events_corriges} événements corrigés. "
@@ -402,3 +426,51 @@ def rebuild_stock_events(request, poste_id):
     }
     
     return render(request, 'inventaire/rebuild_stock_events.html', context)
+
+
+@login_required
+def api_stock_at_date(request, poste_id):
+    """
+    API JSON pour obtenir le stock à une date précise
+    Utilisé pour les requêtes AJAX
+    """
+    poste = get_object_or_404(Poste, id=poste_id)
+    
+    # Vérification des permissions
+    if not request.user.is_admin:
+        if not request.user.peut_acceder_poste(poste):
+            return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Récupérer la date
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({'error': 'Format de date invalide'}, status=400)
+    else:
+        target_date = date.today()
+    
+    # Obtenir le stock (tuple)
+    stock_valeur, stock_tickets = StockEvent.get_stock_at_date(poste, target_date)
+    
+    # Compter les événements du jour
+    events_jour = StockEvent.objects.filter(
+        poste=poste,
+        event_datetime__date=target_date,
+        is_cancelled=False
+    ).count()
+    
+    return JsonResponse({
+        'poste': {
+            'id': poste.id,
+            'nom': poste.nom,
+            'code': poste.code
+        },
+        'date': target_date.strftime('%Y-%m-%d'),
+        'stock': {
+            'valeur': float(stock_valeur),
+            'tickets': stock_tickets
+        },
+        'events_jour': events_jour
+    })

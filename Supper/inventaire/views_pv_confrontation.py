@@ -1,6 +1,7 @@
 # ===================================================================
 # inventaire/views_pv_confrontation.py
 # Génération du Procès Verbal de Confrontation pour le Pesage
+# VERSION CORRIGÉE - Intégration des permissions granulaires
 # ===================================================================
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -31,6 +32,24 @@ from inventaire.models_pesage import *
 from inventaire.models_config import ConfigurationGlobale
 from common.utils import log_user_action
 
+# Import des fonctions de permissions granulaires depuis common.permissions
+from common.permissions import (
+    # Fonctions de vérification de permissions
+    has_permission,
+    user_has_acces_tous_postes,
+    get_postes_pesage_accessibles,
+    check_poste_access,
+    
+    # Fonctions de classification utilisateurs
+    is_admin_user,
+    is_operationnel_pesage,
+    is_regisseur_pesage,
+    is_chef_station_pesage,
+    
+    # Utilitaires de logging
+    log_acces_refuse,
+)
+
 logger = logging.getLogger('supper')
 
 # Fuseau horaire Cameroun
@@ -40,22 +59,140 @@ HEURE_FIN_JOURNEE = time(8, 59, 59)
 
 
 # ===================================================================
-# FONCTIONS UTILITAIRES
+# FONCTIONS UTILITAIRES - VERSION AVEC PERMISSIONS GRANULAIRES
 # ===================================================================
 
-def is_admin(user):
-    """Vérifie si l'utilisateur est administrateur"""
-    return user.is_superuser or user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']
+def peut_acceder_pv_confrontation(user):
+    """
+    Vérifie si l'utilisateur peut accéder au PV de confrontation.
+    
+    Utilise la permission granulaire 'peut_voir_pv_confrontation'.
+    
+    Habilitations ayant cette permission selon la matrice:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - serv_emission, serv_controle, serv_ordre, chef_ag (services centraux)
+    - cisop_pesage (CISOP)
+    - chef_station_pesage, regisseur_pesage (opérationnels pesage)
+    
+    Args:
+        user: L'utilisateur à vérifier
+        
+    Returns:
+        bool: True si l'utilisateur a la permission d'accès
+    """
+    if not user or not user.is_authenticated:
+        logger.debug(f"[PV_CONFRONTATION] Accès refusé: utilisateur non authentifié")
+        return False
+    
+    # Vérifier la permission granulaire
+    has_perm = has_permission(user, 'peut_voir_pv_confrontation')
+    
+    logger.debug(
+        f"[PV_CONFRONTATION] Vérification permission pour {user.username} "
+        f"(habilitation={user.habilitation}): {'ACCORDÉE' if has_perm else 'REFUSÉE'}"
+    )
+    
+    return has_perm
 
 
 def get_user_station_pesage(user):
-    """Retourne la station de pesage de l'utilisateur ou None si admin"""
-    if is_admin(user):
-        return None
-    if user.habilitation in ['regisseur_pesage', 'chef_station_pesage']:
-        if user.poste_affectation and user.poste_affectation.type == 'pesage':
-            return user.poste_affectation
+    """
+    Retourne la station de pesage accessible à l'utilisateur.
+    
+    Logique d'accès selon les permissions granulaires:
+    - Utilisateurs avec 'acces_tous_postes' → None (toutes les stations)
+    - Utilisateurs HABILITATIONS_PESAGE → leur station d'affectation uniquement
+    - Autres cas → False (pas d'accès)
+    
+    Args:
+        user: L'utilisateur
+        
+    Returns:
+        - None si l'utilisateur peut accéder à toutes les stations
+        - Poste (station pesage) si accès limité à une station
+        - False si l'utilisateur n'a pas accès
+    """
+    if not user or not user.is_authenticated:
+        logger.debug(f"[PV_CONFRONTATION] get_user_station_pesage: utilisateur non authentifié")
+        return False
+    
+    # Vérifier si l'utilisateur a accès à tous les postes
+    if user_has_acces_tous_postes(user):
+        logger.debug(
+            f"[PV_CONFRONTATION] {user.username} a accès à TOUTES les stations de pesage "
+            f"(habilitation={user.habilitation}, acces_tous_postes=True)"
+        )
+        return None  # Accès à toutes les stations
+    
+    # Pour les opérationnels pesage, vérifier leur station d'affectation
+    if is_operationnel_pesage(user):
+        poste = getattr(user, 'poste_affectation', None)
+        if poste and poste.type == 'pesage' and poste.is_active:
+            logger.debug(
+                f"[PV_CONFRONTATION] {user.username} a accès à sa station d'affectation: "
+                f"{poste.nom} (code={poste.code})"
+            )
+            return poste
+        else:
+            logger.warning(
+                f"[PV_CONFRONTATION] {user.username} est opérationnel pesage mais "
+                f"n'a pas de station de pesage valide affectée"
+            )
+            return False
+    
+    logger.debug(
+        f"[PV_CONFRONTATION] {user.username} n'a pas accès aux stations de pesage "
+        f"(habilitation={user.habilitation})"
+    )
     return False
+
+
+def get_chef_station(station):
+    """
+    Récupère le chef de station de pesage.
+    
+    Args:
+        station: Instance de Poste (station de pesage)
+        
+    Returns:
+        UtilisateurSUPPER ou None
+    """
+    chef = UtilisateurSUPPER.objects.filter(
+        poste_affectation=station,
+        habilitation='chef_station_pesage',
+        is_active=True
+    ).first()
+    
+    if chef:
+        logger.debug(f"[PV_CONFRONTATION] Chef station {station.nom}: {chef.nom_complet}")
+    else:
+        logger.debug(f"[PV_CONFRONTATION] Aucun chef station trouvé pour {station.nom}")
+    
+    return chef
+
+
+def get_regisseur_station(station):
+    """
+    Récupère le régisseur de la station de pesage.
+    
+    Args:
+        station: Instance de Poste (station de pesage)
+        
+    Returns:
+        UtilisateurSUPPER ou None
+    """
+    regisseur = UtilisateurSUPPER.objects.filter(
+        poste_affectation=station,
+        habilitation='regisseur_pesage',
+        is_active=True
+    ).first()
+    
+    if regisseur:
+        logger.debug(f"[PV_CONFRONTATION] Régisseur station {station.nom}: {regisseur.nom_complet}")
+    else:
+        logger.debug(f"[PV_CONFRONTATION] Aucun régisseur trouvé pour {station.nom}")
+    
+    return regisseur
 
 
 def get_datetime_periode_9h(date_debut, date_fin):
@@ -63,6 +200,13 @@ def get_datetime_periode_9h(date_debut, date_fin):
     Calcule les datetime de début et fin selon la logique 9h-9h
     Début: date_debut à 9h00
     Fin: date_fin + 1 jour à 8h59:59
+    
+    Args:
+        date_debut: Date de début de la période
+        date_fin: Date de fin de la période
+        
+    Returns:
+        tuple: (datetime_debut, datetime_fin)
     """
     datetime_debut = CAMEROUN_TZ.localize(
         datetime.combine(date_debut, HEURE_DEBUT_JOURNEE)
@@ -71,26 +215,6 @@ def get_datetime_periode_9h(date_debut, date_fin):
         datetime.combine(date_fin + timedelta(days=1), HEURE_FIN_JOURNEE)
     )
     return datetime_debut, datetime_fin
-
-
-def get_chef_station(station):
-    """Récupère le chef de station de pesage"""
-    chef = UtilisateurSUPPER.objects.filter(
-        poste_affectation=station,
-        habilitation='chef_station_pesage',
-        is_active=True
-    ).first()
-    return chef
-
-
-def get_regisseur_station(station):
-    """Récupère le régisseur de la station de pesage"""
-    regisseur = UtilisateurSUPPER.objects.filter(
-        poste_affectation=station,
-        habilitation='regisseur_pesage',
-        is_active=True
-    ).first()
-    return regisseur
 
 
 # ===================================================================
@@ -202,8 +326,8 @@ def calculer_donnees_pv_confrontation(station, date_debut, date_fin):
         dict avec toutes les données calculées
     """
     logger.info(f"=" * 60)
-    logger.info(f"CALCUL PV CONFRONTATION - {station.nom}")
-    logger.info(f"Période: {date_debut} à {date_fin}")
+    logger.info(f"[PV_CONFRONTATION] CALCUL DONNÉES - Station: {station.nom}")
+    logger.info(f"[PV_CONFRONTATION] Période: {date_debut} à {date_fin}")
     
     # Datetime avec logique 9h-9h
     datetime_debut, datetime_fin = get_datetime_periode_9h(date_debut, date_fin)
@@ -218,7 +342,7 @@ def calculer_donnees_pv_confrontation(station, date_debut, date_fin):
         date__lte=date_fin
     ).aggregate(total=Sum('nombre_pesees'))['total'] or 0
     
-    logger.info(f"Nombre de pesées: {pesees}")
+    logger.info(f"[PV_CONFRONTATION] Nombre de pesées: {pesees}")
     
     # ========== 2. AMENDES ÉMISES DANS LA PÉRIODE ==========
     # Amendes dont la date d'émission est dans la période 9h-9h
@@ -246,7 +370,7 @@ def calculer_donnees_pv_confrontation(station, date_debut, date_fin):
         total=Sum('montant_amende')
     )['total'] or Decimal('0')
     
-    logger.info(f"Infractions: {nombre_infractions}, Montant émis (A): {montant_emis_A}")
+    logger.info(f"[PV_CONFRONTATION] Infractions: {nombre_infractions}, Montant émis (A): {montant_emis_A}")
     
     # ========== 3. MONTANT RECOUVRÉ DU MOIS (B) ==========
     # Amendes émises ET payées dans la période
@@ -263,7 +387,7 @@ def calculer_donnees_pv_confrontation(station, date_debut, date_fin):
         total=Sum('montant_amende')
     )['total'] or Decimal('0')
     
-    logger.info(f"Montant recouvré du mois (B): {montant_recouvre_mois_B}")
+    logger.info(f"[PV_CONFRONTATION] Montant recouvré du mois (B): {montant_recouvre_mois_B}")
     
     # ========== 4. RAR ANTÉRIEURS RECOUVRÉS (C) ==========
     # Amendes émises AVANT la période mais payées DANS la période
@@ -279,7 +403,7 @@ def calculer_donnees_pv_confrontation(station, date_debut, date_fin):
         total=Sum('montant_amende')
     )['total'] or Decimal('0')
     
-    logger.info(f"RAR antérieurs recouvrés (C): {montant_rar_anterieurs_C}")
+    logger.info(f"[PV_CONFRONTATION] RAR antérieurs recouvrés (C): {montant_rar_anterieurs_C}")
     
     # ========== 5. TOTAL (D = B + C) ==========
     total_D = montant_recouvre_mois_B + montant_rar_anterieurs_C
@@ -308,7 +432,7 @@ def calculer_donnees_pv_confrontation(station, date_debut, date_fin):
     
     montant_reversements_F = quittancements_journaliers + quittancements_decades
     
-    logger.info(f"Reversements au trésor (F): {montant_reversements_F}")
+    logger.info(f"[PV_CONFRONTATION] Reversements au trésor (F): {montant_reversements_F}")
     
     # ========== 8. ÉCART 2 (F - D) ==========
     ecart_2 = montant_reversements_F - total_D
@@ -353,7 +477,7 @@ def calculer_donnees_pv_confrontation(station, date_debut, date_fin):
     }
     
     logger.info(f"=" * 60)
-    logger.info(f"RÉSUMÉ PV CONFRONTATION:")
+    logger.info(f"[PV_CONFRONTATION] RÉSUMÉ CALCUL:")
     logger.info(f"  Pesées: {pesees}")
     logger.info(f"  Infractions: {nombre_infractions}")
     logger.info(f"  Émis (A): {montant_emis_A}")
@@ -482,33 +606,74 @@ def calculer_donnees_par_semaine(station, date_debut, date_fin):
 
 
 # ===================================================================
-# VUES
+# VUES - VERSION AVEC PERMISSIONS GRANULAIRES
 # ===================================================================
 
 @login_required
 def selection_pv_confrontation(request):
     """
-    Vue de sélection pour le PV de confrontation
-    - Admin: peut choisir n'importe quelle station
-    - Régisseur/Chef station: station automatique
+    Vue de sélection pour le PV de confrontation.
+    
+    Accès basé sur la permission 'peut_voir_pv_confrontation':
+    - Utilisateurs avec accès_tous_postes: peuvent choisir n'importe quelle station
+    - Utilisateurs opérationnels pesage: station d'affectation uniquement
+    
+    Variables de contexte (IDENTIQUES au fichier original):
+    - stations: QuerySet des stations accessibles (ou None si station_auto)
+    - station_auto: Station d'affectation (ou None si accès multiple)
+    - date_debut_suggestion: Date de début suggérée (1er jour mois précédent)
+    - date_fin_suggestion: Date de fin suggérée (dernier jour mois précédent)
+    - date_max: Date maximale sélectionnable (aujourd'hui)
+    - is_admin: Boolean indiquant si l'utilisateur a accès à toutes les stations
+    - title: Titre de la page
     """
     user = request.user
     
-    # Vérification permissions
-    if not (is_admin(user) or user.habilitation in ['regisseur_pesage', 'chef_station_pesage']):
-        messages.error(request, "Accès non autorisé au PV de confrontation.")
+    # === Vérification des permissions granulaires ===
+    if not peut_acceder_pv_confrontation(user):
+        log_user_action(
+            user,
+            "Tentative accès PV Confrontation",
+            f"Permission 'peut_voir_pv_confrontation' refusée - Habilitation: {user.habilitation}",
+            request
+        )
+        log_acces_refuse(user, "selection_pv_confrontation", "Permission peut_voir_pv_confrontation manquante")
+        messages.error(request, "Vous n'avez pas la permission d'accéder au PV de confrontation.")
         return redirect('common:dashboard')
     
-    # Déterminer les stations accessibles
-    if is_admin(user):
+    # Log de l'accès à la page de sélection
+    logger.info(
+        f"[PV_CONFRONTATION] Accès sélection par {user.username} "
+        f"(habilitation={user.habilitation})"
+    )
+    
+    # === Déterminer les stations accessibles ===
+    # Utilise user_has_acces_tous_postes() au lieu de is_admin()
+    acces_global = user_has_acces_tous_postes(user)
+    
+    if acces_global:
+        # Utilisateur avec accès à toutes les stations
         stations = Poste.objects.filter(type='pesage', is_active=True).order_by('region', 'nom')
         station_auto = None
+        logger.debug(
+            f"[PV_CONFRONTATION] {user.username} a accès à {stations.count()} stations (accès global)"
+        )
     else:
+        # Utilisateur avec accès limité à sa station d'affectation
         station_auto = get_user_station_pesage(user)
         if station_auto is False:
-            messages.error(request, "Vous devez être affecté à une station de pesage.")
+            log_user_action(
+                user,
+                "Accès PV Confrontation bloqué",
+                "Aucune station de pesage valide affectée à l'utilisateur",
+                request
+            )
+            messages.error(request, "Vous devez être affecté à une station de pesage valide.")
             return redirect('common:dashboard')
         stations = None
+        logger.debug(
+            f"[PV_CONFRONTATION] {user.username} accès limité à sa station: {station_auto.nom}"
+        )
     
     # Dates par défaut: mois précédent
     today = date.today()
@@ -517,7 +682,8 @@ def selection_pv_confrontation(request):
     premier_jour_mois_prec = dernier_jour_mois_prec.replace(day=1)
     
     if request.method == 'POST':
-        if is_admin(user):
+        # Traitement du formulaire
+        if acces_global:
             station_id = request.POST.get('station_id')
             if not station_id:
                 messages.error(request, "Veuillez sélectionner une station.")
@@ -525,11 +691,14 @@ def selection_pv_confrontation(request):
                     'stations': stations,
                     'date_debut_suggestion': premier_jour_mois_prec,
                     'date_fin_suggestion': dernier_jour_mois_prec,
-                    'is_admin': True,
+                    'is_admin': True,  # Variable de contexte maintenue pour compatibilité template
                 })
             try:
                 station = Poste.objects.get(pk=station_id, type='pesage', is_active=True)
             except Poste.DoesNotExist:
+                logger.warning(
+                    f"[PV_CONFRONTATION] {user.username} a tenté d'accéder à une station invalide: {station_id}"
+                )
                 messages.error(request, "Station invalide.")
                 return redirect('inventaire:selection_pv_confrontation')
         else:
@@ -553,6 +722,14 @@ def selection_pv_confrontation(request):
                 elif (date_fin - date_debut).days > 365:
                     messages.error(request, "La période ne peut pas dépasser 1 an.")
                 else:
+                    # Log de l'action de l'utilisateur
+                    log_user_action(
+                        user,
+                        "Sélection PV Confrontation",
+                        f"Station: {station.nom}, Période: {date_debut_str} au {date_fin_str}, Action: {action}",
+                        request
+                    )
+                    
                     if action == 'apercu':
                         return redirect('inventaire:apercu_pv_confrontation',
                                         station_id=station.pk,
@@ -566,13 +743,14 @@ def selection_pv_confrontation(request):
             except ValueError:
                 messages.error(request, "Format de date invalide.")
     
+    # Variables de contexte IDENTIQUES au fichier original
     context = {
         'stations': stations,
         'station_auto': station_auto,
         'date_debut_suggestion': premier_jour_mois_prec,
         'date_fin_suggestion': dernier_jour_mois_prec,
         'date_max': today,
-        'is_admin': is_admin(user),
+        'is_admin': acces_global,  # Maintenu pour compatibilité template
         'title': 'PV de Confrontation - Sélection',
     }
     
@@ -582,16 +760,53 @@ def selection_pv_confrontation(request):
 @login_required
 def apercu_pv_confrontation(request, station_id, date_debut, date_fin):
     """
-    Aperçu HTML du PV de confrontation
+    Aperçu HTML du PV de confrontation.
+    
+    Vérifications:
+    1. Permission 'peut_voir_pv_confrontation'
+    2. Accès à la station spécifique (via check_poste_access)
+    
+    Variables de contexte (IDENTIQUES au fichier original):
+    - station: Instance Poste de la station
+    - date_debut: Chaîne de date début (format YYYY-MM-DD)
+    - date_fin: Chaîne de date fin (format YYYY-MM-DD)
+    - date_debut_obj: Objet date de début
+    - date_fin_obj: Objet date de fin
+    - donnees: Dictionnaire des données calculées
+    - chef_station: Utilisateur chef de station (ou None)
+    - regisseur: Utilisateur régisseur (ou None)
+    - config: Configuration globale
+    - date_du_jour: Date du jour
+    - is_admin: Boolean accès global
+    - title: Titre de la page
     """
     user = request.user
     station = get_object_or_404(Poste, pk=station_id, type='pesage')
     
-    # Vérification permissions
-    if not is_admin(user):
-        user_station = get_user_station_pesage(user)
-        if user_station is False or user_station != station:
-            messages.error(request, "Accès non autorisé à cette station.")
+    # === Vérification permission granulaire ===
+    if not peut_acceder_pv_confrontation(user):
+        log_user_action(
+            user,
+            "Tentative aperçu PV Confrontation",
+            f"Permission refusée - Station: {station.nom}",
+            request
+        )
+        log_acces_refuse(user, "apercu_pv_confrontation", "Permission peut_voir_pv_confrontation manquante")
+        messages.error(request, "Vous n'avez pas la permission d'accéder au PV de confrontation.")
+        return redirect('common:dashboard')
+    
+    # === Vérification accès à la station spécifique ===
+    if not user_has_acces_tous_postes(user):
+        # L'utilisateur n'a pas accès global, vérifier l'accès à cette station
+        if not check_poste_access(user, station):
+            log_user_action(
+                user,
+                "Accès station refusé - PV Confrontation",
+                f"Tentative d'accès à la station {station.nom} (ID={station_id}) non autorisée",
+                request
+            )
+            log_acces_refuse(user, f"apercu_pv_confrontation/{station_id}", "Accès station non autorisé")
+            messages.error(request, "Vous n'avez pas accès à cette station.")
             return redirect('inventaire:selection_pv_confrontation')
     
     # Parser les dates
@@ -599,8 +814,23 @@ def apercu_pv_confrontation(request, station_id, date_debut, date_fin):
         date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
     except ValueError:
+        logger.warning(
+            f"[PV_CONFRONTATION] Format de dates invalide: {date_debut} - {date_fin}"
+        )
         messages.error(request, "Format de dates invalide.")
         return redirect('inventaire:selection_pv_confrontation')
+    
+    # Log de l'action
+    log_user_action(
+        user,
+        "Aperçu PV Confrontation",
+        f"Station: {station.nom} ({station.code}), Période: {date_debut} au {date_fin}",
+        request
+    )
+    logger.info(
+        f"[PV_CONFRONTATION] Aperçu généré par {user.username} pour {station.nom} "
+        f"({date_debut} au {date_fin})"
+    )
     
     # Récupérer chef et régisseur
     chef_station = get_chef_station(station)
@@ -612,6 +842,7 @@ def apercu_pv_confrontation(request, station_id, date_debut, date_fin):
     # Récupérer la configuration globale pour l'en-tête
     config = ConfigurationGlobale.get_config()
     
+    # Variables de contexte IDENTIQUES au fichier original
     context = {
         'station': station,
         'date_debut': date_debut,
@@ -623,7 +854,7 @@ def apercu_pv_confrontation(request, station_id, date_debut, date_fin):
         'regisseur': regisseur,
         'config': config,
         'date_du_jour': date.today(),
-        'is_admin': is_admin(user),
+        'is_admin': user_has_acces_tous_postes(user),  # Maintenu pour compatibilité template
         'title': f"PV de Confrontation - {station.nom}",
     }
     
@@ -633,16 +864,38 @@ def apercu_pv_confrontation(request, station_id, date_debut, date_fin):
 @login_required
 def generer_pv_confrontation_pdf(request, station_id, date_debut, date_fin):
     """
-    Génère le PDF du PV de confrontation
+    Génère le PDF du PV de confrontation.
+    
+    Vérifications:
+    1. Permission 'peut_voir_pv_confrontation'
+    2. Accès à la station spécifique (via check_poste_access)
     """
     user = request.user
     station = get_object_or_404(Poste, pk=station_id, type='pesage')
     
-    # Vérification permissions
-    if not is_admin(user):
-        user_station = get_user_station_pesage(user)
-        if user_station is False or user_station != station:
-            messages.error(request, "Accès non autorisé.")
+    # === Vérification permission granulaire ===
+    if not peut_acceder_pv_confrontation(user):
+        log_user_action(
+            user,
+            "Tentative génération PDF PV Confrontation",
+            f"Permission refusée - Station: {station.nom}",
+            request
+        )
+        log_acces_refuse(user, "generer_pv_confrontation_pdf", "Permission peut_voir_pv_confrontation manquante")
+        messages.error(request, "Vous n'avez pas la permission de générer ce document.")
+        return redirect('common:dashboard')
+    
+    # === Vérification accès à la station spécifique ===
+    if not user_has_acces_tous_postes(user):
+        if not check_poste_access(user, station):
+            log_user_action(
+                user,
+                "Accès station refusé - PDF PV Confrontation",
+                f"Tentative génération PDF pour station {station.nom} non autorisée",
+                request
+            )
+            log_acces_refuse(user, f"generer_pv_confrontation_pdf/{station_id}", "Accès station non autorisé")
+            messages.error(request, "Vous n'avez pas accès à cette station.")
             return redirect('inventaire:selection_pv_confrontation')
     
     # Parser les dates
@@ -650,6 +903,9 @@ def generer_pv_confrontation_pdf(request, station_id, date_debut, date_fin):
         date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
     except ValueError:
+        logger.warning(
+            f"[PV_CONFRONTATION] Format de dates invalide pour PDF: {date_debut} - {date_fin}"
+        )
         messages.error(request, "Format de dates invalide.")
         return redirect('inventaire:selection_pv_confrontation')
     
@@ -767,12 +1023,17 @@ def generer_pv_confrontation_pdf(request, station_id, date_debut, date_fin):
     # Générer le PDF
     doc.build(elements)
     
-    # Log de l'action
+    # Log de l'action (utilisation de log_user_action de common/utils.py)
     log_user_action(
         user,
-        "Génération PV de Confrontation",
-        f"Station: {station.nom} - Période: {date_debut} au {date_fin}",
+        "Génération PDF PV Confrontation",
+        f"Station: {station.nom} ({station.code}), Période: {date_debut} au {date_fin}, "
+        f"Fichier: {filename}",
         request
+    )
+    logger.info(
+        f"[PV_CONFRONTATION] PDF généré par {user.username} - Station: {station.nom}, "
+        f"Période: {date_debut} au {date_fin}"
     )
     
     return response

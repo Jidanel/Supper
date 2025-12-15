@@ -1,10 +1,22 @@
 # ===================================================================
 # inventaire/views_pesage.py - Vues pour le module Pesage SUPPER
-# Gestion des permissions par rôle:
-# - Admin: accès complet à toutes les stations (doit sélectionner)
-# - Chef station pesage: accès complet à SA station uniquement
-# - Régisseur pesage: validation/quittancements sur SA station
-# - Chef équipe pesage: saisie amendes/pesées sur SA station
+# VERSION MISE À JOUR - Intégration des permissions granulaires
+# 
+# Gestion des permissions par PERMISSION GRANULAIRE (pas par rôle):
+# - peut_saisir_amende: Saisie d'amendes
+# - peut_saisir_pesee_jour: Saisie des pesées journalières
+# - peut_valider_paiement_amende: Validation des paiements
+# - peut_saisir_quittance_pesage: Saisie de quittancements
+# - peut_lister_amendes: Consultation des amendes
+# - peut_voir_historique_pesees: Historique des pesées
+# - peut_voir_recettes_pesage: Recettes pesage
+# - peut_voir_stats_pesage: Statistiques pesage
+# - peut_comptabiliser_quittances_pesage: Comptabilisation
+# - peut_voir_liste_quittancements_pesage: Liste quittancements
+#
+# Accès aux postes:
+# - Habilitations avec acces_tous_postes: peuvent sélectionner n'importe quelle station
+# - Habilitations pesage (chef_station, regisseur, chef_equipe): accès à leur station uniquement
 # ===================================================================
 
 import calendar
@@ -28,22 +40,62 @@ import logging
 import os
 import pytz
 
+# ===================================================================
+# IMPORTS DES MODULES DE PERMISSIONS ET UTILITAIRES CENTRALISÉS
+# ===================================================================
+
 from common.utils import log_user_action
+
+# Imports depuis le module de permissions centralisé
+from common.permissions import (
+    # Fonctions de classification utilisateur
+    is_admin_user,
+    is_service_central,
+    is_cisop_pesage,
+    is_operationnel_pesage,
+    is_chef_station_pesage,
+    is_regisseur_pesage,
+    is_chef_equipe_pesage,
+    
+    # Fonctions d'accès aux postes
+    user_has_acces_tous_postes,
+    get_postes_accessibles,
+    get_postes_pesage_accessibles,
+    check_poste_access,
+    get_poste_from_request,
+    
+    # Fonctions de vérification de permissions
+    has_permission,
+    has_any_permission,
+    
+    # Logging
+    log_acces_refuse,
+    
+    # Constantes
+    HABILITATIONS_OPERATIONNELS_PESAGE,
+    PERMISSIONS_PESAGE,
+)
+
+# Imports depuis le module de décorateurs centralisé
+from common.decorators import (
+    permission_required_granular,
+    saisie_amende_required,
+    saisie_pesee_required,
+    validation_paiement_amende_required,
+    saisie_quittance_pesage_required,
+    liste_amendes_required,
+    historique_pesees_required,
+    stats_pesage_required,
+    comptabiliser_quittances_pesage_required,
+    api_permission_required,
+    operationnel_pesage_required,
+)
 
 from .models_pesage import *
 from .forms_pesage import *
 from accounts.models import Poste
 
 logger = logging.getLogger('supper')
-
-
-# ===================================================================
-# CONSTANTES RÔLES PESAGE
-# ===================================================================
-
-PESAGE_ROLES = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage']
-SAISIE_ROLES = ['chef_equipe_pesage', 'chef_station_pesage']  # Peuvent saisir amendes/pesées
-VALIDATION_ROLES = ['regisseur_pesage', 'chef_station_pesage']  # Peuvent valider paiements
 
 
 # ===================================================================
@@ -56,67 +108,89 @@ HEURE_FIN_JOURNEE = time(8, 59, 59)
 
 
 # ===================================================================
-# FONCTIONS UTILITAIRES
+# FONCTIONS UTILITAIRES D'ACCÈS AUX POSTES (PESAGE)
 # ===================================================================
 
-def is_admin(user):
-    """Vérifie si l'utilisateur est administrateur"""
-    return user.is_superuser or user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']
-
-
-def get_user_station(user):
+def get_user_station_pesage(user):
     """
     Retourne la station de pesage de l'utilisateur.
-    Returns:
-        - None si admin (accès à toutes les stations)
-        - Poste si utilisateur affecté à une station pesage
-        - False si utilisateur non autorisé
-    """
-    if is_admin(user):
-        return None
     
-    if user.habilitation not in PESAGE_ROLES:
+    Returns:
+        - None si l'utilisateur a accès à tous les postes (admin, services centraux, cisop_pesage)
+        - Instance de Poste si utilisateur affecté à une station pesage
+        - False si utilisateur non autorisé pour le pesage
+    
+    Utilise les permissions granulaires pour déterminer l'accès.
+    """
+    if not user or not user.is_authenticated:
         return False
     
-    if user.poste_affectation and user.poste_affectation.type == 'pesage':
-        return user.poste_affectation
+    # Vérifier si l'utilisateur a accès à tous les postes (multi-postes)
+    if user_has_acces_tous_postes(user):
+        logger.debug(f"[PESAGE] Utilisateur {user.username} a accès à toutes les stations (multi-postes)")
+        return None
     
+    # Vérifier si l'utilisateur a au moins une permission pesage
+    if not has_any_permission(user, PERMISSIONS_PESAGE):
+        logger.warning(f"[PESAGE] Accès refusé: {user.username} n'a aucune permission pesage")
+        return False
+    
+    # Vérifier le poste d'affectation
+    poste = getattr(user, 'poste_affectation', None)
+    if poste and poste.type == 'pesage' and poste.is_active:
+        logger.debug(f"[PESAGE] Utilisateur {user.username} affecté à la station {poste.nom}")
+        return poste
+    
+    logger.warning(f"[PESAGE] Utilisateur {user.username} sans station de pesage valide")
     return False
 
 
-def get_stations_accessibles(user):
-    """Retourne le queryset des stations accessibles pour l'utilisateur."""
-    if is_admin(user):
-        return Poste.objects.filter(type='pesage', is_active=True).order_by('region', 'nom')
-    
-    station = get_user_station(user)
-    if station and station is not False:
-        return Poste.objects.filter(id=station.id)
-    
-    return Poste.objects.none()
-
-
-def valider_date_saisie(date_cible):
-    """Valide qu'une date n'est pas dans le futur."""
-    today = timezone.now().date()
-    if date_cible > today:
-        return False, _("Impossible de saisir des données pour une date future.")
-    return True, None
+def get_stations_pesage_accessibles(user):
+    """
+    Retourne le queryset des stations de pesage accessibles pour l'utilisateur.
+    Utilise la fonction centralisée get_postes_accessibles avec filtre type='pesage'.
+    """
+    return get_postes_accessibles(user, type_poste='pesage')
 
 
 def get_station_context(request, user):
     """
     Récupère la station pour le contexte de la vue.
+    
+    Logic:
+    1. Si l'utilisateur n'a PAS accès à tous les postes → utiliser son poste d'affectation
+    2. Si l'utilisateur A accès à tous les postes → permettre la sélection via GET/POST/session
+    
     Returns:
         tuple (station, redirect_response)
+        - (station, None) si station trouvée
+        - (None, redirect) si redirection nécessaire
+        - (None, None) si admin sans station sélectionnée
     """
-    if not is_admin(user):
-        station = get_user_station(user)
+    # Cas 1: Utilisateur avec accès limité à son poste
+    if not user_has_acces_tous_postes(user):
+        station = get_user_station_pesage(user)
+        
         if station is False:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
+            logger.warning(f"[PESAGE] {user.username} tente d'accéder sans permission pesage")
+            log_user_action(
+                user, 
+                "Accès pesage refusé",
+                f"Tentative d'accès au module pesage sans permission - Habilitation: {user.habilitation}",
+                request
+            )
+            messages.error(request, _("Vous devez être affecté à une station de pesage pour accéder à cette fonctionnalité."))
             return None, redirect('common:dashboard')
+        
+        if station is None:
+            logger.error(f"[PESAGE] Incohérence: {user.username} n'a pas accès tous postes mais station=None")
+            messages.error(request, _("Erreur de configuration. Contactez un administrateur."))
+            return None, redirect('common:dashboard')
+        
+        logger.debug(f"[PESAGE] Station {station.nom} assignée à {user.username}")
         return station, None
     
+    # Cas 2: Utilisateur avec accès à tous les postes (admin, service central, cisop_pesage)
     station_id = (
         request.GET.get('station') or 
         request.POST.get('station') or 
@@ -127,12 +201,27 @@ def get_station_context(request, user):
         try:
             station = Poste.objects.get(pk=station_id, type='pesage', is_active=True)
             request.session['station_pesage_id'] = station.id
+            logger.debug(f"[PESAGE] Admin {user.username} a sélectionné la station {station.nom}")
             return station, None
         except Poste.DoesNotExist:
             request.session.pop('station_pesage_id', None)
+            logger.warning(f"[PESAGE] Station ID {station_id} invalide pour {user.username}")
     
+    # Admin sans station sélectionnée
     return None, None
 
+
+def valider_date_saisie(date_cible):
+    """Valide qu'une date n'est pas dans le futur."""
+    today = timezone.now().date()
+    if date_cible > today:
+        return False, _("Impossible de saisir des données pour une date future.")
+    return True, None
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES TEMPORELLES (LOGIQUE 9h-9h)
+# ===================================================================
 
 def get_datetime_cameroun():
     """Retourne la date/heure actuelle au Cameroun (GMT+1)."""
@@ -255,91 +344,157 @@ def get_periode_dates(periode, date_ref=None):
 
 
 # ===================================================================
-# DÉCORATEURS DE PERMISSION
+# DÉCORATEURS SPÉCIFIQUES PESAGE (AVEC GESTION DES POSTES)
 # ===================================================================
 
 def pesage_access_required(view_func):
-    """Vérifie que l'utilisateur a accès au module pesage."""
+    """
+    Vérifie que l'utilisateur a accès au module pesage.
+    Utilise la permission granulaire 'peut_lister_amendes' comme permission de base.
+    """
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
         user = request.user
-        if is_admin(user):
-            return view_func(request, *args, **kwargs)
-        if user.habilitation not in PESAGE_ROLES:
+        
+        # Vérifier si l'utilisateur a au moins une permission pesage
+        if not has_any_permission(user, PERMISSIONS_PESAGE):
+            log_user_action(
+                user,
+                "Accès module pesage refusé",
+                f"Aucune permission pesage - Vue: {view_func.__name__}",
+                request
+            )
+            log_acces_refuse(user, view_func.__name__, "Aucune permission pesage")
             messages.error(request, _("Accès non autorisé au module pesage."))
             return redirect('common:dashboard')
-        station = get_user_station(user)
-        if station is False:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
-            return redirect('common:dashboard')
+        
+        # Vérifier l'accès à une station (sauf si accès tous postes)
+        if not user_has_acces_tous_postes(user):
+            station = get_user_station_pesage(user)
+            if station is False:
+                log_user_action(
+                    user,
+                    "Accès pesage - station manquante",
+                    f"Permission pesage OK mais pas de station affectée",
+                    request
+                )
+                messages.error(request, _("Vous devez être affecté à une station de pesage."))
+                return redirect('common:dashboard')
+        
         return view_func(request, *args, **kwargs)
     return wrapper
 
 
 def saisie_pesage_required(view_func):
-    """Vérifie que l'utilisateur peut saisir des données pesage."""
+    """
+    Vérifie que l'utilisateur peut saisir des données pesage (amendes ou pesées).
+    Permissions: peut_saisir_amende OU peut_saisir_pesee_jour
+    """
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
         user = request.user
-        if is_admin(user):
-            return view_func(request, *args, **kwargs)
-        if user.habilitation not in SAISIE_ROLES:
+        
+        if not has_any_permission(user, ['peut_saisir_amende', 'peut_saisir_pesee_jour']):
+            log_user_action(
+                user,
+                "Saisie pesage refusée",
+                f"Permissions manquantes: peut_saisir_amende, peut_saisir_pesee_jour",
+                request
+            )
+            log_acces_refuse(user, view_func.__name__, "Permission saisie pesage manquante")
             messages.error(request, _("Accès réservé aux chefs d'équipe et chefs de station pesage."))
             return redirect('common:dashboard')
-        station = get_user_station(user)
-        if station is False:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
-            return redirect('common:dashboard')
+        
+        # Vérifier l'accès à une station
+        if not user_has_acces_tous_postes(user):
+            station = get_user_station_pesage(user)
+            if station is False:
+                messages.error(request, _("Vous devez être affecté à une station de pesage."))
+                return redirect('common:dashboard')
+        
         return view_func(request, *args, **kwargs)
     return wrapper
 
 
 def validation_pesage_required(view_func):
-    """Vérifie que l'utilisateur peut valider des paiements."""
+    """
+    Vérifie que l'utilisateur peut valider des paiements d'amendes.
+    Permission: peut_valider_paiement_amende
+    """
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
         user = request.user
-        if is_admin(user):
-            return view_func(request, *args, **kwargs)
-        if user.habilitation not in VALIDATION_ROLES:
-            messages.error(request, _("Accès réservé aux régisseurs et chefs de station pesage."))
+        
+        if not has_permission(user, 'peut_valider_paiement_amende'):
+            log_user_action(
+                user,
+                "Validation paiement refusée",
+                f"Permission manquante: peut_valider_paiement_amende",
+                request
+            )
+            log_acces_refuse(user, view_func.__name__, "Permission validation paiement manquante")
+            messages.error(request, _("Accès réservé aux régisseurs de station pesage."))
             return redirect('common:dashboard')
-        station = get_user_station(user)
-        if station is False:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
-            return redirect('common:dashboard')
+        
+        # Vérifier l'accès à une station
+        if not user_has_acces_tous_postes(user):
+            station = get_user_station_pesage(user)
+            if station is False:
+                messages.error(request, _("Vous devez être affecté à une station de pesage."))
+                return redirect('common:dashboard')
+        
         return view_func(request, *args, **kwargs)
     return wrapper
 
 
 def quittancement_pesage_required(view_func):
-    """Vérifie que l'utilisateur peut gérer les quittancements (regisseur_pesage ou admin)."""
+    """
+    Vérifie que l'utilisateur peut gérer les quittancements pesage.
+    Permission: peut_saisir_quittance_pesage
+    """
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
         user = request.user
-        if is_admin(user):
-            return view_func(request, *args, **kwargs)
-        if user.habilitation != 'regisseur_pesage':
+        
+        if not has_permission(user, 'peut_saisir_quittance_pesage'):
+            log_user_action(
+                user,
+                "Quittancement pesage refusé",
+                f"Permission manquante: peut_saisir_quittance_pesage",
+                request
+            )
+            log_acces_refuse(user, view_func.__name__, "Permission quittancement pesage manquante")
             messages.error(request, _("Accès réservé aux régisseurs pesage."))
             return redirect('common:dashboard')
+        
         return view_func(request, *args, **kwargs)
     return wrapper
 
 
 # ===================================================================
-# SÉLECTION DE STATION (ADMIN UNIQUEMENT)
+# SÉLECTION DE STATION (UTILISATEURS MULTI-POSTES UNIQUEMENT)
 # ===================================================================
 
 @login_required
 def selectionner_station(request):
-    """Page intermédiaire pour que les admins sélectionnent une station."""
+    """
+    Page intermédiaire pour que les utilisateurs multi-postes sélectionnent une station.
+    Accessible uniquement si l'utilisateur a accès à tous les postes.
+    """
     user = request.user
     
-    if not is_admin(user):
+    # Vérifier si l'utilisateur a réellement accès à tous les postes
+    if not user_has_acces_tous_postes(user):
+        log_user_action(
+            user,
+            "Sélection station - non autorisé",
+            f"Utilisateur sans accès tous postes tente de sélectionner une station",
+            request
+        )
         messages.info(request, _("Vous êtes automatiquement affecté à votre station."))
         return redirect('common:dashboard')
     
@@ -366,6 +521,14 @@ def selectionner_station(request):
             try:
                 station = Poste.objects.get(pk=station_id, type='pesage', is_active=True)
                 request.session['station_pesage_id'] = station.id
+                
+                log_user_action(
+                    user,
+                    "Station pesage sélectionnée",
+                    f"Station: {station.nom} (ID: {station.id}) - Action: {action}",
+                    request
+                )
+                
                 url_name = action_urls.get(action, 'inventaire:liste_amendes')
                 return redirect(f"{reverse(url_name)}?station={station.id}")
             except Poste.DoesNotExist:
@@ -377,6 +540,7 @@ def selectionner_station(request):
         'stations': stations,
         'action': action,
         'title': _('Sélectionner une station de pesage'),
+        'is_admin': is_admin_user(user),
     }
     
     return render(request, 'pesage/selectionner_station.html', context)
@@ -384,17 +548,33 @@ def selectionner_station(request):
 
 # ===================================================================
 # GESTION DES AMENDES - SAISIE
+# Permission requise: peut_saisir_amende
 # ===================================================================
 
 @saisie_pesage_required
 def saisir_amende(request):
-    """Saisie d'une nouvelle amende."""
+    """
+    Saisie d'une nouvelle amende.
+    Permission: peut_saisir_amende
+    """
     user = request.user
     today = timezone.now().date()
     
+    # Vérifier la permission spécifique pour saisir une amende
+    if not has_permission(user, 'peut_saisir_amende'):
+        log_user_action(
+            user,
+            "Saisie amende - permission refusée",
+            f"Permission peut_saisir_amende manquante",
+            request
+        )
+        messages.error(request, _("Vous n'avez pas la permission de saisir des amendes."))
+        return redirect('inventaire:liste_amendes')
+    
     station, redirect_response = get_station_context(request, user)
     
-    if is_admin(user) and station is None:
+    # Si utilisateur multi-postes sans station sélectionnée → rediriger vers sélection
+    if user_has_acces_tous_postes(user) and station is None:
         return redirect(f"{reverse('inventaire:selectionner_station')}?action=saisir_amende")
     
     if redirect_response:
@@ -403,6 +583,7 @@ def saisir_amende(request):
     if request.method == 'POST':
         form = AmendeEmiseForm(request.POST)
         
+        # Validation de la date
         date_heure_emission_str = request.POST.get('date_heure_emission')
         if date_heure_emission_str:
             try:
@@ -411,8 +592,11 @@ def saisir_amende(request):
                 if not is_valid:
                     messages.error(request, error_msg)
                     return render(request, 'pesage/saisir_amende.html', {
-                        'form': form, 'station': station, 'is_admin': is_admin(user),
-                        'today': today, 'title': _('Saisir une amende'),
+                        'form': form, 
+                        'station': station, 
+                        'is_admin': is_admin_user(user),
+                        'today': today, 
+                        'title': _('Saisir une amende'),
                     })
             except ValueError:
                 pass
@@ -433,8 +617,15 @@ def saisir_amende(request):
                 }
             )
             
-            log_user_action(user, "Saisie amende pesage",
-                f"Amende {amende.numero_ticket} - {amende.montant_amende} FCFA - Station: {station.nom}", request)
+            # Log détaillé de l'action
+            log_user_action(
+                user, 
+                "Saisie amende pesage",
+                f"N°Ticket: {amende.numero_ticket} | Montant: {amende.montant_amende} FCFA | "
+                f"Immatriculation: {amende.immatriculation} | Station: {station.nom} | "
+                f"Surcharge: {amende.est_surcharge} | Hors gabarit: {amende.est_hors_gabarit}",
+                request
+            )
             
             if 'saisir_autre' in request.POST:
                 return redirect(f"{reverse('inventaire:saisir_amende')}?station={station.pk}")
@@ -443,41 +634,56 @@ def saisir_amende(request):
         form = AmendeEmiseForm()
     
     context = {
-        'form': form, 'station': station, 'is_admin': is_admin(user),
-        'today': today, 'title': _('Saisir une amende'),
+        'form': form, 
+        'station': station, 
+        'is_admin': is_admin_user(user),
+        'today': today, 
+        'title': _('Saisir une amende'),
+        'peut_saisir_amende': has_permission(user, 'peut_saisir_amende'),
     }
     return render(request, 'pesage/saisir_amende.html', context)
 
 
 # ===================================================================
 # LISTE DES AMENDES
+# Permission requise: peut_lister_amendes
 # ===================================================================
 
 @pesage_access_required
 def liste_amendes(request):
-    """Liste des amendes avec filtres de recherche."""
+    """
+    Liste des amendes avec filtres de recherche.
+    Permission: peut_lister_amendes
+    """
     user = request.user
-    stations_accessibles = get_stations_accessibles(user)
+    stations_accessibles = get_stations_pesage_accessibles(user)
     
     station, redirect_response = get_station_context(request, user)
     if redirect_response:
         return redirect_response
     
-    if station is None and is_admin(user):
+    # Construction du queryset selon les droits
+    if station is None and user_has_acces_tous_postes(user):
+        # Utilisateur multi-postes sans station sélectionnée → toutes les amendes
         queryset = AmendeEmise.objects.all()
         station_filter = request.GET.get('station_filter')
         if station_filter:
             queryset = queryset.filter(station_id=station_filter)
+            logger.debug(f"[PESAGE] {user.username} filtre les amendes par station ID {station_filter}")
     elif station:
+        # Utilisateur avec station spécifique
         queryset = AmendeEmise.objects.filter(station=station)
     else:
         queryset = AmendeEmise.objects.none()
     
+    # Filtres de recherche
     query = request.GET.get('q', '').strip()
     if query:
         queryset = queryset.filter(
-            Q(numero_ticket__icontains=query) | Q(immatriculation__icontains=query) |
-            Q(transporteur__icontains=query) | Q(provenance__icontains=query) |
+            Q(numero_ticket__icontains=query) | 
+            Q(immatriculation__icontains=query) |
+            Q(transporteur__icontains=query) | 
+            Q(provenance__icontains=query) |
             Q(destination__icontains=query)
         )
     
@@ -502,6 +708,7 @@ def liste_amendes(request):
     
     queryset = queryset.select_related('station', 'saisi_par').order_by('-date_heure_emission')
     
+    # Statistiques
     stats = queryset.aggregate(
         total_montant=Sum('montant_amende'),
         total_paye=Sum('montant_amende', filter=Q(statut='paye')),
@@ -511,15 +718,26 @@ def liste_amendes(request):
         count_non_paye=Count('id', filter=Q(statut='non_paye')),
     )
     
+    # Pagination
     paginator = Paginator(queryset, 25)
     page = request.GET.get('page')
     amendes = paginator.get_page(page)
     
     context = {
-        'amendes': amendes, 'station': station, 'stations_accessibles': stations_accessibles,
-        'stats': stats, 'is_admin': is_admin(user), 'query': query, 'statut_filter': statut_filter,
-        'type_infraction': infraction_filter, 'date_debut': date_debut, 'date_fin': date_fin,
-        'station_filter': request.GET.get('station_filter', ''), 'title': _('Liste des amendes'),
+        'amendes': amendes, 
+        'station': station, 
+        'stations_accessibles': stations_accessibles,
+        'stats': stats, 
+        'is_admin': is_admin_user(user), 
+        'query': query, 
+        'statut_filter': statut_filter,
+        'type_infraction': infraction_filter, 
+        'date_debut': date_debut, 
+        'date_fin': date_fin,
+        'station_filter': request.GET.get('station_filter', ''), 
+        'title': _('Liste des amendes'),
+        'peut_valider_paiement': has_permission(user, 'peut_valider_paiement_amende'),
+        'peut_saisir_amende': has_permission(user, 'peut_saisir_amende'),
     }
     return render(request, 'pesage/liste_amendes.html', context)
 
@@ -530,36 +748,56 @@ def detail_amende(request, pk):
     user = request.user
     station, _unused = get_station_context(request, user)
     
-    if is_admin(user):
+    # Récupérer l'amende selon les droits
+    if user_has_acces_tous_postes(user):
         amende = get_object_or_404(AmendeEmise, pk=pk)
     else:
         amende = get_object_or_404(AmendeEmise, pk=pk, station=station)
     
-    events = amende.events.select_related('effectue_par').order_by('-event_datetime') if hasattr(amende, 'events') else []
+    # Récupérer les événements si disponibles
+    events = []
+    if hasattr(amende, 'events'):
+        events = amende.events.select_related('effectue_par').order_by('-event_datetime')
+    
+    log_user_action(
+        user,
+        "Consultation détail amende",
+        f"Amende {amende.numero_ticket} - Station: {amende.station.nom}",
+        request
+    )
     
     context = {
-        'amende': amende, 'events': events, 'station': station or amende.station,
-        'is_admin': is_admin(user), 'title': f"Amende {amende.numero_ticket}",
+        'amende': amende, 
+        'events': events, 
+        'station': station or amende.station,
+        'is_admin': is_admin_user(user), 
+        'title': f"Amende {amende.numero_ticket}",
+        'peut_valider_paiement': has_permission(user, 'peut_valider_paiement_amende'),
     }
     return render(request, 'pesage/detail_amende.html', context)
 
 
 # ===================================================================
 # VALIDATION DES PAIEMENTS
+# Permission requise: peut_valider_paiement_amende
 # ===================================================================
 
 @validation_pesage_required
 def liste_amendes_a_valider(request):
-    """Liste des amendes en attente de validation."""
+    """
+    Liste des amendes en attente de validation.
+    Permission: peut_valider_paiement_amende
+    """
     user = request.user
-    stations_accessibles = get_stations_accessibles(user)
-    peut_valider = is_admin(user) or user.habilitation == 'regisseur_pesage'
+    stations_accessibles = get_stations_pesage_accessibles(user)
+    peut_valider = has_permission(user, 'peut_valider_paiement_amende')
     
     station, redirect_response = get_station_context(request, user)
     if redirect_response:
         return redirect_response
     
-    if station is None and is_admin(user):
+    # Construction du queryset
+    if station is None and user_has_acces_tous_postes(user):
         queryset = AmendeEmise.objects.filter(statut='non_paye')
         station_filter = request.GET.get('station_filter')
         if station_filter:
@@ -577,25 +815,25 @@ def liste_amendes_a_valider(request):
     amendes = paginator.get_page(page)
     
     context = {
-        'amendes': amendes, 'station': station, 'stations_accessibles': stations_accessibles,
-        'total_a_recouvrer': total_a_recouvrer, 'count_total': queryset.count(),
-        'is_admin': is_admin(user), 'peut_valider': peut_valider,
-        'station_filter': request.GET.get('station_filter', ''), 'title': _('Amendes à valider'),
+        'amendes': amendes, 
+        'station': station, 
+        'stations_accessibles': stations_accessibles,
+        'total_a_recouvrer': total_a_recouvrer, 
+        'count_total': queryset.count(),
+        'is_admin': is_admin_user(user), 
+        'peut_valider': peut_valider,
+        'station_filter': request.GET.get('station_filter', ''), 
+        'title': _('Amendes à valider'),
     }
     return render(request, 'pesage/liste_amendes_a_valider.html', context)
 
 
 @validation_pesage_required
 @require_POST
-# ===================================================================
-# VALIDATION DES PAIEMENTS - AVEC VÉRIFICATION FIFO OBLIGATOIRE
-# ===================================================================
-
-@validation_pesage_required
-@require_POST
 def valider_paiement(request, pk):
     """
     Valide le paiement d'une amende.
+    Permission: peut_valider_paiement_amende
     
     RÈGLE FIFO STRICTE:
     1. Vérifier si le véhicule a des amendes NON PAYÉES plus anciennes dans d'AUTRES stations
@@ -606,48 +844,47 @@ def valider_paiement(request, pk):
     
     user = request.user
     
-    if not (is_admin(user) or user.habilitation == 'regisseur_pesage'):
+    # Double vérification de la permission
+    if not has_permission(user, 'peut_valider_paiement_amende'):
+        log_user_action(
+            user,
+            "Validation paiement - permission refusée",
+            f"Tentative de validation sans permission pour amende ID {pk}",
+            request
+        )
         messages.error(request, _("Vous n'avez pas la permission de valider les paiements."))
         return redirect('inventaire:liste_amendes_a_valider')
     
     station, _unused = get_station_context(request, user)
     
-    # Récupérer l'amende
-    if is_admin(user):
+    # Récupérer l'amende selon les droits
+    if user_has_acces_tous_postes(user):
         amende = get_object_or_404(AmendeEmise, pk=pk)
     else:
         amende = get_object_or_404(AmendeEmise, pk=pk, station=station)
     
-    # ============================================
-    # VÉRIFICATION 1: L'amende est-elle déjà payée ?
-    # ============================================
+    # Vérification 1: L'amende est-elle déjà payée ?
     if amende.statut == 'paye':
         messages.warning(request, _("Cette amende a déjà été validée."))
         return redirect('inventaire:liste_amendes_a_valider')
     
-    # ============================================
-    # VÉRIFICATION 2 (FIFO): Y a-t-il des amendes NON PAYÉES plus anciennes ailleurs ?
-    # ============================================
+    # Vérification 2 (FIFO): Y a-t-il des amendes NON PAYÉES plus anciennes ailleurs ?
     immat_norm = normalize_immatriculation(amende.immatriculation)
     
-    # Chercher sur les DEUX champs (normalisé ET original) pour compatibilité
     amendes_anterieures_non_payees = AmendeEmise.objects.filter(
         Q(immatriculation_normalise__iexact=immat_norm) |
         Q(immatriculation__iexact=amende.immatriculation) |
         Q(immatriculation__iexact=immat_norm),
         statut='non_paye',
-        date_heure_emission__lt=amende.date_heure_emission  # Plus anciennes que celle-ci
+        date_heure_emission__lt=amende.date_heure_emission
     ).exclude(
-        station=amende.station  # Exclure ma station
+        station=amende.station
     ).exclude(
-        pk=amende.pk  # Exclure l'amende actuelle
+        pk=amende.pk
     ).select_related('station').order_by('date_heure_emission')
     
-    # ============================================
     # SI AMENDES ANTÉRIEURES NON PAYÉES → BLOCAGE
-    # ============================================
     if amendes_anterieures_non_payees.exists():
-        # Construire le message d'erreur détaillé
         stations_bloquantes = list(amendes_anterieures_non_payees.values_list('station__nom', flat=True).distinct())
         nb_amendes = amendes_anterieures_non_payees.count()
         
@@ -658,23 +895,25 @@ def valider_paiement(request, pk):
             f"Ces amendes doivent être payées en premier (règle FIFO)."
         )
         
-        logger.warning(
-            f"Validation bloquée (FIFO): Amende {amende.numero_ticket} - "
-            f"Véhicule {amende.immatriculation} - "
-            f"{nb_amendes} amendes antérieures non payées dans {stations_bloquantes} - "
-            f"Régisseur {user.username}"
+        log_user_action(
+            user,
+            "Validation bloquée (FIFO)",
+            f"Amende {amende.numero_ticket} | Véhicule {amende.immatriculation} | "
+            f"{nb_amendes} amendes antérieures non payées dans {stations_bloquantes}",
+            request
         )
         
-        # Stocker en session pour la page de blocage
+        logger.warning(
+            f"Validation bloquée (FIFO): Amende {amende.numero_ticket} - "
+            f"Véhicule {amende.immatriculation} - {nb_amendes} amendes antérieures"
+        )
+        
         request.session['amende_bloquee_pk'] = pk
         request.session['amendes_bloquantes_count'] = nb_amendes
         
-        # Rediriger vers la page de blocage
         return redirect('inventaire:validation_bloquee', pk=pk)
     
-    # ============================================
     # PAS DE BLOCAGE → VALIDER LE PAIEMENT
-    # ============================================
     try:
         amende.statut = 'paye'
         amende.date_paiement = timezone.now()
@@ -687,23 +926,44 @@ def valider_paiement(request, pk):
                 'montant': f"{amende.montant_amende:,.0f}".replace(',', ' ')
             })
         
-        log_user_action(user, "Validation paiement amende",
-            f"Amende {amende.numero_ticket} - {amende.montant_amende} FCFA - "
-            f"Véhicule {amende.immatriculation} - Station {amende.station.nom}", request)
+        log_user_action(
+            user, 
+            "Validation paiement amende",
+            f"N°Ticket: {amende.numero_ticket} | Montant: {amende.montant_amende} FCFA | "
+            f"Véhicule: {amende.immatriculation} | Station: {amende.station.nom} | "
+            f"Date émission: {amende.date_heure_emission}",
+            request
+        )
         
     except Exception as e:
-        logger.error(f"Erreur validation paiement: {e}")
+        logger.error(f"Erreur validation paiement: {e}", exc_info=True)
+        log_user_action(
+            user,
+            "Erreur validation paiement",
+            f"Amende {amende.numero_ticket} - Erreur: {str(e)}",
+            request
+        )
         messages.error(request, _("Erreur lors de la validation du paiement."))
     
     return redirect('inventaire:liste_amendes_a_valider')
 
+
 @validation_pesage_required
 @require_POST
 def valider_paiements_masse(request):
-    """Valide plusieurs paiements en une fois."""
+    """
+    Valide plusieurs paiements en une fois.
+    Permission: peut_valider_paiement_amende
+    """
     user = request.user
     
-    if not (is_admin(user) or user.habilitation == 'regisseur_pesage'):
+    if not has_permission(user, 'peut_valider_paiement_amende'):
+        log_user_action(
+            user,
+            "Validation masse - permission refusée",
+            "Tentative de validation en masse sans permission",
+            request
+        )
         messages.error(request, _("Vous n'avez pas la permission de valider les paiements."))
         return redirect('inventaire:liste_amendes_a_valider')
     
@@ -716,10 +976,11 @@ def valider_paiements_masse(request):
     
     count_success = 0
     montant_total = Decimal('0')
+    amendes_validees = []
     
     for amende_id in amende_ids:
         try:
-            if is_admin(user):
+            if user_has_acces_tous_postes(user):
                 amende = AmendeEmise.objects.get(pk=amende_id, statut='non_paye')
             else:
                 amende = AmendeEmise.objects.get(pk=amende_id, station=station, statut='non_paye')
@@ -728,8 +989,11 @@ def valider_paiements_masse(request):
             amende.date_paiement = timezone.now()
             amende.valide_par = user
             amende.save()
+            
             count_success += 1
             montant_total += amende.montant_amende
+            amendes_validees.append(amende.numero_ticket)
+            
         except AmendeEmise.DoesNotExist:
             continue
         except Exception as e:
@@ -739,10 +1003,17 @@ def valider_paiements_masse(request):
     if count_success > 0:
         messages.success(request,
             _("%(count)d paiement(s) validé(s) - Total: %(montant)s FCFA") % {
-                'count': count_success, 'montant': f"{montant_total:,.0f}".replace(',', ' ')
+                'count': count_success, 
+                'montant': f"{montant_total:,.0f}".replace(',', ' ')
             })
-        log_user_action(user, "Validation paiements en masse",
-            f"{count_success} amendes - Total: {montant_total} FCFA", request)
+        
+        log_user_action(
+            user, 
+            "Validation paiements en masse",
+            f"{count_success} amendes validées | Total: {montant_total} FCFA | "
+            f"N°Tickets: {', '.join(amendes_validees[:10])}{'...' if len(amendes_validees) > 10 else ''}",
+            request
+        )
     else:
         messages.warning(request, _("Aucun paiement n'a pu être validé."))
     
@@ -751,22 +1022,38 @@ def valider_paiements_masse(request):
 
 # ===================================================================
 # PESÉES JOURNALIÈRES
+# Permission requise: peut_saisir_pesee_jour
 # ===================================================================
 
 @saisie_pesage_required
 def saisir_pesees(request):
-    """Saisie du nombre de pesées journalières."""
+    """
+    Saisie du nombre de pesées journalières.
+    Permission: peut_saisir_pesee_jour
+    """
     user = request.user
     today = timezone.now().date()
     
+    # Vérifier la permission spécifique
+    if not has_permission(user, 'peut_saisir_pesee_jour'):
+        log_user_action(
+            user,
+            "Saisie pesées - permission refusée",
+            "Permission peut_saisir_pesee_jour manquante",
+            request
+        )
+        messages.error(request, _("Vous n'avez pas la permission de saisir des pesées."))
+        return redirect('inventaire:historique_pesees')
+    
     station, redirect_response = get_station_context(request, user)
     
-    if is_admin(user) and station is None:
+    if user_has_acces_tous_postes(user) and station is None:
         return redirect(f"{reverse('inventaire:selectionner_station')}?action=saisir_pesees")
     
     if redirect_response:
         return redirect_response
     
+    # Gestion de la date
     date_str = request.GET.get('date') or request.POST.get('date')
     if date_str:
         try:
@@ -781,7 +1068,11 @@ def saisir_pesees(request):
         messages.error(request, error_msg)
         date_selectionnee = today
     
-    pesee_existante = PeseesJournalieres.objects.filter(station=station, date=date_selectionnee).first()
+    # Vérifier si déjà saisi
+    pesee_existante = PeseesJournalieres.objects.filter(
+        station=station, 
+        date=date_selectionnee
+    ).first()
     deja_saisi = pesee_existante is not None
     
     if request.method == 'POST' and not deja_saisi:
@@ -807,34 +1098,63 @@ def saisir_pesees(request):
             
             messages.success(request,
                 _("Pesées du %(date)s enregistrées: %(nombre)d pesées") % {
-                    'date': pesees.date.strftime('%d/%m/%Y'), 'nombre': pesees.nombre_pesees
+                    'date': pesees.date.strftime('%d/%m/%Y'), 
+                    'nombre': pesees.nombre_pesees
                 })
             
-            log_user_action(user, "Saisie pesées journalières",
-                f"Station: {station.nom} - Date: {pesees.date} - Nombre: {pesees.nombre_pesees}", request)
+            log_user_action(
+                user, 
+                "Saisie pesées journalières",
+                f"Station: {station.nom} | Date: {pesees.date.strftime('%d/%m/%Y')} | "
+                f"Nombre de pesées: {pesees.nombre_pesees}",
+                request
+            )
+            
             return redirect('inventaire:historique_pesees')
     else:
         form = PeseesJournalieresForm()
     
     context = {
-        'form': form, 'station': station, 'today': today, 'date_selectionnee': date_selectionnee,
-        'deja_saisi': deja_saisi, 'pesee_existante': pesee_existante,
-        'is_admin': is_admin(user), 'title': _('Saisir les pesées du jour'),
+        'form': form, 
+        'station': station, 
+        'today': today, 
+        'date_selectionnee': date_selectionnee,
+        'deja_saisi': deja_saisi, 
+        'pesee_existante': pesee_existante,
+        'is_admin': is_admin_user(user), 
+        'title': _('Saisir les pesées du jour'),
+        'peut_saisir_pesee': has_permission(user, 'peut_saisir_pesee_jour'),
     }
     return render(request, 'pesage/saisir_pesees.html', context)
 
 
 @pesage_access_required
 def historique_pesees(request):
-    """Historique des pesées journalières."""
+    """
+    Historique des pesées journalières.
+    Permission: peut_voir_historique_pesees
+    """
     user = request.user
-    stations_accessibles = get_stations_accessibles(user)
+    
+    # Vérifier la permission
+    if not has_permission(user, 'peut_voir_historique_pesees'):
+        log_user_action(
+            user,
+            "Historique pesées - permission refusée",
+            "Permission peut_voir_historique_pesees manquante",
+            request
+        )
+        messages.error(request, _("Vous n'avez pas la permission de voir l'historique des pesées."))
+        return redirect('common:dashboard')
+    
+    stations_accessibles = get_stations_pesage_accessibles(user)
     
     station, redirect_response = get_station_context(request, user)
     if redirect_response:
         return redirect_response
     
-    if station is None and is_admin(user):
+    # Construction du queryset
+    if station is None and user_has_acces_tous_postes(user):
         queryset = PeseesJournalieres.objects.all()
         station_filter = request.GET.get('station_filter')
         if station_filter:
@@ -852,36 +1172,39 @@ def historique_pesees(request):
     pesees = paginator.get_page(page)
     
     context = {
-        'pesees': pesees, 'station': station, 'stations_accessibles': stations_accessibles,
-        'stats': stats, 'is_admin': is_admin(user),
-        'station_filter': request.GET.get('station_filter', ''), 'title': _('Historique des pesées'),
+        'pesees': pesees, 
+        'station': station, 
+        'stations_accessibles': stations_accessibles,
+        'stats': stats, 
+        'is_admin': is_admin_user(user),
+        'station_filter': request.GET.get('station_filter', ''), 
+        'title': _('Historique des pesées'),
+        'peut_saisir_pesee': has_permission(user, 'peut_saisir_pesee_jour'),
     }
     return render(request, 'pesage/historique_pesees.html', context)
 
 
 # ===================================================================
 # QUITTANCEMENTS - SAISIE
-# Permission: regisseur_pesage, admin uniquement
-# Si admin: doit d'abord sélectionner une station
+# Permission requise: peut_saisir_quittance_pesage
 # ===================================================================
 
 @quittancement_pesage_required
 def saisie_quittancement_pesage(request):
     """
     Vue pour saisir un quittancement pesage (version en 3 étapes)
-    PERMISSIONS: regisseur_pesage, admin uniquement
-    Si admin: doit d'abord sélectionner une station
+    Permission: peut_saisir_quittance_pesage
     """
     user = request.user
     
     # Nettoyer la session au début si nouvelle saisie
     if request.method == 'GET' and 'etape' not in request.GET:
         for key in ['exercice_pesage_temp', 'mois_pesage_temp', 'type_declaration_pesage_temp', 
-                   'form_data_pesage_temp', 'image_pesage_temp_path','station_pesage_id']:
+                   'form_data_pesage_temp', 'image_pesage_temp_path', 'station_pesage_id']:
             request.session.pop(key, None)
 
     # GESTION DE LA STATION
-    if is_admin(user):
+    if user_has_acces_tous_postes(user):
         station_id = (
             request.GET.get('station') or 
             request.POST.get('station') or 
@@ -899,13 +1222,18 @@ def saisie_quittancement_pesage(request):
             messages.error(request, "❌ Station invalide, veuillez en sélectionner une autre")
             return redirect(f"{reverse('inventaire:selectionner_station')}?action=saisie_quittancement_pesage")
     else:
-        if user.poste_affectation and user.poste_affectation.type == 'pesage':
-            station = user.poste_affectation
+        poste = getattr(user, 'poste_affectation', None)
+        if poste and poste.type == 'pesage':
+            station = poste
         else:
+            log_user_action(
+                user,
+                "Quittancement pesage - station manquante",
+                "Utilisateur sans station de pesage tente de saisir un quittancement",
+                request
+            )
             messages.error(request, "❌ Vous devez être affecté à une station de pesage")
             return redirect('common:dashboard')
-    
-    
     
     etape = int(request.POST.get('etape', request.GET.get('etape', 1)))
     
@@ -929,15 +1257,26 @@ def saisie_quittancement_pesage(request):
             request.session['exercice_pesage_temp'] = exercice
             request.session['mois_pesage_temp'] = mois
             request.session['type_declaration_pesage_temp'] = type_declaration
+            
+            log_user_action(
+                user,
+                "Quittancement pesage - étape 1",
+                f"Station: {station.nom} | Exercice: {exercice} | Mois: {mois} | Type: {type_declaration}",
+                request
+            )
+            
             return redirect(f"{reverse('inventaire:saisie_quittancement_pesage')}?etape=2&station={station.id}")
         
         annee_courante = datetime.now().year
         annees = list(range(annee_courante - 5, annee_courante + 2))
         
         context = {
-            'etape': 1, 'station': station, 'annees': annees, 'annee_courante': annee_courante,
+            'etape': 1, 
+            'station': station, 
+            'annees': annees, 
+            'annee_courante': annee_courante,
             'types_declaration': [('journaliere', 'Journalière (par jour)'), ('decade', 'Par décade')],
-            'is_admin': is_admin(user),
+            'is_admin': is_admin_user(user),
         }
         return render(request, 'pesage/saisie_quittancement_pesage.html', context)
     
@@ -982,22 +1321,18 @@ def saisie_quittancement_pesage(request):
             form_data['has_image'] = has_image
             form_data['image_name'] = image_name
             
-            # =====================================================
             # VALIDATION COMPLÈTE
-            # =====================================================
             errors = []
             
-            # --- Validation numéro de quittance ---
+            # Validation numéro de quittance
             if not form_data['numero_quittance']:
                 errors.append("Le numéro de quittance est obligatoire")
             else:
                 numero = form_data['numero_quittance'].strip().upper()
                 
-                # Vérifier dans la table QuittancementPesage (pesage)
                 if QuittancementPesage.objects.filter(numero_quittance__iexact=numero).exists():
                     errors.append(f"Le numéro de quittance '{numero}' existe déjà dans les quittancements pesage")
                 
-                # Vérifier dans la table Quittancement (péage)
                 try:
                     from inventaire.models import Quittancement
                     if Quittancement.objects.filter(numero_quittance__iexact=numero).exists():
@@ -1005,17 +1340,13 @@ def saisie_quittancement_pesage(request):
                 except ImportError:
                     pass
             
-            # --- Validation autres champs ---
             if not form_data['date_quittancement']:
                 errors.append("La date de quittancement est obligatoire")
             if not form_data['montant']:
                 errors.append("Le montant est obligatoire")
-            
-            # --- Image obligatoire ---
             if not has_image:
                 errors.append("L'image de la quittance est obligatoire")
             
-            # --- Validation dates selon type ---
             if type_declaration == 'journaliere':
                 if not form_data.get('date_recette'):
                     errors.append("La date de recette est obligatoire")
@@ -1024,17 +1355,13 @@ def saisie_quittancement_pesage(request):
                     errors.append("La date de début de décade est obligatoire")
                 if not form_data.get('date_fin_decade'):
                     errors.append("La date de fin de décade est obligatoire")
-                # Vérifier que date_debut <= date_fin
                 elif form_data.get('date_debut_decade') and form_data.get('date_fin_decade'):
                     if form_data['date_debut_decade'] > form_data['date_fin_decade']:
                         errors.append("La date de début doit être antérieure à la date de fin")
             
-            # =====================================================
-            # ✅ NOUVEAU : VALIDATION DES DATES DÉJÀ QUITTANCÉES
-            # =====================================================
-            if not errors:  # Seulement si pas d'autres erreurs
+            # Validation des dates déjà quittancées
+            if not errors:
                 try:
-                    # Importer la fonction de validation
                     from inventaire.utils_quittancement import valider_dates_quittancement_pesage
                     
                     if type_declaration == 'journaliere':
@@ -1045,7 +1372,7 @@ def saisie_quittancement_pesage(request):
                             type_declaration='journaliere',
                             date_recette=form_data.get('date_recette')
                         )
-                    else:  # decade
+                    else:
                         is_valid, error_msg, _ = valider_dates_quittancement_pesage(
                             station=station,
                             exercice=int(exercice),
@@ -1061,14 +1388,10 @@ def saisie_quittancement_pesage(request):
                 except Exception as e:
                     logger.error(f"Erreur validation dates pesage: {e}")
             
-            # =====================================================
-            # GESTION DES ERREURS
-            # =====================================================
             if errors:
                 for error in errors:
                     messages.error(request, f"❌ {error}")
                 
-                # Supprimer l'image temporaire en cas d'erreur
                 if has_image and request.session.get('image_pesage_temp_path'):
                     from django.core.files.storage import default_storage
                     temp_path = request.session.get('image_pesage_temp_path')
@@ -1077,8 +1400,13 @@ def saisie_quittancement_pesage(request):
                     request.session.pop('image_pesage_temp_path', None)
                 
                 context = {
-                    'etape': 2, 'station': station, 'exercice': exercice, 'mois': mois,
-                    'type_declaration': type_declaration, 'form_data': form_data, 'is_admin': is_admin(user),
+                    'etape': 2, 
+                    'station': station, 
+                    'exercice': exercice, 
+                    'mois': mois,
+                    'type_declaration': type_declaration, 
+                    'form_data': form_data, 
+                    'is_admin': is_admin_user(user),
                 }
                 return render(request, 'pesage/saisie_quittancement_pesage.html', context)
             
@@ -1086,8 +1414,12 @@ def saisie_quittancement_pesage(request):
             return redirect(f"{reverse('inventaire:saisie_quittancement_pesage')}?etape=3&station={station.id}")
         
         context = {
-            'etape': 2, 'station': station, 'exercice': exercice, 'mois': mois,
-            'type_declaration': type_declaration, 'is_admin': is_admin(user),
+            'etape': 2, 
+            'station': station, 
+            'exercice': exercice, 
+            'mois': mois,
+            'type_declaration': type_declaration, 
+            'is_admin': is_admin_user(user),
         }
         return render(request, 'pesage/saisie_quittancement_pesage.html', context)
     
@@ -1139,9 +1471,16 @@ def saisie_quittancement_pesage(request):
                     
                     quittancement.save()
                     
-                    log_user_action(user, "Création quittancement pesage",
-                        f"N°{quittancement.numero_quittance} - {station.nom} - {quittancement.montant_quittance} FCFA", request)
+                    log_user_action(
+                        user, 
+                        "Création quittancement pesage",
+                        f"N°{quittancement.numero_quittance} | Station: {station.nom} | "
+                        f"Montant: {quittancement.montant_quittance} FCFA | "
+                        f"Exercice: {exercice} | Mois: {mois} | Type: {type_declaration}",
+                        request
+                    )
                     
+                    # Nettoyer la session
                     for key in ['exercice_pesage_temp', 'mois_pesage_temp', 'type_declaration_pesage_temp', 
                                'form_data_pesage_temp', 'image_pesage_temp_path']:
                         request.session.pop(key, None)
@@ -1159,64 +1498,91 @@ def saisie_quittancement_pesage(request):
                 return redirect(f"{reverse('inventaire:saisie_quittancement_pesage')}?etape=2&station={station.id}")
             
             else:
+                # Annulation
                 if image_temp_path:
                     from django.core.files.storage import default_storage
                     if default_storage.exists(image_temp_path):
                         default_storage.delete(image_temp_path)
+                
                 for key in ['exercice_pesage_temp', 'mois_pesage_temp', 'type_declaration_pesage_temp', 
                            'form_data_pesage_temp', 'image_pesage_temp_path']:
                     request.session.pop(key, None)
+                
                 messages.info(request, "Saisie annulée")
                 return redirect('inventaire:liste_quittancements_pesage')
         
+        # Affichage de la confirmation
         if type_declaration == 'journaliere':
             periode = f"Jour : {form_data['date_recette']}"
         else:
             periode = f"Décade : du {form_data['date_debut_decade']} au {form_data['date_fin_decade']}"
         
         context = {
-            'etape': 3, 'station': station, 'exercice': exercice, 'mois': mois,
-            'type_declaration': type_declaration, 'form_data': form_data, 'periode': periode,
-            'has_image': form_data.get('has_image', False), 'image_name': form_data.get('image_name'),
-            'is_admin': is_admin(user),
+            'etape': 3, 
+            'station': station, 
+            'exercice': exercice, 
+            'mois': mois,
+            'type_declaration': type_declaration, 
+            'form_data': form_data, 
+            'periode': periode,
+            'has_image': form_data.get('has_image', False), 
+            'image_name': form_data.get('image_name'),
+            'is_admin': is_admin_user(user),
         }
         return render(request, 'pesage/saisie_quittancement_pesage.html', context)
 
 
 # ===================================================================
 # LISTE DES QUITTANCEMENTS
-# Permission: regisseur_pesage, chef_station_pesage, admin (PAS chef_equipe)
+# Permission: peut_voir_liste_quittancements_pesage
 # ===================================================================
 
 @login_required
 def liste_quittancements_pesage(request):
-    """Liste des quittancements pesage avec filtres."""
+    """
+    Liste des quittancements pesage avec filtres.
+    Permission: peut_voir_liste_quittancements_pesage
+    """
     user = request.user
     
-    if not (is_admin(user) or user.habilitation in ['regisseur_pesage', 'chef_station_pesage']):
+    # Vérifier la permission
+    if not has_permission(user, 'peut_voir_liste_quittancements_pesage'):
+        log_user_action(
+            user,
+            "Liste quittancements - permission refusée",
+            "Permission peut_voir_liste_quittancements_pesage manquante",
+            request
+        )
         messages.error(request, _("Accès non autorisé."))
         return redirect('inventaire:liste_amendes')
     
-    if is_admin(user) or user.habilitation == 'regisseur_pesage':
+    # Construction du queryset selon les droits
+    if user_has_acces_tous_postes(user):
         quittancements = QuittancementPesage.objects.all()
         stations = Poste.objects.filter(type='pesage', is_active=True).order_by('nom')
     else:
-        if user.poste_affectation and user.poste_affectation.type == 'pesage':
-            quittancements = QuittancementPesage.objects.filter(station=user.poste_affectation)
+        poste = getattr(user, 'poste_affectation', None)
+        if poste and poste.type == 'pesage':
+            quittancements = QuittancementPesage.objects.filter(station=poste)
             stations = None
         else:
             quittancements = QuittancementPesage.objects.none()
             stations = None
 
+    # Filtres
     station_id = request.GET.get('station')
     exercice = request.GET.get('exercice')
     type_declaration = request.GET.get('type_declaration')
     mois = request.GET.get('mois')
 
-    if station_id: quittancements = quittancements.filter(station_id=station_id)
-    if exercice: quittancements = quittancements.filter(exercice=exercice)
-    if type_declaration: quittancements = quittancements.filter(type_declaration=type_declaration)
-    if mois: quittancements = quittancements.filter(mois=mois)
+    if station_id: 
+        quittancements = quittancements.filter(station_id=station_id)
+    if exercice: 
+        quittancements = quittancements.filter(exercice=exercice)
+    if type_declaration: 
+        quittancements = quittancements.filter(type_declaration=type_declaration)
+    if mois: 
+        quittancements = quittancements.filter(mois=mois)
 
     quittancements = quittancements.select_related('station', 'saisi_par').order_by('-date_quittancement', '-id')
 
@@ -1230,24 +1596,44 @@ def liste_quittancements_pesage(request):
     years_range = list(range(current_year, current_year - 5, -1))
 
     context = {
-        'page_obj': page_obj, 'quittancements': page_obj, 'total_montant': total_montant,
-        'nombre_quittancements': quittancements.count(), 'stations': stations,
-        'exercice_courant': current_year, 'years_range': years_range,
+        'page_obj': page_obj, 
+        'quittancements': page_obj, 
+        'total_montant': total_montant,
+        'nombre_quittancements': quittancements.count(), 
+        'stations': stations,
+        'exercice_courant': current_year, 
+        'years_range': years_range,
         'types_declaration': [('journaliere', 'Journalière'), ('decade', 'Par décade')],
-        'is_admin': is_admin(user), 'title': _('Liste des quittancements'),
+        'is_admin': is_admin_user(user), 
+        'title': _('Liste des quittancements'),
+        'peut_saisir_quittance': has_permission(user, 'peut_saisir_quittance_pesage'),
     }
     return render(request, 'pesage/liste_quittancements_pesage.html', context)
 
 
 # ===================================================================
 # COMPTABILISATION DES QUITTANCEMENTS
-# Permission: regisseur_pesage, admin uniquement
+# Permission: peut_comptabiliser_quittances_pesage
 # ===================================================================
 
-@quittancement_pesage_required
+@login_required
 def comptabilisation_quittancements_pesage(request):
-    """Comptabilisation des quittancements pesage."""
+    """
+    Comptabilisation des quittancements pesage.
+    Permission: peut_comptabiliser_quittances_pesage
+    """
     user = request.user
+    
+    # Vérifier la permission
+    if not has_permission(user, 'peut_comptabiliser_quittances_pesage'):
+        log_user_action(
+            user,
+            "Comptabilisation quittancements - permission refusée",
+            "Permission peut_comptabiliser_quittances_pesage manquante",
+            request
+        )
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('inventaire:liste_quittancements_pesage')
     
     annee_courante = timezone.now().year
     mois_courant = timezone.now().month
@@ -1257,6 +1643,7 @@ def comptabilisation_quittancements_pesage(request):
     annee = int(request.GET.get('annee', annee_courante))
     mois = request.GET.get('mois')
 
+    # Calcul des dates selon la période
     if periode == 'mois':
         if mois:
             try:
@@ -1289,6 +1676,7 @@ def comptabilisation_quittancements_pesage(request):
         date_debut = date(annee, 1, 1)
         date_fin = date(annee, 12, 31)
 
+    # Sélection des stations
     if station_id:
         stations = Poste.objects.filter(id=station_id, type='pesage', is_active=True)
     else:
@@ -1296,23 +1684,29 @@ def comptabilisation_quittancements_pesage(request):
     
     stations_filtre = Poste.objects.filter(type='pesage', is_active=True).order_by('nom')
 
+    # Calcul des résultats par station
     resultats = []
     total_attendu_global = Decimal('0')
     total_quittance_global = Decimal('0')
 
     for station in stations:
         amendes_payees = AmendeEmise.objects.filter(
-            station=station, statut='paye',
-            date_paiement__date__gte=date_debut, date_paiement__date__lte=date_fin
+            station=station, 
+            statut='paye',
+            date_paiement__date__gte=date_debut, 
+            date_paiement__date__lte=date_fin
         )
         total_attendu = amendes_payees.aggregate(Sum('montant_amende'))['montant_amende__sum'] or Decimal('0')
         
         quittancements_journaliers = QuittancementPesage.objects.filter(
-            station=station, type_declaration='journaliere', date_recette__range=[date_debut, date_fin]
+            station=station, 
+            type_declaration='journaliere', 
+            date_recette__range=[date_debut, date_fin]
         ).aggregate(Sum('montant_quittance'))['montant_quittance__sum'] or Decimal('0')
         
         quittancements_decades = QuittancementPesage.objects.filter(
-            station=station, type_declaration='decade'
+            station=station, 
+            type_declaration='decade'
         ).filter(
             Q(date_debut_decade__lte=date_fin) & Q(date_fin_decade__gte=date_debut)
         ).aggregate(Sum('montant_quittance'))['montant_quittance__sum'] or Decimal('0')
@@ -1325,7 +1719,9 @@ def comptabilisation_quittancements_pesage(request):
             statut, statut_label, statut_class = 'conforme', 'Conforme', 'success'
         else:
             justification_existe = JustificationEcartPesage.objects.filter(
-                station=station, date_debut=date_debut, date_fin=date_fin
+                station=station, 
+                date_debut=date_debut, 
+                date_fin=date_fin
             ).exists()
             if justification_existe:
                 statut, statut_label, statut_class = 'justifie', 'Justifié', 'info'
@@ -1333,18 +1729,26 @@ def comptabilisation_quittancements_pesage(request):
                 statut, statut_label, statut_class = 'ecart', 'Non justifié', 'danger'
         
         resultats.append({
-            'station': station, 'station_id': station.id, 'station_nom': station.nom,
-            'total_quittance': total_quittance, 'total_attendu': total_attendu,
-            'ecart': ecart, 'ecart_pourcentage': ecart_pourcentage,
-            'statut': statut, 'statut_label': statut_label, 'statut_class': statut_class
+            'station': station, 
+            'station_id': station.id, 
+            'station_nom': station.nom,
+            'total_quittance': total_quittance, 
+            'total_attendu': total_attendu,
+            'ecart': ecart, 
+            'ecart_pourcentage': ecart_pourcentage,
+            'statut': statut, 
+            'statut_label': statut_label, 
+            'statut_class': statut_class
         })
         total_attendu_global += total_attendu
         total_quittance_global += total_quittance
 
     ecart_global = total_quittance_global - total_attendu_global
     statistiques = {
-        'total_attendu': total_attendu_global, 'total_quittance': total_quittance_global,
-        'ecart_total': ecart_global, 'nombre_stations': len(resultats),
+        'total_attendu': total_attendu_global, 
+        'total_quittance': total_quittance_global,
+        'ecart_total': ecart_global, 
+        'nombre_stations': len(resultats),
         'nombre_conformes': len([r for r in resultats if r['statut'] == 'conforme']),
         'nombre_justifies': len([r for r in resultats if r['statut'] == 'justifie']),
         'nombre_ecarts': len([r for r in resultats if r['statut'] == 'ecart']),
@@ -1353,27 +1757,50 @@ def comptabilisation_quittancements_pesage(request):
     annees_disponibles = list(range(annee_courante - 5, annee_courante + 1))
     
     context = {
-        'resultats': resultats, 'statistiques': statistiques, 'periode': periode,
-        'annee': annee, 'annees_disponibles': annees_disponibles,
+        'resultats': resultats, 
+        'statistiques': statistiques, 
+        'periode': periode,
+        'annee': annee, 
+        'annees_disponibles': annees_disponibles,
         'mois': f"{annee}-{mois_int:02d}" if periode == 'mois' else None,
-        'date_debut': date_debut, 'date_fin': date_fin,
-        'stations': stations_filtre, 'station_selectionne': int(station_id) if station_id else None,
-        'is_admin': is_admin(user), 'title': _('Comptabilisation Quittancements'),
+        'date_debut': date_debut, 
+        'date_fin': date_fin,
+        'stations': stations_filtre, 
+        'station_selectionne': int(station_id) if station_id else None,
+        'is_admin': is_admin_user(user), 
+        'title': _('Comptabilisation Quittancements'),
     }
     return render(request, 'pesage/comptabilisation_quittancements_pesage.html', context)
 
 
 # ===================================================================
-# JUSTIFICATION ÉCART
-# Permission: regisseur_pesage, admin uniquement
+# JUSTIFICATION ÉCART PESAGE
+#
+# AVANT: @quittancement_pesage_required (regisseur + admin)
+# APRÈS: Permission 'peut_comptabiliser_quittances_pesage'
 # ===================================================================
 
-@quittancement_pesage_required
+@login_required
 def justifier_ecart_pesage(request, station_id, date_debut, date_fin):
-    """Justifier un écart entre quittancements et amendes payées."""
+    """
+    Justifier un écart entre quittancements et amendes payées.
+    
+    PERMISSION: peut_comptabiliser_quittances_pesage
+    """
     user = request.user
+    
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_comptabiliser_quittances_pesage'):
+        logger.warning(
+            f"Accès refusé justifier_ecart_pesage | User: {user.username} | "
+            f"Permission peut_comptabiliser_quittances_pesage: {getattr(user, 'peut_comptabiliser_quittances_pesage', False)}"
+        )
+        messages.error(request, _("Vous n'avez pas la permission de justifier les écarts."))
+        return redirect('common:dashboard')
+    
     station = get_object_or_404(Poste, id=station_id, type='pesage')
     
+    # Parser les dates
     try:
         date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
@@ -1381,20 +1808,29 @@ def justifier_ecart_pesage(request, station_id, date_debut, date_fin):
         messages.error(request, f"Format de date invalide : {str(e)}")
         return redirect('inventaire:comptabilisation_quittancements_pesage')
     
+    # Calculer les totaux
     total_quittance = QuittancementPesage.objects.filter(
-        station=station, date_quittancement__range=[date_debut_obj, date_fin_obj]
+        station=station
+    ).filter(
+        Q(type_declaration='journaliere', date_recette__range=[date_debut_obj, date_fin_obj]) |
+        Q(type_declaration='decade', date_debut_decade__lte=date_fin_obj, date_fin_decade__gte=date_debut_obj)
     ).aggregate(Sum('montant_quittance'))['montant_quittance__sum'] or Decimal('0')
     
     total_attendu = AmendeEmise.objects.filter(
-        station=station, statut='paye',
-        date_paiement__date__gte=date_debut_obj, date_paiement__date__lte=date_fin_obj
+        station=station,
+        statut='paye',
+        date_paiement__date__gte=date_debut_obj,
+        date_paiement__date__lte=date_fin_obj
     ).aggregate(Sum('montant_amende'))['montant_amende__sum'] or Decimal('0')
     
     ecart = total_quittance - total_attendu
     ecart_pourcentage = (ecart / total_attendu * 100) if total_attendu > 0 else 0
     
+    # Vérifier si une justification existe déjà
     justification_existante = JustificationEcartPesage.objects.filter(
-        station=station, date_debut=date_debut_obj, date_fin=date_fin_obj
+        station=station,
+        date_debut=date_debut_obj,
+        date_fin=date_fin_obj
     ).select_related('justifie_par').first()
     
     if request.method == 'POST':
@@ -1405,6 +1841,7 @@ def justifier_ecart_pesage(request, station_id, date_debut, date_fin):
         else:
             try:
                 if justification_existante:
+                    # Mise à jour
                     justification_existante.justification = justification_texte
                     justification_existante.justifie_par = user
                     justification_existante.date_justification = timezone.now()
@@ -1413,24 +1850,48 @@ def justifier_ecart_pesage(request, station_id, date_debut, date_fin):
                     justification_existante.ecart = ecart
                     justification_existante.save()
                 else:
+                    # Création
                     JustificationEcartPesage.objects.create(
-                        station=station, date_debut=date_debut_obj, date_fin=date_fin_obj,
-                        montant_quittance=total_quittance, montant_attendu=total_attendu,
-                        ecart=ecart, justification=justification_texte, justifie_par=user
+                        station=station,
+                        date_debut=date_debut_obj,
+                        date_fin=date_fin_obj,
+                        montant_quittance=total_quittance,
+                        montant_attendu=total_attendu,
+                        ecart=ecart,
+                        justification=justification_texte,
+                        justifie_par=user
                     )
                 
-                log_user_action(user, "Justification écart quittancement pesage",
-                    f"Station: {station.nom} | Période: {date_debut_obj} - {date_fin_obj} | Écart: {ecart} FCFA", request)
+                log_user_action(
+                    user,
+                    "Justification écart quittancement pesage",
+                    f"Station: {station.nom} | Période: {date_debut_obj} - {date_fin_obj} | "
+                    f"Écart: {ecart} FCFA",
+                    request
+                )
+                
+                logger.info(
+                    f"Justification écart pesage | User: {user.username} | "
+                    f"Station: {station.nom} | Période: {date_debut_obj} - {date_fin_obj} | "
+                    f"Écart: {ecart} FCFA"
+                )
+                
                 messages.success(request, "✅ Justification enregistrée avec succès.")
                 return redirect('inventaire:comptabilisation_quittancements_pesage')
             except Exception as e:
+                logger.error(f"Erreur justification écart pesage: {e}", exc_info=True)
                 messages.error(request, f"❌ Erreur lors de l'enregistrement : {str(e)}")
     
     context = {
-        'station': station, 'date_debut': date_debut_obj, 'date_fin': date_fin_obj,
-        'total_quittance': total_quittance, 'total_attendu': total_attendu,
-        'ecart': ecart, 'ecart_pourcentage': ecart_pourcentage,
-        'justification_existante': justification_existante, 'is_admin': is_admin(user),
+        'station': station,
+        'date_debut': date_debut_obj,
+        'date_fin': date_fin_obj,
+        'total_quittance': total_quittance,
+        'total_attendu': total_attendu,
+        'ecart': ecart,
+        'ecart_pourcentage': ecart_pourcentage,
+        'justification_existante': justification_existante,
+        'is_admin': is_admin_user(user),
         'title': _('Justifier Écart'),
     }
     return render(request, 'pesage/justifier_ecart_pesage.html', context)
@@ -1438,20 +1899,32 @@ def justifier_ecart_pesage(request, station_id, date_debut, date_fin):
 
 # ===================================================================
 # DÉTAILS QUITTANCEMENTS PÉRIODE
-# Permission: regisseur_pesage, chef_station_pesage, admin
+#
+# AVANT: regisseur, chef_station + admin
+# APRÈS: Permission 'peut_voir_liste_quittancements_pesage'
 # ===================================================================
 
 @login_required
 def detail_quittancements_periode_pesage(request, station_id, date_debut, date_fin):
-    """Affiche les détails des quittancements et amendes payées pour une période."""
+    """
+    Affiche les détails des quittancements et amendes payées pour une période.
+    
+    PERMISSION: peut_voir_liste_quittancements_pesage
+    """
     user = request.user
     
-    if not (is_admin(user) or user.habilitation in ['regisseur_pesage', 'chef_station_pesage']):
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_voir_liste_quittancements_pesage'):
+        logger.warning(
+            f"Accès refusé detail_quittancements_periode_pesage | User: {user.username} | "
+            f"Permission peut_voir_liste_quittancements_pesage: {getattr(user, 'peut_voir_liste_quittancements_pesage', False)}"
+        )
         messages.error(request, _("Accès non autorisé."))
         return redirect('inventaire:liste_amendes')
     
     station = get_object_or_404(Poste, id=station_id, type='pesage')
     
+    # Parser les dates
     try:
         date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
         date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
@@ -1459,25 +1932,48 @@ def detail_quittancements_periode_pesage(request, station_id, date_debut, date_f
         messages.error(request, "Format de date invalide")
         return redirect('inventaire:comptabilisation_quittancements_pesage')
     
+    # Récupérer les quittancements de la période
     quittancements = QuittancementPesage.objects.filter(station=station).filter(
         Q(type_declaration='journaliere', date_recette__range=[date_debut_obj, date_fin_obj]) |
         Q(type_declaration='decade', date_debut_decade__lte=date_fin_obj, date_fin_decade__gte=date_debut_obj)
-    ).order_by('date_quittancement')
+    ).select_related('saisi_par').order_by('date_quittancement')
     
+    # Récupérer les amendes payées de la période
     amendes_payees = AmendeEmise.objects.filter(
-        station=station, statut='paye',
-        date_paiement__date__gte=date_debut_obj, date_paiement__date__lte=date_fin_obj
-    ).order_by('date_paiement')
+        station=station,
+        statut='paye',
+        date_paiement__date__gte=date_debut_obj,
+        date_paiement__date__lte=date_fin_obj
+    ).select_related('saisi_par', 'valide_par').order_by('date_paiement')
     
+    # Totaux
     total_quittance = quittancements.aggregate(Sum('montant_quittance'))['montant_quittance__sum'] or Decimal('0')
     total_amendes = amendes_payees.aggregate(Sum('montant_amende'))['montant_amende__sum'] or Decimal('0')
     ecart = total_quittance - total_amendes
     
+    # Vérifier si une justification existe
+    justification = JustificationEcartPesage.objects.filter(
+        station=station,
+        date_debut=date_debut_obj,
+        date_fin=date_fin_obj
+    ).first()
+    
+    logger.info(
+        f"Détail quittancements période | User: {user.username} | "
+        f"Station: {station.nom} | Période: {date_debut_obj} - {date_fin_obj}"
+    )
+    
     context = {
-        'station': station, 'date_debut': date_debut_obj, 'date_fin': date_fin_obj,
-        'quittancements': quittancements, 'amendes_payees': amendes_payees,
-        'total_quittance': total_quittance, 'total_amendes': total_amendes,
-        'ecart': ecart, 'is_admin': is_admin(user),
+        'station': station,
+        'date_debut': date_debut_obj,
+        'date_fin': date_fin_obj,
+        'quittancements': quittancements,
+        'amendes_payees': amendes_payees,
+        'total_quittance': total_quittance,
+        'total_amendes': total_amendes,
+        'ecart': ecart,
+        'justification': justification,
+        'is_admin': is_admin_user(user),
         'title': _(f'Détail Quittancements - {station.nom}'),
     }
     return render(request, 'pesage/detail_quittancements_periode_pesage.html', context)
@@ -1485,13 +1981,28 @@ def detail_quittancements_periode_pesage(request, station_id, date_debut, date_f
 
 # ===================================================================
 # EXPORT EXCEL QUITTANCEMENTS
-# Permission: regisseur_pesage, admin uniquement
+#
+# AVANT: @quittancement_pesage_required (regisseur + admin)
+# APRÈS: Permission 'peut_comptabiliser_quittances_pesage'
 # ===================================================================
 
-@quittancement_pesage_required
+@login_required
 def export_quittancements_pesage(request):
-    """Export Excel des quittancements pesage."""
+    """
+    Export Excel des quittancements pesage.
+    
+    PERMISSION: peut_comptabiliser_quittances_pesage
+    """
     user = request.user
+    
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_comptabiliser_quittances_pesage'):
+        logger.warning(
+            f"Accès refusé export_quittancements_pesage | User: {user.username} | "
+            f"Permission peut_comptabiliser_quittances_pesage: {getattr(user, 'peut_comptabiliser_quittances_pesage', False)}"
+        )
+        messages.error(request, _("Vous n'avez pas la permission d'exporter les quittancements."))
+        return redirect('inventaire:liste_quittancements_pesage')
     
     try:
         import openpyxl
@@ -1500,21 +2011,28 @@ def export_quittancements_pesage(request):
         messages.error(request, _("Module openpyxl non installé."))
         return redirect('inventaire:liste_quittancements_pesage')
     
+    # Filtres
     station_id = request.GET.get('station')
     exercice = request.GET.get('exercice')
     mois = request.GET.get('mois')
     
+    # Construire le queryset
     quittancements = QuittancementPesage.objects.all()
-    if station_id: quittancements = quittancements.filter(station_id=station_id)
-    if exercice: quittancements = quittancements.filter(exercice=exercice)
-    if mois: quittancements = quittancements.filter(mois=mois)
+    if station_id:
+        quittancements = quittancements.filter(station_id=station_id)
+    if exercice:
+        quittancements = quittancements.filter(exercice=exercice)
+    if mois:
+        quittancements = quittancements.filter(mois=mois)
     
     quittancements = quittancements.select_related('station', 'saisi_par').order_by('-date_quittancement')
     
+    # Créer le workbook Excel
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Quittancements Pesage"
     
+    # Styles
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="C0392B", end_color="C0392B", fill_type="solid")
     thin_border = Border(
@@ -1522,7 +2040,8 @@ def export_quittancements_pesage(request):
         top=Side(style='thin'), bottom=Side(style='thin')
     )
     
-    headers = ['N° Quittance', 'Station', 'Exercice', 'Mois', 'Type', 'Date Quittancement', 
+    # En-têtes
+    headers = ['N° Quittance', 'Station', 'Exercice', 'Mois', 'Type', 'Date Quittancement',
                'Période', 'Montant Quittancé', 'Saisi par']
     
     for col, header in enumerate(headers, 1):
@@ -1532,11 +2051,15 @@ def export_quittancements_pesage(request):
         cell.alignment = Alignment(horizontal='center')
         cell.border = thin_border
     
+    # Données
     for row, q in enumerate(quittancements, 2):
         if q.type_declaration == 'journaliere':
             periode = q.date_recette.strftime('%d/%m/%Y') if q.date_recette else ''
         else:
-            periode = f"{q.date_debut_decade.strftime('%d/%m/%Y')} - {q.date_fin_decade.strftime('%d/%m/%Y')}" if q.date_debut_decade else ''
+            if q.date_debut_decade and q.date_fin_decade:
+                periode = f"{q.date_debut_decade.strftime('%d/%m/%Y')} - {q.date_fin_decade.strftime('%d/%m/%Y')}"
+            else:
+                periode = ''
         
         ws.cell(row=row, column=1, value=q.numero_quittance).border = thin_border
         ws.cell(row=row, column=2, value=q.station.nom).border = thin_border
@@ -1548,27 +2071,55 @@ def export_quittancements_pesage(request):
         ws.cell(row=row, column=8, value=float(q.montant_quittance)).border = thin_border
         ws.cell(row=row, column=9, value=q.saisi_par.nom_complet if q.saisi_par else '').border = thin_border
     
+    # Ajuster les largeurs de colonnes
     for col in range(1, len(headers) + 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 18
     
+    # Préparer la réponse HTTP
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename=quittancements_pesage_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
     wb.save(response)
     
-    log_user_action(user, "Export Excel quittancements pesage", f"Nombre: {quittancements.count()}", request)
+    log_user_action(
+        user,
+        "Export Excel quittancements pesage",
+        f"Nombre: {quittancements.count()}",
+        request
+    )
+    
+    logger.info(
+        f"Export quittancements pesage | User: {user.username} | "
+        f"Nombre: {quittancements.count()}"
+    )
+    
     return response
 
 
 # ===================================================================
 # STATISTIQUES PESAGE
-# Permission: tous les rôles pesage
+# Permission: peut_voir_stats_pesage
 # ===================================================================
 
-@pesage_access_required
+@login_required
 def statistiques_pesage(request):
-    """Statistiques détaillées du pesage."""
+    """
+    Statistiques détaillées du pesage.
+    Permission: peut_voir_stats_pesage
+    """
     user = request.user
-    stations_accessibles = get_stations_accessibles(user)
+    
+    # Vérifier la permission
+    if not has_permission(user, 'peut_voir_stats_pesage'):
+        log_user_action(
+            user,
+            "Statistiques pesage - permission refusée",
+            "Permission peut_voir_stats_pesage manquante",
+            request
+        )
+        messages.error(request, _("Vous n'avez pas la permission de voir les statistiques."))
+        return redirect('common:dashboard')
+    
+    stations_accessibles = get_stations_pesage_accessibles(user)
     today = timezone.now().date()
     
     station, redirect_response = get_station_context(request, user)
@@ -1579,26 +2130,36 @@ def statistiques_pesage(request):
     date_debut, date_fin = get_periode_dates(periode, today)
     
     stats = {
-        'emissions': 0, 'hors_gabarit': 0, 'montant_emis': Decimal('0'),
-        'montant_recouvre': Decimal('0'), 'reste_a_recouvrer': Decimal('0'),
-        'nombre_pesees': 0, 'taux_recouvrement': 0,
+        'emissions': 0, 
+        'hors_gabarit': 0, 
+        'montant_emis': Decimal('0'),
+        'montant_recouvre': Decimal('0'), 
+        'reste_a_recouvrer': Decimal('0'),
+        'nombre_pesees': 0, 
+        'taux_recouvrement': 0,
     }
     
+    # Construction du queryset
     if station:
         amendes = AmendeEmise.objects.filter(
-            station=station, date_heure_emission__date__gte=date_debut, date_heure_emission__date__lte=date_fin
+            station=station, 
+            date_heure_emission__date__gte=date_debut, 
+            date_heure_emission__date__lte=date_fin
         )
-    elif is_admin(user):
+    elif user_has_acces_tous_postes(user):
         amendes = AmendeEmise.objects.filter(
-            date_heure_emission__date__gte=date_debut, date_heure_emission__date__lte=date_fin
+            date_heure_emission__date__gte=date_debut, 
+            date_heure_emission__date__lte=date_fin
         )
     else:
         amendes = AmendeEmise.objects.none()
     
     if amendes.exists():
         agg = amendes.aggregate(
-            count=Count('id'), hg_count=Count('id', filter=Q(est_hors_gabarit=True)),
-            montant_emis=Sum('montant_amende'), montant_recouvre=Sum('montant_amende', filter=Q(statut='paye'))
+            count=Count('id'), 
+            hg_count=Count('id', filter=Q(est_hors_gabarit=True)),
+            montant_emis=Sum('montant_amende'), 
+            montant_recouvre=Sum('montant_amende', filter=Q(statut='paye'))
         )
         stats['emissions'] = agg['count'] or 0
         stats['hors_gabarit'] = agg['hg_count'] or 0
@@ -1609,38 +2170,61 @@ def statistiques_pesage(request):
             stats['taux_recouvrement'] = round(
                 (float(stats['montant_recouvre']) / float(stats['montant_emis'])) * 100, 2)
     
+    # Pesées
     if station:
-        pesees_qs = PeseesJournalieres.objects.filter(station=station, date__gte=date_debut, date__lte=date_fin)
-    elif is_admin(user):
-        pesees_qs = PeseesJournalieres.objects.filter(date__gte=date_debut, date__lte=date_fin)
+        pesees_qs = PeseesJournalieres.objects.filter(
+            station=station, 
+            date__gte=date_debut, 
+            date__lte=date_fin
+        )
+    elif user_has_acces_tous_postes(user):
+        pesees_qs = PeseesJournalieres.objects.filter(
+            date__gte=date_debut, 
+            date__lte=date_fin
+        )
     else:
         pesees_qs = PeseesJournalieres.objects.none()
     
     stats['nombre_pesees'] = pesees_qs.aggregate(total=Sum('nombre_pesees'))['total'] or 0
     
     context = {
-        'stats': stats, 'station': station, 'stations_accessibles': stations_accessibles,
-        'periode': periode, 'date_debut': date_debut, 'date_fin': date_fin,
-        'is_admin': is_admin(user), 'title': _('Statistiques Pesage'),
+        'stats': stats, 
+        'station': station, 
+        'stations_accessibles': stations_accessibles,
+        'periode': periode, 
+        'date_debut': date_debut, 
+        'date_fin': date_fin,
+        'is_admin': is_admin_user(user), 
+        'title': _('Statistiques Pesage'),
     }
     return render(request, 'pesage/statistiques_pesage.html', context)
 
 
 # ===================================================================
 # RECETTES PESAGE
-# Permission: regisseur_pesage, chef_station_pesage, admin (PAS chef_equipe)
+# Permission: peut_voir_recettes_pesage
 # ===================================================================
 
 @login_required
 def recettes_pesage(request):
-    """Suivi des recettes pesage (amendes payées)."""
+    """
+    Suivi des recettes pesage (amendes payées).
+    Permission: peut_voir_recettes_pesage
+    """
     user = request.user
     
-    if not (is_admin(user) or user.habilitation in ['regisseur_pesage', 'chef_station_pesage']):
+    # Vérifier la permission
+    if not has_permission(user, 'peut_voir_recettes_pesage'):
+        log_user_action(
+            user,
+            "Recettes pesage - permission refusée",
+            "Permission peut_voir_recettes_pesage manquante",
+            request
+        )
         messages.error(request, _("Accès non autorisé."))
         return redirect('inventaire:liste_amendes')
     
-    stations_accessibles = get_stations_accessibles(user)
+    stations_accessibles = get_stations_pesage_accessibles(user)
     station, redirect_response = get_station_context(request, user)
     if redirect_response:
         return redirect_response
@@ -1665,9 +2249,11 @@ def recettes_pesage(request):
     date_debut = periode_info['date_debut']
     date_fin = periode_info['date_fin']
     
-    if station is None and is_admin(user):
+    # Construction du queryset
+    if station is None and user_has_acces_tous_postes(user):
         queryset = AmendeEmise.objects.filter(statut='paye')
-        if station_filter: queryset = queryset.filter(station_id=station_filter)
+        if station_filter: 
+            queryset = queryset.filter(station_id=station_filter)
     elif station:
         queryset = AmendeEmise.objects.filter(station=station, statut='paye')
         station_filter = ''
@@ -1675,12 +2261,21 @@ def recettes_pesage(request):
         queryset = AmendeEmise.objects.none()
         station_filter = ''
     
-    queryset = queryset.filter(date_paiement__gte=datetime_debut, date_paiement__lt=datetime_fin)
+    queryset = queryset.filter(
+        date_paiement__gte=datetime_debut, 
+        date_paiement__lt=datetime_fin
+    )
     
-    stats = queryset.aggregate(total_recouvre=Sum('montant_amende'), count_paiements=Count('id'))
+    stats = queryset.aggregate(
+        total_recouvre=Sum('montant_amende'), 
+        count_paiements=Count('id')
+    )
     
-    recettes_par_jour = queryset.annotate(date_jour=TruncDate('date_paiement')).values('date_jour').annotate(
-        total=Sum('montant_amende'), count_paiements=Count('id')
+    recettes_par_jour = queryset.annotate(
+        date_jour=TruncDate('date_paiement')
+    ).values('date_jour').annotate(
+        total=Sum('montant_amende'), 
+        count_paiements=Count('id')
     ).order_by('-date_jour')
     
     paginator = Paginator(list(recettes_par_jour), 15)
@@ -1688,24 +2283,51 @@ def recettes_pesage(request):
     recettes = paginator.get_page(page)
     
     context = {
-        'recettes': recettes, 'station': station, 'stations_accessibles': stations_accessibles,
-        'stats': stats, 'is_admin': is_admin(user), 'periode': periode,
-        'date_debut': date_debut, 'date_fin': date_fin, 'station_filter': station_filter,
+        'recettes': recettes, 
+        'station': station, 
+        'stations_accessibles': stations_accessibles,
+        'stats': stats, 
+        'is_admin': is_admin_user(user), 
+        'periode': periode,
+        'date_debut': date_debut, 
+        'date_fin': date_fin, 
+        'station_filter': station_filter,
         'title': _('Recettes Pesage'),
     }
     return render(request, 'pesage/recettes_pesage.html', context)
 
-@pesage_access_required
+
+# ===================================================================
+# IMPRIMER RECETTE JOUR
+#
+# AVANT: @pesage_access_required (PESAGE_ROLES + admin)
+# APRÈS: Permission 'peut_voir_recettes_pesage'
+# ===================================================================
+
+@login_required
 def imprimer_recette_jour(request, date_str):
     """
     Page d'impression pour les recettes d'un jour.
-    Utilise la logique 9h-9h.
+    
+    PERMISSION: peut_voir_recettes_pesage
     """
     user = request.user
+    
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_voir_recettes_pesage'):
+        logger.warning(
+            f"Accès refusé imprimer_recette_jour | User: {user.username} | "
+            f"Permission peut_voir_recettes_pesage: {getattr(user, 'peut_voir_recettes_pesage', False)}"
+        )
+        messages.error(request, _("Accès non autorisé."))
+        return redirect('common:dashboard')
+    
+    # Récupérer le contexte de station
     station, redirect_response = get_station_context(request, user)
     if redirect_response:
         return redirect_response
     
+    # Parser la date
     try:
         date_cible = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
@@ -1713,15 +2335,11 @@ def imprimer_recette_jour(request, date_str):
         return redirect('inventaire:recettes_pesage')
     
     # Calculer datetime 9h-9h pour ce jour
-    datetime_debut = CAMEROUN_TZ.localize(
-        datetime.combine(date_cible, HEURE_DEBUT_JOURNEE)
-    )
-    datetime_fin = CAMEROUN_TZ.localize(
-        datetime.combine(date_cible + timedelta(days=1), HEURE_FIN_JOURNEE)
-    )
+    datetime_debut = CAMEROUN_TZ.localize(datetime.combine(date_cible, HEURE_DEBUT_JOURNEE))
+    datetime_fin = CAMEROUN_TZ.localize(datetime.combine(date_cible + timedelta(days=1), HEURE_FIN_JOURNEE))
     
-    # Récupérer les paiements du jour (logique 9h-9h)
-    if station is None and is_admin(user):
+    # Récupérer les paiements du jour
+    if station is None and user_has_acces_tous_postes(user):
         queryset = AmendeEmise.objects.filter(statut='paye')
         station_filter = request.GET.get('station')
         if station_filter:
@@ -1739,19 +2357,16 @@ def imprimer_recette_jour(request, date_str):
         queryset = AmendeEmise.objects.none()
         station_obj = None
     
-    # Filtrer avec la logique 9h-9h
     paiements = queryset.filter(
         date_paiement__gte=datetime_debut,
         date_paiement__lte=datetime_fin
-    ).select_related('station', 'valide_par').order_by('date_paiement')
+    ).select_related('station', 'valide_par', 'saisi_par').order_by('date_paiement')
     
-    # Calculs
     total = paiements.aggregate(total=Sum('montant_amende'))['total'] or 0
     
-    # Stats par type d'infraction
+    # Statistiques par type d'infraction
     stats_types = []
     
-    # Surcharge seulement
     surcharge_only = paiements.filter(est_surcharge=True, est_hors_gabarit=False)
     if surcharge_only.exists():
         stats_types.append({
@@ -1760,7 +2375,6 @@ def imprimer_recette_jour(request, date_str):
             'montant': surcharge_only.aggregate(m=Sum('montant_amende'))['m'] or 0
         })
     
-    # Hors Gabarit seulement
     hg_only = paiements.filter(est_hors_gabarit=True, est_surcharge=False)
     if hg_only.exists():
         stats_types.append({
@@ -1769,7 +2383,6 @@ def imprimer_recette_jour(request, date_str):
             'montant': hg_only.aggregate(m=Sum('montant_amende'))['m'] or 0
         })
     
-    # Les deux
     both = paiements.filter(est_surcharge=True, est_hors_gabarit=True)
     if both.exists():
         stats_types.append({
@@ -1777,6 +2390,12 @@ def imprimer_recette_jour(request, date_str):
             'count': both.count(),
             'montant': both.aggregate(m=Sum('montant_amende'))['m'] or 0
         })
+    
+    logger.info(
+        f"Impression recette jour | User: {user.username} | "
+        f"Date: {date_cible} | Station: {station_obj.nom if station_obj else 'Toutes'} | "
+        f"Paiements: {paiements.count()} | Total: {total} FCFA"
+    )
     
     context = {
         'paiements': paiements,
@@ -1787,7 +2406,7 @@ def imprimer_recette_jour(request, date_str):
         'total': total,
         'count': paiements.count(),
         'stats_types': stats_types,
-        'is_admin': is_admin(user),
+        'is_admin': is_admin_user(user),
         'title': f"Recettes du {date_cible.strftime('%d/%m/%Y')} (9h-9h)",
     }
     
@@ -1796,6 +2415,7 @@ def imprimer_recette_jour(request, date_str):
 
 # ===================================================================
 # API ENDPOINTS (JSON)
+# Utilisent les décorateurs API pour retourner des réponses JSON
 # ===================================================================
 
 @login_required
@@ -1821,6 +2441,10 @@ def api_check_pesees(request):
     except Poste.DoesNotExist:
         return JsonResponse({'error': 'Station non trouvée'}, status=404)
     
+    # Vérifier l'accès à la station
+    if not check_poste_access(request.user, station):
+        return JsonResponse({'error': 'Accès non autorisé à cette station'}, status=403)
+    
     pesee = PeseesJournalieres.objects.filter(station=station, date=date_cible).first()
     
     if pesee:
@@ -1831,7 +2455,10 @@ def api_check_pesees(request):
             'saisi_par': pesee.saisi_par.nom_complet if pesee.saisi_par else None
         })
     
-    return JsonResponse({'deja_saisi': False, 'date': date_cible.strftime('%d/%m/%Y')})
+    return JsonResponse({
+        'deja_saisi': False, 
+        'date': date_cible.strftime('%d/%m/%Y')
+    })
 
 
 @login_required
@@ -1859,6 +2486,10 @@ def api_montant_attendu(request):
     except Poste.DoesNotExist:
         return JsonResponse({'error': 'Station non trouvée'}, status=404)
     
+    # Vérifier l'accès
+    if not check_poste_access(request.user, station):
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
     paiements = AmendeEmise.objects.filter(
         station=station,
         statut='paye',
@@ -1875,12 +2506,25 @@ def api_montant_attendu(request):
     })
 
 
-@pesage_access_required
+@login_required
 @require_GET
 def api_paiements_jour(request):
-    """API pour récupérer les paiements d'un jour."""
+    """
+    API pour récupérer les paiements d'un jour.
+    
+    PERMISSION: peut_voir_recettes_pesage
+    """
     user = request.user
-    station, redirect_response = get_station_context(request, user)
+    
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_voir_recettes_pesage'):
+        logger.warning(
+            f"Accès refusé api_paiements_jour | User: {user.username} | "
+            f"Permission peut_voir_recettes_pesage: {getattr(user, 'peut_voir_recettes_pesage', False)}"
+        )
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    station, _redirect = get_station_context(request, user)
     
     date_str = request.GET.get('date')
     if not date_str:
@@ -1891,7 +2535,7 @@ def api_paiements_jour(request):
     except ValueError:
         return JsonResponse({'error': 'Format date invalide'}, status=400)
     
-    if station is None and is_admin(user):
+    if station is None and user_has_acces_tous_postes(user):
         queryset = AmendeEmise.objects.filter(statut='paye')
         station_filter = request.GET.get('station')
         if station_filter:
@@ -1920,60 +2564,32 @@ def api_paiements_jour(request):
     return JsonResponse(data)
 
 
-@pesage_access_required
-@require_GET
-def api_stats_jour(request):
-    """API pour récupérer les stats d'un jour."""
-    user = request.user
-    station, redirect_response = get_station_context(request, user)
-    
-    date_str = request.GET.get('date')
-    if not date_str:
-        return JsonResponse({'error': 'Date requise'}, status=400)
-    
-    try:
-        date_cible = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return JsonResponse({'error': 'Format date invalide'}, status=400)
-    
-    if station is None and is_admin(user):
-        amendes = AmendeEmise.objects.filter(date_heure_emission__date=date_cible)
-        station_filter = request.GET.get('station')
-        if station_filter:
-            amendes = amendes.filter(station_id=station_filter)
-    elif station:
-        amendes = AmendeEmise.objects.filter(station=station, date_heure_emission__date=date_cible)
-    else:
-        amendes = AmendeEmise.objects.none()
-    
-    stats = amendes.aggregate(
-        count=Count('id'),
-        hg_count=Count('id', filter=Q(est_hors_gabarit=True)),
-        montant_emis=Sum('montant_amende'),
-        montant_recouvre=Sum('montant_amende', filter=Q(statut='paye'))
-    )
-    
-    return JsonResponse({
-        'emissions': stats['count'] or 0,
-        'hors_gabarit': stats['hg_count'] or 0,
-        'montant_emis': float(stats['montant_emis'] or 0),
-        'montant_recouvre': float(stats['montant_recouvre'] or 0),
-    })
-
-
-@pesage_access_required
+@login_required
 @require_GET
 def api_recherche_amende(request):
-    """API de recherche rapide d'amende."""
+    """
+    API de recherche rapide d'amende.
+    
+    PERMISSION: peut_lister_amendes
+    """
     user = request.user
-    station, redirect_response = get_station_context(request, user)
+    
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_lister_amendes'):
+        logger.warning(
+            f"Accès refusé api_recherche_amende | User: {user.username} | "
+            f"Permission peut_lister_amendes: {getattr(user, 'peut_lister_amendes', False)}"
+        )
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    station, _redirect = get_station_context(request, user)
     
     query = request.GET.get('q', '').strip()
     
     if len(query) < 2:
         return JsonResponse({'results': []})
     
-    if station is None and is_admin(user):
+    if station is None and user_has_acces_tous_postes(user):
         amendes = AmendeEmise.objects.all()
     elif station:
         amendes = AmendeEmise.objects.filter(station=station)
@@ -1998,17 +2614,124 @@ def api_recherche_amende(request):
     return JsonResponse({'results': results})
 
 
+# ===================================================================
+# API STATS JOUR
+#
+# AVANT: @pesage_access_required (PESAGE_ROLES + admin)
+# APRÈS: Permission 'peut_voir_stats_pesage'
+# ===================================================================
+
+@login_required
+@require_GET
+def api_stats_jour(request):
+    """
+    API pour récupérer les statistiques d'un jour spécifique.
+    
+    PERMISSION: peut_voir_stats_pesage
+    """
+    user = request.user
+    
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_voir_stats_pesage'):
+        logger.warning(
+            f"Accès refusé api_stats_jour | User: {user.username} | "
+            f"Permission peut_voir_stats_pesage: {getattr(user, 'peut_voir_stats_pesage', False)}"
+        )
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    # Récupérer le contexte de station
+    station, _ = get_station_context(request, user)
+    
+    # Paramètres
+    date_str = request.GET.get('date')
+    if not date_str:
+        return JsonResponse({'error': 'Date requise'}, status=400)
+    
+    try:
+        date_cible = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Format date invalide'}, status=400)
+    
+    # Construire le queryset selon l'accès
+    if station is None and user_has_acces_tous_postes(user):
+        amendes = AmendeEmise.objects.filter(date_heure_emission__date=date_cible)
+        station_filter = request.GET.get('station')
+        if station_filter:
+            amendes = amendes.filter(station_id=station_filter)
+    elif station:
+        amendes = AmendeEmise.objects.filter(station=station, date_heure_emission__date=date_cible)
+    else:
+        amendes = AmendeEmise.objects.none()
+    
+    # Calculer les statistiques
+    stats = amendes.aggregate(
+        count=Count('id'),
+        hg_count=Count('id', filter=Q(est_hors_gabarit=True)),
+        surcharge_count=Count('id', filter=Q(est_surcharge=True)),
+        montant_emis=Sum('montant_amende'),
+        montant_recouvre=Sum('montant_amende', filter=Q(statut='paye')),
+        count_paye=Count('id', filter=Q(statut='paye')),
+        count_non_paye=Count('id', filter=Q(statut='non_paye')),
+    )
+    
+    montant_emis = stats['montant_emis'] or Decimal('0')
+    montant_recouvre = stats['montant_recouvre'] or Decimal('0')
+    reste = montant_emis - montant_recouvre
+    taux_recouvrement = 0
+    if montant_emis > 0:
+        taux_recouvrement = round((float(montant_recouvre) / float(montant_emis)) * 100, 2)
+    
+    logger.info(
+        f"API stats jour | User: {user.username} | "
+        f"Date: {date_cible} | Station: {station.nom if station else 'Toutes'} | "
+        f"Emissions: {stats['count'] or 0}"
+    )
+    
+    return JsonResponse({
+        'date': date_cible.strftime('%d/%m/%Y'),
+        'emissions': stats['count'] or 0,
+        'hors_gabarit': stats['hg_count'] or 0,
+        'surcharge': stats['surcharge_count'] or 0,
+        'montant_emis': float(montant_emis),
+        'montant_recouvre': float(montant_recouvre),
+        'reste_a_recouvrer': float(reste),
+        'taux_recouvrement': taux_recouvrement,
+        'count_paye': stats['count_paye'] or 0,
+        'count_non_paye': stats['count_non_paye'] or 0,
+    })
+
+
+# ===================================================================
+# API STATS PÉRIODE
+#
+# AVANT: Authentifié uniquement
+# APRÈS: Permission 'peut_voir_stats_pesage'
+# ===================================================================
+
 @login_required
 @require_GET
 def api_stats_periode(request):
     """
     API pour récupérer les statistiques d'une période.
-    GET params: station (optionnel), periode (jour|semaine|mois|trimestre|annee), date
+    
+    PERMISSION: peut_voir_stats_pesage
     """
+    user = request.user
+    
+    # Vérifier la permission granulaire
+    if not has_permission(user, 'peut_voir_stats_pesage'):
+        logger.warning(
+            f"Accès refusé api_stats_periode | User: {user.username} | "
+            f"Permission peut_voir_stats_pesage: {getattr(user, 'peut_voir_stats_pesage', False)}"
+        )
+        return JsonResponse({'error': 'Permission refusée'}, status=403)
+    
+    # Paramètres
     station_id = request.GET.get('station')
     periode = request.GET.get('periode', 'mois')
     date_str = request.GET.get('date')
     
+    # Déterminer la date de référence
     if date_str:
         try:
             date_ref = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -2017,14 +2740,16 @@ def api_stats_periode(request):
     else:
         date_ref = timezone.now().date()
     
+    # Calculer les dates de la période
     date_debut, date_fin = get_periode_dates(periode, date_ref)
     
-    # Base queryset
+    # Construire le queryset
     amendes = AmendeEmise.objects.filter(
         date_heure_emission__date__gte=date_debut,
         date_heure_emission__date__lte=date_fin
     )
     
+    station = None
     if station_id:
         try:
             station = Poste.objects.get(pk=station_id, type='pesage')
@@ -2032,16 +2757,18 @@ def api_stats_periode(request):
         except Poste.DoesNotExist:
             return JsonResponse({'error': 'Station non trouvée'}, status=404)
     
+    # Calculer les statistiques
     stats = amendes.aggregate(
         emissions=Count('id'),
         hors_gabarit=Count('id', filter=Q(est_hors_gabarit=True)),
+        surcharge=Count('id', filter=Q(est_surcharge=True)),
         montant_emis=Sum('montant_amende'),
         montant_recouvre=Sum('montant_amende', filter=Q(statut='paye')),
         count_paye=Count('id', filter=Q(statut='paye')),
         count_non_paye=Count('id', filter=Q(statut='non_paye'))
     )
     
-    # Pesées
+    # Pesées de la période
     pesees_qs = PeseesJournalieres.objects.filter(
         date__gte=date_debut, date__lte=date_fin
     )
@@ -2050,11 +2777,19 @@ def api_stats_periode(request):
     
     nombre_pesees = pesees_qs.aggregate(total=Sum('nombre_pesees'))['total'] or 0
     
-    montant_emis = stats['montant_emis'] or 0
-    montant_recouvre = stats['montant_recouvre'] or 0
+    # Calculs finaux
+    montant_emis = stats['montant_emis'] or Decimal('0')
+    montant_recouvre = stats['montant_recouvre'] or Decimal('0')
+    reste = montant_emis - montant_recouvre
     taux_recouvrement = 0
     if montant_emis > 0:
-        taux_recouvrement = (float(montant_recouvre) / float(montant_emis)) * 100
+        taux_recouvrement = round((float(montant_recouvre) / float(montant_emis)) * 100, 2)
+    
+    logger.info(
+        f"API stats période | User: {user.username} | "
+        f"Période: {periode} ({date_debut} - {date_fin}) | "
+        f"Station: {station.nom if station else 'Toutes'}"
+    )
     
     return JsonResponse({
         'periode': periode,
@@ -2062,11 +2797,13 @@ def api_stats_periode(request):
         'date_fin': date_fin.strftime('%d/%m/%Y'),
         'emissions': stats['emissions'] or 0,
         'hors_gabarit': stats['hors_gabarit'] or 0,
+        'surcharge': stats['surcharge'] or 0,
         'montant_emis': float(montant_emis),
         'montant_recouvre': float(montant_recouvre),
-        'reste_a_recouvrer': float(montant_emis - montant_recouvre),
-        'taux_recouvrement': round(taux_recouvrement, 2),
+        'reste_a_recouvrer': float(reste),
+        'taux_recouvrement': taux_recouvrement,
         'count_paye': stats['count_paye'] or 0,
         'count_non_paye': stats['count_non_paye'] or 0,
-        'nombre_pesees': nombre_pesees
+        'nombre_pesees': nombre_pesees,
+        'station': station.nom if station else None,
     })

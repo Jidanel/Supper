@@ -1,4 +1,19 @@
 # inventaire/views_stats.py 
+# VERSION 2 - Mise à jour avec permissions granulaires
+# ===================================================================
+#
+# MODIFICATIONS APPORTÉES:
+# - Remplacement de is_admin/is_chef_poste par permissions granulaires
+# - Utilisation de has_permission, get_postes_peage_accessibles, check_poste_access
+# - Ajout de logs manuels détaillés via log_user_action
+# - Les variables de contexte sont identiques à la version précédente
+#
+# PERMISSIONS UTILISÉES:
+# - peut_voir_stats_deperdition: Statistiques de taux de déperdition
+# - peut_voir_stats_recettes_peage: Statistiques des recettes péage
+# - voir_taux_deperdition: Voir le taux de déperdition (restriction dimanche)
+# ===================================================================
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Sum, Count, Q
@@ -8,36 +23,138 @@ from decimal import Decimal
 import json
 import calendar
 from django.contrib import messages
+
 from .models import *
+
+# Import des permissions granulaires
+from common.permissions import (
+    has_permission,
+    has_any_permission,
+    get_postes_peage_accessibles,
+    check_poste_access,
+    user_has_acces_tous_postes,
+    is_admin_user,
+    log_acces_refuse,
+)
+
+# Import de la fonction de log manuelle
+from common.utils import log_user_action
+
 from inventaire.services.evolution_service import EvolutionService
+
+import logging
+logger = logging.getLogger('supper')
+
+
+# ===================================================================
+# STATISTIQUES TAUX DE DÉPERDITION
+# ===================================================================
+# AVANT:
+# - request.user.is_admin pour vérifier admin
+# - is_chef_poste et weekday() == 6 pour restriction dimanche
+#
+# APRÈS:
+# - has_permission(user, 'peut_voir_stats_deperdition') pour l'accès
+# - Restriction dimanche pour utilisateurs sans acces_tous_postes
+# - get_postes_peage_accessibles(user) pour filtrer les postes
+# ===================================================================
 
 @login_required
 def statistiques_taux_deperdition(request):
-    """Vue principale pour les statistiques de taux de déperdition"""
+    """
+    Vue principale pour les statistiques de taux de déperdition
     
+    PERMISSIONS:
+    - peut_voir_stats_deperdition: Requis pour accéder à cette vue
+    
+    RESTRICTIONS:
+    - Utilisateurs sans acces_tous_postes: accès uniquement le dimanche
+    - Utilisateurs avec acces_tous_postes: accès tous les jours
+    
+    ACCÈS AUX POSTES:
+    - Utilisateurs avec acces_tous_postes: voient tous les postes
+    - Autres: voient uniquement leur poste d'affectation
+    """
+    user = request.user
+    
+    # ========== VÉRIFICATION DES PERMISSIONS ==========
+    if not has_permission(user, 'peut_voir_stats_deperdition'):
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description="Tentative d'accès aux statistiques de taux de déperdition",
+            details="Permission peut_voir_stats_deperdition manquante",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "statistiques_taux_deperdition", "Permission peut_voir_stats_deperdition manquante")
+        messages.error(request, "Vous n'avez pas la permission de voir les statistiques de déperdition.")
+        return redirect('common:dashboard')
+    
+    # ========== RESTRICTION DIMANCHE ==========
+    # Les utilisateurs sans accès à tous les postes ne peuvent voir que le dimanche
+    if not user_has_acces_tous_postes(user):
+        if date.today().weekday() != 6:  # 6 = Dimanche
+            log_user_action(
+                user=user,
+                action="ACCES_RESTREINT",
+                description="Accès aux statistiques de déperdition refusé (restriction dimanche)",
+                details=f"Jour actuel: {date.today().strftime('%A')}",
+                niveau="INFO"
+            )
+            messages.warning(request, "Les statistiques de taux de déperdition sont disponibles uniquement le dimanche.")
+            return redirect('inventaire:liste_recettes')
+    
+    # Log de l'accès
+    logger.info(f"[STATS_DEPERDITION] {user.username} ({user.get_habilitation_display()}) accède aux statistiques de déperdition")
+    
+    # ========== RÉCUPÉRATION DES PARAMÈTRES ==========
     periode = request.GET.get('periode', 'mensuel')
     annee = int(request.GET.get('annee', date.today().year))
     poste_id = request.GET.get('poste', 'tous')
     
-    if not request.user.is_admin:
-        if request.user.is_chef_poste and date.today().weekday() != 6:
-            messages.warning(request, "Les statistiques de taux sont disponibles uniquement le dimanche")
-            return redirect('inventaire:liste_recettes')
-    
+    # ========== FILTRES DE BASE ==========
     filters = Q(taux_deperdition__isnull=False)
     
+    # Exclure les jours impertinents
     jours_impertinents = ConfigurationJour.objects.filter(
         statut='impertinent'
     ).values_list('date', flat=True)
     filters &= ~Q(date__in=jours_impertinents)
     filters &= Q(date__year=annee)
     
+    # ========== FILTRAGE PAR POSTE ==========
     if poste_id != 'tous':
+        # Vérifier que l'utilisateur a accès au poste demandé
+        try:
+            poste_selectionne = Poste.objects.get(id=poste_id)
+            if not check_poste_access(user, poste_selectionne):
+                log_user_action(
+                    user=user,
+                    action="ACCES_REFUSE",
+                    description=f"Tentative d'accès aux stats du poste {poste_selectionne.nom}",
+                    details="Poste non autorisé pour cet utilisateur",
+                    niveau="WARNING"
+                )
+                messages.error(request, "Vous n'avez pas accès à ce poste.")
+                return redirect('inventaire:statistiques_taux_deperdition')
+        except Poste.DoesNotExist:
+            messages.error(request, "Poste non trouvé")
+            return redirect('inventaire:statistiques_taux_deperdition')
+        
         filters &= Q(poste_id=poste_id)
+    elif not user_has_acces_tous_postes(user):
+        # Utilisateur sans accès tous postes: filtrer sur son poste d'affectation
+        if user.poste_affectation:
+            filters &= Q(poste=user.poste_affectation)
+        else:
+            # Pas de poste d'affectation, pas de données
+            filters &= Q(pk__isnull=True)  # Filtre qui ne retourne rien
     
+    # ========== CALCUL DES STATISTIQUES ==========
     stats = calculer_stats_par_periode(periode, annee, filters)
     graph_data = preparer_donnees_graphique(stats, periode)
     
+    # Statistiques globales
     stats_globales = RecetteJournaliere.objects.filter(filters).aggregate(
         taux_moyen=Avg('taux_deperdition'),
         total_recettes=Count('id'),
@@ -53,23 +170,40 @@ def statistiques_taux_deperdition(request):
     else:
         ecart_global = 0
     
+    # ========== POSTES ACCESSIBLES ==========
+    postes_accessibles = get_postes_peage_accessibles(user)
+    
+    # Log de la consultation
+    log_user_action(
+        user=user,
+        action="CONSULTATION_STATS_DEPERDITION",
+        description=f"Consultation statistiques déperdition - Période: {periode}",
+        details=f"Année: {annee}, Poste: {poste_id}",
+        niveau="INFO"
+    )
+    
+    # ========== CONTEXTE (identique à la version précédente) ==========
     context = {
         'periode': periode,
         'annee': annee,
         'annees_disponibles': range(2020, date.today().year + 2),
         'poste_selectionne': poste_id,
-        'postes': Poste.objects.filter(is_active=True),
+        'postes': postes_accessibles,  # Utilise les postes accessibles
         'stats': stats,
         'stats_globales': stats_globales,
         'ecart_global': ecart_global,
         'graph_data_json': json.dumps(graph_data, default=str),
-        'can_export': request.user.is_admin,
+        'can_export': has_permission(user, 'peut_voir_stats_deperdition'),  # Remplace is_admin
     }
     
     return render(request, 'inventaire/statistiques_taux.html', context)
 
+
 def calculer_stats_par_periode(periode, annee, filters):
-    """Calcule les statistiques selon la période demandée"""
+    """
+    Calcule les statistiques selon la période demandée
+    (Fonction utilitaire - aucune modification)
+    """
     filters &= Q(inventaire_associe__isnull=False)
     filters &= Q(taux_deperdition__lte=-5)
     
@@ -217,6 +351,7 @@ def calculer_stats_par_periode(periode, annee, filters):
     
     return stats
 
+
 def get_couleur_taux(taux):
     """Retourne la couleur selon le taux"""
     if taux is None:
@@ -229,6 +364,7 @@ def get_couleur_taux(taux):
     else:
         return 'danger'
 
+
 def get_month_name(month):
     """Retourne le nom du mois en français"""
     mois = {
@@ -237,6 +373,7 @@ def get_month_name(month):
         9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
     }
     return mois.get(month, '')
+
 
 def preparer_donnees_graphique(stats, periode):
     """Prépare les données pour Chart.js"""
@@ -262,56 +399,168 @@ def preparer_donnees_graphique(stats, periode):
         'borderColors': [c.replace('0.8', '1') for c in colors]
     }
 
+
+# ===================================================================
+# STATISTIQUES RECETTES
+# ===================================================================
+# AVANT:
+# - request.user.is_admin pour vérifier admin
+# - is_chef_poste et restriction dimanche pour taux_stat
+#
+# APRÈS:
+# - has_permission(user, 'peut_voir_stats_recettes_peage') pour l'accès
+# - has_permission(user, 'peut_voir_stats_deperdition') pour voir le taux
+# - get_postes_peage_accessibles(user) pour filtrer les postes
+# ===================================================================
+
 @login_required
 def statistiques_recettes(request):
-    """Vue améliorée pour les statistiques détaillées des recettes avec identification des périodes"""
+    """
+    Vue améliorée pour les statistiques détaillées des recettes avec identification des périodes
     
+    PERMISSIONS:
+    - peut_voir_stats_recettes_peage: Requis pour accéder à cette vue
+    
+    RESTRICTIONS POUR VOIR LES TAUX:
+    - peut_voir_stats_deperdition: Requis pour voir les taux de déperdition
+    - Sans cette permission: seules les stats de montants sont visibles
+    
+    ACCÈS AUX POSTES:
+    - Utilisateurs avec acces_tous_postes: voient tous les postes
+    - Autres: voient uniquement leur poste d'affectation
+    """
+    user = request.user
+    
+    # ========== VÉRIFICATION DES PERMISSIONS ==========
+    if not has_permission(user, 'peut_voir_stats_recettes_peage'):
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description="Tentative d'accès aux statistiques des recettes",
+            details="Permission peut_voir_stats_recettes_peage manquante",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "statistiques_recettes", "Permission peut_voir_stats_recettes_peage manquante")
+        messages.error(request, "Vous n'avez pas la permission de voir les statistiques des recettes.")
+        return redirect('common:dashboard')
+    
+    # Log de l'accès
+    logger.info(f"[STATS_RECETTES] {user.username} ({user.get_habilitation_display()}) accède aux statistiques des recettes")
+    
+    # ========== RÉCUPÉRATION DES PARAMÈTRES ==========
     periode = request.GET.get('periode', 'mensuel')
     annee = int(request.GET.get('annee', date.today().year))
     poste_id = request.GET.get('poste', 'tous')
     type_stat = request.GET.get('type_stat', 'montants')
     
-    if request.user.is_chef_poste and not request.user.is_admin:
-        if date.today().weekday() != 6:
-            type_stat = 'montants'
+    # ========== VÉRIFICATION PERMISSION TAUX DE DÉPERDITION ==========
+    # Si l'utilisateur n'a pas la permission de voir le taux, forcer type_stat à 'montants'
+    peut_voir_taux = has_permission(user, 'peut_voir_stats_deperdition')
     
+    # Restriction supplémentaire: dimanche uniquement pour ceux sans accès tous postes
+    if peut_voir_taux and not user_has_acces_tous_postes(user):
+        if date.today().weekday() != 6:  # Pas dimanche
+            peut_voir_taux = False
+    
+    if not peut_voir_taux and type_stat != 'montants':
+        type_stat = 'montants'
+        logger.debug(f"[STATS_RECETTES] {user.username}: type_stat forcé à 'montants' (pas de permission taux)")
+    
+    # ========== FILTRES DE BASE ==========
     filters = Q(date__year=annee)
-    if poste_id != 'tous':
-        filters &= Q(poste_id=poste_id)
     
+    # ========== FILTRAGE PAR POSTE ==========
+    if poste_id != 'tous':
+        # Vérifier que l'utilisateur a accès au poste demandé
+        try:
+            poste_selectionne = Poste.objects.get(id=poste_id)
+            if not check_poste_access(user, poste_selectionne):
+                log_user_action(
+                    user=user,
+                    action="ACCES_REFUSE",
+                    description=f"Tentative d'accès aux stats du poste {poste_selectionne.nom}",
+                    details="Poste non autorisé pour cet utilisateur",
+                    niveau="WARNING"
+                )
+                messages.error(request, "Vous n'avez pas accès à ce poste.")
+                return redirect('inventaire:statistiques_recettes')
+        except Poste.DoesNotExist:
+            messages.error(request, "Poste non trouvé")
+            return redirect('inventaire:statistiques_recettes')
+        
+        filters &= Q(poste_id=poste_id)
+    elif not user_has_acces_tous_postes(user):
+        # Utilisateur sans accès tous postes: filtrer sur son poste d'affectation
+        if user.poste_affectation:
+            filters &= Q(poste=user.poste_affectation)
+        else:
+            filters &= Q(pk__isnull=True)  # Pas de données
+    
+    # ========== CALCUL DES STATISTIQUES ==========
     stats = calculer_stats_recettes(periode, annee, filters, type_stat)
     
+    # Statistiques de comparaison (année précédente)
     stats_comparaison = None
     if type_stat == 'comparaison':
         filters_precedent = Q(date__year=annee-1)
         if poste_id != 'tous':
             filters_precedent &= Q(poste_id=poste_id)
+        elif not user_has_acces_tous_postes(user) and user.poste_affectation:
+            filters_precedent &= Q(poste=user.poste_affectation)
         stats_comparaison = calculer_stats_recettes(periode, annee-1, filters_precedent, 'montants')
     
-    top_postes = RecetteJournaliere.objects.filter(
-        date__year=annee
-    ).values('poste__nom', 'poste__code').annotate(
-        total=Sum('montant_declare')
-    ).order_by('-total')[:10]
+    # Top postes (uniquement si accès à tous les postes)
+    top_postes = []
+    if user_has_acces_tous_postes(user):
+        top_postes = RecetteJournaliere.objects.filter(
+            date__year=annee
+        ).values('poste__nom', 'poste__code').annotate(
+            total=Sum('montant_declare')
+        ).order_by('-total')[:10]
+    elif user.poste_affectation:
+        # Afficher uniquement le poste de l'utilisateur
+        top_postes = RecetteJournaliere.objects.filter(
+            date__year=annee,
+            poste=user.poste_affectation
+        ).values('poste__nom', 'poste__code').annotate(
+            total=Sum('montant_declare')
+        ).order_by('-total')[:1]
     
+    # ========== POSTES ACCESSIBLES ==========
+    postes_accessibles = get_postes_peage_accessibles(user)
+    
+    # Log de la consultation
+    log_user_action(
+        user=user,
+        action="CONSULTATION_STATS_RECETTES",
+        description=f"Consultation statistiques recettes - Période: {periode}",
+        details=f"Année: {annee}, Poste: {poste_id}, Type: {type_stat}",
+        niveau="INFO"
+    )
+    
+    # ========== CONTEXTE (identique à la version précédente) ==========
     context = {
         'periode': periode,
         'annee': annee,
         'annees_disponibles': range(2020, date.today().year + 2),
         'poste_selectionne': poste_id,
-        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
+        'postes': postes_accessibles,  # Utilise les postes accessibles
         'type_stat': type_stat,
         'stats': stats,
         'stats_comparaison': stats_comparaison,
         'top_postes': top_postes,
         'graph_data_json': json.dumps(preparer_donnees_recettes_graph(stats, stats_comparaison), default=str),
-        'peut_voir_taux': request.user.is_admin or (request.user.is_chef_poste and date.today().weekday() == 6)
+        'peut_voir_taux': peut_voir_taux  # Remplace la logique précédente
     }
     
     return render(request, 'inventaire/statistiques_recettes.html', context)
 
+
 def calculer_stats_recettes(periode, annee, filters, type_stat):
-    """Calcule les statistiques de recettes par période avec identification claire"""
+    """
+    Calcule les statistiques de recettes par période avec identification claire
+    (Fonction utilitaire - aucune modification)
+    """
     stats = []
     
     mois_noms = {
@@ -476,6 +725,7 @@ def calculer_stats_recettes(periode, annee, filters, type_stat):
     
     return stats
 
+
 def preparer_donnees_recettes_graph(stats, stats_comparaison=None):
     """Prépare les données pour le graphique de recettes"""
     if not stats:
@@ -506,8 +756,12 @@ def preparer_donnees_recettes_graph(stats, stats_comparaison=None):
         'datasets': datasets
     }
 
+
 def calculer_evolution_recettes(periode, date_reference, poste_id=None):
-    """Calcule l'évolution des recettes par rapport aux années précédentes"""
+    """
+    Calcule l'évolution des recettes par rapport aux années précédentes
+    (Fonction utilitaire - aucune modification)
+    """
     evolution = {
         'annee_n': 0,
         'annee_n1': 0,

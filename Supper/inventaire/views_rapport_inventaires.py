@@ -1,11 +1,25 @@
+# ===================================================================
 # inventaire/views_rapport_inventaires.py
+# Vues pour générer le rapport des inventaires sur une période donnée
+# VERSION MISE À JOUR avec permissions granulaires et logs détaillés
+# ===================================================================
 """
-Vues pour générer le rapport des inventaires sur une période donnée
-VERSION COMPLÈTE avec inventaires administratifs et moyennes intelligentes
+MISE À JOUR DES PERMISSIONS:
+- Remplacement de is_admin_or_manager par les permissions granulaires
+- Ajout des logs détaillés avec log_user_action
+- Utilisation des décorateurs du module common.decorators
+
+Permissions utilisées:
+- peut_voir_rapport_inventaires: Pour les rapports d'inventaires
+
+
+Variables de contexte IDENTIQUES (aucun changement):
+- selection_rapport_inventaires: date_debut_default, date_fin_default, date_max, title
+- rapport_inventaires: date_debut, date_fin, donnees, title
 """
 
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
 from django.db.models import Q, Avg
@@ -19,37 +33,39 @@ from inventaire.models import (
 )
 from inventaire.services.snapshot_service import SnapshotService
 
+# Import des permissions granulaires et utilitaires
+from common.decorators import permission_required_granular
+from common.utils import log_user_action
+
 import logging
 logger = logging.getLogger('supper')
 
 
-def is_admin_or_manager(user):
-    """Vérifie si l'utilisateur peut accéder aux rapports"""
-    if not user.is_authenticated:
-        return False
-    
-    allowed_roles = [
-        'admin_principal',
-        'coord_psrr',
-        'serv_info',
-        'serv_emission',
-        'chef_service',
-        'focal_regional'
-    ]
-    
-    return (
-        user.is_superuser or 
-        user.is_staff or
-        user.habilitation in allowed_roles
-    )
-
+# ===================================================================
+# SECTION 1: VUES RAPPORT INVENTAIRES
+# ===================================================================
 
 @login_required
-@user_passes_test(is_admin_or_manager)
+@permission_required_granular('peut_voir_rapport_inventaires')
 def selection_rapport_inventaires(request):
     """
     Vue pour sélectionner la période du rapport d'inventaires
+    
+    Permission requise: peut_voir_rapport_inventaires
+    Habilitations autorisées (selon matrice): 
+        - admin_principal, coord_psrr, serv_info
+        - serv_emission, serv_controle, serv_ordre
     """
+    
+    # Log de l'accès à la page de sélection
+    log_user_action(
+        user=request.user,
+        action="ACCES_SELECTION_RAPPORT_INVENTAIRES",
+        details=f"Accès à la page de sélection de période pour le rapport des inventaires",
+        request=request,
+        module="inventaire",
+        sous_module="rapport_inventaires"
+    )
     
     # Valeurs par défaut
     date_fin_default = date.today()
@@ -68,11 +84,16 @@ def selection_rapport_inventaires(request):
 
 
 @login_required
-@user_passes_test(is_admin_or_manager)
+@permission_required_granular('peut_voir_rapport_inventaires')
 def rapport_inventaires(request):
     """
     Vue principale pour générer le rapport des inventaires
     Analyse l'évolution des indicateurs sur une période
+    
+    Permission requise: peut_voir_rapport_inventaires
+    Habilitations autorisées (selon matrice):
+        - admin_principal, coord_psrr, serv_info
+        - serv_emission, serv_controle, serv_ordre
     """
     
     # Récupérer les paramètres
@@ -100,7 +121,35 @@ def rapport_inventaires(request):
     # Vérifier la cohérence
     if date_debut > date_fin:
         messages.error(request, "La date de début doit être antérieure à la date de fin")
+        
+        # Log de l'erreur de dates
+        log_user_action(
+            user=request.user,
+            action="ERREUR_RAPPORT_INVENTAIRES",
+            details=f"Dates incohérentes: début={date_debut_str}, fin={date_fin_str}",
+            request=request,
+            module="inventaire",
+            sous_module="rapport_inventaires",
+            succes=False
+        )
+        
         return redirect('inventaire:selection_rapport_inventaires')
+    
+    # Log de la génération du rapport
+    log_user_action(
+        user=request.user,
+        action="GENERATION_RAPPORT_INVENTAIRES",
+        details=(
+            f"Génération du rapport des inventaires | "
+            f"Période: {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} | "
+            f"Action: {action}"
+        ),
+        request=request,
+        module="inventaire",
+        sous_module="rapport_inventaires",
+        date_debut=date_debut.isoformat(),
+        date_fin=date_fin.isoformat()
+    )
     
     # Générer les données
     donnees = calculer_donnees_rapport_inventaires(date_debut, date_fin)
@@ -112,9 +161,32 @@ def rapport_inventaires(request):
             f"Aucun poste avec inventaire programmé pour la période "
             f"du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')}"
         )
+        
+        # Log du résultat vide
+        log_user_action(
+            user=request.user,
+            action="RAPPORT_INVENTAIRES_VIDE",
+            details=f"Aucun poste trouvé pour la période {date_debut} - {date_fin}",
+            request=request,
+            module="inventaire",
+            sous_module="rapport_inventaires"
+        )
     
     # Générer PDF si demandé
     if action == 'pdf':
+        # Log de l'export PDF
+        log_user_action(
+            user=request.user,
+            action="EXPORT_PDF_RAPPORT_INVENTAIRES",
+            details=(
+                f"Export PDF du rapport des inventaires | "
+                f"Période: {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')} | "
+                f"Nb postes: {len(donnees['postes'])}"
+            ),
+            request=request,
+            module="inventaire",
+            sous_module="rapport_inventaires"
+        )
         return generer_pdf_rapport_inventaires(donnees, date_debut, date_fin)
     
     # Afficher la vue HTML
@@ -127,6 +199,10 @@ def rapport_inventaires(request):
     
     return render(request, 'inventaire/rapport_inventaires.html', context)
 
+
+# ===================================================================
+# SECTION 2: FONCTIONS UTILITAIRES (INCHANGÉES)
+# ===================================================================
 
 def calculer_taux_moyen_intelligent(taux_normaux, taux_admins):
     """

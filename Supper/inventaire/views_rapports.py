@@ -1,9 +1,20 @@
 # inventaire/views_rapports.py
-# VERSION 2 - Compte d'emploi avec nouveau format de tableau
+# VERSION 3 - Mise à jour avec permissions granulaires
+# ===================================================================
+# 
+# MODIFICATIONS APPORTÉES:
+# - Remplacement de is_admin/is_chef_poste par permissions granulaires
+# - Utilisation de has_permission, get_postes_peage_accessibles, check_poste_access
+# - Ajout de logs manuels détaillés via log_user_action
+# - Les variables de contexte sont identiques à la version précédente
+#
+# PERMISSIONS UTILISÉES:
+# - peut_voir_compte_emploi: Accès au compte d'emploi
+# - peut_parametrage_global: Accès au paramétrage global
 # ===================================================================
 
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Q
 from django.http import HttpResponse
@@ -17,6 +28,18 @@ from inventaire.models import (
     GestionStock
 )
 from inventaire.models_config import ConfigurationGlobale
+
+# Import des permissions granulaires
+from common.permissions import (
+    has_permission,
+    get_postes_peage_accessibles,
+    check_poste_access,
+    user_has_acces_tous_postes,
+    log_acces_refuse,
+)
+
+# Import de la fonction de log manuelle
+from common.utils import log_user_action
 
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
@@ -38,22 +61,51 @@ logger = logging.getLogger('supper')
 # ===================================================================
 # SÉLECTION DU COMPTE D'EMPLOI
 # ===================================================================
+# AVANT: request.user.is_admin or request.user.is_chef_poste
+# APRÈS: has_permission(request.user, 'peut_voir_compte_emploi')
+#
+# AVANT postes: is_admin → tous, sinon [poste_affectation]  
+# APRÈS postes: get_postes_peage_accessibles(request.user)
+# ===================================================================
 
 @login_required
 def selection_compte_emploi(request):
     """
     Permet de choisir entre aperçu et génération directe PDF
+    
+    PERMISSIONS:
+    - peut_voir_compte_emploi: Requis pour accéder à cette vue
+    
+    ACCÈS AUX POSTES:
+    - Utilisateurs avec acces_tous_postes: voient tous les postes de péage
+    - Autres: voient uniquement leur poste d'affectation
     """
-    # Vérifier les permissions
-    if not (request.user.is_admin or request.user.is_chef_poste):
-        messages.error(request, "Accès non autorisé")
+    user = request.user
+    
+    # ========== VÉRIFICATION DES PERMISSIONS ==========
+    if not has_permission(user, 'peut_voir_compte_emploi'):
+        # Log de l'accès refusé
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description="Tentative d'accès à la sélection du compte d'emploi",
+            details="Permission peut_voir_compte_emploi manquante",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "selection_compte_emploi", "Permission peut_voir_compte_emploi manquante")
+        messages.error(request, "Vous n'avez pas la permission d'accéder au compte d'emploi.")
         return redirect('common:dashboard')
     
-    # Postes accessibles
-    if request.user.is_admin:
-        postes = Poste.objects.filter(is_active=True).order_by('nom')
-    else:
-        postes = [request.user.poste_affectation] if request.user.poste_affectation else []
+    # Log de l'accès à la vue
+    logger.info(f"[COMPTE_EMPLOI] Utilisateur {user.username} ({user.get_habilitation_display()}) accède à la sélection du compte d'emploi")
+    
+    # ========== DÉTERMINATION DES POSTES ACCESSIBLES ==========
+    # Utilise get_postes_peage_accessibles qui gère automatiquement:
+    # - Accès tous postes pour habilitations multi-postes
+    # - Poste d'affectation uniquement pour les autres
+    postes = get_postes_peage_accessibles(user)
+    
+    logger.debug(f"[COMPTE_EMPLOI] {user.username}: {postes.count()} poste(s) de péage accessible(s)")
     
     # Dates par défaut suggérées
     today = date.today()
@@ -89,6 +141,32 @@ def selection_compte_emploi(request):
                 elif (date_fin - date_debut).days > 365:
                     messages.error(request, "La période ne peut pas dépasser 1 an")
                 else:
+                    # Vérifier que l'utilisateur a accès au poste sélectionné
+                    try:
+                        poste_selectionne = Poste.objects.get(id=poste_id)
+                        if not check_poste_access(user, poste_selectionne):
+                            log_user_action(
+                                user=user,
+                                action="ACCES_REFUSE",
+                                description=f"Tentative d'accès au compte d'emploi du poste {poste_selectionne.nom}",
+                                details="Poste non autorisé pour cet utilisateur",
+                                niveau="WARNING"
+                            )
+                            messages.error(request, "Vous n'avez pas accès à ce poste.")
+                            return redirect('inventaire:selection_compte_emploi')
+                    except Poste.DoesNotExist:
+                        messages.error(request, "Poste non trouvé")
+                        return redirect('inventaire:selection_compte_emploi')
+                    
+                    # Log de la sélection
+                    log_user_action(
+                        user=user,
+                        action="SELECTION_COMPTE_EMPLOI",
+                        description=f"Sélection compte d'emploi - Poste: {poste_selectionne.nom}",
+                        details=f"Période: {date_debut_str} au {date_fin_str}, Action: {action}",
+                        niveau="INFO"
+                    )
+                    
                     if action == 'apercu':
                         return redirect('inventaire:apercu_compte_emploi', 
                                       poste_id=poste_id,
@@ -103,6 +181,7 @@ def selection_compte_emploi(request):
             except ValueError:
                 messages.error(request, "Format de date invalide")
     
+    # ========== CONTEXTE (identique à la version précédente) ==========
     context = {
         'postes': postes,
         'date_debut_suggestion': date_debut_suggestion,
@@ -116,6 +195,7 @@ def selection_compte_emploi(request):
 
 # ===================================================================
 # CALCUL DES DONNÉES DU COMPTE D'EMPLOI - VERSION 2
+# (Aucune modification - fonctions utilitaires pures)
 # ===================================================================
 
 def calculer_stock_event_sourcing(poste, date_reference):
@@ -153,28 +233,17 @@ def extraire_series_depuis_historique(hist):
     
     ORDRE DE PRIORITÉ (données immuables d'abord):
     1. Champs structurés (numero_premier_ticket, numero_dernier_ticket, couleur_principale)
-       → Données immuables, remplies lors de la création
     2. JSONField details_approvisionnement  
-       → Données immuables, snapshot au moment de l'opération
     3. Parser le commentaire 
-       → Données IMMUABLES ! Contient les numéros originaux
     4. ManyToMany series_tickets_associees (DERNIER RECOURS)
-       → Données MUTABLES ! Les séries peuvent être modifiées après chargement
-    
-    CHANGEMENT CLÉ : Le parsing du commentaire est maintenant AVANT le ManyToMany
     """
     import re
     from decimal import Decimal
     
-    # Import du modèle CouleurTicket - adapter selon votre structure
     try:
         from inventaire.models import CouleurTicket
     except ImportError:
         from .models import CouleurTicket
-    
-    # Logger (optionnel, pour debug)
-    import logging
-    logger = logging.getLogger('supper')
     
     series = []
     
@@ -183,10 +252,7 @@ def extraire_series_depuis_historique(hist):
     logger.debug(f"    - numero_premier_ticket: {getattr(hist, 'numero_premier_ticket', None)}")
     logger.debug(f"    - numero_dernier_ticket: {getattr(hist, 'numero_dernier_ticket', None)}")
     
-    # =====================================================================
-    # SOURCE 1: Champs structurés directs (PRIORITÉ MAXIMALE)
-    # Ces champs sont remplis au moment de la création et ne changent pas
-    # =====================================================================
+    # SOURCE 1: Champs structurés directs
     if (hasattr(hist, 'couleur_principale') and hist.couleur_principale and 
         hasattr(hist, 'numero_premier_ticket') and hist.numero_premier_ticket and 
         hasattr(hist, 'numero_dernier_ticket') and hist.numero_dernier_ticket):
@@ -204,10 +270,7 @@ def extraire_series_depuis_historique(hist):
                     f"#{hist.numero_premier_ticket}-{hist.numero_dernier_ticket}")
         return series
     
-    # =====================================================================
     # SOURCE 2: JSONField details_approvisionnement
-    # Snapshot des données au moment de l'opération - immuable
-    # =====================================================================
     if (hasattr(hist, 'details_approvisionnement') and 
         hist.details_approvisionnement and 
         isinstance(hist.details_approvisionnement, dict)):
@@ -218,7 +281,6 @@ def extraire_series_depuis_historique(hist):
             couleur = None
             couleur_nom = serie_data.get('couleur_nom', 'Inconnu')
             
-            # Essayer de récupérer l'objet couleur
             if 'couleur_id' in serie_data:
                 couleur = CouleurTicket.objects.filter(id=serie_data['couleur_id']).first()
             
@@ -245,17 +307,10 @@ def extraire_series_depuis_historique(hist):
             logger.debug(f"    ✓ Source 2 (JSON): {len(series)} série(s) trouvée(s)")
             return series
     
-    # =====================================================================
-    # SOURCE 3: Parser le commentaire (AVANT ManyToMany - CORRECTION MAJEURE!)
-    # Le commentaire est IMMUABLE et contient les numéros ORIGINAUX
-    # =====================================================================
+    # SOURCE 3: Parser le commentaire
     if hasattr(hist, 'commentaire') and hist.commentaire and '#' in hist.commentaire:
-        # Patterns pour extraire les infos du commentaire
-        # Exemples: "Série Rouge #123453648-123554099" ou "Bleu #100-200"
         patterns = [
-            # Pattern 1: "Série Couleur #premier-dernier"
             r"(?:Série\s+)?(\w+(?:\s+\w+)?)\s*#(\d+)[–\-](\d+)",
-            # Pattern 2: "Couleur #premier-dernier" (sans "Série")
             r"(\w+)\s*#(\d+)[–\-](\d+)",
         ]
         
@@ -267,13 +322,11 @@ def extraire_series_depuis_historique(hist):
                     num_premier = int(match[1])
                     num_dernier = int(match[2])
                     
-                    # Essayer de trouver la couleur correspondante
                     couleur = CouleurTicket.objects.filter(
                         libelle_affichage__icontains=couleur_nom
                     ).first()
                     
                     if not couleur:
-                        # Essayer avec le code normalisé
                         couleur = CouleurTicket.objects.filter(
                             code_normalise__icontains=couleur_nom.lower().replace(' ', '_')
                         ).first()
@@ -292,11 +345,7 @@ def extraire_series_depuis_historique(hist):
                     logger.debug(f"    ✓ Source 3 (commentaire parsé): {len(series)} série(s)")
                     return series
     
-    # =====================================================================
-    # SOURCE 4: ManyToMany series_tickets_associees (DERNIER RECOURS)
-    # ⚠️ ATTENTION: Les séries peuvent avoir été MODIFIÉES depuis le chargement!
-    # (découpées par des ventes, transferts, etc.)
-    # =====================================================================
+    # SOURCE 4: ManyToMany series_tickets_associees
     if hasattr(hist, 'series_tickets_associees'):
         series_associees = hist.series_tickets_associees.select_related('couleur').all()
         if series_associees.exists():
@@ -320,19 +369,13 @@ def extraire_series_depuis_historique(hist):
 def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     """
     VERSION CORRIGÉE - Calcul des données du compte d'emploi
-    
-    AMÉLIORATIONS:
-    - Les ventes incluent maintenant la date individuelle de chaque opération
-    - Les ventes sont triées chronologiquement au sein de chaque semaine
-    - Les ventes sont récupérées via HistoriqueStock (source fiable)
+    (Fonction utilitaire - aucune modification liée aux permissions)
     """
     from collections import defaultdict
     from django.db.models import Sum
     from decimal import Decimal
     from datetime import timedelta
-    import logging
     
-    # Imports des modèles
     try:
         from inventaire.models import (
             SerieTicket, StockEvent, HistoriqueStock, CouleurTicket
@@ -340,15 +383,12 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     except ImportError:
         from .models import SerieTicket, StockEvent, HistoriqueStock, CouleurTicket
     
-    logger = logging.getLogger('supper')
-    
     logger.info(f"=" * 60)
     logger.info(f"CALCUL COMPTE D'EMPLOI V2 CORRIGÉ - {poste.nom}")
     logger.info(f"Période: {date_debut} → {date_fin}")
     
     # Initialiser la structure de données
     donnees = {
-        # Ligne Stock de début
         'stock_debut': {
             'stocks': Decimal('0'),
             'ventes': Decimal('0'),
@@ -356,8 +396,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
             'stocks_qte': 0,
             'ventes_qte': 0,
         },
-        
-        # Ligne Approvisionnement Imprimerie Nationale
         'approv_imprimerie': {
             'stocks': Decimal('0'),
             'ventes': Decimal('0'),
@@ -366,8 +404,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
             'ventes_qte': 0,
             'details': [],
         },
-        
-        # Ligne Réapprovisionnement Reçu (transferts entrants)
         'reapprov_recu': {
             'stocks': Decimal('0'),
             'ventes': Decimal('0'),
@@ -376,8 +412,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
             'ventes_qte': 0,
             'details': [],
         },
-        
-        # Ligne Réapprovisionnement Cédé (transferts sortants)
         'reapprov_cede': {
             'stocks': Decimal('0'),
             'ventes': Decimal('0'),
@@ -386,24 +420,17 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
             'ventes_qte': 0,
             'details': [],
         },
-        
-        # Totaux
         'total': {
             'stocks': Decimal('0'),
             'ventes': Decimal('0'),
             'stock_final': Decimal('0'),
         },
-        
-        # Ventes par semaine personnalisée
         'ventes_par_semaine': {},
-        
-        # Stock final calculé
         'stock_final_calcule': Decimal('0'),
         'stock_final_qte': 0,
     }
     
-    # ========== 1. STOCK DE DÉBUT (veille de date_debut) ==========
-    
+    # ========== 1. STOCK DE DÉBUT ==========
     veille_debut = date_debut - timedelta(days=1)
     stock_debut_valeur, stock_debut_qte = calculer_stock_event_sourcing(poste, veille_debut)
     
@@ -413,7 +440,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     logger.info(f"Stock de début (au {veille_debut}): {stock_debut_valeur} FCFA ({stock_debut_qte} tickets)")
     
     # ========== 2. APPROVISIONNEMENTS IMPRIMERIE NATIONALE ==========
-    
     historiques_imprimerie = HistoriqueStock.objects.filter(
         poste=poste,
         type_mouvement='CREDIT',
@@ -457,8 +483,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     
     logger.info(f"Approv Imprimerie: {donnees['approv_imprimerie']['stocks']} FCFA")
     
-    # ========== 3. TRANSFERTS REÇUS (Réapprovisionnement reçu) ==========
-    
+    # ========== 3. TRANSFERTS REÇUS ==========
     historiques_recus = HistoriqueStock.objects.filter(
         poste=poste,
         type_mouvement='CREDIT',
@@ -504,8 +529,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     
     logger.info(f"Transferts reçus: {donnees['reapprov_recu']['stocks']} FCFA")
     
-    # ========== 4. TRANSFERTS CÉDÉS (Réapprovisionnement cédé) ==========
-    
+    # ========== 4. TRANSFERTS CÉDÉS ==========
     historiques_cedes = HistoriqueStock.objects.filter(
         poste=poste,
         type_mouvement='DEBIT',
@@ -552,11 +576,9 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     logger.info(f"Transferts cédés: {donnees['reapprov_cede']['stocks']} FCFA")
     
     # ========== 5. VENTES - Via HistoriqueStock ==========
-    
     logger.info(f"=" * 40)
     logger.info(f"RÉCUPÉRATION DES VENTES (via HistoriqueStock)")
     
-    # Récupérer les ventes via HistoriqueStock
     historiques_ventes = HistoriqueStock.objects.filter(
         poste=poste,
         type_mouvement='DEBIT',
@@ -575,8 +597,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     
     total_ventes_valeur = Decimal('0')
     total_ventes_qte = 0
-    
-    # Structure pour les ventes par semaine personnalisée
     ventes_par_semaine = {}
     
     for hist in historiques_ventes:
@@ -586,7 +606,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
         total_ventes_valeur += montant
         total_ventes_qte += nb_tickets
         
-        # Déterminer la date de la vente
         if hist.date_mouvement:
             if hasattr(hist.date_mouvement, 'date'):
                 event_date = hist.date_mouvement.date()
@@ -597,7 +616,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
         else:
             event_date = date_debut
         
-        # Déterminer la semaine personnalisée
         jours_depuis_debut = (event_date - date_debut).days
         numero_semaine = max(0, jours_depuis_debut // 7)
         
@@ -621,23 +639,17 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
         ventes_par_semaine[semaine_key]['total_tickets'] += nb_tickets
         ventes_par_semaine[semaine_key]['historiques'].append(hist)
         
-        # Extraire les séries vendues avec la DATE
         series = extraire_series_depuis_historique(hist)
         for s in series:
-            # ============================================
-            # AJOUT DE LA DATE À CHAQUE SÉRIE VENDUE
-            # ============================================
             s['date_vente'] = event_date
             s['historique_id'] = hist.id
-            # Référence de la recette si disponible
             if hist.reference_recette:
                 s['reference_recette'] = str(hist.reference_recette)
             ventes_par_semaine[semaine_key]['series_vendues'].append(s)
     
     logger.info(f"  Total ventes via HistoriqueStock: {total_ventes_valeur} FCFA ({total_ventes_qte} tickets)")
     
-    # ========== FALLBACK: StockEvent si aucune vente trouvée ==========
-    
+    # ========== FALLBACK: StockEvent ==========
     if total_ventes_valeur == 0:
         logger.info(f"  → Tentative fallback via StockEvent...")
         
@@ -679,8 +691,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
             ventes_par_semaine[semaine_key]['total_valeur'] += montant
             ventes_par_semaine[semaine_key]['total_tickets'] += nb_tickets
     
-    # ========== Enrichir les semaines sans séries via SerieTicket ==========
-    
+    # ========== Enrichir les semaines sans séries ==========
     for semaine_key, semaine_data in ventes_par_semaine.items():
         if not semaine_data['series_vendues']:
             series_vendues = SerieTicket.objects.filter(
@@ -698,12 +709,9 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
                     'numero_dernier': serie.numero_dernier,
                     'nombre_tickets': serie.nombre_tickets,
                     'valeur': serie.valeur_monetaire,
-                    'date_vente': serie.date_utilisation,  # Date de la vente
+                    'date_vente': serie.date_utilisation,
                 })
         
-        # ============================================
-        # TRIER LES SÉRIES PAR DATE DE VENTE
-        # ============================================
         semaine_data['series_vendues'].sort(
             key=lambda x: (x.get('date_vente') or date_debut, x.get('couleur_nom', ''))
         )
@@ -712,8 +720,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     
     logger.info(f"Total ventes FINAL: {total_ventes_valeur} FCFA ({total_ventes_qte} tickets)")
     
-    # ========== 6. RÉPARTITION DES VENTES PAR CATÉGORIE ==========
-    
+    # ========== 6. RÉPARTITION DES VENTES ==========
     total_entrees = (
         donnees['stock_debut']['stocks'] +
         donnees['approv_imprimerie']['stocks'] +
@@ -737,8 +744,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     donnees['reapprov_cede']['ventes'] = Decimal('0')
     donnees['reapprov_cede']['ventes_qte'] = 0
     
-    # ========== 7. CALCUL DES STOCKS FINAUX PAR LIGNE ==========
-    
+    # ========== 7. CALCUL DES STOCKS FINAUX ==========
     donnees['stock_debut']['stock_final'] = (
         donnees['stock_debut']['stocks'] - donnees['stock_debut']['ventes']
     )
@@ -754,7 +760,6 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     donnees['reapprov_cede']['stock_final'] = donnees['reapprov_cede']['stocks']
     
     # ========== 8. CALCUL DES TOTAUX ==========
-    
     donnees['total']['stocks'] = (
         donnees['stock_debut']['stocks'] +
         donnees['approv_imprimerie']['stocks'] +
@@ -771,7 +776,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
         donnees['reapprov_cede']['stock_final']
     )
     
-    # Stock final via Event Sourcing pour vérification
+    # Stock final via Event Sourcing
     stock_fin_valeur, stock_fin_qte = calculer_stock_event_sourcing(poste, date_fin)
     donnees['stock_final_calcule'] = stock_fin_valeur
     donnees['stock_final_qte'] = stock_fin_qte
@@ -796,22 +801,52 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
     
     return donnees
 
+
 # ===================================================================
 # APERÇU HTML DU COMPTE D'EMPLOI
+# ===================================================================
+# AVANT: request.user.is_admin puis vérification manuelle poste_affectation
+# APRÈS: has_permission('peut_voir_compte_emploi') + check_poste_access()
 # ===================================================================
 
 @login_required
 def apercu_compte_emploi(request, poste_id, date_debut, date_fin):
     """
     Vue pour afficher un aperçu du compte d'emploi avant génération du PDF
+    
+    PERMISSIONS:
+    - peut_voir_compte_emploi: Requis pour accéder à cette vue
+    - Vérification de l'accès au poste via check_poste_access
     """
+    user = request.user
     poste = get_object_or_404(Poste, id=poste_id)
     
-    # Vérifier les permissions
-    if not request.user.is_admin:
-        if not request.user.poste_affectation or request.user.poste_affectation != poste:
-            messages.error(request, "Accès non autorisé")
-            return redirect('inventaire:selection_compte_emploi')
+    # ========== VÉRIFICATION DES PERMISSIONS ==========
+    # 1. Permission globale
+    if not has_permission(user, 'peut_voir_compte_emploi'):
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description=f"Tentative d'accès à l'aperçu compte d'emploi - Poste {poste.nom}",
+            details="Permission peut_voir_compte_emploi manquante",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "apercu_compte_emploi", "Permission peut_voir_compte_emploi manquante")
+        messages.error(request, "Vous n'avez pas la permission d'accéder au compte d'emploi.")
+        return redirect('common:dashboard')
+    
+    # 2. Accès au poste spécifique
+    if not check_poste_access(user, poste):
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description=f"Tentative d'accès au compte d'emploi du poste {poste.nom}",
+            details=f"Poste {poste.nom} non autorisé pour {user.username}",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "apercu_compte_emploi", f"Accès au poste {poste.nom} refusé")
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return redirect('inventaire:selection_compte_emploi')
     
     # Parser les dates
     try:
@@ -821,9 +856,19 @@ def apercu_compte_emploi(request, poste_id, date_debut, date_fin):
         messages.error(request, "Format de dates invalide")
         return redirect('inventaire:selection_compte_emploi')
     
+    # Log de la consultation
+    log_user_action(
+        user=user,
+        action="CONSULTATION_COMPTE_EMPLOI",
+        description=f"Aperçu compte d'emploi - Poste: {poste.nom}",
+        details=f"Période: {date_debut} au {date_fin}",
+        niveau="INFO"
+    )
+    logger.info(f"[COMPTE_EMPLOI] {user.username} consulte l'aperçu pour {poste.nom} ({date_debut} - {date_fin})")
+    
     nombre_jours = (date_fin_obj - date_debut_obj).days + 1
     
-    # Calculer les données avec la nouvelle fonction
+    # Calculer les données
     donnees = calculer_donnees_compte_emploi_v2(poste, date_debut_obj, date_fin_obj)
     
     # Vérifier la cohérence
@@ -837,6 +882,7 @@ def apercu_compte_emploi(request, poste_id, date_debut, date_fin):
             f"Stock final calculé: {donnees['stock_final_calcule']:,.0f} FCFA"
         )
     
+    # ========== CONTEXTE (identique à la version précédente) ==========
     context = {
         'poste': poste,
         'date_debut': date_debut,
@@ -854,6 +900,8 @@ def apercu_compte_emploi(request, poste_id, date_debut, date_fin):
 
 # ===================================================================
 # GÉNÉRATION PDF DU COMPTE D'EMPLOI
+# ===================================================================
+# (Fonctions utilitaires de génération PDF inchangées)
 # ===================================================================
 
 def creer_entete_bilingue(config, poste):
@@ -922,55 +970,45 @@ def creer_entete_bilingue(config, poste):
 
 
 def creer_tableau_principal(donnees, date_debut, date_fin, styles):
-    """
-    Crée le tableau principal du compte d'emploi
-    Format: Période | Stocks | Ventes | Stock Final
-    """
+    """Crée le tableau principal du compte d'emploi"""
     periode_str = f"{date_debut.strftime('%d/%m/%Y')} - {date_fin.strftime('%d/%m/%Y')}"
     
-    # Fonction pour formater les montants
     def fmt_montant(val):
         if val == 0 or val == Decimal('0'):
             return "-"
         return f"{val:,.0f}".replace(',', ' ')
     
     table_data = [
-        # En-tête
         [
             Paragraph(f"<b>Période: {periode_str}</b>", styles['Normal']),
             Paragraph("<b>Stocks</b>", styles['Normal']),
             Paragraph("<b>Ventes</b>", styles['Normal']),
             Paragraph("<b>Stock Final</b>", styles['Normal'])
         ],
-        # Stock de début
         [
             "Stock de début",
             fmt_montant(donnees['stock_debut']['stocks']),
             fmt_montant(donnees['stock_debut']['ventes']),
             fmt_montant(donnees['stock_debut']['stock_final'])
         ],
-        # Approvisionnement Imprimerie
         [
             "Approv. (Imprimerie Nationale)",
             fmt_montant(donnees['approv_imprimerie']['stocks']),
             fmt_montant(donnees['approv_imprimerie']['ventes']),
             fmt_montant(donnees['approv_imprimerie']['stock_final'])
         ],
-        # Réapprovisionnement Reçu
         [
             "Réapprov. reçu",
             fmt_montant(donnees['reapprov_recu']['stocks']),
             fmt_montant(donnees['reapprov_recu']['ventes']),
             fmt_montant(donnees['reapprov_recu']['stock_final'])
         ],
-        # Réapprovisionnement Cédé
         [
             "Réapprov. cédé",
             fmt_montant(donnees['reapprov_cede']['stocks']),
-            "/",  # Pas de ventes pour les cessions
+            "/",
             fmt_montant(donnees['reapprov_cede']['stock_final'])
         ],
-        # Total
         [
             Paragraph("<b>TOTAL</b>", styles['Normal']),
             Paragraph(f"<b>{fmt_montant(donnees['total']['stocks'])}</b>", styles['Normal']),
@@ -983,29 +1021,18 @@ def creer_tableau_principal(donnees, date_debut, date_fin, styles):
     
     table = Table(table_data, colWidths=col_widths)
     table.setStyle(TableStyle([
-        # En-tête
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a5568')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
-        
-        # Corps
         ('FONTSIZE', (0, 1), (-1, -2), 9),
         ('BACKGROUND', (0, 1), (-1, -2), colors.whitesmoke),
-        
-        # Ligne Total
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e2e8f0')),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        
-        # Alignement
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        
-        # Bordures
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        
-        # Padding
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
@@ -1016,13 +1043,9 @@ def creer_tableau_principal(donnees, date_debut, date_fin, styles):
 
 
 def creer_section_details_approvisionnement(donnees, styles, titre="DÉTAILS DES APPROVISIONNEMENTS - IMPRIMERIE NATIONALE"):
-    """
-    Crée la section des détails d'approvisionnement
-    Format: Date | Observation (couleur, numéros de série) | Montant
-    """
+    """Crée la section des détails d'approvisionnement"""
     elements = []
     
-    # Titre
     titre_style = ParagraphStyle(
         'TitreSection',
         parent=styles['Heading2'],
@@ -1150,7 +1173,7 @@ def creer_section_transferts_cedes(donnees, styles):
     for detail in details:
         date_str = detail['date'].strftime('%d/%m/%Y') if detail['date'] else '-'
         observation = detail['observation'][:80] + "..." if len(detail['observation']) > 80 else detail['observation']
-        montant = f"{abs(detail['montant']):,.0f}".replace(',', ' ')  # Valeur absolue pour affichage
+        montant = f"{abs(detail['montant']):,.0f}".replace(',', ' ')
         
         table_data.append([date_str, observation, f"-{montant}"])
     
@@ -1177,10 +1200,7 @@ def creer_section_transferts_cedes(donnees, styles):
 
 
 def creer_section_ventes_par_semaine(donnees, styles):
-    """
-    Crée la section des ventes par semaine personnalisée
-    Affiche les séries vendues par semaine
-    """
+    """Crée la section des ventes par semaine personnalisée"""
     elements = []
     
     titre_style = ParagraphStyle(
@@ -1199,14 +1219,12 @@ def creer_section_ventes_par_semaine(donnees, styles):
         elements.append(Paragraph("<i>Aucune vente sur cette période</i>", styles['Normal']))
         return elements
     
-    # Trier les semaines chronologiquement
     semaines_triees = sorted(
         ventes_par_semaine.items(),
         key=lambda x: x[1]['date_debut']
     )
     
     for semaine_key, semaine_data in semaines_triees:
-        # En-tête de semaine
         semaine_header = Paragraph(
             f"<b>SEMAINE DU {semaine_key}</b>",
             ParagraphStyle(
@@ -1220,7 +1238,6 @@ def creer_section_ventes_par_semaine(donnees, styles):
         
         table_data = [[semaine_header, '', '']]
         
-        # Regrouper les séries par couleur
         series_par_couleur = {}
         for serie in semaine_data['series_vendues']:
             couleur_nom = serie.get('couleur_nom', 'Inconnu')
@@ -1234,11 +1251,9 @@ def creer_section_ventes_par_semaine(donnees, styles):
             series_par_couleur[couleur_nom]['total_tickets'] += serie.get('nombre_tickets', 0)
             series_par_couleur[couleur_nom]['total_valeur'] += serie.get('valeur', Decimal('0'))
         
-        # Afficher par couleur
         for couleur_nom, couleur_data in series_par_couleur.items():
-            # Construire la liste des séries
             series_str_list = []
-            for s in couleur_data['series'][:5]:  # Limiter à 5 séries par couleur
+            for s in couleur_data['series'][:5]:
                 series_str_list.append(f"#{s['numero_premier']}-{s['numero_dernier']}")
             
             if len(couleur_data['series']) > 5:
@@ -1252,7 +1267,6 @@ def creer_section_ventes_par_semaine(donnees, styles):
                 f"{couleur_data['total_valeur']:,.0f} FCFA".replace(',', ' ')
             ])
         
-        # Ligne total semaine
         table_data.append([
             Paragraph("<b>Total semaine</b>", styles['Normal']),
             f"{semaine_data['total_tickets']} tickets",
@@ -1261,32 +1275,21 @@ def creer_section_ventes_par_semaine(donnees, styles):
         
         table = Table(table_data, colWidths=[4*cm, 8*cm, 3.5*cm])
         table.setStyle(TableStyle([
-            # En-tête semaine
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dd6b20')),
             ('SPAN', (0, 0), (-1, 0)),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 8),
-            
-            # Corps
             ('BACKGROUND', (0, 1), (-1, -2), colors.HexColor('#fef3e2')),
             ('FONTSIZE', (0, 1), (-1, -2), 7),
-            
-            # Total
             ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#fed7aa')),
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
             ('FONTSIZE', (0, -1), (-1, -1), 8),
-            
-            # Alignement
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'LEFT'),
             ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            
-            # Bordures
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#dd6b20')),
-            
-            # Padding
             ('LEFTPADDING', (0, 0), (-1, -1), 5),
             ('RIGHTPADDING', (0, 0), (-1, -1), 5),
             ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -1330,18 +1333,51 @@ def creer_pied_page(poste, config, user):
     return footer_table
 
 
+# ===================================================================
+# GÉNÉRATION PDF DU COMPTE D'EMPLOI
+# ===================================================================
+# AVANT: request.user.is_admin puis vérification manuelle poste_affectation
+# APRÈS: has_permission('peut_voir_compte_emploi') + check_poste_access()
+# ===================================================================
+
 @login_required
 def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     """
     Génère le PDF du compte d'emploi avec le nouveau format
+    
+    PERMISSIONS:
+    - peut_voir_compte_emploi: Requis pour accéder à cette vue
+    - Vérification de l'accès au poste via check_poste_access
     """
+    user = request.user
     poste = get_object_or_404(Poste, id=poste_id)
     
-    # Vérifier les permissions
-    if not request.user.is_admin:
-        if not request.user.poste_affectation or request.user.poste_affectation != poste:
-            messages.error(request, "Accès non autorisé")
-            return redirect('inventaire:selection_compte_emploi')
+    # ========== VÉRIFICATION DES PERMISSIONS ==========
+    # 1. Permission globale
+    if not has_permission(user, 'peut_voir_compte_emploi'):
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description=f"Tentative de génération PDF compte d'emploi - Poste {poste.nom}",
+            details="Permission peut_voir_compte_emploi manquante",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "generer_compte_emploi_pdf", "Permission peut_voir_compte_emploi manquante")
+        messages.error(request, "Vous n'avez pas la permission de générer ce document.")
+        return redirect('common:dashboard')
+    
+    # 2. Accès au poste spécifique
+    if not check_poste_access(user, poste):
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description=f"Tentative de génération PDF pour le poste {poste.nom}",
+            details=f"Poste {poste.nom} non autorisé pour {user.username}",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "generer_compte_emploi_pdf", f"Accès au poste {poste.nom} refusé")
+        messages.error(request, "Vous n'avez pas accès à ce poste.")
+        return redirect('inventaire:selection_compte_emploi')
     
     # Parser les dates
     try:
@@ -1350,6 +1386,16 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     except:
         messages.error(request, "Format de dates invalide")
         return redirect('inventaire:selection_compte_emploi')
+    
+    # Log de la génération
+    log_user_action(
+        user=user,
+        action="GENERATION_PDF_COMPTE_EMPLOI",
+        description=f"Génération PDF compte d'emploi - Poste: {poste.nom}",
+        details=f"Période: {date_debut} au {date_fin}",
+        niveau="INFO"
+    )
+    logger.info(f"[COMPTE_EMPLOI] {user.username} génère le PDF pour {poste.nom} ({date_debut} - {date_fin})")
     
     # Récupérer config
     config = ConfigurationGlobale.get_config()
@@ -1396,7 +1442,7 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     elements.append(titre)
     elements.append(Spacer(1, 0.5*cm))
     
-    # Tableau principal (nouveau format)
+    # Tableau principal
     elements.append(creer_tableau_principal(donnees, date_debut_obj, date_fin_obj, styles))
     elements.append(Spacer(1, 0.5*cm))
     
@@ -1409,7 +1455,7 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     # Section Transferts cédés
     elements.extend(creer_section_transferts_cedes(donnees, styles))
     
-    # Saut de page si nécessaire
+    # Saut de page
     elements.append(PageBreak())
     
     # Section Ventes par semaine
@@ -1439,7 +1485,7 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
     
     # Pied de page
     elements.append(Spacer(1, 0.5*cm))
-    elements.append(creer_pied_page(poste, config, request.user))
+    elements.append(creer_pied_page(poste, config, user))
     
     # Générer le PDF
     doc.build(elements)
@@ -1450,11 +1496,35 @@ def generer_compte_emploi_pdf(request, poste_id, date_debut, date_fin):
 # ===================================================================
 # PARAMÉTRAGE GLOBAL
 # ===================================================================
+# AVANT: @user_passes_test(lambda u: u.is_admin)
+# APRÈS: Vérification via has_permission('peut_parametrage_global')
+# ===================================================================
 
 @login_required
-@user_passes_test(lambda u: u.is_admin)
 def parametrage_global(request):
-    """Vue de paramétrage global pour tous les postes"""
+    """
+    Vue de paramétrage global pour tous les postes
+    
+    PERMISSIONS:
+    - peut_parametrage_global: Requis pour accéder à cette vue
+    """
+    user = request.user
+    
+    # ========== VÉRIFICATION DES PERMISSIONS ==========
+    if not has_permission(user, 'peut_parametrage_global'):
+        log_user_action(
+            user=user,
+            action="ACCES_REFUSE",
+            description="Tentative d'accès au paramétrage global",
+            details="Permission peut_parametrage_global manquante",
+            niveau="WARNING"
+        )
+        log_acces_refuse(user, "parametrage_global", "Permission peut_parametrage_global manquante")
+        messages.error(request, "Vous n'avez pas la permission d'accéder au paramétrage global.")
+        return redirect('common:dashboard')
+    
+    # Log de l'accès
+    logger.info(f"[PARAMETRAGE] {user.username} ({user.get_habilitation_display()}) accède au paramétrage global")
     
     config = ConfigurationGlobale.get_config()
     
@@ -1476,9 +1546,20 @@ def parametrage_global(request):
         
         config.save()
         
+        # Log de la modification
+        log_user_action(
+            user=user,
+            action="MODIFICATION_PARAMETRAGE_GLOBAL",
+            description="Mise à jour de la configuration globale",
+            details="Paramètres bilingues FR/EN modifiés",
+            niveau="INFO"
+        )
+        logger.info(f"[PARAMETRAGE] {user.username} a modifié la configuration globale")
+        
         messages.success(request, "Configuration globale mise à jour avec succès")
         return redirect('inventaire:parametrage_global')
     
+    # ========== CONTEXTE (identique à la version précédente) ==========
     context = {
         'config': config,
         'title': 'Paramétrage Global des Documents'

@@ -797,29 +797,270 @@ def liste_utilisateurs(request):
     
     return render(request, 'accounts/liste_utilisateurs.html', context)
 
+TOUTES_PERMISSIONS_FORMULAIRE = {
+    'acces_global': {
+        'label': 'Accès Global',
+        'permissions': [
+            ('acces_tous_postes', 'Accès à tous les postes'),
+            ('peut_saisir_peage', 'Peut saisir données péage'),
+            ('peut_saisir_pesage', 'Peut saisir données pesage'),
+            ('voir_recettes_potentielles', 'Voir recettes potentielles'),
+            ('voir_taux_deperdition', 'Voir taux de déperdition'),
+            ('voir_statistiques_globales', 'Voir statistiques globales'),
+            ('peut_saisir_pour_autres_postes', 'Saisir pour autres postes'),
+        ]
+    },
+    'inventaires': {
+        'label': 'Inventaires',
+        'permissions': [
+            ('peut_saisir_inventaire_normal', 'Saisie inventaire normal'),
+            ('peut_saisir_inventaire_admin', 'Saisie inventaire administratif'),
+            ('peut_programmer_inventaire', 'Programmer inventaires'),
+            ('peut_voir_programmation_active', 'Voir programmation active'),
+            ('peut_desactiver_programmation', 'Désactiver programmation'),
+            ('peut_voir_programmation_desactivee', 'Voir programmation désactivée'),
+            ('peut_voir_liste_inventaires', 'Voir liste inventaires'),
+            ('peut_voir_liste_inventaires_admin', 'Voir liste inventaires admin'),
+            ('peut_voir_jours_impertinents', 'Voir jours impertinents'),
+            ('peut_voir_stats_deperdition', 'Voir stats déperdition'),
+        ]
+    },
+    'recettes_peage': {
+        'label': 'Recettes Péage',
+        'permissions': [
+            ('peut_saisir_recette_peage', 'Saisie recettes péage'),
+            ('peut_voir_liste_recettes_peage', 'Voir liste recettes péage'),
+            ('peut_voir_stats_recettes_peage', 'Voir stats recettes péage'),
+            ('peut_importer_recettes_peage', 'Importer recettes péage'),
+            ('peut_voir_evolution_peage', 'Voir évolution péage'),
+            ('peut_voir_objectifs_peage', 'Voir objectifs péage'),
+        ]
+    },
+    'quittances_peage': {
+        'label': 'Quittances Péage',
+        'permissions': [
+            ('peut_saisir_quittance_peage', 'Saisie quittances péage'),
+            ('peut_voir_liste_quittances_peage', 'Voir liste quittances péage'),
+            ('peut_comptabiliser_quittances_peage', 'Comptabiliser quittances péage'),
+        ]
+    },
+    'pesage': {
+        'label': 'Pesage',
+        'permissions': [
+            ('peut_voir_historique_vehicule_pesage', 'Voir historique véhicules'),
+            ('peut_saisir_amende', 'Saisie amendes'),
+            ('peut_saisir_pesee_jour', 'Saisie pesées du jour'),
+            ('peut_voir_objectifs_pesage', 'Voir objectifs pesage'),
+            ('peut_valider_paiement_amende', 'Valider paiements amendes'),
+            ('peut_lister_amendes', 'Lister amendes'),
+            ('peut_saisir_quittance_pesage', 'Saisie quittances pesage'),
+            ('peut_comptabiliser_quittances_pesage', 'Comptabiliser quittances pesage'),
+            ('peut_voir_liste_quittancements_pesage', 'Voir liste quittancements'),
+            ('peut_voir_historique_pesees', 'Voir historique pesées'),
+            ('peut_voir_recettes_pesage', 'Voir recettes pesage'),
+            ('peut_voir_stats_pesage', 'Voir stats pesage'),
+        ]
+    },
+    'stock_peage': {
+        'label': 'Stock Péage',
+        'permissions': [
+            ('peut_charger_stock_peage', 'Charger stock péage'),
+            ('peut_voir_liste_stocks_peage', 'Voir liste stocks péage'),
+            ('peut_voir_stock_date_peage', 'Voir stock à date'),
+            ('peut_transferer_stock_peage', 'Transférer stock péage'),
+            ('peut_voir_tracabilite_tickets', 'Voir traçabilité tickets'),
+            ('peut_voir_bordereaux_peage', 'Voir bordereaux péage'),
+            ('peut_voir_mon_stock_peage', 'Voir mon stock péage'),
+            ('peut_voir_historique_stock_peage', 'Voir historique stock'),
+            ('peut_simuler_commandes_peage', 'Simuler commandes péage'),
+        ]
+    },
+    'gestion': {
+        'label': 'Gestion',
+        'permissions': [
+            ('peut_gerer_postes', 'Gérer postes'),
+            ('peut_ajouter_poste', 'Ajouter poste'),
+            ('peut_creer_poste_masse', 'Créer postes en masse'),
+            ('peut_gerer_utilisateurs', 'Gérer utilisateurs'),
+            ('peut_creer_utilisateur', 'Créer utilisateur'),
+            ('peut_voir_journal_audit', 'Voir journal audit'),
+        ]
+    },
+    'rapports': {
+        'label': 'Rapports',
+        'permissions': [
+            ('peut_voir_rapports_defaillants_peage', 'Rapports défaillants péage'),
+            ('peut_voir_rapports_defaillants_pesage', 'Rapports défaillants pesage'),
+            ('peut_voir_rapport_inventaires', 'Rapport inventaires'),
+            ('peut_voir_classement_peage_rendement', 'Classement péage rendement'),
+            ('peut_voir_classement_station_pesage', 'Classement stations pesage'),
+            ('peut_voir_classement_peage_deperdition', 'Classement péage déperdition'),
+            ('peut_voir_classement_agents_inventaire', 'Classement agents inventaire'),
+        ]
+    },
+    'autres': {
+        'label': 'Autres',
+        'permissions': [
+            ('peut_parametrage_global', 'Paramétrage global'),
+            ('peut_voir_compte_emploi', 'Voir compte emploi'),
+            ('peut_voir_pv_confrontation', 'Voir PV confrontation'),
+            ('peut_authentifier_document', 'Authentifier document'),
+            ('peut_voir_tous_postes', 'Voir tous les postes'),
+        ]
+    },
+    'modules_legacy': {
+        'label': 'Modules (Legacy)',
+        'permissions': [
+            ('peut_gerer_peage', 'Gérer péage'),
+            ('peut_gerer_pesage', 'Gérer pesage'),
+            ('peut_gerer_personnel', 'Gérer personnel'),
+            ('peut_gerer_budget', 'Gérer budget'),
+            ('peut_gerer_inventaire', 'Gérer inventaire'),
+            ('peut_gerer_archives', 'Gérer archives'),
+            ('peut_gerer_stocks_psrr', 'Gérer stocks PSRR'),
+            ('peut_gerer_stock_info', 'Gérer stock info'),
+        ]
+    },
+}
+
+# Liste plate de toutes les permissions (pour itération)
+LISTE_PERMISSIONS_FLAT = []
+for category, data in TOUTES_PERMISSIONS_FORMULAIRE.items():
+    for perm_code, perm_label in data['permissions']:
+        LISTE_PERMISSIONS_FLAT.append(perm_code)
+
+
+def _appliquer_permissions_formulaire(user, post_data):
+    """
+    Applique les permissions cochées/décochées dans le formulaire.
+    
+    Args:
+        user: Instance UtilisateurSUPPER (non sauvegardée)
+        post_data: request.POST contenant les checkboxes
+    
+    Note:
+        Les checkboxes non cochées n'apparaissent PAS dans POST.
+        On doit donc vérifier la présence de chaque permission dans POST.
+    """
+    for perm_code in LISTE_PERMISSIONS_FLAT:
+        # Si la checkbox est cochée, elle sera dans POST
+        # Si elle n'est pas cochée, elle n'y sera pas
+        value = perm_code in post_data
+        if hasattr(user, perm_code):
+            setattr(user, perm_code, value)
+    
+    logger.debug(f"Permissions appliquées pour {user.username} depuis formulaire")
+
+
+def _detecter_modifications_permissions(user, post_data):
+    """
+    Détecte si des permissions ont été modifiées par rapport à l'état actuel.
+    
+    Args:
+        user: Instance UtilisateurSUPPER (état actuel en base)
+        post_data: request.POST contenant les checkboxes
+    
+    Returns:
+        tuple: (bool, list) - (modifié, liste des changements)
+    """
+    changes = []
+    
+    for perm_code in LISTE_PERMISSIONS_FLAT:
+        current_value = getattr(user, perm_code, False)
+        form_value = perm_code in post_data
+        
+        if current_value != form_value:
+            changes.append({
+                'permission': perm_code,
+                'old': current_value,
+                'new': form_value
+            })
+    
+    return len(changes) > 0, changes
+
+
+def _get_permissions_context(user=None):
+    """
+    Prépare le contexte des permissions pour le template.
+    
+    Args:
+        user: Instance UtilisateurSUPPER (optionnel, pour pré-remplir les valeurs)
+    
+    Returns:
+        dict: Permissions organisées par catégorie avec valeurs actuelles
+    """
+    context = {}
+    
+    for category_key, category_data in TOUTES_PERMISSIONS_FORMULAIRE.items():
+        context[category_key] = {
+            'label': category_data['label'],
+            'permissions': []
+        }
+        
+        for perm_code, perm_label in category_data['permissions']:
+            perm_info = {
+                'code': perm_code,
+                'label': perm_label,
+                'value': getattr(user, perm_code, False) if user else False
+            }
+            context[category_key]['permissions'].append(perm_info)
+    
+    return context
+
+
+# ===================================================================
+# VUE creer_utilisateur CORRIGÉE
+# ===================================================================
+
 @login_required
 @permission_required_granular('peut_gerer_utilisateurs')
 def creer_utilisateur(request):
     """
     Vue pour créer un nouvel utilisateur avec formulaire.
-    Utilise UserCreateForm avec validation habilitation/poste.
+    
+    COMPORTEMENT:
+    - Les permissions sont automatiquement attribuées selon l'habilitation
+    - L'admin peut personnaliser les permissions via les checkboxes
+    - Les personnalisations sont appliquées APRÈS les permissions automatiques
     """
+    from .models import UtilisateurSUPPER, Poste, Habilitation
+    from .forms import UserCreateForm, FILTRAGE_POSTES_JS, PERMISSIONS_CSS
+    from common.utils import get_user_short_description, get_user_description, log_user_action
+    
     if request.method == 'POST':
         form = UserCreateForm(request.POST, request.FILES)
         
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    user = form.save(created_by=request.user)
+                    # Créer l'utilisateur sans sauvegarder encore
+                    user = form.save(commit=False)
+                    
+                    # Sauvegarder une première fois pour avoir un ID
+                    # Cela déclenche attribuer_permissions_automatiques()
+                    user.save()
+                    
+                    # Vérifier si des permissions personnalisées ont été cochées
+                    has_custom_perms, perm_changes = _detecter_modifications_permissions(user, request.POST)
+                    
+                    if has_custom_perms:
+                        # Appliquer les personnalisations du formulaire
+                        _appliquer_permissions_formulaire(user, request.POST)
+                        # Sauvegarder sans recalculer les permissions
+                        user.save(skip_auto_permissions=True)
                     
                     # Journalisation détaillée
                     user_desc = get_user_short_description(request.user)
                     new_user_desc = get_user_description(user)
                     
+                    details = f"{user_desc} a créé: {new_user_desc}"
+                    if has_custom_perms:
+                        details += f" | {len(perm_changes)} permission(s) personnalisée(s)"
+                    
                     log_user_action(
                         request.user,
                         "Création utilisateur",
-                        f"{user_desc} a créé: {new_user_desc}",
+                        details,
                         request,
                         utilisateur_cible=user.username,
                         habilitation=user.habilitation,
@@ -842,6 +1083,9 @@ def creer_utilisateur(request):
     else:
         form = UserCreateForm()
     
+    # Préparer le contexte des permissions (toutes à False pour création)
+    permissions_context = _get_permissions_context(user=None)
+    
     context = {
         'form': form,
         'postes_peage': Poste.objects.filter(is_active=True, type='peage').order_by('nom'),
@@ -850,17 +1094,170 @@ def creer_utilisateur(request):
         'title': _('Créer un Utilisateur'),
         'filtrage_postes_js': FILTRAGE_POSTES_JS,
         'permissions_css': PERMISSIONS_CSS,
+        # Permissions organisées par catégorie
+        'permissions_categories': permissions_context,
+        'show_permissions_section': True,
     }
     
     return render(request, 'accounts/creer_utilisateur.html', context)
 
 
+# ===================================================================
+# VUE modifier_utilisateur CORRIGÉE
+# ===================================================================
+
+@login_required
+@permission_required_granular('peut_gerer_utilisateurs')
+def modifier_utilisateur(request, user_id):
+    """
+    Vue pour modifier un utilisateur avec gestion des permissions personnalisées.
+    
+    COMPORTEMENT:
+    - Si l'habilitation change: recalculer les permissions automatiques 
+      PUIS appliquer les personnalisations du formulaire
+    - Si l'habilitation ne change pas: appliquer directement les permissions 
+      du formulaire SANS recalculer
+    
+    Cela permet de personnaliser les permissions d'un utilisateur sans 
+    qu'elles soient écrasées à chaque sauvegarde.
+    """
+    from .models import UtilisateurSUPPER, Poste, Habilitation
+    from .forms import UserUpdateForm, FILTRAGE_POSTES_JS
+    from common.utils import get_user_short_description, log_user_action
+    
+    user_to_edit = get_object_or_404(UtilisateurSUPPER, id=user_id)
+    
+    # Sauvegarder l'habilitation actuelle pour détecter un changement
+    old_habilitation = user_to_edit.habilitation
+    
+    if request.method == 'POST':
+        form = UserUpdateForm(request.POST, request.FILES, instance=user_to_edit)
+        
+        if form.is_valid():
+            # Détecter les changements pour la journalisation
+            changes = []
+            habilitation_changed = False
+            
+            if form.has_changed():
+                for field in form.changed_data:
+                    old_value = getattr(user_to_edit, field, None)
+                    new_value = form.cleaned_data.get(field)
+                    
+                    if field == 'habilitation':
+                        habilitation_changed = True
+                        old_display = dict(Habilitation.choices).get(old_value, old_value)
+                        new_display = dict(Habilitation.choices).get(new_value, new_value)
+                        changes.append(f"Rôle: {old_display} → {new_display}")
+                    elif field == 'poste_affectation':
+                        old_display = str(old_value) if old_value else "Aucun"
+                        new_display = str(new_value) if new_value else "Aucun"
+                        changes.append(f"Poste: {old_display} → {new_display}")
+                    elif field == 'is_active':
+                        old_display = "Actif" if old_value else "Inactif"
+                        new_display = "Actif" if new_value else "Inactif"
+                        changes.append(f"Statut: {old_display} → {new_display}")
+                    elif not field.startswith('peut_') and not field.startswith('voir_') and field != 'acces_tous_postes':
+                        changes.append(f"{field}: modifié")
+            
+            # Détecter si des permissions ont été modifiées via les checkboxes
+            permissions_modified, perm_changes = _detecter_modifications_permissions(user_to_edit, request.POST)
+            
+            # ============================================================
+            # LOGIQUE CLÉ: Gestion des permissions selon le contexte
+            # ============================================================
+            
+            # Sauvegarder le formulaire sans commit pour avoir l'objet modifié
+            user_updated = form.save(commit=False)
+            
+            if habilitation_changed:
+                # CAS 1: L'habilitation a changé
+                # → Recalculer les permissions de base selon la nouvelle habilitation
+                # → PUIS appliquer les personnalisations du formulaire
+                user_updated.attribuer_permissions_automatiques()
+                _appliquer_permissions_formulaire(user_updated, request.POST)
+                user_updated.save(skip_auto_permissions=True)
+                changes.append("Permissions recalculées selon nouveau rôle")
+                
+                logger.info(
+                    f"Utilisateur {user_updated.username}: habilitation changée de "
+                    f"{old_habilitation} vers {user_updated.habilitation}, permissions recalculées"
+                )
+            else:
+                # CAS 2: L'habilitation n'a pas changé
+                # → Appliquer directement les permissions du formulaire
+                # → Sauvegarder SANS recalculer les permissions automatiques
+                _appliquer_permissions_formulaire(user_updated, request.POST)
+                user_updated.save(skip_auto_permissions=True)
+                
+                if permissions_modified:
+                    changes.append(f"{len(perm_changes)} permission(s) modifiée(s)")
+                    logger.info(
+                        f"Utilisateur {user_updated.username}: {len(perm_changes)} permissions personnalisées"
+                    )
+            
+            # Journalisation détaillée
+            user_desc = get_user_short_description(request.user)
+            target_desc = get_user_short_description(user_updated)
+            details = f"{user_desc} a modifié: {target_desc}"
+            if changes:
+                details += f" | Changements: {', '.join(changes)}"
+            
+            log_user_action(request.user, "Modification utilisateur", details, request)
+            
+            messages.success(
+                request, 
+                f"Utilisateur {user_updated.nom_complet} modifié avec succès."
+            )
+            return redirect('accounts:detail_utilisateur', user_id=user_updated.id)
+        else:
+            # Afficher les erreurs du formulaire
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error if field == '__all__' else f"{error}")
+    else:
+        form = UserUpdateForm(instance=user_to_edit)
+    
+    # Postes filtrés par type
+    postes_peage = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
+    postes_pesage = Poste.objects.filter(is_active=True, type='pesage').order_by('nom')
+    
+    # Préparer le contexte des permissions avec les valeurs actuelles
+    permissions_context = _get_permissions_context(user=user_to_edit)
+
+    context = {
+        'form': form,
+        'user_edit': user_to_edit,
+        'postes_peage': postes_peage,
+        'postes_pesage': postes_pesage,
+        'count_peage': postes_peage.count(),
+        'count_pesage': postes_pesage.count(),
+        'habilitations': Habilitation.choices,
+        'title': f'Modifier - {user_to_edit.nom_complet}',
+        'filtrage_postes_js': FILTRAGE_POSTES_JS,
+        # Permissions organisées par catégorie avec valeurs actuelles
+        'permissions_categories': permissions_context,
+        'show_permissions_section': True,
+    }
+    
+    return render(request, 'accounts/modifier_utilisateur.html', context)
+
+
+# ===================================================================
+# VUE detail_utilisateur CORRIGÉE
+# ===================================================================
+
 @login_required
 def detail_utilisateur(request, user_id):
     """
-    Vue pour afficher les détails d'un utilisateur.
+    Vue pour afficher les détails d'un utilisateur avec toutes ses permissions.
     Accessible par l'utilisateur lui-même ou par les gestionnaires.
     """
+    from .models import UtilisateurSUPPER, JournalAudit
+    from common.utils import (
+        get_user_description, get_user_short_description, log_acces_refuse
+    )
+    from django.utils import timezone
+    
     user_detail = get_object_or_404(UtilisateurSUPPER, id=user_id)
     
     # Vérification des permissions
@@ -906,111 +1303,33 @@ def detail_utilisateur(request, user_id):
         ).count(),
     }
     
-    # Permissions de l'utilisateur consulté (organisées)
-    permissions_list = []
-    permission_fields = [
-        ('peut_gerer_utilisateurs', 'Gérer utilisateurs'),
-        ('peut_gerer_postes', 'Gérer postes'),
-        ('peut_saisir_inventaire_normal', 'Saisie inventaire'),
-        ('peut_saisir_recette_peage', 'Saisie recettes péage'),
-        ('peut_saisir_amende', 'Saisie amendes'),
-        ('peut_voir_journal_audit', 'Journal d\'audit'),
-        ('acces_tous_postes', 'Accès tous postes'),
-    ]
+    # Permissions organisées par catégorie avec valeurs actuelles
+    permissions_context = _get_permissions_context(user=user_detail)
     
-    for field, label in permission_fields:
-        if hasattr(user_detail, field) and getattr(user_detail, field):
-            permissions_list.append(label)
+    # Compter les permissions actives
+    total_permissions = 0
+    permissions_actives = 0
+    for category_key, category_data in permissions_context.items():
+        for perm in category_data['permissions']:
+            total_permissions += 1
+            if perm['value']:
+                permissions_actives += 1
     
     context = {
         'user_detail': user_detail,
         'user_description': user_desc,
         'activites_recentes': activites_recentes,
         'stats_user': stats_user,
-        'permissions_list': permissions_list,
+        # Permissions organisées
+        'permissions_categories': permissions_context,
+        'total_permissions': total_permissions,
+        'permissions_actives': permissions_actives,
+        # Droits de l'utilisateur consultant
         'can_edit': check_user_management_permission(request.user),
         'title': f'Profil - {user_detail.nom_complet}',
     }
     
     return render(request, 'accounts/detail_utilisateur.html', context)
-
-
-@login_required
-@permission_required_granular('peut_gerer_utilisateurs')
-def modifier_utilisateur(request, user_id):
-    """
-    Vue pour modifier un utilisateur avec filtrage dynamique des postes.
-    Utilise UserUpdateForm avec validation habilitation/poste.
-    """
-    user_to_edit = get_object_or_404(UtilisateurSUPPER, id=user_id)
-    
-    if request.method == 'POST':
-        form = UserUpdateForm(request.POST, request.FILES, instance=user_to_edit)
-        
-        if form.is_valid():
-            # Détecter les changements pour la journalisation
-            changes = []
-            if form.has_changed():
-                for field in form.changed_data:
-                    old_value = getattr(user_to_edit, field, None)
-                    new_value = form.cleaned_data.get(field)
-                    
-                    if field == 'habilitation':
-                        old_display = dict(Habilitation.choices).get(old_value, old_value)
-                        new_display = dict(Habilitation.choices).get(new_value, new_value)
-                        changes.append(f"Rôle: {old_display} → {new_display}")
-                    elif field == 'poste_affectation':
-                        old_display = str(old_value) if old_value else "Aucun"
-                        new_display = str(new_value) if new_value else "Aucun"
-                        changes.append(f"Poste: {old_display} → {new_display}")
-                    elif field == 'is_active':
-                        old_display = "Actif" if old_value else "Inactif"
-                        new_display = "Actif" if new_value else "Inactif"
-                        changes.append(f"Statut: {old_display} → {new_display}")
-                    else:
-                        changes.append(f"{field}: modifié")
-            
-            user_updated = form.save()
-            
-            # Journalisation détaillée
-            user_desc = get_user_short_description(request.user)
-            target_desc = get_user_short_description(user_updated)
-            details = f"{user_desc} a modifié: {target_desc}"
-            if changes:
-                details += f" | Changements: {', '.join(changes)}"
-            
-            log_user_action(request.user, "Modification utilisateur", details, request)
-            
-            messages.success(
-                request, 
-                f"Utilisateur {user_updated.nom_complet} modifié avec succès."
-            )
-            return redirect('accounts:detail_utilisateur', user_id=user_updated.id)
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, error if field == '__all__' else f"{error}")
-    else:
-        form = UserUpdateForm(instance=user_to_edit)
-    
-    # Postes filtrés par type
-    postes_peage = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
-    postes_pesage = Poste.objects.filter(is_active=True, type='pesage').order_by('nom')
-
-    context = {
-        'form': form,
-        'user_edit': user_to_edit,
-        'postes_peage': postes_peage,
-        'postes_pesage': postes_pesage,
-        'count_peage': postes_peage.count(),
-        'count_pesage': postes_pesage.count(),
-        'habilitations': Habilitation.choices,
-        'title': f'Modifier - {user_to_edit.nom_complet}',
-        'filtrage_postes_js': FILTRAGE_POSTES_JS,
-    }
-    
-    return render(request, 'accounts/modifier_utilisateur.html', context)
-
 
 class PasswordResetView(GestionUtilisateursPermissionMixin, BilingualMixin, 
                         AuditMixin, View):
@@ -2387,3 +2706,56 @@ def audit_view(action_name, get_context=None, skip_middleware=True):
         return wrapper
     return decorator
 
+@login_required
+@require_GET
+def api_permissions_defaut(request):
+    """
+    API pour récupérer les permissions par défaut d'une habilitation.
+    
+    Paramètres GET:
+        - habilitation: code de l'habilitation
+    
+    Returns:
+        JSON avec les permissions par défaut
+    """
+    from .models import UtilisateurSUPPER, Habilitation
+    
+    habilitation = request.GET.get('habilitation', '')
+    
+    if not habilitation:
+        return JsonResponse({
+            'success': False,
+            'error': 'Habilitation requise'
+        })
+    
+    try:
+        # Créer un utilisateur temporaire pour obtenir les permissions par défaut
+        temp_user = UtilisateurSUPPER(habilitation=habilitation)
+        
+        # Réinitialiser et attribuer les permissions
+        if hasattr(temp_user, '_reinitialiser_toutes_permissions'):
+            temp_user._reinitialiser_toutes_permissions()
+        if hasattr(temp_user, 'attribuer_permissions_automatiques'):
+            temp_user.attribuer_permissions_automatiques()
+        
+        # Extraire toutes les permissions
+        permissions = {}
+        for perm_code in LISTE_PERMISSIONS_FLAT:
+            permissions[perm_code] = getattr(temp_user, perm_code, False)
+        
+        # Obtenir le label de l'habilitation
+        habilitation_label = dict(Habilitation.choices).get(habilitation, habilitation)
+        
+        return JsonResponse({
+            'success': True,
+            'habilitation': habilitation,
+            'habilitation_label': habilitation_label,
+            'permissions': permissions,
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur API permissions défaut: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

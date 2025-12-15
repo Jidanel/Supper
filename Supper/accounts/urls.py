@@ -93,6 +93,7 @@ urlpatterns = [
     path('api/departements/', views.api_departements, name='api_departements'),
     path('api/postes/', views.api_postes_par_type, name='api_postes_par_type'),
     path('api/log-details/<int:log_id>/', views.api_log_details, name='api_log_details'),
+    path('api/permissions-defaut/', views.api_permissions_defaut, name='api_permissions_defaut'),
     
     # Récupérer les infos sur une habilitation (type de poste requis)
     # GET /accounts/api/habilitation/?habilitation=chef_equipe_pesage

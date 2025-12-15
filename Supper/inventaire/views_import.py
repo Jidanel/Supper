@@ -1,9 +1,16 @@
-# inventaire/views_import.py
+# ===================================================================
+# inventaire/views_import.py - Import Excel des recettes SUPPER
+# VERSION MISE À JOUR - Intégration des permissions granulaires
+#
+# Permission requise: peut_importer_recettes_peage
+# Habilitations concernées: admin_principal, coord_psrr, serv_info, serv_emission
+# ===================================================================
+
 import pandas as pd
 from datetime import datetime
 from decimal import Decimal
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponse
@@ -12,18 +19,76 @@ from difflib import SequenceMatcher
 
 from accounts.models import Poste
 from inventaire.models import RecetteJournaliere
+
+# ===================================================================
+# IMPORTS DES MODULES DE PERMISSIONS ET UTILITAIRES CENTRALISÉS
+# ===================================================================
+
 from common.utils import log_user_action
 
-def is_admin(user):
-    return user.is_authenticated and user.is_admin
+from common.permissions import (
+    has_permission,
+    is_admin_user,
+    log_acces_refuse,
+)
 
-@login_required
-@user_passes_test(is_admin)
+from common.decorators import (
+    permission_required_granular,
+    import_recettes_peage_required,
+)
+
+import logging
+
+logger = logging.getLogger('supper')
+
+
+# ===================================================================
+# DÉCORATEUR POUR L'IMPORT DES RECETTES
+# Permission: peut_importer_recettes_peage
+# ===================================================================
+
+def import_recettes_required(view_func):
+    """
+    Décorateur pour vérifier la permission d'importer des recettes.
+    Permission: peut_importer_recettes_peage
+    """
+    from functools import wraps
+    
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        user = request.user
+        
+        if not has_permission(user, 'peut_importer_recettes_peage'):
+            log_user_action(
+                user,
+                "Import recettes - permission refusée",
+                f"Permission peut_importer_recettes_peage manquante - Vue: {view_func.__name__}",
+                request
+            )
+            log_acces_refuse(user, view_func.__name__, "Permission import recettes manquante")
+            messages.error(request, "Vous n'avez pas la permission d'importer des recettes.")
+            return redirect('inventaire:liste_recettes')
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+# ===================================================================
+# VUE D'IMPORT DES RECETTES EXCEL
+# ===================================================================
+
+@import_recettes_required
 def import_recettes_excel(request):
     """
     Vue pour importer des recettes depuis un fichier Excel au format matriciel
     (postes en lignes, dates en colonnes)
+    
+    Permission: peut_importer_recettes_peage
     """
+    user = request.user
+    
     if request.method == 'POST':
         fichier = request.FILES.get('fichier_excel')
         action_doublon = request.POST.get('action_doublon', 'sauter')
@@ -36,13 +101,21 @@ def import_recettes_excel(request):
             messages.error(request, "Le fichier doit être au format Excel (.xlsx ou .xls)")
             return redirect('inventaire:import_recettes')
         
+        # Log du début de l'import
+        log_user_action(
+            user,
+            "Import recettes Excel - début",
+            f"Fichier: {fichier.name} | Taille: {fichier.size} bytes | Action doublon: {action_doublon}",
+            request
+        )
+        
         try:
             # Lire le fichier Excel
             df = pd.read_excel(fichier)
             
             # Traiter l'import
             resultats = traiter_import_recettes_matriciel(
-                df, action_doublon, request.user
+                df, action_doublon, user
             )
             
             # Afficher les résultats
@@ -56,39 +129,83 @@ def import_recettes_excel(request):
                     f"{resultats['nb_erreurs']} erreurs"
                 )
                 
+                # Log détaillé de l'action
                 log_user_action(
-                    request.user,
-                    "Import recettes Excel matriciel",
-                    f"Créées: {resultats['nb_crees']}, Modifiées: {resultats['nb_modifiees']}",
+                    user,
+                    "Import recettes Excel - succès",
+                    f"Fichier: {fichier.name} | "
+                    f"Créées: {resultats['nb_crees']} | "
+                    f"Modifiées: {resultats['nb_modifiees']} | "
+                    f"Sautées: {resultats['nb_sautes']} | "
+                    f"Erreurs: {resultats['nb_erreurs']} | "
+                    f"Postes non trouvés: {len(resultats.get('postes_non_trouves', []))}",
                     request
+                )
+                
+                logger.info(
+                    f"Import recettes par {user.username}: "
+                    f"{resultats['nb_crees']} créées, "
+                    f"{resultats['nb_modifiees']} modifiées"
                 )
             else:
                 messages.error(request, f"Erreur lors de l'import: {resultats['erreur']}")
+                
+                log_user_action(
+                    user,
+                    "Import recettes Excel - échec",
+                    f"Fichier: {fichier.name} | Erreur: {resultats['erreur']}",
+                    request
+                )
+                
+                logger.error(f"Import recettes échoué pour {user.username}: {resultats['erreur']}")
             
             context = {
                 'resultats': resultats,
+                'is_admin': is_admin_user(user),
             }
             
             return render(request, 'inventaire/import_recettes_resultats.html', context)
             
         except Exception as e:
             messages.error(request, f"Erreur lors de la lecture du fichier: {str(e)}")
+            
+            log_user_action(
+                user,
+                "Import recettes Excel - erreur lecture",
+                f"Fichier: {fichier.name} | Erreur: {str(e)}",
+                request
+            )
+            
+            logger.error(f"Erreur lecture fichier Excel par {user.username}: {str(e)}", exc_info=True)
+            
             return redirect('inventaire:import_recettes')
     
     # GET request - afficher le formulaire
-    return render(request, 'inventaire/import_recettes_form.html')
+    context = {
+        'is_admin': is_admin_user(user),
+        'title': 'Import des recettes',
+    }
+    return render(request, 'inventaire/import_recettes_form.html', context)
 
 
 def traiter_import_recettes_matriciel(df, action_doublon, user):
     """
-    Traite l'import des recettes depuis le format matriciel Excel
+    Traite l'import des recettes depuis le format matriciel Excel.
+    
+    Args:
+        df: DataFrame pandas contenant les données
+        action_doublon: 'sauter' ou 'ecraser'
+        user: L'utilisateur effectuant l'import
+    
+    Returns:
+        dict: Résultats de l'import avec compteurs et détails
     """
     nb_crees = 0
     nb_modifiees = 0
     nb_sautes = 0
     nb_erreurs = 0
     erreurs_detail = []
-    postes_non_trouves = {}  # Changé en dict pour stocker aussi les noms normalisés
+    postes_non_trouves = {}
     dates_invalides = set()
     
     try:
@@ -114,6 +231,8 @@ def traiter_import_recettes_matriciel(df, action_doublon, user):
                 code_normalise = normaliser_nom_poste(poste.code)
                 postes_db[code_normalise] = poste
         
+        logger.debug(f"Mapping postes créé avec {len(postes_db)} entrées")
+        
         # Parser les dates
         mapping_dates = {}
         for col in colonnes_dates:
@@ -132,8 +251,14 @@ def traiter_import_recettes_matriciel(df, action_doublon, user):
         if not mapping_dates:
             return {
                 'success': False,
-                'erreur': "Aucune date valide trouvée dans les en-têtes"
+                'erreur': "Aucune date valide trouvée dans les en-têtes",
+                'nb_crees': 0,
+                'nb_modifiees': 0,
+                'nb_sautes': 0,
+                'nb_erreurs': 0
             }
+        
+        logger.debug(f"Dates valides parsées: {len(mapping_dates)}")
         
         # Parcourir les lignes
         with transaction.atomic():
@@ -162,11 +287,14 @@ def traiter_import_recettes_matriciel(df, action_doublon, user):
                             if pd.isna(montant_raw):
                                 continue
                             
-                            montant = Decimal(str(montant_raw).replace(',', '.').replace(' ', ''))
+                            # Nettoyer et convertir le montant
+                            montant_str = str(montant_raw).replace(',', '.').replace(' ', '')
+                            montant = Decimal(montant_str)
                             
                             if montant <= 0:
                                 continue
                             
+                            # Vérifier si une recette existe déjà
                             recette_existante = RecetteJournaliere.objects.filter(
                                 poste=poste,
                                 date=date_obj
@@ -217,6 +345,7 @@ def traiter_import_recettes_matriciel(df, action_doublon, user):
         }
         
     except Exception as e:
+        logger.error(f"Erreur traitement import: {str(e)}", exc_info=True)
         return {
             'success': False,
             'erreur': str(e),
@@ -226,9 +355,17 @@ def traiter_import_recettes_matriciel(df, action_doublon, user):
             'nb_erreurs': 0
         }
 
+
 def normaliser_nom_poste(nom):
     """
-    Normalise un nom de poste pour la comparaison robuste
+    Normalise un nom de poste pour la comparaison robuste.
+    
+    Transformations appliquées:
+    - Conversion en majuscules
+    - Suppression des accents
+    - Normalisation des espaces
+    - Remplacement tirets/underscores par espaces
+    - Normalisation O/0
     """
     import unicodedata
     import re
@@ -259,9 +396,15 @@ def normaliser_nom_poste(nom):
     
     return nom
 
+
 def trouver_poste_flexible(nom_excel, postes_db):
     """
-    Recherche flexible d'un poste avec plusieurs stratégies
+    Recherche flexible d'un poste avec plusieurs stratégies.
+    
+    Stratégies de recherche (dans l'ordre):
+    1. Match exact normalisé
+    2. Match sans parenthèses
+    3. Match par similarité (>90%)
     
     Args:
         nom_excel: Nom du poste depuis Excel
@@ -287,8 +430,6 @@ def trouver_poste_flexible(nom_excel, postes_db):
             return poste
     
     # Stratégie 3 : Similarité avec difflib (>90%)
-    from difflib import SequenceMatcher
-    
     meilleur_match = None
     meilleur_score = 0
     
@@ -300,16 +441,35 @@ def trouver_poste_flexible(nom_excel, postes_db):
     
     return meilleur_match
 
-@login_required
-@user_passes_test(is_admin)
+
+# ===================================================================
+# TÉLÉCHARGEMENT DU MODÈLE EXCEL
+# ===================================================================
+
+@import_recettes_required
 def telecharger_modele_excel(request):
     """
-    Génère et télécharge un modèle Excel au format matriciel
+    Génère et télécharge un modèle Excel au format matriciel.
+    
+    Permission: peut_importer_recettes_peage
     """
-    import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from io import BytesIO
-    from datetime import timedelta
+    user = request.user
+    
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from io import BytesIO
+        from datetime import timedelta
+    except ImportError:
+        messages.error(request, "Module openpyxl non installé.")
+        return redirect('inventaire:import_recettes')
+    
+    log_user_action(
+        user,
+        "Téléchargement modèle Excel recettes",
+        "Génération du modèle Excel pour import des recettes",
+        request
+    )
     
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -347,8 +507,8 @@ def telecharger_modele_excel(request):
         cell.alignment = center_alignment
         cell.border = thin_border
     
-    # Récupérer quelques postes exemples
-    postes = Poste.objects.filter(is_active=True).order_by('nom')[:10]
+    # Récupérer quelques postes exemples (postes de péage uniquement)
+    postes = Poste.objects.filter(is_active=True, type='peage').order_by('nom')[:10]
     
     # Remplir les noms de postes (colonne A, à partir de ligne 2)
     for row_num, poste in enumerate(postes, 2):
@@ -382,5 +542,7 @@ def telecharger_modele_excel(request):
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = 'attachment; filename=modele_recettes_matriciel.xlsx'
+    
+    logger.info(f"Modèle Excel téléchargé par {user.username}")
     
     return response

@@ -2,6 +2,26 @@
 {% load static %}
 {% load i18n %}
 {% load inventaire_extras %}
+{% comment %}
+===================================================================
+templates/admin/index.html - Template Dashboard SUPPER CORRIGÉ
+Avec conditions de permissions granulaires
+CHEMIN: Supper/templates/admin/index.html
+===================================================================
+
+
+PERMISSIONS UTILISÉES:
+- can_view_global_stats : Stats utilisateurs/postes
+- can_view_inventaires : Stats inventaires
+- can_view_recettes_peage : Stats recettes péage
+- can_view_objectifs : Objectifs annuels
+- can_view_graphs : Graphiques évolution
+- can_view_classement : Top postes / classements
+- has_pesage_access : Section pesage
+- user_permissions.gestion.peut_voir_journal_audit : Activités système
+{% endcomment %}
+
+
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
@@ -112,6 +132,8 @@
     .supper-action-icon.success { background: linear-gradient(135deg, #059669, #10b981); }
     .supper-action-icon.warning { background: linear-gradient(135deg, #d97706, #f59e0b); }
     .supper-action-icon.danger { background: linear-gradient(135deg, #dc2626, #ef4444); }
+    .supper-action-icon.info { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+    .supper-action-icon.secondary { background: linear-gradient(135deg, #475569, #64748b); }
     
     .supper-action-text {
         font-weight: 600;
@@ -554,6 +576,57 @@
         background: #1e3a8a;
     }
     
+    /* Activity list */
+    .supper-activity-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .supper-activity-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .supper-activity-item:last-child {
+        border-bottom: none;
+    }
+    
+    .supper-activity-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #eff6ff;
+        color: #3b82f6;
+        font-size: 0.8rem;
+    }
+    
+    .supper-activity-content {
+        flex: 1;
+    }
+    
+    .supper-activity-content strong {
+        display: block;
+        font-size: 0.85rem;
+        color: #1e293b;
+    }
+    
+    .supper-activity-content small {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+    
+    .supper-activity-time {
+        font-size: 0.7rem;
+        color: #94a3b8;
+    }
+    
     /* Responsive */
     @media (max-width: 768px) {
         .supper-dashboard { padding: 1rem; }
@@ -577,7 +650,9 @@
 <div class="supper-dashboard">
     <div class="supper-container">
         
-        <!-- EN-TÊTE -->
+        <!-- ============================================================ -->
+        <!-- EN-TÊTE - Toujours visible pour utilisateur connecté -->
+        <!-- ============================================================ -->
         <div class="supper-header">
             <div>
                 <h1>{% trans "Tableau de Bord" %} SUPPER</h1>
@@ -595,12 +670,14 @@
             </div>
         </div>
 
-        <!-- ACTIONS RAPIDES -->
+        <!-- ============================================================ -->
+        <!-- ACTIONS RAPIDES - Conditionnées par permissions individuelles -->
+        <!-- ============================================================ -->
         {% if actions_rapides %}
         <div class="supper-actions">
             {% for action in actions_rapides %}
             <a href="{{ action.url }}" class="supper-action-card">
-                <div class="supper-action-icon {% if 'primary' in action.class %}primary{% elif 'success' in action.class %}success{% elif 'warning' in action.class %}warning{% elif 'danger' in action.class %}danger{% else %}primary{% endif %}">
+                <div class="supper-action-icon {% if 'primary' in action.class %}primary{% elif 'success' in action.class %}success{% elif 'warning' in action.class %}warning{% elif 'danger' in action.class %}danger{% elif 'info' in action.class %}info{% elif 'secondary' in action.class %}secondary{% else %}primary{% endif %}">
                     <i class="{{ action.icon }}"></i>
                 </div>
                 <span class="supper-action-text">{{ action.titre }}</span>
@@ -609,9 +686,13 @@
         </div>
         {% endif %}
 
+        <!-- ============================================================ -->
         <!-- STATISTIQUES PRINCIPALES -->
+        <!-- ============================================================ -->
         <div class="supper-stats">
-            {% if stats_globales %}
+            
+            <!-- Stats Globales - Permission: can_view_global_stats -->
+            {% if can_view_global_stats and stats_globales %}
             <div class="supper-stat-card blue">
                 <div class="supper-stat-header">
                     <span class="supper-stat-label">{% trans "Utilisateurs" %}</span>
@@ -635,7 +716,8 @@
             </div>
             {% endif %}
 
-            {% if stats_inventaires %}
+            <!-- Stats Inventaires - Permission: can_view_inventaires -->
+            {% if can_view_inventaires and stats_inventaires %}
             <div class="supper-stat-card green">
                 <div class="supper-stat-header">
                     <span class="supper-stat-label">{% trans "Inventaires Aujourd'hui" %}</span>
@@ -648,7 +730,8 @@
             </div>
             {% endif %}
 
-            {% if stats_recettes %}
+            <!-- Stats Recettes - Permission: can_view_recettes_peage -->
+            {% if can_view_recettes_peage and stats_recettes %}
             <div class="supper-stat-card amber">
                 <div class="supper-stat-header">
                     <span class="supper-stat-label">{% trans "Recettes du Mois" %}</span>
@@ -660,6 +743,8 @@
                 <div class="supper-stat-detail">{{ stats_recettes.nombre_recettes_mois }} {% trans "recettes saisies" %} • FCFA</div>
             </div>
 
+            <!-- Taux Déperdition - Uniquement si permission voir_taux_deperdition -->
+            {% if stats_recettes.can_view_taux and stats_recettes.taux_moyen_mois is not None %}
             <div class="supper-stat-card {% if stats_recettes.taux_moyen_mois > -10 %}green{% elif stats_recettes.taux_moyen_mois > -30 %}amber{% else %}red{% endif %}">
                 <div class="supper-stat-header">
                     <span class="supper-stat-label">{% trans "Taux Moyen Déperdition" %}</span>
@@ -668,8 +753,11 @@
                     </div>
                 </div>
                 <div class="supper-stat-value">{{ stats_recettes.taux_moyen_mois|floatformat:2 }}%</div>
+                {% if stats_recettes.can_view_potentiel and stats_recettes.ecart_mois is not None %}
                 <div class="supper-stat-detail">{% trans "Écart:" %} {{ stats_recettes.ecart_mois|floatformat:0|intcomma }} FCFA</div>
+                {% endif %}
             </div>
+            {% endif %}
 
             <div class="supper-stat-card blue">
                 <div class="supper-stat-header">
@@ -684,8 +772,10 @@
             {% endif %}
         </div>
 
-        <!-- OBJECTIFS -->
-        {% if stats_objectifs %}
+        <!-- ============================================================ -->
+        <!-- OBJECTIFS ANNUELS - Permission: can_view_objectifs -->
+        <!-- ============================================================ -->
+        {% if can_view_objectifs and stats_objectifs %}
         <div class="supper-section">
             <h2 class="supper-section-title">
                 <i class="fas fa-bullseye"></i> 
@@ -722,14 +812,16 @@
             <div style="text-align: center; margin-top: 1.25rem;">
                 <a href="{% url 'inventaire:gestion_objectifs_annuels' %}?annee={{ stats_objectifs.annee }}" class="supper-link-btn">
                     <i class="fas fa-cog"></i>
-                    Gérer les objectifs détaillés
+                    {% trans "Gérer les objectifs détaillés" %}
                 </a>
             </div>
         </div>
         {% endif %}
 
-        <!-- GRAPHIQUES -->
-        {% if graph_data_json %}
+        <!-- ============================================================ -->
+        <!-- GRAPHIQUES - Permission: can_view_graphs -->
+        <!-- ============================================================ -->
+        {% if can_view_graphs and graph_data_json %}
         <div class="supper-charts">
             <div class="supper-section">
                 <h2 class="supper-section-title">
@@ -741,6 +833,8 @@
                 </div>
             </div>
 
+            <!-- Graphique Taux uniquement si permission voir_taux_deperdition -->
+            {% if user_permissions.acces_global.voir_taux_deperdition %}
             <div class="supper-section">
                 <h2 class="supper-section-title">
                     <i class="fas fa-chart-bar"></i> 
@@ -750,10 +844,13 @@
                     <canvas id="chartTaux"></canvas>
                 </div>
             </div>
+            {% endif %}
         </div>
         {% endif %}
 
-        <!-- RANG POSTE PÉAGE -->
+        <!-- ============================================================ -->
+        <!-- RANG POSTE PÉAGE - Affiché si classement disponible -->
+        <!-- ============================================================ -->
         {% if rang_poste_peage and rang_poste_peage.rang %}
         <div class="supper-section">
             <div class="supper-rank">
@@ -764,24 +861,26 @@
                     <h4>
                         <i class="fas fa-road" style="margin-right: 0.5rem;"></i>
                         {% if rang_poste_peage.rang == 1 %}
-                        🏆 Meilleur poste de péage !
+                        🏆 {% trans "Meilleur poste de péage !" %}
                         {% elif rang_poste_peage.rang <= 3 %}
-                        🥈 Top 3 des postes de péage
+                        🥈 {% trans "Top 3 des postes de péage" %}
                         {% elif rang_poste_peage.rang <= 5 %}
-                        ⭐ Top 5 des postes
+                        ⭐ {% trans "Top 5 des postes" %}
                         {% else %}
-                        📊 Votre classement péage
+                        📊 {% trans "Votre classement péage" %}
                         {% endif %}
                     </h4>
-                    <p>{{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}er{% else %}ème{% endif %} sur {{ rang_poste_peage.total_postes }} postes de péage</p>
-                    <small>Total recettes {{ current_year }}: {{ rang_poste_peage.total_recettes|floatformat:0|intcomma }} FCFA</small>
+                    <p>{{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}er{% else %}ème{% endif %} {% trans "sur" %} {{ rang_poste_peage.total_postes }} {% trans "postes de péage" %}</p>
+                    <small>{% trans "Total recettes" %} {{ current_year }}: {{ rang_poste_peage.total_recettes|floatformat:0|intcomma }} FCFA</small>
                 </div>
             </div>
         </div>
         {% endif %}
 
-        <!-- STATISTIQUES PESAGE -->
-        {% if stats_pesage %}
+        <!-- ============================================================ -->
+        <!-- STATISTIQUES PESAGE - Permission: has_pesage_access -->
+        <!-- ============================================================ -->
+        {% if has_pesage_access and stats_pesage %}
         <div class="supper-section">
             <h2 class="supper-section-title">
                 <i class="fas fa-weight-scale" style="color: #7c3aed;"></i> 
@@ -790,18 +889,22 @@
                     {{ stats_pesage.label_scope }}
                     {% if stats_pesage.jour_travail %}
                     <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #ede9fe; border-radius: 4px; font-size: 0.7rem;">
-                        Jour: {{ stats_pesage.jour_travail|date:"d/m/Y" }} (9h-9h)
+                        {% trans "Jour:" %} {{ stats_pesage.jour_travail|date:"d/m/Y" }} (9h-9h)
                     </span>
                     {% endif %}
                 </span>
             </h2>
             
             <div class="supper-pesage-stats">
+                <!-- Pesées - si permission peut_saisir_pesee_jour ou peut_voir_historique_pesees -->
+                {% if stats_pesage.can_saisir_pesee or stats_pesage.can_voir_historique %}
                 <div class="supper-pesage-stat purple">
                     <div class="supper-pesage-stat-label"><i class="fas fa-balance-scale"></i> {% trans "Pesées Jour" %}</div>
                     <div class="supper-pesage-stat-value">{{ stats_pesage.pesees_jour|default:"—" }}</div>
                 </div>
+                {% endif %}
                 
+                <!-- Émissions - visible pour tous avec accès pesage -->
                 <div class="supper-pesage-stat amber">
                     <div class="supper-pesage-stat-label"><i class="fas fa-file-invoice"></i> {% trans "Émissions Jour" %}</div>
                     <div class="supper-pesage-stat-value">{{ stats_pesage.emissions_jour|default:0 }}</div>
@@ -814,6 +917,8 @@
                     <div class="supper-pesage-stat-unit">FCFA</div>
                 </div>
                 
+                <!-- Recouvré - si permission peut_valider_paiement_amende -->
+                {% if stats_pesage.can_valider_paiement or stats_pesage.can_voir_recettes %}
                 <div class="supper-pesage-stat green">
                     <div class="supper-pesage-stat-label"><i class="fas fa-hand-holding-usd"></i> {% trans "Recouvré Jour" %}</div>
                     <div class="supper-pesage-stat-value">{{ stats_pesage.montant_recouvre_jour|floatformat:0|intcomma }}</div>
@@ -825,6 +930,7 @@
                     <div class="supper-pesage-stat-value">{{ stats_pesage.reste_a_recouvrer_jour|floatformat:0|intcomma }}</div>
                     <div class="supper-pesage-stat-unit">FCFA</div>
                 </div>
+                {% endif %}
                 
                 <div class="supper-pesage-stat outline {% if stats_pesage.amendes_non_payees > 0 %}warning-border{% else %}success-border{% endif %}">
                     <div class="supper-pesage-stat-label"><i class="fas fa-hourglass-half"></i> {% trans "Non Payées" %}</div>
@@ -835,7 +941,8 @@
                 </div>
             </div>
             
-            <!-- Stats du mois -->
+            <!-- Stats du mois - si permission peut_voir_stats_pesage -->
+            {% if stats_pesage.can_voir_stats %}
             <div class="supper-month-stats">
                 <h4>
                     <i class="fas fa-calendar-alt"></i> 
@@ -868,8 +975,9 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
             
-            <!-- Rang station pesage -->
+            <!-- Rang station pesage - si classement disponible -->
             {% if rang_station_pesage and rang_station_pesage.rang %}
             <div class="supper-rank" style="margin-top: 1.25rem; background: linear-gradient(135deg, #ede9fe, #ddd6fe);">
                 <div class="supper-rank-badge {% if rang_station_pesage.rang == 1 %}gold{% elif rang_station_pesage.rang == 2 %}silver{% elif rang_station_pesage.rang == 3 %}bronze{% else %}purple{% endif %}">
@@ -878,35 +986,35 @@
                 <div class="supper-rank-info">
                     <h4 style="color: #5b21b6;">
                         {% if rang_station_pesage.rang == 1 %}
-                        🏆 Champion des stations !
+                        🏆 {% trans "Champion des stations !" %}
                         {% elif rang_station_pesage.rang <= 3 %}
-                        🥈 Dans le top 3 !
+                        🥈 {% trans "Dans le top 3 !" %}
                         {% elif rang_station_pesage.rang <= 5 %}
-                        ⭐ Dans le top 5
+                        ⭐ {% trans "Dans le top 5" %}
                         {% else %}
-                        📊 Classement actuel
+                        📊 {% trans "Classement actuel" %}
                         {% endif %}
                     </h4>
-                    <p style="color: #7c3aed;">{{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}ère{% else %}ème{% endif %} position sur {{ rang_station_pesage.total_stations }} stations</p>
+                    <p style="color: #7c3aed;">{{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}ère{% else %}ème{% endif %} {% trans "position sur" %} {{ rang_station_pesage.total_stations }} {% trans "stations" %}</p>
                     <small style="color: #6d28d9;">
-                        Total recouvré: {{ rang_station_pesage.total_recouvre|floatformat:0|intcomma }} FCFA
+                        {% trans "Total recouvré:" %} {{ rang_station_pesage.total_recouvre|floatformat:0|intcomma }} FCFA
                         {% if rang_station_pesage.taux_recouvrement %}
-                        • Taux: {{ rang_station_pesage.taux_recouvrement }}%
+                        • {% trans "Taux:" %} {{ rang_station_pesage.taux_recouvrement }}%
                         {% endif %}
                     </small>
                 </div>
             </div>
             {% endif %}
             
-            <!-- Alertes -->
+            <!-- Alertes pesage - conditionnées -->
             {% if stats_pesage.demandes_confirmation_attente and stats_pesage.demandes_confirmation_attente > 0 %}
             <div class="supper-alert warning">
                 <i class="fas fa-bell"></i>
                 <div class="supper-alert-content">
-                    <strong>{{ stats_pesage.demandes_confirmation_attente }} demande{{ stats_pesage.demandes_confirmation_attente|pluralize }} de confirmation en attente</strong>
-                    <small>Des régisseurs d'autres stations attendent votre validation.</small>
+                    <strong>{{ stats_pesage.demandes_confirmation_attente }} {% trans "demande" %}{{ stats_pesage.demandes_confirmation_attente|pluralize }} {% trans "de confirmation en attente" %}</strong>
+                    <small>{% trans "Des régisseurs d'autres stations attendent votre validation." %}</small>
                 </div>
-                <a href="{% url 'inventaire:demandes_confirmation_a_traiter' %}" class="supper-alert-action">Traiter</a>
+                <a href="{% url 'inventaire:demandes_confirmation_a_traiter' %}" class="supper-alert-action">{% trans "Traiter" %}</a>
             </div>
             {% endif %}
             
@@ -914,23 +1022,26 @@
             <div class="supper-alert info">
                 <i class="fas fa-user-edit"></i>
                 <div class="supper-alert-content">
-                    <strong>Vos saisies aujourd'hui : {{ stats_pesage.mes_saisies_jour }} amende{{ stats_pesage.mes_saisies_jour|pluralize }}</strong>
+                    <strong>{% trans "Vos saisies aujourd'hui :" %} {{ stats_pesage.mes_saisies_jour }} {% trans "amende" %}{{ stats_pesage.mes_saisies_jour|pluralize }}</strong>
                 </div>
             </div>
             {% endif %}
             
-            <!-- Actions rapides pesage -->
+            <!-- Actions rapides pesage - conditionnées par permissions -->
             <div class="supper-actions-bar">
-                {% if user_stats.habilitation == 'chef_equipe_pesage' or user_stats.is_admin %}
+                {% if stats_pesage.can_saisir_amende %}
                 <a href="{% url 'inventaire:saisir_amende' %}" class="supper-btn purple">
                     <i class="fas fa-plus"></i>{% trans "Saisir Amende" %}
                 </a>
+                {% endif %}
+                
+                {% if stats_pesage.can_saisir_pesee %}
                 <a href="{% url 'inventaire:saisir_pesees' %}" class="supper-btn indigo">
                     <i class="fas fa-balance-scale"></i>{% trans "Saisir Pesées" %}
                 </a>
                 {% endif %}
                 
-                {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.habilitation == 'chef_station_pesage' or user_stats.is_admin %}
+                {% if stats_pesage.can_valider_paiement %}
                 <a href="{% url 'inventaire:liste_amendes_a_valider' %}" class="supper-btn green">
                     <i class="fas fa-check-double"></i>{% trans "Valider Paiements" %}
                     {% if stats_pesage.amendes_non_payees > 0 %}
@@ -939,7 +1050,7 @@
                 </a>
                 {% endif %}
                 
-                {% if user_stats.habilitation == 'regisseur_pesage' or user_stats.is_admin %}
+                {% if stats_pesage.can_saisir_quittance %}
                 <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" class="supper-btn pink">
                     <i class="fas fa-receipt"></i>{% trans "Quittancement" %}
                 </a>
@@ -949,13 +1060,17 @@
                     <i class="fas fa-list"></i>{% trans "Liste Amendes" %}
                 </a>
                 
+                {% if stats_pesage.can_voir_recettes %}
                 <a href="{% url 'inventaire:recettes_pesage' %}" class="supper-btn outline">
                     <i class="fas fa-coins"></i>{% trans "Recettes" %}
                 </a>
+                {% endif %}
                 
+                {% if stats_pesage.can_voir_stats %}
                 <a href="{% url 'inventaire:statistiques_pesage' %}" class="supper-btn outline">
                     <i class="fas fa-chart-bar"></i>{% trans "Statistiques" %}
                 </a>
+                {% endif %}
                 
                 <a href="{% url 'inventaire:recherche_historique_vehicule' %}" class="supper-btn outline">
                     <i class="fas fa-search"></i>{% trans "Historique Véhicule" %}
@@ -964,10 +1079,179 @@
         </div>
         {% endif %}
 
+        <!-- ============================================================ -->
+        <!-- ALERTES - Conditionnées selon contexte utilisateur -->
+        <!-- ============================================================ -->
+        {% if alertes %}
+        <div class="supper-section">
+            <h2 class="supper-section-title">
+                <i class="fas fa-bell"></i>
+                {% trans "Alertes" %}
+                <span class="supper-section-meta">{{ alertes|length }} {% trans "notification" %}{{ alertes|length|pluralize }}</span>
+            </h2>
+            
+            {% for alerte in alertes %}
+            <div class="supper-alert {% if alerte.type == 'warning' %}warning{% else %}info{% endif %}">
+                <i class="{{ alerte.icon }}"></i>
+                <div class="supper-alert-content">
+                    <strong>{{ alerte.titre }}</strong>
+                    <small>{{ alerte.message }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- ============================================================ -->
+        <!-- ACTIVITÉS RÉCENTES - Conditionnées par permission journal_audit -->
+        <!-- ============================================================ -->
+        {% if activites_recentes %}
+        <div class="supper-section">
+            <h2 class="supper-section-title">
+                <i class="fas fa-history"></i>
+                {% if user_permissions.gestion.peut_voir_journal_audit %}
+                {% trans "Activités Récentes (Global)" %}
+                {% else %}
+                {% trans "Vos Activités Récentes" %}
+                {% endif %}
+            </h2>
+            
+            <ul class="supper-activity-list">
+                {% for activite in activites_recentes %}
+                <li class="supper-activity-item">
+                    <div class="supper-activity-icon">
+                        {% if activite.succes %}
+                        <i class="fas fa-check"></i>
+                        {% else %}
+                        <i class="fas fa-times" style="color: #ef4444;"></i>
+                        {% endif %}
+                    </div>
+                    <div class="supper-activity-content">
+                        <strong>{{ activite.action }}</strong>
+                        <small>
+                            {% if user_permissions.gestion.peut_voir_journal_audit and activite.utilisateur %}
+                            {{ activite.utilisateur.nom_complet }} - 
+                            {% endif %}
+                            {{ activite.details|truncatechars:60 }}
+                        </small>
+                    </div>
+                    <span class="supper-activity-time">{{ activite.timestamp|date:"d/m H:i" }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            
+            {% if user_permissions.gestion.peut_voir_journal_audit %}
+            <div style="text-align: center; margin-top: 1rem;">
+                <a href="{% url 'accounts:journal_audit' %}" class="supper-link-btn">
+                    <i class="fas fa-external-link-alt"></i>
+                    {% trans "Voir le journal complet" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ============================================================ -->
+        <!-- TOP POSTES - Permission: can_view_classement -->
+        <!-- ============================================================ -->
+        {% if can_view_classement and top_postes %}
+        <div class="supper-section">
+            <h2 class="supper-section-title">
+                <i class="fas fa-trophy"></i>
+                {% trans "Top 5 Postes (30 derniers jours)" %}
+            </h2>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #e2e8f0;">
+                        <th style="padding: 0.75rem; text-align: left; font-size: 0.75rem; color: #64748b;">{% trans "Rang" %}</th>
+                        <th style="padding: 0.75rem; text-align: left; font-size: 0.75rem; color: #64748b;">{% trans "Poste" %}</th>
+                        <th style="padding: 0.75rem; text-align: right; font-size: 0.75rem; color: #64748b;">{% trans "Recettes" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for poste in top_postes %}
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 0.75rem;">
+                            <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 700; font-size: 0.8rem;
+                                {% if poste.rang == 1 %}background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f;
+                                {% elif poste.rang == 2 %}background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #374151;
+                                {% elif poste.rang == 3 %}background: linear-gradient(135deg, #d97706, #b45309); color: #fff;
+                                {% else %}background: #f1f5f9; color: #475569;{% endif %}">
+                                {{ poste.rang }}
+                            </span>
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            <strong style="color: #1e293b;">{{ poste.nom }}</strong>
+                            <br><small style="color: #64748b;">{{ poste.code }}</small>
+                        </td>
+                        <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #059669;">
+                            {{ poste.total|floatformat:0|intcomma }} FCFA
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- ============================================================ -->
+        <!-- STATISTIQUES SYSTÈME - Permission: peut_voir_journal_audit -->
+        <!-- ============================================================ -->
+        {% if stats_systeme and user_permissions.gestion.peut_voir_journal_audit %}
+        <div class="supper-section">
+            <h2 class="supper-section-title">
+                <i class="fas fa-server"></i>
+                {% trans "Statistiques Système" %}
+            </h2>
+            
+            <div class="supper-stats" style="margin-bottom: 0;">
+                <div class="supper-stat-card blue">
+                    <div class="supper-stat-header">
+                        <span class="supper-stat-label">{% trans "Actions Aujourd'hui" %}</span>
+                        <div class="supper-stat-icon blue">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                    </div>
+                    <div class="supper-stat-value">{{ stats_systeme.actions_today }}</div>
+                    <div class="supper-stat-detail">{{ stats_systeme.actions_succes }} {% trans "réussies" %}</div>
+                </div>
+                
+                {% if stats_systeme.derniere_saisie %}
+                <div class="supper-stat-card green">
+                    <div class="supper-stat-header">
+                        <span class="supper-stat-label">{% trans "Dernière Saisie Inventaire" %}</span>
+                        <div class="supper-stat-icon green">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                    </div>
+                    <div class="supper-stat-value" style="font-size: 1rem;">{{ stats_systeme.derniere_saisie.poste.nom|truncatechars:20 }}</div>
+                    <div class="supper-stat-detail">{{ stats_systeme.derniere_saisie.date_creation|date:"d/m/Y H:i" }}</div>
+                </div>
+                {% endif %}
+                
+                {% if stats_systeme.derniere_recette %}
+                <div class="supper-stat-card amber">
+                    <div class="supper-stat-header">
+                        <span class="supper-stat-label">{% trans "Dernière Recette" %}</span>
+                        <div class="supper-stat-icon amber">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                    </div>
+                    <div class="supper-stat-value" style="font-size: 1rem;">{{ stats_systeme.derniere_recette.poste.nom|truncatechars:20 }}</div>
+                    <div class="supper-stat-detail">{{ stats_systeme.derniere_recette.date_saisie|date:"d/m/Y H:i" }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
     </div>
 </div>
 
+<!-- ============================================================ -->
 <!-- JAVASCRIPT -->
+<!-- ============================================================ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -983,8 +1267,8 @@ document.addEventListener('DOMContentLoaded', function() {
     updateClock();
     setInterval(updateClock, 60000);
 
-    // Configuration Chart.js
-    {% if graph_data_json %}
+    // Configuration Chart.js - seulement si graphiques visibles
+    {% if can_view_graphs and graph_data_json %}
     const graphData = {{ graph_data_json|safe }};
     Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
     Chart.defaults.color = '#475569';
@@ -1026,14 +1310,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (graphData.evolution_7j && document.getElementById('chartTaux')) {
+    // Graphique Taux - seulement si permission voir_taux_deperdition
+    {% if user_permissions.acces_global.voir_taux_deperdition %}
+    if (graphData.evolution_7j && graphData.evolution_7j.show_taux && document.getElementById('chartTaux')) {
         const ctxTaux = document.getElementById('chartTaux').getContext('2d');
         const backgroundColors = graphData.evolution_7j.taux.map(taux => {
+            if (taux === null) return 'rgba(156, 163, 175, 0.5)';
             if (taux > -10) return 'rgba(5, 150, 105, 0.7)';
             if (taux >= -30) return 'rgba(217, 119, 6, 0.7)';
             return 'rgba(220, 38, 38, 0.7)';
         });
         const borderColors = graphData.evolution_7j.taux.map(taux => {
+            if (taux === null) return '#9ca3af';
             if (taux > -10) return '#059669';
             if (taux >= -30) return '#d97706';
             return '#dc2626';
@@ -1067,6 +1355,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    {% endif %}
     {% endif %}
 });
 </script>

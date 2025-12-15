@@ -1,24 +1,93 @@
+# ===================================================================
+# inventaire/views.py - Vues Inventaire avec Permissions Granulaires
+# VERSION MODIFIÉE - Utilisation des 73 permissions SUPPER
+# ===================================================================
+"""
+Vues pour le module inventaire utilisant le système de permissions granulaires.
+
+PERMISSIONS UTILISÉES:
+- peut_saisir_inventaire_admin: Saisie inventaire administratif
+- peut_voir_liste_inventaires_admin: Liste inventaires administratifs  
+- peut_voir_tracabilite_tickets: Recherche traçabilité tickets
+
+DÉCORATEURS DISPONIBLES:
+- @inventaire_admin_required(): Pour saisie inventaire admin
+- @liste_inventaires_admin_required(): Pour liste inventaires admin
+- @tracabilite_tickets_required(): Pour traçabilité tickets
+- @api_permission_required(): Pour endpoints API
+"""
+
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from datetime import datetime
-from .models import *
-from accounts.models import *
 from django.db.models import Sum, Avg, Count, Q
-from datetime import date
-def is_admin(user):
-    return user.is_authenticated and (user.is_superuser or user.habilitation == 'admin_principal')
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+from django.utils import timezone
+from datetime import datetime, date
+
+# Import des modèles
+from .models import (
+    InventaireJournalier, DetailInventairePeriode, RecetteJournaliere,
+    ConfigurationJour, PeriodeHoraire, SerieTicket, CouleurTicket
+)
+from accounts.models import Poste, UtilisateurSUPPER
+
+# Import du système de permissions granulaires
+from common.permissions import (
+    has_permission,
+    has_any_permission,
+    get_postes_accessibles,
+    check_poste_access,
+    is_admin_user,
+    peut_saisir_inventaire_admin,
+    peut_voir_liste_inventaires_admin,
+    peut_voir_tracabilite_tickets,
+    get_permissions_summary,
+)
+
+from common.decorators import (
+    inventaire_admin_required,
+    liste_inventaires_admin_required,
+    tracabilite_tickets_required,
+    api_permission_required,
+    permission_required_granular,
+)
+
+# Import des utilitaires de logging
+from common.utils import log_user_action
+
+import logging
+logger = logging.getLogger('supper.inventaire')
+
+
+# ===================================================================
+# VUE: INVENTAIRE ADMINISTRATIF - Sélection poste/date
+# Permission: peut_saisir_inventaire_admin
+# URL: /inventaire/administratif/
+# ===================================================================
 
 @login_required
-@user_passes_test(is_admin)
+@inventaire_admin_required()
 def inventaire_administratif(request):
-    """Vue administrative pour saisie d'inventaire tous postes"""
+    """
+    Vue administrative pour saisie d'inventaire tous postes.
     
-    # Récupérer tous les postes actifs
+    Permissions requises:
+    - peut_saisir_inventaire_admin
+    
+    Fonctionnalités:
+    - Sélection du poste parmi tous les postes actifs
+    - Sélection de la date d'inventaire
+    - Indication visuelle des postes ayant déjà un inventaire
+    """
+    user = request.user
+    today = timezone.now().date()
+    
+    # Récupérer tous les postes actifs (admin a accès à tous)
     postes = Poste.objects.filter(is_active=True).order_by('nom')
     
     # Récupérer les inventaires existants pour aujourd'hui
-    today = timezone.now().date()
     inventaires_existants = InventaireJournalier.objects.filter(
         date=today
     ).values_list('poste_id', flat=True)
@@ -30,51 +99,90 @@ def inventaire_administratif(request):
     context = {
         'postes': postes,
         'today': today,
-        'inventaires_existants_count': len(inventaires_existants)
+        'inventaires_existants_count': len(inventaires_existants),
+        'user_permissions': get_permissions_summary(user),
     }
     
-    # Étape 1: Sélection du poste
+    # Traitement POST: Sélection du poste
     if request.method == 'POST' and 'select_poste' in request.POST:
         poste_id = request.POST.get('poste_id')
         date_str = request.POST.get('date')
         
         if poste_id and date_str:
-            # Vérifier si un inventaire existe déjà
             try:
                 poste = Poste.objects.get(id=poste_id)
                 date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
                 
+                # Vérifier si un inventaire existe déjà
                 inventaire_existe = InventaireJournalier.objects.filter(
                     poste=poste,
                     date=date_obj
                 ).exists()
                 
                 if inventaire_existe:
-                    messages.info(request, f"Un inventaire existe déjà pour {poste.nom} le {date_obj.strftime('%d/%m/%Y')}. Vous allez le modifier.")
+                    messages.info(
+                        request, 
+                        f"Un inventaire existe déjà pour {poste.nom} le {date_obj.strftime('%d/%m/%Y')}. "
+                        f"Vous allez le modifier."
+                    )
                 
-            except (Poste.DoesNotExist, ValueError):
-                pass
-            
-            return redirect('inventaire:inventaire_admin_saisie', 
-                          poste_id=poste_id, date_str=date_str)
+                # Log de l'action
+                log_user_action(
+                    user=user,
+                    action="Sélection poste inventaire admin",
+                    details=f"Poste: {poste.nom} ({poste.code}) | Date: {date_obj.strftime('%d/%m/%Y')} | "
+                           f"Modification: {'Oui' if inventaire_existe else 'Non'}",
+                    request=request
+                )
+                
+                return redirect('inventaire:inventaire_admin_saisie', 
+                              poste_id=poste_id, date_str=date_str)
+                              
+            except Poste.DoesNotExist:
+                messages.error(request, "Poste non trouvé.")
+                log_user_action(
+                    user=user,
+                    action="Erreur sélection poste inventaire",
+                    details=f"Poste ID {poste_id} introuvable",
+                    request=request
+                )
+            except ValueError:
+                messages.error(request, "Format de date invalide.")
     
     return render(request, 'inventaire/inventaire_administratif.html', context)
+
+
+# ===================================================================
+# VUE: SAISIE INVENTAIRE ADMINISTRATIF
+# Permission: peut_saisir_inventaire_admin
+# URL: /inventaire/administratif/saisie/<poste_id>/<date_str>/
+# ===================================================================
+
 @login_required
-@user_passes_test(is_admin)
+@inventaire_admin_required()
 def inventaire_admin_saisie(request, poste_id, date_str):
-    """Saisie administrative d'inventaire pour un poste et une date"""
+    """
+    Saisie administrative d'inventaire pour un poste et une date.
     
+    Permissions requises:
+    - peut_saisir_inventaire_admin
+    
+    Fonctionnalités:
+    - Création ou modification d'inventaire
+    - Saisie par créneaux horaires
+    - Calcul automatique des totaux et recette potentielle
+    - Traçabilité des modifications
+    """
+    user = request.user
     poste = get_object_or_404(Poste, id=poste_id)
     date_inventaire = datetime.strptime(date_str, '%Y-%m-%d').date()
     
-    # CORRECTION : Retirer type_inventaire de la recherche get_or_create
-    # Car la contrainte unique est seulement sur ['poste', 'date']
+    # Créer ou récupérer l'inventaire
     inventaire, created = InventaireJournalier.objects.get_or_create(
         poste=poste,
         date=date_inventaire,
-        # ❌ NE PAS mettre type_inventaire ici
         defaults={
-            'agent_saisie': request.user,
+            'agent_saisie': user,
             'type_inventaire': 'administratif',
         }
     )
@@ -82,21 +190,18 @@ def inventaire_admin_saisie(request, poste_id, date_str):
     # Si l'inventaire existait déjà, mettre à jour le type si nécessaire
     if not created and inventaire.type_inventaire != 'administratif':
         inventaire.type_inventaire = 'administratif'
-        inventaire.derniere_modification_par = request.user
+        inventaire.derniere_modification_par = user
         inventaire.save(update_fields=['type_inventaire', 'derniere_modification_par'])
     
+    # Traitement POST: Sauvegarde de l'inventaire
     if request.method == 'POST' and 'save_inventaire' in request.POST:
-        # Vérifier les permissions de modification
-        if not created and not request.user.is_admin:
-            messages.error(request, "Seuls les administrateurs peuvent modifier un inventaire existant.")
-            return redirect('inventaire:inventaire_administratif')
-        
         # Traiter les périodes
         total_vehicules = 0
         nombre_periodes = 0
+        periodes_saisies = []
         
         for periode_choice in PeriodeHoraire.choices:
-            periode_code, _ = periode_choice
+            periode_code, periode_label = periode_choice
             field_name = f'periode_{periode_code}'
             
             if field_name in request.POST:
@@ -112,6 +217,7 @@ def inventaire_admin_saisie(request, poste_id, date_str):
                             )
                             total_vehicules += nombre
                             nombre_periodes += 1
+                            periodes_saisies.append(f"{periode_label}: {nombre}")
                     except ValueError:
                         pass
         
@@ -119,17 +225,37 @@ def inventaire_admin_saisie(request, poste_id, date_str):
         inventaire.total_vehicules = total_vehicules
         inventaire.nombre_periodes_saisies = nombre_periodes
         inventaire.observations = request.POST.get('observations', '')
-        inventaire.derniere_modification_par = request.user
+        inventaire.derniere_modification_par = user
         inventaire.save()
         
         # Calculer automatiquement la recette potentielle
         recette_potentielle = inventaire.calculer_recette_potentielle()
         
-        # Message différencié selon création ou modification
+        # Log détaillé de l'action
+        action_type = "Création" if created else "Modification"
+        log_user_action(
+            user=user,
+            action=f"{action_type} inventaire administratif",
+            details=f"Poste: {poste.nom} ({poste.code}) | Date: {date_inventaire.strftime('%d/%m/%Y')} | "
+                   f"Total véhicules: {total_vehicules} | Périodes saisies: {nombre_periodes} | "
+                   f"Recette potentielle: {recette_potentielle:,.0f} FCFA | "
+                   f"Détail: {', '.join(periodes_saisies[:5])}{'...' if len(periodes_saisies) > 5 else ''}",
+            request=request
+        )
+        
+        # Message de succès
         if created:
-            messages.success(request, f"Inventaire créé avec succès. Recette potentielle: {recette_potentielle} FCFA")
+            messages.success(
+                request, 
+                f"✅ Inventaire créé avec succès pour {poste.nom}. "
+                f"Recette potentielle: {recette_potentielle:,.0f} FCFA"
+            )
         else:
-            messages.success(request, f"Inventaire modifié avec succès. Recette potentielle: {recette_potentielle} FCFA")
+            messages.success(
+                request, 
+                f"✅ Inventaire modifié avec succès pour {poste.nom}. "
+                f"Recette potentielle: {recette_potentielle:,.0f} FCFA"
+            )
         
         return redirect('inventaire:inventaire_administratif')
     
@@ -152,51 +278,75 @@ def inventaire_admin_saisie(request, poste_id, date_str):
         'periodes_data': periodes_data,
         'total_vehicules': inventaire.total_vehicules,
         'recette_potentielle': inventaire.calculer_recette_potentielle(),
-        'is_modification': not created,  # Indiquer si c'est une modification
+        'is_modification': not created,
         'created_by': inventaire.agent_saisie if inventaire.agent_saisie else None,
-        'last_modified_by': inventaire.derniere_modification_par if hasattr(inventaire, 'derniere_modification_par') else None
+        'last_modified_by': getattr(inventaire, 'derniere_modification_par', None),
+        'user_permissions': get_permissions_summary(user),
     }
     
     return render(request, 'inventaire/inventaire_admin_saisie.html', context)
+
+
+# ===================================================================
+# VUE: LISTE INVENTAIRES ADMINISTRATIFS
+# Permission: peut_voir_liste_inventaires_admin
+# URL: /inventaire/administratifs/liste/
+# ===================================================================
+
 @login_required
-@user_passes_test(is_admin)
+@liste_inventaires_admin_required()
 def liste_inventaires_administratifs(request):
-    """Liste des inventaires saisis par les administrateurs"""
+    """
+    Liste des inventaires saisis par les administrateurs.
     
-    # Récupérer tous les inventaires
+    Permissions requises:
+    - peut_voir_liste_inventaires_admin
+    
+    Fonctionnalités:
+    - Filtrage par poste, date, recherche
+    - Calcul du taux de déperdition avec code couleur
+    - Pagination
+    - Export possible
+    """
+    user = request.user
+    
+    # Queryset de base: inventaires administratifs
     queryset = InventaireJournalier.objects.filter(
-        type_inventaire='administratif'  # Seulement les inventaires administratifs
+        type_inventaire='administratif'
     ).select_related(
         'poste', 'agent_saisie'
     ).prefetch_related('details_periodes')
     
-    # Filtrer par administrateur si nécessaire
+    # Filtrer par administrateur si demandé
     if request.GET.get('admin_only'):
         queryset = queryset.filter(
             agent_saisie__habilitation__in=['admin_principal', 'coord_psrr', 'serv_info']
         )
     
-    # Filtres
+    # Filtre par poste
     poste_id = request.GET.get('poste')
     if poste_id:
         queryset = queryset.filter(poste_id=poste_id)
     
+    # Filtre par dates
     date_debut = request.GET.get('date_debut')
     date_fin = request.GET.get('date_fin')
+    
     if date_debut:
         try:
-            date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
-            queryset = queryset.filter(date__gte=date_debut)
+            date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__gte=date_debut_obj)
         except ValueError:
             pass
     
     if date_fin:
         try:
-            date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
-            queryset = queryset.filter(date__lte=date_fin)
+            date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__lte=date_fin_obj)
         except ValueError:
             pass
-    # Recherche
+    
+    # Recherche textuelle
     search = request.GET.get('search')
     if search:
         queryset = queryset.filter(
@@ -205,18 +355,16 @@ def liste_inventaires_administratifs(request):
             Q(agent_saisie__nom_complet__icontains=search)
         )
     
-    # Tri
+    # Tri par date décroissante puis par poste
     queryset = queryset.order_by('-date', 'poste__nom')
     
     # Pagination
-    from django.core.paginator import Paginator
-    paginator = Paginator(queryset.order_by('-date'), 20)
+    paginator = Paginator(queryset, 20)
     page = request.GET.get('page')
     inventaires = paginator.get_page(page)
     
     # Calculer les taux pour chaque inventaire
     for inv in inventaires:
-        # Récupérer la recette associée si elle existe
         try:
             recette = RecetteJournaliere.objects.get(
                 poste=inv.poste,
@@ -229,7 +377,7 @@ def liste_inventaires_administratifs(request):
                 ecart = recette.montant_declare - inv.recette_potentielle
                 inv.taux_deperdition = (ecart / inv.recette_potentielle) * 100
                 
-                # Couleur selon le taux
+                # Code couleur selon le taux
                 if inv.taux_deperdition > -5:
                     inv.couleur_alerte = 'secondary'
                 elif inv.taux_deperdition >= -29.99:
@@ -244,14 +392,35 @@ def liste_inventaires_administratifs(request):
             inv.taux_deperdition = None
             inv.couleur_alerte = 'secondary'
     
+    # Statistiques
+    today = timezone.now().date()
     stats = {
         'total': queryset.count(),
-        'today': queryset.filter(date=timezone.now().date()).count(),
+        'today': queryset.filter(date=today).count(),
         'this_month': queryset.filter(
-            date__month=timezone.now().month,
-            date__year=timezone.now().year
+            date__month=today.month,
+            date__year=today.year
         ).count()
     }
+    
+    # Log de consultation
+    filtres_appliques = []
+    if poste_id:
+        filtres_appliques.append(f"poste={poste_id}")
+    if date_debut:
+        filtres_appliques.append(f"depuis={date_debut}")
+    if date_fin:
+        filtres_appliques.append(f"jusqu'à={date_fin}")
+    if search:
+        filtres_appliques.append(f"recherche='{search}'")
+    
+    log_user_action(
+        user=user,
+        action="Consultation liste inventaires admin",
+        details=f"Total: {stats['total']} inventaires | Page: {page or 1} | "
+               f"Filtres: {', '.join(filtres_appliques) if filtres_appliques else 'Aucun'}",
+        request=request
+    )
     
     context = {
         'inventaires': inventaires,
@@ -263,24 +432,34 @@ def liste_inventaires_administratifs(request):
             'date_debut': request.GET.get('date_debut', ''),
             'date_fin': request.GET.get('date_fin', ''),
             'search': request.GET.get('search', ''),
-        }
+        },
+        'user_permissions': get_permissions_summary(user),
     }
     
     return render(request, 'inventaire/liste_inventaires_administratifs.html', context)
 
+
+# ===================================================================
+# VUE: RECHERCHE TRAÇABILITÉ TICKET
+# Permission: peut_voir_tracabilite_tickets
+# URL: /inventaire/tracabilite-ticket/
+# ===================================================================
+
 @login_required
-@user_passes_test(is_admin)
+@tracabilite_tickets_required()
 def recherche_tracabilite_ticket(request):
     """
-    Vue administrative de recherche et traçabilité des tickets
-    VERSION AMÉLIORÉE : Gestion des tickets sur plusieurs années
+    Vue administrative de recherche et traçabilité des tickets.
     
-    FONCTIONNALITÉ :
-    - Recherche un ticket sur toutes les années ou une année spécifique
-    - Affiche l'historique complet avec les différentes occurrences par année
-    - Permet de tracer le cycle de vie d'un numéro de ticket
+    Permissions requises:
+    - peut_voir_tracabilite_tickets
+    
+    Fonctionnalités:
+    - Recherche multi-années ou année spécifique
+    - Affichage historique complet par année
+    - Traçage du cycle de vie d'un numéro de ticket
     """
-    
+    user = request.user
     resultats = None
     numero_recherche = None
     couleur_recherche = None
@@ -296,26 +475,28 @@ def recherche_tracabilite_ticket(request):
                 numero = int(numero_recherche)
                 couleur = CouleurTicket.objects.get(id=couleur_id)
                 
-                # Recherche dans TOUTES les années si non spécifiée
+                # Construire la requête
                 query = Q(
                     numero_premier__lte=numero,
                     numero_dernier__gte=numero,
                     couleur=couleur
                 )
                 
+                # Filtre par année si spécifiée
                 if annee_recherche:
                     annee = int(annee_recherche)
                     debut_annee = date(annee, 1, 1)
                     fin_annee = date(annee, 12, 31)
                     query &= Q(date_reception__range=[debut_annee, fin_annee])
                 
+                # Exécuter la recherche
                 series_trouvees = SerieTicket.objects.filter(query).select_related(
                     'poste', 'couleur', 'reference_recette', 
                     'poste_destination_transfert'
                 ).order_by('date_reception')
                 
                 if series_trouvees.exists():
-                    # ===== GROUPEMENT PAR ANNÉE =====
+                    # Groupement par année
                     resultats_par_annee = {}
                     
                     for serie in series_trouvees:
@@ -366,7 +547,6 @@ def recherche_tracabilite_ticket(request):
                             
                             info['classe_badge'] = 'warning'
                         
-                        # Commentaire si présent
                         if serie.commentaire:
                             info['commentaire'] = serie.commentaire
                         
@@ -385,7 +565,7 @@ def recherche_tracabilite_ticket(request):
                         )
                     ]
                     
-                    # Message de succès détaillé
+                    # Message de succès
                     total_occurrences = sum(r['nombre'] for r in resultats)
                     annees_concernees = [str(r['annee']) for r in resultats]
                     
@@ -395,30 +575,56 @@ def recherche_tracabilite_ticket(request):
                         f"{couleur.libelle_affichage} #{numero} "
                         f"sur {len(annees_concernees)} année(s) : {', '.join(annees_concernees)}"
                     )
+                    
+                    # Log de recherche réussie
+                    log_user_action(
+                        user=user,
+                        action="Recherche traçabilité ticket - Trouvé",
+                        details=f"Ticket: {couleur.libelle_affichage} #{numero} | "
+                               f"Année filtre: {annee_recherche or 'Toutes'} | "
+                               f"Résultats: {total_occurrences} occurrence(s) sur {len(annees_concernees)} année(s) | "
+                               f"Années: {', '.join(annees_concernees)}",
+                        request=request
+                    )
                 else:
                     messages.warning(
                         request,
                         f"Aucune trace du ticket {couleur.libelle_affichage} #{numero} "
                         f"dans le système" + (f" pour l'année {annee_recherche}" if annee_recherche else "")
                     )
+                    
+                    # Log de recherche sans résultat
+                    log_user_action(
+                        user=user,
+                        action="Recherche traçabilité ticket - Non trouvé",
+                        details=f"Ticket: {couleur.libelle_affichage} #{numero} | "
+                               f"Année filtre: {annee_recherche or 'Toutes'} | "
+                               f"Résultat: Aucune occurrence",
+                        request=request
+                    )
             
             except ValueError:
                 messages.error(request, "Numéro de ticket ou année invalide")
+                log_user_action(
+                    user=user,
+                    action="Erreur recherche traçabilité",
+                    details=f"Erreur de format - Numéro: {numero_recherche} | Année: {annee_recherche}",
+                    request=request
+                )
             except CouleurTicket.DoesNotExist:
                 messages.error(request, "Couleur de ticket invalide")
             except Exception as e:
                 messages.error(request, f"Erreur lors de la recherche : {str(e)}")
+                logger.error(f"Erreur recherche traçabilité: {str(e)}")
         else:
             messages.error(request, "Veuillez renseigner le numéro de ticket et la couleur")
     
-    # Liste de toutes les couleurs pour le formulaire
+    # Préparation du contexte
     couleurs = CouleurTicket.objects.all().order_by('code_normalise')
     
-    # Années disponibles pour le filtre (10 dernières années)
-    annees_disponibles = []
+    # Années disponibles (10 dernières)
     annee_actuelle = date.today().year
-    for i in range(10):  # 10 dernières années
-        annees_disponibles.append(annee_actuelle - i)
+    annees_disponibles = [annee_actuelle - i for i in range(10)]
     
     context = {
         'couleurs': couleurs,
@@ -427,51 +633,92 @@ def recherche_tracabilite_ticket(request):
         'couleur_recherche': couleur_recherche,
         'annee_recherche': annee_recherche,
         'resultats': resultats,
-        'title': 'Traçabilité des Tickets'
+        'title': 'Traçabilité des Tickets',
+        'user_permissions': get_permissions_summary(user),
     }
     
     return render(request, 'inventaire/recherche_tracabilite_ticket.html', context)
 
+
+# ===================================================================
+# API: VÉRIFICATION UNICITÉ TICKET PAR ANNÉE
+# Permission: peut_voir_tracabilite_tickets
+# URL: /inventaire/api/verifier-unicite-ticket/
+# ===================================================================
+
 @login_required
-@user_passes_test(is_admin)
+@api_permission_required('peut_voir_tracabilite_tickets')
 def verifier_unicite_ticket_annee(request):
     """
-    API pour vérifier l'unicité d'un ticket dans une année
-    Utilisé lors de la saisie pour validation en temps réel
+    API pour vérifier l'unicité d'un ticket dans une année.
+    Utilisé lors de la saisie pour validation en temps réel.
+    
+    Permissions requises:
+    - peut_voir_tracabilite_tickets
+    
+    Méthode: POST
+    Paramètres:
+    - numero: Numéro du ticket
+    - couleur_id: ID de la couleur
+    - annee: Année à vérifier
+    
+    Retourne: JSON avec est_unique, message, historique
     """
-    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({
+            'success': False,
+            'message': 'Méthode non autorisée'
+        }, status=405)
     
-    if request.method == 'POST':
-        numero = request.POST.get('numero')
-        couleur_id = request.POST.get('couleur_id')
-        annee = request.POST.get('annee')
-        
-        if not all([numero, couleur_id, annee]):
-            return JsonResponse({
-                'success': False,
-                'message': 'Paramètres manquants'
-            })
-        
-        try:
-            numero = int(numero)
-            annee = int(annee)
-            couleur = CouleurTicket.objects.get(id=couleur_id)
-            
-            est_unique, message, historique = SerieTicket.verifier_unicite_annuelle(
-                numero, couleur, annee
-            )
-            
-            return JsonResponse({
-                'success': True,
-                'est_unique': est_unique,
-                'message': message,
-                'historique': historique
-            })
-        
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': str(e)
-            })
+    numero = request.POST.get('numero')
+    couleur_id = request.POST.get('couleur_id')
+    annee = request.POST.get('annee')
     
-    return JsonResponse({'success': False, 'message': 'Méthode non autorisée'})
+    if not all([numero, couleur_id, annee]):
+        return JsonResponse({
+            'success': False,
+            'message': 'Paramètres manquants (numero, couleur_id, annee requis)'
+        })
+    
+    try:
+        numero = int(numero)
+        annee = int(annee)
+        couleur = CouleurTicket.objects.get(id=couleur_id)
+        
+        # Vérification d'unicité
+        est_unique, message, historique = SerieTicket.verifier_unicite_annuelle(
+            numero, couleur, annee
+        )
+        
+        # Log de la vérification API
+        log_user_action(
+            user=request.user,
+            action="API vérification unicité ticket",
+            details=f"Ticket: {couleur.libelle_affichage} #{numero} | "
+                   f"Année: {annee} | Unique: {'Oui' if est_unique else 'Non'}",
+            request=request
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'est_unique': est_unique,
+            'message': message,
+            'historique': historique
+        })
+    
+    except CouleurTicket.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Couleur de ticket non trouvée'
+        })
+    except ValueError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Numéro ou année invalide'
+        })
+    except Exception as e:
+        logger.error(f"Erreur API vérification unicité: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur serveur: {str(e)}'
+        })

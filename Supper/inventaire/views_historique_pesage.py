@@ -1,6 +1,7 @@
 # ===================================================================
 # inventaire/views_historique_pesage.py - Vues pour la recherche 
 # d'historique et confirmation inter-stations du module Pesage SUPPER
+# VERSION MISE À JOUR - Intégration des permissions granulaires
 # ===================================================================
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -27,75 +28,299 @@ from .utils_pesage import (
 )
 from accounts.models import Poste
 
-logger = logging.getLogger('supper')
-
-
 # ===================================================================
-# CONSTANTES RÔLES PESAGE
+# IMPORTS DES PERMISSIONS GRANULAIRES DU PROJET
 # ===================================================================
-
-PESAGE_ROLES = ['chef_equipe_pesage', 'regisseur_pesage', 'chef_station_pesage']
-VALIDATION_ROLES = ['regisseur_pesage', 'chef_station_pesage']
-
-
-# ===================================================================
-# FONCTIONS UTILITAIRES
-# ===================================================================
-
-def is_admin(user):
-    """Vérifie si l'utilisateur est administrateur"""
-    return user.is_superuser or user.habilitation in ['admin_principal', 'coord_psrr', 'serv_info']
-
-
-def get_user_station(user):
-    """Retourne la station de pesage de l'utilisateur"""
-    if is_admin(user):
-        return None
+from common.permissions import (
+    # Fonctions de classification utilisateurs
+    is_admin_user,
+    is_service_central,
+    is_cisop,
+    is_cisop_pesage,
+    is_operationnel_pesage,
+    is_regisseur_pesage,
+    is_chef_station_pesage,
+    is_chef_equipe_pesage,
     
-    if user.habilitation not in PESAGE_ROLES:
+    # Fonctions d'accès aux postes
+    user_has_acces_tous_postes,
+    get_postes_accessibles,
+    get_postes_pesage_accessibles,
+    check_poste_access,
+    get_poste_from_request,
+    
+    # Vérification de permissions granulaires
+    has_permission,
+    has_any_permission,
+    
+    # Constantes d'habilitations
+    HABILITATIONS_PESAGE,
+    HABILITATIONS_OPERATIONNELS_PESAGE,
+    HABILITATIONS_MULTI_POSTES,
+    HABILITATIONS_ADMIN,
+    
+    # Logging
+    log_acces_refuse,
+)
+
+from common.decorators import (
+    permission_required_granular,
+    operationnel_pesage_required,
+    validation_paiement_amende_required,
+    historique_vehicule_pesage_required,
+    liste_amendes_required,
+    api_permission_required,
+)
+
+from common.utils import log_user_action
+
+logger = logging.getLogger('supper.pesage')
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES MISE À JOUR
+# ===================================================================
+
+def get_user_station_pesage(user):
+    """
+    Retourne la station de pesage de l'utilisateur.
+    
+    RÈGLES:
+    - Si admin ou multi-postes: retourne None (accès à toutes les stations)
+    - Si opérationnel pesage avec poste d'affectation valide: retourne le poste
+    - Sinon: retourne False (pas d'accès)
+    
+    Args:
+        user: L'utilisateur connecté
+        
+    Returns:
+        Poste | None | False
+    """
+    if not user or not user.is_authenticated:
         return False
     
-    if user.poste_affectation and user.poste_affectation.type == 'pesage':
-        return user.poste_affectation
+    # Admin et utilisateurs multi-postes ont accès à toutes les stations
+    if user_has_acces_tous_postes(user):
+        logger.debug(
+            f"[get_user_station_pesage] Utilisateur {user.username} "
+            f"(habilitation: {user.habilitation}) a accès à tous les postes"
+        )
+        return None
     
-    return False
+    # Vérifier que l'habilitation permet l'accès au module pesage
+    habilitation = getattr(user, 'habilitation', None)
+    if habilitation not in HABILITATIONS_OPERATIONNELS_PESAGE:
+        logger.warning(
+            f"[get_user_station_pesage] Utilisateur {user.username} "
+            f"(habilitation: {habilitation}) n'a pas accès au module pesage"
+        )
+        return False
+    
+    # Vérifier que le poste d'affectation est une station de pesage valide
+    poste = getattr(user, 'poste_affectation', None)
+    if not poste:
+        logger.warning(
+            f"[get_user_station_pesage] Utilisateur {user.username} "
+            f"n'a pas de poste d'affectation"
+        )
+        return False
+    
+    if poste.type != 'pesage':
+        logger.warning(
+            f"[get_user_station_pesage] Utilisateur {user.username} "
+            f"affecté à un poste de type '{poste.type}' au lieu de 'pesage'"
+        )
+        return False
+    
+    if not poste.is_active:
+        logger.warning(
+            f"[get_user_station_pesage] Poste {poste.nom} de l'utilisateur "
+            f"{user.username} est inactif"
+        )
+        return False
+    
+    logger.debug(
+        f"[get_user_station_pesage] Utilisateur {user.username} "
+        f"affecté à la station {poste.nom}"
+    )
+    return poste
+
+
+def peut_valider_paiements(user):
+    """
+    Vérifie si l'utilisateur peut valider des paiements d'amendes.
+    
+    HABILITATIONS AUTORISÉES:
+    - Admin (admin_principal, coord_psrr, serv_info)
+    - Régisseur pesage (regisseur_pesage)
+    - Chef de station pesage (chef_station_pesage)
+    
+    Returns:
+        bool: True si autorisé à valider
+    """
+    if not user or not user.is_authenticated:
+        return False
+    
+    # Vérifier la permission granulaire
+    if has_permission(user, 'peut_valider_paiement_amende'):
+        return True
+    
+    # Fallback sur les habilitations admin
+    if is_admin_user(user):
+        return True
+    
+    # Vérifier les habilitations spécifiques de validation
+    habilitation = getattr(user, 'habilitation', None)
+    return habilitation in ['regisseur_pesage']
+
+
+def filtrer_amendes_par_acces(queryset, user):
+    """
+    Filtre un queryset d'amendes selon les droits d'accès de l'utilisateur.
+    
+    RÈGLES:
+    - Accès tous postes: toutes les amendes
+    - Accès poste unique: amendes de sa station uniquement
+    
+    Args:
+        queryset: QuerySet d'AmendeEmise
+        user: Utilisateur connecté
+        
+    Returns:
+        QuerySet filtré
+    """
+    if user_has_acces_tous_postes(user):
+        return queryset
+    
+    station = get_user_station_pesage(user)
+    if station and station is not False:
+        return queryset.filter(station=station)
+    
+    # Aucun accès
+    return queryset.none()
 
 
 # ===================================================================
-# DÉCORATEUR D'ACCÈS
+# DÉCORATEURS PERSONNALISÉS POUR LE MODULE PESAGE
 # ===================================================================
 
 def pesage_access_required(view_func):
-    """Vérifie que l'utilisateur a accès au module pesage"""
+    """
+    Décorateur vérifiant l'accès au module pesage.
+    
+    HABILITATIONS AUTORISÉES:
+    - Admin (admin_principal, coord_psrr, serv_info)
+    - CISOP pesage (cisop_pesage)
+    - Opérationnels pesage (chef_station_pesage, regisseur_pesage, chef_equipe_pesage)
+    
+    Note: Les utilisateurs avec accès multi-postes peuvent accéder à toutes les stations.
+    Les opérationnels pesage ne peuvent accéder qu'à leur station d'affectation.
+    """
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
         user = request.user
-        if is_admin(user):
+        
+        # Admin a toujours accès
+        if is_admin_user(user):
+            logger.info(
+                f"[pesage_access] Accès ADMIN accordé à {user.username} "
+                f"pour {view_func.__name__}"
+            )
             return view_func(request, *args, **kwargs)
-        if user.habilitation not in PESAGE_ROLES:
-            messages.error(request, _("Accès non autorisé au module pesage."))
-            return redirect('common:dashboard')
-        station = get_user_station(user)
+        
+        # CISOP pesage a accès à toutes les stations
+        if is_cisop_pesage(user):
+            logger.info(
+                f"[pesage_access] Accès CISOP_PESAGE accordé à {user.username} "
+                f"pour {view_func.__name__}"
+            )
+            return view_func(request, *args, **kwargs)
+        
+        # Vérifier si opérationnel pesage avec station valide
+        station = get_user_station_pesage(user)
         if station is False:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
+            # Journaliser l'accès refusé
+            log_user_action(
+                user=user,
+                action="ACCES_MODULE_PESAGE_REFUSE",
+                details=f"Tentative d'accès à {view_func.__name__} refusée - "
+                        f"Habilitation: {user.habilitation}, "
+                        f"Poste: {getattr(user.poste_affectation, 'nom', 'Aucun')}",
+                succes=False
+            )
+            log_acces_refuse(user, view_func.__name__, "Accès module pesage non autorisé")
+            
+            messages.error(
+                request, 
+                _("Accès non autorisé au module pesage. "
+                  "Votre habilitation ne vous permet pas d'accéder à ce module.")
+            )
             return redirect('common:dashboard')
-        return view_func(request, *args, **kwargs)
+        
+        # Vérifier si opérationnel pesage
+        if is_operationnel_pesage(user):
+            logger.info(
+                f"[pesage_access] Accès OPERATIONNEL_PESAGE accordé à {user.username} "
+                f"pour {view_func.__name__} - Station: {station.nom if station else 'Toutes'}"
+            )
+            return view_func(request, *args, **kwargs)
+        
+        # Accès refusé par défaut
+        log_user_action(
+            user=user,
+            action="ACCES_MODULE_PESAGE_REFUSE",
+            details=f"Tentative d'accès à {view_func.__name__} refusée - "
+                    f"Habilitation non reconnue: {user.habilitation}",
+            succes=False
+        )
+        log_acces_refuse(user, view_func.__name__, "Habilitation non autorisée")
+        
+        messages.error(request, _("Accès non autorisé au module pesage."))
+        return redirect('common:dashboard')
+    
     return wrapper
 
 
-def regisseur_required(view_func):
-    """Vérifie que l'utilisateur est régisseur ou admin"""
+def regisseur_pesage_required(view_func):
+    """
+    Décorateur vérifiant que l'utilisateur peut valider des paiements.
+    
+    HABILITATIONS AUTORISÉES:
+    - Admin (admin_principal, coord_psrr, serv_info)
+    - Régisseur pesage (regisseur_pesage)
+    - Chef de station pesage (chef_station_pesage)
+    """
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
         user = request.user
-        if is_admin(user):
+        
+        if peut_valider_paiements(user):
+            station = get_user_station_pesage(user)
+            logger.info(
+                f"[regisseur_required] Accès accordé à {user.username} "
+                f"(habilitation: {user.habilitation}) pour {view_func.__name__} "
+                f"- Station: {station.nom if station and station is not False else 'Toutes'}"
+            )
             return view_func(request, *args, **kwargs)
-        if user.habilitation not in VALIDATION_ROLES:
-            messages.error(request, _("Accès réservé aux régisseurs."))
-            return redirect('common:dashboard')
-        return view_func(request, *args, **kwargs)
+        
+        # Accès refusé
+        log_user_action(
+            user=user,
+            action="ACCES_VALIDATION_PAIEMENT_REFUSE",
+            details=f"Tentative d'accès à {view_func.__name__} refusée - "
+                    f"Habilitation: {user.habilitation} ne permet pas la validation",
+            succes=False
+        )
+        log_acces_refuse(user, view_func.__name__, "Validation paiement non autorisée")
+        
+        messages.error(
+            request, 
+            _("Accès réservé aux régisseurs  pour la validation des paiements.")
+        )
+        return redirect('common:dashboard')
+    
     return wrapper
 
 
@@ -103,21 +328,27 @@ def regisseur_required(view_func):
 # RECHERCHE D'HISTORIQUE VÉHICULE
 # ===================================================================
 
-# inventaire/views_historique_pesage.py
-
-@login_required
+@pesage_access_required
 def recherche_historique_vehicule(request):
     """
     Page de recherche d'historique véhicule avec résumé statistique.
-    Compatible avec l'ancienne version qui fonctionnait.
+    
+    PERMISSIONS REQUISES:
+    - peut_voir_historique_vehicule_pesage OU
+    - Être opérationnel pesage (chef_station, regisseur, chef_equipe)
+    
+    RÈGLES D'ACCÈS:
+    - Utilisateurs avec accès tous postes: voient toutes les amendes
+    - Opérationnels pesage: voient uniquement les amendes de leur station
     """
-    from django.core.paginator import Paginator
-    from django.db.models import Sum, Count, Q
-    from inventaire.models_pesage import AmendeEmise
-    from inventaire.utils_pesage import (
-        normalize_immatriculation, 
-        rechercher_historique_vehicule as rechercher_vehicule,
-        get_resume_historique_vehicule
+    user = request.user
+    
+    # Log de l'accès à la page
+    log_user_action(
+        user=user,
+        action="ACCES_RECHERCHE_HISTORIQUE_VEHICULE",
+        details=f"Accès à la page de recherche d'historique véhicule",
+        succes=True
     )
     
     resultats = None
@@ -133,16 +364,31 @@ def recherche_historique_vehicule(request):
     if immatriculation or transporteur or operateur:
         recherche_effectuee = True
         
-        # Recherche des amendes (retourne un QuerySet, pas une liste)
-        resultats_qs = rechercher_vehicule(
+        # Recherche des amendes
+        resultats_qs = rechercher_historique_vehicule(
             immatriculation=immatriculation,
             transporteur=transporteur,
             operateur=operateur
         )
         
-        # Debug: afficher le nombre de résultats
-        logger.info(f"Recherche historique: immat={immatriculation}, transp={transporteur}, op={operateur}")
-        logger.info(f"Nombre de résultats: {resultats_qs.count()}")
+        # Filtrer selon les droits d'accès de l'utilisateur
+        resultats_qs = filtrer_amendes_par_acces(resultats_qs, user)
+        
+        # Log de la recherche
+        log_user_action(
+            user=user,
+            action="RECHERCHE_HISTORIQUE_VEHICULE",
+            details=f"Recherche effectuée - Critères: immat='{immatriculation}', "
+                    f"transp='{transporteur}', op='{operateur}' - "
+                    f"Résultats: {resultats_qs.count()}",
+            succes=True
+        )
+        
+        logger.info(
+            f"[recherche_historique] Utilisateur {user.username} - "
+            f"Recherche: immat={immatriculation}, transp={transporteur}, op={operateur} - "
+            f"Résultats: {resultats_qs.count()}"
+        )
         
         # Pagination
         paginator = Paginator(resultats_qs, 25)
@@ -152,7 +398,10 @@ def recherche_historique_vehicule(request):
         # Calculer le résumé SI recherche par immatriculation
         if immatriculation:
             resume = get_resume_historique_vehicule(immatriculation)
-            logger.info(f"Résumé: {resume}")
+            logger.debug(f"[recherche_historique] Résumé véhicule: {resume}")
+    
+    # Déterminer les stations accessibles pour le filtre
+    stations_accessibles = get_postes_pesage_accessibles(user)
     
     context = {
         'resultats': resultats,
@@ -161,22 +410,23 @@ def recherche_historique_vehicule(request):
         'transporteur': transporteur,
         'operateur': operateur,
         'recherche_effectuee': recherche_effectuee,
+        'stations_accessibles': stations_accessibles,
+        'acces_tous_postes': user_has_acces_tous_postes(user),
     }
     
     return render(request, 'pesage/recherche_historique.html', context)
 
 
 @pesage_access_required
-@login_required
 def detail_historique_vehicule(request, immatriculation):
     """
-    Affiche l'historique complet d'un véhicule par son immatriculation
+    Affiche l'historique complet d'un véhicule par son immatriculation.
+    
+    RÈGLES D'ACCÈS:
+    - Utilisateurs avec accès tous postes: voient toutes les amendes
+    - Opérationnels pesage: voient uniquement les amendes de leur station
     """
-    from django.core.paginator import Paginator
-    from django.db.models import Sum, Count, Q
-    from inventaire.utils_pesage import normalize_immatriculation
-    from inventaire.models_pesage import AmendeEmise
-    from accounts.models import Poste
+    user = request.user
     
     # Normaliser l'immatriculation
     immat_normalise = normalize_immatriculation(immatriculation)
@@ -186,14 +436,33 @@ def detail_historique_vehicule(request, immatriculation):
         immatriculation_normalise=immat_normalise
     ).select_related('station', 'saisi_par', 'valide_par').order_by('-date_heure_emission')
     
-    # Appliquer les filtres
+    # Filtrer selon les droits d'accès
+    amendes_qs = filtrer_amendes_par_acces(amendes_qs, user)
+    
+    # Log de la consultation
+    log_user_action(
+        user=user,
+        action="CONSULTATION_DETAIL_HISTORIQUE_VEHICULE",
+        details=f"Consultation historique véhicule {immatriculation.upper()} - "
+                f"Amendes trouvées: {amendes_qs.count()}",
+        succes=True
+    )
+    
+    # Appliquer les filtres supplémentaires
     station_filter = request.GET.get('station')
     statut_filter = request.GET.get('statut')
     date_debut = request.GET.get('date_debut')
     date_fin = request.GET.get('date_fin')
     
     if station_filter:
-        amendes_qs = amendes_qs.filter(station_id=station_filter)
+        # Vérifier que l'utilisateur a accès à cette station
+        if user_has_acces_tous_postes(user) or check_poste_access(user, int(station_filter)):
+            amendes_qs = amendes_qs.filter(station_id=station_filter)
+        else:
+            logger.warning(
+                f"[detail_historique] Utilisateur {user.username} a tenté de filtrer "
+                f"sur une station non autorisée: {station_filter}"
+            )
     
     if statut_filter == 'paye':
         amendes_qs = amendes_qs.filter(statut='paye')
@@ -209,8 +478,9 @@ def detail_historique_vehicule(request, immatriculation):
     # Calculer le total des montants
     total_montant = amendes_qs.aggregate(total=Sum('montant_amende'))['total'] or 0
     
-    # Résumé statistique global (sans filtres pour avoir les vraies stats)
+    # Résumé statistique global (basé sur les amendes accessibles à l'utilisateur)
     amendes_all = AmendeEmise.objects.filter(immatriculation_normalise=immat_normalise)
+    amendes_all = filtrer_amendes_par_acces(amendes_all, user)
     
     resume = {
         'total_amendes': amendes_all.count(),
@@ -222,20 +492,15 @@ def detail_historique_vehicule(request, immatriculation):
         'stations_distinctes': amendes_all.values('station').distinct().count(),
     }
     
-    # Stats par station
-    stats_par_station = AmendeEmise.objects.filter(
-        immatriculation_normalise=immat_normalise
-    ).values('station__nom').annotate(
+    # Stats par station (uniquement les stations accessibles)
+    stats_par_station = amendes_all.values('station__nom').annotate(
         total=Count('id'),
         payees=Count('id', filter=Q(statut='paye')),
         non_payees=Count('id', filter=~Q(statut='paye'))
     ).order_by('-total')
     
-    # Liste des stations pour le filtre
-    stations_list = Poste.objects.filter(
-        type='pesage',
-        is_active=True
-    ).order_by('nom')
+    # Liste des stations pour le filtre (uniquement celles accessibles)
+    stations_list = get_postes_pesage_accessibles(user)
     
     # Pagination
     paginator = Paginator(amendes_qs, 25)
@@ -249,35 +514,59 @@ def detail_historique_vehicule(request, immatriculation):
         'total_montant': total_montant,
         'stats_par_station': stats_par_station,
         'stations_list': stations_list,
+        'acces_tous_postes': user_has_acces_tous_postes(user),
     }
     
     return render(request, 'pesage/detail_historique_vehicule.html', context)
+
+
 # ===================================================================
 # VÉRIFICATION AVANT VALIDATION DE PAIEMENT
 # ===================================================================
 
-@regisseur_required
+@regisseur_pesage_required
 def verifier_avant_validation(request, pk):
     """
     Vérifie si un véhicule a des amendes non payées dans d'autres stations
     AVANT de valider un paiement.
     
-    URL: /pesage/verifier-avant-validation/<pk>/
+    PERMISSIONS REQUISES:
+    - peut_valider_paiement_amende OU
+    - Être régisseur/chef de station pesage
     
-    Retourne:
-        - Si pas d'amende non payée ailleurs: redirige vers validation
-        - Si amendes non payées: affiche page de blocage avec options
+    RÈGLES MÉTIER:
+    - Si pas d'amende non payée ailleurs: redirige vers validation
+    - Si amendes non payées: affiche page de blocage avec options
     """
     user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    station_utilisateur = get_user_station_pesage(user)
     
     # Récupérer l'amende
-    if is_admin(user):
+    if user_has_acces_tous_postes(user):
         amende = get_object_or_404(AmendeEmise, pk=pk)
         station_actuelle = amende.station
     else:
-        amende = get_object_or_404(AmendeEmise, pk=pk, station=station)
-        station_actuelle = station
+        if station_utilisateur and station_utilisateur is not False:
+            amende = get_object_or_404(AmendeEmise, pk=pk, station=station_utilisateur)
+            station_actuelle = station_utilisateur
+        else:
+            log_user_action(
+                user=user,
+                action="VERIFICATION_VALIDATION_REFUSEE",
+                details=f"Tentative de vérification amende {pk} sans station d'affectation valide",
+                succes=False
+            )
+            messages.error(request, _("Vous devez être affecté à une station de pesage."))
+            return redirect('common:dashboard')
+    
+    # Log de la vérification
+    log_user_action(
+        user=user,
+        action="VERIFICATION_AVANT_VALIDATION",
+        details=f"Vérification amende {amende.numero_ticket} - "
+                f"Véhicule: {amende.immatriculation} - Station: {station_actuelle.nom}",
+        succes=True
+    )
     
     # Vérifier si déjà payée
     if amende.statut == 'paye':
@@ -291,11 +580,13 @@ def verifier_avant_validation(request, pk):
     
     if not a_impaye:
         # Pas d'amende non payée ailleurs → validation directe possible
-        # Rediriger vers la validation normale
+        logger.info(
+            f"[verifier_validation] Amende {amende.numero_ticket} - "
+            f"Pas d'impayé ailleurs - Validation autorisée"
+        )
         return redirect('inventaire:valider_paiement_direct', pk=pk)
     
     # Il y a des amendes non payées ailleurs
-    # Vérifier s'il existe des demandes de confirmation en attente ou confirmées
     demandes_existantes = DemandeConfirmationPaiement.objects.filter(
         amende_a_valider=amende
     ).select_related('station_concernee', 'amende_non_payee')
@@ -309,52 +600,81 @@ def verifier_avant_validation(request, pk):
             break
     
     if toutes_confirmees:
-        # Toutes les confirmations sont obtenues → validation possible
+        logger.info(
+            f"[verifier_validation] Amende {amende.numero_ticket} - "
+            f"Toutes confirmations obtenues - Validation autorisée"
+        )
         return redirect('inventaire:valider_paiement_direct', pk=pk)
+    
+    # Log du blocage
+    log_user_action(
+        user=user,
+        action="VALIDATION_BLOQUEE_AMENDES_ANTERIEURES",
+        details=f"Validation amende {amende.numero_ticket} bloquée - "
+                f"Véhicule: {amende.immatriculation} - "
+                f"{amendes_impayees.count()} amendes antérieures non payées",
+        succes=False
+    )
     
     context = {
         'amende': amende,
         'amendes_impayees': amendes_impayees,
         'demandes_existantes': demandes_existantes,
         'station': station_actuelle,
-        'is_admin': is_admin(user),
+        'is_admin': is_admin_user(user),
+        'acces_tous_postes': user_has_acces_tous_postes(user),
         'title': _("Validation bloquée - Amendes non payées"),
     }
     
     return render(request, 'pesage/validation_paiement_bloquee.html', context)
 
 
-# inventaire/views_pesage.py - MODIFIER la vue valider_paiement existante
-
-@login_required
+@regisseur_pesage_required
 def valider_paiement_direct(request, pk):
     """
     Validation du paiement d'une amende par le régisseur.
     
     RÈGLES MÉTIER:
     1. Seul le régisseur de la station peut valider les amendes de SA station
+       (sauf si accès tous postes)
     2. AVANT validation, vérifier si le véhicule a des amendes NON PAYÉES plus anciennes ailleurs
-    3. Si amendes plus anciennes non payées → BLOCAGE → redirection vers page de blocage
+    3. Si amendes plus anciennes non payées → BLOCAGE
     4. L'ordre chronologique doit être respecté (FIFO)
     """
-    from django.shortcuts import get_object_or_404, redirect
-    from django.contrib import messages
-    from django.utils import timezone
-    from inventaire.models_pesage import AmendeEmise
-    from inventaire.utils_pesage import normalize_immatriculation
-    
-    # Récupérer l'amende
+    user = request.user
     amende = get_object_or_404(AmendeEmise, pk=pk)
     
     # ============================================
-    # VÉRIFICATION 1: L'amende est-elle de ma station ?
+    # VÉRIFICATION 1: Accès à cette amende
     # ============================================
-    if not request.user.is_admin:
-        if request.user.poste_affectation != amende.station:
+    if not user_has_acces_tous_postes(user):
+        station_utilisateur = get_user_station_pesage(user)
+        if station_utilisateur is False or not station_utilisateur:
+            log_user_action(
+                user=user,
+                action="VALIDATION_PAIEMENT_REFUSEE",
+                details=f"Tentative validation amende {amende.numero_ticket} - "
+                        f"Utilisateur sans station d'affectation valide",
+                succes=False
+            )
+            messages.error(request, _("Vous devez être affecté à une station de pesage."))
+            return redirect('inventaire:liste_amendes')
+        
+        if station_utilisateur != amende.station:
+            log_user_action(
+                user=user,
+                action="VALIDATION_PAIEMENT_REFUSEE",
+                details=f"Tentative validation amende {amende.numero_ticket} - "
+                        f"Station amende: {amende.station.nom} ≠ Station utilisateur: {station_utilisateur.nom}",
+                succes=False
+            )
             messages.error(
                 request, 
-                f"Vous ne pouvez pas valider les amendes de la station {amende.station.nom}. "
-                f"Vous êtes affecté à {request.user.poste_affectation.nom}."
+                _("Vous ne pouvez pas valider les amendes de la station %(station)s. "
+                  "Vous êtes affecté à %(votre_station)s.") % {
+                    'station': amende.station.nom,
+                    'votre_station': station_utilisateur.nom
+                }
             )
             return redirect('inventaire:liste_amendes')
     
@@ -362,41 +682,47 @@ def valider_paiement_direct(request, pk):
     # VÉRIFICATION 2: L'amende est-elle déjà payée ?
     # ============================================
     if amende.statut == 'paye':
-        messages.warning(request, "Cette amende a déjà été validée comme payée.")
+        messages.warning(request, _("Cette amende a déjà été validée comme payée."))
         return redirect('inventaire:detail_amende', pk=pk)
     
     # ============================================
-    # VÉRIFICATION 3: Y a-t-il des amendes NON PAYÉES plus anciennes ailleurs ?
+    # VÉRIFICATION 3: Amendes NON PAYÉES plus anciennes ailleurs ?
     # ============================================
     immat_norm = normalize_immatriculation(amende.immatriculation)
     
-    # Chercher les amendes NON PAYÉES du même véhicule, AVANT cette amende, dans d'AUTRES stations
     amendes_anterieures_non_payees = AmendeEmise.objects.filter(
         immatriculation_normalise=immat_norm,
         statut='non_paye',
-        date_heure_emission__lt=amende.date_heure_emission  # Plus anciennes
+        date_heure_emission__lt=amende.date_heure_emission
     ).exclude(
-        station=amende.station  # Exclure ma station
+        station=amende.station
     ).select_related('station').order_by('date_heure_emission')
     
     # ============================================
     # SI AMENDES ANTÉRIEURES NON PAYÉES → BLOCAGE
     # ============================================
     if amendes_anterieures_non_payees.exists():
-        # Stocker en session pour la page de blocage
         request.session['amende_a_valider_pk'] = pk
         request.session['amendes_bloquantes_pks'] = list(
             amendes_anterieures_non_payees.values_list('pk', flat=True)
         )
         
-        # Rediriger vers la page de blocage
+        log_user_action(
+            user=user,
+            action="VALIDATION_BLOQUEE_FIFO",
+            details=f"Validation amende {amende.numero_ticket} bloquée - "
+                    f"{amendes_anterieures_non_payees.count()} amendes antérieures non payées "
+                    f"(FIFO non respecté)",
+            succes=False
+        )
+        
         return redirect('inventaire:validation_bloquee', pk=pk)
     
     # ============================================
     # SI POST ET PAS DE BLOCAGE → VALIDER LE PAIEMENT
     # ============================================
     if request.method == 'POST':
-        # Dernière vérification (au cas où entre temps une amende antérieure aurait été créée)
+        # Dernière vérification (race condition)
         amendes_anterieures_check = AmendeEmise.objects.filter(
             immatriculation_normalise=immat_norm,
             statut='non_paye',
@@ -404,29 +730,48 @@ def valider_paiement_direct(request, pk):
         ).exclude(station=amende.station).exists()
         
         if amendes_anterieures_check:
+            log_user_action(
+                user=user,
+                action="VALIDATION_ANNULEE_RACE_CONDITION",
+                details=f"Validation amende {amende.numero_ticket} annulée - "
+                        f"Nouvelles amendes antérieures détectées (race condition)",
+                succes=False
+            )
             messages.error(
                 request,
-                "Impossible de valider : de nouvelles amendes antérieures non payées ont été détectées."
+                _("Impossible de valider : de nouvelles amendes antérieures non payées ont été détectées.")
             )
             return redirect('inventaire:validation_bloquee', pk=pk)
         
         # Valider le paiement
         amende.statut = 'paye'
         amende.date_paiement = timezone.now()
-        amende.valide_par = request.user
+        amende.valide_par = user
         amende.save(update_fields=['statut', 'date_paiement', 'valide_par'])
+        
+        # Log de la validation réussie
+        log_user_action(
+            user=user,
+            action="VALIDATION_PAIEMENT_AMENDE",
+            details=f"Paiement validé - Amende: {amende.numero_ticket} - "
+                    f"Véhicule: {amende.immatriculation} - "
+                    f"Montant: {amende.montant_amende} FCFA - "
+                    f"Station: {amende.station.nom}",
+            succes=True
+        )
         
         messages.success(
             request, 
-            f"✅ Paiement validé pour l'amende {amende.numero_ticket} - "
-            f"{amende.montant_amende} FCFA"
+            _("✅ Paiement validé pour l'amende %(numero)s - %(montant)s FCFA") % {
+                'numero': amende.numero_ticket,
+                'montant': amende.montant_amende
+            }
         )
         
         logger.info(
-            f"Paiement validé: Amende {amende.numero_ticket} - "
-            f"Véhicule {amende.immatriculation} - "
-            f"Station {amende.station.nom} - "
-            f"Régisseur {request.user.username}"
+            f"[valider_paiement] Paiement validé: Amende {amende.numero_ticket} - "
+            f"Véhicule {amende.immatriculation} - Station {amende.station.nom} - "
+            f"Régisseur {user.username}"
         )
         
         return redirect('inventaire:liste_amendes_a_valider')
@@ -434,25 +779,30 @@ def valider_paiement_direct(request, pk):
     # Si GET, afficher la page de confirmation
     context = {
         'amende': amende,
+        'acces_tous_postes': user_has_acces_tous_postes(user),
     }
     return render(request, 'pesage/confirmer_validation_paiement.html', context)
 
-@login_required
+
+@regisseur_pesage_required
 def validation_bloquee(request, pk):
     """
     Page affichée quand la validation est bloquée à cause d'amendes antérieures non payées.
-    Affiche l'historique complet et permet de faire des demandes de confirmation.
     """
-    from django.shortcuts import get_object_or_404
-    from inventaire.models_pesage import AmendeEmise
-    from inventaire.utils_pesage import normalize_immatriculation
-    from django.db.models import Sum, Count, Q
-    
+    user = request.user
     amende_a_valider = get_object_or_404(AmendeEmise, pk=pk)
     immat_norm = normalize_immatriculation(amende_a_valider.immatriculation)
     
-    # Récupérer les amendes bloquantes (antérieures non payées ailleurs)
-    # Chercher sur les DEUX champs pour compatibilité
+    # Log de l'accès à la page de blocage
+    log_user_action(
+        user=user,
+        action="CONSULTATION_PAGE_VALIDATION_BLOQUEE",
+        details=f"Consultation page blocage - Amende: {amende_a_valider.numero_ticket} - "
+                f"Véhicule: {amende_a_valider.immatriculation}",
+        succes=True
+    )
+    
+    # Récupérer les amendes bloquantes
     amendes_bloquantes = AmendeEmise.objects.filter(
         Q(immatriculation_normalise__iexact=immat_norm) |
         Q(immatriculation__iexact=amende_a_valider.immatriculation) |
@@ -465,12 +815,18 @@ def validation_bloquee(request, pk):
         pk=amende_a_valider.pk
     ).select_related('station', 'saisi_par').order_by('date_heure_emission')
     
-    # Historique complet du véhicule
+    # Historique complet du véhicule (filtré selon accès utilisateur)
     historique_complet = AmendeEmise.objects.filter(
         Q(immatriculation_normalise__iexact=immat_norm) |
         Q(immatriculation__iexact=amende_a_valider.immatriculation) |
         Q(immatriculation__iexact=immat_norm)
     ).select_related('station', 'saisi_par', 'valide_par').order_by('-date_heure_emission')
+    
+    # Filtrer selon accès si non admin
+    if not user_has_acces_tous_postes(user):
+        # L'utilisateur voit quand même les amendes bloquantes (pour comprendre le blocage)
+        # mais l'historique complet est filtré
+        pass  # On garde l'historique complet pour la compréhension du blocage
     
     # Statistiques du véhicule
     stats = historique_complet.aggregate(
@@ -482,19 +838,16 @@ def validation_bloquee(request, pk):
     )
     
     # Vérifier les demandes de confirmation déjà envoyées
-    # CORRECTION: Le champ s'appelle amende_non_payee, PAS amende_bloquante
-    from inventaire.models_confirmation import DemandeConfirmationPaiement
     demandes_existantes = DemandeConfirmationPaiement.objects.filter(
         amende_a_valider=amende_a_valider,
         statut__in=['en_attente', 'confirme']
     ).select_related(
-        'amende_non_payee',           # ← CORRIGÉ (était amende_bloquante)
-        'amende_non_payee__station',  # ← CORRIGÉ
+        'amende_non_payee',
+        'amende_non_payee__station',
         'station_concernee'
     )
     
     # Créer un dict pour savoir quelles amendes ont déjà une demande
-    # Utiliser amende_non_payee_id au lieu de amende_bloquante_id
     amendes_avec_demande = {d.amende_non_payee_id: d for d in demandes_existantes}
     
     context = {
@@ -503,31 +856,35 @@ def validation_bloquee(request, pk):
         'historique_complet': historique_complet,
         'stats': stats,
         'amendes_avec_demande': amendes_avec_demande,
+        'acces_tous_postes': user_has_acces_tous_postes(user),
     }
     
     return render(request, 'pesage/validation_bloquee.html', context)
+
 
 # ===================================================================
 # GESTION DES DEMANDES DE CONFIRMATION
 # ===================================================================
 
-@regisseur_required
+@regisseur_pesage_required
 def creer_demande_confirmation(request, amende_pk, amende_bloquante_pk):
     """
     Crée une demande de confirmation auprès d'une autre station.
-    
-    URL: /pesage/creer-demande-confirmation/<amende_pk>/<amende_bloquante_pk>/
     """
     user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    station_utilisateur = get_user_station_pesage(user)
     
     # Récupérer l'amende à valider
-    if is_admin(user):
+    if user_has_acces_tous_postes(user):
         amende_a_valider = get_object_or_404(AmendeEmise, pk=amende_pk)
         station_demandeur = amende_a_valider.station
     else:
-        amende_a_valider = get_object_or_404(AmendeEmise, pk=amende_pk, station=station)
-        station_demandeur = station
+        if station_utilisateur and station_utilisateur is not False:
+            amende_a_valider = get_object_or_404(AmendeEmise, pk=amende_pk, station=station_utilisateur)
+            station_demandeur = station_utilisateur
+        else:
+            messages.error(request, _("Vous devez être affecté à une station de pesage."))
+            return redirect('common:dashboard')
     
     # Récupérer l'amende bloquante
     amende_non_payee = get_object_or_404(AmendeEmise, pk=amende_bloquante_pk, statut='non_paye')
@@ -565,6 +922,17 @@ def creer_demande_confirmation(request, amende_pk, amende_bloquante_pk):
         )
         demande.save()
         
+        # Log de la création
+        log_user_action(
+            user=user,
+            action="CREATION_DEMANDE_CONFIRMATION",
+            details=f"Demande créée - Réf: {demande.reference} - "
+                    f"Amende à valider: {amende_a_valider.numero_ticket} - "
+                    f"Amende bloquante: {amende_non_payee.numero_ticket} - "
+                    f"Station concernée: {amende_non_payee.station.nom}",
+            succes=True
+        )
+        
         messages.success(request,
             _("Demande de confirmation créée (Réf: %(ref)s). "
               "La station %(station)s doit confirmer.") % {
@@ -573,7 +941,7 @@ def creer_demande_confirmation(request, amende_pk, amende_bloquante_pk):
             })
         
         logger.info(
-            f"Demande confirmation créée par {user.username} - "
+            f"[creer_demande] Demande confirmation créée par {user.username} - "
             f"Réf: {demande.reference} - Véhicule: {demande.vehicule_immatriculation}"
         )
         
@@ -583,29 +951,37 @@ def creer_demande_confirmation(request, amende_pk, amende_bloquante_pk):
         'amende_a_valider': amende_a_valider,
         'amende_non_payee': amende_non_payee,
         'station_demandeur': station_demandeur,
-        'station': station,
-        'is_admin': is_admin(user),
+        'station': station_utilisateur,
+        'is_admin': is_admin_user(user),
+        'acces_tous_postes': user_has_acces_tous_postes(user),
         'title': _("Créer une demande de confirmation"),
     }
     
     return render(request, 'pesage/creer_demande_confirmation.html', context)
 
 
-@regisseur_required
+@regisseur_pesage_required
 def mes_demandes_confirmation(request):
     """
     Liste des demandes de confirmation envoyées par ma station.
-    
-    URL: /pesage/mes-demandes-confirmation/
     """
     user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    station = get_user_station_pesage(user)
     
-    if is_admin(user):
-        # Admin voit toutes les demandes
+    log_user_action(
+        user=user,
+        action="CONSULTATION_MES_DEMANDES_CONFIRMATION",
+        details=f"Consultation liste des demandes envoyées",
+        succes=True
+    )
+    
+    if user_has_acces_tous_postes(user):
         demandes = DemandeConfirmationPaiement.objects.all()
     else:
-        demandes = DemandeConfirmationPaiement.get_demandes_envoyees_par_station(station)
+        if station and station is not False:
+            demandes = DemandeConfirmationPaiement.get_demandes_envoyees_par_station(station)
+        else:
+            demandes = DemandeConfirmationPaiement.objects.none()
     
     # Filtrer par statut
     statut_filter = request.GET.get('statut')
@@ -621,25 +997,31 @@ def mes_demandes_confirmation(request):
         'demandes': demandes_page,
         'statut_filter': statut_filter,
         'statuts': StatutDemandeConfirmation.choices,
-        'station': station,
-        'is_admin': is_admin(user),
+        'station': station if station and station is not False else None,
+        'is_admin': is_admin_user(user),
+        'acces_tous_postes': user_has_acces_tous_postes(user),
         'title': _("Mes demandes de confirmation"),
     }
     
     return render(request, 'pesage/mes_demandes_confirmation.html', context)
 
 
-@regisseur_required
+@regisseur_pesage_required
 def demandes_confirmation_a_traiter(request):
     """
     Liste des demandes de confirmation à traiter (reçues par ma station).
-    
-    URL: /pesage/demandes-confirmation-a-traiter/
     """
     user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    station = get_user_station_pesage(user)
     
-    if is_admin(user):
+    log_user_action(
+        user=user,
+        action="CONSULTATION_DEMANDES_A_TRAITER",
+        details=f"Consultation liste des demandes à traiter",
+        succes=True
+    )
+    
+    if user_has_acces_tous_postes(user):
         # Admin: sélection de station requise
         station_id = request.GET.get('station')
         if station_id:
@@ -660,9 +1042,14 @@ def demandes_confirmation_a_traiter(request):
             context = {
                 'stations': stations,
                 'is_admin': True,
+                'acces_tous_postes': True,
                 'title': _("Sélectionner une station"),
             }
             return render(request, 'pesage/selectionner_station_confirmation.html', context)
+    
+    if not station or station is False:
+        messages.error(request, _("Vous devez être affecté à une station de pesage."))
+        return redirect('common:dashboard')
     
     # Récupérer les demandes en attente pour cette station
     demandes_attente = DemandeConfirmationPaiement.get_demandes_en_attente_pour_station(station)
@@ -678,22 +1065,21 @@ def demandes_confirmation_a_traiter(request):
         'demandes_attente': demandes_attente,
         'demandes_traitees': demandes_traitees,
         'station': station,
-        'is_admin': is_admin(user),
+        'is_admin': is_admin_user(user),
+        'acces_tous_postes': user_has_acces_tous_postes(user),
         'title': _("Demandes de confirmation à traiter"),
     }
     
     return render(request, 'pesage/demandes_confirmation_a_traiter.html', context)
 
 
-@regisseur_required
+@regisseur_pesage_required
 def detail_demande_confirmation(request, pk):
     """
     Détail d'une demande de confirmation.
-    
-    URL: /pesage/demande-confirmation/<pk>/
     """
     user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    station = get_user_station_pesage(user)
     
     demande = get_object_or_404(
         DemandeConfirmationPaiement.objects.select_related(
@@ -706,18 +1092,40 @@ def detail_demande_confirmation(request, pk):
     )
     
     # Vérifier l'accès
-    if not is_admin(user):
-        if station not in [demande.station_demandeur, demande.station_concernee]:
-            messages.error(request, _("Vous n'avez pas accès à cette demande."))
+    if not user_has_acces_tous_postes(user):
+        if station and station is not False:
+            if station not in [demande.station_demandeur, demande.station_concernee]:
+                log_user_action(
+                    user=user,
+                    action="ACCES_DEMANDE_CONFIRMATION_REFUSE",
+                    details=f"Tentative d'accès demande {demande.reference} - "
+                            f"Station utilisateur: {station.nom} non autorisée",
+                    succes=False
+                )
+                messages.error(request, _("Vous n'avez pas accès à cette demande."))
+                return redirect('common:dashboard')
+        else:
+            messages.error(request, _("Vous devez être affecté à une station de pesage."))
             return redirect('common:dashboard')
     
-    # Déterminer si l'utilisateur peut traiter la demande
-    peut_traiter = (
-        is_admin(user) or 
-        (station == demande.station_concernee and 
-         user.habilitation in VALIDATION_ROLES and
-         demande.peut_etre_traitee)
+    # Log de la consultation
+    log_user_action(
+        user=user,
+        action="CONSULTATION_DETAIL_DEMANDE_CONFIRMATION",
+        details=f"Consultation demande {demande.reference}",
+        succes=True
     )
+    
+    # Déterminer si l'utilisateur peut traiter la demande
+    peut_traiter = False
+    if user_has_acces_tous_postes(user):
+        peut_traiter = demande.peut_etre_traitee
+    elif station and station is not False:
+        peut_traiter = (
+            station == demande.station_concernee and 
+            peut_valider_paiements(user) and
+            demande.peut_etre_traitee
+        )
     
     # Historique du véhicule
     historique = AmendeEmise.objects.filter(
@@ -728,31 +1136,41 @@ def detail_demande_confirmation(request, pk):
         'demande': demande,
         'peut_traiter': peut_traiter,
         'historique': historique,
-        'station': station,
-        'is_admin': is_admin(user),
+        'station': station if station and station is not False else None,
+        'is_admin': is_admin_user(user),
+        'acces_tous_postes': user_has_acces_tous_postes(user),
         'title': f"Demande {demande.reference}",
     }
     
     return render(request, 'pesage/detail_demande_confirmation.html', context)
 
 
-@regisseur_required
+@regisseur_pesage_required
 @require_POST
 def traiter_demande_confirmation(request, pk):
     """
     Traite une demande de confirmation (confirmer ou refuser).
-    
-    URL: /pesage/traiter-demande-confirmation/<pk>/
     """
     user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    station = get_user_station_pesage(user)
     
     demande = get_object_or_404(DemandeConfirmationPaiement, pk=pk)
     
     # Vérifier les permissions
-    if not is_admin(user) and station != demande.station_concernee:
-        messages.error(request, _("Vous ne pouvez pas traiter cette demande."))
-        return redirect('inventaire:detail_demande_confirmation', pk=pk)
+    if not user_has_acces_tous_postes(user):
+        if station is False or not station:
+            messages.error(request, _("Vous devez être affecté à une station de pesage."))
+            return redirect('common:dashboard')
+        if station != demande.station_concernee:
+            log_user_action(
+                user=user,
+                action="TRAITEMENT_DEMANDE_REFUSE",
+                details=f"Tentative traitement demande {demande.reference} - "
+                        f"Station utilisateur: {station.nom} ≠ Station concernée: {demande.station_concernee.nom}",
+                succes=False
+            )
+            messages.error(request, _("Vous ne pouvez pas traiter cette demande."))
+            return redirect('inventaire:detail_demande_confirmation', pk=pk)
     
     if not demande.peut_etre_traitee:
         messages.error(request, _("Cette demande ne peut plus être traitée."))
@@ -763,6 +1181,13 @@ def traiter_demande_confirmation(request, pk):
     
     if action == 'confirmer':
         if demande.confirmer(user, commentaire):
+            log_user_action(
+                user=user,
+                action="CONFIRMATION_DEMANDE",
+                details=f"Demande {demande.reference} CONFIRMÉE - "
+                        f"Amende: {demande.amende_non_payee.numero_ticket}",
+                succes=True
+            )
             messages.success(request,
                 _("Demande %(ref)s CONFIRMÉE. Le paiement est maintenant autorisé.") % {
                     'ref': demande.reference
@@ -776,6 +1201,13 @@ def traiter_demande_confirmation(request, pk):
             return redirect('inventaire:detail_demande_confirmation', pk=pk)
         
         if demande.refuser(user, commentaire):
+            log_user_action(
+                user=user,
+                action="REFUS_DEMANDE",
+                details=f"Demande {demande.reference} REFUSÉE - "
+                        f"Raison: {commentaire}",
+                succes=True
+            )
             messages.success(request,
                 _("Demande %(ref)s REFUSÉE. Le paiement reste bloqué.") % {
                     'ref': demande.reference
@@ -798,11 +1230,8 @@ def traiter_demande_confirmation(request, pk):
 def api_recherche_historique(request):
     """
     API de recherche rapide d'historique véhicule.
-    
-    GET params: q (recherche globale), immat, transporteur, operateur
-    
-    Returns: JSON avec résultats
     """
+    user = request.user
     q = request.GET.get('q', '').strip()
     immat = request.GET.get('immat', '').strip()
     transporteur = request.GET.get('transporteur', '').strip()
@@ -810,7 +1239,6 @@ def api_recherche_historique(request):
     
     # Si recherche globale
     if q and not (immat or transporteur or operateur):
-        # Rechercher dans tous les champs
         immat_norm = normalize_immatriculation(q)
         text_norm = normalize_search_text(q)
         
@@ -826,6 +1254,17 @@ def api_recherche_historique(request):
             'operateur': operateur,
         }
         resultats = rechercher_par_criteres_multiples(criteres)[:20]
+    
+    # Filtrer selon les droits d'accès
+    resultats = filtrer_amendes_par_acces(resultats, user)
+    
+    # Log de la recherche API
+    log_user_action(
+        user=user,
+        action="API_RECHERCHE_HISTORIQUE",
+        details=f"Recherche API - q='{q}', immat='{immat}' - Résultats: {len(resultats)}",
+        succes=True
+    )
     
     data = {
         'count': len(resultats),
@@ -847,16 +1286,13 @@ def api_recherche_historique(request):
     return JsonResponse(data)
 
 
-@regisseur_required
+@regisseur_pesage_required
 @require_GET
 def api_verifier_impaye_autres_stations(request):
     """
     API pour vérifier les amendes impayées dans d'autres stations.
-    
-    GET params: immatriculation, station_actuelle (ID)
-    
-    Returns: JSON avec liste des amendes impayées
     """
+    user = request.user
     immatriculation = request.GET.get('immatriculation', '').strip()
     station_id = request.GET.get('station_actuelle')
     
@@ -868,8 +1304,21 @@ def api_verifier_impaye_autres_stations(request):
     except Poste.DoesNotExist:
         station_actuelle = None
     
+    # Vérifier l'accès à la station si spécifiée
+    if station_actuelle and not user_has_acces_tous_postes(user):
+        if not check_poste_access(user, station_actuelle):
+            return JsonResponse({'error': 'Accès non autorisé à cette station'}, status=403)
+    
     a_impaye, amendes = verifier_amendes_non_payees_autres_stations(
         immatriculation, station_actuelle
+    )
+    
+    log_user_action(
+        user=user,
+        action="API_VERIFICATION_IMPAYE",
+        details=f"Vérification impayés - Véhicule: {immatriculation} - "
+                f"Résultat: {'OUI' if a_impaye else 'NON'} ({amendes.count()} amendes)",
+        succes=True
     )
     
     data = {
@@ -889,7 +1338,7 @@ def api_verifier_impaye_autres_stations(request):
     return JsonResponse(data)
 
 
-@regisseur_required
+@regisseur_pesage_required
 @require_GET  
 def api_count_demandes_attente(request):
     """
@@ -897,9 +1346,9 @@ def api_count_demandes_attente(request):
     Utile pour les badges de notification.
     """
     user = request.user
-    station = get_user_station(user) if not is_admin(user) else None
+    station = get_user_station_pesage(user)
     
-    if is_admin(user):
+    if user_has_acces_tous_postes(user):
         station_id = request.GET.get('station')
         if station_id:
             try:
@@ -913,7 +1362,7 @@ def api_count_demandes_attente(request):
             ).count()
             return JsonResponse({'count': count})
     
-    if not station:
+    if not station or station is False:
         return JsonResponse({'count': 0})
     
     count = DemandeConfirmationPaiement.objects.filter(

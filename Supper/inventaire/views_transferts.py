@@ -1,33 +1,176 @@
-# inventaire/views_transferts.py
-from django.http import HttpResponse
+# ===================================================================
+# inventaire/views_transferts.py - VERSION MISE À JOUR
+# Vues pour le transfert de stock entre postes (en montants)
+# MISE À JOUR: Intégration des permissions granulaires
+# ===================================================================
+
+from django.http import HttpResponse, HttpResponseForbidden, Http404
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import Sum, Avg, Count, Q
+from django.core.paginator import Paginator
 from decimal import Decimal
 from datetime import datetime
-from django.db.models import Sum, Avg, Count, Q
+from django.utils import timezone
 
-from accounts.models import Poste, NotificationUtilisateur
+from accounts.models import Poste, NotificationUtilisateur, UtilisateurSUPPER
 from inventaire.models import *
 from common.utils import log_user_action
 import logging
 
 logger = logging.getLogger('supper')
 
-def is_admin(user):
-    return user.is_authenticated and (
-        user.is_superuser or 
-        user.is_staff or
-        (hasattr(user, 'is_admin') and user.is_admin())
+
+# ===================================================================
+# FONCTIONS UTILITAIRES DE VÉRIFICATION DES PERMISSIONS
+# ===================================================================
+
+def has_permission(user, permission_name):
+    """
+    Vérifie si l'utilisateur possède une permission spécifique.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return getattr(user, permission_name, False)
+
+
+def has_any_permission(user, permission_names):
+    """
+    Vérifie si l'utilisateur possède AU MOINS UNE des permissions.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return any(getattr(user, perm, False) for perm in permission_names)
+
+
+def user_has_acces_tous_postes(user):
+    """
+    Vérifie si l'utilisateur a accès à tous les postes.
+    """
+    HABILITATIONS_MULTI_POSTES = [
+        'admin_principal', 'coord_psrr', 'serv_info', 'serv_emission',
+        'chef_ag', 'serv_controle', 'serv_ordre', 'imprimerie',
+        'cisop_peage', 'cisop_pesage', 'focal_regional', 'chef_service',
+        'regisseur', 'comptable_mat', 'chef_ordre', 'chef_controle',
+    ]
+    
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    if getattr(user, 'acces_tous_postes', False):
+        return True
+    if getattr(user, 'peut_voir_tous_postes', False):
+        return True
+    return getattr(user, 'habilitation', None) in HABILITATIONS_MULTI_POSTES
+
+
+def check_poste_access(user, poste):
+    """
+    Vérifie si l'utilisateur a accès à un poste spécifique.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user_has_acces_tous_postes(user):
+        return True
+    if isinstance(poste, int):
+        try:
+            poste = Poste.objects.get(id=poste)
+        except Poste.DoesNotExist:
+            return False
+    poste_affectation = getattr(user, 'poste_affectation', None)
+    return poste_affectation and poste_affectation.id == poste.id
+
+
+def peut_transferer_stock(user):
+    """
+    Vérifie si l'utilisateur peut transférer du stock péage.
+    Habilitations: admin_principal, coord_psrr, serv_info, serv_emission, chef_peage
+    """
+    return has_permission(user, 'peut_transferer_stock_peage')
+
+
+def peut_voir_bordereaux(user):
+    """
+    Vérifie si l'utilisateur peut voir les bordereaux péage.
+    Habilitations: admin, services centraux, cisop_peage, chef_peage*, agent_inventaire*
+    """
+    return has_permission(user, 'peut_voir_bordereaux_peage')
+
+
+def log_acces_refuse(user, ressource, raison, request=None):
+    """
+    Journalise un accès refusé.
+    """
+    logger.warning(
+        f"ACCÈS REFUSÉ - Utilisateur: {user.username if user else 'Anonyme'} | "
+        f"Ressource: {ressource} | Raison: {raison}"
     )
+    if user and user.is_authenticated:
+        try:
+            log_user_action(
+                user,
+                "ACCES_REFUSE",
+                f"Accès refusé à {ressource}: {raison}",
+                request
+            )
+        except Exception as e:
+            logger.error(f"Erreur lors de la journalisation de l'accès refusé: {e}")
+
+
+# ===================================================================
+# VUES DE TRANSFERT DE STOCK (MONTANTS)
+# ===================================================================
 
 @login_required
-@user_passes_test(is_admin)
 def selection_transfert_stock(request):
-    """Sélection des postes pour le transfert"""
+    """
+    Sélection des postes pour le transfert de stock (en montants)
     
-    postes = Poste.objects.filter(is_active=True).order_by('nom')
+    PERMISSIONS REQUISES: peut_transferer_stock_peage
+    
+    HABILITATIONS AUTORISÉES:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - serv_emission (service émission)
+    - chef_peage (chef de poste péage)
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permission peut_transferer_stock_peage
+    
+    VARIABLES CONTEXTE: postes, title
+    """
+    user = request.user
+    
+    # Vérification des permissions
+    if not peut_transferer_stock(user):
+        log_acces_refuse(
+            user,
+            "Selection transfert stock",
+            f"Permission peut_transferer_stock_peage manquante (habilitation: {user.habilitation})",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de transférer du stock.")
+        return redirect('common:dashboard')
+    
+    logger.info(
+        f"TRANSFERT_STOCK - Accès sélection par {user.username} "
+        f"(habilitation: {user.habilitation})"
+    )
+    
+    # Récupérer les postes accessibles
+    if user_has_acces_tous_postes(user):
+        postes = Poste.objects.filter(is_active=True).order_by('nom')
+    else:
+        if user.poste_affectation:
+            postes = Poste.objects.filter(id=user.poste_affectation.id, is_active=True)
+        else:
+            postes = Poste.objects.none()
     
     # Récupérer les stocks actuels
     postes_data = []
@@ -51,6 +194,29 @@ def selection_transfert_stock(request):
             messages.error(request, "Les postes d'origine et de destination doivent être différents")
             return redirect('inventaire:selection_transfert_stock')
         
+        # Vérifier l'accès au poste d'origine
+        try:
+            poste_origine = Poste.objects.get(id=poste_origine_id)
+            if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste_origine):
+                log_acces_refuse(
+                    user,
+                    f"Transfert depuis {poste_origine.nom}",
+                    "Accès au poste d'origine non autorisé",
+                    request
+                )
+                messages.error(request, "Vous n'avez pas accès au poste d'origine sélectionné.")
+                return redirect('inventaire:selection_transfert_stock')
+        except Poste.DoesNotExist:
+            messages.error(request, "Poste d'origine introuvable")
+            return redirect('inventaire:selection_transfert_stock')
+        
+        log_user_action(
+            user,
+            "TRANSFERT_STOCK_SELECTION",
+            f"Sélection transfert stock: poste {poste_origine_id} → {poste_destination_id}",
+            request
+        )
+        
         return redirect('inventaire:formulaire_transfert_stock', 
                        origine_id=poste_origine_id,
                        destination_id=poste_destination_id)
@@ -64,12 +230,48 @@ def selection_transfert_stock(request):
 
 
 @login_required
-@user_passes_test(is_admin)
 def formulaire_transfert_stock(request, origine_id, destination_id):
-    """Formulaire de saisie du montant à transférer"""
+    """
+    Formulaire de saisie du montant à transférer
+    
+    PERMISSIONS REQUISES: peut_transferer_stock_peage
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permission peut_transferer_stock_peage
+    
+    VARIABLES CONTEXTE: poste_origine, poste_destination, stock_origine, stock_destination, title
+    """
+    user = request.user
+    
+    # Vérification des permissions
+    if not peut_transferer_stock(user):
+        log_acces_refuse(
+            user,
+            "Formulaire transfert stock",
+            f"Permission peut_transferer_stock_peage manquante (habilitation: {user.habilitation})",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de transférer du stock.")
+        return redirect('common:dashboard')
     
     poste_origine = get_object_or_404(Poste, id=origine_id)
     poste_destination = get_object_or_404(Poste, id=destination_id)
+    
+    # Vérifier l'accès au poste d'origine
+    if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste_origine):
+        log_acces_refuse(
+            user,
+            f"Formulaire transfert depuis {poste_origine.nom}",
+            "Accès au poste d'origine non autorisé",
+            request
+        )
+        messages.error(request, "Vous n'avez pas accès au poste d'origine.")
+        return redirect('inventaire:selection_transfert_stock')
+    
+    logger.info(
+        f"TRANSFERT_STOCK - Formulaire par {user.username}: "
+        f"{poste_origine.nom} → {poste_destination.nom}"
+    )
     
     # Récupérer le stock de l'origine
     stock_origine, _ = GestionStock.objects.get_or_create(
@@ -109,9 +311,17 @@ def formulaire_transfert_stock(request, origine_id, destination_id):
                 'commentaire': commentaire
             }
             
+            log_user_action(
+                user,
+                "TRANSFERT_STOCK_SAISIE",
+                f"Saisie transfert stock: {montant:,.0f} FCFA de {poste_origine.nom} vers {poste_destination.nom}",
+                request
+            )
+            
             return redirect('inventaire:confirmation_transfert_stock')
             
         except Exception as e:
+            logger.error(f"TRANSFERT_STOCK - Erreur saisie: {str(e)}")
             messages.error(request, f"Erreur : {str(e)}")
             return redirect('inventaire:formulaire_transfert_stock', 
                           origine_id=origine_id, 
@@ -128,13 +338,31 @@ def formulaire_transfert_stock(request, origine_id, destination_id):
     return render(request, 'inventaire/formulaire_transfert_stock.html', context)
 
 
-
 @login_required
-@user_passes_test(is_admin)
 def confirmation_transfert_stock(request):
     """
-    ✅ VERSION AMÉLIORÉE : Meilleure gestion de la redirection
+    Confirmation du transfert de stock (en montants)
+    
+    PERMISSIONS REQUISES: peut_transferer_stock_peage
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permission peut_transferer_stock_peage
+    
+    VARIABLES CONTEXTE: poste_origine, poste_destination, montant, nombre_tickets, commentaire, title
     """
+    user = request.user
+    
+    # Vérification des permissions
+    if not peut_transferer_stock(user):
+        log_acces_refuse(
+            user,
+            "Confirmation transfert stock",
+            f"Permission peut_transferer_stock_peage manquante (habilitation: {user.habilitation})",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de transférer du stock.")
+        return redirect('common:dashboard')
+    
     transfert_data = request.session.get('transfert_stock')
     
     if not transfert_data:
@@ -145,55 +373,89 @@ def confirmation_transfert_stock(request):
     poste_destination = get_object_or_404(Poste, id=transfert_data['destination_id'])
     montant = Decimal(transfert_data['montant'])
     
+    # Vérifier l'accès au poste d'origine
+    if not user_has_acces_tous_postes(user) and not check_poste_access(user, poste_origine):
+        log_acces_refuse(
+            user,
+            f"Confirmation transfert depuis {poste_origine.nom}",
+            "Accès au poste d'origine non autorisé",
+            request
+        )
+        messages.error(request, "Vous n'avez pas accès au poste d'origine.")
+        if 'transfert_stock' in request.session:
+            del request.session['transfert_stock']
+        return redirect('inventaire:selection_transfert_stock')
+    
     if request.method == 'POST':
         action = request.POST.get('action')
         
         if action == 'confirmer':
             try:
-                logger.info(f"DEBUT TRANSFERT : {montant} FCFA de {poste_origine.code} vers {poste_destination.code}")
+                logger.info(
+                    f"TRANSFERT_STOCK - DEBUT: {montant:,.0f} FCFA de {poste_origine.code} "
+                    f"vers {poste_destination.code} par {user.username}"
+                )
                 
                 with transaction.atomic():
                     numero_bordereau = generer_numero_bordereau()
-                    logger.info(f"Bordereau généré : {numero_bordereau}")
+                    logger.info(f"TRANSFERT_STOCK - Bordereau généré: {numero_bordereau}")
                     
                     hist_origine, hist_destination = executer_transfert_stock(
                         poste_origine,
                         poste_destination,
                         montant,
-                        request.user,
+                        user,
                         transfert_data['commentaire'],
                         numero_bordereau
                     )
                     
-                    logger.info(f"Transaction OK - Hist Origine: {hist_origine.id}, Hist Dest: {hist_destination.id}")
+                    logger.info(
+                        f"TRANSFERT_STOCK - Transaction OK - "
+                        f"Hist Origine: {hist_origine.id}, Hist Dest: {hist_destination.id}"
+                    )
                 
-                # ✅ NOUVEAU : Nettoyer la session ET rediriger vers page de succès
+                # Nettoyer la session ET rediriger vers page de succès
                 if 'transfert_stock' in request.session:
                     del request.session['transfert_stock']
+                
+                log_user_action(
+                    user,
+                    "TRANSFERT_STOCK_EXECUTE",
+                    f"Transfert exécuté: {montant:,.0f} FCFA de {poste_origine.nom} "
+                    f"vers {poste_destination.nom} (Bordereau: {numero_bordereau})",
+                    request
+                )
                 
                 messages.success(
                     request, 
                     f"✅ Transfert réussi ! {montant:,.0f} FCFA transférés. Bordereau N°{numero_bordereau}"
                 )
                 
-                # ✅ CORRECTION : Redirection vers une page de succès avec liens bordereaux
                 return redirect('inventaire:detail_transfert_succes', numero_bordereau=numero_bordereau)
                 
             except ValueError as ve:
-                logger.error(f"Erreur validation : {str(ve)}")
+                logger.error(f"TRANSFERT_STOCK - Erreur validation: {str(ve)}")
                 messages.error(request, f"❌ Validation : {str(ve)}")
                 return redirect('inventaire:formulaire_transfert_stock', 
                               origine_id=poste_origine.id, 
                               destination_id=poste_destination.id)
             
             except Exception as e:
-                logger.error(f"Erreur transfert : {str(e)}", exc_info=True)
+                logger.error(f"TRANSFERT_STOCK - Erreur: {str(e)}", exc_info=True)
                 messages.error(request, f"❌ Erreur : {str(e)}")
                 return redirect('inventaire:selection_transfert_stock')
         
         elif action == 'annuler':
             if 'transfert_stock' in request.session:
                 del request.session['transfert_stock']
+            
+            log_user_action(
+                user,
+                "TRANSFERT_STOCK_ANNULE",
+                f"Transfert annulé: {poste_origine.nom} → {poste_destination.nom}",
+                request
+            )
+            
             messages.info(request, "Transfert annulé")
             return redirect('inventaire:selection_transfert_stock')
     
@@ -209,13 +471,27 @@ def confirmation_transfert_stock(request):
     return render(request, 'inventaire/confirmation_transfert_stock.html', context)
 
 
-
 @login_required
-@user_passes_test(is_admin)
 def detail_transfert_succes(request, numero_bordereau):
     """
-    ✅ NOUVELLE PAGE : Affiche les détails du transfert avec liens de téléchargement
+    Page de succès après transfert avec liens de téléchargement
+    
+    PERMISSIONS REQUISES: peut_voir_bordereaux_peage OU poste concerné
+    
+    HABILITATIONS AVEC ACCÈS:
+    - admin_principal, coord_psrr, serv_info (admins)
+    - services centraux
+    - cisop_peage
+    - chef_peage, agent_inventaire (pour leurs postes)
+    
+    AVANT: @user_passes_test(is_admin) - Admin uniquement
+    APRÈS: Permission peut_voir_bordereaux_peage
+    
+    VARIABLES CONTEXTE: numero_bordereau, hist_cession, hist_reception, 
+                        poste_origine, poste_destination, montant, nombre_tickets, title
     """
+    user = request.user
+    
     # Récupérer les deux historiques
     hist_cession = get_object_or_404(
         HistoriqueStock,
@@ -227,6 +503,31 @@ def detail_transfert_succes(request, numero_bordereau):
         numero_bordereau=numero_bordereau,
         type_mouvement='CREDIT'
     ).first()
+    
+    # Vérifier les permissions
+    peut_voir_global = peut_voir_bordereaux(user)
+    
+    if not peut_voir_global:
+        # Vérifier si l'utilisateur a accès à l'un des postes concernés
+        postes_concernes = [hist_cession.poste_origine.id]
+        if hist_cession.poste_destination:
+            postes_concernes.append(hist_cession.poste_destination.id)
+        
+        poste_user = getattr(user, 'poste_affectation', None)
+        
+        if not poste_user or poste_user.id not in postes_concernes:
+            log_acces_refuse(
+                user,
+                f"Détail transfert succès {numero_bordereau}",
+                f"Ni permission peut_voir_bordereaux_peage ni poste concerné",
+                request
+            )
+            messages.error(request, "Vous n'avez pas accès à ce bordereau.")
+            return redirect('common:dashboard')
+    
+    logger.info(
+        f"TRANSFERT_SUCCES - {user.username} consulte bordereau {numero_bordereau}"
+    )
     
     context = {
         'numero_bordereau': numero_bordereau,
@@ -241,15 +542,10 @@ def detail_transfert_succes(request, numero_bordereau):
     
     return render(request, 'inventaire/detail_transfert_succes.html', context)
 
-# ===== MODIFICATIONS À APPORTER DANS inventaire/views_transferts.py =====
 
-# 1. AJOUTER ces imports au début du fichier :
-from inventaire.models import StockEvent
-from datetime import datetime
-
-
-# 2. REMPLACER la fonction executer_transfert_stock (environ ligne 200-300)
-# par cette version modifiée :
+# ===================================================================
+# FONCTION D'EXÉCUTION DU TRANSFERT (avec Event Sourcing)
+# ===================================================================
 
 def executer_transfert_stock(poste_origine, poste_destination, montant, 
                             user, commentaire, numero_bordereau):
@@ -290,7 +586,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     logger.info(f"TRANSFERT STOCK - Origine {poste_origine.code}: {stock_origine_avant} -> {stock_origine.valeur_monetaire}")
     logger.info(f"TRANSFERT STOCK - Destination {poste_destination.code}: {stock_destination_avant} -> {stock_destination.valeur_monetaire}")
     
-    # ===== NOUVEAU CODE EVENT SOURCING =====
+    # ===== EVENT SOURCING =====
     timestamp = timezone.now()
     
     # Créer l'événement de SORTIE pour le poste origine
@@ -336,9 +632,8 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
         },
         commentaire=f"Transfert depuis {poste_origine.nom} - {commentaire}"
     )
-    # ===== FIN NOUVEAU CODE =====
     
-    # Créer l'historique pour le poste ORIGINE (CODE EXISTANT - garder)
+    # Créer l'historique pour le poste ORIGINE
     hist_origine = HistoriqueStock.objects.create(
         poste=poste_origine,
         type_mouvement='DEBIT',
@@ -356,7 +651,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     
     logger.info(f"Historique ORIGINE créé - ID: {hist_origine.id}, Bordereau: {hist_origine.numero_bordereau}")
     
-    # Créer l'historique pour le poste DESTINATION (CODE EXISTANT - garder)
+    # Créer l'historique pour le poste DESTINATION
     hist_destination = HistoriqueStock.objects.create(
         poste=poste_destination,
         type_mouvement='CREDIT',
@@ -374,10 +669,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     
     logger.info(f"Historique DESTINATION créé - ID: {hist_destination.id}, Bordereau: {hist_destination.numero_bordereau}")
     
-    # RESTE DU CODE EXISTANT (notifications, etc.) - GARDER TEL QUEL
     # Notifier les chefs de poste concernés
-    from accounts.models import UtilisateurSUPPER
-    
     # Chef du poste origine
     chefs_origine = UtilisateurSUPPER.objects.filter(
         poste_affectation=poste_origine,
@@ -413,7 +705,7 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     # Journaliser l'action
     log_user_action(
         user,
-        "Transfert de stock inter-postes",
+        "TRANSFERT_STOCK_INTER_POSTES",
         f"Transfert : {montant:,.0f} FCFA de {poste_origine.nom} vers {poste_destination.nom}. Bordereau N°{numero_bordereau}",
         None
     )
@@ -422,10 +714,9 @@ def executer_transfert_stock(poste_origine, poste_destination, montant,
     
     return hist_origine, hist_destination
 
+
 def generer_numero_bordereau():
     """Génère un numéro unique de bordereau de transfert"""
-    from datetime import datetime
-    
     # Format : TR-YYYYMMDD-HHMMSS-XXX
     now = datetime.now()
     
@@ -441,33 +732,39 @@ def generer_numero_bordereau():
     return numero
 
 
+# ===================================================================
+# GÉNÉRATION PDF DES BORDEREAUX
+# ===================================================================
+
 @login_required
 def bordereaux_transfert(request, numero_bordereau):
     """
-    ✅ VERSION CORRIGÉE : Détection automatique du type de bordereau
+    Génère le PDF du bordereau (cession ou réception)
     
-    Génère DEUX PDF (cession + réception) ou UN seul selon le paramètre GET
+    PERMISSIONS REQUISES:
+    - peut_voir_bordereaux_peage (accès global)
+    - OU appartenance à l'un des postes concernés
+    
+    AVANT: Vérification manuelle is_admin + check poste
+    APRÈS: Permission peut_voir_bordereaux_peage OU check poste concerné
     """
-    from django.shortcuts import get_object_or_404, render
-    from django.http import HttpResponse
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib.enums import TA_CENTER
-    from datetime import datetime
-    from decimal import Decimal
     
-    # ========== RÉCUPÉRER LE TYPE DEMANDÉ (ou par défaut 'cession') ==========
+    user = request.user
+    
+    # Récupérer le type demandé (ou par défaut 'cession')
     type_bordereau = request.GET.get('type', 'cession')
     
     # Validation du type
     if type_bordereau not in ['cession', 'reception']:
-        from django.http import HttpResponseBadRequest
-        return HttpResponseBadRequest("Type de bordereau invalide. Utilisez 'cession' ou 'reception'")
+        return HttpResponse("Type de bordereau invalide. Utilisez 'cession' ou 'reception'", status=400)
     
-    # ========== RÉCUPÉRER L'HISTORIQUE SELON LE TYPE ==========
+    # Récupérer l'historique selon le type
     try:
         if type_bordereau == 'cession':
             hist = HistoriqueStock.objects.select_related(
@@ -484,17 +781,34 @@ def bordereaux_transfert(request, numero_bordereau):
                 type_mouvement='CREDIT'
             )
     except HistoriqueStock.DoesNotExist:
-        from django.http import Http404
         raise Http404(f"Bordereau {numero_bordereau} ({type_bordereau}) introuvable")
     
-    # ========== CONTRÔLE D'ACCÈS ==========
-    if not request.user.is_admin:
-        if not request.user.poste_affectation or \
-           request.user.poste_affectation not in [hist.poste_origine, hist.poste_destination]:
-            from django.http import HttpResponseForbidden
+    # Vérifier les permissions
+    peut_voir_global = peut_voir_bordereaux(user)
+    
+    if not peut_voir_global:
+        # Vérifier si l'utilisateur a accès à l'un des postes concernés
+        poste_user = getattr(user, 'poste_affectation', None)
+        postes_concernes = []
+        if hist.poste_origine:
+            postes_concernes.append(hist.poste_origine.id)
+        if hist.poste_destination:
+            postes_concernes.append(hist.poste_destination.id)
+        
+        if not poste_user or poste_user.id not in postes_concernes:
+            log_acces_refuse(
+                user,
+                f"PDF Bordereau {numero_bordereau}",
+                f"Ni permission peut_voir_bordereaux_peage ni poste concerné",
+                request
+            )
             return HttpResponseForbidden("Vous n'avez pas accès à ce bordereau")
     
-    # ========== RÉCUPÉRER LES SÉRIES TRANSFÉRÉES ==========
+    logger.info(
+        f"BORDEREAU_PDF - {user.username} télécharge bordereau {numero_bordereau} ({type_bordereau})"
+    )
+    
+    # Récupérer les séries transférées
     if type_bordereau == 'cession':
         series_transferees = SerieTicket.objects.filter(
             poste=hist.poste_origine,
@@ -525,7 +839,7 @@ def bordereaux_transfert(request, numero_bordereau):
         series_par_couleur[couleur_key]['total_tickets'] += serie.nombre_tickets
         series_par_couleur[couleur_key]['valeur_totale'] += serie.valeur_monetaire
     
-    # ========== GÉNÉRER LE PDF ==========
+    # Générer le PDF
     response = HttpResponse(content_type='application/pdf')
     filename = f'bordereau_{type_bordereau}_{numero_bordereau}.pdf'
     response['Content-Disposition'] = f'inline; filename="{filename}"'
@@ -546,13 +860,13 @@ def bordereaux_transfert(request, numero_bordereau):
     from inventaire.models import ConfigurationGlobale
     config = ConfigurationGlobale.get_config()
     
-    # ========== EN-TÊTE ==========
+    # En-tête
     from inventaire.views_rapports import creer_entete_bilingue
     poste_concerne = hist.poste_origine if type_bordereau == 'cession' else hist.poste_destination
     elements.append(creer_entete_bilingue(config, poste_concerne))
     elements.append(Spacer(1, 1*cm))
     
-    # ========== TITRE ==========
+    # Titre
     titre_style = ParagraphStyle(
         'Titre',
         parent=styles['Heading1'],
@@ -570,7 +884,7 @@ def bordereaux_transfert(request, numero_bordereau):
     elements.append(Paragraph(titre_text, titre_style))
     elements.append(Spacer(1, 0.5*cm))
     
-    # ========== INFORMATIONS GÉNÉRALES ==========
+    # Informations générales
     data = [
         ['N° Bordereau:', numero_bordereau],
         ['Date et Heure:', hist.date_mouvement.strftime('%d/%m/%Y à %H:%M')],
@@ -606,7 +920,7 @@ def bordereaux_transfert(request, numero_bordereau):
     elements.append(table)
     elements.append(Spacer(1, 0.5*cm))
     
-    # ========== DÉTAIL DES SÉRIES ==========
+    # Détail des séries
     titre_series = ParagraphStyle(
         'TitreSeries',
         parent=styles['Heading2'],
@@ -644,7 +958,7 @@ def bordereaux_transfert(request, numero_bordereau):
     
     elements.append(Spacer(1, 0.5*cm))
     
-    # ========== ÉTAT DES STOCKS ==========
+    # État des stocks
     elements.append(Paragraph("ÉTAT DES STOCKS", titre_series))
     
     stock_data = [
@@ -666,7 +980,7 @@ def bordereaux_transfert(request, numero_bordereau):
     elements.append(stock_table)
     elements.append(Spacer(1, 1.5*cm))
     
-    # ========== SIGNATURES ==========
+    # Signatures
     signature_data = [
         ['LE CHEF ÉMETTEUR', 'LE CHEF DESTINATAIRE', 'L\'ADMINISTRATEUR'],
         ['', '', ''],
@@ -685,15 +999,51 @@ def bordereaux_transfert(request, numero_bordereau):
     # Générer le PDF
     doc.build(elements)
     
+    log_user_action(
+        user,
+        "BORDEREAU_PDF_GENERE",
+        f"PDF bordereau {numero_bordereau} ({type_bordereau}) généré",
+        request
+    )
+    
     return response
+
 
 @login_required
 def liste_bordereaux(request):
     """
     Liste de tous les bordereaux de transfert
-    Admin : tous les bordereaux
-    Chef : uniquement les bordereaux de son poste
+    
+    PERMISSIONS:
+    - peut_voir_bordereaux_peage: voit TOUS les bordereaux
+    - peut_voir_mon_stock_peage: voit les bordereaux de son poste uniquement
+    - chef_peage/agent_inventaire: voit les bordereaux de son poste
+    
+    AVANT: Vérification manuelle is_admin + filtrage par poste
+    APRÈS: Filtrage automatique basé sur les permissions
+    
+    VARIABLES CONTEXTE: page_obj, stats, postes, filters, title
     """
+    user = request.user
+    
+    # Vérifier les permissions
+    peut_voir_global = peut_voir_bordereaux(user)
+    peut_voir_son_stock = has_permission(user, 'peut_voir_mon_stock_peage')
+    
+    if not peut_voir_global and not peut_voir_son_stock:
+        log_acces_refuse(
+            user,
+            "Liste bordereaux",
+            f"Ni peut_voir_bordereaux_peage ni peut_voir_mon_stock_peage (habilitation: {user.habilitation})",
+            request
+        )
+        messages.error(request, "Vous n'avez pas la permission de voir les bordereaux.")
+        return redirect('common:dashboard')
+    
+    logger.info(
+        f"BORDEREAUX_LISTE - Accès par {user.username} "
+        f"(global: {peut_voir_global}, son_stock: {peut_voir_son_stock})"
+    )
     
     # Récupérer tous les transferts (un par bordereau)
     bordereaux = HistoriqueStock.objects.filter(
@@ -702,17 +1052,24 @@ def liste_bordereaux(request):
     ).select_related('poste', 'poste_origine', 'poste_destination', 'effectue_par')
     
     # Filtrer selon les permissions
-    if not request.user.is_admin:
-        if request.user.poste_affectation:
-            # Chef de poste : voir les transferts qui concernent son poste
+    if not peut_voir_global:
+        # Utilisateur limité à son poste
+        poste_user = getattr(user, 'poste_affectation', None)
+        if poste_user:
             bordereaux = bordereaux.filter(
-                Q(poste_origine=request.user.poste_affectation) |
-                Q(poste_destination=request.user.poste_affectation)
+                Q(poste_origine=poste_user) |
+                Q(poste_destination=poste_user)
+            )
+            logger.debug(
+                f"BORDEREAUX_LISTE - Filtrage par poste {poste_user.code} pour {user.username}"
             )
         else:
             bordereaux = HistoriqueStock.objects.none()
+            logger.warning(
+                f"BORDEREAUX_LISTE - {user.username} n'a pas de poste d'affectation"
+            )
     
-    # Filtres
+    # Filtres additionnels (GET)
     poste_filter = request.GET.get('poste')
     date_debut = request.GET.get('date_debut')
     date_fin = request.GET.get('date_fin')
@@ -731,7 +1088,6 @@ def liste_bordereaux(request):
     bordereaux = bordereaux.order_by('-date_mouvement')
     
     # Pagination
-    from django.core.paginator import Paginator
     paginator = Paginator(bordereaux, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -742,10 +1098,20 @@ def liste_bordereaux(request):
         montant_total=Sum('montant')
     )
     
+    # Liste des postes pour le filtre (selon permissions)
+    if peut_voir_global:
+        postes = Poste.objects.filter(is_active=True).order_by('nom')
+    else:
+        poste_user = getattr(user, 'poste_affectation', None)
+        if poste_user:
+            postes = Poste.objects.filter(id=poste_user.id)
+        else:
+            postes = Poste.objects.none()
+    
     context = {
         'page_obj': page_obj,
         'stats': stats,
-        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
+        'postes': postes,
         'filters': {
             'poste': poste_filter,
             'date_debut': date_debut,
