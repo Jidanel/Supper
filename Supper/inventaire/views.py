@@ -1672,34 +1672,109 @@ def supprimer_recette(request, pk):
 from django.views.generic import ListView, DetailView
 
 class RecetteListView(LoginRequiredMixin, ListView):
-    """Vue pour lister les recettes avec filtres avancés"""
+    """
+    Vue pour lister les recettes avec filtres avancés
+    
+    MISE À JOUR - Permissions granulaires:
+    - Permission requise: peut_voir_liste_recettes_peage
+    - Remplace: self.request.user.is_admin
+    - Par: user_has_acces_tous_postes(user) et is_admin_user(user)
+    - Ajout de logs détaillés pour chaque action
+    
+    RÈGLES MÉTIER:
+    - Admin/Services centraux: voient tous les postes
+    - Chef de poste: voit uniquement son poste d'affectation
+    - Agent inventaire: voit uniquement son poste d'affectation
+    """
     model = RecetteJournaliere
     template_name = 'inventaire/liste_recettes.html'
     context_object_name = 'recettes'
     paginate_by = 25
     
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Vérification des permissions avant d'accéder à la vue
+        NOUVEAU: Ajout de la vérification granulaire
+        """
+        user = request.user
+        
+        # Vérifier l'authentification (géré par LoginRequiredMixin mais on double-check)
+        if not user.is_authenticated:
+            return redirect('accounts:login')
+        
+        # =========================================
+        # VÉRIFICATION PERMISSION GRANULAIRE
+        # =========================================
+        if not has_permission(user, 'peut_voir_liste_recettes_peage'):
+            log_user_action(
+                user,
+                "ACCÈS REFUSÉ - Liste recettes",
+                f"Permission manquante: peut_voir_liste_recettes_peage | "
+                f"Habilitation: {getattr(user, 'habilitation', 'N/A')} | "
+                f"IP: {request.META.get('REMOTE_ADDR')}",
+                request
+            )
+            messages.error(request, _("Vous n'avez pas la permission de voir les recettes."))
+            return redirect('common:dashboard')
+        
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_queryset(self):
+        """
+        Récupère les recettes filtrées selon les permissions et les filtres GET
+        
+        MISE À JOUR:
+        - Remplace: self.request.user.is_admin
+        - Par: user_has_acces_tous_postes(self.request.user)
+        """
+        user = self.request.user
         queryset = super().get_queryset()
         
-        # Filtrage selon les permissions utilisateur
-        if not self.request.user.is_admin:
+        # =========================================
+        # FILTRAGE SELON LES PERMISSIONS
+        # (Remplace: if not self.request.user.is_admin)
+        # =========================================
+        
+        if not user_has_acces_tous_postes(user):
+            # Utilisateur avec accès limité (chef_peage, agent_inventaire, etc.)
             poste_filter = self.request.GET.get('poste')
+            
             if not poste_filter:
                 # Par défaut, montrer seulement les recettes de son poste
-                if self.request.user.poste_affectation:
-                    queryset = queryset.filter(poste=self.request.user.poste_affectation)
+                if user.poste_affectation:
+                    queryset = queryset.filter(poste=user.poste_affectation)
                 else:
-                    # Si pas de poste d'affectation, montrer ses propres recettes
-                    queryset = queryset.filter(chef_poste=self.request.user)
+                    # Si pas de poste d'affectation, montrer ses propres recettes saisies
+                    queryset = queryset.filter(chef_poste=user)
+            else:
+                # Vérifier que le poste demandé est bien accessible
+                if user.poste_affectation and str(user.poste_affectation.id) == poste_filter:
+                    queryset = queryset.filter(poste_id=poste_filter)
+                else:
+                    # Accès non autorisé à ce poste - filtrer sur son propre poste
+                    log_user_action(
+                        user,
+                        "TENTATIVE ACCÈS - Recettes poste non autorisé",
+                        f"Poste demandé: {poste_filter} | "
+                        f"Poste affectation: {getattr(user.poste_affectation, 'id', 'Aucun')}",
+                        self.request
+                    )
+                    if user.poste_affectation:
+                        queryset = queryset.filter(poste=user.poste_affectation)
+                    else:
+                        queryset = queryset.filter(chef_poste=user)
         
-        # Jointures pour optimiser
+        # Jointures pour optimiser les requêtes
         queryset = queryset.select_related('poste', 'chef_poste', 'inventaire_associe')
         
-        # Filtres depuis les paramètres GET
+        # =========================================
+        # APPLICATION DES FILTRES GET
+        # =========================================
+        
         filters = self.request.GET
         
-        # Filtre par poste
-        if filters.get('poste'):
+        # Filtre par poste (pour les admins uniquement, sinon déjà filtré ci-dessus)
+        if user_has_acces_tous_postes(user) and filters.get('poste'):
             queryset = queryset.filter(poste_id=filters.get('poste'))
         
         # Filtre par période
@@ -1708,8 +1783,8 @@ class RecetteListView(LoginRequiredMixin, ListView):
             date_str = filters.get('date')
             if date_str:
                 try:
-                    date = datetime.strptime(date_str, '%Y-%m-%d').date()
-                    queryset = queryset.filter(date=date)
+                    date_filtre = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    queryset = queryset.filter(date=date_filtre)
                 except ValueError:
                     pass
         elif periode == 'semaine':
@@ -1730,7 +1805,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
         elif taux_filtre == 'mauvais':
             queryset = queryset.filter(taux_deperdition__lte=-30)
         
-        # Recherche
+        # Recherche textuelle
         search = filters.get('search')
         if search:
             queryset = queryset.filter(
@@ -1746,20 +1821,38 @@ class RecetteListView(LoginRequiredMixin, ListView):
         return queryset
     
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+        """
+        Prépare le contexte pour le template
         
-        if not self.request.user.is_admin and self.request.user.poste_affectation:
+        MISE À JOUR:
+        - Remplace: self.request.user.is_admin
+        - Par: user_has_acces_tous_postes(self.request.user)
+        - PRÉSERVE toutes les variables de contexte existantes
+        """
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # =========================================
+        # CONTEXTE POUR VUE LIMITÉE AU POSTE
+        # (Remplace: if not self.request.user.is_admin)
+        # =========================================
+        
+        if not user_has_acces_tous_postes(user) and user.poste_affectation:
             poste_filter = self.request.GET.get('poste')
-            if poste_filter == str(self.request.user.poste_affectation.id):
+            if poste_filter == str(user.poste_affectation.id):
                 context['viewing_own_poste'] = True
-                context['poste_name'] = self.request.user.poste_affectation.nom
-                
+                context['poste_name'] = user.poste_affectation.nom
+        
         # Ajouter les filtres actuels
         context['current_filters'] = self.request.GET.dict()
         context['jours_non_declares'] = self.calculer_jours_non_declares()
         
-        # Statistiques globales
+        # =========================================
+        # STATISTIQUES GLOBALES
+        # =========================================
+        
         all_recettes = self.get_queryset()
+        
         # Calcul du total montant sécurisé
         total_montant = all_recettes.aggregate(
             Sum('montant_declare')
@@ -1776,7 +1869,6 @@ class RecetteListView(LoginRequiredMixin, ListView):
             for taux in taux_queryset:
                 if taux is not None:
                     try:
-                        # Convertir en float pour le calcul
                         taux_values.append(float(taux))
                     except (TypeError, ValueError, decimal.InvalidOperation):
                         continue
@@ -1784,6 +1876,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
             if taux_values:
                 moyenne_taux = sum(taux_values) / len(taux_values)
         
+        # Variable stats - PRÉSERVÉE pour compatibilité template
         context['stats'] = {
             'total_recettes': all_recettes.count(),
             'total_montant': float(total_montant) if total_montant else 0,
@@ -1791,34 +1884,74 @@ class RecetteListView(LoginRequiredMixin, ListView):
             'recettes_jour': all_recettes.filter(date=timezone.now().date()).count(),
         }
         
-        # Liste des postes pour le filtre
-        if self.request.user.is_admin:
-            context['postes'] = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
+        # =========================================
+        # LISTE DES POSTES POUR LE FILTRE
+        # (Remplace: if self.request.user.is_admin)
+        # =========================================
+        
+        if user_has_acces_tous_postes(user):
+            # Admin et services centraux: tous les postes péage actifs
+            context['postes'] = Poste.objects.filter(
+                is_active=True, 
+                type='peage'
+            ).order_by('nom')
         else:
-            if hasattr(self.request.user, 'get_postes_accessibles'):
-                context['postes'] = self.request.user.get_postes_accessibles()
-            else:
-                context['postes'] = Poste.objects.none()
+            # Utilisateurs limités: seulement leurs postes accessibles
+            context['postes'] = get_postes_accessibles(user, type_poste='peage')
         
-        
-        # Mois disponibles
+        # Mois disponibles pour le filtre
         dates = all_recettes.dates('date', 'month', order='DESC')
         context['mois_disponibles'] = [
             {'mois': d.month, 'annee': d.year, 'label': d.strftime('%B %Y')}
             for d in dates
         ]
         
+        # =========================================
+        # PERMISSIONS POUR AFFICHAGE CONDITIONNEL
+        # =========================================
+        
+        context['can_edit'] = has_permission(user, 'peut_saisir_recette_peage')
+        context['can_view_stats'] = has_permission(user, 'peut_voir_stats_recettes_peage')
+        context['can_import'] = has_permission(user, 'peut_importer_recettes_peage')
+        context['is_admin'] = user_has_acces_tous_postes(user)
+        
+        # =========================================
+        # LOG DE LA CONSULTATION
+        # =========================================
+        
+        filtres_actifs = []
+        if self.request.GET.get('poste'):
+            filtres_actifs.append(f"poste={self.request.GET.get('poste')}")
+        if self.request.GET.get('periode'):
+            filtres_actifs.append(f"periode={self.request.GET.get('periode')}")
+        if self.request.GET.get('taux_filtre'):
+            filtres_actifs.append(f"taux={self.request.GET.get('taux_filtre')}")
+        
+        log_user_action(
+            user,
+            "Consultation liste recettes",
+            f"Total résultats: {context['stats']['total_recettes']} | "
+            f"Filtres: {', '.join(filtres_actifs) if filtres_actifs else 'Aucun'} | "
+            f"Accès: {'Global' if user_has_acces_tous_postes(user) else 'Limité à ' + str(getattr(user.poste_affectation, 'nom', 'N/A'))}",
+            self.request
+        )
+        
         return context
+    
     def calculer_jours_non_declares(self):
         """
         Calcule les jours sans déclaration ET estime les recettes manquantes
         UNIQUEMENT pour les jours PASSÉS (jusqu'à aujourd'hui)
+        
+        MISE À JOUR:
+        - Utilise get_postes_accessibles() pour filtrer les postes selon les permissions
         """
         from django.db.models import Q
         from datetime import datetime, timedelta
         from inventaire.services.forecasting_service import ForecastingService
         import calendar
         
+        user = self.request.user
         filters = self.request.GET
         periode = filters.get('periode', 'mois')
         poste_id = filters.get('poste')
@@ -1848,10 +1981,26 @@ class RecetteListView(LoginRequiredMixin, ListView):
         if date_fin > date.today():
             date_fin = date.today()
         
-        # Filtrer par poste
-        postes_query = Poste.objects.filter(is_active=True, type='peage')
+        # =========================================
+        # FILTRAGE DES POSTES SELON PERMISSIONS
+        # (Remplace la logique basée sur is_admin)
+        # =========================================
+        
+        if user_has_acces_tous_postes(user):
+            # Admin: tous les postes péage actifs
+            postes_query = Poste.objects.filter(is_active=True, type='peage')
+        else:
+            # Utilisateur limité: seulement ses postes accessibles
+            postes_query = get_postes_accessibles(user, type_poste='peage')
+        
+        # Appliquer le filtre de poste si spécifié
         if poste_id:
-            postes_query = postes_query.filter(id=poste_id)
+            # Vérifier que le poste demandé est accessible
+            if user_has_acces_tous_postes(user):
+                postes_query = postes_query.filter(id=poste_id)
+            elif user.poste_affectation and str(user.poste_affectation.id) == poste_id:
+                postes_query = postes_query.filter(id=poste_id)
+            # Sinon, ignorer le filtre (l'utilisateur verra son poste par défaut)
         
         resultats = []
         total_estimation_manquante = Decimal('0')
@@ -1881,12 +2030,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
                 
                 try:
                     # Générer des prévisions RÉTROACTIVES pour les jours manquants
-                    # On utilise les données historiques AVANT la période manquante
-                    
-                    # Date de référence : jour avant le premier jour manquant
                     date_reference = min(jours_manquants) - timedelta(days=1)
-                    
-                    # Nombre de jours à "prévoir" (en réalité, reconstituer)
                     nb_jours = (max(jours_manquants) - min(jours_manquants)).days + 1
                     
                     resultats_forecast = ForecastingService.prevoir_recettes(
@@ -1898,7 +2042,6 @@ class RecetteListView(LoginRequiredMixin, ListView):
                     if resultats_forecast['success']:
                         df_prev = resultats_forecast['predictions']
                         
-                        # Pour chaque jour manquant, récupérer l'estimation
                         for jour_manquant in jours_manquants:
                             prev_jour = df_prev[df_prev['date'].dt.date == jour_manquant]
                             
@@ -1911,7 +2054,6 @@ class RecetteListView(LoginRequiredMixin, ListView):
                                     'montant_estime': float(montant_estime)
                                 })
                             else:
-                                # Si pas trouvé, utiliser la moyenne des prévisions
                                 moyenne_prev = Decimal(str(df_prev['montant_prevu'].mean()))
                                 estimation_manquante += moyenne_prev
                                 
@@ -1920,11 +2062,10 @@ class RecetteListView(LoginRequiredMixin, ListView):
                                     'montant_estime': float(moyenne_prev)
                                 })
                     
-                    # Fallback : si forecasting ne marche pas
+                    # Fallback si forecasting ne marche pas
                     if estimation_manquante == 0:
                         from django.db.models import Avg
                         
-                        # Calculer la moyenne sur les 30 jours AVANT la période
                         fin_moyenne = date_debut - timedelta(days=1)
                         debut_moyenne = fin_moyenne - timedelta(days=30)
                         
@@ -1982,7 +2123,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
             'total_estimation_manquante': float(total_estimation_manquante),
             'periode_debut': date_debut,
             'periode_fin': date_fin,
-            'date_limite': date.today()  # Pour afficher clairement la limite
+            'date_limite': date.today()
         }
 
 class RecetteDetailView(LoginRequiredMixin, DetailView):
@@ -4734,11 +4875,15 @@ def redirect_to_delete_recette_admin(request, recette_id):
 def gestion_objectifs_annuels(request):
     """
     Vue pour gérer les objectifs annuels.
-    MISE À JOUR: Permission peut_voir_objectifs_peage requise
+    
+    Permission consultation: peut_voir_objectifs_peage
+    Permission modification (POST): is_admin_user (admin_principal, coord_psrr, serv_info)
+    
+    MISE À JOUR: Contrôle d'accès lecture/écriture séparé
     """
     user = request.user
     
-    # Vérifier permission avec système granulaire
+    # Vérifier permission de consultation avec système granulaire
     if not has_permission(user, 'peut_voir_objectifs_peage'):
         log_user_action(
             user,
@@ -4753,11 +4898,14 @@ def gestion_objectifs_annuels(request):
     # Récupérer l'année (paramètre ou année en cours)
     annee = int(request.GET.get('annee', date.today().year))
     
+    # Déterminer si l'utilisateur peut modifier (admin uniquement)
+    can_edit = is_admin_user(user)
+    
     # Log de l'accès
     log_user_action(
         user,
         "Consultation objectifs annuels",
-        f"Année: {annee}",
+        f"Année: {annee} | Mode: {'modification' if can_edit else 'lecture'}",
         request
     )
     
@@ -4766,18 +4914,32 @@ def gestion_objectifs_annuels(request):
     from decimal import Decimal
     
     # Année sélectionnée
-    annee = int(request.GET.get('annee', date.today().year))
     annee_actuelle = date.today().year
     annees_disponibles = list(range(annee_actuelle - 5, annee_actuelle + 6))
     
-    # CORRECTION : Récupérer TOUS les postes actifs (pas seulement ceux avec objectifs)
+    # Récupérer TOUS les postes actifs de type péage
     postes = Poste.objects.filter(is_active=True, type='peage').select_related('region').order_by('region', 'nom')
     
     if request.method == 'POST':
-        # Traitement du formulaire
+        # ============================================================
+        # VÉRIFICATION CRITIQUE: Seuls les admins peuvent modifier
+        # ============================================================
+        if not can_edit:
+            log_user_action(
+                user,
+                "TENTATIVE MODIFICATION OBJECTIFS NON AUTORISÉE",
+                f"Tentative de modification des objectifs péage sans permission | "
+                f"Habilitation: {getattr(user, 'habilitation', 'N/A')}",
+                request
+            )
+            messages.error(request, "Vous n'avez pas la permission de modifier les objectifs.")
+            return redirect(f"{request.path}?annee={annee}")
+        
+        # Traitement du formulaire (admin uniquement)
         with transaction.atomic():
             objectifs_crees = 0
             objectifs_modifies = 0
+            details_modifications = []
             
             for poste in postes:
                 montant_key = f'objectif_{poste.id}'
@@ -4801,9 +4963,21 @@ def gestion_objectifs_annuels(request):
                                 objectifs_crees += 1
                             else:
                                 objectifs_modifies += 1
+                            
+                            details_modifications.append(f"{poste.nom}: {montant:,.0f} FCFA")
                     
                     except (ValueError, TypeError):
                         continue
+            
+            # Log détaillé de la modification
+            log_user_action(
+                user,
+                "MODIFICATION_OBJECTIFS_PEAGE",
+                f"Modification objectifs péage {annee} | "
+                f"{objectifs_crees} créés, {objectifs_modifies} modifiés | "
+                f"Détails: {', '.join(details_modifications[:5])}{'...' if len(details_modifications) > 5 else ''}",
+                request
+            )
             
             messages.success(
                 request, 
@@ -4811,7 +4985,7 @@ def gestion_objectifs_annuels(request):
             )
             return redirect(f"{request.path}?annee={annee}")
     
-    # CORRECTION : Construire les données pour TOUS les postes
+    # Construire les données pour TOUS les postes
     objectifs_data = []
     
     for poste in postes:
@@ -4856,12 +5030,13 @@ def gestion_objectifs_annuels(request):
     context = {
         'annee': annee,
         'annees_disponibles': annees_disponibles,
-        'objectifs_data': objectifs_data,  # TOUS LES POSTES
+        'objectifs_data': objectifs_data,
         'total_global': stats_globales['total_objectif'],
         'total_realise': stats_globales['total_realise'],
+        'taux_global': stats_globales['taux_realisation'],
         'title': f'Objectifs Annuels {annee}',
-        'can_edit': is_admin_user(user),
-        'taux_global': stats_globales['taux_realisation']
+        # Variable clé pour contrôler l'affichage des champs de modification
+        'can_edit': can_edit,
     }
     
     return render(request, 'inventaire/gestion_objectifs_annuels.html', context)

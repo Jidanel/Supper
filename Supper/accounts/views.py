@@ -1012,20 +1012,19 @@ def _get_permissions_context(user=None):
 # VUE creer_utilisateur CORRIGÉE
 # ===================================================================
 
+from .views_permissions_helpers import (
+    preparer_contexte_permissions_creation,
+    preparer_contexte_permissions_modification,
+    detecter_modifications_permissions,
+    appliquer_permissions_formulaire,
+)
+
 @login_required
 @permission_required_granular('peut_gerer_utilisateurs')
 def creer_utilisateur(request):
-    """
-    Vue pour créer un nouvel utilisateur avec formulaire.
-    
-    COMPORTEMENT:
-    - Les permissions sont automatiquement attribuées selon l'habilitation
-    - L'admin peut personnaliser les permissions via les checkboxes
-    - Les personnalisations sont appliquées APRÈS les permissions automatiques
-    """
     from .models import UtilisateurSUPPER, Poste, Habilitation
-    from .forms import UserCreateForm, FILTRAGE_POSTES_JS, PERMISSIONS_CSS
-    from common.utils import get_user_short_description, get_user_description, log_user_action
+    from .forms import UserCreateForm
+    from common.utils import log_user_action
     
     if request.method == 'POST':
         form = UserCreateForm(request.POST, request.FILES)
@@ -1033,214 +1032,90 @@ def creer_utilisateur(request):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # Créer l'utilisateur sans sauvegarder encore
+                    # Créer l'utilisateur
                     user = form.save(commit=False)
+                    user.save()  # Déclenche attribuer_permissions_automatiques()
                     
-                    # Sauvegarder une première fois pour avoir un ID
-                    # Cela déclenche attribuer_permissions_automatiques()
-                    user.save()
-                    
-                    # Vérifier si des permissions personnalisées ont été cochées
-                    has_custom_perms, perm_changes = _detecter_modifications_permissions(user, request.POST)
+                    # Vérifier et appliquer les personnalisations
+                    has_custom_perms, perm_changes = detecter_modifications_permissions(user, request.POST)
                     
                     if has_custom_perms:
-                        # Appliquer les personnalisations du formulaire
-                        _appliquer_permissions_formulaire(user, request.POST)
-                        # Sauvegarder sans recalculer les permissions
+                        appliquer_permissions_formulaire(user, request.POST)
                         user.save(skip_auto_permissions=True)
                     
-                    # Journalisation détaillée
-                    user_desc = get_user_short_description(request.user)
-                    new_user_desc = get_user_description(user)
+                    # Journalisation...
                     
-                    details = f"{user_desc} a créé: {new_user_desc}"
-                    if has_custom_perms:
-                        details += f" | {len(perm_changes)} permission(s) personnalisée(s)"
-                    
-                    log_user_action(
-                        request.user,
-                        "Création utilisateur",
-                        details,
-                        request,
-                        utilisateur_cible=user.username,
-                        habilitation=user.habilitation,
-                        poste=str(user.poste_affectation) if user.poste_affectation else "Aucun"
-                    )
-                    
-                    messages.success(
-                        request, 
-                        f"Utilisateur {user.nom_complet} créé avec succès."
-                    )
+                    messages.success(request, f"Utilisateur {user.nom_complet} créé.")
                     return redirect('accounts:detail_utilisateur', user_id=user.id)
                     
             except Exception as e:
-                logger.error(f"Erreur création utilisateur: {str(e)}")
-                messages.error(request, f"Erreur lors de la création: {str(e)}")
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, error if field == '__all__' else f"{error}")
+                messages.error(request, f"Erreur: {str(e)}")
     else:
         form = UserCreateForm()
     
-    # Préparer le contexte des permissions (toutes à False pour création)
-    permissions_context = _get_permissions_context(user=None)
-    
+    # Préparer le contexte
     context = {
         'form': form,
         'postes_peage': Poste.objects.filter(is_active=True, type='peage').order_by('nom'),
         'postes_pesage': Poste.objects.filter(is_active=True, type='pesage').order_by('nom'),
         'habilitations': Habilitation.choices,
-        'title': _('Créer un Utilisateur'),
-        'filtrage_postes_js': FILTRAGE_POSTES_JS,
-        'permissions_css': PERMISSIONS_CSS,
-        # Permissions organisées par catégorie
-        'permissions_categories': permissions_context,
-        'show_permissions_section': True,
+        'title': 'Créer un Utilisateur',
     }
     
+    # Ajouter le contexte des permissions
+    context.update(preparer_contexte_permissions_creation())
+    
     return render(request, 'accounts/creer_utilisateur.html', context)
-
-
-# ===================================================================
-# VUE modifier_utilisateur CORRIGÉE
-# ===================================================================
 
 @login_required
 @permission_required_granular('peut_gerer_utilisateurs')
 def modifier_utilisateur(request, user_id):
-    """
-    Vue pour modifier un utilisateur avec gestion des permissions personnalisées.
-    
-    COMPORTEMENT:
-    - Si l'habilitation change: recalculer les permissions automatiques 
-      PUIS appliquer les personnalisations du formulaire
-    - Si l'habilitation ne change pas: appliquer directement les permissions 
-      du formulaire SANS recalculer
-    
-    Cela permet de personnaliser les permissions d'un utilisateur sans 
-    qu'elles soient écrasées à chaque sauvegarde.
-    """
     from .models import UtilisateurSUPPER, Poste, Habilitation
-    from .forms import UserUpdateForm, FILTRAGE_POSTES_JS
-    from common.utils import get_user_short_description, log_user_action
+    from .forms import UserUpdateForm
+    from common.utils import log_user_action
     
     user_to_edit = get_object_or_404(UtilisateurSUPPER, id=user_id)
-    
-    # Sauvegarder l'habilitation actuelle pour détecter un changement
     old_habilitation = user_to_edit.habilitation
     
     if request.method == 'POST':
         form = UserUpdateForm(request.POST, request.FILES, instance=user_to_edit)
         
         if form.is_valid():
-            # Détecter les changements pour la journalisation
-            changes = []
-            habilitation_changed = False
-            
-            if form.has_changed():
-                for field in form.changed_data:
-                    old_value = getattr(user_to_edit, field, None)
-                    new_value = form.cleaned_data.get(field)
-                    
-                    if field == 'habilitation':
-                        habilitation_changed = True
-                        old_display = dict(Habilitation.choices).get(old_value, old_value)
-                        new_display = dict(Habilitation.choices).get(new_value, new_value)
-                        changes.append(f"Rôle: {old_display} → {new_display}")
-                    elif field == 'poste_affectation':
-                        old_display = str(old_value) if old_value else "Aucun"
-                        new_display = str(new_value) if new_value else "Aucun"
-                        changes.append(f"Poste: {old_display} → {new_display}")
-                    elif field == 'is_active':
-                        old_display = "Actif" if old_value else "Inactif"
-                        new_display = "Actif" if new_value else "Inactif"
-                        changes.append(f"Statut: {old_display} → {new_display}")
-                    elif not field.startswith('peut_') and not field.startswith('voir_') and field != 'acces_tous_postes':
-                        changes.append(f"{field}: modifié")
-            
-            # Détecter si des permissions ont été modifiées via les checkboxes
-            permissions_modified, perm_changes = _detecter_modifications_permissions(user_to_edit, request.POST)
-            
-            # ============================================================
-            # LOGIQUE CLÉ: Gestion des permissions selon le contexte
-            # ============================================================
-            
-            # Sauvegarder le formulaire sans commit pour avoir l'objet modifié
             user_updated = form.save(commit=False)
             
+            # Détecter si l'habilitation a changé
+            habilitation_changed = old_habilitation != user_updated.habilitation
+            
             if habilitation_changed:
-                # CAS 1: L'habilitation a changé
-                # → Recalculer les permissions de base selon la nouvelle habilitation
-                # → PUIS appliquer les personnalisations du formulaire
+                # Recalculer les permissions de base
                 user_updated.attribuer_permissions_automatiques()
-                _appliquer_permissions_formulaire(user_updated, request.POST)
+                # Puis appliquer les personnalisations du formulaire
+                appliquer_permissions_formulaire(user_updated, request.POST)
                 user_updated.save(skip_auto_permissions=True)
-                changes.append("Permissions recalculées selon nouveau rôle")
-                
-                logger.info(
-                    f"Utilisateur {user_updated.username}: habilitation changée de "
-                    f"{old_habilitation} vers {user_updated.habilitation}, permissions recalculées"
-                )
             else:
-                # CAS 2: L'habilitation n'a pas changé
-                # → Appliquer directement les permissions du formulaire
-                # → Sauvegarder SANS recalculer les permissions automatiques
-                _appliquer_permissions_formulaire(user_updated, request.POST)
+                # Appliquer directement les permissions du formulaire
+                appliquer_permissions_formulaire(user_updated, request.POST)
                 user_updated.save(skip_auto_permissions=True)
-                
-                if permissions_modified:
-                    changes.append(f"{len(perm_changes)} permission(s) modifiée(s)")
-                    logger.info(
-                        f"Utilisateur {user_updated.username}: {len(perm_changes)} permissions personnalisées"
-                    )
             
-            # Journalisation détaillée
-            user_desc = get_user_short_description(request.user)
-            target_desc = get_user_short_description(user_updated)
-            details = f"{user_desc} a modifié: {target_desc}"
-            if changes:
-                details += f" | Changements: {', '.join(changes)}"
-            
-            log_user_action(request.user, "Modification utilisateur", details, request)
-            
-            messages.success(
-                request, 
-                f"Utilisateur {user_updated.nom_complet} modifié avec succès."
-            )
+            messages.success(request, f"Utilisateur {user_updated.nom_complet} modifié.")
             return redirect('accounts:detail_utilisateur', user_id=user_updated.id)
-        else:
-            # Afficher les erreurs du formulaire
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, error if field == '__all__' else f"{error}")
     else:
         form = UserUpdateForm(instance=user_to_edit)
     
-    # Postes filtrés par type
-    postes_peage = Poste.objects.filter(is_active=True, type='peage').order_by('nom')
-    postes_pesage = Poste.objects.filter(is_active=True, type='pesage').order_by('nom')
-    
-    # Préparer le contexte des permissions avec les valeurs actuelles
-    permissions_context = _get_permissions_context(user=user_to_edit)
-
+    # Préparer le contexte
     context = {
         'form': form,
         'user_edit': user_to_edit,
-        'postes_peage': postes_peage,
-        'postes_pesage': postes_pesage,
-        'count_peage': postes_peage.count(),
-        'count_pesage': postes_pesage.count(),
+        'postes_peage': Poste.objects.filter(is_active=True, type='peage').order_by('nom'),
+        'postes_pesage': Poste.objects.filter(is_active=True, type='pesage').order_by('nom'),
         'habilitations': Habilitation.choices,
         'title': f'Modifier - {user_to_edit.nom_complet}',
-        'filtrage_postes_js': FILTRAGE_POSTES_JS,
-        # Permissions organisées par catégorie avec valeurs actuelles
-        'permissions_categories': permissions_context,
-        'show_permissions_section': True,
     }
     
+    # Ajouter le contexte des permissions
+    context.update(preparer_contexte_permissions_modification(user_to_edit))
+    
     return render(request, 'accounts/modifier_utilisateur.html', context)
-
 
 # ===================================================================
 # VUE detail_utilisateur CORRIGÉE

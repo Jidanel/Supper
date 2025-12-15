@@ -5,7 +5,6 @@
 {% block title %}Saisir une recette avec tickets{% endblock %}
 
 {% block extra_css %}
-<!-- CSS inchangé - conservé tel quel -->
 <style>
     .formset-row {
         border: 2px solid #e5e7eb;
@@ -77,6 +76,77 @@
         border: 3px solid #667eea;
         background: linear-gradient(to bottom, #f8f9ff, white);
     }
+    
+    /* ===== NOUVEAUX STYLES POUR LE BOUTON SUIVANT ===== */
+    .btn-suivant {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-suivant:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .btn-suivant:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+    
+    .btn-suivant i {
+        margin-left: 0.5rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .btn-suivant:hover:not(:disabled) i {
+        transform: translateX(5px);
+    }
+    
+    .etape-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        background: white;
+        color: #667eea;
+        border-radius: 50%;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+    
+    .etape-active {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+    }
+    
+    .selection-hint {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        border-radius: 0 8px 8px 0;
+        margin-top: 1rem;
+    }
+    
+    .selection-complete {
+        background: #d1fae5;
+        border-left-color: #10b981;
+    }
 </style>
 {% endblock %}
 
@@ -86,51 +156,82 @@
         <div class="col-md-{% if afficher_formulaire_complet %}9{% else %}12{% endif %}">
             
             <!-- ================================================================= -->
-            <!-- Carte de sélection Poste/Date avec JavaScript amélioré -->
+            <!-- ÉTAPE 1 : Sélection Poste/Date avec BOUTON SUIVANT -->
             <!-- ================================================================= -->
             <div class="card selection-poste-card mb-3">
                 <div class="card-header bg-primary text-white">
-                    <h4><i class="fas fa-map-marker-alt me-2"></i>Étape 1 : Sélectionner le poste et la date</h4>
+                    <h4>
+                        <span class="etape-badge {% if not afficher_formulaire_complet %}etape-active{% endif %}">1</span>
+                        <i class="fas fa-map-marker-alt me-2"></i>Sélectionner le poste et la date
+                    </h4>
                 </div>
                 <div class="card-body">
                     <form method="get" id="formSelection">
                         <div class="row">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Poste *</label>
-                                {{ form.poste }}
-                                <small class="text-muted d-block mt-1">
-                                    <i class="fas fa-info-circle"></i> La page se rechargera automatiquement
-                                </small>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-building me-1"></i> Poste <span class="text-danger">*</span>
+                                </label>
+                                <select name="poste" id="id_poste" class="form-select form-select-lg" required>
+                                    <option value="">-- Sélectionnez un poste --</option>
+                                    {% for poste in postes %}
+                                    <option value="{{ poste.id }}" {% if poste_selectionne and poste.id == poste_selectionne.id %}selected{% endif %}>
+                                        {{ poste.nom }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Date *</label>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-calendar-alt me-1"></i> Date <span class="text-danger">*</span>
+                                </label>
                                 <input 
-                                        type="date" 
-                                        name="date" 
-                                        id="id_date" 
-                                        class="form-control"
-                                        onchange="submitFormWithAllFields()"
-                                        value="{% if date_selectionnee %}{{ date_selectionnee|date:'Y-m-d' }}{% else %}{{ form.date.value|date:'Y-m-d' }}{% endif %}"
-                                        required
-                                    >
-                                <small class="text-muted d-block mt-1">
-                                    <i class="fas fa-info-circle"></i> Sélectionnez la date de la recette
-                                </small>
+                                    type="date" 
+                                    name="date" 
+                                    id="id_date" 
+                                    class="form-control form-control-lg"
+                                    value="{% if date_selectionnee %}{{ date_selectionnee|date:'Y-m-d' }}{% else %}{{ form.date.value|date:'Y-m-d' }}{% endif %}"
+                                    max="{{ "now"|date:'Y-m-d' }}"
+                                    required
+                                >
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-suivant w-100" id="btnSuivant" disabled>
+                                    Suivant <i class="fas fa-arrow-right"></i>
+                                </button>
                             </div>
                         </div>
                         
-                        {% if not afficher_formulaire_complet %}
-                        <div class="alert alert-info mt-3 mb-0">
-                            <i class="fas fa-hand-point-up"></i> 
-                            <strong>Veuillez sélectionner un poste et une date</strong> pour afficher le stock disponible et le formulaire de saisie.
+                        <!-- Message d'indication dynamique -->
+                        <div id="selectionHint" class="selection-hint mt-3">
+                            <i class="fas fa-info-circle me-2 text-warning"></i>
+                            <span id="hintText">Veuillez sélectionner un poste et une date pour continuer.</span>
                         </div>
-                        {% endif %}
                     </form>
                 </div>
+                
+                {% if afficher_formulaire_complet %}
+                <!-- Récapitulatif de la sélection -->
+                <div class="card-footer bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Poste :</strong> {{ poste_selectionne.nom }}
+                            <span class="mx-3">|</span>
+                            <strong>Date :</strong> {{ date_selectionnee|date:"d/m/Y" }}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('id_poste').focus();">
+                            <i class="fas fa-edit me-1"></i> Modifier
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
             </div>
             
             {% if afficher_formulaire_complet %}
-            <!-- Stock disponible -->
+            <!-- ================================================================= -->
+            <!-- STOCK DISPONIBLE -->
+            <!-- ================================================================= -->
             {% if stock_disponible %}
             <div class="card mb-3">
                 <div class="card-header stock-card">
@@ -172,11 +273,16 @@
             </div>
             {% endif %}
             
-            <!-- Formulaire de saisie des séries -->
+            <!-- ================================================================= -->
+            <!-- ÉTAPE 2 : FORMULAIRE DE SAISIE DES SÉRIES -->
+            <!-- ================================================================= -->
             {% if stock_disponible %}
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h4><i class="fas fa-coins me-2"></i>Étape 2 : Saisir les tickets vendus</h4>
+                    <h4>
+                        <span class="etape-badge">2</span>
+                        <i class="fas fa-coins me-2"></i>Saisir les tickets vendus
+                    </h4>
                 </div>
                 <div class="card-body">
                     <form method="post" id="formRecette">
@@ -331,129 +437,161 @@
 </div>
 
 <!-- ================================================================= -->
-<!-- CORRECTION : JavaScript amélioré pour préserver tous les champs -->
+<!-- JAVASCRIPT : Gestion du bouton Suivant et des formsets -->
 <!-- ================================================================= -->
 <script>
-// ===================================================================
-// FONCTION CRITIQUE : Soumettre le formulaire avec TOUS les champs
-// ===================================================================
-function submitFormWithAllFields() {
-    const form = document.getElementById('formSelection');
-    const posteSelect = form.querySelector('select[name="poste"]');
-    const dateInput = form.querySelector('input[name="date"]');
-    
-    // Vérifier que les deux champs ont des valeurs avant de soumettre
-    if (posteSelect && posteSelect.value && dateInput && dateInput.value) {
-        form.submit();
-    } else if (posteSelect && posteSelect.value) {
-        // Si seul le poste est sélectionné, soumettre quand même
-        // La date sera préservée ou initialisée côté serveur
-        form.submit();
-    }
-}
-
-{% if afficher_formulaire_complet and formset %}
-// ===================================================================
-// GESTION DES FORMSETS (inchangé)
-// ===================================================================
-let formsetIndex = {{ formset.total_form_count }};
-
-// Calcul automatique du montant d'une série
-function calculerMontantSerie(row) {
-    const premier = parseInt(row.querySelector('[name*="numero_premier"]').value) || 0;
-    const dernier = parseInt(row.querySelector('[name*="numero_dernier"]').value) || 0;
-    
-    if (premier > 0 && dernier >= premier) {
-        const nombre = dernier - premier + 1;
-        const montant = nombre * 500;
-        
-        row.querySelector('.nombre-tickets-calc').value = nombre.toLocaleString('fr-FR') + ' tickets';
-        row.querySelector('.montant-calc').value = montant.toLocaleString('fr-FR') + ' FCFA';
-        
-        return montant;
-    } else {
-        row.querySelector('.nombre-tickets-calc').value = '';
-        row.querySelector('.montant-calc').value = '';
-        return 0;
-    }
-}
-
-// Calcul du montant total
-function calculerMontantTotal() {
-    let total = 0;
-    
-    document.querySelectorAll('.formset-row:not(.to-delete)').forEach(row => {
-        total += calculerMontantSerie(row);
-    });
-    
-    document.getElementById('montantTotalDisplay').textContent = 
-        total.toLocaleString('fr-FR') + ' FCFA';
-    document.getElementById('montant_declare').value = total;
-}
-
-// Ajouter une série
-function addFormset() {
-    const container = document.getElementById('formset-container');
-    const totalForms = document.getElementById('id_tickets-TOTAL_FORMS');
-    
-    const firstRow = document.querySelector('.formset-row');
-    const newRow = firstRow.cloneNode(true);
-    
-    newRow.querySelectorAll('input, select').forEach(input => {
-        const name = input.name.replace(/tickets-\d+/, `tickets-${formsetIndex}`);
-        const id = input.id.replace(/id_tickets-\d+/, `id_tickets-${formsetIndex}`);
-        
-        input.name = name;
-        input.id = id;
-        input.value = '';
-    });
-    
-    const header = newRow.querySelector('h6');
-    header.textContent = `Série #${formsetIndex + 1}`;
-    
-    if (!newRow.querySelector('.btn-remove-serie')) {
-        const btnContainer = newRow.querySelector('.d-flex');
-        const btnRemove = document.createElement('button');
-        btnRemove.type = 'button';
-        btnRemove.className = 'btn-remove-serie';
-        btnRemove.innerHTML = '<i class="fas fa-minus me-1"></i>Supprimer';
-        btnRemove.onclick = function() { removeFormset(this); };
-        btnContainer.appendChild(btnRemove);
-    }
-    
-    container.appendChild(newRow);
-    
-    newRow.querySelectorAll('[name*="numero_"]').forEach(input => {
-        input.addEventListener('input', calculerMontantTotal);
-    });
-    
-    formsetIndex++;
-    totalForms.value = formsetIndex;
-}
-
-// Supprimer une série
-function removeFormset(btn) {
-    const row = btn.closest('.formset-row');
-    row.classList.add('to-delete');
-    
-    const deleteInput = row.querySelector('[name*="DELETE"]');
-    if (deleteInput) {
-        deleteInput.checked = true;
-    } else {
-        row.remove();
-    }
-    
-    calculerMontantTotal();
-}
-
-// Event listeners au chargement
 document.addEventListener('DOMContentLoaded', function() {
+    // ===================================================================
+    // GESTION DU BOUTON SUIVANT (ÉTAPE 1)
+    // ===================================================================
+    const posteSelect = document.getElementById('id_poste');
+    const dateInput = document.getElementById('id_date');
+    const btnSuivant = document.getElementById('btnSuivant');
+    const selectionHint = document.getElementById('selectionHint');
+    const hintText = document.getElementById('hintText');
+    
+    function updateButtonState() {
+        const posteSelected = posteSelect && posteSelect.value;
+        const dateSelected = dateInput && dateInput.value;
+        
+        if (posteSelected && dateSelected) {
+            // Les deux champs sont remplis
+            btnSuivant.disabled = false;
+            selectionHint.classList.add('selection-complete');
+            selectionHint.classList.remove('selection-hint');
+            hintText.innerHTML = '<i class="fas fa-check-circle me-2 text-success"></i>Cliquez sur <strong>Suivant</strong> pour afficher le stock et le formulaire de saisie.';
+        } else if (posteSelected) {
+            // Seulement le poste
+            btnSuivant.disabled = true;
+            selectionHint.classList.remove('selection-complete');
+            hintText.innerHTML = '<i class="fas fa-calendar-alt me-2"></i>Maintenant, sélectionnez une <strong>date</strong>.';
+        } else if (dateSelected) {
+            // Seulement la date
+            btnSuivant.disabled = true;
+            selectionHint.classList.remove('selection-complete');
+            hintText.innerHTML = '<i class="fas fa-building me-2"></i>Veuillez sélectionner un <strong>poste</strong>.';
+        } else {
+            // Aucun champ rempli
+            btnSuivant.disabled = true;
+            selectionHint.classList.remove('selection-complete');
+            hintText.innerHTML = '<i class="fas fa-info-circle me-2"></i>Veuillez sélectionner un poste et une date pour continuer.';
+        }
+    }
+    
+    // Écouter les changements sur les champs
+    if (posteSelect) {
+        posteSelect.addEventListener('change', updateButtonState);
+    }
+    if (dateInput) {
+        dateInput.addEventListener('change', updateButtonState);
+        dateInput.addEventListener('input', updateButtonState);
+    }
+    
+    // État initial
+    updateButtonState();
+    
+    {% if afficher_formulaire_complet and formset %}
+    // ===================================================================
+    // GESTION DES FORMSETS (ÉTAPE 2)
+    // ===================================================================
+    let formsetIndex = {{ formset.total_form_count }};
+
+    // Calcul automatique du montant d'une série
+    window.calculerMontantSerie = function(row) {
+        const premier = parseInt(row.querySelector('[name*="numero_premier"]').value) || 0;
+        const dernier = parseInt(row.querySelector('[name*="numero_dernier"]').value) || 0;
+        
+        if (premier > 0 && dernier >= premier) {
+            const nombre = dernier - premier + 1;
+            const montant = nombre * 500;
+            
+            row.querySelector('.nombre-tickets-calc').value = nombre.toLocaleString('fr-FR') + ' tickets';
+            row.querySelector('.montant-calc').value = montant.toLocaleString('fr-FR') + ' FCFA';
+            
+            return montant;
+        } else {
+            row.querySelector('.nombre-tickets-calc').value = '';
+            row.querySelector('.montant-calc').value = '';
+            return 0;
+        }
+    };
+
+    // Calcul du montant total
+    window.calculerMontantTotal = function() {
+        let total = 0;
+        
+        document.querySelectorAll('.formset-row:not(.to-delete)').forEach(row => {
+            total += calculerMontantSerie(row);
+        });
+        
+        document.getElementById('montantTotalDisplay').textContent = 
+            total.toLocaleString('fr-FR') + ' FCFA';
+        document.getElementById('montant_declare').value = total;
+    };
+
+    // Ajouter une série
+    window.addFormset = function() {
+        const container = document.getElementById('formset-container');
+        const totalForms = document.getElementById('id_tickets-TOTAL_FORMS');
+        
+        const firstRow = document.querySelector('.formset-row');
+        const newRow = firstRow.cloneNode(true);
+        
+        newRow.querySelectorAll('input, select').forEach(input => {
+            const name = input.name.replace(/tickets-\d+/, `tickets-${formsetIndex}`);
+            const id = input.id.replace(/id_tickets-\d+/, `id_tickets-${formsetIndex}`);
+            
+            input.name = name;
+            input.id = id;
+            input.value = '';
+        });
+        
+        const header = newRow.querySelector('h6');
+        header.textContent = `Série #${formsetIndex + 1}`;
+        
+        if (!newRow.querySelector('.btn-remove-serie')) {
+            const btnContainer = newRow.querySelector('.d-flex');
+            const btnRemove = document.createElement('button');
+            btnRemove.type = 'button';
+            btnRemove.className = 'btn-remove-serie';
+            btnRemove.innerHTML = '<i class="fas fa-minus me-1"></i>Supprimer';
+            btnRemove.onclick = function() { removeFormset(this); };
+            btnContainer.appendChild(btnRemove);
+        }
+        
+        container.appendChild(newRow);
+        
+        newRow.querySelectorAll('[name*="numero_"]').forEach(input => {
+            input.addEventListener('input', calculerMontantTotal);
+        });
+        
+        formsetIndex++;
+        totalForms.value = formsetIndex;
+    };
+
+    // Supprimer une série
+    window.removeFormset = function(btn) {
+        const row = btn.closest('.formset-row');
+        row.classList.add('to-delete');
+        
+        const deleteInput = row.querySelector('[name*="DELETE"]');
+        if (deleteInput) {
+            deleteInput.checked = true;
+        } else {
+            row.remove();
+        }
+        
+        calculerMontantTotal();
+    };
+
+    // Initialisation des calculs
     calculerMontantTotal();
     
     document.querySelectorAll('[name*="numero_"]').forEach(input => {
         input.addEventListener('input', calculerMontantTotal);
     });
     
+    // Validation avant soumission
     document.getElementById('formRecette').addEventListener('submit', function(e) {
         const total = parseFloat(document.getElementById('montant_declare').value);
         
@@ -462,7 +600,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Vous devez saisir au moins une série de tickets vendus');
         }
     });
+    {% endif %}
 });
-{% endif %}
 </script>
 {% endblock %}

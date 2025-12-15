@@ -2982,114 +2982,114 @@ class SerieTicket(models.Model):
                 name='numero_premier_inferieur_dernier'
             )
         ]
-    @classmethod
-    def verifier_disponibilite_serie_complete(cls, poste, couleur, numero_premier, numero_dernier):
-        """
-        Vérification COMPLÈTE de disponibilité d'une série de tickets pour VENTE
+    # @classmethod
+    # def verifier_disponibilite_serie_complete(cls, poste, couleur, numero_premier, numero_dernier):
+    #     """
+    #     Vérification COMPLÈTE de disponibilité d'une série de tickets pour VENTE
         
-        CORRECTION MAJEURE :
-        - Ne vérifie QUE les tickets vendus (pas les tickets en stock)
-        - Accepte les chevauchements avec des séries en stock du MÊME poste
+    #     CORRECTION MAJEURE :
+    #     - Ne vérifie QUE les tickets vendus (pas les tickets en stock)
+    #     - Accepte les chevauchements avec des séries en stock du MÊME poste
         
-        Vérifie :
-        1. Que les numéros sont cohérents
-        2. Qu'aucun ticket de la plage n'a déjà été vendu (n'importe quel poste)
-        3. Que la plage est disponible en stock pour CE poste
+    #     Vérifie :
+    #     1. Que les numéros sont cohérents
+    #     2. Qu'aucun ticket de la plage n'a déjà été vendu (n'importe quel poste)
+    #     3. Que la plage est disponible en stock pour CE poste
         
-        Returns:
-            tuple (bool, str, list): (est_disponible, message_erreur, tickets_problematiques)
-        """
-        from django.db.models import Q
+    #     Returns:
+    #         tuple (bool, str, list): (est_disponible, message_erreur, tickets_problematiques)
+    #     """
+    #     from django.db.models import Q
         
-        # Vérification 1 : Numéros cohérents
-        if numero_premier > numero_dernier:
-            return False, "Le numéro du premier ticket doit être inférieur ou égal au dernier", []
+    #     # Vérification 1 : Numéros cohérents
+    #     if numero_premier > numero_dernier:
+    #         return False, "Le numéro du premier ticket doit être inférieur ou égal au dernier", []
         
-        if numero_premier < 1:
-            return False, "Les numéros de tickets doivent être positifs", []
+    #     if numero_premier < 1:
+    #         return False, "Les numéros de tickets doivent être positifs", []
         
-        # ===== CORRECTION : Vérification 2 - Tickets VENDUS uniquement =====
-        # Ne chercher QUE les tickets avec statut 'vendu'
-        # Ignorer les tickets en 'stock' car ils sont disponibles pour vente
-        tickets_deja_vendus = cls.objects.filter(
-            couleur=couleur,
-            statut='vendu',  # ← IMPORTANT : Seulement les vendus
-            # Chevauchement : (debut1 <= fin2) AND (fin1 >= debut2)
-            numero_premier__lte=numero_dernier,
-            numero_dernier__gte=numero_premier
-        ).values_list('numero_premier', 'numero_dernier', 'date_utilisation', 'poste__nom')
+    #     # ===== CORRECTION : Vérification 2 - Tickets VENDUS uniquement =====
+    #     # Ne chercher QUE les tickets avec statut 'vendu'
+    #     # Ignorer les tickets en 'stock' car ils sont disponibles pour vente
+    #     tickets_deja_vendus = cls.objects.filter(
+    #         couleur=couleur,
+    #         statut='vendu',  # ← IMPORTANT : Seulement les vendus
+    #         # Chevauchement : (debut1 <= fin2) AND (fin1 >= debut2)
+    #         numero_premier__lte=numero_dernier,
+    #         numero_dernier__gte=numero_premier
+    #     ).values_list('numero_premier', 'numero_dernier', 'date_utilisation', 'poste__nom')
         
-        if tickets_deja_vendus.exists():
-            tickets_problematiques = []
-            for prem, dern, date_vente, nom_poste in tickets_deja_vendus:
-                tickets_problematiques.append({
-                    'premier': prem,
-                    'dernier': dern,
-                    'date_vente': date_vente,
-                    'poste': nom_poste
-                })
+    #     if tickets_deja_vendus.exists():
+    #         tickets_problematiques = []
+    #         for prem, dern, date_vente, nom_poste in tickets_deja_vendus:
+    #             tickets_problematiques.append({
+    #                 'premier': prem,
+    #                 'dernier': dern,
+    #                 'date_vente': date_vente,
+    #                 'poste': nom_poste
+    #             })
             
-            # Construire message détaillé
-            if len(tickets_problematiques) == 1:
-                ticket = tickets_problematiques[0]
-                msg = (
-                    f"❌ TICKET DÉJÀ VENDU : La série {couleur.libelle_affichage} "
-                    f"#{ticket['premier']}-{ticket['dernier']} a déjà été vendue "
-                    f"le {ticket['date_vente'].strftime('%d/%m/%Y')} "
-                    f"au poste {ticket['poste']}"
-                )
-            else:
-                msg = (
-                    f"❌ TICKETS DÉJÀ VENDUS : {len(tickets_problematiques)} série(s) "
-                    f"de la couleur {couleur.libelle_affichage} chevauchent votre saisie et "
-                    f"ont déjà été vendues"
-                )
+    #         # Construire message détaillé
+    #         if len(tickets_problematiques) == 1:
+    #             ticket = tickets_problematiques[0]
+    #             msg = (
+    #                 f"❌ TICKET DÉJÀ VENDU : La série {couleur.libelle_affichage} "
+    #                 f"#{ticket['premier']}-{ticket['dernier']} a déjà été vendue "
+    #                 f"le {ticket['date_vente'].strftime('%d/%m/%Y')} "
+    #                 f"au poste {ticket['poste']}"
+    #             )
+    #         else:
+    #             msg = (
+    #                 f"❌ TICKETS DÉJÀ VENDUS : {len(tickets_problematiques)} série(s) "
+    #                 f"de la couleur {couleur.libelle_affichage} chevauchent votre saisie et "
+    #                 f"ont déjà été vendues"
+    #             )
             
-            return False, msg, tickets_problematiques
+    #         return False, msg, tickets_problematiques
         
-        # ===== CORRECTION : Vérification 3 - Disponibilité en stock POUR CE POSTE =====
-        # Chercher uniquement les séries en stock du poste concerné
-        series_stock_poste = cls.objects.filter(
-            poste=poste,  # ← IMPORTANT : Seulement CE poste
-            couleur=couleur,
-            statut='stock'
-        )
+    #     # ===== CORRECTION : Vérification 3 - Disponibilité en stock POUR CE POSTE =====
+    #     # Chercher uniquement les séries en stock du poste concerné
+    #     series_stock_poste = cls.objects.filter(
+    #         poste=poste,  # ← IMPORTANT : Seulement CE poste
+    #         couleur=couleur,
+    #         statut='stock'
+    #     )
         
-        if not series_stock_poste.exists():
-            return False, (
-                f"Aucun stock de tickets {couleur.libelle_affichage} disponible "
-                f"pour le poste {poste.nom}"
-            ), []
+    #     if not series_stock_poste.exists():
+    #         return False, (
+    #             f"Aucun stock de tickets {couleur.libelle_affichage} disponible "
+    #             f"pour le poste {poste.nom}"
+    #         ), []
         
-        # Vérifier que la plage demandée est couverte par UNE série en stock
-        plage_couverte = False
-        serie_couvrante = None
+    #     # Vérifier que la plage demandée est couverte par UNE série en stock
+    #     plage_couverte = False
+    #     serie_couvrante = None
         
-        for serie in series_stock_poste:
-            # La série en stock doit CONTENIR complètement la plage demandée
-            if (numero_premier >= serie.numero_premier and 
-                numero_dernier <= serie.numero_dernier):
-                plage_couverte = True
-                serie_couvrante = serie
-                break
+    #     for serie in series_stock_poste:
+    #         # La série en stock doit CONTENIR complètement la plage demandée
+    #         if (numero_premier >= serie.numero_premier and 
+    #             numero_dernier <= serie.numero_dernier):
+    #             plage_couverte = True
+    #             serie_couvrante = serie
+    #             break
         
-        if not plage_couverte:
-            # Lister les séries disponibles pour aider l'utilisateur
-            series_dispo = [
-                f"#{s.numero_premier}-{s.numero_dernier}" 
-                for s in series_stock_poste
-            ]
+    #     if not plage_couverte:
+    #         # Lister les séries disponibles pour aider l'utilisateur
+    #         series_dispo = [
+    #             f"#{s.numero_premier}-{s.numero_dernier}" 
+    #             for s in series_stock_poste
+    #         ]
             
-            msg = (
-                f"❌ Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
-                f"non disponible en stock au poste {poste.nom}. "
-                f"Séries disponibles : {', '.join(series_dispo) if series_dispo else 'Aucune'}"
-            )
+    #         msg = (
+    #             f"❌ Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+    #             f"non disponible en stock au poste {poste.nom}. "
+    #             f"Séries disponibles : {', '.join(series_dispo) if series_dispo else 'Aucune'}"
+    #         )
             
-            return False, msg, []
+    #         return False, msg, []
         
-        # ===== Tout est OK - La série peut être vendue =====
-        return True, f"✅ Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} disponible", []
+    #     # ===== Tout est OK - La série peut être vendue =====
+    #     return True, f"✅ Série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} disponible", []
 
     @classmethod
     def verifier_unicite_annuelle(cls, numero_ticket, couleur, annee):
@@ -3312,110 +3312,7 @@ class SerieTicket(models.Model):
         
         # === TOUT EST OK ===
         return True, f"✅ Série disponible pour transfert/vente", []
-    # @classmethod
-    # def verifier_disponibilite_serie_complete(cls, poste, couleur, numero_premier, numero_dernier):
-    #     """
-    #     VERSION CORRIGÉE - Vérifie UNIQUEMENT la disponibilité au poste ORIGINE
-    #     Ne vérifie PAS les chevauchements au poste destination
-        
-    #     Cette méthode est utilisée UNIQUEMENT pour vérifier qu'une série peut être :
-    #     1. VENDUE depuis ce poste
-    #     2. TRANSFÉRÉE depuis ce poste
-        
-    #     Returns:
-    #         tuple (bool, str, list): (est_disponible, message_erreur, tickets_problematiques)
-    #     """
-    #     from django.db.models import Q
-        
-    #     # Vérification 1 : Numéros cohérents
-    #     if numero_premier > numero_dernier:
-    #         return False, "Le numéro du premier ticket doit être inférieur ou égal au dernier", []
-        
-    #     if numero_premier < 1:
-    #         return False, "Les numéros de tickets doivent être positifs", []
-        
-    #     # Vérification 2 : La série est-elle en stock au poste ORIGINE ?
-    #     series_stock_origine = cls.objects.filter(
-    #         poste=poste,
-    #         couleur=couleur,
-    #         statut='stock',
-    #         numero_premier__lte=numero_dernier,
-    #         numero_dernier__gte=numero_premier
-    #     )
-        
-    #     if not series_stock_origine.exists():
-    #         # Lister les séries disponibles pour aider
-    #         series_dispo = cls.objects.filter(
-    #             poste=poste,
-    #             couleur=couleur,
-    #             statut='stock'
-    #         ).order_by('numero_premier')
-            
-    #         if series_dispo.exists():
-    #             series_str = ', '.join([
-    #                 f"#{s.numero_premier}-{s.numero_dernier}" 
-    #                 for s in series_dispo
-    #             ])
-    #             return False, (
-    #                 f"❌ La série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
-    #                 f"n'est pas disponible au poste {poste.nom}. "
-    #                 f"Séries disponibles: {series_str}"
-    #             ), []
-    #         else:
-    #             return False, (
-    #                 f"❌ Aucun stock de tickets {couleur.libelle_affichage} "
-    #                 f"disponible au poste {poste.nom}"
-    #             ), []
-        
-    #     # Vérification 3 : La plage complète est-elle couverte ?
-    #     # Trouver une série qui contient ENTIÈREMENT la plage demandée
-    #     serie_couvrante = None
-    #     for serie in series_stock_origine:
-    #         if (numero_premier >= serie.numero_premier and 
-    #             numero_dernier <= serie.numero_dernier):
-    #             serie_couvrante = serie
-    #             break
-        
-    #     if not serie_couvrante:
-    #         # La plage demandée n'est pas entièrement couverte
-    #         return False, (
-    #             f"❌ La série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
-    #             f"n'est pas entièrement disponible en stock au poste {poste.nom}. "
-    #             f"Vérifiez que toute la plage est dans une seule série."
-    #         ), []
-        
-    #     # Vérification 4 : Certains tickets ont-ils déjà été vendus ?
-    #     # Vérifier dans TOUTE la base si ces numéros ont été vendus
-    #     tickets_vendus = cls.objects.filter(
-    #         couleur=couleur,
-    #         statut='vendu',
-    #         numero_premier__lte=numero_dernier,
-    #         numero_dernier__gte=numero_premier
-    #     ).select_related('poste')
-        
-    #     if tickets_vendus.exists():
-    #         tickets_problematiques = []
-    #         for ticket in tickets_vendus:
-    #             tickets_problematiques.append({
-    #                 'premier': ticket.numero_premier,
-    #                 'dernier': ticket.numero_dernier,
-    #                 'date_vente': ticket.date_utilisation,
-    #                 'poste': ticket.poste.nom
-    #             })
-            
-    #         msg = (
-    #             f"❌ IMPOSSIBLE : Des tickets de cette plage ont déjà été vendus ! "
-    #             f"Ticket(s) vendu(s) : "
-    #         )
-    #         for t in tickets_problematiques[:2]:  # Afficher max 2 exemples
-    #             msg += f"#{t['premier']}-{t['dernier']} (vendu le {t['date_vente'].strftime('%d/%m/%Y') if t['date_vente'] else 'date inconnue'} au poste {t['poste']}), "
-            
-    #         return False, msg.rstrip(', '), tickets_problematiques
-        
-    #     # ✅ Tout est OK - La série peut être transférée ou vendue
-    #     return True, f"✅ Série disponible pour transfert/vente", []
-
-
+    
 
     @classmethod
     def consommer_serie(cls, poste, couleur, numero_premier, numero_dernier, recette):
@@ -3435,7 +3332,11 @@ class SerieTicket(models.Model):
         """
         from django.db import transaction
         
-        disponible, msg = cls.verifier_disponibilite_serie(
+        # =====================================================
+        # CORRECTION : Récupérer les 3 valeurs retournées
+        # (était: disponible, msg = ...)
+        # =====================================================
+        disponible, msg, _ = cls.verifier_disponibilite_serie_complete(
             poste, couleur, numero_premier, numero_dernier
         )
         
@@ -3474,6 +3375,8 @@ class SerieTicket(models.Model):
                     couleur=couleur,
                     numero_premier=numero_premier,
                     numero_dernier=numero_dernier,
+                    nombre_tickets=numero_dernier - numero_premier + 1,
+                    valeur_monetaire=(numero_dernier - numero_premier + 1) * 500,
                     statut='vendu',
                     date_utilisation=recette.date,
                     reference_recette=recette,
@@ -3483,6 +3386,8 @@ class SerieTicket(models.Model):
                 
                 # Mettre à jour la série parente (reste en stock)
                 serie_parente.numero_premier = numero_dernier + 1
+                serie_parente.nombre_tickets = serie_parente.numero_dernier - serie_parente.numero_premier + 1
+                serie_parente.valeur_monetaire = serie_parente.nombre_tickets * 500
                 serie_parente.save()
             
             # CAS 3 : Vente à la fin de la série
@@ -3493,6 +3398,8 @@ class SerieTicket(models.Model):
                     couleur=couleur,
                     numero_premier=numero_premier,
                     numero_dernier=numero_dernier,
+                    nombre_tickets=numero_dernier - numero_premier + 1,
+                    valeur_monetaire=(numero_dernier - numero_premier + 1) * 500,
                     statut='vendu',
                     date_utilisation=recette.date,
                     reference_recette=recette,
@@ -3502,6 +3409,8 @@ class SerieTicket(models.Model):
                 
                 # Mettre à jour la série parente
                 serie_parente.numero_dernier = numero_premier - 1
+                serie_parente.nombre_tickets = serie_parente.numero_dernier - serie_parente.numero_premier + 1
+                serie_parente.valeur_monetaire = serie_parente.nombre_tickets * 500
                 serie_parente.save()
             
             # CAS 4 : Vente au milieu de la série (découpage en 3)
@@ -3512,6 +3421,8 @@ class SerieTicket(models.Model):
                     couleur=couleur,
                     numero_premier=numero_premier,
                     numero_dernier=numero_dernier,
+                    nombre_tickets=numero_dernier - numero_premier + 1,
+                    valeur_monetaire=(numero_dernier - numero_premier + 1) * 500,
                     statut='vendu',
                     date_utilisation=recette.date,
                     reference_recette=recette,
@@ -3520,11 +3431,14 @@ class SerieTicket(models.Model):
                 series_creees.append(serie_vendue)
                 
                 # Série après (reste en stock)
+                nb_tickets_apres = serie_parente.numero_dernier - numero_dernier
                 serie_apres = cls.objects.create(
                     poste=poste,
                     couleur=couleur,
                     numero_premier=numero_dernier + 1,
                     numero_dernier=serie_parente.numero_dernier,
+                    nombre_tickets=nb_tickets_apres,
+                    valeur_monetaire=nb_tickets_apres * 500,
                     statut='stock',
                     type_entree=serie_parente.type_entree
                 )
@@ -3532,6 +3446,8 @@ class SerieTicket(models.Model):
                 
                 # Mettre à jour série parente (devient série avant)
                 serie_parente.numero_dernier = numero_premier - 1
+                serie_parente.nombre_tickets = serie_parente.numero_dernier - serie_parente.numero_premier + 1
+                serie_parente.valeur_monetaire = serie_parente.nombre_tickets * 500
                 serie_parente.save()
             
             return True, "Série consommée avec succès", series_creees

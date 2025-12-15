@@ -64,6 +64,8 @@
     .accordion-button:not(.collapsed) { background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%) !important; color: #047857 !important; }
     .perm-count-badge { background: #10B981 !important; color: white !important; font-size: 0.7rem !important; padding: 0.2rem 0.5rem !important; border-radius: 10px !important; margin-left: 0.5rem !important; }
     .password-toggle { cursor: pointer; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #64748B; }
+    .permissions-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .permissions-controls .btn { font-size: 0.8rem; padding: 0.4rem 0.8rem; }
 </style>
 
 <div class="container-fluid py-4">
@@ -86,6 +88,7 @@
                     {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
                     {% if form.non_field_errors %}{% for error in form.non_field_errors %}<div class="alert alert-danger alert-dismissible fade show"><i class="fas fa-exclamation-triangle me-2"></i>{{ error }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
 
+                    <!-- Section Identification -->
                     <h5 class="section-title"><i class="fas fa-id-card me-2"></i>Identification</h5>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
@@ -101,6 +104,7 @@
                         </div>
                     </div>
 
+                    <!-- Section Contact -->
                     <h5 class="section-title"><i class="fas fa-address-book me-2"></i>Contact</h5>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
@@ -117,253 +121,145 @@
                         </div>
                     </div>
 
+                    <!-- Section Sécurité -->
                     <h5 class="section-title"><i class="fas fa-lock me-2"></i>Sécurité</h5>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label for="id_password" class="form-label">Mot de passe <span class="required">*</span></label>
                             <div class="position-relative">
-                                <input type="password" name="password" id="id_password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" required>
+                                <input type="password" name="password" id="id_password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" required value="supper2025">
                                 <span class="password-toggle" onclick="togglePassword()"><i class="fas fa-eye" id="toggle-icon"></i></span>
                             </div>
-                            <div class="help-text">Minimum 8 caractères</div>
+                            <div class="help-text">Minimum 4 caractères (défaut: supper2025)</div>
                             {% if form.password.errors %}<div class="invalid-feedback">{{ form.password.errors.0 }}</div>{% endif %}
                         </div>
                         <div class="col-md-6">
                             <label for="id_password_confirm" class="form-label">Confirmer le mot de passe <span class="required">*</span></label>
-                            <input type="password" name="password_confirm" id="id_password_confirm" class="form-control" required>
+                            <input type="password" name="password_confirm" id="id_password_confirm" class="form-control" required value="supper2025">
                         </div>
                     </div>
 
+                    <!-- Section Affectation -->
                     <h5 class="section-title"><i class="fas fa-briefcase me-2"></i>Affectation Professionnelle</h5>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label for="id_habilitation" class="form-label">Rôle / Habilitation <span class="required">*</span></label>
-                            <select name="habilitation" id="id_habilitation" class="form-select" onchange="filterPostes(); handleHabilitationChange();" required>
-                                <option value="">-- Sélectionner --</option>
-                                {% for value, label in habilitations %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                            <select name="habilitation" id="id_habilitation" class="form-select" required>
+                                <option value="">-- Sélectionner un rôle --</option>
+                                {% for value, label in habilitations %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
                             </select>
-                            <div class="help-text">Les permissions seront automatiquement attribuées</div>
+                            <div class="help-text">Les permissions seront automatiquement attribuées selon le rôle</div>
                         </div>
                         <div class="col-md-6">
                             <label for="id_poste_affectation" class="form-label" id="label-poste">Poste d'affectation</label>
                             <div class="postes-stats">
-                                <span class="stat-item peage"><i class="fas fa-road me-1"></i>{{ count_peage }} péage</span>
-                                <span class="stat-item pesage"><i class="fas fa-weight me-1"></i>{{ count_pesage }} pesage</span>
+                                <span class="stat-item peage"><i class="fas fa-road me-1"></i>{{ postes_peage|length }} péage</span>
+                                <span class="stat-item pesage"><i class="fas fa-weight me-1"></i>{{ postes_pesage|length }} pesage</span>
                             </div>
                             <select name="poste_affectation" id="id_poste_affectation" class="form-select">
                                 <option value="">-- Aucun poste --</option>
                                 <optgroup label="🔵 Postes de Péage" id="optgroup-peage">
-                                    {% for poste in postes_peage %}<option value="{{ poste.id }}" data-type="peage">{{ poste.nom }} ({{ poste.code }})</option>{% endfor %}
+                                    {% for poste in postes_peage %}
+                                    <option value="{{ poste.id }}" data-type="peage">{{ poste.nom }} ({{ poste.code }})</option>
+                                    {% endfor %}
                                 </optgroup>
                                 <optgroup label="🟣 Stations de Pesage" id="optgroup-pesage">
-                                    {% for poste in postes_pesage %}<option value="{{ poste.id }}" data-type="pesage">{{ poste.nom }} ({{ poste.code }})</option>{% endfor %}
+                                    {% for poste in postes_pesage %}
+                                    <option value="{{ poste.id }}" data-type="pesage">{{ poste.nom }} ({{ poste.code }})</option>
+                                    {% endfor %}
                                 </optgroup>
                             </select>
                         </div>
                     </div>
                     
-                    <div id="filter-alert-pesage" class="filter-alert filter-alert-pesage"><div class="d-flex align-items-center"><i class="fas fa-weight me-3 fa-lg" style="color: #8B5CF6;"></i><div><strong>Rôle Pesage</strong><br><small>Station de pesage <strong>obligatoire</strong>.</small></div></div></div>
-                    <div id="filter-alert-peage" class="filter-alert filter-alert-peage"><div class="d-flex align-items-center"><i class="fas fa-road me-3 fa-lg" style="color: #3B82F6;"></i><div><strong>Rôle Péage</strong><br><small>Poste de péage <strong>obligatoire</strong>.</small></div></div></div>
-                    <div id="filter-alert-multi" class="filter-alert filter-alert-multi"><div class="d-flex align-items-center"><i class="fas fa-globe me-3 fa-lg" style="color: #F59E0B;"></i><div><strong>Rôle Administration</strong><br><small>Poste optionnel (tous postes accessibles).</small></div></div></div>
+                    <!-- Alertes de filtrage -->
+                    <div id="filter-alert-pesage" class="filter-alert filter-alert-pesage">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-weight me-3 fa-lg" style="color: #8B5CF6;"></i>
+                            <div><strong>Rôle Pesage</strong><br><small>Station de pesage <strong>obligatoire</strong>.</small></div>
+                        </div>
+                    </div>
+                    <div id="filter-alert-peage" class="filter-alert filter-alert-peage">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-road me-3 fa-lg" style="color: #3B82F6;"></i>
+                            <div><strong>Rôle Péage</strong><br><small>Poste de péage <strong>obligatoire</strong>.</small></div>
+                        </div>
+                    </div>
+                    <div id="filter-alert-multi" class="filter-alert filter-alert-multi">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-globe me-3 fa-lg" style="color: #F59E0B;"></i>
+                            <div><strong>Rôle Administration</strong><br><small>Poste optionnel (tous postes accessibles).</small></div>
+                        </div>
+                    </div>
 
                     <!-- Section Permissions -->
                     <h5 class="section-title">
                         <i class="fas fa-shield-alt me-2"></i>Permissions Granulaires
-                        <span id="permissions-count" class="badge bg-info ms-2">58</span>
+                        <span id="permissions-count" class="badge bg-secondary ms-2">0/{{ total_permissions }}</span>
                     </h5>
-                    <p class="text-muted mb-3"><i class="fas fa-info-circle me-1"></i>Les permissions sont automatiquement attribuées selon le rôle sélectionné. Vous pouvez les personnaliser ci-dessous.</p>
                     
+                    <p class="text-muted mb-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Sélectionnez un rôle ci-dessus pour charger automatiquement les permissions par défaut. 
+                        Vous pouvez ensuite personnaliser les permissions.
+                    </p>
+                    
+                    <!-- Contrôles des permissions -->
+                    <div class="permissions-controls">
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="cocherToutesPermissions()">
+                            <i class="fas fa-check-double me-1"></i>Tout cocher
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="decocherToutesPermissions()">
+                            <i class="fas fa-times me-1"></i>Tout décocher
+                        </button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="reinitialiserPermissionsDefaut()">
+                            <i class="fas fa-undo me-1"></i>Réinitialiser au rôle
+                        </button>
+                    </div>
+                    
+                    <!-- Accordéon des permissions par catégorie -->
                     <div class="accordion" id="accordionPermissions">
-                        <!-- Inventaires -->
+                        {% for cat_id, cat in permissions_categories.items %}
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-inventaires">
-                                    <i class="fas fa-clipboard-list me-2"></i>Inventaires
-                                    <span class="perm-count-badge" id="count-inventaires">10</span>
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ cat_id }}">
+                                    <i class="{{ cat.icon }} me-2"></i>{{ cat.label }}
+                                    <span class="perm-count-badge" id="count-{{ cat_id }}">{{ cat.count_actives }}/{{ cat.count_total }}</span>
                                 </button>
                             </h2>
-                            <div id="collapse-inventaires" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
+                            <div id="collapse-{{ cat_id }}" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
                                 <div class="accordion-body">
                                     <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_saisir_inventaire_normal" id="id_peut_saisir_inventaire_normal"><label class="form-check-label" for="id_peut_saisir_inventaire_normal">Saisir inventaire normal</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_saisir_inventaire_admin" id="id_peut_saisir_inventaire_admin"><label class="form-check-label" for="id_peut_saisir_inventaire_admin">Saisir inventaire administratif</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_programmer_inventaire" id="id_peut_programmer_inventaire"><label class="form-check-label" for="id_peut_programmer_inventaire">Programmer inventaire</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_programmation_active" id="id_peut_voir_programmation_active"><label class="form-check-label" for="id_peut_voir_programmation_active">Voir programmation active</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_desactiver_programmation" id="id_peut_desactiver_programmation"><label class="form-check-label" for="id_peut_desactiver_programmation">Désactiver programmation</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_programmation_desactivee" id="id_peut_voir_programmation_desactivee"><label class="form-check-label" for="id_peut_voir_programmation_desactivee">Voir programmations désactivées</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_liste_inventaires" id="id_peut_voir_liste_inventaires"><label class="form-check-label" for="id_peut_voir_liste_inventaires">Liste inventaires normaux</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_liste_inventaires_admin" id="id_peut_voir_liste_inventaires_admin"><label class="form-check-label" for="id_peut_voir_liste_inventaires_admin">Liste inventaires administratifs</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_jours_impertinents" id="id_peut_voir_jours_impertinents"><label class="form-check-label" for="id_peut_voir_jours_impertinents">Jours impertinents</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_stats_deperdition" id="id_peut_voir_stats_deperdition"><label class="form-check-label" for="id_peut_voir_stats_deperdition">Statistiques taux de déperdition</label></div></div>
+                                        {% for perm in cat.permissions %}
+                                        <div class="col-md-6">
+                                            <div class="form-check mb-2">
+                                                <input type="checkbox" 
+                                                       class="form-check-input perm-checkbox" 
+                                                       name="{{ perm.name }}" 
+                                                       id="id_{{ perm.name }}"
+                                                       data-category="{{ cat_id }}"
+                                                       {% if perm.checked %}checked{% endif %}>
+                                                <label class="form-check-label" for="id_{{ perm.name }}">{{ perm.label }}</label>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Recettes Péage -->
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-recettes-peage">
-                                    <i class="fas fa-cash-register me-2"></i>Recettes Péage
-                                    <span class="perm-count-badge" id="count-recettes-peage">06</span>
-                                </button>
-                            </h2>
-                            <div id="collapse-recettes-peage" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
-                                <div class="accordion-body">
-                                    <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_saisir_recette_peage" id="id_peut_saisir_recette_peage"><label class="form-check-label" for="id_peut_saisir_recette_peage">Saisir recette péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_liste_recettes_peage" id="id_peut_voir_liste_recettes_peage"><label class="form-check-label" for="id_peut_voir_liste_recettes_peage">Liste des recettes péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_stats_recettes_peage" id="id_peut_voir_stats_recettes_peage"><label class="form-check-label" for="id_peut_voir_stats_recettes_peage">Statistiques recettes péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_importer_recettes_peage" id="id_peut_importer_recettes_peage"><label class="form-check-label" for="id_peut_importer_recettes_peage">Importer recettes péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_evolution_peage" id="id_peut_voir_evolution_peage"><label class="form-check-label" for="id_peut_voir_evolution_peage">Taux d'évolution et estimations</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_objectifs_peage" id="id_peut_voir_objectifs_peage"><label class="form-check-label" for="id_peut_voir_objectifs_peage">Objectifs annuels péage</label></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Quittances Péage -->
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-quittances-peage">
-                                    <i class="fas fa-receipt me-2"></i>Quittances Péage
-                                    <span class="perm-count-badge" id="count-quittances-peage">03</span>
-                                </button>
-                            </h2>
-                            <div id="collapse-quittances-peage" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
-                                <div class="accordion-body">
-                                    <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_saisir_quittance_peage" id="id_peut_saisir_quittance_peage"><label class="form-check-label" for="id_peut_saisir_quittance_peage">Saisir quittance péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_liste_quittances_peage" id="id_peut_voir_liste_quittances_peage"><label class="form-check-label" for="id_peut_voir_liste_quittances_peage">Liste quittances péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_comptabiliser_quittances_peage" id="id_peut_comptabiliser_quittances_peage"><label class="form-check-label" for="id_peut_comptabiliser_quittances_peage">Comptabilisation quittances péage</label></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Pesage -->
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-pesage">
-                                    <i class="fas fa-weight me-2"></i>Pesage
-                                    <span class="perm-count-badge" id="count-pesage">12</span>
-                                </button>
-                            </h2>
-                            <div id="collapse-pesage" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
-                                <div class="accordion-body">
-                                    <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_historique_vehicule_pesage" id="id_peut_voir_historique_vehicule_pesage"><label class="form-check-label" for="id_peut_voir_historique_vehicule_pesage">Historique véhicule pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_saisir_amende" id="id_peut_saisir_amende"><label class="form-check-label" for="id_peut_saisir_amende">Saisir amende</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_saisir_pesee_jour" id="id_peut_saisir_pesee_jour"><label class="form-check-label" for="id_peut_saisir_pesee_jour">Saisir pesée du jour</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_objectifs_pesage" id="id_peut_voir_objectifs_pesage"><label class="form-check-label" for="id_peut_voir_objectifs_pesage">Objectifs annuels pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_valider_paiement_amende" id="id_peut_valider_paiement_amende"><label class="form-check-label" for="id_peut_valider_paiement_amende">Valider paiement amende</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_lister_amendes" id="id_peut_lister_amendes"><label class="form-check-label" for="id_peut_lister_amendes">Lister amendes</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_saisir_quittance_pesage" id="id_peut_saisir_quittance_pesage"><label class="form-check-label" for="id_peut_saisir_quittance_pesage">Saisir quittance pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_comptabiliser_quittances_pesage" id="id_peut_comptabiliser_quittances_pesage"><label class="form-check-label" for="id_peut_comptabiliser_quittances_pesage">Comptabilisation quittances pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_liste_quittancements_pesage" id="id_peut_voir_liste_quittancements_pesage"><label class="form-check-label" for="id_peut_voir_liste_quittancements_pesage">Liste quittancements pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_historique_pesees" id="id_peut_voir_historique_pesees"><label class="form-check-label" for="id_peut_voir_historique_pesees">Historique des pesées</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_recettes_pesage" id="id_peut_voir_recettes_pesage"><label class="form-check-label" for="id_peut_voir_recettes_pesage">Recettes pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_stats_pesage" id="id_peut_voir_stats_pesage"><label class="form-check-label" for="id_peut_voir_stats_pesage">Statistiques pesage</label></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Stock Péage -->
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-stock-peage">
-                                    <i class="fas fa-boxes me-2"></i>Stock Péage
-                                    <span class="perm-count-badge" id="count-stock-peage">09</span>
-                                </button>
-                            </h2>
-                            <div id="collapse-stock-peage" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
-                                <div class="accordion-body">
-                                    <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_charger_stock_peage" id="id_peut_charger_stock_peage"><label class="form-check-label" for="id_peut_charger_stock_peage">Charger/régulariser stock</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_liste_stocks_peage" id="id_peut_voir_liste_stocks_peage"><label class="form-check-label" for="id_peut_voir_liste_stocks_peage">Liste des stocks péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_stock_date_peage" id="id_peut_voir_stock_date_peage"><label class="form-check-label" for="id_peut_voir_stock_date_peage">Stock à une date</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_transferer_stock_peage" id="id_peut_transferer_stock_peage"><label class="form-check-label" for="id_peut_transferer_stock_peage">Transférer stock péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_tracabilite_tickets" id="id_peut_voir_tracabilite_tickets"><label class="form-check-label" for="id_peut_voir_tracabilite_tickets">Traçabilité tickets</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_bordereaux_peage" id="id_peut_voir_bordereaux_peage"><label class="form-check-label" for="id_peut_voir_bordereaux_peage">Liste des bordereaux péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_mon_stock_peage" id="id_peut_voir_mon_stock_peage"><label class="form-check-label" for="id_peut_voir_mon_stock_peage">Mon stock péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_historique_stock_peage" id="id_peut_voir_historique_stock_peage"><label class="form-check-label" for="id_peut_voir_historique_stock_peage">Historique de stock péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_simuler_commandes_peage" id="id_peut_simuler_commandes_peage"><label class="form-check-label" for="id_peut_simuler_commandes_peage">Simulateur de commandes</label></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Gestion -->
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-gestion">
-                                    <i class="fas fa-cogs me-2"></i>Gestion
-                                    <span class="perm-count-badge" id="count-gestion">06</span>
-                                </button>
-                            </h2>
-                            <div id="collapse-gestion" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
-                                <div class="accordion-body">
-                                    <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_gerer_postes" id="id_peut_gerer_postes"><label class="form-check-label" for="id_peut_gerer_postes">Gestion des postes</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_ajouter_poste" id="id_peut_ajouter_poste"><label class="form-check-label" for="id_peut_ajouter_poste">Ajouter un poste</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_creer_poste_masse" id="id_peut_creer_poste_masse"><label class="form-check-label" for="id_peut_creer_poste_masse">Créer poste en masse</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_gerer_utilisateurs" id="id_peut_gerer_utilisateurs"><label class="form-check-label" for="id_peut_gerer_utilisateurs">Gestion utilisateurs</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_creer_utilisateur" id="id_peut_creer_utilisateur"><label class="form-check-label" for="id_peut_creer_utilisateur">Nouvel utilisateur</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_journal_audit" id="id_peut_voir_journal_audit"><label class="form-check-label" for="id_peut_voir_journal_audit">Journal audit</label></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Rapports -->
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-rapports">
-                                    <i class="fas fa-chart-bar me-2"></i>Rapports
-                                    <span class="perm-count-badge" id="count-rapports">07</span>
-                                </button>
-                            </h2>
-                            <div id="collapse-rapports" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
-                                <div class="accordion-body">
-                                    <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_rapports_defaillants_peage" id="id_peut_voir_rapports_defaillants_peage"><label class="form-check-label" for="id_peut_voir_rapports_defaillants_peage">Rapports défaillants péage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_rapports_defaillants_pesage" id="id_peut_voir_rapports_defaillants_pesage"><label class="form-check-label" for="id_peut_voir_rapports_defaillants_pesage">Rapports défaillants pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_rapport_inventaires" id="id_peut_voir_rapport_inventaires"><label class="form-check-label" for="id_peut_voir_rapport_inventaires">Rapport des inventaires</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_classement_peage_rendement" id="id_peut_voir_classement_peage_rendement"><label class="form-check-label" for="id_peut_voir_classement_peage_rendement">Classement péage rendement</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_classement_station_pesage" id="id_peut_voir_classement_station_pesage"><label class="form-check-label" for="id_peut_voir_classement_station_pesage">Classement station pesage</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_classement_peage_deperdition" id="id_peut_voir_classement_peage_deperdition"><label class="form-check-label" for="id_peut_voir_classement_peage_deperdition">Classement péage déperdition</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_classement_agents_inventaire" id="id_peut_voir_classement_agents_inventaire"><label class="form-check-label" for="id_peut_voir_classement_agents_inventaire">Classement agents inventaire</label></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Autres -->
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-autres">
-                                    <i class="fas fa-ellipsis-h me-2"></i>Autres
-                                    <span class="perm-count-badge" id="count-autres">0/5</span>
-                                </button>
-                            </h2>
-                            <div id="collapse-autres" class="accordion-collapse collapse" data-bs-parent="#accordionPermissions">
-                                <div class="accordion-body">
-                                    <div class="row">
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_parametrage_global" id="id_peut_parametrage_global"><label class="form-check-label" for="id_peut_parametrage_global">Paramétrage global</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_compte_emploi" id="id_peut_voir_compte_emploi"><label class="form-check-label" for="id_peut_voir_compte_emploi">Compte d'emploi</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_pv_confrontation" id="id_peut_voir_pv_confrontation"><label class="form-check-label" for="id_peut_voir_pv_confrontation">PV Confrontation</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_authentifier_document" id="id_peut_authentifier_document"><label class="form-check-label" for="id_peut_authentifier_document">Authentifier un document</label></div></div>
-                                        <div class="col-md-6"><div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="peut_voir_tous_postes" id="id_peut_voir_tous_postes"><label class="form-check-label" for="id_peut_voir_tous_postes">Voir tous les postes</label></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        {% endfor %}
                     </div>
 
+                    <!-- Boutons de soumission -->
                     <div class="d-flex justify-content-end gap-3 mt-4 pt-3 border-top">
-                        <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary"><i class="fas fa-times me-2"></i>Annuler</a>
-                        <button type="submit" class="btn btn-primary-gradient"><i class="fas fa-user-plus me-2"></i>Créer l'utilisateur</button>
+                        <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>Annuler
+                        </a>
+                        <button type="submit" class="btn btn-primary-gradient">
+                            <i class="fas fa-user-plus me-2"></i>Créer l'utilisateur
+                        </button>
                     </div>
                 </form>
             </div>
@@ -371,61 +267,231 @@
     </div>
 </div>
 
-<script src="{% static 'js/permissions_auto.js' %}"></script>
 <script>
-    // Toggle password visibility
-    function togglePassword() {
-        const pwd = document.getElementById('id_password');
-        const icon = document.getElementById('toggle-icon');
-        if (pwd.type === 'password') {
-            pwd.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            pwd.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
+// ===================================================================
+// DONNÉES DES PERMISSIONS DEPUIS LE SERVEUR
+// ===================================================================
+
+// Dictionnaire des permissions par habilitation (généré côté serveur)
+const PERMISSIONS_PAR_HABILITATION = {{ permissions_par_habilitation_json|safe }};
+
+// Liste de toutes les permissions
+const TOUTES_PERMISSIONS = {{ toutes_permissions_json|safe }};
+
+// Structure des catégories pour les compteurs
+const CATEGORIES = {
+    {% for cat_id, cat in permissions_categories.items %}
+    '{{ cat_id }}': {
+        permissions: [{% for perm in cat.permissions %}'{{ perm.name }}'{% if not forloop.last %}, {% endif %}{% endfor %}]
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+};
+
+
+// ===================================================================
+// FONCTIONS DE GESTION DES PERMISSIONS
+// ===================================================================
+
+/**
+ * Applique les permissions par défaut pour une habilitation
+ */
+function appliquerPermissionsHabilitation(habilitation) {
+    // D'abord, décocher toutes les permissions
+    TOUTES_PERMISSIONS.forEach(perm => {
+        const checkbox = document.getElementById('id_' + perm);
+        if (checkbox) {
+            checkbox.checked = false;
         }
-    }
-    
-    // Filtrer les postes selon l'habilitation
-    function filterPostes() {
-        const hab = document.getElementById('id_habilitation').value;
-        const selectPoste = document.getElementById('id_poste_affectation');
-        const optgroupPeage = document.getElementById('optgroup-peage');
-        const optgroupPesage = document.getElementById('optgroup-pesage');
-        const alertPesage = document.getElementById('filter-alert-pesage');
-        const alertPeage = document.getElementById('filter-alert-peage');
-        const alertMulti = document.getElementById('filter-alert-multi');
-        
-        // Cacher toutes les alertes
-        alertPesage.style.display = 'none';
-        alertPeage.style.display = 'none';
-        alertMulti.style.display = 'none';
-        
-        // Réafficher tous les optgroups
-        optgroupPeage.style.display = '';
-        optgroupPesage.style.display = '';
-        
-        const rolesPesage = ['chef_station_pesage', 'regisseur_pesage', 'chef_equipe_pesage', 'cisop_pesage'];
-        const rolesPeage = ['chef_poste', 'agent_inventaire', 'cisop_peage'];
-        const rolesAdmin = ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission', 'chef_ag', 'serv_controle', 'serv_ordre', 'imprimerie'];
-        
-        if (rolesPesage.includes(hab)) {
-            optgroupPeage.style.display = 'none';
-            alertPesage.style.display = 'block';
-        } else if (rolesPeage.includes(hab)) {
-            optgroupPesage.style.display = 'none';
-            alertPeage.style.display = 'block';
-        } else if (rolesAdmin.includes(hab)) {
-            alertMulti.style.display = 'block';
-        }
-    }
-    
-    // Initialisation
-    document.addEventListener('DOMContentLoaded', function() {
-        filterPostes();
-        updatePermissionsIndicator();
     });
+    
+    // Puis cocher les permissions de l'habilitation
+    const permissions = PERMISSIONS_PAR_HABILITATION[habilitation];
+    if (permissions) {
+        permissions.forEach(perm => {
+            const checkbox = document.getElementById('id_' + perm);
+            if (checkbox) {
+                checkbox.checked = true;
+            }
+        });
+    }
+    
+    mettreAJourCompteurs();
+}
+
+/**
+ * Coche toutes les permissions
+ */
+function cocherToutesPermissions() {
+    TOUTES_PERMISSIONS.forEach(perm => {
+        const checkbox = document.getElementById('id_' + perm);
+        if (checkbox) checkbox.checked = true;
+    });
+    mettreAJourCompteurs();
+}
+
+/**
+ * Décoche toutes les permissions
+ */
+function decocherToutesPermissions() {
+    TOUTES_PERMISSIONS.forEach(perm => {
+        const checkbox = document.getElementById('id_' + perm);
+        if (checkbox) checkbox.checked = false;
+    });
+    mettreAJourCompteurs();
+}
+
+/**
+ * Réinitialise aux permissions par défaut du rôle sélectionné
+ */
+function reinitialiserPermissionsDefaut() {
+    const select = document.getElementById('id_habilitation');
+    const habilitation = select ? select.value : '';
+    
+    if (!habilitation) {
+        alert('Veuillez d\'abord sélectionner un rôle.');
+        return;
+    }
+    
+    if (confirm('Voulez-vous réinitialiser les permissions aux valeurs par défaut du rôle sélectionné ?')) {
+        appliquerPermissionsHabilitation(habilitation);
+    }
+}
+
+/**
+ * Met à jour tous les compteurs de permissions
+ */
+function mettreAJourCompteurs() {
+    let totalActives = 0;
+    
+    // Compteur par catégorie
+    Object.keys(CATEGORIES).forEach(catId => {
+        let countCat = 0;
+        CATEGORIES[catId].permissions.forEach(perm => {
+            const checkbox = document.getElementById('id_' + perm);
+            if (checkbox && checkbox.checked) countCat++;
+        });
+        
+        const badge = document.getElementById('count-' + catId);
+        if (badge) {
+            badge.textContent = countCat + '/' + CATEGORIES[catId].permissions.length;
+        }
+        totalActives += countCat;
+    });
+    
+    // Compteur total
+    const totalBadge = document.getElementById('permissions-count');
+    if (totalBadge) {
+        totalBadge.textContent = totalActives + '/{{ total_permissions }}';
+        
+        // Couleur selon le pourcentage
+        totalBadge.className = 'badge ms-2 ';
+        if (totalActives === 0) {
+            totalBadge.className += 'bg-secondary';
+        } else if (totalActives < {{ total_permissions }} * 0.3) {
+            totalBadge.className += 'bg-warning';
+        } else if (totalActives < {{ total_permissions }} * 0.7) {
+            totalBadge.className += 'bg-info';
+        } else {
+            totalBadge.className += 'bg-success';
+        }
+    }
+}
+
+
+// ===================================================================
+// FONCTIONS DE FILTRAGE DES POSTES
+// ===================================================================
+
+const ROLES_PESAGE = ['chef_station_pesage', 'regisseur_pesage', 'chef_equipe_pesage', 'cisop_pesage'];
+const ROLES_PEAGE = ['chef_peage', 'agent_inventaire', 'cisop_peage'];
+const ROLES_ADMIN = ['admin_principal', 'coord_psrr', 'serv_info', 'serv_emission', 'chef_ag', 'serv_controle', 'serv_ordre', 'imprimerie', 'comptable_mat'];
+
+function filterPostes() {
+    const hab = document.getElementById('id_habilitation').value;
+    const optgroupPeage = document.getElementById('optgroup-peage');
+    const optgroupPesage = document.getElementById('optgroup-pesage');
+    const alertPesage = document.getElementById('filter-alert-pesage');
+    const alertPeage = document.getElementById('filter-alert-peage');
+    const alertMulti = document.getElementById('filter-alert-multi');
+    
+    // Cacher toutes les alertes
+    alertPesage.style.display = 'none';
+    alertPeage.style.display = 'none';
+    alertMulti.style.display = 'none';
+    
+    // Réafficher tous les optgroups
+    optgroupPeage.style.display = '';
+    optgroupPesage.style.display = '';
+    
+    if (ROLES_PESAGE.includes(hab)) {
+        optgroupPeage.style.display = 'none';
+        alertPesage.style.display = 'block';
+    } else if (ROLES_PEAGE.includes(hab)) {
+        optgroupPesage.style.display = 'none';
+        alertPeage.style.display = 'block';
+    } else if (ROLES_ADMIN.includes(hab)) {
+        alertMulti.style.display = 'block';
+    }
+}
+
+
+// ===================================================================
+// AUTRES FONCTIONS
+// ===================================================================
+
+function togglePassword() {
+    const pwd = document.getElementById('id_password');
+    const icon = document.getElementById('toggle-icon');
+    if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        pwd.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+
+// ===================================================================
+// INITIALISATION
+// ===================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    const habSelect = document.getElementById('id_habilitation');
+    
+    if (habSelect) {
+        // Gérer le changement d'habilitation
+        habSelect.addEventListener('change', function() {
+            const habilitation = this.value;
+            
+            // Filtrer les postes
+            filterPostes();
+            
+            // Appliquer les permissions par défaut pour la nouvelle habilitation
+            if (habilitation) {
+                appliquerPermissionsHabilitation(habilitation);
+            } else {
+                decocherToutesPermissions();
+            }
+        });
+    }
+    
+    // Ajouter l'écouteur sur tous les checkboxes de permissions
+    document.querySelectorAll('.perm-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', mettreAJourCompteurs);
+    });
+    
+    // Initialiser les compteurs
+    mettreAJourCompteurs();
+    
+    // Initialiser le filtrage des postes
+    filterPostes();
+    
+    console.log('SUPPER Permissions Manager initialisé');
+    console.log('Total habilitations disponibles:', Object.keys(PERMISSIONS_PAR_HABILITATION).length);
+    console.log('Total permissions:', TOUTES_PERMISSIONS.length);
+});
 </script>
 {% endblock %}
