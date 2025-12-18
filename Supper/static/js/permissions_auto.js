@@ -280,7 +280,7 @@ const PERMISSIONS_PAR_HABILITATION = {
      */
     'chef_peage': [
         // Inventaires
-        'peut_voir_liste_inventaires', 'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        'peut_voir_liste_inventaires', 'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition','peut_voir_liste_inventaires_admin',
         // Recettes Péage
         'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
         'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
