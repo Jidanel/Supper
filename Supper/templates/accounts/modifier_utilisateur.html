@@ -250,13 +250,6 @@
                         <span id="permissions-count" class="badge bg-info ms-2">{{ count_permissions_actives }}/{{ total_permissions }}</span>
                     </h5>
                     
-                    {% if has_permissions_personnalisees %}
-                    <div class="alert-custom warning mb-3">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Permissions personnalisées détectées :</strong> 
-                        Cet utilisateur a {{ permissions_personnalisees|length }} permission(s) différente(s) des valeurs par défaut de son rôle.
-                    </div>
-                    {% endif %}
                     
                     <!-- Contrôles des permissions -->
                     <div class="permissions-controls">
