@@ -1380,21 +1380,7 @@ class InventaireJournalier(models.Model):
         self.modifiable_par_agent = False
         self.save()
     
-    # # def verrouiller(self, user=None):
-    # #     """Verrouille l'inventaire"""
-    # #     if not self.verrouille:
-    # #         self.verrouille = True
-    # #         self.save()
-            
-    # #         # Log de l'action
-    # #         if user:
-    # #             from common.utils import log_user_action
-    # #             log_user_action(
-    # #                 user, 
-    # #                 "Verrouillage inventaire",
-    # #                 f"Poste: {self.poste.nom}, Date: {self.date}"
-    #             )
-    
+   
     def calculer_moyenne_horaire(self):
         """Calcule la moyenne de véhicules par heure"""
         if self.nombre_periodes_saisies > 0:
@@ -1464,28 +1450,33 @@ class InventaireJournalier(models.Model):
     
     def recalculer_totaux(self):
         """Recalcule les totaux basés sur les détails de périodes"""
-        details = self.details_periodes.all()
-        self.total_vehicules = sum(detail.nombre_vehicules for detail in details)
-        self.nombre_periodes_saisies = details.count()
+        from django.db.models import Sum, Count
+        
+        # Utiliser une requête agrégée plus efficace
+        stats = self.details_periodes.aggregate(
+            total=Sum('nombre_vehicules'),
+            count=Count('id')
+        )
+        
+        self.total_vehicules = stats['total'] or 0
+        self.nombre_periodes_saisies = stats['count'] or 0
+        
+        # Sauvegarder seulement les champs totaux
         self.save(update_fields=['total_vehicules', 'nombre_periodes_saisies'])
-    
+        
+        return self.total_vehicules
+
     def save(self, *args, **kwargs):
         """Surcharge pour recalculer automatiquement les totaux"""
-        # Toujours recalculer la recette potentielle associée si elle existe
         super().save(*args, **kwargs)
-        
-        # Recalculer les totaux après la sauvegarde si nécessaire
-        if hasattr(self, '_recalculer_totaux'):
-            self.recalculer_totaux()
         
         # Mettre à jour la recette si elle existe
         try:
             if hasattr(self, 'recette'):
                 self.recette.calculer_indicateurs()
                 self.recette.save()
-        except:
+        except Exception:
             pass
-
     
     def link_to_inventaire_mensuel(self):
     # """Lie cet inventaire journalier à un inventaire mensuel s'il existe"""

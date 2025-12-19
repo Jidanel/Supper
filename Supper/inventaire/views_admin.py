@@ -163,15 +163,7 @@ def inventaire_administratif(request):
 def inventaire_admin_saisie(request, poste_id, date_str):
     """
     Saisie administrative d'inventaire pour un poste et une date.
-    
-    Permissions requises:
-    - peut_saisir_inventaire_admin
-    
-    Fonctionnalités:
-    - Création ou modification d'inventaire
-    - Saisie par créneaux horaires
-    - Calcul automatique des totaux et recette potentielle
-    - Traçabilité des modifications
+    CORRIGÉ : Calcul systématique de la recette potentielle
     """
     user = request.user
     poste = get_object_or_404(Poste, id=poste_id)
@@ -190,16 +182,16 @@ def inventaire_admin_saisie(request, poste_id, date_str):
     # Si l'inventaire existait déjà, mettre à jour le type si nécessaire
     if not created and inventaire.type_inventaire != 'administratif':
         inventaire.type_inventaire = 'administratif'
-        inventaire.derniere_modification_par = user
-        inventaire.save(update_fields=['type_inventaire', 'derniere_modification_par'])
+        inventaire.save(update_fields=['type_inventaire'])
     
     # Traitement POST: Sauvegarde de l'inventaire
     if request.method == 'POST' and 'save_inventaire' in request.POST:
-        # Traiter les périodes
-        total_vehicules = 0
-        nombre_periodes = 0
         periodes_saisies = []
         
+        # ✓ CORRECTION : Supprimer les anciens détails avant de créer les nouveaux
+        inventaire.details_periodes.all().delete()
+        
+        # Traiter toutes les périodes
         for periode_choice in PeriodeHoraire.choices:
             periode_code, periode_label = periode_choice
             field_name = f'periode_{periode_code}'
@@ -210,25 +202,26 @@ def inventaire_admin_saisie(request, poste_id, date_str):
                     try:
                         nombre = int(nombre_str)
                         if nombre >= 0:
-                            DetailInventairePeriode.objects.update_or_create(
+                            # Créer le détail
+                            DetailInventairePeriode.objects.create(
                                 inventaire=inventaire,
                                 periode=periode_code,
-                                defaults={'nombre_vehicules': nombre}
+                                nombre_vehicules=nombre,
+                                observations_periode=request.POST.get(f'obs_{periode_code}', '')
                             )
-                            total_vehicules += nombre
-                            nombre_periodes += 1
                             periodes_saisies.append(f"{periode_label}: {nombre}")
                     except ValueError:
                         pass
         
-        # Mettre à jour les totaux et tracer la modification
-        inventaire.total_vehicules = total_vehicules
-        inventaire.nombre_periodes_saisies = nombre_periodes
+        # ✓ CRITIQUE : RECALCULER LES TOTAUX APRÈS avoir créé tous les détails
+        total_vehicules = inventaire.recalculer_totaux()
+        
+        # Mettre à jour les autres informations
         inventaire.observations = request.POST.get('observations', '')
         inventaire.derniere_modification_par = user
-        inventaire.save()
+        inventaire.save(update_fields=['observations', 'derniere_modification_par'])
         
-        # Calculer automatiquement la recette potentielle
+        # ✓ IMPORTANT : Calculer la recette potentielle APRÈS le recalcul des totaux
         recette_potentielle = inventaire.calculer_recette_potentielle()
         
         # Log détaillé de l'action
@@ -237,39 +230,40 @@ def inventaire_admin_saisie(request, poste_id, date_str):
             user=user,
             action=f"{action_type} inventaire administratif",
             details=f"Poste: {poste.nom} ({poste.code}) | Date: {date_inventaire.strftime('%d/%m/%Y')} | "
-                   f"Total véhicules: {total_vehicules} | Périodes saisies: {nombre_periodes} | "
+                   f"Total véhicules: {total_vehicules} | Périodes saisies: {inventaire.nombre_periodes_saisies} | "
                    f"Recette potentielle: {recette_potentielle:,.0f} FCFA | "
-                   f"Détail: {', '.join(periodes_saisies[:5])}{'...' if len(periodes_saisies) > 5 else ''}",
+                   f"Détail périodes: {len(periodes_saisies)} période(s)",
             request=request
         )
         
         # Message de succès
-        if created:
-            messages.success(
-                request, 
-                f"✅ Inventaire créé avec succès pour {poste.nom}. "
-                f"Recette potentielle: {recette_potentielle:,.0f} FCFA"
-            )
-        else:
-            messages.success(
-                request, 
-                f"✅ Inventaire modifié avec succès pour {poste.nom}. "
-                f"Recette potentielle: {recette_potentielle:,.0f} FCFA"
-            )
+        messages.success(
+            request, 
+            f"✅ Inventaire {'créé' if created else 'modifié'} avec succès pour {poste.nom}. "
+            f"Total véhicules: {total_vehicules} | Recette potentielle: {recette_potentielle:,.0f} FCFA"
+        )
         
         return redirect('inventaire:inventaire_administratif')
     
-    # Préparer les données pour l'affichage
+    # ✓ CORRECTION : Préparer les données pour l'affichage (GET)
+    # Recalculer les totaux au cas où ils seraient obsolètes
+    if inventaire.pk and inventaire.details_periodes.exists():
+        inventaire.recalculer_totaux()
+    
     periodes_data = []
-    details = {d.periode: d.nombre_vehicules 
-              for d in inventaire.details_periodes.all()}
+    details_dict = {d.periode: d for d in inventaire.details_periodes.all()}
     
     for periode_code, periode_display in PeriodeHoraire.choices:
+        detail = details_dict.get(periode_code)
         periodes_data.append({
             'code': periode_code,
             'display': periode_display,
-            'value': details.get(periode_code, '')
+            'value': detail.nombre_vehicules if detail else '',
+            'observations': detail.observations_periode if detail else ''
         })
+    
+    # ✓ CORRECTION : Calculer la recette potentielle pour l'affichage
+    recette_potentielle = inventaire.calculer_recette_potentielle()
     
     context = {
         'poste': poste,
@@ -277,7 +271,7 @@ def inventaire_admin_saisie(request, poste_id, date_str):
         'inventaire': inventaire,
         'periodes_data': periodes_data,
         'total_vehicules': inventaire.total_vehicules,
-        'recette_potentielle': inventaire.calculer_recette_potentielle(),
+        'recette_potentielle': recette_potentielle,  # ✓ Toujours inclus
         'is_modification': not created,
         'created_by': inventaire.agent_saisie if inventaire.agent_saisie else None,
         'last_modified_by': getattr(inventaire, 'derniere_modification_par', None),
@@ -287,26 +281,15 @@ def inventaire_admin_saisie(request, poste_id, date_str):
     return render(request, 'inventaire/inventaire_admin_saisie.html', context)
 
 
-# ===================================================================
-# VUE: LISTE INVENTAIRES ADMINISTRATIFS
-# Permission: peut_voir_liste_inventaires_admin
-# URL: /inventaire/administratifs/liste/
-# ===================================================================
-
 @login_required
 @liste_inventaires_admin_required()
 def liste_inventaires_administratifs(request):
     """
     Liste des inventaires saisis par les administrateurs.
     
-    Permissions requises:
-    - peut_voir_liste_inventaires_admin
-    
-    Fonctionnalités:
-    - Filtrage par poste, date, recherche
-    - Calcul du taux de déperdition avec code couleur
-    - Pagination
-    - Export possible
+    CORRIGÉ : 
+    - Calcul systématique de la recette potentielle
+    - Comptabilisation correcte des inventaires du jour
     """
     user = request.user
     
@@ -358,50 +341,59 @@ def liste_inventaires_administratifs(request):
     # Tri par date décroissante puis par poste
     queryset = queryset.order_by('-date', 'poste__nom')
     
+    # ✓ CORRECTION : Statistiques AVANT la pagination
+    today = timezone.now().date()
+    stats = {
+        'total': queryset.count(),
+        'today': queryset.filter(date=today).count(),  # ✓ Compte correctement aujourd'hui
+        'this_month': queryset.filter(
+            date__month=today.month,
+            date__year=today.year
+        ).count()
+    }
+    
     # Pagination
     paginator = Paginator(queryset, 20)
     page = request.GET.get('page')
     inventaires = paginator.get_page(page)
     
-    # Calculer les taux pour chaque inventaire
+    # ✓ CORRECTION : Calculer les métriques pour chaque inventaire
     for inv in inventaires:
+        # Recalculer les totaux au cas où (sécurité)
+        if inv.details_periodes.exists():
+            inv.recalculer_totaux()
+        
+        # ✓ TOUJOURS calculer la recette potentielle
+        inv.recette_potentielle = inv.calculer_recette_potentielle()
+        
+        # Essayer de récupérer la recette journalière
         try:
             recette = RecetteJournaliere.objects.get(
                 poste=inv.poste,
                 date=inv.date
             )
             inv.montant_declare = recette.montant_declare
-            inv.recette_potentielle = inv.calculer_recette_potentielle()
             
-            if inv.recette_potentielle > 0:
+            # ✓ Calculer le taux de déperdition
+            if inv.recette_potentielle and inv.recette_potentielle > 0:
                 ecart = recette.montant_declare - inv.recette_potentielle
                 inv.taux_deperdition = (ecart / inv.recette_potentielle) * 100
                 
                 # Code couleur selon le taux
                 if inv.taux_deperdition > -5:
-                    inv.couleur_alerte = 'secondary'
+                    inv.couleur_alerte = 'secondary'  # Proche de 0 ou positif
                 elif inv.taux_deperdition >= -29.99:
-                    inv.couleur_alerte = 'success'
+                    inv.couleur_alerte = 'success'    # Perte acceptable
                 else:
-                    inv.couleur_alerte = 'danger'
+                    inv.couleur_alerte = 'danger'     # Perte excessive
             else:
                 inv.taux_deperdition = None
                 inv.couleur_alerte = 'secondary'
+                
         except RecetteJournaliere.DoesNotExist:
             inv.montant_declare = None
             inv.taux_deperdition = None
             inv.couleur_alerte = 'secondary'
-    
-    # Statistiques
-    today = timezone.now().date()
-    stats = {
-        'total': queryset.count(),
-        'today': queryset.filter(date=today).count(),
-        'this_month': queryset.filter(
-            date__month=today.month,
-            date__year=today.year
-        ).count()
-    }
     
     # Log de consultation
     filtres_appliques = []
@@ -417,15 +409,15 @@ def liste_inventaires_administratifs(request):
     log_user_action(
         user=user,
         action="Consultation liste inventaires admin",
-        details=f"Total: {stats['total']} inventaires | Page: {page or 1} | "
-               f"Filtres: {', '.join(filtres_appliques) if filtres_appliques else 'Aucun'}",
+        details=f"Total: {stats['total']} inventaires | Aujourd'hui: {stats['today']} | "
+               f"Page: {page or 1} | Filtres: {', '.join(filtres_appliques) if filtres_appliques else 'Aucun'}",
         request=request
     )
     
     context = {
         'inventaires': inventaires,
-        'postes': Poste.objects.filter(is_active=True).order_by('nom'),
-        'stats': stats,
+        'postes': Poste.objects.filter(is_active=True, type='peage').order_by('nom'),
+        'stats': stats,  # ✓ Les stats sont maintenant correctes
         'title': 'Inventaires Administratifs',
         'current_filters': {
             'poste': request.GET.get('poste', ''),
@@ -437,7 +429,6 @@ def liste_inventaires_administratifs(request):
     }
     
     return render(request, 'inventaire/liste_inventaires_administratifs.html', context)
-
 
 # ===================================================================
 # VUE: RECHERCHE TRAÇABILITÉ TICKET

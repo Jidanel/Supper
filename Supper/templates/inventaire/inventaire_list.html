@@ -13,16 +13,6 @@
     --gris-moyen: #64748B;
     --gris-fonce: #334155;
     --accent-orange: #F59E0B;
-    {% comment %} --primary-color: #2563eb;
-            --primary-dark: #1e40af;
-            --primary-light: #3b82f6;
-            --success-color: #10B981;
-            --warning-color: #F59E0B;
-            --danger-color: #EF4444;
-            --info-color: #3B82F6;
-            --dark-color: #334155;
-            --light-bg: #F8FAFC;
-            --white: #FFFFFF; {% endcomment %}
 }
 
 .supper-header {
@@ -152,7 +142,7 @@
                 <p class="mb-0 opacity-75">{% trans "Suivi et gestion des inventaires journaliers" %}</p>
             </div>
             <div class="col-md-4 text-end">
-                {% if user.peut_gerer_inventaire %}
+                {% if can_edit %}
                 <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-light btn-lg">
                     <i class="fas fa-plus me-2"></i>
                     {% trans "Nouvelle Saisie" %}
@@ -178,12 +168,6 @@
                 <div class="text-muted">{% trans "Aujourd'hui" %}</div>
             </div>
         </div>
-        {% comment %} <div class="col-lg-3 col-md-6 mb-3">
-            <div class="stats-card">
-                <div class="stats-number text-warning">{{ inventaires_verrouilles }}</div>
-                <div class="text-muted">{% trans "Verrouillés" %}</div>
-            </div>
-        </div> {% endcomment %}
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="stats-card">
                 <div class="stats-number text-info">{{ postes|length }}</div>
@@ -233,14 +217,6 @@
                                     {% if current_filters.statut == "en_cours" %}selected{% endif %}>
                                 {% trans "En cours" %}
                             </option>
-                            {% comment %} <option value="verrouille" 
-                                    {% if current_filters.statut == "verrouille" %}selected{% endif %}>
-                                {% trans "Verrouillé" %}
-                            </option>
-                            <option value="valide" 
-                                    {% if current_filters.statut == "valide" %}selected{% endif %}>
-                                {% trans "Validé" %}
-                            </option> {% endcomment %}
                         </select>
                     </div>
                     <div class="col-md-1">
@@ -302,7 +278,7 @@
                                        class="btn btn-outline-primary btn-sm" title="{% trans 'Voir détails' %}">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    {% if  user.peut_gerer_inventaire %}
+                                    {% if can_edit %}
                                     <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}" 
                                        class="btn btn-outline-success btn-sm" title="{% trans 'Modifier' %}">
                                         <i class="fas fa-edit"></i>
@@ -323,7 +299,7 @@
                                 <div class="text-muted">
                                     <i class="fas fa-inbox fa-3x mb-3"></i>
                                     <p>{% trans "Aucun inventaire trouvé avec ces critères." %}</p>
-                                    {% if user.peut_gerer_inventaire %}
+                                    {% if can_edit %}
                                     <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-violet">
                                         <i class="fas fa-plus me-2"></i>{% trans "Créer un inventaire" %}
                                     </a>

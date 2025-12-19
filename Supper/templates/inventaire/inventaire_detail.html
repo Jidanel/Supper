@@ -451,12 +451,12 @@
                     <button class="btn btn-outline-success" onclick="exporterPDF()">
                         <i class="fas fa-file-pdf me-2"></i>{% trans "Export PDF" %}
                     </button>
-                    {% if user.is_admin %}
+                    {% comment %} {% if user.is_admin %}
                     <a href="/django-admin/inventaire/inventairejournalier/{{ inventaire.id }}/change/" 
                        class="btn btn-outline-warning">
                         <i class="fas fa-cogs me-2"></i>{% trans "Admin" %}
                     </a>
-                    {% endif %}
+                    {% endif %} {% endcomment %}
                 </div>
             </div>
         </div>

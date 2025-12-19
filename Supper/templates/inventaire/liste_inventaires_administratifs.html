@@ -100,30 +100,30 @@
         </div>
     </div>
 
-    <!-- Statistiques rapides -->
+    <!-- ✓ CORRECTION : Statistiques rapides avec valeurs du backend -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="stats-card">
                 <h5>{% trans "Total Inventaires" %}</h5>
-                <div class="stats-value">{{ inventaires.paginator.count }}</div>
+                <div class="stats-value">{{ stats.total }}</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="stats-card">
                 <h5>{% trans "Aujourd'hui" %}</h5>
-                <div class="stats-value" id="todayCount">0</div>
+                <div class="stats-value">{{ stats.today }}</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="stats-card">
-                <h5>{% trans "Taux Moyen" %}</h5>
-                <div class="stats-value" id="avgRate">-</div>
+                <h5>{% trans "Ce Mois" %}</h5>
+                <div class="stats-value">{{ stats.this_month }}</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="stats-card">
                 <h5>{% trans "Alertes" %}</h5>
-                <div class="stats-value text-danger" id="alertCount">0</div>
+                <div class="stats-value text-danger" id="alertCount">-</div>
             </div>
         </div>
     </div>
@@ -157,13 +157,10 @@
                 </div>
                 
                 <div class="col-md-3">
-                    <label class="form-label">{% trans "Type" %}</label>
-                    <select name="admin_only" class="form-select">
-                        <option value="">{% trans "Tous" %}</option>
-                        <option value="1" {% if request.GET.admin_only %}selected{% endif %}>
-                            {% trans "Admin seulement" %}
-                        </option>
-                    </select>
+                    <label class="form-label">{% trans "Recherche" %}</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Nom du poste, code..." 
+                           value="{{ request.GET.search }}">
                 </div>
             </div>
             
@@ -216,24 +213,24 @@
                     <td class="text-center">
                         <strong>{{ inventaire.total_vehicules }}</strong>
                         <br>
-                        <small>{{ inventaire.nombre_periodes_saisies }} périodes</small>
+                        <small class="text-muted">{{ inventaire.nombre_periodes_saisies }} périodes</small>
                     </td>
                     <td class="text-end">
                         {% if inventaire.recette_potentielle %}
-                            {{ inventaire.recette_potentielle|floatformat:0|format_milliers }} FCFA
+                            <strong class="text-primary">{{ inventaire.recette_potentielle|floatformat:0|format_milliers }} FCFA</strong>
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
                     </td>
                     <td class="text-end">
                         {% if inventaire.montant_declare %}
-                            <strong>{{ inventaire.montant_declare|floatformat:0|format_milliers  }} FCFA</strong>
+                            <strong>{{ inventaire.montant_declare|floatformat:0|format_milliers }} FCFA</strong>
                         {% else %}
                             <span class="text-warning">Non saisi</span>
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        {% if inventaire.taux_deperdition %}
+                        {% if inventaire.taux_deperdition is not None %}
                             <span class="taux-badge taux-{{ inventaire.couleur_alerte }}">
                                 {{ inventaire.taux_deperdition|floatformat:2 }}%
                             </span>
@@ -243,12 +240,14 @@
                     </td>
                     <td>
                         <a href="{% url 'inventaire:inventaire_detail' inventaire.id %}" 
-                           class="btn btn-sm btn-info btn-action">
+                           class="btn btn-sm btn-info btn-action" 
+                           title="Voir les détails">
                             <i class="fas fa-eye"></i>
                         </a>
                         {% if user.is_admin %}
                         <a href="{% url 'inventaire:inventaire_admin_saisie' inventaire.poste.id inventaire.date|date:'Y-m-d' %}" 
-                           class="btn btn-sm btn-warning btn-action">
+                           class="btn btn-sm btn-warning btn-action"
+                           title="Modifier">
                             <i class="fas fa-edit"></i>
                         </a>
                         {% endif %}
@@ -256,9 +255,10 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center py-4">
+                    <td colspan="8" class="text-center py-5">
                         <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">{% trans "Aucun inventaire trouvé" %}</p>
+                        <p class="text-muted mb-0">{% trans "Aucun inventaire trouvé" %}</p>
+                        <small class="text-muted">Essayez de modifier les filtres ou créez un nouvel inventaire</small>
                     </td>
                 </tr>
                 {% endfor %}
@@ -305,52 +305,22 @@
 </div>
 
 <script>
-// Calculer les statistiques
+// ✓ CORRECTION : Calculer seulement le nombre d'alertes (le reste vient du backend)
 document.addEventListener('DOMContentLoaded', function() {
-    let todayCount = 0;
     let alertCount = 0;
-    let totalTaux = 0;
-    let countTaux = 0;
-    const today = new Date().toISOString().split('T')[0];
     
-    document.querySelectorAll('tbody tr').forEach(row => {
-        // Compter inventaires du jour
-        const dateCell = row.cells[0]?.textContent.trim();
-        if (dateCell && dateCell.includes(today)) {
-            todayCount++;
-        }
-        
-        // Compter alertes (taux < -30%)
-        const tauxElement = row.querySelector('.taux-danger');
-        if (tauxElement) {
-            alertCount++;
-        }
-        
-        // Calculer moyenne
-        const tauxText = row.querySelector('.taux-badge')?.textContent;
-        if (tauxText) {
-            const taux = parseFloat(tauxText.replace('%', ''));
-            if (!isNaN(taux)) {
-                totalTaux += taux;
-                countTaux++;
-            }
-        }
+    // Compter les alertes (badges danger)
+    document.querySelectorAll('.taux-danger').forEach(() => {
+        alertCount++;
     });
     
-    document.getElementById('todayCount').textContent = todayCount;
     document.getElementById('alertCount').textContent = alertCount;
-    
-    if (countTaux > 0) {
-        const avgTaux = (totalTaux / countTaux).toFixed(2);
-        document.getElementById('avgRate').textContent = avgTaux + '%';
-    }
 });
 
-// Export Excel (simulation)
+// Export Excel
 function exportExcel() {
-    const params = new URLSearchParams(window.location.search);
-    params.append('export', 'excel');
-    window.location.href = window.location.pathname + '?' + params.toString();
+    alert('Fonctionnalité d\'export à implémenter');
+    // Vous pouvez implémenter l'export ici
 }
 </script>
 {% endblock %}

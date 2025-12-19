@@ -700,7 +700,7 @@ class SaisieInventaireView(LoginRequiredMixin, View):
         else:
             target_date = timezone.now().date()
         
-        # Vérifications de sécurité avec permissions granulaires
+        # Vérifications de sécurité
         is_admin = has_permission(user, 'peut_saisir_inventaire_admin')
         
         if not is_admin and not check_poste_access(user, poste):
@@ -713,18 +713,25 @@ class SaisieInventaireView(LoginRequiredMixin, View):
             return JsonResponse({'error': 'Accès non autorisé'}, status=403)
         
         try:
+            # ✓ DEBUG : Afficher toutes les données POST reçues
+            logger.info(f"=== DEBUG POST DATA ===")
+            logger.info(f"POST keys: {list(request.POST.keys())}")
+            for key, value in request.POST.items():
+                if key.startswith('periode_') or 'periode' in key.lower():
+                    logger.info(f"  {key} = {value}")
+            logger.info(f"======================")
+            
             # Récupérer ou créer l'inventaire
             inventaire, created = InventaireJournalier.objects.get_or_create(
                 poste=poste,
                 date=target_date,
-                type_inventaire='normal',
                 defaults={
                     'agent_saisie': user,
                     'type_inventaire': 'normal'
                 }
             )
             
-            # Vérifier si peut être modifié (permissions granulaires)
+            # Vérifier si peut être modifié
             can_modify = is_admin or inventaire.peut_etre_modifie_par(user)
             if not can_modify:
                 log_user_action(
@@ -737,35 +744,58 @@ class SaisieInventaireView(LoginRequiredMixin, View):
                     "Cet inventaire a déjà été saisi et ne peut être modifié que par un administrateur.")
                 return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
             
+            # Supprimer les anciens détails
+            inventaire.details_periodes.all().delete()
+            
             # Traiter les données de période
-            total_vehicules = 0
             details_saved = 0
             
+            # ✓ ESSAYER PLUSIEURS FORMATS DE NOMS DE CHAMPS
             for periode_choice in PeriodeHoraire.choices:
                 periode_code, _ = periode_choice
-                field_name = f'periode_{periode_code.replace("-", "_")}'
-                value = request.POST.get(field_name)
+                
+                # Essayer différents formats de noms de champs
+                possible_names = [
+                    f'periode_{periode_code}',  # periode_06h-07h
+                    f'periode_{periode_code.replace("-", "_")}',  # periode_06h_07h
+                    periode_code,  # 06h-07h
+                    periode_code.replace('-', '_'),  # 06h_07h
+                ]
+                
+                value = None
+                field_used = None
+                
+                for field_name in possible_names:
+                    value = request.POST.get(field_name)
+                    if value and value.strip():
+                        field_used = field_name
+                        break
+                
+                logger.info(f"Période {periode_code}: essayé {possible_names}, trouvé '{field_used}' = '{value}'")
                 
                 if value and value.strip():
                     try:
                         nombre = int(value)
                         if nombre >= 0:
-                            DetailInventairePeriode.objects.update_or_create(
+                            DetailInventairePeriode.objects.create(
                                 inventaire=inventaire,
                                 periode=periode_code,
-                                defaults={'nombre_vehicules': nombre}
+                                nombre_vehicules=nombre
                             )
-                            total_vehicules += nombre
                             details_saved += 1
-                    except ValueError:
+                            logger.info(f"✓ Sauvegardé: {periode_code} = {nombre}")
+                    except ValueError as e:
+                        logger.error(f"✗ Erreur conversion: {periode_code} = '{value}' - {e}")
                         continue
             
-            # Mettre à jour le total
-            inventaire.total_vehicules = total_vehicules
-            inventaire.derniere_modification_par = user
-            inventaire.save()
+            # Recalculer les totaux
+            total_vehicules = inventaire.recalculer_totaux()
             
-            # Log détaillé de la saisie
+            # Mettre à jour les métadonnées
+            inventaire.derniere_modification_par = user
+            inventaire.save(update_fields=['derniere_modification_par'])
+            
+            # Log détaillé
             log_user_action(
                 user,
                 "Saisie inventaire réussie",
@@ -775,20 +805,25 @@ class SaisieInventaireView(LoginRequiredMixin, View):
                 request
             )
             
-            messages.success(request, "Inventaire sauvegardé avec succès.")
+            if details_saved == 0:
+                messages.warning(request, "⚠️ Aucune période n'a été saisie. Vérifiez les noms des champs du formulaire.")
+            else:
+                messages.success(request, 
+                    f"✓ Inventaire sauvegardé : {total_vehicules} véhicules sur {details_saved} périodes.")
+            
             return redirect('inventaire:inventaire_detail', pk=inventaire.pk)
         
         except Exception as e:
-            logger.error(f"Erreur saisie inventaire: {str(e)}")
+            logger.error(f"Erreur saisie inventaire: {str(e)}", exc_info=True)
             log_user_action(
                 user,
                 "ERREUR - Saisie inventaire",
                 f"Poste: {poste.nom} | Date: {target_date} | Erreur: {str(e)}",
                 request
             )
-            messages.error(request, "Erreur lors de la sauvegarde de l'inventaire.")
+            messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
             return redirect('inventaire:saisie_inventaire')
-
+    
 @login_required
 @require_permission('peut_gerer_inventaire')
 def modifier_inventaire(request, pk):
