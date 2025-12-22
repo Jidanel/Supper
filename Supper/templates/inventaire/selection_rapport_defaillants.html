@@ -5,60 +5,121 @@
 
 {% block extra_css %}
 <style>
-    /* Style selon le design violet professionnel */
-    :root {
-        --violet-principal: #6B46C1;
-        --violet-fonce: #553C9A;
-        --blanc-pur: #FFFFFF;
-        --gris-clair: #F8FAFC;
-        --gris-moyen: #64748B;
-        --gris-fonce: #334155;
-        --accent-orange: #F59E0B;
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
 
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - CENTRÉ ET LIMITÉ
+       ============================================ */
+    .container {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 16px;
+        padding-right: 16px;
+        margin: 0 auto;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE - BIEN CONTENUE
+       ============================================ */
     .selection-container {
         max-width: 600px;
-        margin: 3rem auto;
+        margin: 1.5rem auto;
+        padding: 0 16px;
+        width: 100%;
+        box-sizing: border-box;
+        display: block;
+        position: relative;
     }
 
     .selection-card {
         background: white;
-        border-radius: 15px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        border-radius: 12px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       EN-TÊTE - TEXTE BIEN GÉRÉ
+       ============================================ */
+    .selection-header {
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        color: white;
+        padding: 1.5rem;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
         overflow: hidden;
     }
 
-    .selection-header {
-        background: linear-gradient(135deg, var(--violet-principal) 0%, var(--violet-fonce) 100%);
-        color: white;
-        padding: 2rem;
-        text-align: center;
-    }
-
     .selection-header h1 {
-        font-size: 1.75rem;
+        font-size: 1.4rem;
         margin-bottom: 0.5rem;
+        line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        hyphens: auto;
+        max-width: 100%;
+        display: block;
     }
 
     .selection-header p {
         margin: 0;
         opacity: 0.9;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
     }
 
+    /* ============================================
+       CORPS DE LA CARTE - PADDING CONTRÔLÉ
+       ============================================ */
     .selection-body {
-        padding: 2.5rem;
+        padding: 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
+    /* ============================================
+       FORMULAIRES - CHAMPS BIEN CONTENUS
+       ============================================ */
     .form-group {
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .form-label {
-        color: var(--gris-fonce);
+        color: #334155;
         font-weight: 500;
         margin-bottom: 0.5rem;
         display: block;
         font-size: 0.95rem;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
     }
 
     .form-control {
@@ -68,32 +129,47 @@
         border-radius: 8px;
         font-size: 1rem;
         transition: all 0.3s ease;
+        max-width: 100%;
+        box-sizing: border-box;
+        display: block;
     }
 
     .form-control:focus {
         outline: none;
-        border-color: var(--violet-principal);
+        border-color: #6B46C1;
         box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
     }
 
+    /* ============================================
+       GROUPES DE DATES - ADAPTATIF
+       ============================================ */
     .date-input-group {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        flex-direction: column;
         gap: 1rem;
+        width: 100%;
+        box-sizing: border-box;
     }
 
+    /* ============================================
+       BOUTON PRINCIPAL - CENTRÉ
+       ============================================ */
     .btn-generate {
-        background: linear-gradient(135deg, var(--violet-principal) 0%, var(--violet-fonce) 100%);
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
         color: white;
-        padding: 1rem 2rem;
+        padding: 1rem;
         border: none;
         border-radius: 50px;
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s ease;
         width: 100%;
         margin-top: 1.5rem;
+        display: block;
+        box-sizing: border-box;
+        text-align: center;
+        min-height: 44px;
     }
 
     .btn-generate:hover {
@@ -101,69 +177,107 @@
         box-shadow: 0 10px 30px rgba(107, 70, 193, 0.3);
     }
 
+    /* ============================================
+       SÉLECTION RAPIDE - BOUTONS RESPONSIVES
+       ============================================ */
     .quick-select {
-        margin-top: 1rem;
+        margin-top: 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     .quick-select-title {
-        color: var(--gris-moyen);
+        color: #64748B;
         font-size: 0.875rem;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        display: block;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .quick-buttons {
         display: flex;
-        gap: 0.5rem;
         flex-wrap: wrap;
+        gap: 0.5rem;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .quick-btn {
-        background: var(--gris-clair);
-        color: var(--gris-fonce);
-        padding: 0.5rem 1rem;
+        background: #F8FAFC;
+        color: #334155;
+        padding: 0.5rem 0.875rem;
         border: none;
         border-radius: 20px;
-        font-size: 0.875rem;
+        font-size: 0.85rem;
         cursor: pointer;
         transition: all 0.3s ease;
+        flex: 1;
+        min-width: calc(50% - 0.5rem);
+        text-align: center;
+        white-space: nowrap;
+        min-height: 44px;
+        box-sizing: border-box;
     }
 
-    .quick-btn:hover {
-        background: var(--violet-principal);
-        color: white;
-    }
-
+    /* ============================================
+       BOÎTE D'INFORMATION - TEXTE CONTRÔLÉ
+       ============================================ */
     .info-box {
-        background: var(--gris-clair);
-        border-left: 4px solid var(--accent-orange);
-        padding: 1rem;
+        background: #F8FAFC;
+        border-left: 4px solid #F59E0B;
+        padding: 1.25rem;
         border-radius: 5px;
         margin-top: 2rem;
+        width: 100%;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        word-break: break-word;
+        box-sizing: border-box;
+        hyphens: auto;
     }
 
     .info-box h3 {
-        color: var(--gris-fonce);
+        color: #334155;
         font-size: 1rem;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.4;
+        word-break: break-word;
+        max-width: 100%;
     }
 
     .info-box p {
-        color: var(--gris-moyen);
+        color: #64748B;
         font-size: 0.875rem;
         margin: 0;
         line-height: 1.6;
+        width: 100%;
+        word-break: break-word;
+        hyphens: auto;
     }
 
+    /* ============================================
+       LIEN DE RETOUR - CENTRÉ
+       ============================================ */
     .back-link {
         display: inline-flex;
         align-items: center;
-        color: var(--violet-principal);
+        color: #6B46C1;
         text-decoration: none;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         font-weight: 500;
         transition: all 0.3s ease;
+        padding: 0.5rem 0;
+        width: 100%;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
+        max-width: 100%;
     }
 
     .back-link:hover {
@@ -172,6 +286,386 @@
 
     .back-link i {
         margin-right: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       VERSION PC (≥ 768px) - NON MODIFIÉE
+       ============================================ */
+    @media (min-width: 768px) {
+        .date-input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .selection-header {
+            padding: 1.5rem 2rem;
+        }
+        
+        .selection-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .selection-body {
+            padding: 2rem;
+        }
+        
+        .btn-generate {
+            padding: 1rem 2rem;
+            width: auto;
+            margin: 1.5rem auto 0;
+            display: inline-block;
+        }
+        
+        .quick-btn {
+            min-width: calc(20% - 0.5rem);
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : DÉBORDEMENT */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        /* CONTENEUR PRINCIPAL - AJUSTEMENT */
+        .container {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 auto !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        .selection-container {
+            margin: 1rem auto !important;
+            padding: 0 12px !important;
+            max-width: 100% !important;
+        }
+
+        /* CARTE - SANS DÉBORDEMENT */
+        .selection-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            border-radius: 10px !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            position: relative !important;
+        }
+
+        /* HEADER - TEXTE BIEN GÉRÉ */
+        .selection-header {
+            padding: 1.25rem 1rem !important;
+            box-sizing: border-box !important;
+        }
+
+        .selection-header h1 {
+            font-size: 1.3rem !important;
+            line-height: 1.4 !important;
+            word-break: break-word !important;
+            hyphens: auto !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2; /* Limite à 2 lignes */
+            -webkit-box-orient: vertical !important;
+        }
+
+        .selection-header p {
+            font-size: 0.85rem !important;
+            line-height: 1.5 !important;
+            max-width: 100% !important;
+            word-break: break-word !important;
+        }
+
+        /* CORPS DE CARTE - PADDING RÉDUIT */
+        .selection-body {
+            padding: 1.25rem 1rem !important;
+            box-sizing: border-box !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+        }
+
+        /* FORMULAIRES - CHAMPS BIEN CONTENUS */
+        .form-group {
+            margin-bottom: 1rem !important;
+            width: 100% !important;
+        }
+
+        .form-label {
+            font-size: 0.9rem !important;
+            max-width: 100% !important;
+            word-break: break-word !important;
+        }
+
+        .form-control {
+            padding: 0.625rem !important;
+            font-size: 16px !important; /* Empêche le zoom iOS */
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* BOUTON PRINCIPAL - CENTRÉ */
+        .btn-generate {
+            padding: 0.875rem !important;
+            font-size: 0.95rem !important;
+            margin-top: 1.25rem !important;
+            width: 100% !important;
+            min-height: 44px !important;
+            display: block !important;
+            text-align: center !important;
+        }
+
+        /* BOUTONS RAPIDES - ADAPTATIF */
+        .quick-buttons {
+            gap: 0.375rem !important;
+        }
+
+        .quick-btn {
+            font-size: 0.8rem !important;
+            padding: 0.5rem 0.75rem !important;
+            min-width: calc(50% - 0.375rem) !important;
+            min-height: 40px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /* BOÎTE INFO - TEXTE CONTRÔLÉ */
+        .info-box {
+            padding: 1rem !important;
+            margin-top: 1.75rem !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        .info-box h3 {
+            font-size: 0.95rem !important;
+            word-break: break-word !important;
+        }
+
+        .info-box p {
+            font-size: 0.85rem !important;
+            line-height: 1.5 !important;
+            word-break: break-word !important;
+            hyphens: auto !important;
+        }
+
+        /* LIEN RETOUR - AJUSTÉ */
+        .back-link {
+            margin-bottom: 1.25rem !important;
+            font-size: 0.9rem !important;
+            width: 100% !important;
+            word-break: break-word !important;
+        }
+
+        /* PERMET UN MINIMAL DÉFILEMENT HORIZONTAL SI NÉCESSAIRE */
+        .selection-body {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+        
+        .selection-body::-webkit-scrollbar {
+            height: 4px;
+        }
+        
+        .selection-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+        
+        .selection-body::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 480px)
+       ============================================ */
+    @media (max-width: 480px) {
+        .container {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+        
+        .selection-container {
+            padding: 0 10px !important;
+        }
+        
+        .selection-header {
+            padding: 1rem 0.875rem !important;
+        }
+        
+        .selection-header h1 {
+            font-size: 1.2rem !important;
+            -webkit-line-clamp: 2 !important;
+        }
+        
+        .selection-body {
+            padding: 1rem 0.875rem !important;
+        }
+        
+        .quick-buttons {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+        
+        .quick-btn {
+            min-width: 100% !important;
+            font-size: 0.75rem !important;
+            padding: 0.5rem 0.625rem !important;
+            white-space: normal !important;
+            height: auto !important;
+            min-height: 40px !important;
+        }
+        
+        .info-box p {
+            font-size: 0.8rem !important;
+        }
+        
+        .btn-generate {
+            padding: 0.75rem !important;
+            font-size: 0.9rem !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .selection-container {
+            margin: 0.5rem auto !important;
+            max-width: 95% !important;
+        }
+        
+        .selection-card {
+            max-height: 85vh !important;
+            overflow-y: auto !important;
+        }
+        
+        .quick-buttons {
+            flex-wrap: nowrap !important;
+        }
+        
+        .quick-btn {
+            min-width: auto !important;
+            flex: 1 !important;
+            font-size: 0.75rem !important;
+        }
+        
+        .date-input-group {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 0.75rem !important;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="date"],
+        input[type="text"],
+        input[type="number"],
+        button,
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .btn-generate:focus,
+    .quick-btn:focus {
+        outline: 2px solid #6B46C1;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE - MOBILE MINCE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .selection-card {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       GARANTIR LE CENTRAGE
+       ============================================ */
+    .selection-container {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 </style>
 {% endblock %}
@@ -206,7 +700,8 @@
                                    name="date_debut"
                                    value="{{ date_debut_default|date:'Y-m-d' }}"
                                    max="{{ date_max|date:'Y-m-d' }}"
-                                   required>
+                                   required
+                                   aria-label="Date de début">
                         </div>
                         
                         <div class="form-group">
@@ -220,32 +715,33 @@
                                    name="date_fin"
                                    value="{{ date_fin_default|date:'Y-m-d' }}"
                                    max="{{ date_max|date:'Y-m-d' }}"
-                                   required>
+                                   required
+                                   aria-label="Date de fin">
                         </div>
                     </div>
                     
                     <div class="quick-select">
                         <div class="quick-select-title">Sélection rapide</div>
                         <div class="quick-buttons">
-                            <button type="button" class="quick-btn" onclick="setPeriod('today')">
+                            <button type="button" class="quick-btn" onclick="setPeriod('today')" aria-label="Sélectionner aujourd'hui">
                                 Aujourd'hui
                             </button>
-                            <button type="button" class="quick-btn" onclick="setPeriod('week')">
+                            <button type="button" class="quick-btn" onclick="setPeriod('week')" aria-label="Sélectionner cette semaine">
                                 Cette semaine
                             </button>
-                            <button type="button" class="quick-btn" onclick="setPeriod('month')">
+                            <button type="button" class="quick-btn" onclick="setPeriod('month')" aria-label="Sélectionner ce mois">
                                 Ce mois
                             </button>
-                            <button type="button" class="quick-btn" onclick="setPeriod('lastMonth')">
+                            <button type="button" class="quick-btn" onclick="setPeriod('lastMonth')" aria-label="Sélectionner mois dernier">
                                 Mois dernier
                             </button>
-                            <button type="button" class="quick-btn" onclick="setPeriod('year')">
+                            <button type="button" class="quick-btn" onclick="setPeriod('year')" aria-label="Sélectionner cette année">
                                 Cette année
                             </button>
                         </div>
                     </div>
                     
-                    <button type="submit" class="btn-generate">
+                    <button type="submit" class="btn-generate" aria-label="Générer le rapport">
                         <i class="fas fa-file-alt me-2"></i>
                         Générer le Rapport
                     </button>
@@ -273,84 +769,183 @@
 
 {% block extra_js %}
 <script>
-// Fonction pour définir les périodes rapides
-function setPeriod(period) {
-    const today = new Date();
-    let startDate, endDate;
-    
-    switch(period) {
-        case 'today':
-            startDate = endDate = today;
-            break;
-            
-        case 'week':
-            // Début de semaine (lundi)
-            startDate = new Date(today);
-            const day = startDate.getDay();
-            const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-            startDate.setDate(diff);
-            endDate = today;
-            break;
-            
-        case 'month':
-            // Début du mois en cours
-            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            endDate = today;
-            break;
-            
-        case 'lastMonth':
-            // Mois précédent complet
-            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-            break;
-            
-        case 'year':
-            // Début de l'année
-            startDate = new Date(today.getFullYear(), 0, 1);
-            endDate = today;
-            break;
+document.addEventListener('DOMContentLoaded', function() {
+    // Fonction pour définir les périodes rapides
+    function setPeriod(period) {
+        const today = new Date();
+        let startDate, endDate;
+        
+        switch(period) {
+            case 'today':
+                startDate = endDate = today;
+                break;
+                
+            case 'week':
+                // Début de semaine (lundi)
+                startDate = new Date(today);
+                const day = startDate.getDay();
+                const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+                startDate.setDate(diff);
+                endDate = today;
+                break;
+                
+            case 'month':
+                // Début du mois en cours
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                endDate = today;
+                break;
+                
+            case 'lastMonth':
+                // Mois précédent complet
+                startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                break;
+                
+            case 'year':
+                // Début de l'année
+                startDate = new Date(today.getFullYear(), 0, 1);
+                endDate = today;
+                break;
+        }
+        
+        // Formater les dates pour l'input
+        document.getElementById('date_debut').value = formatDate(startDate);
+        document.getElementById('date_fin').value = formatDate(endDate);
     }
-    
-    // Formater les dates pour l'input
-    document.getElementById('date_debut').value = formatDate(startDate);
-    document.getElementById('date_fin').value = formatDate(endDate);
-}
 
-// Fonction pour formater la date au format YYYY-MM-DD
-function formatDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-// Validation du formulaire
-document.getElementById('periodeForm').addEventListener('submit', function(e) {
-    const dateDebut = new Date(document.getElementById('date_debut').value);
-    const dateFin = new Date(document.getElementById('date_fin').value);
-    
-    if (dateDebut > dateFin) {
-        e.preventDefault();
-        alert('La date de début doit être antérieure à la date de fin');
-        return false;
+    // Fonction pour formater la date au format YYYY-MM-DD
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
-    
-    // Vérifier que la période ne dépasse pas 1 an
-    const diffTime = Math.abs(dateFin - dateDebut);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays > 365) {
-        e.preventDefault();
-        alert('La période ne peut pas dépasser 1 an (365 jours)');
-        return false;
-    }
-});
 
-// Initialiser avec la période par défaut (ce mois)
-window.addEventListener('DOMContentLoaded', function() {
+    // Validation du formulaire
+    const periodeForm = document.getElementById('periodeForm');
+    if (periodeForm) {
+        periodeForm.addEventListener('submit', function(e) {
+            const dateDebut = new Date(document.getElementById('date_debut').value);
+            const dateFin = new Date(document.getElementById('date_fin').value);
+            
+            if (dateDebut > dateFin) {
+                e.preventDefault();
+                showToast('La date de début doit être antérieure à la date de fin', 'error');
+                return false;
+            }
+            
+            // Vérifier que la période ne dépasse pas 1 an
+            const diffTime = Math.abs(dateFin - dateDebut);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays > 365) {
+                e.preventDefault();
+                showToast('La période ne peut pas dépasser 1 an (365 jours)', 'error');
+                return false;
+            }
+        });
+    }
+
+    // Initialiser avec la période par défaut (ce mois)
     if (!document.getElementById('date_debut').value) {
         setPeriod('month');
     }
+
+    // Fonction pour afficher les messages toast
+    function showToast(message, type = 'info') {
+        // Supprimer les anciens toasts
+        const oldToasts = document.querySelectorAll('.custom-toast');
+        oldToasts.forEach(toast => toast.remove());
+        
+        // Créer le toast
+        const toast = document.createElement('div');
+        toast.className = `custom-toast ${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: ${type === 'error' ? '#ef4444' : '#6B46C1'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            max-width: 90%;
+            word-wrap: break-word;
+            word-break: break-word;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Animation d'entrée
+        setTimeout(() => {
+            toast.style.transform = 'translateX(-50%) translateY(0)';
+            toast.style.opacity = '1';
+        }, 10);
+        
+        // Animation de sortie après 3 secondes
+        setTimeout(() => {
+            toast.style.transform = 'translateX(-50%) translateY(-20px)';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Correction pour le zoom sur iOS
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        input.addEventListener('focus', function() {
+            if (window.innerWidth < 768) {
+                // Délai pour permettre au clavier de s'ouvrir
+                setTimeout(() => {
+                    input.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 100);
+            }
+        });
+    });
+
+    // Fonction pour ajuster le layout sur mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            // Empêche le défilement horizontal non désiré
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+            
+            // S'assure que le conteneur principal est bien centré
+            const container = document.querySelector('.container');
+            if (container) {
+                container.style.margin = '0 auto';
+                container.style.padding = '0 12px';
+            }
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    // Exposer la fonction setPeriod globalement
+    window.setPeriod = setPeriod;
+    
+    // Exécuter au chargement et au redimensionnement
+    adjustForMobile();
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
+    
+    // Gestion des événements tactiles
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    document.addEventListener('touchmove', function() {}, { passive: true });
 });
 </script>
 {% endblock %}

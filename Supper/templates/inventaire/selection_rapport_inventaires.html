@@ -6,60 +6,765 @@
 
 {% block extra_css %}
 <style>
-    .selection-card {
-        max-width: 600px;
-        margin: 2rem auto;
+    /* ============================================
+       RÉINITIALISATION POUR MOBILE - CORRIGÉ
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
-    
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%; /* Empêche le zoom automatique sur iOS */
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL RESPONSIVE - CORRIGÉ
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 16px;
+        padding-right: 16px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        overflow-x: hidden; /* Empêche le débordement horizontal */
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        margin-left: -16px;
+        margin-right: -16px;
+        width: calc(100% + 32px);
+        display: flex;
+        flex-wrap: wrap;
+        box-sizing: border-box;
+    }
+
+    .col-12 {
+        padding-left: 16px;
+        padding-right: 16px;
+        width: 100%;
+        flex: 0 0 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE - CENTRÉE ET SANS DÉBORDEMENT
+       ============================================ */
+    .selection-card {
+        width: 100%;
+        margin: 1.5rem auto;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        max-width: 100%;
+        box-sizing: border-box;
+        display: block;
+        position: relative;
+    }
+
+    .shadow-lg {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* ============================================
+       HEADER DE LA CARTE - TEXTE GÉRÉ
+       ============================================ */
+    .card-header {
+        padding: 1.5rem 1.25rem;
+        background: linear-gradient(135deg, #8B5CF6 0%, #6B46C1 100%);
+        color: white;
+        box-sizing: border-box;
+        overflow: hidden; /* Empêche le débordement */
+    }
+
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #8B5CF6 0%, #6B46C1 100%) !important;
+    }
+
+    .card-header h4 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word; /* Force le retour à la ligne si nécessaire */
+        hyphens: auto; /* Césure automatique pour les mots longs */
+        max-width: 100%; /* Empêche le débordement */
+        display: block;
+    }
+
+    .card-header p {
+        font-size: 0.95rem;
+        opacity: 0.95;
+        margin: 0;
+        line-height: 1.5;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+    }
+
+    .text-black {
+        color: white !important;
+    }
+
+    /* ============================================
+       CORPS DE LA CARTE - LIMITÉ EN LARGEUR
+       ============================================ */
+    .card-body {
+        padding: 1.5rem 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .p-4 {
+        padding: 1.5rem !important;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       BOÎTE D'INFORMATION - TEXTE CONTRÔLÉ
+       ============================================ */
+    .info-box {
+        background: linear-gradient(135deg, #EEF2FF 0%, #F3E8FF 100%);
+        border-left: 4px solid #6B46C1;
+        padding: 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    .info-box h6 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #6B46C1;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+    }
+
+    .text-purple {
+        color: #6B46C1 !important;
+    }
+
+    .info-box p {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #4B5563;
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        hyphens: auto;
+        max-width: 100%;
+        display: block;
+    }
+
+    .text-sm {
+        font-size: 0.9rem !important;
+    }
+
+    /* ============================================
+       FORMULAIRE - ÉLÉMENTS BIEN CONTENUS
+       ============================================ */
+    form {
+        width: 100%;
+        box-sizing: border-box;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .row {
+        margin-left: -8px;
+        margin-right: -8px;
+        width: calc(100% + 16px);
+        box-sizing: border-box;
+    }
+
+    .col-md-6 {
+        padding-left: 8px;
+        padding-right: 8px;
+        width: 100%;
+        flex: 0 0 100%;
+        max-width: 100%;
+        margin-bottom: 1.25rem;
+        box-sizing: border-box;
+    }
+
+    .mb-3 {
+        margin-bottom: 1.25rem !important;
+    }
+
+    /* ============================================
+       LABELS ET CHAMPS - NE DÉBORDENT PAS
+       ============================================ */
+    .form-label {
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-size: 0.95rem;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .form-control {
+        width: 100%;
+        border: 2px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 0.875rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+        max-width: 100%;
+        display: block;
+    }
+
+    .form-control:focus {
+        border-color: #6B46C1;
+        box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+        outline: none;
+    }
+
+    /* ============================================
+       BOUTON PRINCIPAL - CENTRÉ ET RESPONSIVE
+       ============================================ */
+    .d-grid {
+        display: flex !important;
+        flex-direction: column;
+        width: 100%;
+        box-sizing: border-box;
+        align-items: center; /* Centre horizontalement */
+    }
+
+    .gap-2 {
+        gap: 1rem !important;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
     .btn-generate {
         background: linear-gradient(135deg, #6B46C1 0%, #8B5CF6 100%);
         color: white;
-        padding: 12px 30px;
+        padding: 1rem 2rem;
         font-size: 1.1rem;
         font-weight: 600;
         border: none;
         border-radius: 8px;
         transition: all 0.3s ease;
+        width: 100%; /* Prend toute la largeur sur mobile */
+        max-width: 300px; /* Limite la largeur maximale */
+        text-align: center;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        min-height: 56px;
+        box-sizing: border-box;
+        margin: 0 auto; /* Centre horizontalement */
     }
-    
+
     .btn-generate:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(107, 70, 193, 0.3);
         color: white;
     }
-    
-    .form-label {
-        font-weight: 600;
-        color: #334155;
-        margin-bottom: 0.5rem;
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : CENTRAGE ET DÉBORDEMENT */
+        body, html {
+            overflow-x: hidden !important; /* Empêche le défilement horizontal */
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box;
+        }
+
+        /* CONTENEUR PRINCIPAL - SANS DÉBORDEMENT */
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 auto !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box;
+        }
+
+        /* ROW - AJUSTEMENT POUR MOBILE */
+        .row {
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            width: calc(100% + 24px) !important;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            box-sizing: border-box !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        .col-12 {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* CARTE - CENTRÉE ET LIMITÉE */
+        .selection-card {
+            margin: 1rem auto !important;
+            border-radius: 10px !important;
+            width: calc(100% - 24px) !important; /* Prend en compte les paddings */
+            max-width: 100% !important;
+            display: block !important;
+            box-sizing: border-box !important;
+            position: relative !important;
+            left: 0 !important;
+            right: 0 !important;
+            overflow: hidden !important;
+        }
+
+        /* HEADER - TEXTE BIEN GÉRÉ */
+        .card-header {
+            padding: 1.25rem 1rem !important;
+            box-sizing: border-box !important;
+        }
+
+        .card-header h4 {
+            font-size: 1.3rem !important;
+            line-height: 1.4 !important;
+            word-break: break-word !important;
+            hyphens: auto !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2; /* Limite à 2 lignes maximum */
+            -webkit-box-orient: vertical !important;
+        }
+
+        .card-header p {
+            font-size: 0.9rem !important;
+            line-height: 1.5 !important;
+            max-width: 100% !important;
+            word-break: break-word !important;
+        }
+
+        /* CORPS DE CARTE - PADDING RÉDUIT */
+        .card-body {
+            padding: 1.25rem 1rem !important;
+            box-sizing: border-box !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+        }
+
+        .p-4 {
+            padding: 1.25rem !important;
+        }
+
+        /* BOÎTE INFO - TEXTE CONTRÔLÉ */
+        .info-box {
+            padding: 1rem !important;
+            margin-bottom: 1.25rem !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        .info-box h6 {
+            font-size: 0.95rem !important;
+            margin-bottom: 0.5rem !important;
+            word-break: break-word !important;
+            max-width: 100% !important;
+        }
+
+        .info-box p {
+            font-size: 0.85rem !important;
+            line-height: 1.5 !important;
+            word-break: break-word !important;
+            hyphens: auto !important;
+            max-width: 100% !important;
+        }
+
+        /* FORMULAIRES - CHAMPS BIEN CONTENUS */
+        .form-label {
+            font-size: 0.9rem !important;
+            max-width: 100% !important;
+            word-break: break-word !important;
+        }
+
+        .form-control {
+            padding: 0.75rem 0.875rem !important;
+            font-size: 16px !important; /* Empêche le zoom automatique sur iOS */
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* BOUTON - CENTRÉ ET RESPONSIVE */
+        .btn-generate {
+            padding: 0.875rem 1.5rem !important;
+            font-size: 1rem !important;
+            min-height: 52px !important;
+            width: 100% !important; /* Prend toute la largeur sur mobile */
+            max-width: 280px !important; /* Largeur maximale raisonnable */
+            margin: 0 auto !important; /* Centre le bouton */
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+        }
+
+        .btn-generate i {
+            font-size: 0.95rem !important;
+        }
+
+        /* PERMET UN MINIMAL DÉFILEMENT HORIZONTAL SI NÉCESSAIRE */
+        .container-fluid {
+            overflow-x: auto !important;
+        }
+        
+        .container-fluid::-webkit-scrollbar {
+            height: 4px; /* Très fine barre de défilement */
+        }
+        
+        .container-fluid::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+        
+        .container-fluid::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
     }
-    
-    .form-control {
-        border: 2px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 10px 15px;
-        font-size: 1rem;
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 480px) - OPTIMISÉ
+       ============================================ */
+    @media (max-width: 480px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .row {
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+            width: calc(100% + 20px) !important;
+        }
+
+        .col-12 {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        /* CARTE - ENCORE PLUS COMPACTE */
+        .selection-card {
+            margin: 0.75rem auto !important;
+            width: calc(100% - 20px) !important;
+        }
+
+        .card-header {
+            padding: 1rem 0.875rem !important;
+        }
+
+        .card-header h4 {
+            font-size: 1.2rem !important;
+            -webkit-line-clamp: 2 !important; /* Toujours 2 lignes max */
+        }
+
+        .card-header p {
+            font-size: 0.85rem !important;
+        }
+
+        .card-body {
+            padding: 1rem 0.875rem !important;
+        }
+
+        .info-box {
+            padding: 0.875rem !important;
+        }
+
+        .info-box h6 {
+            font-size: 0.9rem !important;
+        }
+
+        .info-box p {
+            font-size: 0.8rem !important;
+        }
+
+        .form-control {
+            padding: 0.625rem 0.75rem !important;
+        }
+
+        .btn-generate {
+            padding: 0.75rem 1.25rem !important;
+            font-size: 0.95rem !important;
+            max-width: 260px !important;
+        }
     }
-    
-    .form-control:focus {
-        border-color: #6B46C1;
-        box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+
+    /* ============================================
+       VERSION PC (≥ 768px) - NON MODIFIÉE
+       ============================================ */
+    @media (min-width: 768px) {
+        /* Styles PC inchangés - ils sont corrects */
+        .container-fluid {
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+        
+        .py-4 {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+        }
+        
+        .selection-card {
+            max-width: 600px;
+            margin: 2rem auto;
+        }
+        
+        .card-header {
+            padding: 2rem 1.5rem;
+        }
+        
+        .card-header h4 {
+            font-size: 1.6rem;
+        }
+        
+        .card-header p {
+            font-size: 1rem;
+        }
+        
+        .card-body {
+            padding: 2rem 1.5rem;
+        }
+        
+        .p-4 {
+            padding: 2rem !important;
+        }
+        
+        .info-box {
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .info-box h6 {
+            font-size: 1.1rem;
+        }
+        
+        .info-box p {
+            font-size: 0.95rem;
+        }
+        
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+        
+        .row {
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px);
+        }
+        
+        .col-md-6 {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        
+        .form-control {
+            padding: 1rem 1.25rem;
+        }
+        
+        .btn-generate {
+            padding: 1rem 2.5rem;
+            font-size: 1.15rem;
+            width: auto;
+            align-self: center;
+        }
+        
+        .d-grid {
+            align-items: center;
+        }
     }
-    
-    .info-box {
-        background: linear-gradient(135deg, #EEF2FF 0%, #F3E8FF 100%);
-        border-left: 4px solid #6B46C1;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="date"],
+        input[type="text"],
+        input[type="number"],
+        input[type="email"],
+        input[type="tel"],
+        select,
+        textarea {
+            font-size: 16px !important; /* Empêche le zoom automatique */
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ ET INTERACTIVITÉ
+       ============================================ */
+    .form-control:focus,
+    .btn-generate:focus {
+        outline: 2px solid #6B46C1;
+        outline-offset: 2px;
+    }
+
+    .btn-generate {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-generate:active {
+        transform: translateY(0);
+        transition: transform 0.1s;
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE - TRÈS MINCE POUR MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .selection-card {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       CORRECTION DES HAUTEURS MINIMALES
+       ============================================ */
+    .form-control,
+    .btn-generate {
+        min-height: 44px; /* Standard d'accessibilité */
+    }
+
+    /* ============================================
+       ÉTAT DE CHARGEMENT
+       ============================================ */
+    .btn-generate.loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
+    .btn-generate.loading::after {
+        content: '';
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin-left: 8px;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* ============================================
+       GARANTIR QUE TOUT EST BIEN CENTRÉ
+       ============================================ */
+    .d-grid {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-12">
+    <div class="row justify-content-center"> <!-- Ajout de justify-content-center -->
+        <div class="col-12 col-md-8 col-lg-6"> <!-- Limite la largeur sur PC aussi -->
             <div class="card selection-card shadow-lg">
                 <div class="card-header bg-gradient-primary text-black">
                     <h4 class="mb-0">
@@ -82,7 +787,7 @@
                         </p>
                     </div>
                     
-                    <form method="get" action="{% url 'inventaire:rapport_inventaires' %}">
+                    <form method="get" action="{% url 'inventaire:rapport_inventaires' %}" id="rapportForm">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="date_debut" class="form-label">
@@ -97,6 +802,7 @@
                                     value="{{ date_debut_default|date:'Y-m-d' }}"
                                     max="{{ date_max|date:'Y-m-d' }}"
                                     required
+                                    aria-label="Date de début du rapport"
                                 >
                             </div>
                             
@@ -113,12 +819,13 @@
                                     value="{{ date_fin_default|date:'Y-m-d' }}"
                                     max="{{ date_max|date:'Y-m-d' }}"
                                     required
+                                    aria-label="Date de fin du rapport"
                                 >
                             </div>
                         </div>
                         
                         <div class="d-grid gap-2 mt-4">
-                            <button type="submit" name="action" value="preview" class="btn btn-generate">
+                            <button type="submit" name="action" value="preview" class="btn btn-generate" id="generateBtn">
                                 <i class="fas fa-eye me-2"></i>
                                 Générer le rapport
                             </button>
@@ -136,20 +843,151 @@
 document.addEventListener('DOMContentLoaded', function() {
     const dateDebut = document.getElementById('date_debut');
     const dateFin = document.getElementById('date_fin');
+    const rapportForm = document.getElementById('rapportForm');
+    const generateBtn = document.getElementById('generateBtn');
     
     // Validation : date_debut <= date_fin
     function validerDates() {
         if (dateDebut.value && dateFin.value) {
             if (dateDebut.value > dateFin.value) {
                 dateFin.setCustomValidity('La date de fin doit être postérieure à la date de début');
+                return false;
             } else {
                 dateFin.setCustomValidity('');
+                return true;
             }
         }
+        return true;
     }
     
     dateDebut.addEventListener('change', validerDates);
     dateFin.addEventListener('change', validerDates);
+    
+    // Validation du formulaire avec amélioration UX
+    rapportForm.addEventListener('submit', function(e) {
+        if (!validerDates()) {
+            e.preventDefault();
+            showToast('La date de fin doit être postérieure à la date de début', 'error');
+            return false;
+        }
+        
+        // Vérifier que la période ne dépasse pas 1 an
+        const diffTime = Math.abs(new Date(dateFin.value) - new Date(dateDebut.value));
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 365) {
+            e.preventDefault();
+            showToast('La période ne peut pas dépasser 1 an (365 jours)', 'error');
+            return false;
+        }
+        
+        // Effet de chargement
+        generateBtn.classList.add('loading');
+        generateBtn.innerHTML = '<i class="fas fa-spinner me-2"></i>Génération en cours...';
+    });
+    
+    // Fonction pour afficher les messages toast
+    function showToast(message, type = 'info') {
+        // Supprimer les anciens toasts
+        const oldToasts = document.querySelectorAll('.custom-toast');
+        oldToasts.forEach(toast => toast.remove());
+        
+        // Créer le toast
+        const toast = document.createElement('div');
+        toast.className = `custom-toast ${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: ${type === 'error' ? '#ef4444' : '#6B46C1'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            max-width: 90%;
+            word-wrap: break-word;
+            word-break: break-word;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Animation d'entrée
+        setTimeout(() => {
+            toast.style.transform = 'translateX(-50%) translateY(0)';
+            toast.style.opacity = '1';
+        }, 10);
+        
+        // Animation de sortie après 3 secondes
+        setTimeout(() => {
+            toast.style.transform = 'translateX(-50%) translateY(-20px)';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    
+    // Correction pour le zoom sur iOS
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        input.addEventListener('focus', function() {
+            if (window.innerWidth < 768) {
+                // Délai pour permettre au clavier de s'ouvrir
+                setTimeout(() => {
+                    input.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 100);
+            }
+        });
+    });
+    
+    // Ajuster la hauteur du viewport mobile
+    function setVH() {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    
+    setVH();
+    window.addEventListener('resize', setVH);
+    window.addEventListener('orientationchange', setVH);
+    
+    // Fonction pour ajuster le layout sur mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            // Empêche le défilement horizontal non désiré
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+            
+            // S'assure que le conteneur principal est bien centré
+            const container = document.querySelector('.container-fluid');
+            if (container) {
+                container.style.margin = '0 auto';
+                container.style.padding = '0 12px';
+            }
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    adjustForMobile();
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
+    
+    // Gestion des événements tactiles pour meilleure réactivité
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    document.addEventListener('touchmove', function() {}, { passive: true });
 });
 </script>
 {% endblock %}

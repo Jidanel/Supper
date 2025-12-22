@@ -5,10 +5,51 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            width: 100% !important;
+            position: relative;
+        }
+        
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 auto !important;
+            overflow: hidden !important;
+        }
+        
+        .main-content {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            width: 100% !important;
+        }
+        
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+        }
+    }
+
+    /* ============================================
+       STYLES GÉNÉRAUX
+       ============================================ */
     .selection-card {
         border: none;
         border-radius: 12px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: 100%;
+        max-width: 100%;
     }
 
     .card-header-custom {
@@ -47,15 +88,19 @@
         border-radius: 8px;
         padding: 1rem;
         margin-bottom: 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .btn-generate {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         border: none;
-        padding: 0.75rem 2rem;
+        padding: 0.75rem 1.5rem;
         font-weight: 600;
         transition: all 0.3s ease;
         box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        width: 100%;
+        max-width: 100%;
     }
 
     .btn-generate:hover {
@@ -68,6 +113,443 @@
         border-left: 4px solid #f59e0b;
         padding: 1rem;
         border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       BREADCRUMB MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .breadcrumb {
+            padding: 0.75rem 0;
+            margin-bottom: 1rem;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        
+        .breadcrumb::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .breadcrumb-item {
+            display: inline-block;
+            white-space: nowrap;
+        }
+        
+        .breadcrumb-item + .breadcrumb-item::before {
+            content: "›";
+            padding: 0 8px;
+        }
+    }
+
+    /* ============================================
+       CARD HEADER MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .card-header-custom {
+            padding: 1rem !important;
+        }
+        
+        .card-header-custom .fa-2x {
+            font-size: 1.5rem !important;
+        }
+        
+        .card-header-custom h4 {
+            font-size: 1.1rem !important;
+            line-height: 1.3 !important;
+            margin-bottom: 0.25rem !important;
+        }
+        
+        .card-header-custom p {
+            font-size: 0.85rem !important;
+            line-height: 1.2 !important;
+            margin-bottom: 0 !important;
+        }
+    }
+
+    /* ============================================
+       INFO BOX MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .info-box {
+            padding: 0.875rem !important;
+        }
+        
+        .info-box .fa-2x {
+            font-size: 1.25rem !important;
+            margin-right: 0.75rem !important;
+        }
+        
+        .info-box h6 {
+            font-size: 0.95rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .info-box ul {
+            padding-left: 1rem !important;
+            margin-bottom: 0 !important;
+        }
+        
+        .info-box li {
+            font-size: 0.85rem !important;
+            margin-bottom: 0.25rem !important;
+            line-height: 1.3 !important;
+        }
+    }
+
+    /* ============================================
+       PÉRIODE SUGGESTION MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .periode-suggestion {
+            padding: 0.875rem !important;
+            margin-bottom: 1rem !important;
+        }
+        
+        .periode-suggestion h6 {
+            font-size: 0.9rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+        
+        .periode-suggestion p {
+            font-size: 0.8rem !important;
+            margin-bottom: 0 !important;
+        }
+        
+        .periode-suggestion .btn-sm {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.8rem !important;
+            min-width: 70px !important;
+        }
+    }
+
+    /* ============================================
+       FORMULAIRES MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .card-body {
+            padding: 1rem !important;
+        }
+        
+        .form-label {
+            font-size: 0.9rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .form-select-lg,
+        .form-control-lg {
+            padding: 0.625rem 0.75rem !important;
+            font-size: 0.9rem !important;
+            height: auto !important;
+        }
+        
+        .date-input-group .form-control {
+            padding-left: 2.25rem !important;
+        }
+        
+        .date-input-group .input-icon {
+            left: 0.625rem !important;
+            font-size: 0.9rem !important;
+        }
+        
+        small.text-muted {
+            font-size: 0.75rem !important;
+        }
+    }
+
+    /* ============================================
+       ALERTE RÉSUMÉ PÉRIODE
+       ============================================ */
+    @media (max-width: 767px) {
+        .alert {
+            padding: 0.75rem !important;
+        }
+        
+        .alert h6 {
+            font-size: 0.9rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+        
+        .alert p {
+            font-size: 0.8rem !important;
+            margin-bottom: 0 !important;
+        }
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .d-grid.gap-2 {
+            gap: 0.75rem !important;
+        }
+        
+        .btn-lg {
+            padding: 0.75rem 1rem !important;
+            font-size: 0.9rem !important;
+            width: 100% !important;
+            margin-bottom: 0 !important;
+        }
+        
+        .btn-outline-primary,
+        .btn-outline-secondary {
+            width: 100% !important;
+            padding: 0.75rem 1rem !important;
+            font-size: 0.9rem !important;
+        }
+    }
+
+    /* ============================================
+       EXEMPLES DE PÉRIODES MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .card.mt-4 {
+            margin-top: 1rem !important;
+        }
+        
+        .card-header.bg-light {
+            padding: 0.75rem 1rem !important;
+        }
+        
+        .card-header h6 {
+            font-size: 0.9rem !important;
+            margin-bottom: 0 !important;
+        }
+        
+        .card-body .row {
+            margin-left: -0.5rem !important;
+            margin-right: -0.5rem !important;
+        }
+        
+        .card-body .col-md-4 {
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .periode-rapide {
+            font-size: 0.8rem !important;
+            padding: 0.5rem 0.25rem !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DES INPUTS DATE SUR MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        input[type="date"] {
+            min-height: 44px !important;
+            font-size: 16px !important; /* Empêche le zoom sur iOS */
+        }
+        
+        /* Correction spécifique pour les sélecteurs */
+        select {
+            font-size: 16px !important;
+            max-height: 200px !important;
+        }
+    }
+
+    /* ============================================
+       MARGES ET PADDING MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        .mt-4 {
+            margin-top: 1rem !important;
+        }
+        
+        .mb-4 {
+            margin-bottom: 1rem !important;
+        }
+        
+        .me-3 {
+            margin-right: 0.75rem !important;
+        }
+        
+        .ps-3 {
+            padding-left: 1rem !important;
+        }
+        
+        .row {
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            width: calc(100% + 24px) !important;
+        }
+        
+        .col, .col-md-6, .col-lg-8 {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .container-fluid {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+        }
+        
+        .row {
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+        }
+        
+        .col-md-6 {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+        
+        .btn-lg {
+            padding: 0.625rem 0.875rem !important;
+            font-size: 0.85rem !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+        
+        .card-header-custom h4 {
+            font-size: 1rem !important;
+        }
+        
+        .card-header-custom p {
+            font-size: 0.8rem !important;
+        }
+        
+        .form-label {
+            font-size: 0.85rem !important;
+        }
+        
+        .form-control-lg,
+        .form-select-lg {
+            font-size: 0.85rem !important;
+            padding: 0.5rem 0.625rem !important;
+        }
+        
+        .btn-lg {
+            font-size: 0.85rem !important;
+            padding: 0.625rem 0.75rem !important;
+        }
+        
+        .info-box li {
+            font-size: 0.8rem !important;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU SCROLLING TOUCH
+       ============================================ */
+    .card-body {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ============================================
+       GESTION DES TEXTES LONGPS
+       ============================================ */
+    .text-overflow-ellipsis {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ============================================
+       RESPONSIVE DES COLONNES
+       ============================================ */
+    @media (max-width: 767px) {
+        .col-md-6 {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+        
+        .col-lg-8 {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+    }
+
+    /* ============================================
+       PRÉVENTION DU DÉPASSEMENT HORIZONTAL
+       ============================================ */
+    * {
+        box-sizing: border-box !important;
+        max-width: 100% !important;
+    }
+
+    /* ============================================
+       SCROLLBAR CUSTOM POUR MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+    }
+
+    /* ============================================
+       CORRECTION POUR LES MODALES (SI APPLICABLE)
+       ============================================ */
+    @media (max-width: 767px) {
+        .modal-dialog {
+            margin: 10px !important;
+            max-width: calc(100vw - 20px) !important;
+            width: calc(100vw - 20px) !important;
+        }
+        
+        .modal-content {
+            border-radius: 8px !important;
+        }
+    }
+
+    /* ============================================
+       AMÉLIORATION DE L'ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .form-select:focus,
+    .btn:focus {
+        outline: 2px solid #667eea !important;
+        outline-offset: 2px !important;
+    }
+
+    /* ============================================
+       SUPPORT POUR DARK MODE (OPTIONNEL)
+       ============================================ */
+    @media (prefers-color-scheme: dark) {
+        .card {
+            background-color: #1f2937 !important;
+            color: #f9fafb !important;
+        }
+        
+        .text-muted {
+            color: #d1d5db !important;
+        }
     }
 </style>
 {% endblock %}
@@ -94,7 +576,7 @@
     </nav>
 
     <div class="row justify-content-center">
-        <div class="col-lg-8">
+        <div class="col-lg-8 col-md-10 col-12">
             <!-- Card Principale -->
             <div class="selection-card">
                 <div class="card-header-custom">
@@ -138,29 +620,7 @@
                         </div>
                     </div>
 
-                    <!-- Suggestion de période -->
-                    <div class="periode-suggestion">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <h6 class="mb-1">
-                                    <i class="fas fa-lightbulb text-primary me-2"></i>
-                                    Période Suggérée
-                                </h6>
-                                <p class="text-muted mb-0">
-                                    Du <strong>{{ date_debut_suggestion|date:"d/m/Y" }}</strong> 
-                                    au <strong>{{ date_fin_suggestion|date:"d/m/Y" }}</strong>
-                                    <small class="text-muted">(mois précédent)</small>
-                                </p>
-                            </div>
-                            <button type="button" 
-                                    class="btn btn-sm btn-outline-primary"
-                                    id="btnUtiliserSuggestion">
-                                <i class="fas fa-magic me-1"></i>
-                                Utiliser
-                            </button>
-                        </div>
-                    </div>
-
+                    
                     <!-- Formulaire -->
                     <form method="post" id="formCompteEmploi">
                         {% csrf_token %}
@@ -184,9 +644,9 @@
                             </select>
                         </div>
 
-                        <div class="row">
+                        <div class="row g-3">
                             <!-- Date de Début -->
-                            <div class="col-md-6 mb-4">
+                            <div class="col-md-6 mb-3">
                                 <label for="date_debut" class="form-label">
                                     <i class="fas fa-calendar-alt text-success me-2"></i>
                                     <strong>Date de Début</strong>
@@ -208,7 +668,7 @@
                             </div>
 
                             <!-- Date de Fin -->
-                            <div class="col-md-6 mb-4">
+                            <div class="col-md-6 mb-3">
                                 <label for="date_fin" class="form-label">
                                     <i class="fas fa-calendar-alt text-danger me-2"></i>
                                     <strong>Date de Fin</strong>
@@ -231,7 +691,7 @@
                         </div>
 
                         <!-- Résumé de la période -->
-                        <div class="alert alert-info border-info" id="resumePeriode" style="display: none;">
+                        <div class="alert alert-info border-info mb-4" id="resumePeriode" style="display: none;">
                             <h6 class="mb-2">
                                 <i class="fas fa-calendar-week me-2"></i>
                                 Période Sélectionnée
@@ -252,7 +712,7 @@
                             </button>
                             
                             <a href="{% url 'inventaire:liste_postes_stocks' %}" 
-                            class="btn btn-outline-secondary btn-lg">
+                               class="btn btn-outline-secondary btn-lg">
                                 <i class="fas fa-times me-2"></i>
                                 Annuler
                             </a>
@@ -270,25 +730,25 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <button class="btn btn-outline-primary btn-sm w-100 mb-2 periode-rapide"
+                    <div class="row g-2">
+                        <div class="col-md-4 col-6">
+                            <button class="btn btn-outline-primary btn-sm w-100 periode-rapide"
                                     data-debut="{{ date_debut_suggestion|date:'Y-m-d' }}"
                                     data-fin="{{ date_fin_suggestion|date:'Y-m-d' }}">
                                 <i class="fas fa-calendar-minus me-1"></i>
                                 Mois Précédent
                             </button>
                         </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-outline-success btn-sm w-100 mb-2 periode-rapide"
+                        <div class="col-md-4 col-6">
+                            <button class="btn btn-outline-success btn-sm w-100 periode-rapide"
                                     data-debut="{{ date_debut_suggestion|date:'Y-m' }}-01"
                                     data-fin="{{ date_debut_suggestion|date:'Y-m' }}-15">
                                 <i class="fas fa-calendar-alt me-1"></i>
                                 1ère Quinzaine
                             </button>
                         </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-outline-warning btn-sm w-100 mb-2 periode-rapide"
+                        <div class="col-md-4 col-6">
+                            <button class="btn btn-outline-warning btn-sm w-100 periode-rapide"
                                     data-debut="{{ date_debut_suggestion|date:'Y-m' }}-16"
                                     data-fin="{{ date_fin_suggestion|date:'Y-m-d' }}">
                                 <i class="fas fa-calendar-alt me-1"></i>
@@ -377,6 +837,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialiser le résumé
     updateResume();
+    
+    // Correction pour les sélecteurs sur mobile
+    if (window.innerWidth <= 767px) {
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('focus', function() {
+                this.style.fontSize = '16px';
+            });
+        });
+    }
+    
+    // Gestion du redimensionnement
+    window.addEventListener('resize', function() {
+        if (window.innerWidth <= 767px) {
+            document.body.style.overflowX = 'hidden';
+        }
+    });
 });
+
+// Empêcher le zoom automatique sur iOS
+document.addEventListener('touchstart', function() {}, {passive: true});
+
+// Correction pour les champs date sur mobile iOS
+if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    document.addEventListener('focus', function(e) {
+        if (e.target.type === 'date') {
+            e.target.style.fontSize = '16px';
+        }
+    }, true);
+}
 </script>
 {% endblock %}

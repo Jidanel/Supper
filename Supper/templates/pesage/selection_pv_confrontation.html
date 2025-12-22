@@ -3,6 +3,467 @@
 
 {% block title %}{{ title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ============================================
+       STYLES DE BASE POUR PC (inchangés)
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .row {
+        margin-left: -15px;
+        margin-right: -15px;
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    
+    .col-lg-8 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .card {
+        width: 100%;
+        margin-bottom: 1rem;
+        overflow: visible;
+    }
+    
+    .card-header {
+        padding: 1.25rem 1.5rem;
+    }
+    
+    .card-header h4 {
+        font-size: 1.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        margin: 0;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    /* ============================================
+       CORRECTIONS RESPONSIVES POUR MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        /* RÉINITIALISATION DES DIMENSIONS */
+        html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            width: 100% !important;
+            position: relative;
+        }
+        
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+        
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            box-sizing: border-box;
+        }
+        
+        /* CONTENEUR PRINCIPAL */
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: visible;
+        }
+        
+        .row {
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+            width: calc(100% + 20px) !important;
+            flex-wrap: wrap;
+        }
+        
+        .col-lg-8 {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+        
+        /* CARTE RESPONSIVE */
+        .card {
+            margin-bottom: 0.75rem;
+            border-radius: 10px !important;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .card-header {
+            padding: 1rem !important;
+        }
+        
+        .card-header h4 {
+            font-size: 1.25rem !important;
+            line-height: 1.3;
+        }
+        
+        .card-body {
+            padding: 1rem !important;
+        }
+        
+        /* FORMULAIRES RESPONSIVES */
+        .form-select, .form-control {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            font-size: 16px; /* Empêche le zoom sur iOS */
+        }
+        
+        .form-select-lg, .form-control-lg {
+            font-size: 1rem !important;
+            padding: 0.75rem !important;
+            height: auto !important;
+        }
+        
+        .form-label {
+            font-size: 0.95rem;
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        /* ROW INTERNE RESPONSIVE */
+        .row.mb-4 {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            width: 100% !important;
+        }
+        
+        .row.mb-4 .col-md-6 {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            margin-bottom: 1rem !important;
+        }
+        
+        .row.mb-4 .col-md-6:last-child {
+            margin-bottom: 0 !important;
+        }
+        
+        /* BOUTONS RESPONSIVES */
+        .btn {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0.875rem 1rem !important;
+            font-size: 1rem !important;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+        
+        .btn-lg {
+            font-size: 1.05rem !important;
+            padding: 1rem !important;
+        }
+        
+        .d-flex.gap-3 {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+        
+        .d-flex.gap-3 .btn {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+        
+        /* ALERTES RESPONSIVES */
+        .alert {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            margin-bottom: 1rem !important;
+            font-size: 0.9rem !important;
+            padding: 0.875rem !important;
+        }
+        
+        .alert i {
+            margin-right: 0.5rem !important;
+        }
+        
+        /* ESPACEMENTS RESPONSIVES */
+        .mb-4 {
+            margin-bottom: 1rem !important;
+        }
+        
+        .mt-4 {
+            margin-top: 1rem !important;
+        }
+        
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+        
+        /* ICONES RESPONSIVES */
+        .fa-2x {
+            font-size: 1.5rem !important;
+        }
+        
+        /* TEXTE RESPONSIVE */
+        .text-white {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        /* OMBRES ET BORDS */
+        .shadow {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        }
+        
+        /* CORRECTION DES HAUTEURS */
+        .form-select, .form-control, .btn {
+            min-height: 44px; /* Accessibilité tactile */
+        }
+    }
+    
+    /* ============================================
+       PETITS MOBILES (< 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+        
+        .row {
+            margin-left: -8px !important;
+            margin-right: -8px !important;
+            width: calc(100% + 16px) !important;
+        }
+        
+        .col-lg-8 {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+        
+        .card-header {
+            padding: 0.875rem !important;
+        }
+        
+        .card-header h4 {
+            font-size: 1.15rem !important;
+        }
+        
+        .card-body {
+            padding: 0.875rem !important;
+        }
+        
+        .form-select-lg, .form-control-lg {
+            padding: 0.625rem !important;
+            font-size: 0.95rem !important;
+        }
+        
+        .form-label {
+            font-size: 0.9rem;
+        }
+        
+        .btn-lg {
+            padding: 0.875rem !important;
+            font-size: 1rem !important;
+        }
+        
+        .alert {
+            padding: 0.75rem !important;
+            font-size: 0.85rem !important;
+        }
+        
+        .mb-4 {
+            margin-bottom: 0.75rem !important;
+        }
+    }
+    
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+        }
+        
+        .row {
+            margin-left: -6px !important;
+            margin-right: -6px !important;
+            width: calc(100% + 12px) !important;
+        }
+        
+        .col-lg-8 {
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+        }
+        
+        .card-header h4 {
+            font-size: 1.1rem !important;
+        }
+        
+        .card-header, .card-body {
+            padding: 0.75rem !important;
+        }
+        
+        .form-select-lg, .form-control-lg {
+            padding: 0.5rem !important;
+            font-size: 0.9rem !important;
+        }
+        
+        .btn-lg {
+            padding: 0.75rem !important;
+            font-size: 0.95rem !important;
+        }
+        
+        .alert {
+            padding: 0.625rem !important;
+            font-size: 0.8rem !important;
+        }
+        
+        .fa-2x {
+            font-size: 1.25rem !important;
+        }
+    }
+    
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .row.mb-4 {
+            flex-direction: row !important;
+        }
+        
+        .row.mb-4 .col-md-6 {
+            flex: 0 0 50% !important;
+            max-width: 50% !important;
+            padding-left: 5px !important;
+            padding-right: 5px !important;
+            margin-bottom: 0 !important;
+        }
+        
+        .d-flex.gap-3 {
+            flex-direction: row !important;
+        }
+        
+        .d-flex.gap-3 .btn {
+            flex: 0 0 48% !important;
+            max-width: 48% !important;
+        }
+    }
+    
+    /* ============================================
+       AMÉLIORATIONS D'ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .form-control:focus,
+    .btn:focus {
+        outline: 2px solid #dc3545;
+        outline-offset: 2px;
+    }
+    
+    /* ============================================
+       GESTION DU SCROLLBAR DANS LES CONTENEURS
+       ============================================ */
+    .main-content::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+    }
+    
+    .main-content::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+    
+    .main-content::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+    
+    .main-content::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    /* ============================================
+       CORRECTION DES TEXTES QUI DÉBORDENT
+       ============================================ */
+    .form-select option,
+    .alert,
+    .card-header h4,
+    .form-label,
+    .btn {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+    
+    /* ============================================
+       STYLES SPÉCIFIQUES POUR PC (inchangés)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-lg-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+        
+        .row.mb-4 .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            padding-left: 15px;
+            padding-right: 15px;
+            margin-bottom: 0;
+        }
+        
+        .d-flex.gap-3 {
+            flex-direction: row;
+        }
+        
+        .d-flex.gap-3 .btn {
+            flex: 1;
+            width: auto;
+        }
+        
+        .justify-content-center {
+            justify-content: center !important;
+        }
+    }
+    
+    /* ============================================
+       CORRECTION POUR LE ZOOM SUR MOBILE
+       ============================================ */
+    @media (max-width: 480px) {
+        input[type="date"],
+        select,
+        button {
+            font-size: 16px !important;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
     <div class="row justify-content-center">
@@ -92,6 +553,46 @@
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Empêcher le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Ajustement dynamique pour mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            // S'assurer que le body ne dépasse pas
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+            
+            // Ajuster les éléments de formulaire
+            const formElements = document.querySelectorAll('select, input, button');
+            formElements.forEach(el => {
+                el.style.maxWidth = '100%';
+                el.style.boxSizing = 'border-box';
+            });
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+            
+            const formElements = document.querySelectorAll('select, input, button');
+            formElements.forEach(el => {
+                el.style.maxWidth = '';
+                el.style.boxSizing = '';
+            });
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    
+    // Forcer le redimensionnement immédiat
+    adjustForMobile();
+});
+
+// Validation du formulaire
 document.getElementById('pvForm').addEventListener('submit', function(e) {
     var dateDebut = new Date(document.getElementById('date_debut').value);
     var dateFin = new Date(document.getElementById('date_fin').value);
@@ -111,5 +612,14 @@ document.getElementById('pvForm').addEventListener('submit', function(e) {
         return false;
     }
 });
+
+// Empêcher le zoom sur iOS pour les champs de formulaire
+(function() {
+    let viewport = document.querySelector("meta[name=viewport]");
+    if (viewport) {
+        let content = viewport.getAttribute("content");
+        viewport.setAttribute("content", content + ", maximum-scale=1.0");
+    }
+})();
 </script>
 {% endblock %}

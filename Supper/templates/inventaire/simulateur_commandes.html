@@ -6,28 +6,524 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       STYLES DE BASE POUR PC (inchangés)
+       ============================================ */
     .simulator-card {
         background: white;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         padding: 2rem;
+        width: 100%;
+        box-sizing: border-box;
     }
+    
     .result-item {
         padding: 1rem;
         border-left: 4px solid #6B46C1;
         background: #f8f9fa;
         margin-bottom: 0.5rem;
+        width: 100%;
+        box-sizing: border-box;
     }
+    
     .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.5rem;
         border-radius: 10px;
         text-align: center;
+        width: 100%;
+        box-sizing: border-box;
     }
+    
     .metric-value {
         font-size: 2rem;
         font-weight: bold;
+    }
+    
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .row {
+        margin-left: -15px;
+        margin-right: -15px;
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    
+    .col-md-4, .col-md-8, .col-md-12 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    /* ============================================
+       CORRECTIONS RESPONSIVES POUR MOBILE
+       ============================================ */
+    @media (max-width: 768px) {
+        /* RÉINITIALISATION DES DIMENSIONS */
+        html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            width: 100% !important;
+            position: relative;
+        }
+        
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+        
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            box-sizing: border-box;
+        }
+        
+        /* CONTENEUR PRINCIPAL */
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: visible;
+        }
+        
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+            flex-wrap: wrap;
+        }
+        
+        /* CARTES RESPONSIVES */
+        .simulator-card {
+            padding: 1.25rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* TITRES RESPONSIVES */
+        h2 {
+            font-size: 1.5rem !important;
+            line-height: 1.3;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            margin-bottom: 1rem !important;
+        }
+        
+        h5 {
+            font-size: 1.2rem !important;
+            line-height: 1.3;
+        }
+        
+        /* FORMULAIRES RESPONSIVES */
+        .form-select {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            font-size: 16px; /* Empêche le zoom sur iOS */
+        }
+        
+        .form-label {
+            font-size: 0.95rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* BOUTONS RESPONSIVES */
+        .btn {
+            width: 100%;
+            max-width: 100%;
+            padding: 0.875rem 1rem;
+            font-size: 1rem;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+        
+        /* ALERTES RESPONSIVES */
+        .alert {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        .alert ul {
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* RESULT-ITEM RESPONSIVE */
+        .result-item {
+            padding: 0.875rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .result-item strong {
+            flex: 0 0 60%;
+            max-width: 60%;
+            font-size: 0.9rem;
+        }
+        
+        .result-item .float-end {
+            flex: 0 0 40%;
+            max-width: 40%;
+            text-align: right;
+        }
+        
+        .result-item small {
+            flex: 0 0 100%;
+            max-width: 100%;
+            margin-top: 0.25rem;
+            font-size: 0.8rem;
+        }
+        
+        /* TABLEAU RESPONSIVE */
+        .table {
+            width: 100%;
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .table thead th {
+            white-space: nowrap;
+            font-size: 0.9rem;
+            padding: 0.75rem;
+        }
+        
+        .table tbody td {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+            min-width: 120px;
+            vertical-align: middle;
+        }
+        
+        .table tbody td:first-child {
+            min-width: 100px;
+            font-weight: 600;
+        }
+        
+        /* BADGES RESPONSIVES */
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            white-space: nowrap;
+        }
+        
+        /* METRIC CARD RESPONSIVE */
+        .metric-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+        }
+        
+        /* CORRECTION DES FLOATS SUR MOBILE */
+        .float-end {
+            float: none !important;
+            display: inline-block;
+        }
+        
+        /* ESPACEMENTS RESPONSIVES */
+        .mt-4, .mb-4 {
+            margin-top: 1rem !important;
+            margin-bottom: 1rem !important;
+        }
+        
+        .mt-3 {
+            margin-top: 0.75rem !important;
+        }
+        
+        .mb-3 {
+            margin-bottom: 0.75rem !important;
+        }
+        
+        /* CORRECTION POUR LES LISTES DANS LES ALERTES */
+        .alert ul {
+            padding-left: 1.25rem;
+        }
+        
+        .alert ul li {
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
+    }
+    
+    /* ============================================
+       PETITS MOBILES (< 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+        
+        .simulator-card {
+            padding: 1rem;
+        }
+        
+        h2 {
+            font-size: 1.3rem !important;
+        }
+        
+        h5 {
+            font-size: 1.1rem !important;
+        }
+        
+        .table tbody td {
+            font-size: 0.85rem;
+            padding: 0.625rem;
+        }
+        
+        .table thead th {
+            font-size: 0.85rem;
+            padding: 0.625rem;
+        }
+        
+        .result-item {
+            padding: 0.75rem;
+        }
+        
+        .result-item strong {
+            font-size: 0.85rem;
+            flex: 0 0 55%;
+            max-width: 55%;
+        }
+        
+        .result-item .float-end {
+            flex: 0 0 45%;
+            max-width: 45%;
+            font-size: 0.85rem;
+        }
+        
+        .metric-card {
+            padding: 0.875rem;
+        }
+        
+        .metric-value {
+            font-size: 1.3rem;
+        }
+        
+        .btn {
+            padding: 0.75rem;
+            font-size: 0.95rem;
+        }
+        
+        .form-select {
+            font-size: 16px;
+            padding: 0.75rem;
+        }
+    }
+    
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+        
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+        
+        h2 {
+            font-size: 1.2rem !important;
+        }
+        
+        h5 {
+            font-size: 1rem !important;
+        }
+        
+        .simulator-card {
+            padding: 0.875rem;
+        }
+        
+        .table {
+            font-size: 0.8rem;
+        }
+        
+        .table tbody td {
+            padding: 0.5rem;
+            min-width: 100px;
+        }
+        
+        .table tbody td:first-child {
+            min-width: 80px;
+        }
+        
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+        
+        .alert {
+            font-size: 0.9rem;
+        }
+        
+        .alert ul li {
+            font-size: 0.85rem;
+        }
+    }
+    
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .simulator-card {
+            padding: 1rem;
+        }
+        
+        .table {
+            display: table;
+            width: 100%;
+        }
+        
+        .table thead th {
+            font-size: 0.85rem;
+            padding: 0.5rem;
+        }
+        
+        .table tbody td {
+            font-size: 0.85rem;
+            padding: 0.5rem;
+        }
+        
+        .result-item {
+            flex-wrap: nowrap;
+        }
+        
+        .result-item strong {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+        
+        .result-item .float-end {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+    }
+    
+    /* ============================================
+       AMÉLIORATIONS D'ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .btn:focus,
+    .table:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+    
+    /* Hauteur minimale pour les zones tactiles */
+    .btn,
+    .form-select,
+    .table tbody td {
+        min-height: 44px;
+    }
+    
+    .table tbody td {
+        display: table-cell;
+        vertical-align: middle;
+    }
+    
+    /* ============================================
+       GESTION DU SCROLLBAR DANS LES TABLEAUX
+       ============================================ */
+    .table::-webkit-scrollbar {
+        height: 6px;
+    }
+    
+    .table::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+    
+    .table::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+    
+    .table::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    /* ============================================
+       CORRECTION DES TEXTES QUI DÉBORDENT
+       ============================================ */
+    .table tbody td,
+    .alert,
+    .result-item,
+    .simulator-card,
+    h2,
+    h5 {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+    
+    /* ============================================
+       STYLES SPÉCIFIQUES POUR LES COLONNES
+       ============================================ */
+    @media (min-width: 769px) {
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+        
+        .col-md-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+        
+        .col-md-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+        
+        .btn {
+            width: auto;
+        }
+        
+        .table {
+            display: table;
+            overflow-x: visible;
+        }
     }
 </style>
 {% endblock %}
@@ -68,77 +564,78 @@
             <div class="simulator-card">
                 <h5 class="mb-4">Résultats pour {{ resultats.poste.nom }}</h5>
                 
-                
+                <!-- Les résultats seront affichés ici -->
+            </div>
         </div>
         {% endif %}
 
-{% if erreur %}
-<div class="col-md-12">
-    <div class="alert alert-warning">
-        <h5><i class="fas fa-exclamation-triangle me-2"></i>Calcul Impossible</h5>
-        <p>{{ erreur }}</p>
-        <p class="mb-0">
-            <small>
-                <strong>Raisons possibles :</strong>
-                <ul>
-                    <li>Pas assez de données historiques (minimum 90 jours requis)</li>
-                    <li>Aucune recette déclarée pour ce poste récemment</li>
-                    <li>Données incohérentes ou incomplètes</li>
-                </ul>
-            </small>
-        </p>
-    </div>
-</div>
-{% endif %}
+        {% if erreur %}
+        <div class="col-md-12">
+            <div class="alert alert-warning">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>Calcul Impossible</h5>
+                <p>{{ erreur }}</p>
+                <p class="mb-0">
+                    <small>
+                        <strong>Raisons possibles :</strong>
+                        <ul>
+                            <li>Pas assez de données historiques (minimum 90 jours requis)</li>
+                            <li>Aucune recette déclarée pour ce poste récemment</li>
+                            <li>Données incohérentes ou incomplètes</li>
+                        </ul>
+                    </small>
+                </p>
+            </div>
+        </div>
+        {% endif %}
 
-<!-- Remplacer la section qualité prévision par : -->
-{% if resultats and resultats.qualite_prevision %}
-<div class="col-md-12 mt-4">
-    <div class="simulator-card">
-        <h5 class="mb-3">
-            <i class="fas fa-chart-line me-2"></i>
-            Qualité des Prévisions (Modèle Statistique Avancé)
-        </h5>
-        
-        <div class="alert alert-info mb-3">
-            <i class="fas fa-info-circle me-2"></i>
-            Les prévisions utilisent un modèle Holt-Winters qui analyse les tendances et la saisonnalité 
-            de vos données historiques sur les 365 derniers jours.
-        </div>
-        
-        <div class="row">
-            <div class="col-md-4">
-                <div class="result-item">
-                    <strong>Critère AIC :</strong>
-                    <span class="float-end">{{ resultats.qualite_prevision.aic|floatformat:2 }}</span>
-                    <small class="d-block text-muted">Plus bas = meilleur modèle</small>
+        <!-- Remplacer la section qualité prévision par : -->
+        {% if resultats and resultats.qualite_prevision %}
+        <div class="col-md-12 mt-4">
+            <div class="simulator-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Qualité des Prévisions (Modèle Statistique Avancé)
+                </h5>
+                
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Les prévisions utilisent un modèle Holt-Winters qui analyse les tendances et la saisonnalité 
+                    de vos données historiques sur les 365 derniers jours.
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="result-item">
+                            <strong>Critère AIC :</strong>
+                            <span class="float-end">{{ resultats.qualite_prevision.aic|floatformat:2 }}</span>
+                            <small class="d-block text-muted">Plus bas = meilleur modèle</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="result-item">
+                            <strong>Erreur Moyenne :</strong>
+                            <span class="float-end">{{ resultats.qualite_prevision.mse|floatformat:0|format_milliers }} FCFA²</span>
+                            <small class="d-block text-muted">Écart-type des prévisions</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="result-item">
+                            <strong>Fiabilité :</strong>
+                            <span class="float-end">
+                                {% if resultats.qualite_prevision.mse < 1000000 %}
+                                    <span class="badge bg-success">Élevée ✓</span>
+                                {% elif resultats.qualite_prevision.mse < 5000000 %}
+                                    <span class="badge bg-warning">Moyenne</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Faible ⚠</span>
+                                {% endif %}
+                            </span>
+                            <small class="d-block text-muted">Basée sur l'historique</small>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="result-item">
-                    <strong>Erreur Moyenne :</strong>
-                    <span class="float-end">{{ resultats.qualite_prevision.mse|floatformat:0|format_milliers }} FCFA²</span>
-                    <small class="d-block text-muted">Écart-type des prévisions</small>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="result-item">
-                    <strong>Fiabilité :</strong>
-                    <span class="float-end">
-                        {% if resultats.qualite_prevision.mse < 1000000 %}
-                            <span class="badge bg-success">Élevée ✓</span>
-                        {% elif resultats.qualite_prevision.mse < 5000000 %}
-                            <span class="badge bg-warning">Moyenne</span>
-                        {% else %}
-                            <span class="badge bg-danger">Faible ⚠</span>
-                        {% endif %}
-                    </span>
-                    <small class="d-block text-muted">Basée sur l'historique</small>
-                </div>
-            </div>
-        </div>
-    </div>
-    
+            
             <!-- Scénarios de commande détaillés -->
             <div class="simulator-card mt-3">
                 <h5 class="mb-3">
@@ -193,7 +690,62 @@
             </div>
         </div>
         {% endif %}
-        
     </div>
 </div>
+
+<script>
+// ============================================
+// CORRECTIONS POUR MOBILE
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Empêcher le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Ajustement dynamique pour les petits écrans
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            // S'assurer que le body ne dépasse pas
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+            
+            // Ajuster les tableaux
+            const tables = document.querySelectorAll('.table');
+            tables.forEach(table => {
+                table.style.display = 'block';
+                table.style.overflowX = 'auto';
+            });
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+            
+            const tables = document.querySelectorAll('.table');
+            tables.forEach(table => {
+                table.style.display = 'table';
+                table.style.overflowX = 'visible';
+            });
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    
+    // Forcer le redimensionnement immédiat
+    adjustForMobile();
+});
+
+// ============================================
+// CORRECTION POUR LES CHAMPS DE FORMULAIRE
+// ============================================
+// Empêcher le zoom sur iOS pour les champs de formulaire
+(function() {
+    let viewport = document.querySelector("meta[name=viewport]");
+    if (viewport) {
+        let content = viewport.getAttribute("content");
+        viewport.setAttribute("content", content + ", maximum-scale=1.0");
+    }
+})();
+</script>
 {% endblock %}

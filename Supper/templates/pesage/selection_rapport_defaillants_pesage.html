@@ -5,23 +5,448 @@
 
 {% block extra_css %}
 <style>
-    :root { --teal-principal: #0D9488; --teal-fonce: #0F766E; }
-    .selection-container { max-width: 600px; margin: 3rem auto; }
-    .selection-card { background: white; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
-    .selection-header { background: linear-gradient(135deg, var(--teal-principal), var(--teal-fonce)); color: white; padding: 2rem; text-align: center; }
-    .selection-body { padding: 2.5rem; }
-    .form-group { margin-bottom: 1.5rem; }
-    .form-label { color: #334155; font-weight: 500; margin-bottom: 0.5rem; display: block; }
-    .form-control { width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 8px; }
-    .form-control:focus { outline: none; border-color: var(--teal-principal); }
-    .date-input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .btn-generate { background: linear-gradient(135deg, var(--teal-principal), var(--teal-fonce)); color: white; padding: 1rem 2rem; border: none; border-radius: 50px; width: 100%; margin-top: 1.5rem; cursor: pointer; }
-    .btn-generate:hover { transform: scale(1.02); }
-    .quick-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
-    .quick-btn { background: #F0FDFA; color: var(--teal-fonce); padding: 0.5rem 1rem; border: none; border-radius: 20px; cursor: pointer; }
-    .quick-btn:hover { background: var(--teal-principal); color: white; }
-    .info-box { background: #F0FDFA; border-left: 4px solid var(--teal-principal); padding: 1rem; border-radius: 5px; margin-top: 2rem; }
-    .back-link { display: inline-flex; align-items: center; color: var(--teal-principal); text-decoration: none; margin-bottom: 2rem; }
+    :root { 
+        --teal-principal: #0D9488; 
+        --teal-fonce: #0F766E; 
+        --mobile-padding: 15px;
+    }
+    
+    /* ============================================
+       STYLES DE BASE - COMMENS AUX DEUX VERSIONS
+       ============================================ */
+    .selection-container { 
+        max-width: 600px; 
+        margin: 3rem auto;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .selection-card { 
+        background: white; 
+        border-radius: 15px; 
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1); 
+        overflow: hidden;
+        width: 100%;
+    }
+    
+    .selection-header { 
+        background: linear-gradient(135deg, var(--teal-principal), var(--teal-fonce)); 
+        color: white; 
+        padding: 2rem; 
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .selection-body { 
+        padding: 2.5rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .form-group { 
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+    
+    .form-label { 
+        color: #334155; 
+        font-weight: 500; 
+        margin-bottom: 0.5rem; 
+        display: block;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    .form-control { 
+        width: 100%; 
+        padding: 0.75rem; 
+        border: 2px solid #e5e7eb; 
+        border-radius: 8px;
+        box-sizing: border-box;
+        max-width: 100%;
+        font-size: 16px; /* Empêche le zoom automatique sur iOS */
+    }
+    
+    .form-control:focus { 
+        outline: none; 
+        border-color: var(--teal-principal); 
+    }
+    
+    .date-input-group { 
+        display: grid; 
+        grid-template-columns: 1fr 1fr; 
+        gap: 1rem;
+        width: 100%;
+    }
+    
+    .btn-generate { 
+        background: linear-gradient(135deg, var(--teal-principal), var(--teal-fonce)); 
+        color: white; 
+        padding: 1rem 2rem; 
+        border: none; 
+        border-radius: 50px; 
+        width: 100%; 
+        margin-top: 1.5rem; 
+        cursor: pointer;
+        font-size: 1rem;
+        box-sizing: border-box;
+        display: block;
+    }
+    
+    .btn-generate:hover { 
+        transform: scale(1.02); 
+    }
+    
+    .quick-buttons { 
+        display: flex; 
+        gap: 0.5rem; 
+        flex-wrap: wrap; 
+        margin-top: 0.5rem;
+        width: 100%;
+    }
+    
+    .quick-btn { 
+        background: #F0FDFA; 
+        color: var(--teal-fonce); 
+        padding: 0.5rem 1rem; 
+        border: none; 
+        border-radius: 20px; 
+        cursor: pointer;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+        text-align: center;
+    }
+    
+    .quick-btn:hover { 
+        background: var(--teal-principal); 
+        color: white; 
+    }
+    
+    .info-box { 
+        background: #F0FDFA; 
+        border-left: 4px solid var(--teal-principal); 
+        padding: 1rem; 
+        border-radius: 5px; 
+        margin-top: 2rem;
+        width: 100%;
+        box-sizing: border-box;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    .back-link { 
+        display: inline-flex; 
+        align-items: center; 
+        color: var(--teal-principal); 
+        text-decoration: none; 
+        margin-bottom: 2rem;
+        max-width: 100%;
+        word-wrap: break-word;
+        white-space: nowrap;
+    }
+    
+    .container {
+        width: 100%;
+        padding-right: var(--mobile-padding);
+        padding-left: var(--mobile-padding);
+        margin-right: auto;
+        margin-left: auto;
+        box-sizing: border-box;
+    }
+    
+    /* ============================================
+       VERSION MOBILE (≤ 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Réinitialisation complète pour mobile */
+        html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            width: 100% !important;
+            position: relative;
+        }
+        
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        
+        .content-wrapper {
+            padding: 1rem !important;
+            min-width: 100% !important;
+            max-width: 100vw !important;
+            width: 100% !important;
+            box-sizing: border-box;
+        }
+        
+        .container {
+            padding-left: 12px;
+            padding-right: 12px;
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        .selection-container {
+            margin: 1.5rem auto;
+            padding: 0 12px;
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        .selection-card {
+            border-radius: 12px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        
+        .selection-header {
+            padding: 1.5rem 1rem;
+        }
+        
+        .selection-header h1 {
+            font-size: 1.5rem !important;
+            margin: 0 0 0.5rem 0 !important;
+            line-height: 1.3;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        .selection-header p {
+            font-size: 0.9rem;
+            margin: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        .selection-body {
+            padding: 1.5rem 1rem;
+        }
+        
+        /* Grille de dates sur une colonne en mobile */
+        .date-input-group {
+            grid-template-columns: 1fr !important;
+            gap: 1rem;
+            width: 100%;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+        
+        .form-label {
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-control {
+            padding: 0.875rem;
+            font-size: 16px; /* Important pour éviter le zoom iOS */
+            width: 100%;
+        }
+        
+        .quick-buttons {
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .quick-btn {
+            flex: 1 1 calc(50% - 0.5rem);
+            max-width: calc(50% - 0.5rem);
+            font-size: 0.85rem;
+            padding: 0.625rem 0.75rem;
+            text-align: center;
+            min-width: 0;
+            word-wrap: break-word;
+            white-space: normal;
+            line-height: 1.2;
+        }
+        
+        .btn-generate {
+            padding: 1rem 1.5rem;
+            font-size: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .info-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .back-link {
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+            padding-left: 0.5rem;
+        }
+    }
+    
+    /* ============================================
+       PETITS MOBILES (≤ 480px)
+       ============================================ */
+    @media (max-width: 480px) {
+        :root {
+            --mobile-padding: 10px;
+        }
+        
+        .container {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        
+        .selection-container {
+            padding: 0 10px;
+            margin: 1rem auto;
+        }
+        
+        .selection-header {
+            padding: 1.25rem 0.875rem;
+        }
+        
+        .selection-header h1 {
+            font-size: 1.3rem !important;
+        }
+        
+        .selection-body {
+            padding: 1.25rem 0.875rem;
+        }
+        
+        .quick-btn {
+            flex: 1 1 100%;
+            max-width: 100%;
+            margin-bottom: 0.375rem;
+        }
+        
+        .quick-buttons {
+            flex-direction: column;
+        }
+        
+        .btn-generate {
+            padding: 0.875rem 1.25rem;
+            font-size: 0.95rem;
+        }
+        
+        .form-control {
+            padding: 0.75rem;
+        }
+    }
+    
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE (≤ 896px et paysage)
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .selection-container {
+            max-width: 90%;
+            margin: 1rem auto;
+        }
+        
+        .date-input-group {
+            grid-template-columns: 1fr 1fr !important;
+        }
+        
+        .selection-body {
+            padding: 1.5rem;
+        }
+        
+        .quick-buttons {
+            flex-direction: row;
+        }
+        
+        .quick-btn {
+            flex: 1 1 auto;
+            max-width: calc(25% - 0.5rem);
+            font-size: 0.8rem;
+            padding: 0.5rem 0.625rem;
+        }
+    }
+    
+    /* ============================================
+       TABLETTES (769px à 1024px)
+       ============================================ */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .selection-container {
+            max-width: 700px;
+            margin: 2rem auto;
+            padding: 0 20px;
+        }
+        
+        .container {
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+    }
+    
+    /* ============================================
+       VERSION PC (≥ 1025px) - NON MODIFIÉ
+       ============================================ */
+    @media (min-width: 1025px) {
+        /* Styles PC existants - non modifiés */
+        .selection-container {
+            max-width: 600px;
+            margin: 3rem auto;
+        }
+        
+        .container {
+            max-width: 1200px;
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+    }
+    
+    /* ============================================
+       CORRECTIONS GÉNÉRALES DE DÉFILEMENT
+       ============================================ */
+    * {
+        max-width: 100%;
+    }
+    
+    img, video, iframe {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* ============================================
+       AMÉLIORATIONS D'ACCESSIBILITÉ
+       ============================================ */
+    .btn-generate:focus,
+    .quick-btn:focus,
+    .form-control:focus {
+        outline: 2px solid var(--teal-principal);
+        outline-offset: 2px;
+    }
+    
+    /* ============================================
+       CORRECTION POUR ZOOM iOS
+       ============================================ */
+    @media (max-width: 480px) {
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+    
+    /* ============================================
+       GESTION DU TEXTE TRÈS LONG
+       ============================================ */
+    .text-break {
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
 </style>
 {% endblock %}
 
@@ -79,6 +504,38 @@ document.getElementById('periodeForm').addEventListener('submit', function(e) {
     if (new Date(document.getElementById('date_debut').value) > new Date(document.getElementById('date_fin').value)) {
         e.preventDefault(); alert('Date début > Date fin');
     }
+});
+
+// Correction du défilement sur mobile
+document.addEventListener('DOMContentLoaded', function() {
+    // Empêche le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Force le recalcul des dimensions sur mobile
+    function adjustMobileLayout() {
+        if (window.innerWidth <= 768) {
+            // S'assure que tout s'adapte à l'écran
+            document.body.style.overflowX = 'hidden';
+            document.body.style.width = '100%';
+            document.body.style.maxWidth = '100vw';
+            
+            // Ajuste les conteneurs
+            const containers = document.querySelectorAll('.container, .selection-container');
+            containers.forEach(container => {
+                container.style.width = '100%';
+                container.style.maxWidth = '100%';
+                container.style.marginLeft = 'auto';
+                container.style.marginRight = 'auto';
+            });
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    adjustMobileLayout();
+    window.addEventListener('resize', adjustMobileLayout);
+    window.addEventListener('orientationchange', function() {
+        setTimeout(adjustMobileLayout, 100);
+    });
 });
 </script>
 {% endblock %}
