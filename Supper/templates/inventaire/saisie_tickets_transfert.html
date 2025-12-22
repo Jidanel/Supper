@@ -5,6 +5,9 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       STYLES DE BASE - PC ET MOBILE
+       ============================================ */
     .serie-disponible {
         background: white;
         border: 2px solid #e5e7eb;
@@ -52,6 +55,613 @@
         border-left: 4px solid #dc3545;
         padding: 1rem;
         margin-bottom: 1rem;
+    }
+
+    /* ============================================
+       ANIMATION DE LA FLÈCHE
+       ============================================ */
+    @keyframes slideRight {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(10px); }
+    }
+
+    .animated-arrow {
+        animation: slideRight 2s infinite;
+    }
+
+    /* ============================================
+       RÉINITIALISATION CRITIQUE POUR MOBILE
+       ============================================ */
+    @media (max-width: 991px) {
+        /* RESET COMPLET pour éliminer tout défilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Conteneur principal avec gestion stricte */
+        .container-fluid {
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+            margin: 0 auto !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        .py-4 {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1.5rem !important;
+        }
+
+        /* Correction des lignes Bootstrap */
+        .row {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            width: 100% !important;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Colonnes - FORCER 100% de largeur sur mobile */
+        .col-lg-6, .col-md-6, .col-md-5, .col-md-2 {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            margin-bottom: 1.5rem !important;
+            box-sizing: border-box !important;
+        }
+
+        /* ============================================
+           EN-TÊTE AVEC INFOS DES POSTES - MOBILE
+           ============================================ */
+        .mb-4 {
+            margin-bottom: 1.5rem !important;
+        }
+
+        /* Réorganisation en colonne pour mobile */
+        .row.mb-4 {
+            flex-direction: column !important;
+            gap: 1.5rem !important;
+        }
+
+        /* Poste émetteur - mobile */
+        .col-md-5 .card {
+            width: 100% !important;
+            margin: 0 !important;
+            border-radius: 8px !important;
+        }
+
+        .col-md-5 .card-body {
+            padding: 1.25rem !important;
+        }
+
+        .col-md-5 .card-body h6 {
+            font-size: 0.95rem !important;
+        }
+
+        .col-md-5 .card-body h5 {
+            font-size: 1.25rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* Flèche centrale - mobile */
+        .col-md-2.text-center {
+            order: 2 !important;
+            padding: 0.5rem 0 !important;
+        }
+
+        .col-md-2 .fa-long-arrow-alt-right {
+            transform: rotate(90deg) !important;
+            font-size: 2rem !important;
+            margin: 0.5rem 0 !important;
+        }
+
+        /* Poste destinataire - mobile */
+        .col-md-5:last-child {
+            order: 3 !important;
+        }
+
+        /* ============================================
+           TITRE PRINCIPAL - MOBILE
+           ============================================ */
+        h2.mb-4 {
+            font-size: 1.5rem !important;
+            text-align: center !important;
+            margin-bottom: 1.5rem !important;
+            padding: 0 1rem !important;
+            word-wrap: break-word !important;
+        }
+
+        /* ============================================
+           CARTES PRINCIPALES - MOBILE
+           ============================================ */
+        .card {
+            width: 100% !important;
+            margin: 0 0 1.5rem 0 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+            border: 1px solid #e0e0e0 !important;
+        }
+
+        .card-header {
+            padding: 1rem !important;
+            border-radius: 8px 8px 0 0 !important;
+        }
+
+        .card-header h5 {
+            font-size: 1.1rem !important;
+            margin: 0 !important;
+            word-wrap: break-word !important;
+        }
+
+        .card-body {
+            padding: 1.25rem !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* ============================================
+           FORMULAIRE - MOBILE
+           ============================================ */
+        .mb-3 {
+            margin-bottom: 1rem !important;
+        }
+
+        .form-label {
+            font-size: 0.95rem !important;
+            font-weight: 600 !important;
+            margin-bottom: 0.5rem !important;
+            display: block !important;
+            width: 100% !important;
+        }
+
+        /* Champs de formulaire */
+        .form-select, .form-control, input, select, textarea {
+            font-size: 16px !important; /* Empêche le zoom sur iOS */
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 0.75rem !important;
+            border-radius: 6px !important;
+            border: 1px solid #ced4da !important;
+            background-color: white !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        textarea.form-control {
+            min-height: 100px !important;
+            resize: vertical !important;
+        }
+
+        /* Textes d'aide */
+        .form-text {
+            font-size: 0.85rem !important;
+            color: #666 !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 1rem !important;
+            display: block !important;
+            width: 100% !important;
+            word-wrap: break-word !important;
+        }
+
+        /* ============================================
+           TABLEAU DES SÉRIES DISPONIBLES - MOBILE
+           ============================================ */
+        .table-responsive {
+            width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            margin: 1rem 0 !important;
+            border: 1px solid #dee2e6 !important;
+            border-radius: 6px !important;
+        }
+
+        .table {
+            width: 100% !important;
+            margin-bottom: 0 !important;
+            font-size: 0.9rem !important;
+        }
+
+        .table thead th {
+            white-space: nowrap !important;
+            background-color: #f8f9fa !important;
+            font-size: 0.85rem !important;
+        }
+
+        .table tbody td {
+            word-break: break-word !important;
+            vertical-align: middle !important;
+        }
+
+        /* ============================================
+           ALERTES - MOBILE
+           ============================================ */
+        .alert {
+            width: 100% !important;
+            margin: 1rem 0 !important;
+            padding: 1rem !important;
+            border-radius: 6px !important;
+            font-size: 0.9rem !important;
+            word-wrap: break-word !important;
+            box-sizing: border-box !important;
+        }
+
+        /* ============================================
+           BOUTONS - MOBILE
+           ============================================ */
+        .btn {
+            width: 100% !important;
+            margin-bottom: 0.75rem !important;
+            padding: 0.875rem 1rem !important;
+            font-size: 1rem !important;
+            text-align: center !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            border-radius: 6px !important;
+            box-sizing: border-box !important;
+            display: block !important;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.9rem !important;
+        }
+
+        /* Conteneurs flex pour boutons */
+        .d-flex.justify-content-between {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+            width: 100% !important;
+        }
+
+        /* ============================================
+           STOCK DISPONIBLE - MOBILE
+           ============================================ */
+        .card-body[style*="max-height"] {
+            max-height: 400px !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding: 1rem !important;
+        }
+
+        /* Groupes de couleurs - mobile */
+        .couleur-groupe {
+            margin-bottom: 1.5rem !important;
+            width: 100% !important;
+        }
+
+        .couleur-titre {
+            padding: 0.75rem !important;
+            font-size: 0.95rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.25rem !important;
+        }
+
+        .couleur-titre span {
+            float: none !important;
+            font-size: 0.85rem !important;
+            opacity: 0.9 !important;
+        }
+
+        .couleur-contenu {
+            padding: 0.75rem !important;
+        }
+
+        .couleur-contenu p {
+            font-size: 0.9rem !important;
+            margin-bottom: 0.75rem !important;
+            text-align: center !important;
+        }
+
+        /* Séries disponibles - mobile */
+        .serie-disponible {
+            padding: 0.75rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        .serie-disponible .d-flex {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.5rem !important;
+        }
+
+        .serie-disponible .badge {
+            font-size: 0.8rem !important;
+            margin: 0.25rem 0 !important;
+            display: inline-block !important;
+        }
+
+        /* ============================================
+           BADGES - MOBILE
+           ============================================ */
+        .badge {
+            font-size: 0.8rem !important;
+            padding: 0.25rem 0.5rem !important;
+            margin: 0.125rem !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+        }
+
+        /* ============================================
+           CALCUL AUTOMATIQUE - MOBILE
+           ============================================ */
+        #calcul-auto {
+            font-size: 0.9rem !important;
+            padding: 0.875rem !important;
+        }
+
+        #info-calcul {
+            margin-top: 0.5rem !important;
+            font-size: 0.95rem !important;
+        }
+
+        /* ============================================
+           AMÉLIORATION DE L'ACCESSIBILITÉ
+           ============================================ */
+        .form-control:focus,
+        .form-select:focus,
+        .btn:focus,
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: 3px solid rgba(102, 126, 234, 0.5) !important;
+            outline-offset: 2px !important;
+            border-color: #667eea !important;
+        }
+
+        /* Tailles minimales pour les éléments interactifs */
+        input, select, textarea, button, .btn {
+            min-height: 44px !important;
+            min-width: 44px !important;
+        }
+
+        /* ============================================
+           CORRECTION DES ESPACEMENTS
+           ============================================ */
+        * {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+    }
+
+    /* ============================================
+       TABLETTES (entre 768px et 991px)
+       ============================================ */
+    @media (min-width: 768px) and (max-width: 991px) {
+        .container-fluid {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+        }
+
+        .row.mb-4 {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+
+        .col-md-5 {
+            flex: 0 0 45% !important;
+            max-width: 45% !important;
+        }
+
+        .col-md-2 {
+            flex: 0 0 10% !important;
+            max-width: 10% !important;
+            order: 0 !important;
+        }
+
+        .col-md-2 .fa-long-arrow-alt-right {
+            transform: rotate(0deg) !important;
+            font-size: 2.5rem !important;
+        }
+
+        .col-lg-6 {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+
+        .btn {
+            width: auto !important;
+            min-width: 200px !important;
+        }
+
+        .d-flex.justify-content-between {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        h2.mb-4 {
+            font-size: 1.3rem !important;
+            padding: 0 !important;
+        }
+
+        .card-header h5 {
+            font-size: 1rem !important;
+        }
+
+        .card-body {
+            padding: 1rem !important;
+        }
+
+        .serie-disponible {
+            padding: 0.625rem !important;
+        }
+
+        .couleur-titre {
+            font-size: 0.9rem !important;
+            padding: 0.625rem !important;
+        }
+
+        .couleur-contenu {
+            padding: 0.625rem !important;
+        }
+
+        .btn {
+            font-size: 0.95rem !important;
+            padding: 0.75rem !important;
+        }
+
+        .form-control, .form-select, input, select, textarea {
+            padding: 0.625rem !important;
+            font-size: 15px !important;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        h2.mb-4 {
+            font-size: 1.1rem !important;
+        }
+
+        .card-header h5 {
+            font-size: 0.95rem !important;
+        }
+
+        .serie-disponible .d-flex {
+            font-size: 0.85rem !important;
+        }
+
+        .badge {
+            font-size: 0.75rem !important;
+            padding: 0.2rem 0.4rem !important;
+        }
+
+        .btn {
+            font-size: 0.9rem !important;
+            padding: 0.75rem 0.5rem !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .row.mb-4 {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+        }
+
+        .col-md-5 {
+            flex: 0 0 45% !important;
+            max-width: 45% !important;
+            margin-bottom: 0 !important;
+        }
+
+        .col-md-2 {
+            flex: 0 0 10% !important;
+            max-width: 10% !important;
+            order: 0 !important;
+        }
+
+        .col-md-2 .fa-long-arrow-alt-right {
+            transform: rotate(0deg) !important;
+        }
+
+        .col-lg-6 {
+            flex: 0 0 50% !important;
+            max-width: 50% !important;
+        }
+
+        .btn {
+            width: auto !important;
+            min-width: 150px !important;
+        }
+
+        .d-flex.justify-content-between {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+
+        .card-body[style*="max-height"] {
+            max-height: 300px !important;
+        }
+    }
+
+    /* ============================================
+       STYLES POUR LA VERSION PC (inchangés)
+       ============================================ */
+    @media (min-width: 992px) {
+        .col-lg-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+        
+        .col-md-5 {
+            flex: 0 0 41.666667%;
+            max-width: 41.666667%;
+        }
+        
+        .col-md-2 {
+            flex: 0 0 16.666667%;
+            max-width: 16.666667%;
+        }
+        
+        .btn {
+            width: auto !important;
+        }
+        
+        .d-flex.justify-content-between {
+            flex-direction: row !important;
+        }
+        
+        /* Rétablir les marges pour PC */
+        .container-fluid {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+        
+        .row {
+            margin-left: -15px;
+            margin-right: -15px;
+        }
+        
+        .col-lg-6, .col-md-5, .col-md-2 {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DE LA SCROLLBAR SUR MOBILE
+       ============================================ */
+    @media (max-width: 991px) {
+        /* Masquer la scrollbar horizontale globale */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Permettre le scroll vertical mais pas horizontal */
+        body {
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Scroll interne pour tableaux */
+        .table-responsive {
+            -webkit-overflow-scrolling: touch;
+        }
     }
 </style>
 {% endblock %}
@@ -377,15 +987,4 @@ window.addEventListener('load', function() {
     afficherSeriesDisponibles();
 });
 </script>
-
-<style>
-@keyframes slideRight {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(10px); }
-}
-
-.animated-arrow {
-    animation: slideRight 2s infinite;
-}
-</style>
 {% endblock %}
