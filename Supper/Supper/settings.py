@@ -433,7 +433,8 @@ ADMIN_INDEX_TITLE = 'Tableau de Bord SUPPER'
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    'http://10.52.26.160:8000',
+    'http://192.168.1.162:8000',
+    'http:// 10.69.248.229:8000',
 ]
 
 # Configuration des cookies

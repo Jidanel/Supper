@@ -4,32 +4,19 @@
 {% load inventaire_extras %}
 {% comment %}
 ===================================================================
-templates/admin/index.html - Template Dashboard SUPPER CORRIGÉ
-Avec conditions de permissions granulaires
+templates/admin/index.html - Template Dashboard SUPPER RESPONSIVE
+Version mobile optimisée - Correction défilement horizontal
 CHEMIN: Supper/templates/admin/index.html
 ===================================================================
-
-
-PERMISSIONS UTILISÉES:
-- can_view_global_stats : Stats utilisateurs/postes
-- can_view_inventaires : Stats inventaires
-- can_view_recettes_peage : Stats recettes péage
-- can_view_objectifs : Objectifs annuels
-- can_view_graphs : Graphiques évolution
-- can_view_classement : Top postes / classements
-- has_pesage_access : Section pesage
-- user_permissions.gestion.peut_voir_journal_audit : Activités système
 {% endcomment %}
-
-
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
 {% block content %}
-<!-- STYLES INTÉGRÉS DIRECTEMENT - VERSION RESPONSIVE COMPLÈTE -->
+<!-- STYLES INTÉGRÉS DIRECTEMENT - VERSION MOBILE OPTIMISÉE -->
 <style>
     /* ============================================
-       RESET ET BASE - CORRECTION DÉFILEMENT HORIZONTAL
+       RESET GLOBAL - CORRECTION DÉFILEMENT HORIZONTAL
        ============================================ */
     .supper-dashboard * { 
         box-sizing: border-box;
@@ -48,6 +35,23 @@ PERMISSIONS UTILISÉES:
         width: 100%;
         overflow-x: hidden !important;
         position: relative;
+    }
+    
+    /* Correction fondamentale pour mobile */
+    @media (max-width: 768px) {
+        .supper-dashboard {
+            padding: 1rem !important;
+            margin: 0 !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+        
+        /* Éviter tout débordement */
+        .supper-dashboard > * {
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
     }
     
     .supper-container {
@@ -86,6 +90,8 @@ PERMISSIONS UTILISÉES:
         line-height: 1.3;
         word-wrap: break-word;
         overflow-wrap: break-word;
+        flex: 1;
+        min-width: 0;
     }
     
     .supper-header-sub {
@@ -95,11 +101,7 @@ PERMISSIONS UTILISÉES:
         line-height: 1.4;
         word-wrap: break-word;
         overflow-wrap: break-word;
-    }
-    
-    .supper-header-sub strong {
-        color: #fff;
-        font-weight: 600;
+        width: 100%;
     }
     
     .supper-badge {
@@ -120,7 +122,7 @@ PERMISSIONS UTILISÉES:
        ============================================ */
     .supper-actions {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1rem;
         margin-bottom: 1.5rem;
         width: 100%;
@@ -184,7 +186,7 @@ PERMISSIONS UTILISÉES:
        ============================================ */
     .supper-stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 1rem;
         margin-bottom: 1.5rem;
         width: 100%;
@@ -404,7 +406,7 @@ PERMISSIONS UTILISÉES:
        ============================================ */
     .supper-charts {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
         gap: 1.5rem;
         margin-bottom: 1.5rem;
         width: 100%;
@@ -497,7 +499,7 @@ PERMISSIONS UTILISÉES:
        ============================================ */
     .supper-pesage-stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 0.75rem;
         width: 100%;
         position: relative;
@@ -578,7 +580,7 @@ PERMISSIONS UTILISÉES:
     
     .supper-month-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         gap: 0.75rem;
         width: 100%;
     }
@@ -842,12 +844,18 @@ PERMISSIONS UTILISÉES:
         margin-top: 1rem;
         border-radius: 8px;
         border: 1px solid #e2e8f0;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    .supper-top-postes-container::-webkit-scrollbar {
+        display: none;
     }
     
     .supper-top-postes-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 500px;
+        min-width: 600px;
     }
     
     .supper-top-postes-table thead {
@@ -879,129 +887,38 @@ PERMISSIONS UTILISÉES:
        RESPONSIVE BREAKPOINTS - OPTIMISÉ POUR MOBILE
        ============================================ */
     
-    /* Écrans très larges (≥ 1400px) */
-    @media (min-width: 1400px) {
-        .supper-container {
-            max-width: 1400px;
-        }
-    }
-    
-    /* Écrans larges (≥ 1200px) */
-    @media (min-width: 1200px) {
-        .supper-charts {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    
-    /* Tablettes et petits écrans (≤ 1199px) */
-    @media (max-width: 1199px) {
-        .supper-dashboard {
-            padding: 1.25rem;
-        }
-        
-        .supper-header {
-            padding: 1.25rem 1.5rem;
-        }
-        
-        .supper-charts {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-        
-        .supper-chart-container {
-            height: 250px;
-        }
-        
-        .supper-objectives {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    
-    /* Tablettes (≤ 992px) - OPTIMISATION POUR LECTURE */
-    @media (max-width: 992px) {
-        .supper-dashboard {
-            padding: 1rem;
-            margin: 0;
-            width: 100%;
-            overflow-x: hidden;
-        }
-        
-        .supper-header {
-            flex-direction: column;
-            align-items: flex-start;
-            padding: 1.25rem;
-            gap: 0.75rem;
-        }
-        
-        .supper-header h1 {
-            font-size: 1.5rem;
-            width: 100%;
-        }
-        
-        .supper-badge {
-            align-self: flex-start;
-        }
-        
-        .supper-stats {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        
-        .supper-actions {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        
-        .supper-action-card {
-            min-height: 80px;
-            padding: 1rem;
-        }
-        
-        .supper-pesage-stats {
-            grid-template-columns: repeat(3, 1fr);
-        }
-        
-        .supper-month-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-        
-        .supper-alert {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-        }
-        
-        .supper-alert-action {
-            margin-left: 0;
-            align-self: flex-start;
-        }
-        
-        .supper-actions-bar {
-            gap: 0.4rem;
-        }
-        
-        .supper-btn {
-            font-size: 0.75rem;
-            padding: 0.4rem 0.75rem;
-            white-space: normal;
-            min-height: 36px;
-        }
-    }
-    
-    /* Tablettes moyennes (≤ 768px) - OPTIMISATION POUR MOBILE */
+    /* ============================================
+       CORRECTION SPÉCIFIQUE POUR MOBILE
+       ============================================ */
     @media (max-width: 768px) {
+        /* Correction globale */
         .supper-dashboard {
-            padding: 0.75rem;
-            width: 100vw;
-            overflow-x: hidden;
+            padding: 0.75rem !important;
+            margin: 0 !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
         }
         
+        .supper-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+            padding: 0 !important;
+        }
+        
+        /* Header mobile */
         .supper-header {
-            border-radius: 12px;
+            flex-direction: column;
+            align-items: flex-start;
             padding: 1rem;
-            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 1rem;
         }
         
         .supper-header h1 {
             font-size: 1.35rem;
+            width: 100%;
         }
         
         .supper-header-sub {
@@ -1009,10 +926,16 @@ PERMISSIONS UTILISÉES:
             width: 100%;
         }
         
+        .supper-badge {
+            align-self: flex-start;
+            font-size: 0.75rem;
+            padding: 0.4rem 0.75rem;
+        }
+        
+        /* Stats - 1 colonne */
         .supper-stats {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr !important;
             gap: 0.75rem;
-            width: 100%;
         }
         
         .supper-stat-card {
@@ -1024,9 +947,9 @@ PERMISSIONS UTILISÉES:
             font-size: 1.5rem;
         }
         
+        /* Actions rapides - 1 colonne */
         .supper-actions {
-            grid-template-columns: 1fr;
-            width: 100%;
+            grid-template-columns: 1fr !important;
         }
         
         .supper-action-card {
@@ -1038,8 +961,10 @@ PERMISSIONS UTILISÉES:
         .supper-action-icon {
             width: 42px;
             height: 42px;
+            font-size: 1.1rem;
         }
         
+        /* Sections */
         .supper-section {
             padding: 1.25rem;
             border-radius: 10px;
@@ -1061,18 +986,18 @@ PERMISSIONS UTILISÉES:
             width: 100%;
         }
         
+        /* Objectifs */
         .supper-objectives {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr !important;
             gap: 0.75rem;
-            width: 100%;
         }
         
+        /* Classement */
         .supper-rank {
             flex-direction: column;
             text-align: center;
             gap: 1rem;
             padding: 1rem;
-            width: 100%;
         }
         
         .supper-rank-info {
@@ -1080,38 +1005,66 @@ PERMISSIONS UTILISÉES:
             width: 100%;
         }
         
+        .supper-rank-badge {
+            width: 56px;
+            height: 56px;
+            font-size: 1.25rem;
+        }
+        
+        /* Graphiques */
+        .supper-charts {
+            grid-template-columns: 1fr !important;
+            gap: 1rem;
+        }
+        
+        .supper-chart-container {
+            height: 250px;
+        }
+        
+        /* Stats pesage */
         .supper-pesage-stats {
-            grid-template-columns: repeat(2, 1fr);
-            width: 100%;
+            grid-template-columns: repeat(2, 1fr) !important;
         }
         
+        /* Grid mensuel */
         .supper-month-grid {
-            grid-template-columns: repeat(2, 1fr);
-            width: 100%;
+            grid-template-columns: repeat(2, 1fr) !important;
         }
         
+        /* Alertes */
+        .supper-alert {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .supper-alert-action {
+            margin-left: 0;
+            align-self: flex-start;
+        }
+        
+        /* Barre d'actions */
         .supper-actions-bar {
-            justify-content: center;
-            width: 100%;
+            gap: 0.4rem;
         }
         
         .supper-btn {
             flex: 1 0 calc(50% - 0.4rem);
             min-width: calc(50% - 0.4rem);
-            justify-content: center;
+            font-size: 0.75rem;
+            padding: 0.4rem 0.75rem;
             white-space: normal;
             line-height: 1.2;
-            padding: 0.5rem;
             height: auto;
             min-height: 40px;
         }
         
+        /* Activités */
         .supper-activity-item {
             flex-direction: column;
             align-items: flex-start;
             gap: 0.5rem;
             padding: 0.5rem 0;
-            width: 100%;
         }
         
         .supper-activity-icon {
@@ -1126,7 +1079,7 @@ PERMISSIONS UTILISÉES:
             align-self: flex-start;
         }
         
-        /* Correction pour éviter le défilement horizontal */
+        /* Tableau */
         .supper-top-postes-container {
             margin-left: -0.75rem;
             margin-right: -0.75rem;
@@ -1135,28 +1088,32 @@ PERMISSIONS UTILISÉES:
             border-left: none;
             border-right: none;
         }
-    }
-    
-    /* Mobiles (≤ 576px) - OPTIMISATION COMPLÈTE */
-    @media (max-width: 576px) {
-        .supper-dashboard {
-            padding: 0.5rem;
-            min-height: calc(100vh - 60px);
-            width: 100vw;
-            overflow-x: hidden;
-            margin: 0;
+        
+        .supper-top-postes-table {
+            min-width: 500px;
+            font-size: 0.8rem;
         }
         
-        .supper-container {
+        /* Bouton lien */
+        .supper-link-btn {
             width: 100%;
-            overflow-x: hidden;
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            justify-content: center;
+        }
+    }
+    
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .supper-dashboard {
+            padding: 0.5rem !important;
         }
         
         .supper-header {
             padding: 0.875rem;
-            margin-bottom: 1rem;
             border-radius: 10px;
-            width: 100%;
         }
         
         .supper-header h1 {
@@ -1167,199 +1124,67 @@ PERMISSIONS UTILISÉES:
             font-size: 0.8rem;
         }
         
-        .supper-badge {
-            font-size: 0.75rem;
-            padding: 0.4rem 0.75rem;
-        }
-        
         .supper-stat-card {
             padding: 0.875rem;
-            width: 100%;
-        }
-        
-        .supper-stat-header {
-            margin-bottom: 0.5rem;
-        }
-        
-        .supper-stat-label {
-            font-size: 0.65rem;
-        }
-        
-        .supper-stat-icon {
-            width: 36px;
-            height: 36px;
-            font-size: 0.9rem;
         }
         
         .supper-stat-value {
             font-size: 1.35rem;
         }
         
-        .supper-stat-detail {
-            font-size: 0.75rem;
-        }
-        
         .supper-section {
             padding: 1rem;
-            margin-bottom: 1rem;
             border-radius: 8px;
-            width: 100%;
         }
         
         .supper-section-title {
             font-size: 0.95rem;
-            margin-bottom: 0.875rem;
-            padding-bottom: 0.5rem;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-        }
-        
-        .supper-section-meta {
-            margin-left: 0;
-            font-size: 0.7rem;
-        }
-        
-        .supper-progress {
-            height: 24px;
-            border-radius: 12px;
-            width: 100%;
-        }
-        
-        .supper-progress-bar {
-            font-size: 0.7rem;
-        }
-        
-        .supper-chart-container {
-            height: 220px;
-            width: 100%;
         }
         
         .supper-pesage-stats {
-            grid-template-columns: 1fr;
-            width: 100%;
-        }
-        
-        .supper-pesage-stat {
-            padding: 0.875rem;
-            width: 100%;
-        }
-        
-        .supper-pesage-stat-value {
-            font-size: 1.1rem;
-        }
-        
-        .supper-month-stats {
-            padding: 0.75rem;
-            margin-top: 1rem;
-            width: 100%;
+            grid-template-columns: 1fr !important;
         }
         
         .supper-month-grid {
-            grid-template-columns: 1fr;
-            gap: 0.5rem;
-            width: 100%;
-        }
-        
-        .supper-month-item span {
-            font-size: 0.9rem;
-        }
-        
-        .supper-alert {
-            padding: 0.75rem;
-            width: 100%;
-        }
-        
-        .supper-alert-content strong {
-            font-size: 0.8rem;
-        }
-        
-        .supper-alert-content small {
-            font-size: 0.75rem;
-        }
-        
-        .supper-alert-action {
-            font-size: 0.75rem;
-            padding: 0.4rem 0.75rem;
-        }
-        
-        .supper-actions-bar {
-            gap: 0.3rem;
-            width: 100%;
+            grid-template-columns: 1fr !important;
         }
         
         .supper-btn {
-            flex: 1 0 100%;
+            flex: 1 0 100% !important;
             font-size: 0.7rem;
-            padding: 0.35rem 0.5rem;
-            white-space: normal;
-            line-height: 1.3;
-            min-height: 38px;
             margin-bottom: 0.3rem;
         }
         
-        .supper-link-btn {
-            padding: 0.5rem 1rem;
-            font-size: 0.8rem;
-            width: 100%;
-            text-align: center;
-        }
-        
-        /* Ajustement table pour mobile */
         .supper-top-postes-container {
             margin-left: -0.5rem;
             margin-right: -0.5rem;
             width: calc(100% + 1rem);
         }
-        
-        .supper-top-postes-table {
-            font-size: 0.8rem;
-            min-width: 400px;
-        }
-        
-        .supper-top-postes-table th,
-        .supper-top-postes-table td {
-            padding: 0.4rem;
-        }
     }
     
-    /* Très petits mobiles (≤ 375px) */
+    /* ============================================
+       MOBILE TRÈS PETIT (≤ 375px)
+       ============================================ */
     @media (max-width: 375px) {
         .supper-dashboard {
-            padding: 0.25rem;
-            width: 100vw;
-            overflow-x: hidden;
+            padding: 0.25rem !important;
         }
         
         .supper-header {
             padding: 0.75rem;
-            border-radius: 8px;
         }
         
         .supper-header h1 {
             font-size: 1.15rem;
         }
         
-        .supper-stat-card {
-            padding: 0.75rem;
-        }
-        
-        .supper-stat-value {
-            font-size: 1.25rem;
-        }
-        
-        .supper-section {
-            padding: 0.875rem;
-        }
-        
         .supper-actions-bar {
             flex-direction: column;
         }
         
         .supper-btn {
-            flex: 1 0 100%;
+            flex: 1 0 100% !important;
             width: 100%;
-            justify-content: center;
             margin-bottom: 0.25rem;
         }
         
@@ -1375,38 +1200,8 @@ PERMISSIONS UTILISÉES:
     }
     
     /* ============================================
-       CORRECTION SPÉCIFIQUE POUR DÉFILEMENT HORIZONTAL
+       GESTION DE L'IMPRESSION
        ============================================ */
-    @media (max-width: 768px) {
-        html, body {
-            overflow-x: hidden !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            position: relative;
-        }
-        
-        .supper-dashboard {
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-        }
-        
-        /* Force tous les éléments à rester dans l'écran */
-        .supper-container > * {
-            max-width: 100vw !important;
-            overflow-x: hidden !important;
-        }
-        
-        /* Correction pour les tableaux */
-        table {
-            display: block;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-    }
-    
-    /* Gestion de l'impression */
     @media print {
         .supper-dashboard {
             background: white !important;
@@ -1468,7 +1263,7 @@ PERMISSIONS UTILISÉES:
     <div class="supper-container">
         
         <!-- ============================================================ -->
-        <!-- EN-TÊTE - Toujours visible pour utilisateur connecté -->
+        <!-- EN-TÊTE -->
         <!-- ============================================================ -->
         <div class="supper-header">
             <div style="width: 100%;">
@@ -1488,7 +1283,7 @@ PERMISSIONS UTILISÉES:
         </div>
 
         <!-- ============================================================ -->
-        <!-- ACTIONS RAPIDES - Conditionnées par permissions individuelles -->
+        <!-- ACTIONS RAPIDES -->
         <!-- ============================================================ -->
         {% if actions_rapides %}
         <div class="supper-actions">
@@ -1508,7 +1303,7 @@ PERMISSIONS UTILISÉES:
         <!-- ============================================================ -->
         <div class="supper-stats">
             
-            <!-- Stats Globales - Permission: can_view_global_stats -->
+            <!-- Stats Globales -->
             {% if can_view_global_stats and stats_globales %}
             <div class="supper-stat-card blue">
                 <div class="supper-stat-header">
@@ -1533,7 +1328,7 @@ PERMISSIONS UTILISÉES:
             </div>
             {% endif %}
 
-            <!-- Stats Inventaires - Permission: can_view_inventaires -->
+            <!-- Stats Inventaires -->
             {% if can_view_inventaires and stats_inventaires %}
             <div class="supper-stat-card green">
                 <div class="supper-stat-header">
@@ -1547,7 +1342,7 @@ PERMISSIONS UTILISÉES:
             </div>
             {% endif %}
 
-            <!-- Stats Recettes - Permission: can_view_recettes_peage -->
+            <!-- Stats Recettes -->
             {% if can_view_recettes_peage and stats_recettes %}
             <div class="supper-stat-card amber">
                 <div class="supper-stat-header">
@@ -1560,7 +1355,7 @@ PERMISSIONS UTILISÉES:
                 <div class="supper-stat-detail">{{ stats_recettes.nombre_recettes_mois }} {% trans "recettes saisies" %} • FCFA</div>
             </div>
 
-            <!-- Taux Déperdition - Uniquement si permission voir_taux_deperdition -->
+            <!-- Taux Déperdition -->
             {% if stats_recettes.can_view_taux and stats_recettes.taux_moyen_mois is not None %}
             <div class="supper-stat-card {% if stats_recettes.taux_moyen_mois > -10 %}green{% elif stats_recettes.taux_moyen_mois > -30 %}amber{% else %}red{% endif %}">
                 <div class="supper-stat-header">
@@ -1590,7 +1385,7 @@ PERMISSIONS UTILISÉES:
         </div>
 
         <!-- ============================================================ -->
-        <!-- OBJECTIFS ANNUELS - Permission: can_view_objectifs -->
+        <!-- OBJECTIFS ANNUELS -->
         <!-- ============================================================ -->
         {% if can_view_objectifs and stats_objectifs %}
         <div class="supper-section">
@@ -1636,7 +1431,7 @@ PERMISSIONS UTILISÉES:
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- GRAPHIQUES - Permission: can_view_graphs -->
+        <!-- GRAPHIQUES -->
         <!-- ============================================================ -->
         {% if can_view_graphs and graph_data_json %}
         <div class="supper-charts">
@@ -1650,7 +1445,7 @@ PERMISSIONS UTILISÉES:
                 </div>
             </div>
 
-            <!-- Graphique Taux uniquement si permission voir_taux_deperdition -->
+            <!-- Graphique Taux -->
             {% if user_permissions.acces_global.voir_taux_deperdition %}
             <div class="supper-section">
                 <h2 class="supper-section-title">
@@ -1666,7 +1461,7 @@ PERMISSIONS UTILISÉES:
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- RANG POSTE PÉAGE - Affiché si classement disponible -->
+        <!-- RANG POSTE PÉAGE -->
         <!-- ============================================================ -->
         {% if rang_poste_peage and rang_poste_peage.rang %}
         <div class="supper-section">
@@ -1695,7 +1490,7 @@ PERMISSIONS UTILISÉES:
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- STATISTIQUES PESAGE - Permission: has_pesage_access -->
+        <!-- STATISTIQUES PESAGE -->
         <!-- ============================================================ -->
         {% if has_pesage_access and stats_pesage %}
         <div class="supper-section">
@@ -1713,7 +1508,7 @@ PERMISSIONS UTILISÉES:
             </h2>
             
             <div class="supper-pesage-stats">
-                <!-- Pesées - si permission peut_saisir_pesee_jour ou peut_voir_historique_pesees -->
+                <!-- Pesées -->
                 {% if stats_pesage.can_saisir_pesee or stats_pesage.can_voir_historique %}
                 <div class="supper-pesage-stat purple">
                     <div class="supper-pesage-stat-label"><i class="fas fa-balance-scale"></i> {% trans "Pesées Jour" %}</div>
@@ -1721,7 +1516,7 @@ PERMISSIONS UTILISÉES:
                 </div>
                 {% endif %}
                 
-                <!-- Émissions - visible pour tous avec accès pesage -->
+                <!-- Émissions -->
                 <div class="supper-pesage-stat amber">
                     <div class="supper-pesage-stat-label"><i class="fas fa-file-invoice"></i> {% trans "Émissions Jour" %}</div>
                     <div class="supper-pesage-stat-value">{{ stats_pesage.emissions_jour|default:0 }}</div>
@@ -1734,7 +1529,7 @@ PERMISSIONS UTILISÉES:
                     <div class="supper-pesage-stat-unit">FCFA</div>
                 </div>
                 
-                <!-- Recouvré - si permission peut_valider_paiement_amende -->
+                <!-- Recouvré -->
                 {% if stats_pesage.can_valider_paiement or stats_pesage.can_voir_recettes %}
                 <div class="supper-pesage-stat green">
                     <div class="supper-pesage-stat-label"><i class="fas fa-hand-holding-usd"></i> {% trans "Recouvré Jour" %}</div>
@@ -1758,7 +1553,7 @@ PERMISSIONS UTILISÉES:
                 </div>
             </div>
             
-            <!-- Stats du mois - si permission peut_voir_stats_pesage -->
+            <!-- Stats du mois -->
             {% if stats_pesage.can_voir_stats %}
             <div class="supper-month-stats">
                 <h4>
@@ -1794,7 +1589,7 @@ PERMISSIONS UTILISÉES:
             </div>
             {% endif %}
             
-            <!-- Rang station pesage - si classement disponible -->
+            <!-- Rang station pesage -->
             {% if rang_station_pesage and rang_station_pesage.rang %}
             <div class="supper-rank" style="margin-top: 1.25rem; background: linear-gradient(135deg, #ede9fe, #ddd6fe);">
                 <div class="supper-rank-badge {% if rang_station_pesage.rang == 1 %}gold{% elif rang_station_pesage.rang == 2 %}silver{% elif rang_station_pesage.rang == 3 %}bronze{% else %}purple{% endif %}">
@@ -1823,7 +1618,7 @@ PERMISSIONS UTILISÉES:
             </div>
             {% endif %}
             
-            <!-- Alertes pesage - conditionnées -->
+            <!-- Alertes pesage -->
             {% if stats_pesage.demandes_confirmation_attente and stats_pesage.demandes_confirmation_attente > 0 %}
             <div class="supper-alert warning">
                 <i class="fas fa-bell"></i>
@@ -1844,7 +1639,7 @@ PERMISSIONS UTILISÉES:
             </div>
             {% endif %}
             
-            <!-- Actions rapides pesage - conditionnées par permissions -->
+            <!-- Actions rapides pesage -->
             <div class="supper-actions-bar">
                 {% if stats_pesage.can_saisir_amende %}
                 <a href="{% url 'inventaire:saisir_amende' %}" class="supper-btn purple">
@@ -1897,7 +1692,7 @@ PERMISSIONS UTILISÉES:
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- ALERTES - Conditionnées selon contexte utilisateur -->
+        <!-- ALERTES -->
         <!-- ============================================================ -->
         {% if alertes %}
         <div class="supper-section">
@@ -1920,7 +1715,7 @@ PERMISSIONS UTILISÉES:
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- ACTIVITÉS RÉCENTES - Conditionnées par permission journal_audit -->
+        <!-- ACTIVITÉS RÉCENTES -->
         <!-- ============================================================ -->
         {% if activites_recentes %}
         <div class="supper-section">
@@ -1969,7 +1764,7 @@ PERMISSIONS UTILISÉES:
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- TOP POSTES - Permission: can_view_classement -->
+        <!-- TOP POSTES -->
         <!-- ============================================================ -->
         {% if can_view_classement and top_postes %}
         <div class="supper-section">
@@ -2015,7 +1810,7 @@ PERMISSIONS UTILISÉES:
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- STATISTIQUES SYSTÈME - Permission: peut_voir_journal_audit -->
+        <!-- STATISTIQUES SYSTÈME -->
         <!-- ============================================================ -->
         {% if stats_systeme and user_permissions.gestion.peut_voir_journal_audit %}
         <div class="supper-section">
@@ -2086,7 +1881,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateClock();
     setInterval(updateClock, 60000);
 
-    // Configuration Chart.js - seulement si graphiques visibles
+    // Configuration Chart.js
     {% if can_view_graphs and graph_data_json %}
     const graphData = {{ graph_data_json|safe }};
     Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -2129,7 +1924,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Graphique Taux - seulement si permission voir_taux_deperdition
+    // Graphique Taux
     {% if user_permissions.acces_global.voir_taux_deperdition %}
     if (graphData.evolution_7j && graphData.evolution_7j.show_taux && document.getElementById('chartTaux')) {
         const ctxTaux = document.getElementById('chartTaux').getContext('2d');
@@ -2177,27 +1972,26 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
     {% endif %}
     
-    // Adapter la taille des graphiques au redimensionnement
-    window.addEventListener('resize', function() {
-        if (typeof Chart !== 'undefined') {
-            Chart.instances.forEach(instance => {
-                instance.resize();
-            });
-        }
-    });
-    
-    // Correction supplémentaire pour mobile : forcer la largeur
-    function adjustMobileWidth() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
         if (window.innerWidth <= 768) {
-            document.querySelectorAll('.supper-dashboard, .supper-container, .supper-section').forEach(el => {
-                el.style.maxWidth = '100vw';
+            // Force le conteneur à ne pas dépasser
+            document.querySelectorAll('.supper-dashboard, .supper-container').forEach(el => {
                 el.style.overflowX = 'hidden';
+                el.style.maxWidth = '100vw';
             });
+            
+            // Cache les barres de défilement horizontales
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.documentElement.style.overflowX = 'visible';
+            document.body.style.overflowX = 'visible';
         }
     }
     
-    adjustMobileWidth();
-    window.addEventListener('resize', adjustMobileWidth);
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
 });
 </script>
 {% endblock %}

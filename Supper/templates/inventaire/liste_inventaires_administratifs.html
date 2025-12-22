@@ -6,18 +6,46 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       VARIABLES ET BASE
+       ============================================ */
+    :root {
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        --card-radius: 12px;
+        --primary-color: #6B46C1;
+        --success-color: #10B981;
+        --warning-color: #F59E0B;
+        --danger-color: #EF4444;
+        --info-color: #3B82F6;
+        --secondary-color: #6b7280;
+    }
+
+    /* Reset pour éviter le défilement horizontal */
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       CARDS STATISTIQUES - RESPONSIVE
+       ============================================ */
     .stats-card {
         background: white;
-        border-radius: 12px;
+        border-radius: var(--card-radius);
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: var(--card-shadow);
         margin-bottom: 1.5rem;
+        width: 100%;
     }
     
     .stats-card h5 {
-        color: #6B46C1;
+        color: var(--primary-color);
         font-weight: 600;
         margin-bottom: 0.5rem;
+        font-size: 0.9rem;
     }
     
     .stats-value {
@@ -26,33 +54,71 @@
         color: #1f2937;
     }
     
+    /* ============================================
+       SECTION FILTRES - RESPONSIVE
+       ============================================ */
     .filter-section {
         background: #f8f9fa;
         border-radius: 8px;
         padding: 1.5rem;
         margin-bottom: 2rem;
+        width: 100%;
+        overflow: hidden;
     }
     
+    /* ============================================
+       BADGES TAUX
+       ============================================ */
     .taux-badge {
         padding: 0.25rem 0.75rem;
         border-radius: 20px;
         font-weight: 600;
         font-size: 0.85rem;
+        white-space: nowrap;
+        display: inline-block;
     }
     
-    .taux-danger { background: #fee2e2; color: #dc2626; }
-    .taux-success { background: #d1fae5; color: #065f46; }
-    .taux-secondary { background: #e5e7eb; color: #6b7280; }
+    .taux-danger { 
+        background: #fee2e2; 
+        color: var(--danger-color); 
+    }
     
+    .taux-success { 
+        background: #d1fae5; 
+        color: #065f46; 
+    }
+    
+    .taux-secondary { 
+        background: #e5e7eb; 
+        color: var(--secondary-color); 
+    }
+    
+    /* ============================================
+       CONTENEUR TABLEAU - RESPONSIVE
+       ============================================ */
     .table-inventaires {
         background: white;
-        border-radius: 12px;
+        border-radius: var(--card-radius);
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: var(--card-shadow);
+        width: 100%;
+    }
+    
+    /* Container avec scroll horizontal pour petits écrans */
+    .table-responsive-custom {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+    
+    .table-inventaires table {
+        width: 100%;
+        margin-bottom: 0;
+        min-width: 900px; /* Largeur minimale pour forcer le scroll sur mobile */
     }
     
     .table-inventaires thead {
-        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, #553C9A 100%);
         color: white;
     }
     
@@ -60,6 +126,7 @@
         border: none;
         padding: 1rem;
         font-weight: 600;
+        white-space: nowrap;
     }
     
     .table-inventaires td {
@@ -67,10 +134,339 @@
         vertical-align: middle;
     }
     
+    /* ============================================
+       BOUTONS ACTIONS
+       ============================================ */
     .btn-action {
         padding: 0.25rem 0.75rem;
         font-size: 0.85rem;
         border-radius: 6px;
+        margin: 0 0.15rem;
+    }
+    
+    /* ============================================
+       EN-TÊTE PAGE
+       ============================================ */
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    
+    .page-header h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .page-header .text-muted {
+        font-size: 0.95rem;
+    }
+    
+    /* Groupe de boutons header */
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    /* ============================================
+       PAGINATION
+       ============================================ */
+    .pagination {
+        margin-top: 1.5rem;
+        margin-bottom: 0;
+        flex-wrap: wrap;
+    }
+    
+    .pagination .page-link {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* ============================================
+       MESSAGE VIDE
+       ============================================ */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        color: #d1d5db;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state p {
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* ============================================
+       RESPONSIVE - TABLETTES (≤ 992px)
+       ============================================ */
+    @media (max-width: 992px) {
+        .stats-card {
+            padding: 1rem;
+        }
+        
+        .stats-value {
+            font-size: 1.75rem;
+        }
+        
+        .filter-section {
+            padding: 1rem;
+        }
+        
+        .page-header h2 {
+            font-size: 1.5rem;
+        }
+    }
+    
+    /* ============================================
+       RESPONSIVE - MOBILE (≤ 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Réduction padding général */
+        .container-fluid {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+        }
+        
+        /* Stats cards en colonne simple */
+        .stats-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stats-card h5 {
+            font-size: 0.85rem;
+        }
+        
+        .stats-value {
+            font-size: 1.5rem;
+        }
+        
+        /* En-tête page */
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
+        
+        .page-header h2 {
+            font-size: 1.3rem;
+        }
+        
+        .page-header .text-muted {
+            font-size: 0.85rem;
+        }
+        
+        /* Boutons header empilés */
+        .header-actions {
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .header-actions .btn {
+            flex: 1;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.75rem;
+        }
+        
+        .header-actions .btn i {
+            font-size: 0.9rem;
+        }
+        
+        /* Section filtres */
+        .filter-section {
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .filter-section .form-label {
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .filter-section .form-select,
+        .filter-section .form-control {
+            font-size: 0.9rem;
+            padding: 0.5rem;
+        }
+        
+        .filter-section .btn {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
+        
+        /* Tableau */
+        .table-inventaires {
+            margin-bottom: 1rem;
+        }
+        
+        .table-inventaires th {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        .table-inventaires td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Réduire taille des badges */
+        .taux-badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+        }
+        
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+        
+        /* Boutons actions plus petits */
+        .btn-action {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        /* Pagination plus compacte */
+        .pagination {
+            margin-top: 1rem;
+        }
+        
+        .pagination .page-link {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Message vide */
+        .empty-state {
+            padding: 2rem 1rem;
+        }
+        
+        .empty-state i {
+            font-size: 2rem;
+        }
+        
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+    }
+    
+    /* ============================================
+       RESPONSIVE - PETIT MOBILE (≤ 480px)
+       ============================================ */
+    @media (max-width: 480px) {
+        .container-fluid {
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+        }
+        
+        .stats-card {
+            padding: 0.75rem;
+        }
+        
+        .stats-value {
+            font-size: 1.25rem;
+        }
+        
+        .page-header h2 {
+            font-size: 1.1rem;
+        }
+        
+        .filter-section {
+            padding: 0.75rem;
+        }
+        
+        .filter-section .row > div {
+            margin-bottom: 0.75rem;
+        }
+        
+        .header-actions .btn {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+        }
+        
+        /* Masquer certains textes sur très petits écrans */
+        .header-actions .btn .me-2 {
+            margin-right: 0.25rem !important;
+        }
+        
+        /* Icônes seulement pour certains boutons */
+        @media (max-width: 380px) {
+            .btn-text-hide {
+                font-size: 0;
+            }
+            
+            .btn-text-hide i {
+                font-size: 1rem;
+                margin: 0 !important;
+            }
+        }
+    }
+    
+    /* ============================================
+       AMÉLIORATION SCROLL HORIZONTAL TABLEAU
+       ============================================ */
+    .table-responsive-custom::-webkit-scrollbar {
+        height: 8px;
+    }
+    
+    .table-responsive-custom::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    .table-responsive-custom::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+    
+    .table-responsive-custom::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    /* Indicateur visuel de scroll sur mobile */
+    @media (max-width: 768px) {
+        .table-responsive-custom::after {
+            content: '← Faites défiler →';
+            display: block;
+            text-align: center;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            font-size: 0.75rem;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+    }
+    
+    /* ============================================
+       CORRECTIONS DIVERSES
+       ============================================ */
+    
+    /* Forcer le word-wrap sur les cellules */
+    .table-inventaires td {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    /* S'assurer que les images/icônes ne débordent pas */
+    .table-inventaires img,
+    .table-inventaires i {
+        max-width: 100%;
+    }
+    
+    /* Empêcher les longs textes de déborder */
+    .text-truncate-mobile {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 150px;
+    }
+    
+    @media (min-width: 769px) {
+        .text-truncate-mobile {
+            max-width: none;
+            white-space: normal;
+        }
     }
 </style>
 {% endblock %}
@@ -78,49 +474,51 @@
 {% block content %}
 <div class="container-fluid py-4">
     <!-- En-tête -->
-    <div class="row mb-4">
-        <div class="col-md-8">
+    <div class="row page-header mb-4">
+        <div class="col-lg-8 col-md-12">
             <h2 class="mb-0">
                 <i class="fas fa-clipboard-list me-2" style="color: #6B46C1;"></i>
                 {% trans "Inventaires Administratifs" %}
             </h2>
-            <p class="text-muted mt-2">
+            <p class="text-muted mt-2 mb-0">
                 {% trans "Liste des inventaires saisis par les administrateurs" %}
             </p>
         </div>
-        <div class="col-md-4 text-end">
-            <a href="{% url 'inventaire:inventaire_administratif' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>
-                {% trans "Nouvelle Saisie" %}
-            </a>
-            <button class="btn btn-success ms-2" onclick="exportExcel()">
-                <i class="fas fa-file-excel me-2"></i>
-                {% trans "Export Excel" %}
-            </button>
+        <div class="col-lg-4 col-md-12">
+            <div class="header-actions text-lg-end">
+                <a href="{% url 'inventaire:inventaire_administratif' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    <span>{% trans "Nouvelle Saisie" %}</span>
+                </a>
+                <button class="btn btn-success" onclick="exportExcel()">
+                    <i class="fas fa-file-excel me-2"></i>
+                    <span class="btn-text-hide">{% trans "Export Excel" %}</span>
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- ✓ CORRECTION : Statistiques rapides avec valeurs du backend -->
+    <!-- Statistiques rapides -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-lg-3 col-md-6 col-sm-6 col-12">
             <div class="stats-card">
                 <h5>{% trans "Total Inventaires" %}</h5>
                 <div class="stats-value">{{ stats.total }}</div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-lg-3 col-md-6 col-sm-6 col-12">
             <div class="stats-card">
                 <h5>{% trans "Aujourd'hui" %}</h5>
                 <div class="stats-value">{{ stats.today }}</div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-lg-3 col-md-6 col-sm-6 col-12">
             <div class="stats-card">
                 <h5>{% trans "Ce Mois" %}</h5>
                 <div class="stats-value">{{ stats.this_month }}</div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-lg-3 col-md-6 col-sm-6 col-12">
             <div class="stats-card">
                 <h5>{% trans "Alertes" %}</h5>
                 <div class="stats-value text-danger" id="alertCount">-</div>
@@ -132,7 +530,7 @@
     <div class="filter-section">
         <form method="get" id="filterForm">
             <div class="row">
-                <div class="col-md-3">
+                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
                     <label class="form-label">{% trans "Poste" %}</label>
                     <select name="poste" class="form-select">
                         <option value="">{% trans "Tous les postes" %}</option>
@@ -144,19 +542,19 @@
                     </select>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
                     <label class="form-label">{% trans "Date début" %}</label>
                     <input type="date" name="date_debut" class="form-control" 
                            value="{{ request.GET.date_debut }}">
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
                     <label class="form-label">{% trans "Date fin" %}</label>
                     <input type="date" name="date_fin" class="form-control" 
                            value="{{ request.GET.date_fin }}">
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
                     <label class="form-label">{% trans "Recherche" %}</label>
                     <input type="text" name="search" class="form-control" 
                            placeholder="Nom du poste, code..." 
@@ -177,93 +575,99 @@
 
     <!-- Tableau des inventaires -->
     <div class="table-inventaires">
-        <table class="table table-hover mb-0">
-            <thead>
-                <tr>
-                    <th>{% trans "Date" %}</th>
-                    <th>{% trans "Poste" %}</th>
-                    <th>{% trans "Agent" %}</th>
-                    <th>{% trans "Total Véhicules" %}</th>
-                    <th>{% trans "Recette Potentielle" %}</th>
-                    <th>{% trans "Montant Déclaré" %}</th>
-                    <th>{% trans "Taux Déperdition" %}</th>
-                    <th>{% trans "Actions" %}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for inventaire in inventaires %}
-                <tr>
-                    <td>
-                        <strong>{{ inventaire.date|date:"d/m/Y" }}</strong>
-                    </td>
-                    <td>
-                        <span class="fw-bold">{{ inventaire.poste.nom }}</span>
-                        <br>
-                        <small class="text-muted">{{ inventaire.poste.code }}</small>
-                    </td>
-                    <td>
-                        {{ inventaire.agent_saisie.nom_complet|default:"-" }}
-                        <br>
-                        <small class="text-muted">
-                            {% if inventaire.agent_saisie.habilitation == 'admin_principal' %}
-                                <span class="badge bg-purple">Admin</span>
-                            {% endif %}
-                        </small>
-                    </td>
-                    <td class="text-center">
-                        <strong>{{ inventaire.total_vehicules }}</strong>
-                        <br>
-                        <small class="text-muted">{{ inventaire.nombre_periodes_saisies }} périodes</small>
-                    </td>
-                    <td class="text-end">
-                        {% if inventaire.recette_potentielle %}
-                            <strong class="text-primary">{{ inventaire.recette_potentielle|floatformat:0|format_milliers }} FCFA</strong>
-                        {% else %}
-                            <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-end">
-                        {% if inventaire.montant_declare %}
-                            <strong>{{ inventaire.montant_declare|floatformat:0|format_milliers }} FCFA</strong>
-                        {% else %}
-                            <span class="text-warning">Non saisi</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-center">
-                        {% if inventaire.taux_deperdition is not None %}
-                            <span class="taux-badge taux-{{ inventaire.couleur_alerte }}">
-                                {{ inventaire.taux_deperdition|floatformat:2 }}%
+        <div class="table-responsive-custom">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>{% trans "Date" %}</th>
+                        <th>{% trans "Poste" %}</th>
+                        <th>{% trans "Agent" %}</th>
+                        <th>{% trans "Total Véhicules" %}</th>
+                        <th>{% trans "Recette Potentielle" %}</th>
+                        <th>{% trans "Montant Déclaré" %}</th>
+                        <th>{% trans "Taux Déperdition" %}</th>
+                        <th>{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inventaire in inventaires %}
+                    <tr>
+                        <td>
+                            <strong>{{ inventaire.date|date:"d/m/Y" }}</strong>
+                        </td>
+                        <td>
+                            <span class="fw-bold">{{ inventaire.poste.nom }}</span>
+                            <br>
+                            <small class="text-muted">{{ inventaire.poste.code }}</small>
+                        </td>
+                        <td>
+                            <span class="text-truncate-mobile" title="{{ inventaire.agent_saisie.nom_complet|default:'-' }}">
+                                {{ inventaire.agent_saisie.nom_complet|default:"-" }}
                             </span>
-                        {% else %}
-                            <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'inventaire:inventaire_detail' inventaire.id %}" 
-                           class="btn btn-sm btn-info btn-action" 
-                           title="Voir les détails">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        {% if user.is_admin %}
-                        <a href="{% url 'inventaire:inventaire_admin_saisie' inventaire.poste.id inventaire.date|date:'Y-m-d' %}" 
-                           class="btn btn-sm btn-warning btn-action"
-                           title="Modifier">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="text-center py-5">
-                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                        <p class="text-muted mb-0">{% trans "Aucun inventaire trouvé" %}</p>
-                        <small class="text-muted">Essayez de modifier les filtres ou créez un nouvel inventaire</small>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                            <br>
+                            <small class="text-muted">
+                                {% if inventaire.agent_saisie.habilitation == 'admin_principal' %}
+                                    <span class="badge bg-purple">Admin</span>
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td class="text-center">
+                            <strong>{{ inventaire.total_vehicules }}</strong>
+                            <br>
+                            <small class="text-muted">{{ inventaire.nombre_periodes_saisies }} périodes</small>
+                        </td>
+                        <td class="text-end">
+                            {% if inventaire.recette_potentielle %}
+                                <strong class="text-primary">{{ inventaire.recette_potentielle|floatformat:0|format_milliers }} FCFA</strong>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if inventaire.montant_declare %}
+                                <strong>{{ inventaire.montant_declare|floatformat:0|format_milliers }} FCFA</strong>
+                            {% else %}
+                                <span class="text-warning">Non saisi</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if inventaire.taux_deperdition is not None %}
+                                <span class="taux-badge taux-{{ inventaire.couleur_alerte }}">
+                                    {{ inventaire.taux_deperdition|floatformat:2 }}%
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'inventaire:inventaire_detail' inventaire.id %}" 
+                               class="btn btn-sm btn-info btn-action" 
+                               title="Voir les détails">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if user.is_admin %}
+                            <a href="{% url 'inventaire:inventaire_admin_saisie' inventaire.poste.id inventaire.date|date:'Y-m-d' %}" 
+                               class="btn btn-sm btn-warning btn-action"
+                               title="Modifier">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="fas fa-inbox"></i>
+                                <p class="mb-0">{% trans "Aucun inventaire trouvé" %}</p>
+                                <small class="text-muted">Essayez de modifier les filtres ou créez un nouvel inventaire</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Pagination -->
@@ -273,7 +677,8 @@
             {% if inventaires.has_previous %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ inventaires.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    {% trans "Précédent" %}
+                    <i class="fas fa-chevron-left d-md-none"></i>
+                    <span class="d-none d-md-inline">{% trans "Précédent" %}</span>
                 </a>
             </li>
             {% endif %}
@@ -283,7 +688,7 @@
                 <li class="page-item active">
                     <span class="page-link">{{ num }}</span>
                 </li>
-                {% else %}
+                {% elif num > inventaires.number|add:'-3' and num < inventaires.number|add:'3' %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
                         {{ num }}
@@ -295,7 +700,8 @@
             {% if inventaires.has_next %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ inventaires.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    {% trans "Suivant" %}
+                    <span class="d-none d-md-inline">{% trans "Suivant" %}</span>
+                    <i class="fas fa-chevron-right d-md-none"></i>
                 </a>
             </li>
             {% endif %}
@@ -305,7 +711,7 @@
 </div>
 
 <script>
-// ✓ CORRECTION : Calculer seulement le nombre d'alertes (le reste vient du backend)
+// Calculer seulement le nombre d'alertes (le reste vient du backend)
 document.addEventListener('DOMContentLoaded', function() {
     let alertCount = 0;
     
