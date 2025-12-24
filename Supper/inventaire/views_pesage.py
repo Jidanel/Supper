@@ -44,6 +44,7 @@ import pytz
 # IMPORTS DES MODULES DE PERMISSIONS ET UTILITAIRES CENTRALISÉS
 # ===================================================================
 
+from inventaire.utils_pesage import normalize_immatriculation
 from common.utils import log_user_action
 
 # Imports depuis le module de permissions centralisé
@@ -744,7 +745,11 @@ def liste_amendes(request):
 
 @pesage_access_required
 def detail_amende(request, pk):
-    """Détail d'une amende."""
+    """
+    Détail d'une amende.
+    AMÉLIORATION: Détecte si le véhicule a des amendes non payées 
+    dans d'autres stations et affiche un avertissement.
+    """
     user = request.user
     station, _unused = get_station_context(request, user)
     
@@ -758,6 +763,46 @@ def detail_amende(request, pk):
     events = []
     if hasattr(amende, 'events'):
         events = amende.events.select_related('effectue_par').order_by('-event_datetime')
+    
+    # =====================================================================
+    # NOUVEAU: Détecter les amendes non payées du véhicule
+    # =====================================================================
+    from .utils_pesage import normalize_immatriculation
+    
+    immat_norm = normalize_immatriculation(amende.immatriculation)
+    
+    # Toutes les amendes non payées de ce véhicule (sauf celle-ci)
+    amendes_non_payees = AmendeEmise.objects.filter(
+        Q(immatriculation_normalise__iexact=immat_norm) |
+        Q(immatriculation__iexact=amende.immatriculation) |
+        Q(immatriculation__iexact=immat_norm),
+        statut='non_paye'
+    ).exclude(pk=amende.pk).select_related('station')
+    
+    # Séparer par station
+    amendes_autres_stations = amendes_non_payees.exclude(station=amende.station)
+    amendes_meme_station = amendes_non_payees.filter(station=amende.station)
+    
+    # Infos pour l'affichage
+    infos_autres_amendes = None
+    if amendes_non_payees.exists():
+        infos_autres_amendes = {
+            'total': amendes_non_payees.count(),
+            'autres_stations': {
+                'count': amendes_autres_stations.count(),
+                'montant': amendes_autres_stations.aggregate(total=Sum('montant_amende'))['total'] or 0,
+                'stations': list(amendes_autres_stations.values_list('station__nom', flat=True).distinct()),
+            },
+            'meme_station': {
+                'count': amendes_meme_station.count(),
+                'montant': amendes_meme_station.aggregate(total=Sum('montant_amende'))['total'] or 0,
+            },
+            'montant_total': amendes_non_payees.aggregate(total=Sum('montant_amende'))['total'] or 0,
+        }
+    
+    # =====================================================================
+    # FIN NOUVEAU CODE
+    # =====================================================================
     
     log_user_action(
         user,
@@ -773,9 +818,11 @@ def detail_amende(request, pk):
         'is_admin': is_admin_user(user), 
         'title': f"Amende {amende.numero_ticket}",
         'peut_valider_paiement': has_permission(user, 'peut_valider_paiement_amende'),
+        # Nouvelles variables
+        'infos_autres_amendes': infos_autres_amendes,
+        'has_autres_amendes': infos_autres_amendes is not None,
     }
     return render(request, 'pesage/detail_amende.html', context)
-
 
 # ===================================================================
 # VALIDATION DES PAIEMENTS
@@ -787,6 +834,9 @@ def liste_amendes_a_valider(request):
     """
     Liste des amendes en attente de validation.
     Permission: peut_valider_paiement_amende
+    
+    AMÉLIORATION: Détecte pour chaque amende si le véhicule a des amendes
+    non payées dans d'autres stations et prépare les infos pour l'affichage.
     """
     user = request.user
     stations_accessibles = get_stations_pesage_accessibles(user)
@@ -810,12 +860,94 @@ def liste_amendes_a_valider(request):
     queryset = queryset.select_related('station', 'saisi_par').order_by('-date_heure_emission')
     total_a_recouvrer = queryset.aggregate(total=Sum('montant_amende'))['total'] or Decimal('0')
     
+    # =====================================================================
+    # NOUVEAU: Détecter les véhicules avec amendes dans autres stations
+    # =====================================================================
+    
+    # Récupérer toutes les immatriculations de la page actuelle
     paginator = Paginator(queryset, 25)
     page = request.GET.get('page')
-    amendes = paginator.get_page(page)
+    amendes_page = paginator.get_page(page)
+    
+    # Collecter les immatriculations uniques de cette page
+    immatriculations_page = set()
+    for amende in amendes_page:
+        immat_norm = normalize_immatriculation(amende.immatriculation)
+        immatriculations_page.add(immat_norm)
+        immatriculations_page.add(amende.immatriculation)
+    
+    # Rechercher TOUTES les amendes non payées pour ces véhicules
+    # (incluant celles dans d'autres stations)
+    if immatriculations_page:
+        amendes_autres_stations = AmendeEmise.objects.filter(
+            Q(immatriculation__in=immatriculations_page) |
+            Q(immatriculation_normalise__in=immatriculations_page),
+            statut='non_paye'
+        ).exclude(
+            station=station  # Exclure la station actuelle
+        ).values(
+            'immatriculation', 
+            'immatriculation_normalise',
+            'station__nom',
+            'station__id'
+        ).annotate(
+            nb_amendes=Count('pk'),
+            montant_total=Sum('montant_amende')
+        )
+        
+        # Construire un dictionnaire: immatriculation -> infos autres stations
+        # Clé: immatriculation normalisée
+        vehicules_avec_autres_amendes = {}
+        
+        for item in amendes_autres_stations:
+            immat_norm = normalize_immatriculation(item['immatriculation'])
+            
+            if immat_norm not in vehicules_avec_autres_amendes:
+                vehicules_avec_autres_amendes[immat_norm] = {
+                    'stations': [],
+                    'total_amendes': 0,
+                    'montant_total': Decimal('0'),
+                }
+            
+            # Ajouter cette station si pas déjà présente
+            station_info = {
+                'nom': item['station__nom'],
+                'id': item['station__id'],
+                'nb': item['nb_amendes'],
+                'montant': item['montant_total'] or Decimal('0'),
+            }
+            
+            # Éviter les doublons de station
+            stations_existantes = [s['id'] for s in vehicules_avec_autres_amendes[immat_norm]['stations']]
+            if item['station__id'] not in stations_existantes:
+                vehicules_avec_autres_amendes[immat_norm]['stations'].append(station_info)
+                vehicules_avec_autres_amendes[immat_norm]['total_amendes'] += item['nb_amendes']
+                vehicules_avec_autres_amendes[immat_norm]['montant_total'] += (item['montant_total'] or Decimal('0'))
+    else:
+        vehicules_avec_autres_amendes = {}
+    
+    # Enrichir chaque amende avec les infos des autres stations
+    amendes_enrichies = []
+    for amende in amendes_page:
+        immat_norm = normalize_immatriculation(amende.immatriculation)
+        
+        # Vérifier si ce véhicule a des amendes ailleurs
+        infos_autres = vehicules_avec_autres_amendes.get(immat_norm)
+        
+        amendes_enrichies.append({
+            'amende': amende,
+            'has_autres_stations': infos_autres is not None,
+            'autres_stations_info': infos_autres,
+        })
+    
+    # =====================================================================
+    # FIN NOUVEAU CODE
+    # =====================================================================
     
     context = {
-        'amendes': amendes, 
+        'amendes': amendes_page,  # Pour la pagination
+        'amendes_enrichies': amendes_enrichies,  # Avec les infos supplémentaires
+        'vehicules_avec_autres_amendes': vehicules_avec_autres_amendes,  # Dictionnaire complet
         'station': station, 
         'stations_accessibles': stations_accessibles,
         'total_a_recouvrer': total_a_recouvrer, 
@@ -828,6 +960,58 @@ def liste_amendes_a_valider(request):
     return render(request, 'pesage/liste_amendes_a_valider.html', context)
 
 
+# ===================================================================
+# API pour récupérer les détails des amendes d'un véhicule (AJAX)
+# ===================================================================
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+
+@validation_pesage_required
+@require_GET
+def api_amendes_vehicule_autres_stations(request, immatriculation):
+    """
+    API JSON qui retourne les amendes non payées d'un véhicule dans d'autres stations.
+    Utilisé pour le modal de détails.
+    """
+    user = request.user
+    station, _ = get_station_context(request, user)
+    
+    immat_norm = normalize_immatriculation(immatriculation)
+    
+    # Rechercher les amendes non payées dans AUTRES stations
+    amendes = AmendeEmise.objects.filter(
+        Q(immatriculation__iexact=immatriculation) |
+        Q(immatriculation__iexact=immat_norm) |
+        Q(immatriculation_normalise__iexact=immat_norm),
+        statut='non_paye'
+    ).exclude(
+        station=station
+    ).select_related('station').order_by('date_heure_emission')
+    
+    # Préparer les données JSON
+    data = {
+        'immatriculation': immatriculation,
+        'count': amendes.count(),
+        'montant_total': float(amendes.aggregate(total=Sum('montant_amende'))['total'] or 0),
+        'amendes': []
+    }
+    
+    for amende in amendes:
+        data['amendes'].append({
+            'id': amende.pk,
+            'numero_ticket': amende.numero_ticket,
+            'station': amende.station.nom,
+            'station_id': amende.station.id,
+            'date_emission': amende.date_heure_emission.strftime('%d/%m/%Y %H:%i'),
+            'montant': float(amende.montant_amende),
+            'transporteur': amende.transporteur or '-',
+            'infraction': 'S+HG' if (amende.est_surcharge and amende.est_hors_gabarit) else ('S' if amende.est_surcharge else ('HG' if amende.est_hors_gabarit else '-')),
+        })
+    
+    return JsonResponse(data)
+
+
 @validation_pesage_required
 @require_POST
 def valider_paiement(request, pk):
@@ -835,13 +1019,11 @@ def valider_paiement(request, pk):
     Valide le paiement d'une amende.
     Permission: peut_valider_paiement_amende
     
-    RÈGLE FIFO STRICTE:
+    COMPORTEMENT:
     1. Vérifier si le véhicule a des amendes NON PAYÉES plus anciennes dans d'AUTRES stations
-    2. Si oui → BLOQUER et rediriger vers la page de blocage
-    3. Si non → Valider le paiement
+    2. Si oui → AVERTIR l'utilisateur mais VALIDER quand même le paiement
+    3. Les amendes antérieures restent non payées et visibles dans la liste
     """
-    from inventaire.utils_pesage import normalize_immatriculation
-    
     user = request.user
     
     # Double vérification de la permission
@@ -868,7 +1050,8 @@ def valider_paiement(request, pk):
         messages.warning(request, _("Cette amende a déjà été validée."))
         return redirect('inventaire:liste_amendes_a_valider')
     
-    # Vérification 2 (FIFO): Y a-t-il des amendes NON PAYÉES plus anciennes ailleurs ?
+    # Vérification 2: Y a-t-il des amendes NON PAYÉES plus anciennes ailleurs ?
+    # (Pour avertissement uniquement, pas de blocage)
     immat_norm = normalize_immatriculation(amende.immatriculation)
     
     amendes_anterieures_non_payees = AmendeEmise.objects.filter(
@@ -878,62 +1061,84 @@ def valider_paiement(request, pk):
         statut='non_paye',
         date_heure_emission__lt=amende.date_heure_emission
     ).exclude(
-        station=amende.station
-    ).exclude(
         pk=amende.pk
     ).select_related('station').order_by('date_heure_emission')
     
-    # SI AMENDES ANTÉRIEURES NON PAYÉES → BLOCAGE
+    # Préparer l'avertissement si amendes antérieures
+    avertissement_amendes = None
     if amendes_anterieures_non_payees.exists():
-        stations_bloquantes = list(amendes_anterieures_non_payees.values_list('station__nom', flat=True).distinct())
-        nb_amendes = amendes_anterieures_non_payees.count()
+        # Séparer les amendes de la même station et des autres stations
+        amendes_meme_station = amendes_anterieures_non_payees.filter(station=amende.station)
+        amendes_autres_stations = amendes_anterieures_non_payees.exclude(station=amende.station)
         
-        messages.error(
-            request,
-            f"⛔ VALIDATION BLOQUÉE : Ce véhicule ({amende.immatriculation}) a {nb_amendes} amende(s) "
-            f"non payée(s) plus ancienne(s) dans : {', '.join(stations_bloquantes)}. "
-            f"Ces amendes doivent être payées en premier (règle FIFO)."
-        )
-        
-        log_user_action(
-            user,
-            "Validation bloquée (FIFO)",
-            f"Amende {amende.numero_ticket} | Véhicule {amende.immatriculation} | "
-            f"{nb_amendes} amendes antérieures non payées dans {stations_bloquantes}",
-            request
-        )
-        
-        logger.warning(
-            f"Validation bloquée (FIFO): Amende {amende.numero_ticket} - "
-            f"Véhicule {amende.immatriculation} - {nb_amendes} amendes antérieures"
-        )
-        
-        request.session['amende_bloquee_pk'] = pk
-        request.session['amendes_bloquantes_count'] = nb_amendes
-        
-        return redirect('inventaire:validation_bloquee', pk=pk)
+        avertissement_amendes = {
+            'total': amendes_anterieures_non_payees.count(),
+            'meme_station': amendes_meme_station.count(),
+            'autres_stations': amendes_autres_stations.count(),
+            'stations': list(amendes_autres_stations.values_list('station__nom', flat=True).distinct()),
+            'montant_total': amendes_anterieures_non_payees.aggregate(total=Sum('montant_amende'))['total'] or 0,
+        }
     
-    # PAS DE BLOCAGE → VALIDER LE PAIEMENT
+    # VALIDER LE PAIEMENT (même s'il y a des amendes antérieures)
     try:
         amende.statut = 'paye'
         amende.date_paiement = timezone.now()
         amende.valide_par = user
         amende.save()
         
+        # Message de succès
         messages.success(request,
             _("✅ Paiement validé pour l'amende %(numero)s - Montant: %(montant)s FCFA") % {
                 'numero': amende.numero_ticket,
                 'montant': f"{amende.montant_amende:,.0f}".replace(',', ' ')
             })
         
+        # Avertissement sur les amendes antérieures (si présentes)
+        if avertissement_amendes:
+            if avertissement_amendes['autres_stations'] > 0:
+                messages.warning(request,
+                    _("⚠️ ATTENTION: Ce véhicule (%(immat)s) a encore %(nb)d amende(s) non payée(s) "
+                      "dans d'autres stations: %(stations)s. Montant total impayé: %(montant)s FCFA") % {
+                        'immat': amende.immatriculation,
+                        'nb': avertissement_amendes['autres_stations'],
+                        'stations': ', '.join(avertissement_amendes['stations']),
+                        'montant': f"{avertissement_amendes['montant_total']:,.0f}".replace(',', ' ')
+                    })
+            
+            if avertissement_amendes['meme_station'] > 0:
+                messages.info(request,
+                    _("ℹ️ Ce véhicule a également %(nb)d amende(s) antérieure(s) non payée(s) "
+                      "dans cette station.") % {
+                        'nb': avertissement_amendes['meme_station']
+                    })
+        
+        # Journalisation
+        details_log = (
+            f"N°Ticket: {amende.numero_ticket} | Montant: {amende.montant_amende} FCFA | "
+            f"Véhicule: {amende.immatriculation} | Station: {amende.station.nom} | "
+            f"Date émission: {amende.date_heure_emission}"
+        )
+        
+        if avertissement_amendes:
+            details_log += (
+                f" | AVERTISSEMENT: {avertissement_amendes['total']} amende(s) antérieure(s) "
+                f"non payée(s) ({avertissement_amendes['autres_stations']} dans autres stations)"
+            )
+        
         log_user_action(
             user, 
             "Validation paiement amende",
-            f"N°Ticket: {amende.numero_ticket} | Montant: {amende.montant_amende} FCFA | "
-            f"Véhicule: {amende.immatriculation} | Station: {amende.station.nom} | "
-            f"Date émission: {amende.date_heure_emission}",
+            details_log,
             request
         )
+        
+        # Log spécifique si amendes antérieures
+        if avertissement_amendes and avertissement_amendes['autres_stations'] > 0:
+            logger.info(
+                f"Validation avec avertissement: Amende {amende.numero_ticket} validée - "
+                f"Véhicule {amende.immatriculation} a {avertissement_amendes['autres_stations']} "
+                f"amendes antérieures dans: {avertissement_amendes['stations']}"
+            )
         
     except Exception as e:
         logger.error(f"Erreur validation paiement: {e}", exc_info=True)
@@ -954,6 +1159,10 @@ def valider_paiements_masse(request):
     """
     Valide plusieurs paiements en une fois.
     Permission: peut_valider_paiement_amende
+    
+    COMPORTEMENT:
+    - Valide toutes les amendes sélectionnées
+    - Avertit si des véhicules ont des amendes antérieures non payées
     """
     user = request.user
     
@@ -977,6 +1186,7 @@ def valider_paiements_masse(request):
     count_success = 0
     montant_total = Decimal('0')
     amendes_validees = []
+    vehicules_avec_anterieures = []  # Pour l'avertissement
     
     for amende_id in amende_ids:
         try:
@@ -985,6 +1195,23 @@ def valider_paiements_masse(request):
             else:
                 amende = AmendeEmise.objects.get(pk=amende_id, station=station, statut='non_paye')
             
+            # Vérifier amendes antérieures (pour avertissement)
+            immat_norm = normalize_immatriculation(amende.immatriculation)
+            amendes_anterieures = AmendeEmise.objects.filter(
+                Q(immatriculation_normalise__iexact=immat_norm) |
+                Q(immatriculation__iexact=amende.immatriculation),
+                statut='non_paye',
+                date_heure_emission__lt=amende.date_heure_emission
+            ).exclude(station=amende.station).exclude(pk=amende.pk)
+            
+            if amendes_anterieures.exists():
+                vehicules_avec_anterieures.append({
+                    'immat': amende.immatriculation,
+                    'nb': amendes_anterieures.count(),
+                    'stations': list(amendes_anterieures.values_list('station__nom', flat=True).distinct())
+                })
+            
+            # Valider le paiement
             amende.statut = 'paye'
             amende.date_paiement = timezone.now()
             amende.valide_par = user
@@ -1002,22 +1229,128 @@ def valider_paiements_masse(request):
     
     if count_success > 0:
         messages.success(request,
-            _("%(count)d paiement(s) validé(s) - Total: %(montant)s FCFA") % {
+            _("✅ %(count)d paiement(s) validé(s) - Total: %(montant)s FCFA") % {
                 'count': count_success, 
                 'montant': f"{montant_total:,.0f}".replace(',', ' ')
             })
+        
+        # Avertissement si des véhicules ont des amendes antérieures
+        if vehicules_avec_anterieures:
+            # Regrouper par véhicule
+            vehicules_uniques = {}
+            for v in vehicules_avec_anterieures:
+                if v['immat'] not in vehicules_uniques:
+                    vehicules_uniques[v['immat']] = v
+            
+            messages.warning(request,
+                _("⚠️ %(nb_vehicules)d véhicule(s) ont des amendes antérieures non payées "
+                  "dans d'autres stations. Ces amendes restent à payer.") % {
+                    'nb_vehicules': len(vehicules_uniques)
+                })
         
         log_user_action(
             user, 
             "Validation paiements en masse",
             f"{count_success} amendes validées | Total: {montant_total} FCFA | "
-            f"N°Tickets: {', '.join(amendes_validees[:10])}{'...' if len(amendes_validees) > 10 else ''}",
+            f"N°Tickets: {', '.join(amendes_validees[:10])}{'...' if len(amendes_validees) > 10 else ''}"
+            f"{' | ' + str(len(vehicules_avec_anterieures)) + ' véhicules avec amendes antérieures' if vehicules_avec_anterieures else ''}",
             request
         )
     else:
         messages.warning(request, _("Aucun paiement n'a pu être validé."))
     
     return redirect('inventaire:liste_amendes_a_valider')
+
+
+# ===================================================================
+# VUE OPTIONNELLE: CONSULTATION DES AMENDES ANTÉRIEURES
+# Pour permettre au régisseur de voir les détails avant validation
+# ===================================================================
+
+@validation_pesage_required
+@require_GET
+def consulter_amendes_anterieures(request, pk):
+    """
+    Affiche les détails des amendes antérieures d'un véhicule avant validation.
+    Page informative qui permet ensuite de valider.
+    """
+    user = request.user
+    station, _unused = get_station_context(request, user)
+    
+    # Récupérer l'amende
+    if user_has_acces_tous_postes(user):
+        amende = get_object_or_404(AmendeEmise, pk=pk)
+    else:
+        amende = get_object_or_404(AmendeEmise, pk=pk, station=station)
+    
+    # Rechercher les amendes antérieures
+    immat_norm = normalize_immatriculation(amende.immatriculation)
+    
+    amendes_anterieures = AmendeEmise.objects.filter(
+        Q(immatriculation_normalise__iexact=immat_norm) |
+        Q(immatriculation__iexact=amende.immatriculation) |
+        Q(immatriculation__iexact=immat_norm),
+        statut='non_paye',
+        date_heure_emission__lt=amende.date_heure_emission
+    ).exclude(pk=amende.pk).select_related('station').order_by('date_heure_emission')
+    
+    # Séparer par station
+    amendes_autres_stations = amendes_anterieures.exclude(station=amende.station)
+    amendes_meme_station = amendes_anterieures.filter(station=amende.station)
+    
+    # Historique complet du véhicule
+    historique = AmendeEmise.objects.filter(
+        Q(immatriculation_normalise__iexact=immat_norm) |
+        Q(immatriculation__iexact=amende.immatriculation)
+    ).select_related('station').order_by('-date_heure_emission')
+    
+    # Statistiques
+    stats = historique.aggregate(
+        total=Count('pk'),
+        payees=Count('pk', filter=Q(statut='paye')),
+        non_payees=Count('pk', filter=Q(statut='non_paye')),
+        montant_total=Sum('montant_amende'),
+        montant_paye=Sum('montant_amende', filter=Q(statut='paye')),
+        montant_impaye=Sum('montant_amende', filter=Q(statut='non_paye')),
+    )
+    
+    context = {
+        'title': _('Détails avant validation'),
+        'amende': amende,
+        'station': station,
+        'amendes_autres_stations': amendes_autres_stations,
+        'amendes_meme_station': amendes_meme_station,
+        'historique': historique[:20],  # Limiter à 20 dernières
+        'stats': stats,
+        'has_anterieures': amendes_anterieures.exists(),
+        'montant_total_impaye_autres': amendes_autres_stations.aggregate(
+            total=Sum('montant_amende'))['total'] or 0,
+    }
+    
+    return render(request, 'pesage/consulter_amendes_anterieures.html', context)
+
+
+# ===================================================================
+# VUE DE VALIDATION DIRECTE DEPUIS LA PAGE DE CONSULTATION
+# ===================================================================
+
+@validation_pesage_required
+@require_POST
+def valider_paiement_avec_avertissement(request, pk):
+    """
+    Valide le paiement après que l'utilisateur a vu l'avertissement.
+    Identique à valider_paiement mais avec confirmation explicite.
+    """
+    # Vérifier que l'utilisateur a coché la case de confirmation
+    confirmation = request.POST.get('confirmer_validation', False)
+    
+    if not confirmation:
+        messages.error(request, _("Veuillez confirmer que vous avez pris connaissance des amendes antérieures."))
+        return redirect('inventaire:consulter_amendes_anterieures', pk=pk)
+    
+    # Réutiliser la logique de validation standard
+    return valider_paiement(request, pk)
+
 
 
 # ===================================================================

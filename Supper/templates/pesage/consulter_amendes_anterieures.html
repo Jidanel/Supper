@@ -1,0 +1,407 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --primary: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --info: #3B82F6;
+    --dark: #1F2937;
+    --muted: #6B7280;
+    --border: #E5E7EB;
+}
+
+.info-banner {
+    background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+    border: 1px solid #FCD34D;
+    border-left: 5px solid var(--warning);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-banner.no-warning {
+    background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+    border-color: var(--primary);
+    border-left-color: var(--primary);
+}
+
+.card-amende {
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.card-header-primary { background: linear-gradient(135deg, var(--info) 0%, #2563EB 100%); color: white; }
+.card-header-warning { background: linear-gradient(135deg, var(--warning) 0%, #D97706 100%); color: white; }
+.card-header-danger { background: linear-gradient(135deg, var(--danger) 0%, #DC2626 100%); color: white; }
+.card-header-success { background: linear-gradient(135deg, var(--primary) 0%, #059669 100%); color: white; }
+
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid var(--border);
+}
+.stat-card .stat-value { font-size: 1.75rem; font-weight: 700; }
+.stat-card .stat-label { font-size: 0.8rem; color: var(--muted); }
+
+.btn-validate {
+    background: linear-gradient(135deg, var(--primary), #059669);
+    border: none;
+    color: white;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 10px;
+}
+.btn-validate:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.table-amendes th { background: #F9FAFB; font-weight: 600; }
+.table-amendes td { vertical-align: middle; }
+
+.checkbox-confirm {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+.checkbox-confirm input { width: 20px; height: 20px; accent-color: var(--danger); }
+.checkbox-confirm label { margin: 0; font-weight: 500; color: #991B1B; }
+
+@media (max-width: 768px) {
+    .stat-card .stat-value { font-size: 1.25rem; }
+    .btn-validate { width: 100%; }
+}
+</style>
+
+<div class="container-fluid py-4">
+    
+    <!-- Bannière d'information -->
+    {% if has_anterieures %}
+    <div class="info-banner">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x text-warning me-3"></i>
+            <div>
+                <h5 class="mb-1 text-dark">
+                    <strong>{% trans "Attention : Amendes antérieures détectées" %}</strong>
+                </h5>
+                <p class="mb-0 text-dark">
+                    {% trans "Le véhicule" %} <strong>{{ amende.immatriculation }}</strong> 
+                    {% trans "a des amendes non payées antérieures à celle-ci." %}
+                    <br>
+                    <small>{% trans "Vous pouvez tout de même valider ce paiement. Les amendes antérieures resteront dans la liste des amendes à payer." %}</small>
+                </p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="info-banner no-warning">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-check-circle fa-2x text-success me-3"></i>
+            <div>
+                <h5 class="mb-1 text-dark">
+                    <strong>{% trans "Aucune amende antérieure non payée" %}</strong>
+                </h5>
+                <p class="mb-0 text-dark">
+                    {% trans "Ce véhicule n'a pas d'amendes non payées antérieures. Vous pouvez valider le paiement." %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Colonne gauche: Amende à valider -->
+        <div class="col-lg-5 mb-4">
+            <div class="card card-amende h-100">
+                <div class="card-header card-header-primary">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>
+                        {% trans "Amende à valider" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless mb-0">
+                        <tr>
+                            <th width="40%">{% trans "N° Ticket" %}</th>
+                            <td><strong class="text-primary">{{ amende.numero_ticket }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Station" %}</th>
+                            <td><span class="badge bg-primary">{{ station.nom }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Date/Heure" %}</th>
+                            <td>{{ amende.date_heure_emission|date:"d/m/Y à H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Véhicule" %}</th>
+                            <td><strong>{{ amende.immatriculation }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Transporteur" %}</th>
+                            <td>{{ amende.transporteur|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Chauffeur" %}</th>
+                            <td>{{ amende.operateur|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Infraction" %}</th>
+                            <td>
+                                {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                                    <span class="badge bg-danger">Surcharge + Hors Gabarit</span>
+                                {% elif amende.est_surcharge %}
+                                    <span class="badge bg-warning text-dark">Surcharge</span>
+                                {% elif amende.est_hors_gabarit %}
+                                    <span class="badge bg-info">Hors Gabarit</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>{% trans "Montant" %}</th>
+                            <td>
+                                <span class="fs-4 text-success fw-bold">
+                                    {{ amende.montant_amende|floatformat:0|format_milliers }}
+                                </span>
+                                <small>FCFA</small>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonne droite: Amendes antérieures -->
+        <div class="col-lg-7 mb-4">
+            {% if amendes_autres_stations %}
+            <div class="card card-amende mb-4">
+                <div class="card-header card-header-warning">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        {% trans "Amendes non payées dans AUTRES stations" %}
+                        <span class="badge bg-light text-warning ms-2">{{ amendes_autres_stations|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-amendes table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Station" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "N° Ticket" %}</th>
+                                    <th class="text-end">{% trans "Montant" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for am in amendes_autres_stations %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ am.station.nom }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ am.date_heure_emission|date:"d/m/Y" }}</small>
+                                        <br>
+                                        <small class="text-muted">{{ am.date_heure_emission|time:"H:i" }}</small>
+                                    </td>
+                                    <td>{{ am.numero_ticket }}</td>
+                                    <td class="text-end">
+                                        <strong class="text-danger">{{ am.montant_amende|floatformat:0|format_milliers }}</strong>
+                                        <small>FCFA</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-warning">
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>{% trans "Total impayé autres stations:" %}</strong></td>
+                                    <td class="text-end">
+                                        <strong class="text-danger fs-5">
+                                            {{ montant_total_impaye_autres|floatformat:0|format_milliers }}
+                                        </strong>
+                                        <small>FCFA</small>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if amendes_meme_station %}
+            <div class="card card-amende">
+                <div class="card-header card-header-danger">
+                    <h5 class="mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        {% trans "Amendes non payées dans CETTE station" %}
+                        <span class="badge bg-light text-danger ms-2">{{ amendes_meme_station|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-amendes table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "N° Ticket" %}</th>
+                                    <th class="text-end">{% trans "Montant" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for am in amendes_meme_station %}
+                                <tr>
+                                    <td>{{ am.date_heure_emission|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ am.numero_ticket }}</td>
+                                    <td class="text-end">
+                                        <strong>{{ am.montant_amende|floatformat:0|format_milliers }}</strong>
+                                        <small>FCFA</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not has_anterieures %}
+            <div class="card card-amende">
+                <div class="card-header card-header-success">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {% trans "Situation du véhicule" %}
+                    </h5>
+                </div>
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-thumbs-up fa-4x text-success mb-3"></i>
+                    <h5>{% trans "Aucune amende antérieure non payée" %}</h5>
+                    <p class="text-muted mb-0">
+                        {% trans "Ce véhicule est en règle pour les amendes précédentes." %}
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Statistiques du véhicule -->
+    <div class="card card-amende mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-pie me-2"></i>
+                {% trans "Statistiques du véhicule" %} {{ amende.immatriculation }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value text-primary">{{ stats.total|default:0 }}</div>
+                        <div class="stat-label">{% trans "Total amendes" %}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value text-success">{{ stats.payees|default:0 }}</div>
+                        <div class="stat-label">{% trans "Payées" %}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value text-danger">{{ stats.non_payees|default:0 }}</div>
+                        <div class="stat-label">{% trans "Non payées" %}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value text-warning">
+                            {% if stats.montant_impaye %}
+                                {{ stats.montant_impaye|floatformat:0|format_milliers }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">{% trans "FCFA impayés" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire de validation -->
+    <div class="card card-amende">
+        <div class="card-body">
+            <form method="post" action="{% url 'inventaire:valider_paiement' amende.pk %}">
+                {% csrf_token %}
+                
+                {% if has_anterieures %}
+                <div class="checkbox-confirm">
+                    <input type="checkbox" id="confirmer" name="confirmer_validation" value="1" required>
+                    <label for="confirmer">
+                        {% trans "Je confirme avoir pris connaissance des amendes antérieures non payées et je souhaite tout de même valider ce paiement." %}
+                    </label>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex justify-content-between flex-wrap gap-3">
+                    <a href="{% url 'inventaire:liste_amendes_a_valider' %}" class="btn btn-outline-secondary btn-lg">
+                        <i class="fas fa-arrow-left me-2"></i>{% trans "Retour à la liste" %}
+                    </a>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'inventaire:recherche_historique_vehicule' %}?immatriculation={{ amende.immatriculation }}" 
+                           class="btn btn-outline-info btn-lg">
+                            <i class="fas fa-history me-2"></i>
+                            <span class="d-none d-md-inline">{% trans "Historique complet" %}</span>
+                        </a>
+                        
+                        <button type="submit" class="btn btn-validate btn-lg">
+                            <i class="fas fa-check-circle me-2"></i>
+                            {% trans "Valider le paiement" %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('confirmer');
+    const btnValidate = document.querySelector('.btn-validate');
+    
+    if (checkbox && btnValidate) {
+        // Désactiver le bouton initialement si checkbox présente
+        btnValidate.disabled = true;
+        btnValidate.style.opacity = '0.6';
+        
+        checkbox.addEventListener('change', function() {
+            btnValidate.disabled = !this.checked;
+            btnValidate.style.opacity = this.checked ? '1' : '0.6';
+        });
+    }
+});
+</script>
+{% endblock %}

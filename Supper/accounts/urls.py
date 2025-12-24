@@ -32,7 +32,11 @@ urlpatterns = [
     #path('users/', views.redirect_to_users_admin, name='users'),
     path('users/list/', views.liste_utilisateurs, name='user_list'),
     path('users/create/', views.creer_utilisateur, name='user_create'),
-    path('users/bulk-create/', views.CreateBulkUsersView.as_view(), name='user_bulk_create'),
+    path('users/bulk-create/', views.bulk_create_step1_upload, name='bulk_create_step1'),
+    path('users/bulk-create/configure/', views.bulk_create_step2_configure, name='bulk_create_step2'),
+    path('users/bulk-create/cancel/', views.bulk_create_cancel, name='bulk_create_cancel'),
+    path('api/permissions-for-habilitation/', views.api_permissions_for_habilitation, name='api_permissions_habilitation'),
+
     #path('users/<int:pk>/', views.UserDetailView.as_view(), name='user_detail'),
     path('users/<int:user_id>/', views.detail_utilisateur, name='detail_utilisateur'),
     path('users/<int:user_id>/edit-admin/', views.redirect_to_edit_user_admin, name='edit_user_admin'),

@@ -58,6 +58,18 @@
         </a>
     </div>
     
+    <!-- Légende des indicateurs -->
+    <div class="alert alert-light border mb-3 py-2">
+        <small>
+            <i class="fas fa-info-circle text-info me-2"></i>
+            <strong>{% trans "Légende" %}:</strong>
+            <span class="badge bg-warning text-dark ms-2">
+                <i class="fas fa-exclamation-triangle"></i>
+            </span>
+            = {% trans "Ce véhicule a des amendes non payées dans d'autres stations. Cliquez pour voir les détails." %}
+        </small>
+    </div>
+    
     {% if amendes %}
     
     <!-- Formulaire de validation en masse -->
@@ -101,60 +113,75 @@
                                 {% if is_admin and not station %}
                                 <th>{% trans "Station" %}</th>
                                 {% endif %}
-                                <th class="text-center">{% trans "Action" %}</th>
+                                <th class="text-center">{% trans "Actions" %}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for amende in amendes %}
-                            <tr>
+                            {% for item in amendes_enrichies %}
+                            <tr class="{% if item.has_autres_stations %}table-warning-light{% endif %}">
                                 <td>
                                     <input type="checkbox" 
                                            name="amendes" 
-                                           value="{{ amende.pk }}" 
+                                           value="{{ item.amende.pk }}" 
                                            class="form-check-input amende-checkbox"
-                                           data-montant="{{ amende.montant_amende }}">
+                                           data-montant="{{ item.amende.montant_amende }}">
                                 </td>
                                 <td>
-                                    <a href="{% url 'inventaire:detail_amende' amende.pk %}" 
+                                    <a href="{% url 'inventaire:detail_amende' item.amende.pk %}" 
                                        class="fw-bold text-decoration-none">
-                                        {{ amende.numero_ticket }}
+                                        {{ item.amende.numero_ticket }}
                                     </a>
                                 </td>
-                                <td>{{ amende.date_heure_emission|date:"d/m/Y H:i" }}</td>
+                                <td>{{ item.amende.date_heure_emission|date:"d/m/Y H:i" }}</td>
                                 <td>
-                                    <span class="badge bg-secondary">{{ amende.immatriculation }}</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-secondary">{{ item.amende.immatriculation }}</span>
+                                        
+                                        {% if item.has_autres_stations %}
+                                        <!-- INDICATEUR: Lien vers page de consultation -->
+                                        <a href="{% url 'inventaire:consulter_amendes_anterieures' item.amende.pk %}" 
+                                           class="btn btn-warning btn-sm py-0 px-1"
+                                           title="{% trans 'Ce véhicule a des amendes non payées ailleurs - Cliquez pour voir les détails' %}">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            <small class="ms-1 fw-bold">{{ item.autres_stations_info.total_amendes }}</small>
+                                        </a>
+                                        {% endif %}
+                                    </div>
                                 </td>
-                                <td>{{ amende.transporteur|default:"-" }}</td>
+                                <td>{{ item.amende.transporteur|default:"-" }}</td>
                                 <td>
-                                    {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                                    {% if item.amende.est_surcharge and item.amende.est_hors_gabarit %}
                                     <span class="badge bg-danger">S+HG</span>
-                                    {% elif amende.est_hors_gabarit %}
+                                    {% elif item.amende.est_hors_gabarit %}
                                     <span class="badge bg-danger">HG</span>
-                                    {% elif amende.est_surcharge %}
+                                    {% elif item.amende.est_surcharge %}
                                     <span class="badge bg-warning text-dark">S</span>
                                     {% else %}
                                     <span class="badge bg-secondary">-</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end fw-bold text-success">
-                                    {{ amende.montant_amende|floatformat:0|format_milliers }} FCFA
+                                    {{ item.amende.montant_amende|floatformat:0|format_milliers }} FCFA
                                 </td>
                                 {% if is_admin and not station %}
                                 <td>
-                                    <small>{{ amende.station.nom }}</small>
+                                    <small>{{ item.amende.station.nom }}</small>
                                 </td>
                                 {% endif %}
                                 <td class="text-center">
-                                    <form method="post" 
-                                          action="{% url 'inventaire:valider_paiement' amende.pk %}"
-                                          class="d-inline"
-                                          onsubmit="return confirm('{% trans "Confirmer la validation de ce paiement ?" %}');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-success" 
-                                                title="{% trans 'Valider le paiement' %}">
-                                            <i class="fas fa-check"></i>
-                                        </button>
-                                    </form>
+                                    <div class="btn-group" role="group">
+                                        {% if item.has_autres_stations %}
+                                        <!-- Bouton vers page détails -->
+                                        <a href="{% url 'inventaire:consulter_amendes_anterieures' item.amende.pk %}" 
+                                           class="btn btn-sm btn-outline-warning"
+                                           title="{% trans 'Voir les détails avant validation' %}">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% endif %}
+                                        
+                                        <!-- Bouton valider directement -->
+                                      
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -228,19 +255,44 @@
 .bg-gradient-warning {
     background: linear-gradient(135deg, #ffc107 0%, #ffca2c 100%);
 }
+
+/* Ligne avec avertissement */
+.table-warning-light {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+.table-warning-light:hover {
+    background-color: rgba(255, 193, 7, 0.2) !important;
+}
+
+/* Bouton d'alerte amendes */
+.btn-warning.btn-sm {
+    border-radius: 20px;
+    font-size: 0.75rem;
+    line-height: 1;
+    text-decoration: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .btn-warning.btn-sm small {
+        display: none;
+    }
+}
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // =========================================================
+    // Gestion de la sélection multiple
+    // =========================================================
     const selectAll = document.getElementById('select-all');
     const checkboxes = document.querySelectorAll('.amende-checkbox');
     const selectedCount = document.getElementById('selected-count');
     const totalSelection = document.getElementById('total-selection');
     const btnValiderMasse = document.getElementById('btn-valider-masse');
     
-    // Fonction de mise à jour
     function updateSelection() {
         let count = 0;
         let total = 0;
@@ -256,12 +308,10 @@ document.addEventListener('DOMContentLoaded', function() {
         totalSelection.textContent = new Intl.NumberFormat('fr-FR').format(total) + ' FCFA';
         btnValiderMasse.disabled = count === 0;
         
-        // Mettre à jour le "tout sélectionner"
         selectAll.checked = count === checkboxes.length && count > 0;
         selectAll.indeterminate = count > 0 && count < checkboxes.length;
     }
     
-    // Event listeners
     selectAll.addEventListener('change', function() {
         checkboxes.forEach(cb => {
             cb.checked = this.checked;

@@ -4,6 +4,7 @@
 # Support bilingue FR/EN, journalisation détaillée contextuelle
 # ===================================================================
 
+import re
 from django.contrib.auth.views import LoginView, PasswordChangeView as DjangoPasswordChangeView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import (
@@ -31,6 +32,15 @@ from django.conf import settings
 from functools import wraps
 import logging
 import json
+
+import pandas as pd
+from .models import UtilisateurSUPPER, Poste, Habilitation
+from common.utils import log_user_action, get_user_short_description
+from common.decorators import permission_required_granular
+
+logger = logging.getLogger('supper')
+
+
 
 # ===================================================================
 # IMPORTS DES MODÈLES ET FORMULAIRES SUPPER
@@ -1272,67 +1282,744 @@ class PasswordResetView(GestionUtilisateursPermissionMixin, BilingualMixin,
         return render(request, self.template_name, context)
 
 
-class CreateBulkUsersView(GestionUtilisateursPermissionMixin, BilingualMixin, 
-                          AuditMixin, TemplateView):
-    """
-    Création en masse d'utilisateurs avec paramètres communs.
-    Requiert la permission 'peut_gerer_utilisateurs'.
-    """
-    
-    template_name = 'accounts/user_bulk_create.html'
-    audit_action = _("Création utilisateurs en masse")
-    
-    def get_context_data(self, **kwargs):
-        """Préparer le contexte pour le formulaire de création en masse"""
-        context = super().get_context_data(**kwargs)
-        
-        context.update({
-            'form': BulkUserCreateForm(),
-            'title': _('Création en masse d\'utilisateurs'),
-            'postes': Poste.objects.filter(is_active=True).order_by('region', 'nom'),
-            'habilitations': Habilitation.choices,
-        })
-        
-        return context
-    
-    def post(self, request, *args, **kwargs):
-        """Traitement de la création en masse"""
-        form = BulkUserCreateForm(request.POST)
-        
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    users_created = form.create_users(created_by=request.user)
-                    
-                    # Journalisation
-                    user_desc = get_user_short_description(request.user)
-                    log_user_action(
-                        request.user,
-                        "Création utilisateurs en masse",
-                        f"{user_desc} a créé {len(users_created)} utilisateurs en masse",
-                        request
-                    )
-                    
-                    messages.success(
-                        request,
-                        _("%(count)d utilisateurs créés avec succès.") % {
-                            'count': len(users_created)
-                        }
-                    )
-                    
-                    return redirect('accounts:liste_utilisateurs')
-                    
-            except Exception as e:
-                logger.error(f"Erreur création en masse: {str(e)}")
-                messages.error(request, _("Erreur système lors de la création."))
-        
-        return self.render_to_response({
-            'form': form,
-            'title': _('Création en masse d\'utilisateurs'),
-            'postes': Poste.objects.filter(is_active=True).order_by('region', 'nom'),
-            'habilitations': Habilitation.choices,
-        })
 
+
+# ===================================================================
+# DICTIONNAIRE DES PERMISSIONS PAR HABILITATION
+# Correspond aux méthodes _configurer_xxx du modèle UtilisateurSUPPER
+# ===================================================================
+
+PERMISSIONS_PAR_HABILITATION = {
+    'admin_principal': [
+        # Toutes les permissions
+        'acces_tous_postes', 'peut_saisir_peage', 'peut_saisir_pesage',
+        'voir_recettes_potentielles', 'voir_taux_deperdition', 'voir_statistiques_globales',
+        'peut_saisir_pour_autres_postes',
+        # Anciennes permissions modules
+        'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
+        'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
+        'peut_gerer_stocks_psrr', 'peut_gerer_stock_info',
+        # Inventaires
+        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
+        'peut_programmer_inventaire', 'peut_voir_programmation_active',
+        'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
+        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        # Recettes péage
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
+        'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances péage
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
+        'peut_comptabiliser_quittances_peage',
+        # Pesage
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
+        'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
+        'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
+        'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
+        'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Stock péage
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
+        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
+        'peut_simuler_commandes_peage',
+        # Gestion
+        'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
+        'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
+        # Rapports
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
+        'peut_voir_classement_agents_inventaire',
+        # Autres
+        'peut_parametrage_global', 'peut_voir_compte_emploi',
+        'peut_voir_pv_confrontation', 'peut_authentifier_document', 'peut_voir_tous_postes',
+    ],
+    
+    'coord_psrr': [
+        # Identique à admin_principal
+        'acces_tous_postes', 'peut_saisir_peage', 'peut_saisir_pesage',
+        'voir_recettes_potentielles', 'voir_taux_deperdition', 'voir_statistiques_globales',
+        'peut_saisir_pour_autres_postes',
+        'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
+        'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
+        'peut_gerer_stocks_psrr', 'peut_gerer_stock_info',
+        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
+        'peut_programmer_inventaire', 'peut_voir_programmation_active',
+        'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
+        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
+        'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
+        'peut_comptabiliser_quittances_peage',
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
+        'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
+        'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
+        'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
+        'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
+        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
+        'peut_simuler_commandes_peage',
+        'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
+        'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
+        'peut_voir_classement_agents_inventaire',
+        'peut_parametrage_global', 'peut_voir_compte_emploi',
+        'peut_voir_pv_confrontation', 'peut_authentifier_document', 'peut_voir_tous_postes',
+    ],
+    
+    'serv_info': [
+        # Service Informatique - Accès complet
+        'acces_tous_postes', 'peut_saisir_peage', 'peut_saisir_pesage',
+        'voir_recettes_potentielles', 'voir_taux_deperdition', 'voir_statistiques_globales',
+        'peut_saisir_pour_autres_postes',
+        'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
+        'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
+        'peut_gerer_stocks_psrr', 'peut_gerer_stock_info',
+        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
+        'peut_programmer_inventaire', 'peut_voir_programmation_active',
+        'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
+        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
+        'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
+        'peut_comptabiliser_quittances_peage',
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
+        'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
+        'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
+        'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
+        'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
+        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
+        'peut_simuler_commandes_peage',
+        'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
+        'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
+        'peut_voir_classement_agents_inventaire',
+        'peut_parametrage_global', 'peut_voir_compte_emploi',
+        'peut_voir_pv_confrontation', 'peut_authentifier_document', 'peut_voir_tous_postes',
+    ],
+    
+    'serv_emission': [
+        # Service Émission et Recouvrement
+        'acces_tous_postes', 'voir_statistiques_globales',
+        'voir_recettes_potentielles', 'voir_taux_deperdition',
+        'peut_programmer_inventaire', 'peut_voir_programmation_active',
+        'peut_voir_programmation_desactivee', 'peut_voir_liste_inventaires',
+        'peut_voir_liste_inventaires_admin', 'peut_voir_jours_impertinents',
+        'peut_voir_stats_deperdition',
+        'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
+        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_historique_stock_peage', 'peut_simuler_commandes_peage',
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapport_inventaires',
+        'peut_voir_classement_peage_rendement', 'peut_voir_classement_peage_deperdition',
+        'peut_voir_classement_agents_inventaire',
+        'peut_voir_tous_postes',
+    ],
+    
+    'chef_ag': [
+        # Chef Service Affaires Générales
+        'acces_tous_postes', 'voir_statistiques_globales',
+        'peut_gerer_personnel',
+        'peut_voir_liste_inventaires', 
+        'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_classement_agents_inventaire',
+        'peut_voir_tous_postes',
+    ],
+    
+    'serv_controle': [
+        # Service Contrôle et Validation
+        'acces_tous_postes', 'voir_statistiques_globales',
+        'voir_recettes_potentielles', 'voir_taux_deperdition',
+        'peut_voir_programmation_active', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
+        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_voir_liste_quittances_peage',
+        'peut_lister_amendes', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        'peut_voir_liste_stocks_peage', 'peut_voir_tracabilite_tickets',
+        'peut_voir_bordereaux_peage',
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
+        'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
+        'peut_authentifier_document', 'peut_voir_tous_postes',
+    ],
+    
+    'serv_ordre': [
+        # Service Ordre/Secrétariat
+        'acces_tous_postes', 'peut_gerer_archives',
+        'peut_voir_liste_inventaires', 'peut_voir_stats_deperdition',
+        'peut_voir_liste_recettes_peage',
+        'peut_voir_tous_postes',
+    ],
+    
+    'imprimerie': [
+        # Imprimerie Nationale
+        'acces_tous_postes',
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
+        'peut_voir_stock_date_peage', 'peut_voir_tracabilite_tickets',
+        'peut_voir_bordereaux_peage', 'peut_simuler_commandes_peage',
+        'peut_voir_tous_postes',
+    ],
+    
+    'cisop_peage': [
+        # CISOP Péage
+        'acces_tous_postes',
+        'voir_statistiques_globales',
+        'peut_voir_liste_recettes_peage',
+        'peut_voir_stats_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        'peut_voir_liste_quittances_peage',
+        'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_historique_stock_peage',
+        'peut_voir_rapports_defaillants_peage',
+        'peut_voir_classement_peage_rendement', 
+        'peut_voir_tous_postes',
+    ],
+    
+    'cisop_pesage': [
+        # CISOP Pesage
+        'acces_tous_postes',
+        'voir_statistiques_globales',
+        'peut_voir_historique_vehicule_pesage',
+        'peut_voir_objectifs_pesage',
+        'peut_lister_amendes',
+        'peut_comptabiliser_quittances_pesage',
+        'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
+        'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        'peut_voir_rapports_defaillants_pesage', 'peut_voir_classement_station_pesage',
+        'peut_voir_tous_postes',
+    ],
+    
+    'chef_peage': [
+        # Chef de Poste Péage
+        'peut_saisir_peage', 'voir_recettes_potentielles', 'voir_taux_deperdition',
+        'peut_saisir_inventaire_normal', 'peut_voir_programmation_active',
+        'peut_voir_liste_inventaires', 'peut_voir_stats_deperdition',
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
+        'peut_voir_stats_recettes_peage', 'peut_voir_evolution_peage',
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
+        'peut_voir_classement_peage_rendement', 'peut_voir_classement_peage_deperdition',
+    ],
+    
+    'chef_station_pesage': [
+        # Chef de Station Pesage
+        'peut_voir_historique_vehicule_pesage','peut_voir_objectifs_pesage',
+        'peut_lister_amendes',
+        'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        'peut_voir_classement_station_pesage','peut_voir_pv_confrontation',
+    ],
+    
+    'regisseur_pesage': [
+        # Régisseur de Station Pesage
+        'peut_voir_historique_vehicule_pesage',
+        'peut_voir_objectifs_pesage', 'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
+        'peut_voir_liste_quittancements_pesage', 'peut_voir_recettes_pesage','peut_voir_classement_station_pesage',
+        'peut_voir_pv_confrontation',
+    ],
+    
+    'chef_equipe_pesage': [
+        # Chef d'Équipe Pesage
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
+        'peut_saisir_pesee_jour', 'peut_lister_amendes',
+        'peut_voir_historique_pesees',
+    ],
+    
+    'agent_inventaire': [
+        # Agent Inventaire
+        'peut_saisir_peage',
+        'peut_saisir_inventaire_normal',
+        'peut_voir_liste_inventaires',
+    ],
+    
+    'comptable_mat': [
+        # Comptable Matières
+        'acces_tous_postes', 'peut_gerer_archives',
+        'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_historique_stock_peage',
+        'peut_voir_tous_postes',
+    ],
+    
+}
+
+# Ajouter les alias pour la rétrocompatibilité
+PERMISSIONS_PAR_HABILITATION['chef_pesage'] = PERMISSIONS_PAR_HABILITATION['chef_station_pesage']
+PERMISSIONS_PAR_HABILITATION['chef_ordre'] = PERMISSIONS_PAR_HABILITATION['serv_ordre']
+PERMISSIONS_PAR_HABILITATION['chef_controle'] = PERMISSIONS_PAR_HABILITATION['serv_controle']
+
+
+# ===================================================================
+# CATÉGORIES DE PERMISSIONS POUR L'AFFICHAGE
+# ===================================================================
+
+CATEGORIES_PERMISSIONS = {
+    'globales': {
+        'label': _('Permissions Globales'),
+        'icon': 'fas fa-globe',
+        'permissions': [
+            ('acces_tous_postes', _('Accès à tous les postes')),
+            ('peut_saisir_peage', _('Peut saisir données péage')),
+            ('peut_saisir_pesage', _('Peut saisir données pesage')),
+            ('voir_recettes_potentielles', _('Voir recettes potentielles')),
+            ('voir_taux_deperdition', _('Voir taux de déperdition')),
+            ('voir_statistiques_globales', _('Voir statistiques globales')),
+            ('peut_saisir_pour_autres_postes', _('Saisir pour autres postes')),
+        ]
+    },
+    'inventaires': {
+        'label': _('Inventaires'),
+        'icon': 'fas fa-clipboard-list',
+        'permissions': [
+            ('peut_saisir_inventaire_normal', _('Saisir inventaire normal')),
+            ('peut_saisir_inventaire_admin', _('Saisir inventaire admin')),
+            ('peut_programmer_inventaire', _('Programmer inventaire')),
+            ('peut_voir_programmation_active', _('Voir programmation active')),
+            ('peut_desactiver_programmation', _('Désactiver programmation')),
+            ('peut_voir_programmation_desactivee', _('Voir prog. désactivées')),
+            ('peut_voir_liste_inventaires', _('Voir liste inventaires')),
+            ('peut_voir_liste_inventaires_admin', _('Voir liste inv. admin')),
+            ('peut_voir_jours_impertinents', _('Voir jours impertinents')),
+            ('peut_voir_stats_deperdition', _('Voir stats déperdition')),
+        ]
+    },
+    'recettes_peage': {
+        'label': _('Recettes Péage'),
+        'icon': 'fas fa-money-bill-wave',
+        'permissions': [
+            ('peut_saisir_recette_peage', _('Saisir recette péage')),
+            ('peut_voir_liste_recettes_peage', _('Voir liste recettes')),
+            ('peut_voir_stats_recettes_peage', _('Voir stats recettes')),
+            ('peut_importer_recettes_peage', _('Importer recettes')),
+            ('peut_voir_evolution_peage', _('Voir évolution péage')),
+            ('peut_voir_objectifs_peage', _('Voir objectifs péage')),
+        ]
+    },
+    'quittances_peage': {
+        'label': _('Quittances Péage'),
+        'icon': 'fas fa-receipt',
+        'permissions': [
+            ('peut_saisir_quittance_peage', _('Saisir quittance péage')),
+            ('peut_voir_liste_quittances_peage', _('Voir liste quittances')),
+            ('peut_comptabiliser_quittances_peage', _('Comptabiliser quittances')),
+        ]
+    },
+    'pesage': {
+        'label': _('Pesage'),
+        'icon': 'fas fa-weight',
+        'permissions': [
+            ('peut_voir_historique_vehicule_pesage', _('Historique véhicule')),
+            ('peut_saisir_amende', _('Saisir amende')),
+            ('peut_saisir_pesee_jour', _('Saisir pesée jour')),
+            ('peut_voir_objectifs_pesage', _('Voir objectifs pesage')),
+            ('peut_valider_paiement_amende', _('Valider paiement amende')),
+            ('peut_lister_amendes', _('Lister amendes')),
+            ('peut_saisir_quittance_pesage', _('Saisir quittance pesage')),
+            ('peut_comptabiliser_quittances_pesage', _('Comptabiliser quitt. pesage')),
+            ('peut_voir_liste_quittancements_pesage', _('Voir quittancements')),
+            ('peut_voir_historique_pesees', _('Historique pesées')),
+            ('peut_voir_recettes_pesage', _('Voir recettes pesage')),
+            ('peut_voir_stats_pesage', _('Voir stats pesage')),
+        ]
+    },
+    'stock_peage': {
+        'label': _('Stock Péage'),
+        'icon': 'fas fa-boxes',
+        'permissions': [
+            ('peut_charger_stock_peage', _('Charger stock péage')),
+            ('peut_voir_liste_stocks_peage', _('Voir liste stocks')),
+            ('peut_voir_stock_date_peage', _('Voir stock par date')),
+            ('peut_transferer_stock_peage', _('Transférer stock')),
+            ('peut_voir_tracabilite_tickets', _('Traçabilité tickets')),
+            ('peut_voir_bordereaux_peage', _('Voir bordereaux')),
+            ('peut_voir_mon_stock_peage', _('Voir mon stock')),
+            ('peut_voir_historique_stock_peage', _('Historique stock')),
+            ('peut_simuler_commandes_peage', _('Simuler commandes')),
+        ]
+    },
+    'gestion': {
+        'label': _('Gestion'),
+        'icon': 'fas fa-cogs',
+        'permissions': [
+            ('peut_gerer_postes', _('Gérer postes')),
+            ('peut_ajouter_poste', _('Ajouter poste')),
+            ('peut_creer_poste_masse', _('Créer postes en masse')),
+            ('peut_gerer_utilisateurs', _('Gérer utilisateurs')),
+            ('peut_creer_utilisateur', _('Créer utilisateur')),
+            ('peut_voir_journal_audit', _('Voir journal audit')),
+        ]
+    },
+    'rapports': {
+        'label': _('Rapports'),
+        'icon': 'fas fa-chart-bar',
+        'permissions': [
+            ('peut_voir_rapports_defaillants_peage', _('Rapports défaillants péage')),
+            ('peut_voir_rapports_defaillants_pesage', _('Rapports défaillants pesage')),
+            ('peut_voir_rapport_inventaires', _('Rapport inventaires')),
+            ('peut_voir_classement_peage_rendement', _('Classement rendement')),
+            ('peut_voir_classement_station_pesage', _('Classement stations')),
+            ('peut_voir_classement_peage_deperdition', _('Classement déperdition')),
+            ('peut_voir_classement_agents_inventaire', _('Classement agents')),
+        ]
+    },
+    'autres': {
+        'label': _('Autres'),
+        'icon': 'fas fa-ellipsis-h',
+        'permissions': [
+            ('peut_parametrage_global', _('Paramétrage global')),
+            ('peut_voir_compte_emploi', _('Voir compte emploi')),
+            ('peut_voir_pv_confrontation', _('Voir PV confrontation')),
+            ('peut_authentifier_document', _('Authentifier document')),
+            ('peut_voir_tous_postes', _('Voir tous postes')),
+        ]
+    },
+    'modules_legacy': {
+        'label': _('Modules (Ancien)'),
+        'icon': 'fas fa-archive',
+        'permissions': [
+            ('peut_gerer_peage', _('Gérer le péage')),
+            ('peut_gerer_pesage', _('Gérer le pesage')),
+            ('peut_gerer_personnel', _('Gérer le personnel')),
+            ('peut_gerer_budget', _('Gérer le budget')),
+            ('peut_gerer_inventaire', _('Gérer l\'inventaire')),
+            ('peut_gerer_archives', _('Gérer les archives')),
+            ('peut_gerer_stocks_psrr', _('Gérer les stocks PSRR')),
+            ('peut_gerer_stock_info', _('Gérer le stock info')),
+        ]
+    },
+}
+
+
+def get_all_permissions_list():
+    """Retourne la liste de toutes les permissions"""
+    all_perms = []
+    for cat_data in CATEGORIES_PERMISSIONS.values():
+        for perm_name, _ in cat_data['permissions']:
+            all_perms.append(perm_name)
+    return all_perms
+
+
+def preparer_contexte_permissions(habilitation=None):
+    """
+    Prépare le contexte pour l'affichage des permissions dans le template.
+    """
+    permissions_default = PERMISSIONS_PAR_HABILITATION.get(habilitation, []) if habilitation else []
+    
+    categories = {}
+    total_permissions = 0
+    
+    for cat_id, cat_data in CATEGORIES_PERMISSIONS.items():
+        perms_list = []
+        count_actives = 0
+        
+        for perm_name, perm_label in cat_data['permissions']:
+            is_checked = perm_name in permissions_default
+            if is_checked:
+                count_actives += 1
+            
+            perms_list.append({
+                'name': perm_name,
+                'label': str(perm_label),
+                'checked': is_checked,
+            })
+        
+        categories[cat_id] = {
+            'label': str(cat_data['label']),
+            'icon': cat_data['icon'],
+            'permissions': perms_list,
+            'count_total': len(perms_list),
+            'count_actives': count_actives,
+        }
+        total_permissions += len(perms_list)
+    
+    return {
+        'permissions_categories': categories,
+        'total_permissions': total_permissions,
+        'permissions_par_habilitation_json': json.dumps(PERMISSIONS_PAR_HABILITATION),
+        'toutes_permissions_json': json.dumps(get_all_permissions_list()),
+    }
+
+
+# ===================================================================
+# VUES PRINCIPALES
+# ===================================================================
+
+@login_required
+@permission_required_granular('peut_gerer_utilisateurs')
+def bulk_create_step1_upload(request):
+    """
+    Étape 1: Upload du fichier Excel
+    Format attendu: A1=Matricule, B1=Noms et Prénoms, C1=Numéro Téléphone
+    """
+    if request.method == 'POST':
+        if 'excel_file' not in request.FILES:
+            messages.error(request, _("Veuillez sélectionner un fichier Excel."))
+            return redirect('accounts:bulk_create_step1')
+        
+        excel_file = request.FILES['excel_file']
+        
+        # Vérifier l'extension
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            messages.error(request, _("Le fichier doit être au format Excel (.xlsx ou .xls)."))
+            return redirect('accounts:bulk_create_step1')
+        
+        try:
+            # Lire le fichier Excel avec pandas
+            df = pd.read_excel(excel_file, dtype=str)
+            
+            # Vérifier les colonnes requises (A, B, C)
+            if len(df.columns) < 3:
+                messages.error(request, _("Le fichier doit contenir au moins 3 colonnes: Matricule, Noms et Prénoms, Numéro Téléphone."))
+                return redirect('accounts:bulk_create_step1')
+            
+            # Renommer les colonnes pour la cohérence
+            df.columns = ['matricule', 'nom_complet', 'telephone'] + list(df.columns[3:])
+            
+            # Nettoyer les données
+            utilisateurs_data = []
+            erreurs = []
+            matricules_vus = set()
+            
+            for index, row in df.iterrows():
+                ligne_num = index + 2  # +2 car Excel commence à 1 et il y a l'en-tête
+                
+                matricule = str(row['matricule']).strip().upper() if pd.notna(row['matricule']) else ''
+                nom_complet = str(row['nom_complet']).strip() if pd.notna(row['nom_complet']) else ''
+                telephone = str(row['telephone']).strip() if pd.notna(row['telephone']) else ''
+                
+                # Ignorer les lignes vides
+                if not matricule and not nom_complet:
+                    continue
+                
+                # Validations
+                if not matricule:
+                    erreurs.append(f"Ligne {ligne_num}: Matricule manquant")
+                    continue
+                
+                if not nom_complet:
+                    erreurs.append(f"Ligne {ligne_num}: Nom complet manquant")
+                    continue
+                
+                if not telephone:
+                    erreurs.append(f"Ligne {ligne_num}: Numéro de téléphone manquant")
+                    continue
+                
+                # Vérifier doublon dans le fichier
+                if matricule in matricules_vus:
+                    erreurs.append(f"Ligne {ligne_num}: Matricule '{matricule}' en double dans le fichier")
+                    continue
+                
+                # Vérifier si le matricule existe déjà en base
+                if UtilisateurSUPPER.objects.filter(username=matricule).exists():
+                    erreurs.append(f"Ligne {ligne_num}: Matricule '{matricule}' existe déjà dans le système")
+                    continue
+                
+                # Valider le téléphone (format camerounais)
+                telephone_clean = re.sub(r'\s+', '', telephone)  # Supprimer les espaces
+                if not re.match(r'^(\+?237)?[0-9]{8,9}$', telephone_clean):
+                    erreurs.append(f"Ligne {ligne_num}: Téléphone '{telephone}' invalide (format: +237XXXXXXXXX)")
+                    continue
+                
+                matricules_vus.add(matricule)
+                utilisateurs_data.append({
+                    'matricule': matricule,
+                    'nom_complet': nom_complet,
+                    'telephone': telephone_clean,
+                })
+            
+            if not utilisateurs_data:
+                messages.error(request, _("Aucun utilisateur valide trouvé dans le fichier."))
+                if erreurs:
+                    for err in erreurs[:10]:  # Limiter à 10 erreurs
+                        messages.warning(request, err)
+                return redirect('accounts:bulk_create_step1')
+            
+            # Stocker les données en session pour l'étape 2
+            request.session['bulk_users_data'] = utilisateurs_data
+            request.session['bulk_users_errors'] = erreurs
+            
+            messages.success(request, _("%(count)d utilisateurs trouvés dans le fichier.") % {'count': len(utilisateurs_data)})
+            
+            if erreurs:
+                messages.warning(request, _("%(count)d lignes ignorées (voir détails).") % {'count': len(erreurs)})
+            
+            return redirect('accounts:bulk_create_step2')
+            
+        except Exception as e:
+            logger.error(f"Erreur lecture Excel: {str(e)}")
+            messages.error(request, _("Erreur lors de la lecture du fichier: %(error)s") % {'error': str(e)})
+            return redirect('accounts:bulk_create_step1')
+    
+    # GET: Afficher le formulaire d'upload
+    context = {
+        'title': _('Import en masse - Étape 1: Upload du fichier'),
+    }
+    return render(request, 'accounts/user_bulk_create_step1.html', context)
+
+
+@login_required
+@permission_required_granular('peut_gerer_utilisateurs')
+def bulk_create_step2_configure(request):
+    """
+    Étape 2: Configuration de l'habilitation et des permissions
+    """
+    # Vérifier que les données existent en session
+    utilisateurs_data = request.session.get('bulk_users_data', [])
+    erreurs = request.session.get('bulk_users_errors', [])
+    
+    if not utilisateurs_data:
+        messages.error(request, _("Aucune donnée utilisateur en session. Veuillez recommencer l'import."))
+        return redirect('accounts:bulk_create_step1')
+    
+    if request.method == 'POST':
+        habilitation = request.POST.get('habilitation', 'agent_inventaire')
+        
+        # Récupérer les permissions cochées
+        permissions_cochees = []
+        for perm_name in get_all_permissions_list():
+            if request.POST.get(perm_name) == 'on':
+                permissions_cochees.append(perm_name)
+        
+        try:
+            with transaction.atomic():
+                users_created = []
+                
+                for user_data in utilisateurs_data:
+                    # Créer l'utilisateur avec mot de passe par défaut 0000
+                    user = UtilisateurSUPPER.objects.create_user(
+                        username=user_data['matricule'],
+                        nom_complet=user_data['nom_complet'],
+                        telephone=user_data['telephone'],
+                        password='0000',
+                        habilitation=habilitation,
+                        poste_affectation=None,  # Pas de poste par défaut
+                        cree_par=request.user,
+                        is_active=True,
+                    )
+                    
+                    # Appliquer les permissions personnalisées
+                    # D'abord réinitialiser toutes les permissions
+                    user._reinitialiser_toutes_permissions()
+                    
+                    # Puis activer uniquement les permissions cochées
+                    for perm_name in permissions_cochees:
+                        if hasattr(user, perm_name):
+                            setattr(user, perm_name, True)
+                    
+                    # Marquer comme personnalisé si différent des permissions par défaut
+                    permissions_defaut = set(PERMISSIONS_PAR_HABILITATION.get(habilitation, []))
+                    permissions_choisies = set(permissions_cochees)
+                    
+                    if permissions_choisies != permissions_defaut:
+                        user.permissions_personnalisees = True
+                        user.personnalise_par = request.user
+                        from django.utils import timezone
+                        user.date_personnalisation = timezone.now()
+                    
+                    user.save()
+                    users_created.append(user)
+                
+                # Journalisation
+                log_user_action(
+                    request.user,
+                    "CRÉATION UTILISATEURS EN MASSE",
+                    f"{get_user_short_description(request.user)} a créé {len(users_created)} utilisateurs "
+                    f"avec habilitation '{habilitation}' via import Excel",
+                    request
+                )
+                
+                # Nettoyer la session
+                del request.session['bulk_users_data']
+                if 'bulk_users_errors' in request.session:
+                    del request.session['bulk_users_errors']
+                
+                messages.success(
+                    request,
+                    _("%(count)d utilisateurs créés avec succès. Mot de passe par défaut: 0000") % {
+                        'count': len(users_created)
+                    }
+                )
+                
+                return redirect('accounts:user_list')
+                
+        except Exception as e:
+            logger.error(f"Erreur création en masse: {str(e)}")
+            messages.error(request, _("Erreur lors de la création: %(error)s") % {'error': str(e)})
+    
+    # GET: Afficher le formulaire de configuration
+    context = {
+        'title': _('Import en masse - Étape 2: Configuration'),
+        'utilisateurs': utilisateurs_data,
+        'erreurs': erreurs,
+        'habilitations': Habilitation.choices,
+        'postes_peage': Poste.objects.filter(is_active=True, type='peage').order_by('nom'),
+        'postes_pesage': Poste.objects.filter(is_active=True, type='pesage').order_by('nom'),
+    }
+    
+    # Ajouter le contexte des permissions (par défaut pour agent_inventaire)
+    context.update(preparer_contexte_permissions('agent_inventaire'))
+    
+    return render(request, 'accounts/user_bulk_create_step2.html', context)
+
+
+@login_required
+@permission_required_granular('peut_gerer_utilisateurs')
+def bulk_create_cancel(request):
+    """Annuler l'import en masse et nettoyer la session"""
+    if 'bulk_users_data' in request.session:
+        del request.session['bulk_users_data']
+    if 'bulk_users_errors' in request.session:
+        del request.session['bulk_users_errors']
+    
+    messages.info(request, _("Import annulé."))
+    return redirect('accounts:user_list')
+
+
+@login_required
+@require_GET
+def api_permissions_for_habilitation(request):
+    """
+    API JSON pour récupérer les permissions par défaut d'une habilitation
+    """
+    habilitation = request.GET.get('habilitation', '')
+    
+    if habilitation in PERMISSIONS_PAR_HABILITATION:
+        return JsonResponse({
+            'success': True,
+            'habilitation': habilitation,
+            'permissions': PERMISSIONS_PAR_HABILITATION[habilitation]
+        })
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': f"Habilitation '{habilitation}' non reconnue"
+        }, status=400)
 
 # ===================================================================
 # GESTION DES POSTES (AVEC PERMISSIONS GRANULAIRES)

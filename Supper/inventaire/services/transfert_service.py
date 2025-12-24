@@ -464,13 +464,13 @@ class TransfertTicketsService:
         for chef in chefs_origine:
             NotificationUtilisateur.objects.create(
                 destinataire=chef,
-                expediteur=user,
                 titre="Tickets cédés",
                 message=(
                     f"Transfert de {nombre_tickets} tickets "
                     f"{couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
                     f"vers {poste_destination.nom}.\n"
-                    f"Montant: {montant:,.0f} FCFA | Bordereau: {numero_bordereau}"
+                    f"Montant: {montant:,.0f} FCFA | Bordereau: {numero_bordereau}\n"
+                    f"Effectué par: {user.get_full_name() or user.username}"
                 ),
                 type_notification='warning'
             )
@@ -485,13 +485,13 @@ class TransfertTicketsService:
         for chef in chefs_destination:
             NotificationUtilisateur.objects.create(
                 destinataire=chef,
-                expediteur=user,
                 titre="Tickets reçus",
                 message=(
                     f"Réception de {nombre_tickets} tickets "
                     f"{couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
                     f"de {poste_origine.nom}.\n"
-                    f"Montant: {montant:,.0f} FCFA | Bordereau: {numero_bordereau}"
+                    f"Montant: {montant:,.0f} FCFA | Bordereau: {numero_bordereau}\n"
+                    f"Effectué par: {user.get_full_name() or user.username}"
                 ),
                 type_notification='success'
             )

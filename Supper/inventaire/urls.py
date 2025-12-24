@@ -443,6 +443,9 @@ pesage_patterns = [
     path('pesage/pv-confrontation/pdf/<int:station_id>/<str:date_debut>/<str:date_fin>/', 
          views_pv_confrontation.generer_pv_confrontation_pdf, 
          name='generer_pv_confrontation_pdf'),
+     path('pesage/amendes/<int:pk>/consulter/', 
+          views_pesage.consulter_amendes_anterieures, 
+          name='consulter_amendes_anterieures'),
     
      # ===================================================================
     # RECHERCHE HISTORIQUE VÉHICULE
@@ -471,25 +474,28 @@ pesage_patterns = [
     path('pesage/valider-paiement-direct/<int:pk>/', 
          views_historique_pesage.valider_paiement_direct, 
          name='valider_paiement_direct'),
+     path('api/pesage/amendes-vehicule/<str:immatriculation>/', 
+      views_pesage.api_amendes_vehicule_autres_stations, 
+      name='api_amendes_vehicule_autres_stations'),
     
     # ===================================================================
     # DEMANDES DE CONFIRMATION INTER-STATIONS
-    # ===================================================================
+#     # ===================================================================
     
-    # Créer une demande de confirmation
-    path('pesage/creer-demande-confirmation/<int:amende_pk>/<int:amende_bloquante_pk>/', 
-         views_historique_pesage.creer_demande_confirmation, 
-         name='creer_demande_confirmation'),
+#     # Créer une demande de confirmation
+#     path('pesage/creer-demande-confirmation/<int:amende_pk>/<int:amende_bloquante_pk>/', 
+#          views_historique_pesage.creer_demande_confirmation, 
+#          name='creer_demande_confirmation'),
     
-    # Liste des demandes envoyées par ma station
-    path('pesage/mes-demandes-confirmation/', 
-         views_historique_pesage.mes_demandes_confirmation, 
-         name='mes_demandes_confirmation'),
+#     # Liste des demandes envoyées par ma station
+#     path('pesage/mes-demandes-confirmation/', 
+#          views_historique_pesage.mes_demandes_confirmation, 
+#          name='mes_demandes_confirmation'),
     
-    # Liste des demandes à traiter (reçues)
-    path('pesage/demandes-confirmation-a-traiter/', 
-         views_historique_pesage.demandes_confirmation_a_traiter, 
-         name='demandes_confirmation_a_traiter'),
+#     # Liste des demandes à traiter (reçues)
+#     path('pesage/demandes-confirmation-a-traiter/', 
+#          views_historique_pesage.demandes_confirmation_a_traiter, 
+#          name='demandes_confirmation_a_traiter'),
     
     # Détail d'une demande
     path('pesage/demande-confirmation/<int:pk>/', 
@@ -497,10 +503,10 @@ pesage_patterns = [
          name='detail_demande_confirmation'),
     
     # Traiter une demande (confirmer/refuser)
-    path('pesage/traiter-demande-confirmation/<int:pk>/', 
-         views_historique_pesage.traiter_demande_confirmation, 
-         name='traiter_demande_confirmation'),
-    path('pesage/validation-bloquee/<int:pk>/', views_historique_pesage.validation_bloquee, name='validation_bloquee'),
+#     #path('pesage/traiter-demande-confirmation/<int:pk>/', 
+#          views_historique_pesage.traiter_demande_confirmation, 
+#          name='traiter_demande_confirmation'),
+    #path('pesage/validation-bloquee/<int:pk>/', views_historique_pesage.validation_bloquee, name='validation_bloquee'),
 
     path('pesage/classement-rendement/', views_classement_pesage.classement_stations_pesage_rendement, name='classement_stations_pesage_rendement'),
 

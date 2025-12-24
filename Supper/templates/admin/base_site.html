@@ -1047,7 +1047,7 @@
                                     <hr class="my-2">
                                     
                                     <!-- Section Confirmations -->
-                                    <h6 class="dropdown-header px-0 text-purple">
+                                    {% comment %} <h6 class="dropdown-header px-0 text-purple">
                                         <i class="fas fa-handshake me-1"></i>{% trans "Confirmations" %}
                                     </h6>
                                     <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:demandes_confirmation_a_traiter' %}">
@@ -1056,7 +1056,7 @@
                                     </a>
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:mes_demandes_confirmation' %}">
                                         <i class="fas fa-paper-plane me-2 text-primary"></i>{% trans "Mes Demandes Envoyées" %}
-                                    </a>
+                                    </a> {% endcomment %}
                                     
                                     {% elif user.peut_lister_amendes and not user.peut_valider_paiement_amende %}
                                     <!-- Section Supervision (consultation) -->
@@ -1812,7 +1812,7 @@
                                     </a>
                                     <div class="dropdown-divider"></div>
                                     
-                                    <!-- Section Confirmations -->
+                                    {% comment %} <!-- Section Confirmations -->
                                     <h6 class="dropdown-header text-purple">
                                         <i class="fas fa-handshake me-1"></i>{% trans "Confirmations" %}
                                     </h6>
@@ -1822,7 +1822,7 @@
                                     </a>
                                     <a class="dropdown-item" href="{% url 'inventaire:mes_demandes_confirmation' %}">
                                         <i class="fas fa-paper-plane me-2 text-primary"></i>{% trans "Mes Demandes Envoyées" %}
-                                    </a>
+                                    </a> {% endcomment %}
                                     <div class="dropdown-divider"></div>
                                     
                                     {% elif user.peut_lister_amendes and not user.peut_valider_paiement_amende %}

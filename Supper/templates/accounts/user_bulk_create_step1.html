@@ -1,0 +1,618 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Import en masse - Étape 1{% endblock %}
+
+{% block content %}
+<style>
+    /* ===== VARIABLES CSS ===== */
+    :root {
+        --primary-color: #10B981;
+        --primary-dark: #059669;
+        --primary-light: #D1FAE5;
+        --secondary-color: #6366F1;
+        --danger-color: #EF4444;
+        --warning-color: #F59E0B;
+        --info-color: #3B82F6;
+        --text-dark: #1F2937;
+        --text-muted: #6B7280;
+        --border-color: #E5E7EB;
+        --bg-light: #F9FAFB;
+    }
+
+    /* ===== HEADER ===== */
+    .page-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+    }
+    
+    .page-header h2 {
+        color: white;
+        margin-bottom: 0.5rem;
+        font-weight: 700;
+    }
+    
+    .page-header p {
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 0;
+    }
+
+    /* ===== STEPPER ===== */
+    .stepper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 2rem;
+        gap: 1rem;
+    }
+    
+    .step {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .step.active .step-number {
+        background: var(--primary-color);
+        color: white;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+    
+    .step.inactive .step-number {
+        background: var(--border-color);
+        color: var(--text-muted);
+    }
+    
+    .step-label {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+    
+    .step.inactive .step-label {
+        color: var(--text-muted);
+    }
+    
+    .step-connector {
+        width: 60px;
+        height: 3px;
+        background: var(--border-color);
+        border-radius: 2px;
+    }
+
+    /* ===== MAIN CARD ===== */
+    .upload-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+    
+    .upload-card-body {
+        padding: 2rem;
+    }
+
+    /* ===== DROP ZONE ===== */
+    .drop-zone {
+        border: 3px dashed var(--border-color);
+        border-radius: 16px;
+        padding: 3rem 2rem;
+        text-align: center;
+        background: var(--bg-light);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .drop-zone:hover,
+    .drop-zone.dragover {
+        border-color: var(--primary-color);
+        background: var(--primary-light);
+    }
+    
+    .drop-zone-icon {
+        font-size: 4rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        opacity: 0.8;
+    }
+    
+    .drop-zone h4 {
+        color: var(--text-dark);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+    
+    .drop-zone p {
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+    
+    .drop-zone input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    
+    .file-selected {
+        background: var(--primary-light) !important;
+        border-color: var(--primary-color) !important;
+    }
+    
+    .file-selected .drop-zone-icon {
+        color: var(--primary-dark);
+    }
+    
+    .selected-file-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .selected-file-info i {
+        color: var(--primary-color);
+        font-size: 1.5rem;
+    }
+    
+    .selected-file-info span {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+
+    /* ===== FORMAT INFO ===== */
+    .format-info {
+        background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+        border: 1px solid #C7D2FE;
+        border-left: 4px solid var(--secondary-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .format-info h5 {
+        color: var(--secondary-color);
+        margin-bottom: 1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .format-table {
+        width: 100%;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .format-table th {
+        background: var(--secondary-color);
+        color: white;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        text-align: center;
+    }
+    
+    .format-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        text-align: center;
+    }
+    
+    .format-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .format-table .example {
+        color: var(--text-muted);
+        font-style: italic;
+        font-size: 0.875rem;
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn-primary-gradient {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        border: none;
+        color: white;
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-primary-gradient:hover {
+        background: linear-gradient(135deg, var(--primary-dark), #047857);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        color: white;
+    }
+    
+    .btn-primary-gradient:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-secondary-outline {
+        background: transparent;
+        border: 2px solid var(--border-color);
+        color: var(--text-muted);
+        padding: 0.875rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-secondary-outline:hover {
+        border-color: var(--text-dark);
+        color: var(--text-dark);
+    }
+
+    /* ===== ALERTS ===== */
+    .alert-info-custom {
+        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+        border: 1px solid #93C5FD;
+        border-left: 4px solid var(--info-color);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+    
+    .alert-info-custom i {
+        color: var(--info-color);
+        font-size: 1.25rem;
+        margin-top: 2px;
+    }
+    
+    .alert-info-custom p {
+        margin: 0;
+        color: #1E40AF;
+        font-size: 0.9rem;
+    }
+
+    /* ===== DOWNLOAD TEMPLATE ===== */
+    .download-template {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--primary-color);
+        font-weight: 600;
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        background: var(--primary-light);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        margin-top: 1rem;
+    }
+    
+    .download-template:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    /* ===== MOBILE RESPONSIVE ===== */
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+        
+        .stepper {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .step-connector {
+            width: 3px;
+            height: 30px;
+        }
+        
+        .step {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .upload-card-body {
+            padding: 1rem;
+        }
+        
+        .drop-zone {
+            padding: 2rem 1rem;
+        }
+        
+        .drop-zone-icon {
+            font-size: 3rem;
+        }
+        
+        .format-info {
+            padding: 1rem;
+        }
+        
+        .format-table th,
+        .format-table td {
+            padding: 0.5rem;
+            font-size: 0.8rem;
+        }
+        
+        .btn-primary-gradient,
+        .btn-secondary-outline {
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.75rem !important;
+        }
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-fade-in {
+        animation: fadeInUp 0.5s ease forwards;
+    }
+    
+    .animate-delay-1 { animation-delay: 0.1s; }
+    .animate-delay-2 { animation-delay: 0.2s; }
+    .animate-delay-3 { animation-delay: 0.3s; }
+</style>
+
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="page-header animate-fade-in">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h2><i class="fas fa-users-cog me-2"></i>Import en masse d'utilisateurs</h2>
+                <p>Importez plusieurs utilisateurs depuis un fichier Excel</p>
+            </div>
+            <a href="{% url 'accounts:user_list' %}" class="btn btn-light">
+                <i class="fas fa-arrow-left me-2"></i>Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Stepper -->
+    <div class="stepper animate-fade-in animate-delay-1">
+        <div class="step active">
+            <div class="step-number">1</div>
+            <div class="step-label">Upload fichier</div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step inactive">
+            <div class="step-number">2</div>
+            <div class="step-label">Configuration</div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show animate-fade-in animate-delay-1" role="alert">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Main Card -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <div class="upload-card animate-fade-in animate-delay-2">
+                <div class="upload-card-body">
+                    <form method="post" enctype="multipart/form-data" id="upload-form">
+                        {% csrf_token %}
+                        
+                        <!-- Drop Zone -->
+                        <div class="drop-zone" id="drop-zone">
+                            <input type="file" name="excel_file" id="excel-file" accept=".xlsx,.xls" required>
+                            <div class="drop-zone-icon">
+                                <i class="fas fa-file-excel"></i>
+                            </div>
+                            <h4>Glissez votre fichier Excel ici</h4>
+                            <p>ou cliquez pour parcourir</p>
+                            <span class="badge bg-secondary">.xlsx, .xls</span>
+                            
+                            <div class="selected-file-info" id="file-info" style="display: none;">
+                                <i class="fas fa-file-check"></i>
+                                <span id="file-name">fichier.xlsx</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="clear-file">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Format Info -->
+                        <div class="format-info">
+                            <h5><i class="fas fa-info-circle"></i> Format attendu du fichier</h5>
+                            <table class="format-table">
+                                <thead>
+                                    <tr>
+                                        <th>Colonne A</th>
+                                        <th>Colonne B</th>
+                                        <th>Colonne C</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Matricule</strong></td>
+                                        <td><strong>Noms et Prénoms</strong></td>
+                                        <td><strong>Numéro Téléphone</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="example">123456A</td>
+                                        <td class="example">KAMGA Jean Pierre</td>
+                                        <td class="example">+237691234567</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="example">789012B</td>
+                                        <td class="example">NDJOCK Marie Claire</td>
+                                        <td class="example">656789012</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                            <a href="#" class="download-template" id="download-template">
+                                <i class="fas fa-download"></i>
+                                Télécharger un modèle
+                            </a>
+                        </div>
+
+                        <!-- Info Alert -->
+                        <div class="alert-info-custom">
+                            <i class="fas fa-lock"></i>
+                            <div>
+                                <p><strong>Mot de passe par défaut:</strong> Tous les utilisateurs importés auront le mot de passe <code>0000</code>. Ils pourront le modifier après leur première connexion.</p>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between gap-3 mt-4 action-buttons">
+                            <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary-outline">
+                                <i class="fas fa-times"></i>
+                                Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary-gradient" id="submit-btn" disabled>
+                                <i class="fas fa-arrow-right"></i>
+                                Continuer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('excel-file');
+    const fileInfo = document.getElementById('file-info');
+    const fileName = document.getElementById('file-name');
+    const clearFile = document.getElementById('clear-file');
+    const submitBtn = document.getElementById('submit-btn');
+    const downloadTemplate = document.getElementById('download-template');
+
+    // Handle file selection
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            showFileSelected(this.files[0]);
+        }
+    });
+
+    // Handle drag and drop
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                fileInput.files = files;
+                showFileSelected(file);
+            } else {
+                alert('Veuillez sélectionner un fichier Excel (.xlsx ou .xls)');
+            }
+        }
+    });
+
+    // Clear file selection
+    clearFile.addEventListener('click', function(e) {
+        e.stopPropagation();
+        fileInput.value = '';
+        fileInfo.style.display = 'none';
+        dropZone.classList.remove('file-selected');
+        submitBtn.disabled = true;
+    });
+
+    // Show file selected state
+    function showFileSelected(file) {
+        fileName.textContent = file.name;
+        fileInfo.style.display = 'flex';
+        dropZone.classList.add('file-selected');
+        submitBtn.disabled = false;
+    }
+
+    // Download template
+    downloadTemplate.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Create a simple CSV template that Excel can open
+        const csvContent = "Matricule;Noms et Prénoms;Numéro Téléphone\n123456A;KAMGA Jean Pierre;+237691234567\n789012B;NDJOCK Marie Claire;656789012";
+        
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'modele_import_utilisateurs.csv';
+        link.click();
+    });
+});
+</script>
+{% endblock %}
