@@ -2366,47 +2366,9 @@
                     });
                 });
 
-                // ============================================
-                // SCRIPT POUR LES BADGES DE DEMANDES EN ATTENTE
-                // ============================================
-                {% if user.peut_valider_paiement_amende %}
-                document.addEventListener('DOMContentLoaded', function() {
-                    
-                    function updateDemandesConfirmationBadges() {
-                        fetch('{% url "inventaire:api_count_demandes_attente" %}')
-                            .then(response => {
-                                if (!response.ok) throw new Error('Erreur réseau');
-                                return response.json();
-                            })
-                            .then(data => {
-                                const badgeMenu = document.getElementById('badge-demandes-attente');
-                                const badgeGlobal = document.getElementById('badge-pesage-global');
-                                
-                                if (data.count > 0) {
-                                    if (badgeMenu) {
-                                        badgeMenu.textContent = data.count;
-                                        badgeMenu.classList.remove('d-none');
-                                    }
-                                    if (badgeGlobal) {
-                                        badgeGlobal.textContent = data.count;
-                                        badgeGlobal.classList.remove('d-none');
-                                    }
-                                } else {
-                                    if (badgeMenu) badgeMenu.classList.add('d-none');
-                                    if (badgeGlobal) badgeGlobal.classList.add('d-none');
-                                }
-                            })
-                            .catch(error => {
-                                console.log('Erreur récupération demandes:', error);
-                            });
-                    }
-                    
-                    // Mettre à jour immédiatement puis toutes les 30 secondes
-                    updateDemandesConfirmationBadges();
-                    setInterval(updateDemandesConfirmationBadges, 30000);
-                });
-                {% endif %}
+                
                 </script>
+                
 
                 {% block extra_js %}{% endblock %}
 

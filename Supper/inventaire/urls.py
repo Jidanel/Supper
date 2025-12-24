@@ -548,9 +548,5 @@ pesage_patterns = [
          views_historique_pesage.api_verifier_impaye_autres_stations, 
          name='api_verifier_impaye_autres_stations'),
     
-#     # API compter demandes en attente
-#     path('api/pesage/count-demandes-attente/', 
-#          views_historique_pesage.api_count_demandes_attente, 
-#          name='api_count_demandes_attente'),
 ]
 urlpatterns += pesage_patterns

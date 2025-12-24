@@ -5,121 +5,667 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION DES STYLES POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    .import-results-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .row {
+        margin-left: -15px;
+        margin-right: -15px;
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .col-md-3, .col-12 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
+    .page-title {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        word-wrap: break-word;
+    }
+
+    /* ============================================
+       CARTES DE STATISTIQUES
+       ============================================ */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .stat-box {
+        text-align: center;
+        padding: 1.25rem;
+        border-radius: 10px;
+        width: 100%;
+    }
+
+    .stat-box.created {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .stat-box.modified {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .stat-box.skipped {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .stat-box.errors {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.35rem;
+        line-height: 1.2;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    /* ============================================
+       CARTES DE RÉSULTATS
+       ============================================ */
     .result-card {
         background: white;
         border-radius: 12px;
-        padding: 2rem;
+        padding: 1.5rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         margin-bottom: 1.5rem;
+        width: 100%;
     }
-    .stat-box {
-        text-align: center;
-        padding: 1.5rem;
+
+    .result-card h5 {
+        font-size: 1.1rem;
+        margin: 0 0 0.75rem 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .result-card h5.text-warning {
+        color: #d97706;
+    }
+
+    .result-card h5.text-danger {
+        color: #dc2626;
+    }
+
+    .result-card p {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .result-card ul {
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+
+    .result-card ul li {
+        margin-bottom: 0.35rem;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+    }
+
+    /* ============================================
+       TABLEAU DES ERREURS
+       ============================================ */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        width: 100%;
+        margin-bottom: 0;
+        border-collapse: collapse;
+    }
+
+    .table-sm td {
+        padding: 0.5rem;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 0.9rem;
+    }
+
+    .table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
         border-radius: 8px;
-        margin-bottom: 1rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+        border: none;
     }
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid #6b7280;
+        color: #374151;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    /* ============================================
+       SECTION ACTIONS
+       ============================================ */
+    .actions-section {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .text-muted { color: #6b7280 !important; }
+    .text-center { text-align: center !important; }
+    .text-success { color: #059669 !important; }
+    .text-warning { color: #d97706 !important; }
+    .text-danger { color: #dc2626 !important; }
+    .text-info { color: #3b82f6 !important; }
+
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+
+    /* ============================================
+       RESPONSIVE - TABLETTES (768px - 1024px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (max 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction globale du défilement */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .import-results-page {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+            overflow-x: hidden !important;
+        }
+
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+        }
+
+        .col-md-3, .col-12 {
+            padding-left: 10px;
+            padding-right: 10px;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* Titre */
+        .page-title {
+            font-size: 1.2rem;
+        }
+
+        /* Stats en grille 2x2 */
+        .stats-row {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .stat-box {
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+        }
+
+        /* Cartes de résultats */
+        .result-card {
+            padding: 1.25rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .result-card h5 {
+            font-size: 1rem;
+        }
+
+        .result-card p {
+            font-size: 0.85rem;
+        }
+
+        .result-card ul {
+            padding-left: 1.25rem;
+        }
+
+        .result-card ul li {
+            font-size: 0.85rem;
+        }
+
+        /* Tableau */
+        .table-sm td {
+            padding: 0.4rem;
+            font-size: 0.8rem;
+        }
+
+        /* Boutons */
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .actions-section {
+            flex-direction: column;
+        }
+
+        .actions-section .btn {
+            width: 100%;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (max 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+        }
+
+        .col-md-3, .col-12 {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .page-title {
+            font-size: 1.1rem;
+        }
+
+        .stats-row {
+            gap: 0.5rem;
+        }
+
+        .stat-box {
+            padding: 0.875rem;
+        }
+
+        .stat-number {
+            font-size: 1.35rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+        }
+
+        .result-card {
+            padding: 1rem;
+        }
+
+        .result-card h5 {
+            font-size: 0.95rem;
+        }
+
+        .result-card ul li {
+            font-size: 0.8rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS MOBILES (max 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+        }
+
+        .col-md-3, .col-12 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .page-title {
+            font-size: 1rem;
+        }
+
+        .stat-box {
+            padding: 0.75rem;
+        }
+
+        .stat-number {
+            font-size: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+        }
+
+        .result-card {
+            padding: 0.875rem;
+        }
+
+        .result-card h5 {
+            font-size: 0.9rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .stats-row {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .actions-section {
+            flex-direction: row;
+            justify-content: center;
+        }
+
+        .actions-section .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       AMÉLIORATION DE L'ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       HAUTEURS MINIMALES POUR LE TOUCH
+       ============================================ */
+    .btn {
+        min-height: 44px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    .table-container::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-container::-webkit-scrollbar-track {
+        background: #e5e7eb;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+        background: #9ca3af;
+        border-radius: 3px;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .btn,
+        .actions-section {
+            display: none !important;
+        }
+
+        .result-card,
+        .stat-box {
+            box-shadow: none !important;
+            border: 1px solid #e5e7eb !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .stats-row {
+            grid-template-columns: repeat(4, 1fr);
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <h2 class="mb-4">
-        <i class="fas fa-check-circle text-success me-2"></i>
-        Résultats de l'Import
-    </h2>
-    
-    <div class="row">
-        <div class="col-md-3">
-            <div class="stat-box" style="background: #d1fae5; color: #065f46;">
+<div class="import-results-page">
+    <div class="container-fluid">
+        <h2 class="page-title mb-4">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            Résultats de l'Import
+        </h2>
+        
+        <div class="stats-row">
+            <div class="stat-box created">
                 <div class="stat-number">{{ resultats.nb_crees }}</div>
-                <div>Recettes créées</div>
+                <div class="stat-label">Recettes créées</div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-box" style="background: #dbeafe; color: #1e40af;">
+            <div class="stat-box modified">
                 <div class="stat-number">{{ resultats.nb_modifiees }}</div>
-                <div>Recettes modifiées</div>
+                <div class="stat-label">Recettes modifiées</div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-box" style="background: #fef3c7; color: #92400e;">
+            <div class="stat-box skipped">
                 <div class="stat-number">{{ resultats.nb_sautes }}</div>
-                <div>Recettes sautées</div>
+                <div class="stat-label">Recettes sautées</div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-box" style="background: #fee2e2; color: #991b1b;">
+            <div class="stat-box errors">
                 <div class="stat-number">{{ resultats.nb_erreurs }}</div>
-                <div>Erreurs</div>
+                <div class="stat-label">Erreurs</div>
             </div>
         </div>
-    </div>
-    
-    {% if resultats.postes_non_trouves %}
-    <div class="result-card">
-        <h5 class="text-warning">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            Postes non trouvés ({{ resultats.postes_non_trouves|length }})
-        </h5>
-        <p class="text-muted">Ces postes n'ont pas été reconnus dans la base de données :</p>
-        <ul>
-            {% for poste in resultats.postes_non_trouves %}
-            <li>{{ poste }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
-    {% if resultats.dates_invalides %}
+        
+        {% if resultats.postes_non_trouves %}
+        <div class="result-card">
+            <h5 class="text-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Postes non trouvés ({{ resultats.postes_non_trouves|length }})
+            </h5>
+            <p>Ces postes n'ont pas été reconnus dans la base de données :</p>
+            <ul>
+                {% for poste in resultats.postes_non_trouves %}
+                <li>{{ poste }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if resultats.dates_invalides %}
         <div class="result-card">
             <h5 class="text-warning">
                 <i class="fas fa-calendar-times me-2"></i>
                 Dates invalides ({{ resultats.dates_invalides|length }})
             </h5>
-            <p class="text-muted">Ces en-têtes de colonnes n'ont pas été reconnus comme des dates :</p>
+            <p>Ces en-têtes de colonnes n'ont pas été reconnus comme des dates :</p>
             <ul>
                 {% for date in resultats.dates_invalides %}
                 <li>{{ date }}</li>
                 {% endfor %}
             </ul>
-            <p class="text-info">
+            <p class="text-info mb-0">
                 <i class="fas fa-info-circle me-2"></i>
                 Format attendu : JJ/MM/AA (ex: 01/04/25)
             </p>
         </div>
         {% endif %}
-    
-    {% if resultats.erreurs_detail %}
-    <div class="result-card">
-        <h5 class="text-danger">
-            <i class="fas fa-times-circle me-2"></i>
-            Détails des erreurs
-        </h5>
-        <div class="table-responsive">
-            <table class="table table-sm">
-                <tbody>
-                    {% for erreur in resultats.erreurs_detail %}
-                    <tr>
-                        <td><i class="fas fa-exclamation-circle text-danger me-2"></i>{{ erreur }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        
+        {% if resultats.erreurs_detail %}
+        <div class="result-card">
+            <h5 class="text-danger">
+                <i class="fas fa-times-circle me-2"></i>
+                Détails des erreurs
+            </h5>
+            <div class="table-container">
+                <table class="table table-sm">
+                    <tbody>
+                        {% for erreur in resultats.erreurs_detail %}
+                        <tr>
+                            <td><i class="fas fa-exclamation-circle text-danger me-2"></i>{{ erreur }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="actions-section text-center mt-4">
+            <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-primary">
+                <i class="fas fa-list me-2"></i>Voir les recettes importées
+            </a>
+            <a href="{% url 'inventaire:import_recettes' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-redo me-2"></i>Nouvel import
+            </a>
         </div>
     </div>
-    {% endif %}
-    
-    <div class="text-center mt-4">
-        <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-primary">
-            <i class="fas fa-list me-2"></i>Voir les recettes importées
-        </a>
-        <a href="{% url 'inventaire:import_recettes' %}" class="btn btn-outline-secondary">
-            <i class="fas fa-redo me-2"></i>Nouvel import
-        </a>
-    </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            
+            document.querySelectorAll('.import-results-page, .container-fluid').forEach(el => {
+                el.style.overflowX = 'hidden';
+                el.style.maxWidth = '100vw';
+            });
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+});
+
+// Correction pour empêcher le zoom automatique sur iOS
+document.addEventListener('touchstart', function() {}, {passive: true});
+</script>
 {% endblock %}

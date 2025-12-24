@@ -1,33 +1,114 @@
 {% extends 'admin/base_site.html' %}
 {% load static %}
 {% load i18n %}
-{%load inventaire_extras%}
+{% load inventaire_extras %}
 
 {% block title %}{% trans "Liste des Quittancements" %}{% endblock %}
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .col-md-2, .col-md-3, .col-md-4, .col-md-6, .col-md-12 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .g-3 {
+        gap: 1rem;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
     .page-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 2rem;
         border-radius: 15px;
         margin-bottom: 2rem;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
-    
-    .filter-card {
-        background: white;
-        border-radius: 10px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        margin-bottom: 2rem;
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    
+
+    .page-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .page-header .d-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    /* ============================================
+       GRILLE DE STATISTIQUES
+       ============================================ */
     .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
+        width: 100%;
     }
     
     .stat-card {
@@ -37,6 +118,9 @@
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         text-align: center;
         transition: all 0.3s ease;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
     
     .stat-card:hover {
@@ -62,9 +146,251 @@
     .stat-card h3 {
         font-size: 2rem;
         margin-bottom: 0.5rem;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .stat-card p {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .stat-card small {
+        font-size: 0.8rem;
+        opacity: 0.9;
+    }
+
+    /* ============================================
+       CARTE DE FILTRES
+       ============================================ */
+    .filter-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    .filter-card h5 {
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .filter-card .row {
+        margin: 0;
+        width: 100%;
+    }
+
+    /* ============================================
+       FORMULAIRES
+       ============================================ */
+    .form-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .form-select,
+    .form-control {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 1rem;
+        background-color: #fff;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        white-space: nowrap;
+        box-sizing: border-box;
+    }
+
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-light {
+        background: white;
+        color: #374151;
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-light:hover {
+        background: #f3f4f6;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid #6c757d;
+        color: #6c757d;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        border: 1px solid #667eea;
+        color: #667eea;
+    }
+
+    .btn-outline-primary:hover {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-action {
+        transition: all 0.3s ease;
     }
     
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .btn i {
+        flex-shrink: 0;
+    }
+
+    .flex-fill {
+        flex: 1 1 auto;
+    }
+
+    .gap-2 {
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       ALERTES
+       ============================================ */
+    .alert {
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        width: 100%;
+        box-sizing: border-box;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert-info {
+        background: #e0f2fe;
+        border-left: 4px solid #0ea5e9;
+        color: #0c4a6e;
+    }
+
+    .alert-dismissible {
+        padding-right: 3rem;
+        position: relative;
+    }
+
+    .btn-close {
+        position: absolute;
+        top: 50%;
+        right: 1rem;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        opacity: 0.5;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
+    }
+
+    /* ============================================
+       TABLEAU DES QUITTANCEMENTS
+       ============================================ */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 1rem;
+        border-radius: 10px;
+    }
+
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
     .table-quittances {
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
         background: white;
         border-radius: 10px;
         overflow: hidden;
@@ -75,6 +401,21 @@
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
     }
+
+    .table-quittances th {
+        padding: 1rem 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .table-quittances td {
+        padding: 0.875rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
     
     .table-quittances tbody tr {
         transition: all 0.3s ease;
@@ -83,25 +424,691 @@
     .table-quittances tbody tr:hover {
         background: #f8f9fa;
     }
-    
+
+    .table-quittances .text-end {
+        text-align: right;
+    }
+
+    .table-quittances .text-center {
+        text-align: center;
+    }
+
+    .text-primary {
+        color: #667eea !important;
+    }
+
+    .text-muted {
+        color: #6b7280 !important;
+    }
+
+    /* ============================================
+       BADGES
+       ============================================ */
+    .badge {
+        display: inline-block;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 0.375rem;
+        white-space: nowrap;
+    }
+
     .badge-type {
         padding: 0.5rem 1rem;
         border-radius: 20px;
         font-weight: 600;
     }
-    
-    .btn-action {
-        transition: all 0.3s ease;
+
+    .bg-primary {
+        background-color: #667eea !important;
+        color: white;
     }
-    
-    .btn-action:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+
+    .bg-secondary {
+        background-color: #6b7280 !important;
+        color: white;
     }
-    
+
+    .bg-info {
+        background-color: #0ea5e9 !important;
+        color: white;
+    }
+
+    .bg-success {
+        background-color: #10b981 !important;
+        color: white;
+    }
+
+    /* ============================================
+       PAGINATION
+       ============================================ */
     .pagination {
+        display: flex;
         justify-content: center;
-        margin-top: 2rem;
+        list-style: none;
+        padding: 0;
+        margin: 2rem 0 1rem;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    .page-item {
+        margin: 0;
+    }
+
+    .page-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0.875rem;
+        border: 1px solid #e5e7eb;
+        background: white;
+        color: #374151;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    .page-link:hover {
+        background: #f3f4f6;
+        border-color: #667eea;
+        color: #667eea;
+    }
+
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        color: white;
+    }
+
+    /* ============================================
+       ACTIONS EN BAS DE PAGE
+       ============================================ */
+    .d-flex {
+        display: flex;
+    }
+
+    .justify-content-between {
+        justify-content: space-between;
+    }
+
+    .align-items-center {
+        align-items: center;
+    }
+
+    .align-items-end {
+        align-items: flex-end;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem !important;
+    }
+
+    .mt-3 {
+        margin-top: 1rem !important;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
+    .mb-0 {
+        margin-bottom: 0 !important;
+    }
+
+    .mb-2 {
+        margin-bottom: 0.5rem !important;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .ms-2 {
+        margin-left: 0.5rem !important;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem !important;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-2 {
+            flex: 0 0 16.666667%;
+            max-width: 16.666667%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .filter-card .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -0.5rem;
+        }
+
+        .filter-card .row > div {
+            padding: 0 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Correction globale du défilement */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+        }
+
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .row {
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+            width: calc(100% + 20px) !important;
+        }
+
+        /* En-tête responsive */
+        .page-header {
+            padding: 1.25rem 1rem !important;
+            margin-bottom: 1.25rem !important;
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 0 12px 12px !important;
+        }
+
+        .page-header .d-flex {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 1rem !important;
+        }
+
+        .page-header h2 {
+            font-size: 1.25rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .page-header p {
+            font-size: 0.85rem !important;
+        }
+
+        .page-header .btn {
+            width: 100% !important;
+        }
+
+        /* Grille de statistiques */
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.75rem !important;
+            margin-bottom: 1.25rem !important;
+        }
+
+        .stat-card {
+            padding: 1rem !important;
+        }
+
+        .stat-card h3 {
+            font-size: 1.25rem !important;
+        }
+
+        .stat-card p {
+            font-size: 0.8rem !important;
+        }
+
+        .stat-card small {
+            font-size: 0.7rem !important;
+        }
+
+        /* Carte de filtres */
+        .filter-card {
+            padding: 1rem !important;
+            margin-bottom: 1rem !important;
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 !important;
+        }
+
+        .filter-card h5 {
+            font-size: 1rem !important;
+            margin-bottom: 0.75rem !important;
+        }
+
+        .filter-card .row {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+
+        .filter-card .row > div {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        .form-label {
+            font-size: 0.85rem !important;
+            margin-bottom: 0.375rem !important;
+        }
+
+        .form-select,
+        .form-control {
+            padding: 0.625rem !important;
+            font-size: 16px !important; /* Empêche le zoom iOS */
+        }
+
+        /* Boutons de filtre */
+        .filter-card .d-flex.align-items-end {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.5rem !important;
+            width: 100% !important;
+        }
+
+        .filter-card .btn {
+            width: 100% !important;
+        }
+
+        .filter-card .flex-fill {
+            flex: none !important;
+        }
+
+        /* Alertes */
+        .alert {
+            padding: 0.875rem 1rem !important;
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 !important;
+            font-size: 0.85rem !important;
+        }
+
+        .alert .badge {
+            display: inline-block;
+            margin-top: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Tableau responsive */
+        .table-responsive {
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 !important;
+        }
+
+        .table-quittances {
+            min-width: 800px;
+            font-size: 0.8rem;
+            border-radius: 0;
+        }
+
+        .table-quittances th {
+            padding: 0.75rem 0.5rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        .table-quittances td {
+            padding: 0.625rem 0.5rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .badge {
+            padding: 0.2rem 0.4rem !important;
+            font-size: 0.65rem !important;
+        }
+
+        .badge-type {
+            padding: 0.3rem 0.6rem !important;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        /* Pagination */
+        .pagination {
+            margin-top: 1.5rem !important;
+            gap: 0.2rem !important;
+        }
+
+        .page-link {
+            padding: 0.375rem 0.625rem !important;
+            font-size: 0.8rem !important;
+            min-width: 36px !important;
+            min-height: 36px !important;
+        }
+
+        /* Actions en bas */
+        .d-flex.justify-content-between.align-items-center.mt-4 {
+            flex-direction: column !important;
+            gap: 1rem !important;
+            align-items: stretch !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > a,
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            width: 100% !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 .btn {
+            width: 100% !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .page-header {
+            padding: 1rem 0.875rem !important;
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px) !important;
+        }
+
+        .page-header h2 {
+            font-size: 1.15rem !important;
+        }
+
+        /* Stats en colonne unique */
+        .stats-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0.625rem !important;
+        }
+
+        .stat-card {
+            padding: 0.875rem !important;
+        }
+
+        .stat-card h3 {
+            font-size: 1.5rem !important;
+        }
+
+        .filter-card {
+            padding: 0.875rem !important;
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px) !important;
+        }
+
+        .table-responsive {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px) !important;
+        }
+
+        .table-quittances {
+            min-width: 750px;
+            font-size: 0.75rem;
+        }
+
+        .table-quittances th,
+        .table-quittances td {
+            padding: 0.5rem 0.375rem !important;
+        }
+
+        .alert {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px) !important;
+            font-size: 0.8rem !important;
+        }
+
+        .btn {
+            font-size: 0.9rem !important;
+            padding: 0.625rem 1rem !important;
+        }
+
+        .btn-lg {
+            font-size: 0.95rem !important;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .page-header h2 {
+            font-size: 1.05rem !important;
+        }
+
+        .page-header p {
+            font-size: 0.8rem !important;
+        }
+
+        .stat-card h3 {
+            font-size: 1.25rem !important;
+        }
+
+        .stat-card p {
+            font-size: 0.75rem !important;
+        }
+
+        .filter-card h5 {
+            font-size: 0.95rem !important;
+        }
+
+        .form-label {
+            font-size: 0.8rem !important;
+        }
+
+        .table-quittances {
+            min-width: 700px;
+            font-size: 0.7rem;
+        }
+
+        .page-link {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.75rem !important;
+            min-width: 32px !important;
+            min-height: 32px !important;
+        }
+
+        .btn {
+            font-size: 0.85rem !important;
+            padding: 0.5rem 0.875rem !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .stats-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+        }
+
+        .stat-card {
+            padding: 0.75rem !important;
+        }
+
+        .stat-card h3 {
+            font-size: 1.1rem !important;
+        }
+
+        .filter-card .row {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+
+        .filter-card .row > div {
+            flex: 0 0 calc(50% - 0.5rem) !important;
+            max-width: calc(50% - 0.5rem) !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 {
+            flex-direction: row !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > a,
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            width: auto !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            flex-direction: row !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 .btn {
+            width: auto !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .form-control:focus,
+    .btn:focus,
+    .page-link:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+
+    @media (max-width: 768px) {
+        input, select, button {
+            min-height: 44px;
+        }
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .page-header,
+    .stat-card,
+    .filter-card {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE POUR MOBILE
+       ============================================ */
+    @media (max-width: 768px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS POUR L'IMPRESSION
+       ============================================ */
+    @media print {
+        .page-header,
+        .stat-card,
+        .filter-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
+        }
+
+        .table-responsive {
+            overflow-x: visible !important;
+        }
+
+        .table-quittances {
+            min-width: 100% !important;
+        }
+
+        .btn,
+        .filter-card,
+        .pagination {
+            display: none !important;
+        }
     }
 </style>
 {% endblock %}
@@ -140,7 +1147,7 @@
         
         <div class="stat-card success">
             <p class="mb-2">{% trans "Montant Total" %}</p>
-            <h3>{{ total_montant|floatformat:0|format_milliers  }}</h3>
+            <h3>{{ total_montant|floatformat:0|format_milliers }}</h3>
             <small>FCFA</small>
         </div>
         
@@ -330,7 +1337,7 @@
                     </td>
                     <td>{{ quittancement.get_periode_display }}</td>
                     <td class="text-end">
-                        <strong>{{ quittancement.montant|floatformat:0|format_milliers  }}</strong> FCFA
+                        <strong>{{ quittancement.montant|floatformat:0|format_milliers }}</strong> FCFA
                     </td>
                     <td>
                         {% if quittancement.saisi_par %}
