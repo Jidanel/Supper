@@ -6,205 +6,1133 @@
 
 {% block extra_css %}
 <style>
-    .filter-section {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    /* ============================================
+       RÉINITIALISATION DES STYLES POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
     }
-    
+
+    .recettes-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .row {
+        margin-left: -15px;
+        margin-right: -15px;
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .col-md-6, .col-12 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        word-wrap: break-word;
+    }
+
+    .page-header p {
+        margin: 0.5rem 0 0 0;
+        color: #6b7280;
+        font-size: 0.95rem;
+    }
+
+    .header-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       STATISTIQUES EN GRILLE
+       ============================================ */
     .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
     }
-    
+
     .stat-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 1.5rem;
+        padding: 1.25rem;
         border-radius: 12px;
         text-align: center;
+        width: 100%;
     }
-    
+
     .stat-value {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: bold;
         margin-bottom: 0.5rem;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
-    
+
     .stat-label {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         opacity: 0.9;
     }
-    
+
+    /* ============================================
+       SECTION FILTRES
+       ============================================ */
+    .filter-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        width: 100%;
+    }
+
+    .filter-section h5 {
+        font-size: 1.1rem;
+        margin: 0 0 1rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .filter-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        flex: 1;
+        min-width: 180px;
+    }
+
+    .filter-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #374151;
+    }
+
+    .filter-group .form-select,
+    .filter-group .form-control {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+    }
+
+    .filter-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    /* ============================================
+       ALERTE JOURNÉES NON DÉCLARÉES
+       ============================================ */
+    .alert {
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .alert-warning {
+        background: #fef3c7;
+        border: 1px solid #fbbf24;
+        color: #92400e;
+    }
+
+    .alert h5 {
+        font-size: 1.1rem;
+        margin: 0 0 0.75rem 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .alert > p {
+        margin: 0 0 1rem 0;
+        font-size: 0.9rem;
+    }
+
+    .jours-stats-cards {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .jours-stats-cards .card {
+        flex: 1;
+        min-width: 200px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .jours-stats-cards .card-body {
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .jours-stats-cards h3 {
+        font-size: 1.5rem;
+        margin: 0 0 0.25rem 0;
+        word-break: break-word;
+    }
+
+    .jours-stats-cards p {
+        margin: 0;
+        font-size: 0.85rem;
+    }
+
+    /* Accordion */
+    .accordion {
+        width: 100%;
+    }
+
+    .accordion-item {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        overflow: hidden;
+    }
+
+    .accordion-header {
+        margin: 0;
+    }
+
+    .accordion-button {
+        width: 100%;
+        padding: 1rem;
+        background: #f9fafb;
+        border: none;
+        text-align: left;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background: #eff6ff;
+    }
+
+    .accordion-body {
+        padding: 1rem;
+        background: white;
+    }
+
+    .accordion-body .table {
+        width: 100%;
+        font-size: 0.85rem;
+    }
+
+    /* ============================================
+       TABLEAU DES RECETTES
+       ============================================ */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
     .recette-table {
         background: white;
         border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        width: 100%;
+        min-width: 700px;
     }
-    
+
     .recette-table thead {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
     }
-    
+
     .recette-table th {
         padding: 1rem;
         font-weight: 600;
         border: none;
+        white-space: nowrap;
+        font-size: 0.9rem;
     }
-    
+
     .recette-table td {
         padding: 1rem;
         vertical-align: middle;
         border-bottom: 1px solid #f3f4f6;
+        font-size: 0.9rem;
     }
-    
+
     .recette-table tbody tr:hover {
         background: #f9fafb;
     }
-    
+
+    /* ============================================
+       BADGES
+       ============================================ */
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+
     .badge-taux {
         padding: 0.4rem 0.8rem;
         border-radius: 20px;
         font-weight: 600;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
-    
-    .badge-bon {
+
+    .badge-bon, .bg-success {
         background: #d4edda;
         color: #155724;
     }
-   
-    
-    .badge-moyen {
+
+    .badge-moyen, .bg-warning {
         background: #fff3cd;
         color: #856404;
     }
-    
-    .badge-mauvais {
+
+    .badge-mauvais, .bg-danger {
         background: #f8d7da;
         color: #721c24;
     }
-    
+
+    .bg-secondary {
+        background: #e5e7eb;
+        color: #4b5563;
+    }
+
+    .bg-info {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .btn-info {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .btn-info:hover {
+        background: #2563eb;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        color: white;
+    }
+
     .action-buttons {
         display: flex;
         gap: 0.5rem;
+        flex-wrap: wrap;
     }
-    
+
     .btn-action {
         padding: 0.4rem 0.8rem;
         border-radius: 6px;
         font-size: 0.85rem;
         border: none;
         transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
-    
+
     .btn-view {
         background: #e0e7ff;
         color: #3730a3;
     }
-    
+
     .btn-edit {
         background: #fef3c7;
         color: #92400e;
     }
-    
+
     .btn-delete {
         background: #fee2e2;
         color: #991b1b;
     }
-    
+
     .btn-action:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    
-    .filter-row {
+
+    /* ============================================
+       PAGINATION
+       ============================================ */
+    .pagination {
         display: flex;
-        gap: 1rem;
+        justify-content: center;
         flex-wrap: wrap;
-        align-items: end;
+        gap: 0.25rem;
+        list-style: none;
+        padding: 0;
+        margin: 1.5rem 0 0 0;
     }
-    
-    .filter-group {
-        flex: 1;
-        min-width: 200px;
+
+    .page-item {
+        margin: 0;
     }
-    
+
+    .page-link {
+        display: block;
+        padding: 0.5rem 0.875rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        color: #374151;
+        text-decoration: none;
+        font-size: 0.875rem;
+        background: white;
+    }
+
+    .page-item.active .page-link {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+
+    .page-link:hover {
+        background: #f3f4f6;
+    }
+
+    /* ============================================
+       ÉTAT VIDE
+       ============================================ */
     .empty-state {
         text-align: center;
-        padding: 4rem 2rem;
+        padding: 3rem 1.5rem;
         color: #6b7280;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
-    
+
     .empty-state-icon {
-        font-size: 4rem;
+        font-size: 3rem;
         margin-bottom: 1rem;
         color: #9ca3af;
+    }
+
+    .empty-state h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.25rem;
+        color: #374151;
+    }
+
+    .empty-state p {
+        margin: 0 0 1rem 0;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .text-danger { color: #dc2626 !important; }
+    .text-success { color: #059669 !important; }
+    .text-muted { color: #6b7280 !important; }
+    .text-warning { color: #d97706 !important; }
+    .text-white { color: white !important; }
+    .text-dark { color: #1f2937 !important; }
+    .text-center { text-align: center !important; }
+
+    .bg-danger { background-color: #dc2626 !important; }
+    .bg-warning { background-color: #f59e0b !important; }
+
+    .fw-bold { font-weight: 600 !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .ms-2 { margin-left: 0.5rem !important; }
+    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+    .pe-3 { padding-right: 1rem !important; }
+
+    .d-flex { display: flex !important; }
+    .flex-wrap { flex-wrap: wrap !important; }
+    .align-items-center { align-items: center !important; }
+    .justify-content-between { justify-content: space-between !important; }
+    .justify-content-center { justify-content: center !important; }
+    .w-100 { width: 100% !important; }
+
+    .card {
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+
+    /* ============================================
+       RESPONSIVE - TABLETTES (768px - 1024px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .filter-group {
+            min-width: 150px;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (max 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction globale du défilement */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .recettes-page {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+            overflow-x: hidden !important;
+        }
+
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+        }
+
+        .col-md-6, .col-12 {
+            padding-left: 10px;
+            padding-right: 10px;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* En-tête */
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .page-header p {
+            font-size: 0.85rem;
+        }
+
+        .header-buttons {
+            width: 100%;
+        }
+
+        .header-buttons .btn {
+            flex: 1;
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+        }
+
+        /* Stats */
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .stat-card {
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+        }
+
+        /* Filtres */
+        .filter-section {
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .filter-section h5 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .filter-row {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .filter-group {
+            min-width: 100%;
+            width: 100%;
+        }
+
+        .filter-group label {
+            font-size: 0.85rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .filter-group .form-select,
+        .filter-group .form-control {
+            padding: 0.5rem 0.75rem;
+            font-size: 16px !important; /* Empêche zoom iOS */
+        }
+
+        .filter-buttons {
+            width: 100%;
+        }
+
+        .filter-buttons .btn {
+            flex: 1;
+        }
+
+        /* Alertes journées non déclarées */
+        .alert {
+            padding: 0.875rem;
+            border-radius: 8px;
+        }
+
+        .alert h5 {
+            font-size: 0.95rem;
+        }
+
+        .alert > p {
+            font-size: 0.85rem;
+        }
+
+        .jours-stats-cards {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .jours-stats-cards .card {
+            min-width: 100%;
+        }
+
+        .jours-stats-cards h3 {
+            font-size: 1.25rem;
+        }
+
+        .jours-stats-cards p {
+            font-size: 0.8rem;
+        }
+
+        .accordion-button {
+            padding: 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .accordion-button .d-flex {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 0.5rem;
+        }
+
+        .accordion-body {
+            padding: 0.75rem;
+        }
+
+        .accordion-body .alert {
+            padding: 0.625rem;
+            font-size: 0.8rem;
+        }
+
+        /* Tableau avec scroll interne */
+        .table-container {
+            border-radius: 10px;
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+            border-radius: 0;
+        }
+
+        .recette-table {
+            min-width: 600px;
+            border-radius: 0;
+        }
+
+        .recette-table th {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .recette-table td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .badge-taux {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.5rem;
+        }
+
+        .btn-action {
+            padding: 0.35rem 0.6rem;
+            font-size: 0.75rem;
+        }
+
+        /* Pagination */
+        .pagination {
+            gap: 0.25rem;
+        }
+
+        .page-link {
+            padding: 0.4rem 0.625rem;
+            font-size: 0.8rem;
+        }
+
+        /* État vide */
+        .empty-state {
+            padding: 2rem 1rem;
+            border-radius: 10px;
+        }
+
+        .empty-state-icon {
+            font-size: 2.5rem;
+        }
+
+        .empty-state h4 {
+            font-size: 1.1rem;
+        }
+
+        .empty-state p {
+            font-size: 0.875rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (max 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+        }
+
+        .col-md-6, .col-12 {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .page-header h2 {
+            font-size: 1.15rem;
+        }
+
+        .header-buttons .btn {
+            font-size: 0.75rem;
+            padding: 0.4rem 0.625rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .stat-card {
+            padding: 0.875rem;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+        }
+
+        .filter-section {
+            padding: 0.875rem;
+        }
+
+        .filter-section h5 {
+            font-size: 0.95rem;
+        }
+
+        .table-container {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .recette-table {
+            min-width: 550px;
+        }
+
+        .recette-table th,
+        .recette-table td {
+            padding: 0.625rem 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        .accordion-button {
+            font-size: 0.75rem;
+        }
+
+        .accordion-body .table {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS MOBILES (max 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+        }
+
+        .col-md-6, .col-12 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .page-header h2 {
+            font-size: 1.05rem;
+        }
+
+        .header-buttons {
+            flex-direction: column;
+        }
+
+        .header-buttons .btn {
+            width: 100%;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+        }
+
+        .table-container {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .recette-table {
+            min-width: 500px;
+        }
+
+        .recette-table th,
+        .recette-table td {
+            padding: 0.5rem 0.35rem;
+            font-size: 0.7rem;
+        }
+
+        .page-link {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .filter-row {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            min-width: calc(50% - 0.5rem);
+            flex: 0 0 calc(50% - 0.5rem);
+        }
+
+        .jours-stats-cards {
+            flex-direction: row;
+        }
+
+        .jours-stats-cards .card {
+            min-width: calc(50% - 0.5rem);
+        }
+    }
+
+    /* ============================================
+       CORRECTION POUR EMPÊCHER LE ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 480px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        textarea,
+        select {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       AMÉLIORATION DE L'ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    .form-select:focus,
+    .form-control:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       HAUTEURS MINIMALES POUR LE TOUCH
+       ============================================ */
+    .btn,
+    .form-select,
+    .form-control,
+    .btn-action {
+        min-height: 44px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    .table-container::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-container::-webkit-scrollbar-track {
+        background: #e5e7eb;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+        background: #9ca3af;
+        border-radius: 3px;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .btn,
+        .filter-section,
+        .header-buttons {
+            display: none !important;
+        }
+
+        .table-container {
+            overflow: visible !important;
+        }
+
+        .recette-table {
+            min-width: 100% !important;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .stat-card {
+            background: #f3f4f6 !important;
+            color: #1f2937 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- En-tête -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-0">
-                <i class="fas fa-coins me-2" style="color: #764ba2;"></i>
-                {% trans "Liste des Recettes" %}
-            </h2>
-            <p class="text-muted mt-2">
-                {% trans "Gestion et suivi des recettes journalières avec taux de déperdition" %}
-            </p>
+<div class="recettes-page">
+    <div class="container-fluid py-4">
+        <!-- En-tête -->
+        <div class="page-header mb-4">
+            <div>
+                <h2 class="mb-0">
+                    <i class="fas fa-coins me-2" style="color: #764ba2;"></i>
+                    {% trans "Liste des Recettes" %}
+                </h2>
+                <p class="text-muted mt-2">
+                    {% trans "Gestion et suivi des recettes journalières avec taux de déperdition" %}
+                </p>
+            </div>
+            <div class="header-buttons">
+                {% if user.is_chef_poste or user.is_admin %}
+                <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    {% trans "Nouvelle Recette" %}
+                </a>
+                <a href="{% url 'inventaire:statistiques_recettes' %}" class="btn btn-info">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    {% trans "Statistiques" %}
+                </a>
+                {% endif %}
+            </div>
         </div>
-        <div>
-            {% if user.is_chef_poste or user.is_admin %}
-            <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>
-                {% trans "Nouvelle Recette" %}
-            </a>
 
-            <a href="{% url 'inventaire:statistiques_recettes' %}" class="btn btn-info">
-            <i class="fas fa-chart-bar me-2"></i>
-            {% trans "Statistiques Recettes" %}
-             </a>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Statistiques -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-value">{{ stats.total_recettes|default:0 }}</div>
-            <div class="stat-label">{% trans "Total Recettes" %}</div>
-        </div>
-        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <div class="stat-value">{{ stats.total_montant|floatformat:0|default:"0"|format_milliers  }} FCFA</div>
-            <div class="stat-label">{% trans "Montant Total (FCFA)" %}</div>
-        </div>
-        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <div class="stat-value">
-                {% if stats.moyenne_taux != None %}
-                                            {{ stats.moyenne_taux|floatformat:2 }}%
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
+        <!-- Statistiques -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_recettes|default:0 }}</div>
+                <div class="stat-label">{% trans "Total Recettes" %}</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stat-value">{{ stats.total_montant|floatformat:0|default:"0"|format_milliers }} FCFA</div>
+                <div class="stat-label">{% trans "Montant Total" %}</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="stat-value">
+                    {% if stats.moyenne_taux != None %}
+                        {{ stats.moyenne_taux|floatformat:2 }}%
+                    {% else %}
+                        N/A
+                    {% endif %}
                 </div>
-            <div class="stat-label">{% trans "Taux Moyen" %}</div>
+                <div class="stat-label">{% trans "Taux Moyen" %}</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="stat-value">{{ stats.recettes_jour|default:0 }}</div>
+                <div class="stat-label">{% trans "Aujourd'hui" %}</div>
+            </div>
         </div>
-        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-            <div class="stat-value">{{ stats.recettes_jour|default:0 }}</div>
-            <div class="stat-label">{% trans "Aujourd'hui" %}</div>
-        </div>
-    </div>
-    <!-- Section Journées Non Déclarées -->
-   {% if jours_non_declares.par_poste %}
+
+        <!-- Section Journées Non Déclarées -->
+        {% if jours_non_declares.par_poste %}
         <div class="alert alert-warning mt-4">
             <h5>
                 <i class="fas fa-exclamation-triangle me-2"></i>
@@ -212,8 +1140,8 @@
             </h5>
             <p>Période : {{ jours_non_declares.periode_debut|date:"d/m/Y" }} - {{ jours_non_declares.periode_fin|date:"d/m/Y" }}</p>
             
-            <div class="row mb-3">
-                <div class="col-md-6">
+            <div class="jours-stats-cards row mb-3">
+                <div class="col-12 col-md-6 mb-2 mb-md-0">
                     <div class="card bg-danger text-white">
                         <div class="card-body text-center">
                             <h3>{{ jours_non_declares.total_jours_manquants }}</h3>
@@ -221,7 +1149,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <div class="card bg-warning text-dark">
                         <div class="card-body text-center">
                             <h3>{{ jours_non_declares.total_estimation_manquante|floatformat:0|format_milliers }} FCFA</h3>
@@ -264,35 +1192,37 @@
                             </div>
                             
                             <strong>Dates manquantes avec estimations :</strong>
-                            <table class="table table-sm mt-2">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Recette Estimée</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% if item.details_estimations %}
-                                        {% for detail in item.details_estimations %}
+                            <div class="table-container mt-2">
+                                <table class="table table-sm">
+                                    <thead>
                                         <tr>
-                                            <td>{{ detail.date|date:"d/m/Y (l)" }}</td>
-                                            <td class="text-warning">
-                                                ~{{ detail.montant_estime|floatformat:0|format_milliers }} FCFA
-                                            </td>
+                                            <th>Date</th>
+                                            <th>Recette Estimée</th>
                                         </tr>
-                                        {% endfor %}
-                                    {% else %}
-                                        {% for jour in item.jours %}
-                                        <tr>
-                                            <td>{{ jour|date:"d/m/Y (l)" }}</td>
-                                            <td class="text-muted">
-                                                ~{{ item.estimation_manquante|dividedby:item.nombre_jours|floatformat:0|format_milliers }} FCFA
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    {% endif %}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {% if item.details_estimations %}
+                                            {% for detail in item.details_estimations %}
+                                            <tr>
+                                                <td>{{ detail.date|date:"d/m/Y (l)" }}</td>
+                                                <td class="text-warning">
+                                                    ~{{ detail.montant_estime|floatformat:0|format_milliers }} FCFA
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            {% for jour in item.jours %}
+                                            <tr>
+                                                <td>{{ jour|date:"d/m/Y (l)" }}</td>
+                                                <td class="text-muted">
+                                                    ~{{ item.estimation_manquante|dividedby:item.nombre_jours|floatformat:0|format_milliers }} FCFA
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
                             
                             <div class="alert alert-secondary mt-3 mb-0">
                                 <small>
@@ -309,245 +1239,248 @@
             </div>
         </div>
         {% endif %}
-    <!-- Section Filtres -->
-    <div class="filter-section">
-        <h5 class="mb-3">
-            <i class="fas fa-filter me-2"></i>
-            {% trans "Filtres" %}
-        </h5>
-        
-        <form method="get" id="filterForm">
-            <div class="filter-row">
-                <!-- Filtre Poste -->
-                <div class="filter-group">
-                    <label class="form-label">{% trans "Poste" %}</label>
-                    <select name="poste" class="form-select">
-                        <option value="">{% trans "Tous les postes" %}</option>
-                        {% for poste in postes %}
-                        <option value="{{ poste.id }}" {% if current_filters.poste == poste.id|stringformat:"s" %}selected{% endif %}>
-                            {{ poste.nom }} ({{ poste.code }})
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
 
-                <!-- Filtre Période -->
-                <div class="filter-group">
-                    <label class="form-label">{% trans "Période" %}</label>
-                    <select name="periode" class="form-select" id="periodeSelect">
-                        <option value="all" {% if current_filters.periode == 'all' or not current_filters.periode %}selected{% endif %}>
-                            {% trans "Toutes les périodes" %}
-                        </option>
-                        <option value="jour" {% if current_filters.periode == 'jour' %}selected{% endif %}>
-                            {% trans "Par jour" %}
-                        </option>
-                        <option value="semaine" {% if current_filters.periode == 'semaine' %}selected{% endif %}>
-                            {% trans "Cette semaine" %}
-                        </option>
-                        <option value="mois" {% if current_filters.periode == 'mois' %}selected{% endif %}>
-                            {% trans "Par mois" %}
-                        </option>
-                    </select>
-                </div>
-
-                <!-- Sélection Date (pour jour) -->
-                <div class="filter-group" id="dateGroup" style="display: none;">
-                    <label class="form-label">{% trans "Date" %}</label>
-                    <input type="date" name="date" class="form-control" value="{{ current_filters.date }}">
-                </div>
-
-                <!-- Sélection Mois -->
-                <div class="filter-group" id="moisGroup" style="display: none;">
-                    <label class="form-label">{% trans "Mois" %}</label>
-                    <select name="mois" class="form-select">
-                        {% for mois in mois_disponibles %}
-                        <option value="{{ mois.mois }}" data-annee="{{ mois.annee }}"
-                                {% if current_filters.mois == mois.mois|stringformat:"s" and current_filters.annee == mois.annee|stringformat:"s" %}selected{% endif %}>
-                            {{ mois.label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <input type="hidden" name="annee" id="anneeInput" value="{{ current_filters.annee }}">
-                </div>
-
-                <!-- Filtre Taux -->
-                <div class="filter-group">
-                    <label class="form-label">{% trans "Taux déperdition" %}</label>
-                    <select name="taux_filtre" class="form-select">
-                        <option value="">{% trans "Tous" %}</option>
-                        <option value="bon" {% if current_filters.taux_filtre == 'bon' %}selected{% endif %}>
-                            {% trans "Bon (> -10%)" %}
-                        </option>
-                        <option value="moyen" {% if current_filters.taux_filtre == 'moyen' %}selected{% endif %}>
-                            {% trans "Moyen (-10% à -30%)" %}
-                        </option>
-                        <option value="mauvais" {% if current_filters.taux_filtre == 'mauvais' %}selected{% endif %}>
-                            {% trans "Mauvais (< -30%)" %}
-                        </option>
-                    </select>
-                </div>
-
-                <!-- Recherche -->
-                <div class="filter-group">
-                    <label class="form-label">{% trans "Rechercher" %}</label>
-                    <input type="text" name="search" class="form-control" 
-                           placeholder="{% trans 'Poste, code...' %}" 
-                           value="{{ current_filters.search }}">
-                </div>
-
-                <!-- Boutons -->
-                <div class="filter-group">
-                    <label class="form-label">&nbsp;</label>
-                    <div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-search me-1"></i>
-                            {% trans "Filtrer" %}
-                        </button>
-                        <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-secondary">
-                            <i class="fas fa-redo me-1"></i>
-                            {% trans "Réinitialiser" %}
-                        </a>
+        <!-- Section Filtres -->
+        <div class="filter-section">
+            <h5 class="mb-3">
+                <i class="fas fa-filter me-2"></i>
+                {% trans "Filtres" %}
+            </h5>
+            
+            <form method="get" id="filterForm">
+                <div class="filter-row">
+                    <!-- Filtre Poste -->
+                    <div class="filter-group">
+                        <label class="form-label">{% trans "Poste" %}</label>
+                        <select name="poste" class="form-select">
+                            <option value="">{% trans "Tous les postes" %}</option>
+                            {% for poste in postes %}
+                            <option value="{{ poste.id }}" {% if current_filters.poste == poste.id|stringformat:"s" %}selected{% endif %}>
+                                {{ poste.nom }} ({{ poste.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
-                </div>
-            </div>
-        </form>
-    </div>
 
-    <!-- Tableau des recettes -->
-    {% if recettes %}
-    <div class="recette-table">
-        <table class="table mb-0">
-            <thead>
-                <tr>
-                    <th>{% trans "Date" %}</th>
-                    <th>{% trans "Poste" %}</th>
-                    <th>{% trans "Montant Déclaré" %}</th>
-                    {% if user.voir_recettes_potentielles %}
-                    <th>{% trans "Recette Potentielle" %}</th>
-                    {% endif %}
-                    {% if user.voir_taux_deperdition %}
-                    <th>{% trans "Taux Déperdition" %}</th>
-                    {% endif %}
-                    <th>{% trans "Chef de Poste" %}</th>
-                    <th>{% trans "Detail" %}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for recette in recettes %}
-                <tr>
-                    <td>
-                        <strong>{{ recette.date|date:"d/m/Y" }}</strong>
-                        <br>
-                        <small class="text-muted">{{ recette.date|date:"l" }}</small>
-                    </td>
-                    <td>
-                        <strong>{{ recette.poste.nom }}</strong>
-                        <br>
-                        <small class="text-muted">{{ recette.poste.code }}</small>
-                    </td>
-                    <td>
-                        <strong class="text-success">{% if recette.montant_declare != None %}
-                                            {{ recette.montant_declare|floatformat:0|format_milliers  }} FCFA
-                                        {% else %}
-                                            -
-                                        {% endif %}</strong>
-                    </td>
-                    {% if user.voir_recettes_potentielles %}
-                    <td>
-                        {% if recette.recette_potentielle %}
-                        {{ recette.recette_potentielle|floatformat:0|format_milliers  }} FCFA
-                        {% else %}
-                        <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                    {% endif %}
-                    {% if user.voir_taux_deperdition %}
-                    <td>
-                        {% if recette.taux_deperdition != None %}
-                            <span class="badge bg-{{ recette.get_couleur_alerte }}">
-                                                {{ recette.taux_deperdition|floatformat:2 }}% - Statut : {{recette.get_statut_deperdition }}
-                                        </span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">N/A</span>
-                                        {% endif %}
-                    </td>
-                    
-                    {% endif %}
-                    <td>
-                        {{ recette.chef_poste.nom_complet }}
-                    </td>
-                    <td>
-                        <div class="action-buttons">
-                            <a href="{% url 'inventaire:recette_detail' recette.pk %}" 
-                               class="btn-action btn-view" title="{% trans 'Voir' %}">
-                                <i class="fas fa-eye"></i>
+                    <!-- Filtre Période -->
+                    <div class="filter-group">
+                        <label class="form-label">{% trans "Période" %}</label>
+                        <select name="periode" class="form-select" id="periodeSelect">
+                            <option value="all" {% if current_filters.periode == 'all' or not current_filters.periode %}selected{% endif %}>
+                                {% trans "Toutes les périodes" %}
+                            </option>
+                            <option value="jour" {% if current_filters.periode == 'jour' %}selected{% endif %}>
+                                {% trans "Par jour" %}
+                            </option>
+                            <option value="semaine" {% if current_filters.periode == 'semaine' %}selected{% endif %}>
+                                {% trans "Cette semaine" %}
+                            </option>
+                            <option value="mois" {% if current_filters.periode == 'mois' %}selected{% endif %}>
+                                {% trans "Par mois" %}
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Sélection Date (pour jour) -->
+                    <div class="filter-group" id="dateGroup" style="display: none;">
+                        <label class="form-label">{% trans "Date" %}</label>
+                        <input type="date" name="date" class="form-control" value="{{ current_filters.date }}">
+                    </div>
+
+                    <!-- Sélection Mois -->
+                    <div class="filter-group" id="moisGroup" style="display: none;">
+                        <label class="form-label">{% trans "Mois" %}</label>
+                        <select name="mois" class="form-select">
+                            {% for mois in mois_disponibles %}
+                            <option value="{{ mois.mois }}" data-annee="{{ mois.annee }}"
+                                    {% if current_filters.mois == mois.mois|stringformat:"s" and current_filters.annee == mois.annee|stringformat:"s" %}selected{% endif %}>
+                                {{ mois.label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <input type="hidden" name="annee" id="anneeInput" value="{{ current_filters.annee }}">
+                    </div>
+
+                    <!-- Filtre Taux -->
+                    <div class="filter-group">
+                        <label class="form-label">{% trans "Taux déperdition" %}</label>
+                        <select name="taux_filtre" class="form-select">
+                            <option value="">{% trans "Tous" %}</option>
+                            <option value="bon" {% if current_filters.taux_filtre == 'bon' %}selected{% endif %}>
+                                {% trans "Bon (> -10%)" %}
+                            </option>
+                            <option value="moyen" {% if current_filters.taux_filtre == 'moyen' %}selected{% endif %}>
+                                {% trans "Moyen (-10% à -30%)" %}
+                            </option>
+                            <option value="mauvais" {% if current_filters.taux_filtre == 'mauvais' %}selected{% endif %}>
+                                {% trans "Mauvais (< -30%)" %}
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Recherche -->
+                    <div class="filter-group">
+                        <label class="form-label">{% trans "Rechercher" %}</label>
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="{% trans 'Poste, code...' %}" 
+                               value="{{ current_filters.search }}">
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="filter-group">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="filter-buttons">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>
+                                {% trans "Filtrer" %}
+                            </button>
+                            <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-secondary">
+                                <i class="fas fa-redo me-1"></i>
+                                {% trans "Reset" %}
                             </a>
                         </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                    </div>
+                </div>
+            </form>
+        </div>
 
-    <!-- Pagination -->
-    {% if is_paginated %}
-    <nav class="mt-4">
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page=1{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    {% trans "Début" %}
-                </a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    {% trans "Précédent" %}
-                </a>
-            </li>
-            {% endif %}
-            
-            <li class="page-item active">
-                <span class="page-link">
-                    Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
-                </span>
-            </li>
-            
-            {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    {% trans "Suivant" %}
-                </a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    {% trans "Fin" %}
-                </a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
+        <!-- Tableau des recettes -->
+        {% if recettes %}
+        <div class="table-container">
+            <table class="recette-table table mb-0">
+                <thead>
+                    <tr>
+                        <th>{% trans "Date" %}</th>
+                        <th>{% trans "Poste" %}</th>
+                        <th>{% trans "Montant Déclaré" %}</th>
+                        {% if user.voir_recettes_potentielles %}
+                        <th>{% trans "Recette Potentielle" %}</th>
+                        {% endif %}
+                        {% if user.voir_taux_deperdition %}
+                        <th>{% trans "Taux Déperdition" %}</th>
+                        {% endif %}
+                        <th>{% trans "Chef de Poste" %}</th>
+                        <th>{% trans "Detail" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recette in recettes %}
+                    <tr>
+                        <td>
+                            <strong>{{ recette.date|date:"d/m/Y" }}</strong>
+                            <br>
+                            <small class="text-muted">{{ recette.date|date:"l" }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ recette.poste.nom }}</strong>
+                            <br>
+                            <small class="text-muted">{{ recette.poste.code }}</small>
+                        </td>
+                        <td>
+                            <strong class="text-success">
+                                {% if recette.montant_declare != None %}
+                                    {{ recette.montant_declare|floatformat:0|format_milliers }} FCFA
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </strong>
+                        </td>
+                        {% if user.voir_recettes_potentielles %}
+                        <td>
+                            {% if recette.recette_potentielle %}
+                            {{ recette.recette_potentielle|floatformat:0|format_milliers }} FCFA
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if user.voir_taux_deperdition %}
+                        <td>
+                            {% if recette.taux_deperdition != None %}
+                                <span class="badge bg-{{ recette.get_couleur_alerte }}">
+                                    {{ recette.taux_deperdition|floatformat:2 }}% - {{ recette.get_statut_deperdition }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">N/A</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>
+                            {{ recette.chef_poste.nom_complet }}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{% url 'inventaire:recette_detail' recette.pk %}" 
+                                   class="btn-action btn-view" title="{% trans 'Voir' %}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-    {% else %}
-    <!-- État vide -->
-    <div class="empty-state">
-        <i class="fas fa-inbox empty-state-icon"></i>
-        <h4>{% trans "Aucune recette trouvée" %}</h4>
-        <p>{% trans "Aucune recette ne correspond aux filtres sélectionnés" %}</p>
-        {% if user.is_chef_poste or user.is_admin %}
-        <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary mt-3">
-            <i class="fas fa-plus me-2"></i>
-            {% trans "Saisir une recette" %}
-        </a>
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {% trans "Début" %}
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {% trans "Préc." %}
+                    </a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {% trans "Suiv." %}
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {% trans "Fin" %}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <!-- État vide -->
+        <div class="empty-state">
+            <i class="fas fa-inbox empty-state-icon"></i>
+            <h4>{% trans "Aucune recette trouvée" %}</h4>
+            <p>{% trans "Aucune recette ne correspond aux filtres sélectionnés" %}</p>
+            {% if user.is_chef_poste or user.is_admin %}
+            <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary mt-3">
+                <i class="fas fa-plus me-2"></i>
+                {% trans "Saisir une recette" %}
+            </a>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
-    {% endif %}
 </div>
 
 <script>
-// Gestion des filtres dynamiques
 document.addEventListener('DOMContentLoaded', function() {
+    // Gestion des filtres dynamiques
     const periodeSelect = document.getElementById('periodeSelect');
     const dateGroup = document.getElementById('dateGroup');
     const moisGroup = document.getElementById('moisGroup');
@@ -569,12 +1502,30 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('anneeInput').value = selected.dataset.annee;
         });
     }
+
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            
+            document.querySelectorAll('.recettes-page, .container-fluid').forEach(el => {
+                el.style.overflowX = 'hidden';
+                el.style.maxWidth = '100vw';
+            });
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
 });
 
 // Fonction suppression
 function supprimerRecette(id) {
     if (confirm("{% trans 'Êtes-vous sûr de vouloir supprimer cette recette ?' %}")) {
-        // Créer un formulaire POST pour la suppression
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/inventaire/recettes/${id}/supprimer/`;
@@ -589,5 +1540,8 @@ function supprimerRecette(id) {
         form.submit();
     }
 }
+
+// Correction pour empêcher le zoom automatique sur iOS
+document.addEventListener('touchstart', function() {}, {passive: true});
 </script>
 {% endblock %}

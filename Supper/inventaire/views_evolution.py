@@ -167,11 +167,11 @@ def taux_evolution_view(request):
         # Utilisateur avec accès global
         if poste_id != 'tous':
             try:
-                postes = Poste.objects.filter(id=poste_id, is_active=True)
+                postes = Poste.objects.filter(id=poste_id, is_active=True, type='peage')
             except (ValueError, Poste.DoesNotExist):
-                postes = Poste.objects.filter(is_active=True)
+                postes = Poste.objects.filter(is_active=True, type='peage')
         else:
-            postes = Poste.objects.filter(is_active=True)
+            postes = Poste.objects.filter(is_active=True, type='peage')
         
         postes_pour_filtre = Poste.objects.filter(is_active=True).order_by('nom')
         logger.debug(

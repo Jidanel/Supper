@@ -2,275 +2,1094 @@
 {% load static i18n %}
 {% load inventaire_extras %}
 
-
 {% block title %}Statistiques Recettes - SUPPER{% endblock %}
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION DES STYLES POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    .stats-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .row {
+        margin-left: -15px;
+        margin-right: -15px;
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .col-md-2, .col-md-3, .col-12 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE STATS
+       ============================================ */
     .stats-header {
         background: linear-gradient(135deg, #667eea, #1e40af);
         color: white;
-        padding: 2rem;
+        padding: 1.5rem;
         border-radius: 12px;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
     }
-    
+
+    .stats-header h2 {
+        font-size: 1.5rem;
+        margin: 0 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        word-wrap: break-word;
+    }
+
+    .stats-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+
+    /* ============================================
+       BARRE DE FILTRES
+       ============================================ */
+    .filter-bar {
+        background: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        width: 100%;
+    }
+
+    .filter-bar .row {
+        margin: 0;
+    }
+
+    .filter-bar .g-3 {
+        gap: 1rem;
+    }
+
+    .filter-bar label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #374151;
+    }
+
+    .filter-bar .form-select {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        background-color: white;
+    }
+
+    .filter-bar .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+
+    /* ============================================
+       CARTES DE RÉSUMÉ
+       ============================================ */
     .summary-cards {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
     }
-    
+
     .summary-card {
         background: white;
-        padding: 1.5rem;
+        padding: 1.25rem;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         border-left: 4px solid;
         transition: transform 0.2s;
+        width: 100%;
     }
-    
+
     .summary-card:hover {
         transform: translateY(-3px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     }
-    
+
     .summary-card h6 {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        color: #6b7280;
+        margin: 0 0 0.5rem 0;
+        word-wrap: break-word;
     }
-    
+
     .summary-card h4 {
         color: #2c3e50;
         font-weight: bold;
+        font-size: 1.35rem;
+        margin: 0 0 0.25rem 0;
+        word-break: break-word;
     }
-    
+
     .summary-card small {
         display: block;
         margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: #6b7280;
     }
-    
+
+    .summary-card .mt-2 small {
+        color: #3b82f6;
+    }
+
     .summary-card.montant { border-left-color: #4facfe; }
     .summary-card.potentiel { border-left-color: #f093fb; }
     .summary-card.ecart { border-left-color: #43e97b; }
     .summary-card.jours { border-left-color: #fa709a; }
-    
+
+    /* ============================================
+       GRAPHIQUE
+       ============================================ */
+    .chart-container {
+        background: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       TABLEAUX
+       ============================================ */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+
+    .stats-table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        width: 100%;
+        min-width: 500px;
+    }
+
+    .stats-table table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+    }
+
+    .stats-table thead {
+        background: linear-gradient(135deg, #f093fb, #f5576c);
+        color: white;
+    }
+
+    .stats-table th {
+        padding: 1rem;
+        font-weight: 600;
+        border: none;
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+
+    .stats-table td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 0.9rem;
+    }
+
+    .stats-table tbody tr:hover {
+        background: #f9fafb;
+    }
+
+    .stats-table .h5 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    /* ============================================
+       TOP POSTES
+       ============================================ */
     .top-postes-table {
         background: white;
         border-radius: 12px;
-        padding: 1.5rem;
+        padding: 1.25rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-top: 1.5rem;
+        width: 100%;
     }
-    
-    .evolution-indicator {
+
+    .top-postes-table h5 {
+        font-size: 1.1rem;
+        margin: 0 0 1rem 0;
+        color: #1f2937;
+    }
+
+    .top-postes-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .top-postes-table table {
+        width: 100%;
+        min-width: 450px;
+        border-collapse: collapse;
+    }
+
+    .top-postes-table thead {
+        background: #f8f9fa;
+    }
+
+    .top-postes-table th {
+        padding: 0.875rem;
+        font-weight: 600;
+        border-bottom: 2px solid #e5e7eb;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .top-postes-table td {
+        padding: 0.875rem;
+        border-bottom: 1px solid #f3f4f6;
         font-size: 0.9rem;
+    }
+
+    .top-postes-table .fw-bold {
+        font-weight: 600;
+        color: #059669;
+    }
+
+    /* ============================================
+       INDICATEUR D'ÉVOLUTION
+       ============================================ */
+    .evolution-indicator {
+        font-size: 0.85rem;
         margin-left: 0.5rem;
     }
-    
+
     .evolution-indicator.positive { color: #28a745; }
     .evolution-indicator.negative { color: #dc3545; }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .text-muted { color: #6b7280 !important; }
+    .text-info { color: #3b82f6 !important; }
+    .text-center { text-align: center !important; }
+
+    .fw-bold { font-weight: 600 !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-1 { margin-bottom: 0.25rem !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+
+    .p-4 { padding: 1.5rem !important; }
+    .rounded { border-radius: 12px !important; }
+    .bg-white { background: white !important; }
+    .w-100 { width: 100% !important; }
+
+    /* ============================================
+       RESPONSIVE - TABLETTES (768px - 1024px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-2 { flex: 0 0 16.666667%; max-width: 16.666667%; }
+        .col-md-3 { flex: 0 0 25%; max-width: 25%; }
+
+        .filter-bar .row {
+            flex-wrap: nowrap;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (max 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction globale du défilement */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .stats-page {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+            overflow-x: hidden !important;
+        }
+
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+        }
+
+        .col-md-2, .col-md-3, .col-12 {
+            padding-left: 10px;
+            padding-right: 10px;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* En-tête */
+        .stats-header {
+            padding: 1.25rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .stats-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .stats-header p {
+            font-size: 0.85rem;
+        }
+
+        /* Filtres */
+        .filter-bar {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .filter-bar .row {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .filter-bar .row > div {
+            width: 100%;
+            padding: 0;
+        }
+
+        .filter-bar label {
+            font-size: 0.85rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .filter-bar .form-select {
+            font-size: 16px !important; /* Empêche zoom iOS */
+            padding: 0.5rem 0.75rem;
+        }
+
+        .filter-bar .btn {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        /* Cartes de résumé */
+        .summary-cards {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-card {
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .summary-card h6 {
+            font-size: 0.75rem;
+        }
+
+        .summary-card h4 {
+            font-size: 1.15rem;
+        }
+
+        .summary-card small {
+            font-size: 0.75rem;
+        }
+
+        /* Graphique */
+        .chart-container {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .chart-container canvas {
+            height: 280px !important;
+        }
+
+        /* Tableaux */
+        .table-container {
+            border-radius: 10px;
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+            border-radius: 0;
+            margin-bottom: 1rem;
+        }
+
+        .stats-table {
+            min-width: 450px;
+            border-radius: 0;
+        }
+
+        .stats-table th {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .stats-table td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .stats-table .h5 {
+            font-size: 0.9rem;
+        }
+
+        /* Top postes */
+        .top-postes-table {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+        }
+
+        .top-postes-table h5 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .top-postes-container {
+            margin-left: -1rem;
+            margin-right: -1rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .top-postes-table table {
+            min-width: 400px;
+        }
+
+        .top-postes-table th {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .top-postes-table td {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        /* Bouton */
+        .btn {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (max 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+        }
+
+        .col-md-2, .col-md-3, .col-12 {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .stats-header {
+            padding: 1rem;
+        }
+
+        .stats-header h2 {
+            font-size: 1.15rem;
+        }
+
+        .stats-header p {
+            font-size: 0.8rem;
+        }
+
+        .filter-bar {
+            padding: 0.875rem;
+        }
+
+        .summary-card {
+            padding: 0.875rem;
+        }
+
+        .summary-card h4 {
+            font-size: 1.05rem;
+        }
+
+        .chart-container {
+            padding: 0.875rem;
+        }
+
+        .chart-container canvas {
+            height: 250px !important;
+        }
+
+        .table-container {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .stats-table {
+            min-width: 420px;
+        }
+
+        .stats-table th,
+        .stats-table td {
+            padding: 0.625rem 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        .top-postes-table {
+            padding: 0.875rem;
+        }
+
+        .top-postes-table table {
+            min-width: 380px;
+        }
+
+        .top-postes-table th,
+        .top-postes-table td {
+            padding: 0.5rem 0.4rem;
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS MOBILES (max 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+        }
+
+        .col-md-2, .col-md-3, .col-12 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .stats-header h2 {
+            font-size: 1.05rem;
+        }
+
+        .summary-card h4 {
+            font-size: 1rem;
+        }
+
+        .summary-card h6 {
+            font-size: 0.7rem;
+        }
+
+        .chart-container canvas {
+            height: 220px !important;
+        }
+
+        .table-container {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .stats-table {
+            min-width: 400px;
+        }
+
+        .stats-table th,
+        .stats-table td {
+            padding: 0.5rem 0.35rem;
+            font-size: 0.7rem;
+        }
+
+        .top-postes-table table {
+            min-width: 350px;
+        }
+
+        .top-postes-table th,
+        .top-postes-table td {
+            padding: 0.4rem 0.35rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .summary-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .filter-bar .row {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar .row > div {
+            flex: 0 0 calc(50% - 0.5rem);
+            width: calc(50% - 0.5rem);
+        }
+
+        .filter-bar .row > div:last-child {
+            flex: 0 0 100%;
+            width: 100%;
+        }
+
+        .chart-container canvas {
+            height: 300px !important;
+        }
+    }
+
+    /* ============================================
+       CORRECTION POUR EMPÊCHER LE ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 480px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        textarea,
+        select {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       AMÉLIORATION DE L'ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    .form-select:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       HAUTEURS MINIMALES POUR LE TOUCH
+       ============================================ */
+    .btn,
+    .form-select {
+        min-height: 44px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    .table-container::-webkit-scrollbar,
+    .top-postes-container::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-container::-webkit-scrollbar-track,
+    .top-postes-container::-webkit-scrollbar-track {
+        background: #e5e7eb;
+    }
+
+    .table-container::-webkit-scrollbar-thumb,
+    .top-postes-container::-webkit-scrollbar-thumb {
+        background: #9ca3af;
+        border-radius: 3px;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .filter-bar,
+        .btn {
+            display: none !important;
+        }
+
+        .stats-header {
+            background: #f3f4f6 !important;
+            color: #1f2937 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .table-container,
+        .top-postes-container {
+            overflow: visible !important;
+        }
+
+        .stats-table,
+        .top-postes-table table {
+            min-width: 100% !important;
+        }
+
+        .summary-cards {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .chart-container {
+            page-break-inside: avoid;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- En-tête -->
-    <div class="stats-header">
-        <h2 class="mb-3">
-            <i class="fas fa-chart-bar me-2"></i>
-            Statistiques des Recettes
-        </h2>
-        <p class="mb-0">Analyse détaillée des recettes par période</p>
-    </div>
+<div class="stats-page">
+    <div class="container-fluid">
+        <!-- En-tête -->
+        <div class="stats-header">
+            <h2 class="mb-3">
+                <i class="fas fa-chart-bar me-2"></i>
+                Statistiques des Recettes
+            </h2>
+            <p class="mb-0">Analyse détaillée des recettes par période</p>
+        </div>
 
-    <!-- Filtres -->
-    <div class="filter-bar bg-white p-4 rounded mb-4">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Type de statistique</label>
-                <select name="type_stat" class="form-select">
-                    <option value="montants" {% if type_stat == 'montants' %}selected{% endif %}>
-                        Montants seulement
-                    </option>
-                </select>
-            </div>
-            
-            <div class="col-md-2">
-                <label class="form-label">Période</label>
-                <select name="periode" class="form-select">
-                    <option value="hebdomadaire" {% if periode == 'hebdomadaire' %}selected{% endif %}>Hebdomadaire</option>
-                    <option value="mensuel" {% if periode == 'mensuel' %}selected{% endif %}>Mensuel</option>
-                    <option value="trimestriel" {% if periode == 'trimestriel' %}selected{% endif %}>Trimestriel</option>
-                    <option value="semestriel" {% if periode == 'semestriel' %}selected{% endif %}>Semestriel</option>
-                    <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
-                </select>
-            </div>
-            
-            <div class="col-md-2">
-                <label class="form-label">Année</label>
-                <select name="annee" class="form-select">
-                    {% for year in annees_disponibles %}
-                    <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="col-md-3">
-                <label class="form-label">Poste</label>
-                <select name="poste" class="form-select">
-                    <option value="tous">Tous les postes</option>
-                    {% for poste in postes %}
-                    <option value="{{ poste.id }}" {% if poste.id|stringformat:"s" == poste_selectionne %}selected{% endif %}>
-                        {{ poste.nom }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="col-md-2">
-                <label class="form-label">&nbsp;</label>
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-filter me-2"></i>Filtrer
-                </button>
-            </div>
-        </form>
-    </div>
+        <!-- Filtres -->
+        <div class="filter-bar">
+            <form method="get" class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Type de statistique</label>
+                    <select name="type_stat" class="form-select">
+                        <option value="montants" {% if type_stat == 'montants' %}selected{% endif %}>
+                            Montants seulement
+                        </option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-2">
+                    <label class="form-label">Période</label>
+                    <select name="periode" class="form-select">
+                        <option value="hebdomadaire" {% if periode == 'hebdomadaire' %}selected{% endif %}>Hebdomadaire</option>
+                        <option value="mensuel" {% if periode == 'mensuel' %}selected{% endif %}>Mensuel</option>
+                        <option value="trimestriel" {% if periode == 'trimestriel' %}selected{% endif %}>Trimestriel</option>
+                        <option value="semestriel" {% if periode == 'semestriel' %}selected{% endif %}>Semestriel</option>
+                        <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-2">
+                    <label class="form-label">Année</label>
+                    <select name="annee" class="form-select">
+                        {% for year in annees_disponibles %}
+                        <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Poste</label>
+                    <select name="poste" class="form-select">
+                        <option value="tous">Tous les postes</option>
+                        {% for poste in postes %}
+                        <option value="{{ poste.id }}" {% if poste.id|stringformat:"s" == poste_selectionne %}selected{% endif %}>
+                            {{ poste.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-2"></i>Filtrer
+                    </button>
+                </div>
+            </form>
+        </div>
 
-    <!-- Cartes de résumé -->
-   <!-- Cartes de résumé -->
-<div class="summary-cards">
-    {% for stat in stats %}
-    <div class="summary-card montant">
-        <h6 class="text-muted mb-2">
-            {% if periode == 'mensuel' %}
-                {{ stat.periode }}
-            {% elif periode == 'hebdomadaire' %}
-                Semaine du {{ stat.date_debut|date:"d/m" }}
-            {% elif periode == 'trimestriel' %}
-                {{ stat.trimestre }}
-            {% elif periode == 'semestriel' %}
-                {{ stat.semestre }}
-            {% else %}
-                {{ stat.periode }}
-            {% endif %}
-        </h6>
-        <h4 class="mb-1">{{ stat.montant_total|floatformat:0|default:"0"|format_milliers }} FCFA</h4>
-        <small class="text-muted">
-            {{ stat.nombre_jours }} jour{% if stat.nombre_jours > 1 %}s{% endif %} avec données
-        </small>
-        {% if stat.moyenne_journaliere %}
-        <div class="mt-2">
-            <small class="text-info">
-                <i class="fas fa-chart-line"></i> 
-                Moyenne : {{ stat.moyenne_journaliere|floatformat:0|format_milliers }} FCFA/jour
-            </small>
+        <!-- Cartes de résumé -->
+        <div class="summary-cards">
+            {% for stat in stats %}
+            <div class="summary-card montant">
+                <h6 class="text-muted mb-2">
+                    {% if periode == 'mensuel' %}
+                        {{ stat.periode }}
+                    {% elif periode == 'hebdomadaire' %}
+                        Semaine du {{ stat.date_debut|date:"d/m" }}
+                    {% elif periode == 'trimestriel' %}
+                        {{ stat.trimestre }}
+                    {% elif periode == 'semestriel' %}
+                        {{ stat.semestre }}
+                    {% else %}
+                        {{ stat.periode }}
+                    {% endif %}
+                </h6>
+                <h4 class="mb-1">{{ stat.montant_total|floatformat:0|default:"0"|format_milliers }} FCFA</h4>
+                <small class="text-muted">
+                    {{ stat.nombre_jours }} jour{% if stat.nombre_jours > 1 %}s{% endif %} avec données
+                </small>
+                {% if stat.moyenne_journaliere %}
+                <div class="mt-2">
+                    <small class="text-info">
+                        <i class="fas fa-chart-line"></i> 
+                        Moyenne : {{ stat.moyenne_journaliere|floatformat:0|format_milliers }} FCFA/jour
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Graphique principal -->
+        <div class="chart-container">
+            <canvas id="recettesChart" style="height: 400px;"></canvas>
+        </div>
+
+        <!-- Tableau détaillé -->
+        <div class="table-container">
+            <div class="stats-table">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Période</th>
+                            <th>Montant Déclaré</th>
+                            <th>Nombre de Journées</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in stats %}
+                        <tr>
+                            <td><strong>{{ stat.periode }}</strong></td>
+                            <td class="h5">{{ stat.montant_total|floatformat:0|format_milliers }} FCFA</td>
+                            <td>{{ stat.nombre_jours }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">
+                                Aucune donnée pour cette période
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Top 10 des postes -->
+        {% if poste_selectionne == 'tous' %}
+        <div class="top-postes-table">
+            <h5 class="mb-3">Top 10 des postes - {{ annee }}</h5>
+            <div class="top-postes-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Poste</th>
+                            <th>Code</th>
+                            <th>Montant Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for poste in top_postes %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ poste.poste__nom }}</td>
+                            <td>{{ poste.poste__code }}</td>
+                            <td class="fw-bold">{{ poste.total|floatformat:0|format_milliers }} FCFA</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         {% endif %}
     </div>
-    {% endfor %}
-</div>
-
-    <!-- Graphique principal -->
-    <div class="bg-white p-4 rounded mb-4">
-        <canvas id="recettesChart" style="height: 400px;"></canvas>
-    </div>
-
-    <!-- Tableau détaillé -->
-    <div class="stats-table bg-white rounded overflow-hidden">
-        <table class="table mb-0">
-            <thead style="background: linear-gradient(135deg, #f093fb, #f5576c); color: white;">
-                <tr>
-                    <th>Période</th>
-                    <th>Montant Déclaré</th>
-                    <th>Nombre de Journées</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for stat in stats %}
-                <tr>
-                    <td><strong>{{ stat.periode }}</strong></td>
-                    <td class="h5">{{ stat.montant_total|floatformat:0|format_milliers  }} FCFA</td>
-                    <td>{{ stat.nombre_jours }}</td>                       
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="text-center py-4 text-muted">
-                        Aucune donnée pour cette période
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Top 10 des postes -->
-    {% if poste_selectionne == 'tous' %}
-    <div class="top-postes-table mt-4">
-        <h5 class="mb-3">Top 10 des postes - {{ annee }}</h5>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Poste</th>
-                    <th>Code</th>
-                    <th>Montant Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for poste in top_postes %}
-                <tr>
-                    <td>{{ forloop.counter }}</td>
-                    <td>{{ poste.poste__nom }}</td>
-                    <td>{{ poste.poste__code }}</td>
-                    <td class="fw-bold">{{ poste.total|floatformat:0|format_milliers  }} FCFA</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const graphData = {{ graph_data_json|safe }};
+document.addEventListener('DOMContentLoaded', function() {
+    const graphData = {{ graph_data_json|safe }};
 
-const ctx = document.getElementById('recettesChart').getContext('2d');
-new Chart(ctx, {
-    type: 'bar',
-    data: graphData,
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            title: {
-                display: true,
-                text: 'Évolution des Recettes - {{ periode|title }} {{ annee }}'
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': ' + 
-                               context.parsed.y.toLocaleString('fr-FR') + ' FCFA';
+    const ctx = document.getElementById('recettesChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: graphData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Évolution des Recettes - {{ periode|title }} {{ annee }}',
+                    font: {
+                        size: window.innerWidth <= 576 ? 12 : 14
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + 
+                                   context.parsed.y.toLocaleString('fr-FR') + ' FCFA';
+                        }
+                    }
+                },
+                legend: {
+                    labels: {
+                        font: {
+                            size: window.innerWidth <= 576 ? 10 : 12
+                        }
                     }
                 }
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    callback: function(value) {
-                        return value.toLocaleString('fr-FR') + ' FCFA';
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            if (window.innerWidth <= 576) {
+                                return (value / 1000000).toFixed(1) + 'M';
+                            }
+                            return value.toLocaleString('fr-FR') + ' FCFA';
+                        },
+                        font: {
+                            size: window.innerWidth <= 576 ? 10 : 12
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        font: {
+                            size: window.innerWidth <= 576 ? 10 : 12
+                        },
+                        maxRotation: window.innerWidth <= 576 ? 45 : 0
                     }
                 }
             }
         }
+    });
+
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            
+            document.querySelectorAll('.stats-page, .container-fluid').forEach(el => {
+                el.style.overflowX = 'hidden';
+                el.style.maxWidth = '100vw';
+            });
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+        }
     }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
 });
+
+// Correction pour empêcher le zoom automatique sur iOS
+document.addEventListener('touchstart', function() {}, {passive: true});
 </script>
 {% endblock %}
