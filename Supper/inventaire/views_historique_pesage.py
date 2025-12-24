@@ -784,441 +784,441 @@ def valider_paiement_direct(request, pk):
     return render(request, 'pesage/confirmer_validation_paiement.html', context)
 
 
-@regisseur_pesage_required
-def validation_bloquee(request, pk):
-    """
-    Page affichée quand la validation est bloquée à cause d'amendes antérieures non payées.
-    """
-    user = request.user
-    amende_a_valider = get_object_or_404(AmendeEmise, pk=pk)
-    immat_norm = normalize_immatriculation(amende_a_valider.immatriculation)
+# @regisseur_pesage_required
+# def validation_bloquee(request, pk):
+#     """
+#     Page affichée quand la validation est bloquée à cause d'amendes antérieures non payées.
+#     """
+#     user = request.user
+#     amende_a_valider = get_object_or_404(AmendeEmise, pk=pk)
+#     immat_norm = normalize_immatriculation(amende_a_valider.immatriculation)
     
-    # Log de l'accès à la page de blocage
-    log_user_action(
-        user=user,
-        action="CONSULTATION_PAGE_VALIDATION_BLOQUEE",
-        details=f"Consultation page blocage - Amende: {amende_a_valider.numero_ticket} - "
-                f"Véhicule: {amende_a_valider.immatriculation}",
-        succes=True
-    )
+#     # Log de l'accès à la page de blocage
+#     log_user_action(
+#         user=user,
+#         action="CONSULTATION_PAGE_VALIDATION_BLOQUEE",
+#         details=f"Consultation page blocage - Amende: {amende_a_valider.numero_ticket} - "
+#                 f"Véhicule: {amende_a_valider.immatriculation}",
+#         succes=True
+#     )
     
-    # Récupérer les amendes bloquantes
-    amendes_bloquantes = AmendeEmise.objects.filter(
-        Q(immatriculation_normalise__iexact=immat_norm) |
-        Q(immatriculation__iexact=amende_a_valider.immatriculation) |
-        Q(immatriculation__iexact=immat_norm),
-        statut='non_paye',
-        date_heure_emission__lt=amende_a_valider.date_heure_emission
-    ).exclude(
-        station=amende_a_valider.station
-    ).exclude(
-        pk=amende_a_valider.pk
-    ).select_related('station', 'saisi_par').order_by('date_heure_emission')
+#     # Récupérer les amendes bloquantes
+#     amendes_bloquantes = AmendeEmise.objects.filter(
+#         Q(immatriculation_normalise__iexact=immat_norm) |
+#         Q(immatriculation__iexact=amende_a_valider.immatriculation) |
+#         Q(immatriculation__iexact=immat_norm),
+#         statut='non_paye',
+#         date_heure_emission__lt=amende_a_valider.date_heure_emission
+#     ).exclude(
+#         station=amende_a_valider.station
+#     ).exclude(
+#         pk=amende_a_valider.pk
+#     ).select_related('station', 'saisi_par').order_by('date_heure_emission')
     
-    # Historique complet du véhicule (filtré selon accès utilisateur)
-    historique_complet = AmendeEmise.objects.filter(
-        Q(immatriculation_normalise__iexact=immat_norm) |
-        Q(immatriculation__iexact=amende_a_valider.immatriculation) |
-        Q(immatriculation__iexact=immat_norm)
-    ).select_related('station', 'saisi_par', 'valide_par').order_by('-date_heure_emission')
+#     # Historique complet du véhicule (filtré selon accès utilisateur)
+#     historique_complet = AmendeEmise.objects.filter(
+#         Q(immatriculation_normalise__iexact=immat_norm) |
+#         Q(immatriculation__iexact=amende_a_valider.immatriculation) |
+#         Q(immatriculation__iexact=immat_norm)
+#     ).select_related('station', 'saisi_par', 'valide_par').order_by('-date_heure_emission')
     
-    # Filtrer selon accès si non admin
-    if not user_has_acces_tous_postes(user):
-        # L'utilisateur voit quand même les amendes bloquantes (pour comprendre le blocage)
-        # mais l'historique complet est filtré
-        pass  # On garde l'historique complet pour la compréhension du blocage
+#     # Filtrer selon accès si non admin
+#     if not user_has_acces_tous_postes(user):
+#         # L'utilisateur voit quand même les amendes bloquantes (pour comprendre le blocage)
+#         # mais l'historique complet est filtré
+#         pass  # On garde l'historique complet pour la compréhension du blocage
     
-    # Statistiques du véhicule
-    stats = historique_complet.aggregate(
-        total=Count('id'),
-        payees=Count('id', filter=Q(statut='paye')),
-        non_payees=Count('id', filter=Q(statut='non_paye')),
-        montant_total=Sum('montant_amende'),
-        montant_impaye=Sum('montant_amende', filter=Q(statut='non_paye')),
-    )
+#     # Statistiques du véhicule
+#     stats = historique_complet.aggregate(
+#         total=Count('id'),
+#         payees=Count('id', filter=Q(statut='paye')),
+#         non_payees=Count('id', filter=Q(statut='non_paye')),
+#         montant_total=Sum('montant_amende'),
+#         montant_impaye=Sum('montant_amende', filter=Q(statut='non_paye')),
+#     )
     
-    # Vérifier les demandes de confirmation déjà envoyées
-    demandes_existantes = DemandeConfirmationPaiement.objects.filter(
-        amende_a_valider=amende_a_valider,
-        statut__in=['en_attente', 'confirme']
-    ).select_related(
-        'amende_non_payee',
-        'amende_non_payee__station',
-        'station_concernee'
-    )
+#     # Vérifier les demandes de confirmation déjà envoyées
+#     demandes_existantes = DemandeConfirmationPaiement.objects.filter(
+#         amende_a_valider=amende_a_valider,
+#         statut__in=['en_attente', 'confirme']
+#     ).select_related(
+#         'amende_non_payee',
+#         'amende_non_payee__station',
+#         'station_concernee'
+#     )
     
-    # Créer un dict pour savoir quelles amendes ont déjà une demande
-    amendes_avec_demande = {d.amende_non_payee_id: d for d in demandes_existantes}
+#     # Créer un dict pour savoir quelles amendes ont déjà une demande
+#     amendes_avec_demande = {d.amende_non_payee_id: d for d in demandes_existantes}
     
-    context = {
-        'amende_a_valider': amende_a_valider,
-        'amendes_bloquantes': amendes_bloquantes,
-        'historique_complet': historique_complet,
-        'stats': stats,
-        'amendes_avec_demande': amendes_avec_demande,
-        'acces_tous_postes': user_has_acces_tous_postes(user),
-    }
+#     context = {
+#         'amende_a_valider': amende_a_valider,
+#         'amendes_bloquantes': amendes_bloquantes,
+#         'historique_complet': historique_complet,
+#         'stats': stats,
+#         'amendes_avec_demande': amendes_avec_demande,
+#         'acces_tous_postes': user_has_acces_tous_postes(user),
+#     }
     
-    return render(request, 'pesage/validation_bloquee.html', context)
+#     return render(request, 'pesage/validation_bloquee.html', context)
 
 
-# ===================================================================
-# GESTION DES DEMANDES DE CONFIRMATION
-# ===================================================================
+# # ===================================================================
+# # GESTION DES DEMANDES DE CONFIRMATION
+# # ===================================================================
 
-@regisseur_pesage_required
-def creer_demande_confirmation(request, amende_pk, amende_bloquante_pk):
-    """
-    Crée une demande de confirmation auprès d'une autre station.
-    """
-    user = request.user
-    station_utilisateur = get_user_station_pesage(user)
+# @regisseur_pesage_required
+# def creer_demande_confirmation(request, amende_pk, amende_bloquante_pk):
+#     """
+#     Crée une demande de confirmation auprès d'une autre station.
+#     """
+#     user = request.user
+#     station_utilisateur = get_user_station_pesage(user)
     
-    # Récupérer l'amende à valider
-    if user_has_acces_tous_postes(user):
-        amende_a_valider = get_object_or_404(AmendeEmise, pk=amende_pk)
-        station_demandeur = amende_a_valider.station
-    else:
-        if station_utilisateur and station_utilisateur is not False:
-            amende_a_valider = get_object_or_404(AmendeEmise, pk=amende_pk, station=station_utilisateur)
-            station_demandeur = station_utilisateur
-        else:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
-            return redirect('common:dashboard')
+#     # Récupérer l'amende à valider
+#     if user_has_acces_tous_postes(user):
+#         amende_a_valider = get_object_or_404(AmendeEmise, pk=amende_pk)
+#         station_demandeur = amende_a_valider.station
+#     else:
+#         if station_utilisateur and station_utilisateur is not False:
+#             amende_a_valider = get_object_or_404(AmendeEmise, pk=amende_pk, station=station_utilisateur)
+#             station_demandeur = station_utilisateur
+#         else:
+#             messages.error(request, _("Vous devez être affecté à une station de pesage."))
+#             return redirect('common:dashboard')
     
-    # Récupérer l'amende bloquante
-    amende_non_payee = get_object_or_404(AmendeEmise, pk=amende_bloquante_pk, statut='non_paye')
+#     # Récupérer l'amende bloquante
+#     amende_non_payee = get_object_or_404(AmendeEmise, pk=amende_bloquante_pk, statut='non_paye')
     
-    # Vérifier que l'amende bloquante est dans une AUTRE station
-    if amende_non_payee.station == station_demandeur:
-        messages.error(request, _("L'amende bloquante doit être dans une autre station."))
-        return redirect('inventaire:verifier_avant_validation', pk=amende_pk)
+#     # Vérifier que l'amende bloquante est dans une AUTRE station
+#     if amende_non_payee.station == station_demandeur:
+#         messages.error(request, _("L'amende bloquante doit être dans une autre station."))
+#         return redirect('inventaire:verifier_avant_validation', pk=amende_pk)
     
-    # Vérifier si une demande existe déjà
-    demande_existante = DemandeConfirmationPaiement.existe_demande_en_attente(
-        amende_a_valider, amende_non_payee
-    )
+#     # Vérifier si une demande existe déjà
+#     demande_existante = DemandeConfirmationPaiement.existe_demande_en_attente(
+#         amende_a_valider, amende_non_payee
+#     )
     
-    if demande_existante:
-        messages.warning(request, 
-            _("Une demande de confirmation existe déjà (Réf: %(ref)s).") % {
-                'ref': demande_existante.reference
-            })
-        return redirect('inventaire:detail_demande_confirmation', pk=demande_existante.pk)
+#     if demande_existante:
+#         messages.warning(request, 
+#             _("Une demande de confirmation existe déjà (Réf: %(ref)s).") % {
+#                 'ref': demande_existante.reference
+#             })
+#         return redirect('inventaire:detail_demande_confirmation', pk=demande_existante.pk)
     
-    if request.method == 'POST':
-        commentaire = request.POST.get('commentaire', '').strip()
+#     if request.method == 'POST':
+#         commentaire = request.POST.get('commentaire', '').strip()
         
-        # Créer la demande
-        demande = DemandeConfirmationPaiement(
-            station_demandeur=station_demandeur,
-            regisseur_demandeur=user,
-            amende_a_valider=amende_a_valider,
-            station_concernee=amende_non_payee.station,
-            amende_non_payee=amende_non_payee,
-            commentaire_demande=commentaire,
-            vehicule_immatriculation=amende_a_valider.immatriculation,
-            vehicule_transporteur=amende_a_valider.transporteur,
-        )
-        demande.save()
+#         # Créer la demande
+#         demande = DemandeConfirmationPaiement(
+#             station_demandeur=station_demandeur,
+#             regisseur_demandeur=user,
+#             amende_a_valider=amende_a_valider,
+#             station_concernee=amende_non_payee.station,
+#             amende_non_payee=amende_non_payee,
+#             commentaire_demande=commentaire,
+#             vehicule_immatriculation=amende_a_valider.immatriculation,
+#             vehicule_transporteur=amende_a_valider.transporteur,
+#         )
+#         demande.save()
         
-        # Log de la création
-        log_user_action(
-            user=user,
-            action="CREATION_DEMANDE_CONFIRMATION",
-            details=f"Demande créée - Réf: {demande.reference} - "
-                    f"Amende à valider: {amende_a_valider.numero_ticket} - "
-                    f"Amende bloquante: {amende_non_payee.numero_ticket} - "
-                    f"Station concernée: {amende_non_payee.station.nom}",
-            succes=True
-        )
+#         # Log de la création
+#         log_user_action(
+#             user=user,
+#             action="CREATION_DEMANDE_CONFIRMATION",
+#             details=f"Demande créée - Réf: {demande.reference} - "
+#                     f"Amende à valider: {amende_a_valider.numero_ticket} - "
+#                     f"Amende bloquante: {amende_non_payee.numero_ticket} - "
+#                     f"Station concernée: {amende_non_payee.station.nom}",
+#             succes=True
+#         )
         
-        messages.success(request,
-            _("Demande de confirmation créée (Réf: %(ref)s). "
-              "La station %(station)s doit confirmer.") % {
-                'ref': demande.reference,
-                'station': amende_non_payee.station.nom
-            })
+#         messages.success(request,
+#             _("Demande de confirmation créée (Réf: %(ref)s). "
+#               "La station %(station)s doit confirmer.") % {
+#                 'ref': demande.reference,
+#                 'station': amende_non_payee.station.nom
+#             })
         
-        logger.info(
-            f"[creer_demande] Demande confirmation créée par {user.username} - "
-            f"Réf: {demande.reference} - Véhicule: {demande.vehicule_immatriculation}"
-        )
+#         logger.info(
+#             f"[creer_demande] Demande confirmation créée par {user.username} - "
+#             f"Réf: {demande.reference} - Véhicule: {demande.vehicule_immatriculation}"
+#         )
         
-        return redirect('inventaire:mes_demandes_confirmation')
+#         return redirect('inventaire:mes_demandes_confirmation')
     
-    context = {
-        'amende_a_valider': amende_a_valider,
-        'amende_non_payee': amende_non_payee,
-        'station_demandeur': station_demandeur,
-        'station': station_utilisateur,
-        'is_admin': is_admin_user(user),
-        'acces_tous_postes': user_has_acces_tous_postes(user),
-        'title': _("Créer une demande de confirmation"),
-    }
+#     context = {
+#         'amende_a_valider': amende_a_valider,
+#         'amende_non_payee': amende_non_payee,
+#         'station_demandeur': station_demandeur,
+#         'station': station_utilisateur,
+#         'is_admin': is_admin_user(user),
+#         'acces_tous_postes': user_has_acces_tous_postes(user),
+#         'title': _("Créer une demande de confirmation"),
+#     }
     
-    return render(request, 'pesage/creer_demande_confirmation.html', context)
+#     return render(request, 'pesage/creer_demande_confirmation.html', context)
 
 
-@regisseur_pesage_required
-def mes_demandes_confirmation(request):
-    """
-    Liste des demandes de confirmation envoyées par ma station.
-    """
-    user = request.user
-    station = get_user_station_pesage(user)
+# @regisseur_pesage_required
+# def mes_demandes_confirmation(request):
+#     """
+#     Liste des demandes de confirmation envoyées par ma station.
+#     """
+#     user = request.user
+#     station = get_user_station_pesage(user)
     
-    log_user_action(
-        user=user,
-        action="CONSULTATION_MES_DEMANDES_CONFIRMATION",
-        details=f"Consultation liste des demandes envoyées",
-        succes=True
-    )
+#     log_user_action(
+#         user=user,
+#         action="CONSULTATION_MES_DEMANDES_CONFIRMATION",
+#         details=f"Consultation liste des demandes envoyées",
+#         succes=True
+#     )
     
-    if user_has_acces_tous_postes(user):
-        demandes = DemandeConfirmationPaiement.objects.all()
-    else:
-        if station and station is not False:
-            demandes = DemandeConfirmationPaiement.get_demandes_envoyees_par_station(station)
-        else:
-            demandes = DemandeConfirmationPaiement.objects.none()
+#     if user_has_acces_tous_postes(user):
+#         demandes = DemandeConfirmationPaiement.objects.all()
+#     else:
+#         if station and station is not False:
+#             demandes = DemandeConfirmationPaiement.get_demandes_envoyees_par_station(station)
+#         else:
+#             demandes = DemandeConfirmationPaiement.objects.none()
     
-    # Filtrer par statut
-    statut_filter = request.GET.get('statut')
-    if statut_filter:
-        demandes = demandes.filter(statut=statut_filter)
+#     # Filtrer par statut
+#     statut_filter = request.GET.get('statut')
+#     if statut_filter:
+#         demandes = demandes.filter(statut=statut_filter)
     
-    # Pagination
-    paginator = Paginator(demandes, 20)
-    page = request.GET.get('page')
-    demandes_page = paginator.get_page(page)
+#     # Pagination
+#     paginator = Paginator(demandes, 20)
+#     page = request.GET.get('page')
+#     demandes_page = paginator.get_page(page)
     
-    context = {
-        'demandes': demandes_page,
-        'statut_filter': statut_filter,
-        'statuts': StatutDemandeConfirmation.choices,
-        'station': station if station and station is not False else None,
-        'is_admin': is_admin_user(user),
-        'acces_tous_postes': user_has_acces_tous_postes(user),
-        'title': _("Mes demandes de confirmation"),
-    }
+#     context = {
+#         'demandes': demandes_page,
+#         'statut_filter': statut_filter,
+#         'statuts': StatutDemandeConfirmation.choices,
+#         'station': station if station and station is not False else None,
+#         'is_admin': is_admin_user(user),
+#         'acces_tous_postes': user_has_acces_tous_postes(user),
+#         'title': _("Mes demandes de confirmation"),
+#     }
     
-    return render(request, 'pesage/mes_demandes_confirmation.html', context)
+#     return render(request, 'pesage/mes_demandes_confirmation.html', context)
 
 
-@regisseur_pesage_required
-def demandes_confirmation_a_traiter(request):
-    """
-    Liste des demandes de confirmation à traiter (reçues par ma station).
-    """
-    user = request.user
-    station = get_user_station_pesage(user)
+# @regisseur_pesage_required
+# def demandes_confirmation_a_traiter(request):
+#     """
+#     Liste des demandes de confirmation à traiter (reçues par ma station).
+#     """
+#     user = request.user
+#     station = get_user_station_pesage(user)
     
-    log_user_action(
-        user=user,
-        action="CONSULTATION_DEMANDES_A_TRAITER",
-        details=f"Consultation liste des demandes à traiter",
-        succes=True
-    )
+#     log_user_action(
+#         user=user,
+#         action="CONSULTATION_DEMANDES_A_TRAITER",
+#         details=f"Consultation liste des demandes à traiter",
+#         succes=True
+#     )
     
-    if user_has_acces_tous_postes(user):
-        # Admin: sélection de station requise
-        station_id = request.GET.get('station')
-        if station_id:
-            try:
-                station = Poste.objects.get(pk=station_id, type='pesage')
-            except Poste.DoesNotExist:
-                station = None
+#     if user_has_acces_tous_postes(user):
+#         # Admin: sélection de station requise
+#         station_id = request.GET.get('station')
+#         if station_id:
+#             try:
+#                 station = Poste.objects.get(pk=station_id, type='pesage')
+#             except Poste.DoesNotExist:
+#                 station = None
         
-        if not station:
-            stations = Poste.objects.filter(type='pesage', is_active=True).order_by('nom')
-            # Compter les demandes en attente par station
-            for s in stations:
-                s.nb_demandes_attente = DemandeConfirmationPaiement.objects.filter(
-                    station_concernee=s,
-                    statut=StatutDemandeConfirmation.EN_ATTENTE
-                ).count()
+#         if not station:
+#             stations = Poste.objects.filter(type='pesage', is_active=True).order_by('nom')
+#             # Compter les demandes en attente par station
+#             for s in stations:
+#                 s.nb_demandes_attente = DemandeConfirmationPaiement.objects.filter(
+#                     station_concernee=s,
+#                     statut=StatutDemandeConfirmation.EN_ATTENTE
+#                 ).count()
             
-            context = {
-                'stations': stations,
-                'is_admin': True,
-                'acces_tous_postes': True,
-                'title': _("Sélectionner une station"),
-            }
-            return render(request, 'pesage/selectionner_station_confirmation.html', context)
+#             context = {
+#                 'stations': stations,
+#                 'is_admin': True,
+#                 'acces_tous_postes': True,
+#                 'title': _("Sélectionner une station"),
+#             }
+#             return render(request, 'pesage/selectionner_station_confirmation.html', context)
     
-    if not station or station is False:
-        messages.error(request, _("Vous devez être affecté à une station de pesage."))
-        return redirect('common:dashboard')
+#     if not station or station is False:
+#         messages.error(request, _("Vous devez être affecté à une station de pesage."))
+#         return redirect('common:dashboard')
     
-    # Récupérer les demandes en attente pour cette station
-    demandes_attente = DemandeConfirmationPaiement.get_demandes_en_attente_pour_station(station)
+#     # Récupérer les demandes en attente pour cette station
+#     demandes_attente = DemandeConfirmationPaiement.get_demandes_en_attente_pour_station(station)
     
-    # Récupérer aussi les demandes déjà traitées
-    demandes_traitees = DemandeConfirmationPaiement.objects.filter(
-        station_concernee=station
-    ).exclude(
-        statut=StatutDemandeConfirmation.EN_ATTENTE
-    ).order_by('-date_reponse')[:20]
+#     # Récupérer aussi les demandes déjà traitées
+#     demandes_traitees = DemandeConfirmationPaiement.objects.filter(
+#         station_concernee=station
+#     ).exclude(
+#         statut=StatutDemandeConfirmation.EN_ATTENTE
+#     ).order_by('-date_reponse')[:20]
     
-    context = {
-        'demandes_attente': demandes_attente,
-        'demandes_traitees': demandes_traitees,
-        'station': station,
-        'is_admin': is_admin_user(user),
-        'acces_tous_postes': user_has_acces_tous_postes(user),
-        'title': _("Demandes de confirmation à traiter"),
-    }
+#     context = {
+#         'demandes_attente': demandes_attente,
+#         'demandes_traitees': demandes_traitees,
+#         'station': station,
+#         'is_admin': is_admin_user(user),
+#         'acces_tous_postes': user_has_acces_tous_postes(user),
+#         'title': _("Demandes de confirmation à traiter"),
+#     }
     
-    return render(request, 'pesage/demandes_confirmation_a_traiter.html', context)
+#     return render(request, 'pesage/demandes_confirmation_a_traiter.html', context)
 
 
-@regisseur_pesage_required
-def detail_demande_confirmation(request, pk):
-    """
-    Détail d'une demande de confirmation.
-    """
-    user = request.user
-    station = get_user_station_pesage(user)
+# @regisseur_pesage_required
+# def detail_demande_confirmation(request, pk):
+#     """
+#     Détail d'une demande de confirmation.
+#     """
+#     user = request.user
+#     station = get_user_station_pesage(user)
     
-    demande = get_object_or_404(
-        DemandeConfirmationPaiement.objects.select_related(
-            'station_demandeur', 'regisseur_demandeur',
-            'station_concernee', 'regisseur_confirmeur',
-            'amende_a_valider', 'amende_non_payee',
-            'amende_a_valider__station', 'amende_non_payee__station'
-        ),
-        pk=pk
-    )
+#     demande = get_object_or_404(
+#         DemandeConfirmationPaiement.objects.select_related(
+#             'station_demandeur', 'regisseur_demandeur',
+#             'station_concernee', 'regisseur_confirmeur',
+#             'amende_a_valider', 'amende_non_payee',
+#             'amende_a_valider__station', 'amende_non_payee__station'
+#         ),
+#         pk=pk
+#     )
     
-    # Vérifier l'accès
-    if not user_has_acces_tous_postes(user):
-        if station and station is not False:
-            if station not in [demande.station_demandeur, demande.station_concernee]:
-                log_user_action(
-                    user=user,
-                    action="ACCES_DEMANDE_CONFIRMATION_REFUSE",
-                    details=f"Tentative d'accès demande {demande.reference} - "
-                            f"Station utilisateur: {station.nom} non autorisée",
-                    succes=False
-                )
-                messages.error(request, _("Vous n'avez pas accès à cette demande."))
-                return redirect('common:dashboard')
-        else:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
-            return redirect('common:dashboard')
+#     # Vérifier l'accès
+#     if not user_has_acces_tous_postes(user):
+#         if station and station is not False:
+#             if station not in [demande.station_demandeur, demande.station_concernee]:
+#                 log_user_action(
+#                     user=user,
+#                     action="ACCES_DEMANDE_CONFIRMATION_REFUSE",
+#                     details=f"Tentative d'accès demande {demande.reference} - "
+#                             f"Station utilisateur: {station.nom} non autorisée",
+#                     succes=False
+#                 )
+#                 messages.error(request, _("Vous n'avez pas accès à cette demande."))
+#                 return redirect('common:dashboard')
+#         else:
+#             messages.error(request, _("Vous devez être affecté à une station de pesage."))
+#             return redirect('common:dashboard')
     
-    # Log de la consultation
-    log_user_action(
-        user=user,
-        action="CONSULTATION_DETAIL_DEMANDE_CONFIRMATION",
-        details=f"Consultation demande {demande.reference}",
-        succes=True
-    )
+#     # Log de la consultation
+#     log_user_action(
+#         user=user,
+#         action="CONSULTATION_DETAIL_DEMANDE_CONFIRMATION",
+#         details=f"Consultation demande {demande.reference}",
+#         succes=True
+#     )
     
-    # Déterminer si l'utilisateur peut traiter la demande
-    peut_traiter = False
-    if user_has_acces_tous_postes(user):
-        peut_traiter = demande.peut_etre_traitee
-    elif station and station is not False:
-        peut_traiter = (
-            station == demande.station_concernee and 
-            peut_valider_paiements(user) and
-            demande.peut_etre_traitee
-        )
+#     # Déterminer si l'utilisateur peut traiter la demande
+#     peut_traiter = False
+#     if user_has_acces_tous_postes(user):
+#         peut_traiter = demande.peut_etre_traitee
+#     elif station and station is not False:
+#         peut_traiter = (
+#             station == demande.station_concernee and 
+#             peut_valider_paiements(user) and
+#             demande.peut_etre_traitee
+#         )
     
-    # Historique du véhicule
-    historique = AmendeEmise.objects.filter(
-        immatriculation_normalise__iexact=demande.amende_a_valider.immatriculation_normalise
-    ).select_related('station').order_by('-date_heure_emission')[:10]
+#     # Historique du véhicule
+#     historique = AmendeEmise.objects.filter(
+#         immatriculation_normalise__iexact=demande.amende_a_valider.immatriculation_normalise
+#     ).select_related('station').order_by('-date_heure_emission')[:10]
     
-    context = {
-        'demande': demande,
-        'peut_traiter': peut_traiter,
-        'historique': historique,
-        'station': station if station and station is not False else None,
-        'is_admin': is_admin_user(user),
-        'acces_tous_postes': user_has_acces_tous_postes(user),
-        'title': f"Demande {demande.reference}",
-    }
+#     context = {
+#         'demande': demande,
+#         'peut_traiter': peut_traiter,
+#         'historique': historique,
+#         'station': station if station and station is not False else None,
+#         'is_admin': is_admin_user(user),
+#         'acces_tous_postes': user_has_acces_tous_postes(user),
+#         'title': f"Demande {demande.reference}",
+#     }
     
-    return render(request, 'pesage/detail_demande_confirmation.html', context)
+#     return render(request, 'pesage/detail_demande_confirmation.html', context)
 
 
-@regisseur_pesage_required
-@require_POST
-def traiter_demande_confirmation(request, pk):
-    """
-    Traite une demande de confirmation (confirmer ou refuser).
-    """
-    user = request.user
-    station = get_user_station_pesage(user)
+# @regisseur_pesage_required
+# @require_POST
+# def traiter_demande_confirmation(request, pk):
+#     """
+#     Traite une demande de confirmation (confirmer ou refuser).
+#     """
+#     user = request.user
+#     station = get_user_station_pesage(user)
     
-    demande = get_object_or_404(DemandeConfirmationPaiement, pk=pk)
+#     demande = get_object_or_404(DemandeConfirmationPaiement, pk=pk)
     
-    # Vérifier les permissions
-    if not user_has_acces_tous_postes(user):
-        if station is False or not station:
-            messages.error(request, _("Vous devez être affecté à une station de pesage."))
-            return redirect('common:dashboard')
-        if station != demande.station_concernee:
-            log_user_action(
-                user=user,
-                action="TRAITEMENT_DEMANDE_REFUSE",
-                details=f"Tentative traitement demande {demande.reference} - "
-                        f"Station utilisateur: {station.nom} ≠ Station concernée: {demande.station_concernee.nom}",
-                succes=False
-            )
-            messages.error(request, _("Vous ne pouvez pas traiter cette demande."))
-            return redirect('inventaire:detail_demande_confirmation', pk=pk)
+#     # Vérifier les permissions
+#     if not user_has_acces_tous_postes(user):
+#         if station is False or not station:
+#             messages.error(request, _("Vous devez être affecté à une station de pesage."))
+#             return redirect('common:dashboard')
+#         if station != demande.station_concernee:
+#             log_user_action(
+#                 user=user,
+#                 action="TRAITEMENT_DEMANDE_REFUSE",
+#                 details=f"Tentative traitement demande {demande.reference} - "
+#                         f"Station utilisateur: {station.nom} ≠ Station concernée: {demande.station_concernee.nom}",
+#                 succes=False
+#             )
+#             messages.error(request, _("Vous ne pouvez pas traiter cette demande."))
+#             return redirect('inventaire:detail_demande_confirmation', pk=pk)
     
-    if not demande.peut_etre_traitee:
-        messages.error(request, _("Cette demande ne peut plus être traitée."))
-        return redirect('inventaire:detail_demande_confirmation', pk=pk)
+#     if not demande.peut_etre_traitee:
+#         messages.error(request, _("Cette demande ne peut plus être traitée."))
+#         return redirect('inventaire:detail_demande_confirmation', pk=pk)
     
-    action = request.POST.get('action')
-    commentaire = request.POST.get('commentaire', '').strip()
+#     action = request.POST.get('action')
+#     commentaire = request.POST.get('commentaire', '').strip()
     
-    if action == 'confirmer':
-        if demande.confirmer(user, commentaire):
-            log_user_action(
-                user=user,
-                action="CONFIRMATION_DEMANDE",
-                details=f"Demande {demande.reference} CONFIRMÉE - "
-                        f"Amende: {demande.amende_non_payee.numero_ticket}",
-                succes=True
-            )
-            messages.success(request,
-                _("Demande %(ref)s CONFIRMÉE. Le paiement est maintenant autorisé.") % {
-                    'ref': demande.reference
-                })
-        else:
-            messages.error(request, _("Erreur lors de la confirmation."))
+#     if action == 'confirmer':
+#         if demande.confirmer(user, commentaire):
+#             log_user_action(
+#                 user=user,
+#                 action="CONFIRMATION_DEMANDE",
+#                 details=f"Demande {demande.reference} CONFIRMÉE - "
+#                         f"Amende: {demande.amende_non_payee.numero_ticket}",
+#                 succes=True
+#             )
+#             messages.success(request,
+#                 _("Demande %(ref)s CONFIRMÉE. Le paiement est maintenant autorisé.") % {
+#                     'ref': demande.reference
+#                 })
+#         else:
+#             messages.error(request, _("Erreur lors de la confirmation."))
     
-    elif action == 'refuser':
-        if not commentaire:
-            messages.error(request, _("Un commentaire est requis pour refuser une demande."))
-            return redirect('inventaire:detail_demande_confirmation', pk=pk)
+#     elif action == 'refuser':
+#         if not commentaire:
+#             messages.error(request, _("Un commentaire est requis pour refuser une demande."))
+#             return redirect('inventaire:detail_demande_confirmation', pk=pk)
         
-        if demande.refuser(user, commentaire):
-            log_user_action(
-                user=user,
-                action="REFUS_DEMANDE",
-                details=f"Demande {demande.reference} REFUSÉE - "
-                        f"Raison: {commentaire}",
-                succes=True
-            )
-            messages.success(request,
-                _("Demande %(ref)s REFUSÉE. Le paiement reste bloqué.") % {
-                    'ref': demande.reference
-                })
-        else:
-            messages.error(request, _("Erreur lors du refus."))
+#         if demande.refuser(user, commentaire):
+#             log_user_action(
+#                 user=user,
+#                 action="REFUS_DEMANDE",
+#                 details=f"Demande {demande.reference} REFUSÉE - "
+#                         f"Raison: {commentaire}",
+#                 succes=True
+#             )
+#             messages.success(request,
+#                 _("Demande %(ref)s REFUSÉE. Le paiement reste bloqué.") % {
+#                     'ref': demande.reference
+#                 })
+#         else:
+#             messages.error(request, _("Erreur lors du refus."))
     
-    else:
-        messages.error(request, _("Action non reconnue."))
+#     else:
+#         messages.error(request, _("Action non reconnue."))
     
-    return redirect('inventaire:demandes_confirmation_a_traiter')
+#     return redirect('inventaire:demandes_confirmation_a_traiter')
 
 
 # ===================================================================
@@ -1338,36 +1338,36 @@ def api_verifier_impaye_autres_stations(request):
     return JsonResponse(data)
 
 
-@regisseur_pesage_required
-@require_GET  
-def api_count_demandes_attente(request):
-    """
-    API pour compter les demandes en attente pour une station.
-    Utile pour les badges de notification.
-    """
-    user = request.user
-    station = get_user_station_pesage(user)
+# @regisseur_pesage_required
+# @require_GET  
+# def api_count_demandes_attente(request):
+#     """
+#     API pour compter les demandes en attente pour une station.
+#     Utile pour les badges de notification.
+#     """
+#     user = request.user
+#     station = get_user_station_pesage(user)
     
-    if user_has_acces_tous_postes(user):
-        station_id = request.GET.get('station')
-        if station_id:
-            try:
-                station = Poste.objects.get(pk=station_id, type='pesage')
-            except Poste.DoesNotExist:
-                return JsonResponse({'count': 0})
-        else:
-            # Compter pour toutes les stations
-            count = DemandeConfirmationPaiement.objects.filter(
-                statut=StatutDemandeConfirmation.EN_ATTENTE
-            ).count()
-            return JsonResponse({'count': count})
+#     if user_has_acces_tous_postes(user):
+#         station_id = request.GET.get('station')
+#         if station_id:
+#             try:
+#                 station = Poste.objects.get(pk=station_id, type='pesage')
+#             except Poste.DoesNotExist:
+#                 return JsonResponse({'count': 0})
+#         else:
+#             # Compter pour toutes les stations
+#             count = DemandeConfirmationPaiement.objects.filter(
+#                 statut=StatutDemandeConfirmation.EN_ATTENTE
+#             ).count()
+#             return JsonResponse({'count': count})
     
-    if not station or station is False:
-        return JsonResponse({'count': 0})
+#     if not station or station is False:
+#         return JsonResponse({'count': 0})
     
-    count = DemandeConfirmationPaiement.objects.filter(
-        station_concernee=station,
-        statut=StatutDemandeConfirmation.EN_ATTENTE
-    ).count()
+#     count = DemandeConfirmationPaiement.objects.filter(
+#         station_concernee=station,
+#         statut=StatutDemandeConfirmation.EN_ATTENTE
+#     ).count()
     
-    return JsonResponse({'count': count})
+#     return JsonResponse({'count': count})

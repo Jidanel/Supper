@@ -498,9 +498,9 @@ pesage_patterns = [
 #          name='demandes_confirmation_a_traiter'),
     
     # Détail d'une demande
-    path('pesage/demande-confirmation/<int:pk>/', 
-         views_historique_pesage.detail_demande_confirmation, 
-         name='detail_demande_confirmation'),
+#     path('pesage/demande-confirmation/<int:pk>/', 
+#          views_historique_pesage.detail_demande_confirmation, 
+#          name='detail_demande_confirmation'),
     
     # Traiter une demande (confirmer/refuser)
 #     #path('pesage/traiter-demande-confirmation/<int:pk>/', 
@@ -548,9 +548,9 @@ pesage_patterns = [
          views_historique_pesage.api_verifier_impaye_autres_stations, 
          name='api_verifier_impaye_autres_stations'),
     
-    # API compter demandes en attente
-    path('api/pesage/count-demandes-attente/', 
-         views_historique_pesage.api_count_demandes_attente, 
-         name='api_count_demandes_attente'),
+#     # API compter demandes en attente
+#     path('api/pesage/count-demandes-attente/', 
+#          views_historique_pesage.api_count_demandes_attente, 
+#          name='api_count_demandes_attente'),
 ]
 urlpatterns += pesage_patterns
