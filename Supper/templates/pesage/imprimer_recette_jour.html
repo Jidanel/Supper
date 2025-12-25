@@ -6,23 +6,949 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - RESPONSIVE
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       GRILLE RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -12px;
+        margin-right: -12px;
+        width: calc(100% + 24px);
+    }
+
+    .col-md-4, .col-md-6 {
+        padding-left: 12px;
+        padding-right: 12px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE D'IMPRESSION - RESPONSIVE
+       ============================================ */
+    .print-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        width: 100%;
+        padding: 0 10px;
+    }
+
+    .print-header h4 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .print-header h5 {
+        font-size: 1.1rem;
+        margin-bottom: 0;
+    }
+
+    .print-header p {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION - RESPONSIVE
+       ============================================ */
+    .no-print.mb-4 {
+        width: 100%;
+        margin-bottom: 1rem !important;
+    }
+
+    .no-print .d-flex {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.625rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        min-height: 44px;
+        border: 1px solid transparent;
+        cursor: pointer;
+    }
+
+    .btn i {
+        margin-right: 0.375rem;
+    }
+
+    .btn-outline-secondary {
+        color: #6c757d;
+        border-color: #6c757d;
+        background: transparent;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border: none;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    /* ============================================
+       CARTES - RESPONSIVE
+       ============================================ */
+    .card {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e5e7eb;
+        width: 100%;
+    }
+
+    .card-header.bg-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    }
+
+    .card-header.bg-light {
+        background: #f8fafc !important;
+    }
+
+    .card-header.bg-white {
+        background: white !important;
+    }
+
+    .card-header .d-flex {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card-header h5,
+    .card-header h6 {
+        margin: 0;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+    }
+
+    .card-header h5 {
+        font-size: 1.1rem;
+    }
+
+    .card-header h6 {
+        font-size: 0.95rem;
+    }
+
+    .card-header .badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.625rem;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+    }
+
+    .card-body p {
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.5;
+    }
+
+    .card-body p:last-child {
+        margin-bottom: 0;
+    }
+
+    /* ============================================
+       TABLEAUX - RESPONSIVE AVEC SCROLL INTERNE
+       ============================================ */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0;
+        border-radius: 0 0 12px 12px;
+    }
+
+    /* Scrollbar personnalisée pour les tableaux */
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+
+    .table {
+        width: 100%;
+        min-width: 600px;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
+
+    .table-sm {
+        min-width: 700px;
+    }
+
+    .table thead th {
+        padding: 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        white-space: nowrap;
+        border-bottom: 2px solid #e5e7eb;
+        vertical-align: middle;
+    }
+
+    .table-dark thead th,
+    .table thead.table-dark th {
+        background: #1e293b;
+        color: white;
+        border-color: #334155;
+    }
+
+    .table-light thead th,
+    .table thead.table-light th {
+        background: #f8fafc;
+        color: #475569;
+    }
+
+    .table tbody td {
+        padding: 0.75rem;
+        font-size: 0.875rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        white-space: nowrap;
+    }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+        background: #f8fafc;
+    }
+
+    .table tfoot td,
+    .table tfoot th {
+        padding: 0.75rem;
+        font-weight: 600;
+        border-top: 2px solid #e5e7eb;
+    }
+
+    .table-success tfoot td,
+    .table tfoot.table-success td {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .text-end {
+        text-align: right !important;
+    }
+
+    .text-center {
+        text-align: center !important;
+    }
+
+    /* ============================================
+       BADGES - RESPONSIVE
+       ============================================ */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-radius: 0.375rem;
+    }
+
+    .bg-danger { background-color: #ef4444 !important; color: white; }
+    .bg-warning { background-color: #f59e0b !important; }
+    .bg-secondary { background-color: #64748b !important; color: white; }
+    .bg-success { background-color: #10b981 !important; color: white; }
+    .bg-light { background-color: #f1f5f9 !important; }
+    .text-dark { color: #1e293b !important; }
+
+    /* ============================================
+       CODE - RESPONSIVE
+       ============================================ */
+    code {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.8rem;
+        color: #be185d;
+        background: #fdf2f8;
+        border-radius: 4px;
+        word-break: break-all;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .text-success { color: #10b981 !important; }
+    .text-muted { color: #64748b !important; }
+    .fw-bold { font-weight: 700 !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-1 { margin-bottom: 0.25rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .mt-5 { margin-top: 2rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .py-5 { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+    .pt-3 { padding-top: 1rem !important; }
+    .p-0 { padding: 0 !important; }
+
+    .text-uppercase { text-transform: uppercase !important; }
+
+    .small {
+        font-size: 0.8rem;
+    }
+
+    /* ============================================
+       SECTION SIGNATURES - RESPONSIVE
+       ============================================ */
+    .signature-section {
+        width: 100%;
+        margin-top: 2rem;
+    }
+
+    .signature-box {
+        border-top: 2px solid #e5e7eb;
+        padding-top: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .signature-box p {
+        margin-bottom: 0.25rem;
+    }
+
+    .signature-space {
+        height: 60px;
+    }
+
+    /* ============================================
+       PIED DE PAGE - RESPONSIVE
+       ============================================ */
+    .footer-info {
+        text-align: center;
+        margin-top: 2rem;
+        padding: 1rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        width: 100%;
+    }
+
+    .footer-info p {
+        margin-bottom: 0.25rem;
+    }
+
+    /* ============================================
+       ÉTAT VIDE - RESPONSIVE
+       ============================================ */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1.5rem;
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        color: #cbd5e1;
+        margin-bottom: 1rem;
+        display: block;
+    }
+
+    .empty-state p {
+        color: #64748b;
+        margin: 0;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTE (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .no-print .d-flex {
+            flex-wrap: nowrap;
+        }
+
+        .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction globale du défilement */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+        }
+
+        /* Conteneur principal */
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        /* Grille */
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-md-4, .col-md-6 {
+            padding-left: 8px;
+            padding-right: 8px;
+            margin-bottom: 0.75rem;
+        }
+
+        /* En-tête d'impression */
+        .print-header h4 {
+            font-size: 1.1rem;
+        }
+
+        .print-header h5 {
+            font-size: 1rem;
+        }
+
+        .print-header p {
+            font-size: 0.85rem;
+        }
+
+        /* Boutons d'action */
+        .no-print .d-flex {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.5rem;
+        }
+
+        .no-print .d-flex > a,
+        .no-print .d-flex > div {
+            width: 100%;
+        }
+
+        .no-print .d-flex > div {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Cartes */
+        .card {
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            padding: 0.875rem 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 1rem;
+        }
+
+        .card-header h6 {
+            font-size: 0.9rem;
+        }
+
+        .card-header .d-flex {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .card-header .badge {
+            align-self: flex-start;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .card-body p {
+            font-size: 0.875rem;
+        }
+
+        /* Tableaux */
+        .table-responsive {
+            margin-left: -1rem;
+            margin-right: -1rem;
+            width: calc(100% + 2rem);
+            border-radius: 0;
+        }
+
+        .card-body.p-0 .table-responsive {
+            margin-left: 0;
+            margin-right: 0;
+            width: 100%;
+        }
+
+        .table {
+            min-width: 550px;
+            font-size: 0.8rem;
+        }
+
+        .table-sm {
+            min-width: 650px;
+        }
+
+        .table thead th {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .table tbody td {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .table tfoot td {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        /* Badges */
+        .badge {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.4rem;
+        }
+
+        /* Code */
+        code {
+            font-size: 0.75rem;
+        }
+
+        /* Signatures */
+        .signature-section .row {
+            flex-direction: column;
+        }
+
+        .signature-section .col-md-6 {
+            width: 100%;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Pied de page */
+        .footer-info {
+            font-size: 0.75rem;
+            padding: 0.75rem;
+        }
+
+        /* État vide */
+        .empty-state {
+            padding: 2rem 1rem;
+        }
+
+        .empty-state i {
+            font-size: 2.5rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-md-4, .col-md-6 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .print-header h4 {
+            font-size: 1rem;
+        }
+
+        .print-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .card-header {
+            padding: 0.75rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .card-header h6 {
+            font-size: 0.85rem;
+        }
+
+        .card-body {
+            padding: 0.875rem;
+        }
+
+        .card-body p {
+            font-size: 0.8rem;
+        }
+
+        .table {
+            min-width: 500px;
+            font-size: 0.75rem;
+        }
+
+        .table-sm {
+            min-width: 600px;
+        }
+
+        .table thead th {
+            padding: 0.5rem 0.375rem;
+            font-size: 0.65rem;
+        }
+
+        .table tbody td {
+            padding: 0.5rem 0.375rem;
+            font-size: 0.75rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+            padding: 0.625rem 0.875rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .print-header h4 {
+            font-size: 0.95rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem;
+        }
+
+        .card-body p {
+            font-size: 0.75rem;
+        }
+
+        .table {
+            min-width: 450px;
+            font-size: 0.7rem;
+        }
+
+        .table-sm {
+            min-width: 550px;
+        }
+
+        .table thead th {
+            padding: 0.375rem 0.25rem;
+            font-size: 0.6rem;
+        }
+
+        .table tbody td {
+            padding: 0.375rem 0.25rem;
+            font-size: 0.7rem;
+        }
+
+        .badge {
+            font-size: 0.6rem;
+            padding: 0.15rem 0.3rem;
+        }
+
+        code {
+            font-size: 0.65rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .no-print .d-flex {
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .no-print .d-flex > a,
+        .no-print .d-flex > div {
+            width: auto;
+        }
+
+        .btn {
+            width: auto;
+        }
+
+        .card-header .d-flex {
+            flex-direction: row;
+            align-items: center;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select,
+        button {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR GLOBALE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+
+    /* ============================================
+       STYLES D'IMPRESSION
+       ============================================ */
     @media print {
         .no-print {
             display: none !important;
         }
+
+        body {
+            font-size: 12pt;
+            background: white !important;
+            margin: 0;
+            padding: 0;
+        }
+
+        .main-content {
+            min-height: auto;
+            background: white !important;
+        }
+
+        .content-wrapper {
+            max-width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container-fluid {
+            padding: 0;
+        }
+
         .card {
             border: 1px solid #000 !important;
             box-shadow: none !important;
+            page-break-inside: avoid;
+            margin-bottom: 15pt;
         }
-        body {
-            font-size: 12pt;
+
+        .card-header {
+            background: #f0f0f0 !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
+
+        .card-header.bg-success {
+            background: #d4edda !important;
+        }
+
         .table {
             font-size: 10pt;
+            min-width: 100%;
         }
+
+        .table thead th {
+            background: #e9ecef !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .table-dark thead th,
+        .table thead.table-dark th {
+            background: #343a40 !important;
+            color: white !important;
+        }
+
         .print-header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 20pt;
+        }
+
+        .signature-section {
+            page-break-inside: avoid;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: nowrap;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .badge {
+            border: 1px solid currentColor;
+        }
+
+        @page {
+            margin: 1.5cm;
         }
     }
 </style>
@@ -226,8 +1152,8 @@
                 </table>
             </div>
             {% else %}
-            <div class="text-center py-5">
-                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
                 <p class="text-muted">Aucun paiement pour cette date.</p>
             </div>
             {% endif %}
@@ -235,25 +1161,27 @@
     </div>
     
     <!-- Signatures (pour impression) -->
-    <div class="row mt-5">
-        <div class="col-md-6">
-            <div class="border-top pt-3">
-                <p class="mb-0"><strong>Le Régisseur</strong></p>
-                <p class="text-muted mb-0">Signature et cachet</p>
-                <div style="height: 60px;"></div>
+    <div class="signature-section">
+        <div class="row mt-5">
+            <div class="col-md-6">
+                <div class="signature-box">
+                    <p class="mb-0"><strong>Le Régisseur</strong></p>
+                    <p class="text-muted mb-0">Signature et cachet</p>
+                    <div class="signature-space"></div>
+                </div>
             </div>
-        </div>
-        <div class="col-md-6">
-            <div class="border-top pt-3">
-                <p class="mb-0"><strong>Le Chef de Station</strong></p>
-                <p class="text-muted mb-0">Signature et cachet</p>
-                <div style="height: 60px;"></div>
+            <div class="col-md-6">
+                <div class="signature-box">
+                    <p class="mb-0"><strong>Le Chef de Station</strong></p>
+                    <p class="text-muted mb-0">Signature et cachet</p>
+                    <div class="signature-space"></div>
+                </div>
             </div>
         </div>
     </div>
     
     <!-- Pied de page -->
-    <div class="text-center mt-4 text-muted small">
+    <div class="footer-info">
         <p class="mb-0">
             Document généré par SUPPER - Suivi des Péages et Pesages Routiers
         </p>
@@ -265,14 +1193,34 @@
 
 {% block extra_js %}
 <script>
-// Auto-print si paramètre print=1
 document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    
+    // Auto-print si paramètre print=1
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('print') === '1') {
         setTimeout(function() {
             window.print();
         }, 500);
     }
+    
+    // Amélioration tactile pour mobile
+    document.addEventListener('touchstart', function() {}, {passive: true});
 });
 </script>
 {% endblock %}

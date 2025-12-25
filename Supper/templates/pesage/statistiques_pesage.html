@@ -3,27 +3,994 @@
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
-{% block extrastyle %}
+{% block extra_css %}
 <style>
-    body { margin: 0 !important; padding: 0 !important; }
-    #content.main-content { background: transparent !important; padding: 0 !important; min-height: auto !important; }
-    .content-wrapper { padding: 0 !important; max-width: none !important; }
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+    }
+
+    /* ============================================
+       PAGE PRINCIPALE - RESPONSIVE
+       ============================================ */
+    .stats-page {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: calc(100vh - 80px);
+        padding: 2rem;
+        margin: 0;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    .stats-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       EN-TÊTE - RESPONSIVE
+       ============================================ */
+    .stats-header {
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+        border-top: 5px solid #8B5CF6;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .stats-header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .stats-header-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .stats-header-text h1 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #0F172A;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    .stats-header-text h1 i {
+        color: #8B5CF6;
+        flex-shrink: 0;
+    }
+
+    .stats-header-text p {
+        margin: 0.5rem 0 0 0;
+        color: #64748B;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: white;
+        color: #7C3AED;
+        border: 2px solid #7C3AED;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s;
+        white-space: nowrap;
+        min-height: 44px;
+        flex-shrink: 0;
+    }
+
+    .btn-back:hover {
+        background: #7C3AED;
+        color: white;
+    }
+
+    /* ============================================
+       CARTE FILTRES - RESPONSIVE
+       ============================================ */
+    .filter-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .filter-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+        width: 100%;
+    }
+
+    .filter-group {
+        flex: 1;
+        min-width: 180px;
+    }
+
+    .filter-label {
+        display: block;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .filter-label i {
+        margin-right: 0.25rem;
+    }
+
+    .form-select {
+        width: 100%;
+        padding: 0.625rem;
+        border: 2px solid #E5E7EB;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background-color: white;
+    }
+
+    .form-select:focus {
+        outline: none;
+        border-color: #8B5CF6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+
+    .btn-filter {
+        padding: 0.625rem 1.5rem;
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s;
+        min-height: 44px;
+        white-space: nowrap;
+    }
+
+    .btn-filter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    /* ============================================
+       GRILLE STATISTIQUES - RESPONSIVE
+       ============================================ */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        width: 100%;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+
+    .stat-card.amber::before { background: linear-gradient(90deg, #F59E0B, #FCD34D); }
+    .stat-card.blue::before { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+    .stat-card.green::before { background: linear-gradient(90deg, #10B981, #6EE7B7); }
+    .stat-card.red::before { background: linear-gradient(90deg, #EF4444, #FCA5A5); }
+    .stat-card.purple::before { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+
+    .stat-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        gap: 0.5rem;
+    }
+
+    .stat-card-label {
+        color: #64748B;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .stat-card-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .stat-card-icon.amber { background: linear-gradient(135deg, #F59E0B, #FCD34D); }
+    .stat-card-icon.blue { background: linear-gradient(135deg, #3B82F6, #60A5FA); }
+    .stat-card-icon.green { background: linear-gradient(135deg, #10B981, #6EE7B7); }
+    .stat-card-icon.red { background: linear-gradient(135deg, #EF4444, #FCA5A5); }
+    .stat-card-icon.purple { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
+
+    .stat-card-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0F172A;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .stat-card-value.green { color: #10B981; }
+    .stat-card-value.red { color: #EF4444; }
+    .stat-card-value.amber { color: #F59E0B; }
+    .stat-card-value.blue { color: #3B82F6; }
+    .stat-card-value.purple { color: #8B5CF6; }
+
+    .stat-card-detail {
+        font-size: 0.875rem;
+        color: #64748B;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .stat-card-detail i {
+        margin-right: 0.25rem;
+    }
+
+    /* ============================================
+       BARRE DE PROGRESSION - RESPONSIVE
+       ============================================ */
+    .progress-section {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .progress-title {
+        margin: 0 0 1.5rem 0;
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: #0F172A;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .progress-title i {
+        color: #8B5CF6;
+        flex-shrink: 0;
+    }
+
+    .progress-bar-container {
+        position: relative;
+        height: 40px;
+        background: #F1F5F9;
+        border-radius: 20px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+
+    .progress-bar-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        border-radius: 20px;
+        transition: width 1s ease-in-out;
+    }
+
+    .progress-bar-fill.high {
+        background: linear-gradient(90deg, #10B981, #6EE7B7);
+    }
+
+    .progress-bar-fill.medium {
+        background: linear-gradient(90deg, #F59E0B, #FCD34D);
+    }
+
+    .progress-bar-fill.low {
+        background: linear-gradient(90deg, #EF4444, #FCA5A5);
+    }
+
+    .progress-bar-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-weight: 700;
+        font-size: 1rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    .progress-bar-text.light { color: white; }
+    .progress-bar-text.dark { color: #0F172A; }
+
+    .progress-legend {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        font-size: 0.875rem;
+        color: #64748B;
+    }
+
+    .progress-legend span {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .progress-legend strong {
+        font-weight: 600;
+    }
+
+    /* ============================================
+       INDICATEURS SUPPLÉMENTAIRES - RESPONSIVE
+       ============================================ */
+    .indicators-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        width: 100%;
+    }
+
+    .indicator-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .indicator-title {
+        margin: 0 0 1.25rem 0;
+        font-size: 1.0625rem;
+        font-weight: 700;
+        color: #0F172A;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .indicator-title i {
+        flex-shrink: 0;
+    }
+
+    .indicator-title i.amber { color: #F59E0B; }
+    .indicator-title i.purple { color: #8B5CF6; }
+
+    .indicator-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #F8FAFC;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .indicator-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .indicator-item-label {
+        color: #64748B;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .indicator-item-value {
+        font-weight: 700;
+        color: #0F172A;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        text-align: right;
+    }
+
+    .indicator-item-value.amber { color: #F59E0B; }
+    .indicator-item-value.green { color: #10B981; }
+    .indicator-item-value.red { color: #EF4444; }
+
+    .indicator-bar-container {
+        margin-bottom: 1rem;
+    }
+
+    .indicator-bar-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .indicator-bar {
+        height: 8px;
+        background: #E2E8F0;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .indicator-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+    }
+
+    .indicator-bar-fill.blue { background: #3B82F6; }
+    .indicator-bar-fill.amber { background: #F59E0B; }
+
+    .empty-indicator {
+        text-align: center;
+        padding: 2rem;
+        color: #64748B;
+    }
+
+    .empty-indicator i {
+        font-size: 3rem;
+        opacity: 0.3;
+        margin-bottom: 0.75rem;
+        display: block;
+    }
+
+    /* ============================================
+       SECTION ACTIONS - RESPONSIVE
+       ============================================ */
+    .actions-section {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .actions-title {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #64748B;
+    }
+
+    .actions-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        width: 100%;
+    }
+
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s;
+        min-height: 44px;
+        white-space: nowrap;
+        color: white;
+    }
+
+    .action-btn.blue { background: linear-gradient(135deg, #3B82F6, #60A5FA); }
+    .action-btn.green { background: linear-gradient(135deg, #10B981, #6EE7B7); }
+    .action-btn.purple { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
+    .action-btn.amber { background: linear-gradient(135deg, #F59E0B, #FCD34D); }
+    .action-btn.outline {
+        background: white;
+        color: #64748B;
+        border: 2px solid #E5E7EB;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .text-success { color: #10B981 !important; }
+    .text-danger { color: #EF4444 !important; }
+    .text-warning { color: #F59E0B !important; }
+    .text-muted { color: #64748B !important; }
+    
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+
+    /* ============================================
+       MEDIA QUERIES - CORRECTION MOBILE (≤ 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Correction globale du défilement */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0 !important;
+        }
+
+        /* Page principale */
+        .stats-page {
+            padding: 1rem;
+        }
+
+        .stats-container {
+            max-width: 100%;
+        }
+
+        /* En-tête */
+        .stats-header {
+            padding: 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1.25rem;
+        }
+
+        .stats-header-content {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .stats-header-text h1 {
+            font-size: 1.375rem;
+        }
+
+        .stats-header-text p {
+            font-size: 0.875rem;
+        }
+
+        .btn-back {
+            width: 100%;
+            justify-content: center;
+            padding: 0.625rem 1rem;
+        }
+
+        /* Filtres */
+        .filter-card {
+            padding: 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1.25rem;
+        }
+
+        .filter-form {
+            flex-direction: column;
+            gap: 0.875rem;
+        }
+
+        .filter-group {
+            width: 100%;
+            min-width: 100%;
+        }
+
+        .form-select {
+            font-size: 16px; /* Empêche le zoom sur iOS */
+        }
+
+        .btn-filter {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Grille des stats */
+        .stats-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .stat-card {
+            padding: 1.25rem;
+            border-radius: 12px;
+        }
+
+        .stat-card-value {
+            font-size: 1.5rem;
+        }
+
+        .stat-card-label {
+            font-size: 0.75rem;
+        }
+
+        .stat-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+
+        /* Progression */
+        .progress-section {
+            padding: 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1.25rem;
+        }
+
+        .progress-title {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar-container {
+            height: 32px;
+        }
+
+        .progress-bar-text {
+            font-size: 0.875rem;
+        }
+
+        .progress-legend {
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        /* Indicateurs */
+        .indicators-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .indicator-card {
+            padding: 1.25rem;
+            border-radius: 12px;
+        }
+
+        .indicator-title {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .indicator-item {
+            padding: 0.875rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.375rem;
+        }
+
+        .indicator-item-value {
+            text-align: left;
+        }
+
+        /* Actions */
+        .actions-section {
+            padding: 1.25rem;
+            border-radius: 12px;
+        }
+
+        .actions-buttons {
+            flex-direction: column;
+        }
+
+        .action-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 0.75rem 1rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .stats-page {
+            padding: 0.75rem;
+        }
+
+        .stats-header {
+            padding: 1rem;
+        }
+
+        .stats-header-text h1 {
+            font-size: 1.25rem;
+        }
+
+        .stat-card {
+            padding: 1rem;
+        }
+
+        .stat-card-value {
+            font-size: 1.35rem;
+        }
+
+        .stat-card-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 0.9rem;
+        }
+
+        .progress-section,
+        .indicator-card,
+        .filter-card,
+        .actions-section {
+            padding: 1rem;
+        }
+
+        .indicator-item {
+            padding: 0.75rem;
+        }
+
+        .action-btn {
+            font-size: 0.875rem;
+            padding: 0.625rem 0.875rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .stats-page {
+            padding: 0.5rem;
+        }
+
+        .stats-header-text h1 {
+            font-size: 1.125rem;
+        }
+
+        .stat-card-value {
+            font-size: 1.25rem;
+        }
+
+        .stat-card-label {
+            font-size: 0.7rem;
+        }
+
+        .progress-bar-text {
+            font-size: 0.75rem;
+        }
+
+        .indicator-title {
+            font-size: 0.95rem;
+        }
+
+        .indicator-item-label,
+        .indicator-item-value {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .indicators-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .filter-form {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: calc(50% - 0.5rem);
+        }
+
+        .actions-buttons {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            width: auto;
+            flex: 1;
+            min-width: calc(50% - 0.375rem);
+        }
+
+        .stats-header-content {
+            flex-direction: row;
+        }
+
+        .btn-back {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       TABLETTE (769px à 1024px)
+       ============================================ */
+    @media (min-width: 769px) {
+        .stats-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .indicators-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .actions-buttons {
+            flex-direction: row;
+        }
+
+        .action-btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       GRANDS ÉCRANS (≥ 1200px)
+       ============================================ */
+    @media (min-width: 1200px) {
+        .stats-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        select,
+        input[type="text"],
+        input[type="date"],
+        button {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn-back:focus,
+    .btn-filter:focus,
+    .action-btn:focus,
+    .form-select:focus {
+        outline: 2px solid #8B5CF6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR GLOBALE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .stats-page {
+            background: white !important;
+            padding: 0 !important;
+        }
+
+        .stats-header,
+        .filter-card,
+        .progress-section,
+        .indicator-card,
+        .stat-card,
+        .actions-section {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .btn-back,
+        .btn-filter,
+        .actions-section {
+            display: none !important;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: calc(100vh - 80px); padding: 2rem; margin: 0; width: 100%;">
-    <div style="max-width: 1400px; margin: 0 auto;">
+<div class="stats-page">
+    <div class="stats-container">
         
         <!-- EN-TÊTE -->
-        <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px); border-radius: 20px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); border-top: 5px solid #8B5CF6;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <div>
-                    <h1 style="margin: 0; font-size: 2rem; font-weight: 800; color: #0F172A; display: flex; align-items: center; gap: 0.75rem;">
-                        <i class="fas fa-chart-bar" style="color: #8B5CF6;"></i>
+        <div class="stats-header">
+            <div class="stats-header-content">
+                <div class="stats-header-text">
+                    <h1>
+                        <i class="fas fa-chart-bar"></i>
                         {% trans "Statistiques Pesage" %}
                     </h1>
-                    <p style="margin: 0.5rem 0 0 0; color: #64748B;">
+                    <p>
                         {% if station %}
                             Station: <strong style="color: #7C3AED;">{{ station.nom }}</strong>
                         {% else %}
@@ -32,23 +999,22 @@
                         &nbsp;•&nbsp; Période: {{ date_debut|date:"d/m/Y" }} - {{ date_fin|date:"d/m/Y" }}
                     </p>
                 </div>
-                <a href="{% url 'inventaire:liste_amendes' %}" 
-                   style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: white; color: #7C3AED; border: 2px solid #7C3AED; border-radius: 10px; text-decoration: none; font-weight: 600; transition: all 0.3s;">
+                <a href="{% url 'inventaire:liste_amendes' %}" class="btn-back">
                     <i class="fas fa-arrow-left"></i> {% trans "Retour" %}
                 </a>
             </div>
         </div>
         
         <!-- FILTRES -->
-        <div style="background: white; border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <form method="get" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+        <div class="filter-card">
+            <form method="get" class="filter-form">
                 
                 <!-- Filtre Période -->
-                <div style="flex: 1; min-width: 200px;">
-                    <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem; font-size: 0.875rem;">
-                        <i class="fas fa-calendar-alt me-1"></i>{% trans "Période" %}
+                <div class="filter-group">
+                    <label class="filter-label">
+                        <i class="fas fa-calendar-alt"></i>{% trans "Période" %}
                     </label>
-                    <select name="periode" class="form-select" style="width: 100%; padding: 0.625rem; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 0.95rem;">
+                    <select name="periode" class="form-select">
                         <option value="jour" {% if periode == 'jour' %}selected{% endif %}>{% trans "Aujourd'hui" %}</option>
                         <option value="semaine" {% if periode == 'semaine' %}selected{% endif %}>{% trans "Cette semaine" %}</option>
                         <option value="mois" {% if periode == 'mois' %}selected{% endif %}>{% trans "Ce mois" %}</option>
@@ -60,11 +1026,11 @@
                 
                 <!-- Filtre Station (admin uniquement) -->
                 {% if is_admin and stations_accessibles.count > 1 %}
-                <div style="flex: 1; min-width: 250px;">
-                    <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem; font-size: 0.875rem;">
-                        <i class="fas fa-map-marker-alt me-1"></i>{% trans "Station" %}
+                <div class="filter-group">
+                    <label class="filter-label">
+                        <i class="fas fa-map-marker-alt"></i>{% trans "Station" %}
                     </label>
-                    <select name="station" class="form-select" style="width: 100%; padding: 0.625rem; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 0.95rem;">
+                    <select name="station" class="form-select">
                         <option value="">{% trans "Toutes les stations" %}</option>
                         {% for s in stations_accessibles %}
                         <option value="{{ s.id }}" {% if station and s.id == station.id %}selected{% endif %}>{{ s.nom }}</option>
@@ -75,7 +1041,7 @@
                 
                 <!-- Bouton Filtrer -->
                 <div>
-                    <button type="submit" style="padding: 0.625rem 1.5rem; background: linear-gradient(135deg, #8B5CF6, #7C3AED); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;">
+                    <button type="submit" class="btn-filter">
                         <i class="fas fa-filter"></i> {% trans "Filtrer" %}
                     </button>
                 </div>
@@ -83,138 +1049,107 @@
         </div>
         
         <!-- CARTES STATISTIQUES PRINCIPALES -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="stats-grid">
             
             <!-- Émissions -->
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #F59E0B;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Émissions" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white; background: linear-gradient(135deg, #F59E0B, #FCD34D);">
+            <div class="stat-card amber">
+                <div class="stat-card-header">
+                    <div class="stat-card-label">{% trans "Émissions" %}</div>
+                    <div class="stat-card-icon amber">
                         <i class="fas fa-file-invoice"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.5rem; font-weight: 700; color: #0F172A;">
-                    {{ stats.emissions|intcomma }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem; margin-top: 0.5rem;">
+                <div class="stat-card-value">{{ stats.emissions|intcomma }}</div>
+                <div class="stat-card-detail">
                     {% trans "dont" %} <strong style="color: #F59E0B;">{{ stats.hors_gabarit }}</strong> {% trans "hors gabarit" %}
                 </div>
             </div>
             
             <!-- Montant Émis -->
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #3B82F6;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Montant Émis" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white; background: linear-gradient(135deg, #3B82F6, #60A5FA);">
+            <div class="stat-card blue">
+                <div class="stat-card-header">
+                    <div class="stat-card-label">{% trans "Montant Émis" %}</div>
+                    <div class="stat-card-icon blue">
                         <i class="fas fa-coins"></i>
                     </div>
                 </div>
-                <div style="font-size: 2rem; font-weight: 700; color: #0F172A;">
-                    {{ stats.montant_emis|floatformat:0|intcomma }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem; margin-top: 0.5rem;">
-                    FCFA
-                </div>
+                <div class="stat-card-value">{{ stats.montant_emis|floatformat:0|intcomma }}</div>
+                <div class="stat-card-detail">FCFA</div>
             </div>
             
             <!-- Montant Recouvré -->
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #10B981;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Montant Recouvré" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white; background: linear-gradient(135deg, #10B981, #6EE7B7);">
+            <div class="stat-card green">
+                <div class="stat-card-header">
+                    <div class="stat-card-label">{% trans "Montant Recouvré" %}</div>
+                    <div class="stat-card-icon green">
                         <i class="fas fa-hand-holding-usd"></i>
                     </div>
                 </div>
-                <div style="font-size: 2rem; font-weight: 700; color: #10B981;">
-                    {{ stats.montant_recouvre|floatformat:0|intcomma }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem; margin-top: 0.5rem;">
-                    FCFA
-                </div>
+                <div class="stat-card-value green">{{ stats.montant_recouvre|floatformat:0|intcomma }}</div>
+                <div class="stat-card-detail">FCFA</div>
             </div>
             
             <!-- Reste à Recouvrer -->
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #EF4444;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Reste à Recouvrer" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white; background: linear-gradient(135deg, #EF4444, #FCA5A5);">
+            <div class="stat-card red">
+                <div class="stat-card-header">
+                    <div class="stat-card-label">{% trans "Reste à Recouvrer" %}</div>
+                    <div class="stat-card-icon red">
                         <i class="fas fa-clock"></i>
                     </div>
                 </div>
-                <div style="font-size: 2rem; font-weight: 700; color: #EF4444;">
-                    {{ stats.reste_a_recouvrer|floatformat:0|intcomma }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem; margin-top: 0.5rem;">
-                    FCFA
-                </div>
+                <div class="stat-card-value red">{{ stats.reste_a_recouvrer|floatformat:0|intcomma }}</div>
+                <div class="stat-card-detail">FCFA</div>
             </div>
             
             <!-- Taux de Recouvrement -->
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid {% if stats.taux_recouvrement >= 80 %}#10B981{% elif stats.taux_recouvrement >= 50 %}#F59E0B{% else %}#EF4444{% endif %};">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Taux Recouvrement" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white; background: linear-gradient(135deg, {% if stats.taux_recouvrement >= 80 %}#10B981, #6EE7B7{% elif stats.taux_recouvrement >= 50 %}#F59E0B, #FCD34D{% else %}#EF4444, #FCA5A5{% endif %});">
+            <div class="stat-card {% if stats.taux_recouvrement >= 80 %}green{% elif stats.taux_recouvrement >= 50 %}amber{% else %}red{% endif %}">
+                <div class="stat-card-header">
+                    <div class="stat-card-label">{% trans "Taux Recouvrement" %}</div>
+                    <div class="stat-card-icon {% if stats.taux_recouvrement >= 80 %}green{% elif stats.taux_recouvrement >= 50 %}amber{% else %}red{% endif %}">
                         <i class="fas fa-percentage"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.5rem; font-weight: 700; color: {% if stats.taux_recouvrement >= 80 %}#10B981{% elif stats.taux_recouvrement >= 50 %}#F59E0B{% else %}#EF4444{% endif %};">
-                    {{ stats.taux_recouvrement }}%
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem; margin-top: 0.5rem;">
+                <div class="stat-card-value {% if stats.taux_recouvrement >= 80 %}green{% elif stats.taux_recouvrement >= 50 %}amber{% else %}red{% endif %}">{{ stats.taux_recouvrement }}%</div>
+                <div class="stat-card-detail">
                     {% if stats.taux_recouvrement >= 80 %}
-                        <i class="fas fa-check-circle text-success me-1"></i>{% trans "Excellent" %}
+                        <i class="fas fa-check-circle text-success"></i>{% trans "Excellent" %}
                     {% elif stats.taux_recouvrement >= 50 %}
-                        <i class="fas fa-exclamation-circle text-warning me-1"></i>{% trans "À améliorer" %}
+                        <i class="fas fa-exclamation-circle text-warning"></i>{% trans "À améliorer" %}
                     {% else %}
-                        <i class="fas fa-times-circle text-danger me-1"></i>{% trans "Critique" %}
+                        <i class="fas fa-times-circle text-danger"></i>{% trans "Critique" %}
                     {% endif %}
                 </div>
             </div>
             
             <!-- Nombre de Pesées -->
-            <div style="background: white; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #8B5CF6;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                    <div style="color: #64748B; font-size: 0.875rem; font-weight: 600; text-transform: uppercase;">
-                        {% trans "Pesées Effectuées" %}
-                    </div>
-                    <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white; background: linear-gradient(135deg, #8B5CF6, #A78BFA);">
+            <div class="stat-card purple">
+                <div class="stat-card-header">
+                    <div class="stat-card-label">{% trans "Pesées Effectuées" %}</div>
+                    <div class="stat-card-icon purple">
                         <i class="fas fa-balance-scale"></i>
                     </div>
                 </div>
-                <div style="font-size: 2.5rem; font-weight: 700; color: #0F172A;">
-                    {{ stats.nombre_pesees|intcomma }}
-                </div>
-                <div style="color: #64748B; font-size: 0.875rem; margin-top: 0.5rem;">
-                    {% trans "véhicules pesés" %}
-                </div>
+                <div class="stat-card-value">{{ stats.nombre_pesees|intcomma }}</div>
+                <div class="stat-card-detail">{% trans "véhicules pesés" %}</div>
             </div>
         </div>
         
         <!-- BARRE DE PROGRESSION RECOUVREMENT -->
-        <div style="background: white; border-radius: 16px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <h3 style="margin: 0 0 1.5rem 0; font-size: 1.125rem; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 0.5rem;">
-                <i class="fas fa-chart-pie" style="color: #8B5CF6;"></i>
+        <div class="progress-section">
+            <h3 class="progress-title">
+                <i class="fas fa-chart-pie"></i>
                 {% trans "Progression du Recouvrement" %}
             </h3>
             
-            <div style="position: relative; height: 40px; background: #F1F5F9; border-radius: 20px; overflow: hidden; margin-bottom: 1rem;">
-                <div style="position: absolute; top: 0; left: 0; height: 100%; width: {{ stats.taux_recouvrement }}%; background: linear-gradient(90deg, {% if stats.taux_recouvrement >= 80 %}#10B981, #6EE7B7{% elif stats.taux_recouvrement >= 50 %}#F59E0B, #FCD34D{% else %}#EF4444, #FCA5A5{% endif %}); border-radius: 20px; transition: width 1s ease-in-out;"></div>
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 700; font-size: 1rem; color: {% if stats.taux_recouvrement > 50 %}white{% else %}#0F172A{% endif %}; text-shadow: {% if stats.taux_recouvrement > 50 %}0 1px 2px rgba(0,0,0,0.3){% else %}none{% endif %};">
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill {% if stats.taux_recouvrement >= 80 %}high{% elif stats.taux_recouvrement >= 50 %}medium{% else %}low{% endif %}" 
+                     style="width: {{ stats.taux_recouvrement }}%;"></div>
+                <div class="progress-bar-text {% if stats.taux_recouvrement > 50 %}light{% else %}dark{% endif %}">
                     {{ stats.taux_recouvrement }}% {% trans "recouvré" %}
                 </div>
             </div>
             
-            <div style="display: flex; justify-content: space-between; font-size: 0.875rem; color: #64748B;">
+            <div class="progress-legend">
                 <span>
                     <i class="fas fa-check-circle text-success me-1"></i>
                     {% trans "Recouvré:" %} <strong>{{ stats.montant_recouvre|floatformat:0|intcomma }} FCFA</strong>
@@ -227,123 +1162,111 @@
         </div>
         
         <!-- INDICATEURS SUPPLÉMENTAIRES -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="indicators-grid">
             
             <!-- Répartition Gabarit/Hors Gabarit -->
-            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.125rem; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fas fa-truck" style="color: #F59E0B;"></i>
+            <div class="indicator-card">
+                <h3 class="indicator-title">
+                    <i class="fas fa-truck amber"></i>
                     {% trans "Répartition des Infractions" %}
                 </h3>
                 
                 {% if stats.emissions > 0 %}
-                    {% with gabarit_count=stats.emissions|add:"-"|add:stats.hors_gabarit|slice:"1:" %}
-                    <div style="display: flex; gap: 1.5rem; align-items: center;">
-                        <div style="flex: 1;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                <span style="color: #64748B; font-size: 0.875rem;">{% trans "Gabarit" %}</span>
-                                <span style="font-weight: 600;">{{ stats.emissions|add:stats.hors_gabarit|default:0 }}</span>
-                            </div>
-                            <div style="height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">
-                                {% widthratio stats.emissions|add:"-"|add:stats.hors_gabarit stats.emissions 100 as gabarit_pct %}
-                                <div style="height: 100%; width: {% widthratio stats.emissions|add:stats.hors_gabarit|mul:-1|add:stats.emissions stats.emissions 100 %}%; background: #3B82F6; border-radius: 4px;"></div>
-                            </div>
+                <div>
+                    <div class="indicator-bar-container">
+                        <div class="indicator-bar-header">
+                            <span style="color: #64748B;">{% trans "Gabarit" %}</span>
+                            <span style="font-weight: 600;">{{ stats.emissions|add:stats.hors_gabarit|mul:-1|add:stats.emissions|default:0 }}</span>
+                        </div>
+                        <div class="indicator-bar">
+                            <div class="indicator-bar-fill blue" style="width: {% widthratio stats.emissions|add:stats.hors_gabarit|mul:-1|add:stats.emissions stats.emissions 100 %}%;"></div>
                         </div>
                     </div>
-                    {% endwith %}
                     
-                    <div style="margin-top: 1rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                            <span style="color: #64748B; font-size: 0.875rem;">{% trans "Hors Gabarit" %}</span>
+                    <div class="indicator-bar-container">
+                        <div class="indicator-bar-header">
+                            <span style="color: #64748B;">{% trans "Hors Gabarit" %}</span>
                             <span style="font-weight: 600; color: #F59E0B;">{{ stats.hors_gabarit }}</span>
                         </div>
-                        <div style="height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">
-                            <div style="height: 100%; width: {% widthratio stats.hors_gabarit stats.emissions 100 %}%; background: #F59E0B; border-radius: 4px;"></div>
+                        <div class="indicator-bar">
+                            <div class="indicator-bar-fill amber" style="width: {% widthratio stats.hors_gabarit stats.emissions 100 %}%;"></div>
                         </div>
                     </div>
+                </div>
                 {% else %}
-                    <div style="text-align: center; padding: 2rem; color: #64748B;">
-                        <i class="fas fa-inbox fa-3x mb-3" style="opacity: 0.3;"></i>
-                        <p>{% trans "Aucune émission pour cette période" %}</p>
-                    </div>
+                <div class="empty-indicator">
+                    <i class="fas fa-inbox"></i>
+                    <p>{% trans "Aucune émission pour cette période" %}</p>
+                </div>
                 {% endif %}
             </div>
             
             <!-- Moyennes -->
-            <div style="background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.125rem; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fas fa-calculator" style="color: #8B5CF6;"></i>
+            <div class="indicator-card">
+                <h3 class="indicator-title">
+                    <i class="fas fa-calculator purple"></i>
                     {% trans "Moyennes" %}
                 </h3>
                 
-                <div style="display: grid; gap: 1rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #F8FAFC; border-radius: 8px;">
-                        <span style="color: #64748B;">{% trans "Amende moyenne" %}</span>
-                        <span style="font-weight: 700; color: #0F172A;">
-                            {% if stats.emissions > 0 %}
-                                {% widthratio stats.montant_emis 1 stats.emissions as avg_amende %}
-                                {{ avg_amende|floatformat:0|intcomma }} FCFA
-                            {% else %}
-                                0 FCFA
-                            {% endif %}
-                        </span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #F8FAFC; border-radius: 8px;">
-                        <span style="color: #64748B;">{% trans "Pesées par jour (moy.)" %}</span>
-                        <span style="font-weight: 700; color: #0F172A;">
-                            {% if date_fin != date_debut %}
-                                ~{{ stats.nombre_pesees|divisibleby:7|default:"N/A" }}
-                            {% else %}
-                                {{ stats.nombre_pesees }}
-                            {% endif %}
-                        </span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #F8FAFC; border-radius: 8px;">
-                        <span style="color: #64748B;">{% trans "Taux infraction HG" %}</span>
-                        <span style="font-weight: 700; color: #F59E0B;">
-                            {% if stats.emissions > 0 %}
-                                {% widthratio stats.hors_gabarit stats.emissions 100 %}%
-                            {% else %}
-                                0%
-                            {% endif %}
-                        </span>
-                    </div>
+                <div class="indicator-item">
+                    <span class="indicator-item-label">{% trans "Amende moyenne" %}</span>
+                    <span class="indicator-item-value">
+                        {% if stats.emissions > 0 %}
+                            {% widthratio stats.montant_emis 1 stats.emissions as avg_amende %}
+                            {{ avg_amende|floatformat:0|intcomma }} FCFA
+                        {% else %}
+                            0 FCFA
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="indicator-item">
+                    <span class="indicator-item-label">{% trans "Pesées par jour (moy.)" %}</span>
+                    <span class="indicator-item-value">
+                        {% if date_fin != date_debut %}
+                            ~{{ stats.nombre_pesees|divisibleby:7|default:"N/A" }}
+                        {% else %}
+                            {{ stats.nombre_pesees }}
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="indicator-item">
+                    <span class="indicator-item-label">{% trans "Taux infraction HG" %}</span>
+                    <span class="indicator-item-value amber">
+                        {% if stats.emissions > 0 %}
+                            {% widthratio stats.hors_gabarit stats.emissions 100 %}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </span>
                 </div>
             </div>
         </div>
         
         <!-- ACTIONS -->
-        <div style="background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <h3 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 600; color: #64748B;">
-                {% trans "Actions rapides" %}
-            </h3>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
-                <a href="{% url 'inventaire:liste_amendes' %}" 
-                   style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: linear-gradient(135deg, #3B82F6, #60A5FA); color: white; border-radius: 8px; text-decoration: none; font-weight: 500;">
+        <div class="actions-section">
+            <h3 class="actions-title">{% trans "Actions rapides" %}</h3>
+            <div class="actions-buttons">
+                <a href="{% url 'inventaire:liste_amendes' %}" class="action-btn blue">
                     <i class="fas fa-list"></i> {% trans "Voir les Amendes" %}
                 </a>
                 
-                <a href="{% url 'inventaire:recettes_pesage' %}" 
-                   style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: linear-gradient(135deg, #10B981, #6EE7B7); color: white; border-radius: 8px; text-decoration: none; font-weight: 500;">
+                <a href="{% url 'inventaire:recettes_pesage' %}" class="action-btn green">
                     <i class="fas fa-coins"></i> {% trans "Recettes Pesage" %}
                 </a>
                 
-                <a href="{% url 'inventaire:recherche_historique_vehicule' %}" 
-                   style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: linear-gradient(135deg, #8B5CF6, #A78BFA); color: white; border-radius: 8px; text-decoration: none; font-weight: 500;">
+                <a href="{% url 'inventaire:recherche_historique_vehicule' %}" class="action-btn purple">
                     <i class="fas fa-search"></i> {% trans "Historique Véhicule" %}
                 </a>
                 
                 {% if is_admin %}
-                <a href="{% url 'inventaire:classement_stations_pesage_rendement' %}" 
-                   style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: linear-gradient(135deg, #F59E0B, #FCD34D); color: white; border-radius: 8px; text-decoration: none; font-weight: 500;">
+                <a href="{% url 'inventaire:classement_stations_pesage_rendement' %}" class="action-btn amber">
                     <i class="fas fa-trophy"></i> {% trans "Classement Stations" %}
                 </a>
                 {% endif %}
                 
-                <a href="{% url 'common:dashboard' %}" 
-                   style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: white; color: #64748B; border: 2px solid #E5E7EB; border-radius: 8px; text-decoration: none; font-weight: 500;">
+                <a href="{% url 'common:dashboard' %}" class="action-btn outline">
                     <i class="fas fa-home"></i> {% trans "Dashboard" %}
                 </a>
             </div>
@@ -351,4 +1274,63 @@
         
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+            
+            // Correction spécifique pour cette page
+            const statsPage = document.querySelector('.stats-page');
+            if (statsPage) {
+                statsPage.style.overflowX = 'hidden';
+                statsPage.style.maxWidth = '100vw';
+            }
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    
+    // Animation de la barre de progression
+    const progressBars = document.querySelectorAll('.progress-bar-fill');
+    progressBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => {
+            bar.style.width = width;
+        }, 100);
+    });
+    
+    // Amélioration tactile pour mobile
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Ajustement dynamique pour les petits écrans
+    function adjustForSmallScreen() {
+        if (window.innerWidth < 768) {
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+        }
+    }
+    
+    window.addEventListener('load', adjustForSmallScreen);
+    window.addEventListener('resize', adjustForSmallScreen);
+});
+</script>
 {% endblock %}

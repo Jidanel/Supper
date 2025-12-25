@@ -6,7 +6,24 @@
 {% block extra_css %}
 <style>
     /* ============================================
-       STYLES DE BASE - COMMUNS AUX DEUX VERSIONS
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
        ============================================ */
     .container-fluid {
         width: 100%;
@@ -15,16 +32,24 @@
         padding-right: 15px;
         margin-left: auto;
         margin-right: auto;
-        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
     }
 
     .row {
-        margin-left: -15px;
-        margin-right: -15px;
         display: flex;
         flex-wrap: wrap;
-        width: 100%;
-        box-sizing: border-box;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .justify-content-center {
+        justify-content: center !important;
     }
 
     .col-lg-8, .col-xl-6 {
@@ -32,76 +57,117 @@
         padding-right: 15px;
         position: relative;
         width: 100%;
-        box-sizing: border-box;
     }
 
+    /* ============================================
+       CARTES
+       ============================================ */
     .card {
         width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
         margin-bottom: 1.5rem;
-        overflow: visible;
-        box-sizing: border-box;
+        overflow: hidden;
+        background: #fff;
     }
 
     .card.shadow-sm {
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     }
 
     .card.border-0 {
         border: none !important;
     }
 
+    .card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: white;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
     .card-body {
         padding: 1.25rem;
         width: 100%;
-        box-sizing: border-box;
     }
 
-    .card-header {
-        padding: 1rem 1.25rem;
-        box-sizing: border-box;
+    .card-body.text-center {
+        text-align: center;
+    }
+
+    .card-body.p-4 {
+        padding: 1.5rem;
     }
 
     .card-title {
         font-size: 1.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        line-height: 1.4;
-        margin: 0;
+        line-height: 1.3;
     }
 
+    /* ============================================
+       TYPOGRAPHIE
+       ============================================ */
     .text-center {
         text-align: center !important;
     }
 
     .text-muted {
-        color: #6c757d !important;
+        color: #6b7280 !important;
     }
 
     .text-primary {
         color: #3b82f6 !important;
     }
 
-    .bg-primary {
-        background-color: #3b82f6 !important;
+    .text-danger {
+        color: #ef4444 !important;
     }
 
     .text-white {
         color: #fff !important;
     }
 
+    .fw-bold {
+        font-weight: 600 !important;
+    }
+
     .mb-0 { margin-bottom: 0 !important; }
     .mb-2 { margin-bottom: 0.5rem !important; }
     .mb-3 { margin-bottom: 1rem !important; }
     .mb-4 { margin-bottom: 1.5rem !important; }
-    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
-    .py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
 
+    /* ============================================
+       ICÔNES
+       ============================================ */
+    .fa-3x {
+        font-size: 3rem;
+    }
+
+    /* ============================================
+       FORMULAIRES
+       ============================================ */
     .form-label {
         display: block;
         margin-bottom: 0.5rem;
         font-weight: 600;
-        color: #334155;
-        width: 100%;
+        color: #374151;
+        font-size: 0.95rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
     }
@@ -109,18 +175,17 @@
     .form-select {
         display: block;
         width: 100%;
-        padding: 0.75rem;
+        padding: 0.75rem 1rem;
         font-size: 1rem;
         font-weight: 400;
         line-height: 1.5;
-        color: #334155;
+        color: #374151;
         background-color: #fff;
         background-clip: padding-box;
         border: 2px solid #e5e7eb;
         border-radius: 8px;
-        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        box-sizing: border-box;
-        max-width: 100%;
+        transition: all 0.3s ease;
+        appearance: auto;
     }
 
     .form-select:focus {
@@ -135,21 +200,34 @@
     }
 
     .form-text {
-        margin-top: 0.25rem;
-        font-size: 0.875em;
-        color: #6c757d;
+        display: block;
+        margin-top: 0.375rem;
+        font-size: 0.85rem;
+        color: #6b7280;
         word-wrap: break-word;
         overflow-wrap: break-word;
     }
 
+    optgroup {
+        font-weight: 700;
+        font-style: normal;
+        color: #1f2937;
+    }
+
+    option {
+        padding: 0.5rem;
+        font-weight: 400;
+    }
+
+    /* ============================================
+       ALERTES
+       ============================================ */
     .alert {
         position: relative;
         padding: 1rem;
         margin-bottom: 1rem;
-        border: 1px solid transparent;
         border-radius: 8px;
         width: 100%;
-        box-sizing: border-box;
         word-wrap: break-word;
         overflow-wrap: break-word;
     }
@@ -157,26 +235,30 @@
     .alert-info {
         color: #0369a1;
         background-color: #f0f9ff;
-        border-color: #bae6fd;
+        border-left: 4px solid #0ea5e9;
     }
 
+    /* ============================================
+       BOUTONS
+       ============================================ */
     .btn {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
         font-weight: 500;
         line-height: 1.5;
-        color: #334155;
         text-align: center;
         text-decoration: none;
         vertical-align: middle;
         cursor: pointer;
-        user-select: none;
-        background-color: transparent;
         border: 1px solid transparent;
-        padding: 0.75rem 1.5rem;
-        font-size: 1rem;
         border-radius: 8px;
-        transition: all 0.15s ease-in-out;
-        box-sizing: border-box;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        min-height: 44px;
     }
 
     .btn-lg {
@@ -187,25 +269,26 @@
 
     .btn-primary {
         color: #fff;
-        background-color: #3b82f6;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         border-color: #3b82f6;
     }
 
     .btn-primary:hover {
-        background-color: #2563eb;
-        border-color: #2563eb;
-        transform: translateY(-1px);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
     }
 
     .btn-outline-secondary {
-        color: #6c757d;
-        border-color: #6c757d;
+        color: #6b7280;
+        background: transparent;
+        border-color: #d1d5db;
     }
 
     .btn-outline-secondary:hover {
         color: #fff;
-        background-color: #6c757d;
-        border-color: #6c757d;
+        background-color: #6b7280;
+        border-color: #6b7280;
     }
 
     .d-grid {
@@ -216,278 +299,10 @@
         gap: 0.5rem !important;
     }
 
-    .fa-3x {
-        font-size: 3em;
-    }
-
-    .justify-content-center {
-        justify-content: center !important;
-    }
-
     /* ============================================
-       VERSION MOBILE (≤ 768px)
+       VERSION PC (≥ 1024px)
        ============================================ */
-    @media (max-width: 768px) {
-        /* Réinitialisation complète pour mobile */
-        html, body {
-            overflow-x: hidden !important;
-            max-width: 100vw !important;
-            width: 100% !important;
-            position: relative;
-        }
-
-        .main-content {
-            overflow-x: hidden !important;
-            width: 100% !important;
-            max-width: 100vw !important;
-            padding-left: 0;
-            padding-right: 0;
-        }
-
-        .content-wrapper {
-            padding: 1rem !important;
-            min-width: 100% !important;
-            max-width: 100vw !important;
-            width: 100% !important;
-            box-sizing: border-box;
-        }
-
-        .container-fluid {
-            padding-left: 12px;
-            padding-right: 12px;
-            width: 100%;
-            max-width: 100%;
-            margin: 0 auto;
-        }
-
-        .py-4 {
-            padding-top: 1rem !important;
-            padding-bottom: 1rem !important;
-        }
-
-        .row {
-            margin-left: -12px;
-            margin-right: -12px;
-            width: calc(100% + 24px);
-            display: block;
-        }
-
-        .col-lg-8, .col-xl-6 {
-            padding-left: 12px;
-            padding-right: 12px;
-            width: 100%;
-            max-width: 100%;
-        }
-
-        .card {
-            margin-bottom: 1rem;
-            border-radius: 10px;
-            width: 100%;
-        }
-
-        .card-body {
-            padding: 1rem;
-        }
-
-        .card-body.text-center.py-4 {
-            padding: 1.5rem 1rem !important;
-        }
-
-        .card-body.p-4 {
-            padding: 1rem !important;
-        }
-
-        .card-header {
-            padding: 0.875rem 1rem;
-        }
-
-        .card-title {
-            font-size: 1.3rem !important;
-            line-height: 1.3;
-        }
-
-        .fa-3x {
-            font-size: 2.5em;
-        }
-
-        .form-select {
-            padding: 0.875rem;
-            font-size: 16px; /* Empêche le zoom automatique sur iOS */
-            width: 100%;
-        }
-
-        .form-select-lg {
-            padding: 1rem;
-            font-size: 1rem;
-        }
-
-        .form-label {
-            font-size: 0.95rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-text {
-            font-size: 0.8rem;
-        }
-
-        .alert {
-            padding: 0.875rem;
-            margin-bottom: 0.875rem;
-            font-size: 0.9rem;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 0.875rem 1rem;
-            font-size: 1rem;
-        }
-
-        .btn-lg {
-            padding: 1rem 1.5rem;
-            font-size: 1rem;
-        }
-
-        .d-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .gap-2 {
-            gap: 0.75rem !important;
-        }
-
-        /* Correction pour les optgroups et options */
-        optgroup, option {
-            font-size: 16px; /* Empêche le zoom iOS */
-            max-width: 100%;
-        }
-
-        /* Amélioration de la lisibilité */
-        h2.card-title {
-            font-size: 1.4rem !important;
-            margin-bottom: 0.5rem !important;
-        }
-
-        p.text-muted {
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-    }
-
-    /* ============================================
-       PETITS MOBILES (≤ 480px)
-       ============================================ */
-    @media (max-width: 480px) {
-        .container-fluid {
-            padding-left: 10px;
-            padding-right: 10px;
-        }
-
-        .row {
-            margin-left: -10px;
-            margin-right: -10px;
-            width: calc(100% + 20px);
-        }
-
-        .col-lg-8, .col-xl-6 {
-            padding-left: 10px;
-            padding-right: 10px;
-        }
-
-        .card-body {
-            padding: 0.875rem;
-        }
-
-        .card-body.text-center.py-4 {
-            padding: 1.25rem 0.875rem !important;
-        }
-
-        .card-header {
-            padding: 0.75rem 0.875rem;
-        }
-
-        .card-header h5 {
-            font-size: 1rem;
-        }
-
-        .card-title {
-            font-size: 1.2rem !important;
-        }
-
-        .fa-3x {
-            font-size: 2em;
-        }
-
-        .form-select {
-            padding: 0.75rem;
-        }
-
-        .form-select-lg {
-            padding: 0.875rem;
-        }
-
-        .btn {
-            padding: 0.75rem 0.875rem;
-            font-size: 0.95rem;
-        }
-
-        .btn-lg {
-            padding: 0.875rem 1.25rem;
-        }
-
-        .alert {
-            padding: 0.75rem;
-            font-size: 0.85rem;
-        }
-    }
-
-    /* ============================================
-       ORIENTATION PAYSAGE MOBILE (≤ 896px et paysage)
-       ============================================ */
-    @media (max-width: 896px) and (orientation: landscape) {
-        .container-fluid {
-            max-width: 90%;
-            margin: 0 auto;
-        }
-
-        .row {
-            flex-wrap: nowrap;
-        }
-
-        .col-lg-8, .col-xl-6 {
-            width: 100%;
-            max-width: 100%;
-        }
-
-        .card-body {
-            padding: 1.25rem;
-        }
-
-        .form-select {
-            font-size: 16px;
-        }
-    }
-
-    /* ============================================
-       TABLETTES (769px à 1024px)
-       ============================================ */
-    @media (min-width: 769px) and (max-width: 1024px) {
-        .container-fluid {
-            max-width: 90%;
-            padding-left: 20px;
-            padding-right: 20px;
-        }
-
-        .col-lg-8, .col-xl-6 {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-    }
-
-    /* ============================================
-       VERSION PC (≥ 1025px) - NON MODIFIÉ
-       ============================================ */
-    @media (min-width: 1025px) {
-        /* Styles PC existants - non modifiés */
+    @media (min-width: 1024px) {
         .container-fluid {
             max-width: 1200px;
         }
@@ -501,24 +316,313 @@
             flex: 0 0 50%;
             max-width: 50%;
         }
+
+        .card-body.p-4 {
+            padding: 2rem;
+        }
     }
 
     /* ============================================
-       CORRECTIONS GÉNÉRALES DE DÉFILEMENT
+       TABLETTES (769px - 1023px)
        ============================================ */
-    * {
-        max-width: 100%;
-    }
+    @media (min-width: 769px) and (max-width: 1023px) {
+        .container-fluid {
+            max-width: 90%;
+            padding-left: 20px;
+            padding-right: 20px;
+        }
 
-    /* Gestion du select pour qu'il ne dépasse pas */
-    select, optgroup, option {
-        max-width: 100%;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        .col-lg-8, .col-xl-6 {
+            flex: 0 0 80%;
+            max-width: 80%;
+            margin: 0 auto;
+        }
     }
 
     /* ============================================
-       AMÉLIORATIONS D'ACCESSIBILITÉ
+       CORRECTIONS MOBILE (≤ 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Correction du défilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 auto !important;
+            overflow-x: hidden !important;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .row {
+            margin-left: -12px !important;
+            margin-right: -12px !important;
+            width: calc(100% + 24px) !important;
+        }
+
+        .col-lg-8, .col-xl-6 {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+
+        /* Cartes mobile */
+        .card {
+            border-radius: 10px !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .card-header {
+            padding: 1rem !important;
+        }
+
+        .card-header h5 {
+            font-size: 1rem !important;
+        }
+
+        .card-body {
+            padding: 1rem !important;
+        }
+
+        .card-body.p-4 {
+            padding: 1.25rem !important;
+        }
+
+        .card-body.py-4 {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1.5rem !important;
+        }
+
+        .card-title {
+            font-size: 1.35rem !important;
+            line-height: 1.3 !important;
+        }
+
+        /* Icône */
+        .fa-3x {
+            font-size: 2.5rem !important;
+        }
+
+        /* Texte */
+        .text-muted.mb-0 {
+            font-size: 0.9rem !important;
+            line-height: 1.4 !important;
+        }
+
+        /* Formulaire */
+        .form-label {
+            font-size: 0.9rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        .form-select,
+        .form-select-lg {
+            font-size: 16px !important; /* Empêche zoom iOS */
+            padding: 0.875rem !important;
+        }
+
+        .form-text {
+            font-size: 0.8rem !important;
+        }
+
+        /* Alerte */
+        .alert {
+            padding: 0.875rem !important;
+            font-size: 0.9rem !important;
+        }
+
+        .alert small {
+            font-size: 0.8rem !important;
+        }
+
+        /* Boutons */
+        .btn {
+            width: 100% !important;
+            padding: 0.875rem 1rem !important;
+            font-size: 0.95rem !important;
+        }
+
+        .btn-lg {
+            padding: 1rem !important;
+            font-size: 1rem !important;
+        }
+
+        .d-grid {
+            grid-template-columns: 1fr !important;
+        }
+
+        .gap-2 {
+            gap: 0.75rem !important;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .row {
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+            width: calc(100% + 20px) !important;
+        }
+
+        .col-lg-8, .col-xl-6 {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .card-header {
+            padding: 0.875rem !important;
+        }
+
+        .card-header h5 {
+            font-size: 0.95rem !important;
+        }
+
+        .card-body {
+            padding: 0.875rem !important;
+        }
+
+        .card-body.p-4 {
+            padding: 1rem !important;
+        }
+
+        .card-title {
+            font-size: 1.25rem !important;
+        }
+
+        .fa-3x {
+            font-size: 2rem !important;
+        }
+
+        .form-select {
+            padding: 0.75rem !important;
+        }
+
+        .alert {
+            padding: 0.75rem !important;
+            font-size: 0.85rem !important;
+        }
+
+        .btn {
+            padding: 0.75rem 0.875rem !important;
+            font-size: 0.9rem !important;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .card-title {
+            font-size: 1.15rem !important;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem !important;
+        }
+
+        .form-label {
+            font-size: 0.85rem !important;
+        }
+
+        .btn {
+            font-size: 0.85rem !important;
+            padding: 0.625rem 0.75rem !important;
+        }
+
+        .alert {
+            font-size: 0.8rem !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .container-fluid {
+            max-width: 95% !important;
+            margin: 0 auto !important;
+        }
+
+        .col-lg-8, .col-xl-6 {
+            flex: 0 0 80% !important;
+            max-width: 80% !important;
+            margin: 0 auto !important;
+        }
+
+        .card-body.py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .btn {
+            width: auto !important;
+            display: inline-flex !important;
+        }
+
+        .d-grid {
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 0.75rem !important;
+        }
+
+        .d-grid .btn {
+            flex: 1 !important;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input, select, textarea, button {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
        ============================================ */
     .btn:focus,
     .form-select:focus {
@@ -527,35 +631,51 @@
     }
 
     /* ============================================
-       CORRECTION POUR ZOOM iOS
+       SCROLLBAR STYLISÉE
        ============================================ */
-    @media (max-width: 480px) {
-        input, select, textarea, button {
-            font-size: 16px !important;
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    @media (max-width: 768px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
         }
     }
 
     /* ============================================
-       GESTION DU TEXTE TRÈS LONG
+       GESTION DE L'IMPRESSION
        ============================================ */
-    .text-break {
-        word-break: break-word;
-        overflow-wrap: break-word;
-        hyphens: auto;
-    }
+    @media print {
+        .btn {
+            display: none !important;
+        }
 
-    /* ============================================
-       STYLES SPÉCIFIQUES POUR LE SELECT
-       ============================================ */
-    optgroup {
-        font-weight: bold;
-        font-style: normal;
-        color: #334155;
-    }
+        .container-fluid {
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
 
-    option {
-        padding: 0.5rem;
-        font-weight: normal;
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
     }
 </style>
 {% endblock %}
@@ -653,8 +773,10 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Focus sur le select
-    document.getElementById('station').focus();
+    // Focus sur le select (seulement sur PC)
+    if (window.innerWidth > 768) {
+        document.getElementById('station').focus();
+    }
     
     // Mémoriser la dernière station
     const stationSelect = document.getElementById('station');
@@ -671,26 +793,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Correction du défilement sur mobile
     function adjustMobileLayout() {
         if (window.innerWidth <= 768) {
-            // S'assure que tout s'adapte à l'écran
             document.body.style.overflowX = 'hidden';
             document.body.style.width = '100%';
             document.body.style.maxWidth = '100vw';
-            
-            // Ajuste les conteneurs
-            const containers = document.querySelectorAll('.container-fluid');
-            containers.forEach(container => {
-                container.style.width = '100%';
-                container.style.maxWidth = '100%';
-                container.style.marginLeft = 'auto';
-                container.style.marginRight = 'auto';
-            });
-            
-            // Ajuste le select pour qu'il ne dépasse pas
-            const select = document.getElementById('station');
-            if (select) {
-                select.style.maxWidth = '100%';
-                select.style.boxSizing = 'border-box';
-            }
+            document.documentElement.style.overflowX = 'hidden';
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.width = '';
+            document.body.style.maxWidth = '';
+            document.documentElement.style.overflowX = '';
         }
     }
     
