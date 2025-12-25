@@ -7,21 +7,82 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - ANTI-DÉBORDEMENT
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE - RESPONSIVE
+       ============================================ */
     .page-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 2rem;
         border-radius: 15px;
         margin-bottom: 2rem;
+        width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
     }
-    
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    .page-header p {
+        margin: 0;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.5;
+    }
+
+    .page-header .d-flex {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    /* ============================================
+       CARTES DE RÉSUMÉ - GRID RESPONSIVE
+       ============================================ */
     .summary-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
+        width: 100%;
     }
-    
+
     .summary-card {
         background: white;
         border-radius: 10px;
@@ -29,26 +90,40 @@
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         text-align: center;
         transition: all 0.3s ease;
+        width: 100%;
+        overflow: hidden;
     }
-    
+
     .summary-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 5px 20px rgba(0,0,0,0.15);
     }
-    
+
     .summary-card h6 {
         color: #6c757d;
-        font-size: 0.875rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 1px;
         margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    
+
     .summary-card h3 {
-        font-size: 2rem;
+        font-size: 1.75rem;
         margin: 0;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
-    
+
+    .summary-card small {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    /* ============================================
+       SECTIONS DÉCADE - RESPONSIVE
+       ============================================ */
     .decade-section {
         background: white;
         border-radius: 10px;
@@ -56,118 +131,856 @@
         margin-bottom: 1rem;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         border-left: 5px solid #667eea;
+        width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
     }
-    
+
     .decade-incomplete {
         border-left-color: #ffc107;
         background: linear-gradient(to right, #fff8e1, white);
     }
-    
+
     .decade-error {
         border-left-color: #dc3545;
         background: linear-gradient(to right, #ffebee, white);
     }
-    
+
     .decade-ok {
         border-left-color: #28a745;
         background: linear-gradient(to right, #f1f8e9, white);
     }
-    
-    .day-comparison {
-        background: white;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        margin-bottom: 2rem;
+
+    .decade-section h5 {
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
     }
-    
-    .day-comparison thead {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+
+    .decade-section .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
     }
-    
-    .day-comparison tbody tr {
-        transition: all 0.3s ease;
+
+    .decade-section .col-md-8,
+    .decade-section .col-md-4 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
     }
-    
-    .day-comparison tbody tr:hover {
-        background: #f8f9fa;
+
+    /* ============================================
+       INFORMATIONS DÉTAILLÉES - RESPONSIVE
+       ============================================ */
+    .detail-info {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        gap: 0.5rem;
+        width: 100%;
     }
-    
-    .day-comparison tbody tr.decade-row {
-        background: #f0f4ff;
+
+    .detail-info span {
+        word-break: break-word;
+        overflow-wrap: break-word;
+        font-size: 0.9rem;
     }
-    
-    .ecart-negatif { 
-        color: #dc3545; 
-        font-weight: bold; 
-    }
-    
-    .ecart-positif { 
-        color: #ffc107; 
-        font-weight: bold; 
-    }
-    
-    .ecart-zero { 
-        color: #28a745;
+
+    .detail-info strong {
+        color: #495057;
         font-weight: 600;
     }
-    
+
+    /* ============================================
+       BADGES ET INDICATEURS - RESPONSIVE
+       ============================================ */
     .badge-decade {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 0.35rem 0.75rem;
         border-radius: 15px;
-        font-size: 0.875rem;
+        font-size: 0.8rem;
         display: inline-block;
+        white-space: nowrap;
     }
-    
-    .missing-days {
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        padding: 0.75rem;
-        border-radius: 8px;
-        margin-top: 1rem;
-    }
-    
-    .missing-days .badge {
-        margin-right: 0.25rem;
-        margin-bottom: 0.25rem;
-    }
-    
-    .detail-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.5rem;
-    }
-    
-    .detail-info strong {
-        color: #495057;
-        font-weight: 600;
-    }
-    
+
     .status-indicator {
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
         padding: 0.25rem 0.75rem;
         border-radius: 20px;
-        font-size: 0.875rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       JOURS MANQUANTS - RESPONSIVE
+       ============================================ */
+    .missing-days {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .missing-days .badge {
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+        display: inline-block;
+    }
+
+    /* ============================================
+       TABLEAU COMPARAISON - CONTAINER SCROLLABLE
+       ============================================ */
+    .day-comparison-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    /* Scrollbar stylée pour le tableau */
+    .day-comparison-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .day-comparison-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .day-comparison-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .day-comparison-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    .day-comparison {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 800px;
+        background: white;
+    }
+
+    .day-comparison thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .day-comparison th {
+        padding: 0.75rem;
+        text-align: left;
+        font-size: 0.85rem;
+        white-space: nowrap;
         font-weight: 600;
     }
-    
+
+    .day-comparison td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+    }
+
+    .day-comparison tbody tr {
+        transition: all 0.3s ease;
+    }
+
+    .day-comparison tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .day-comparison tbody tr.decade-row {
+        background: #f0f4ff;
+    }
+
+    .day-comparison tfoot {
+        background: #f8f9fa;
+    }
+
+    .day-comparison tfoot th {
+        background: transparent;
+        color: #333;
+        font-weight: 600;
+    }
+
+    /* ============================================
+       CLASSES D'ÉCART - STYLING
+       ============================================ */
+    .ecart-negatif { 
+        color: #dc3545; 
+        font-weight: bold; 
+    }
+
+    .ecart-positif { 
+        color: #ffc107; 
+        font-weight: bold; 
+    }
+
+    .ecart-zero { 
+        color: #28a745;
+        font-weight: 600;
+    }
+
+    /* ============================================
+       SECTION JUSTIFICATION - RESPONSIVE
+       ============================================ */
     .justification-section {
         background: #e3f2fd;
         border-left: 4px solid #2196f3;
         padding: 1.5rem;
         border-radius: 8px;
         margin-top: 2rem;
+        width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
     }
-    
+
+    .justification-section h5 {
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .justification-section .card {
+        width: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .justification-section .card-body {
+        padding: 1rem;
+    }
+
+    /* ============================================
+       ALERTES - RESPONSIVE
+       ============================================ */
+    .alert {
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+    }
+
     .alert-ecart {
         background: linear-gradient(135deg, #ff6b6b20 0%, #ff922b20 100%);
         border-left: 4px solid #ff6b6b;
+    }
+
+    .alert-ecart h5 {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert-ecart p {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       BOUTONS - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        border: 1px solid transparent;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+
+    .btn-light {
+        background: rgba(255,255,255,0.9);
+        color: #333;
+        border-color: rgba(255,255,255,0.9);
+    }
+
+    .btn-light:hover {
+        background: white;
+    }
+
+    .btn-warning {
+        background: #ffc107;
+        color: #212529;
+        border-color: #ffc107;
+    }
+
+    .btn-warning:hover {
+        background: #e0a800;
+        border-color: #d39e00;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        color: #6c757d;
+        border-color: #6c757d;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        color: #667eea;
+        border-color: #667eea;
+    }
+
+    .btn-outline-primary:hover {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-success {
+        background: #28a745;
+        color: white;
+        border-color: #28a745;
+    }
+
+    .btn-success:hover {
+        background: #218838;
+        border-color: #1e7e34;
+    }
+
+    .btn-lg {
+        padding: 1rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    /* ============================================
+       SECTION ACTIONS - RESPONSIVE
+       ============================================ */
+    .actions-section {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        width: 100%;
+    }
+
+    .actions-section > div {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       TITRES DE SECTION - RESPONSIVE
+       ============================================ */
+    h4 {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .page-header {
+            padding: 2rem;
+        }
+
+        .page-header h2 {
+            font-size: 1.75rem;
+        }
+
+        .summary-cards {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .summary-card h3 {
+            font-size: 2rem;
+        }
+
+        .decade-section .col-md-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+
+        .decade-section .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .detail-info {
+            flex-wrap: nowrap;
+        }
+
+        .actions-section {
+            flex-wrap: nowrap;
+        }
+
+        .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction du débordement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        /* En-tête mobile */
+        .page-header {
+            padding: 1.25rem;
+            border-radius: 10px;
+            margin-bottom: 1.25rem;
+        }
+
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .page-header p {
+            font-size: 0.85rem;
+        }
+
+        .page-header .d-flex {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .page-header .btn {
+            width: 100%;
+            margin-top: 0.75rem;
+        }
+
+        /* Cartes résumé mobile */
+        .summary-cards {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .summary-card {
+            padding: 1rem;
+        }
+
+        .summary-card h6 {
+            font-size: 0.65rem;
+        }
+
+        .summary-card h3 {
+            font-size: 1.35rem;
+        }
+
+        /* Sections décade mobile */
+        .decade-section {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .decade-section h5 {
+            font-size: 0.95rem;
+        }
+
+        .decade-section .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .decade-section .col-md-8,
+        .decade-section .col-md-4 {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .decade-section .col-md-4 {
+            margin-top: 1rem;
+            text-align: center !important;
+            justify-content: center !important;
+        }
+
+        /* Infos détaillées mobile */
+        .detail-info {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .detail-info span {
+            font-size: 0.85rem;
+            width: 100%;
+        }
+
+        /* Badges mobile */
+        .badge-decade {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .status-indicator {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+        }
+
+        /* Tableau mobile - scrollable */
+        .day-comparison-container {
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px);
+            border-radius: 0;
+        }
+
+        .day-comparison {
+            min-width: 700px;
+            font-size: 0.8rem;
+        }
+
+        .day-comparison th,
+        .day-comparison td {
+            padding: 0.5rem;
+        }
+
+        /* Justification mobile */
+        .justification-section {
+            padding: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .justification-section h5 {
+            font-size: 1rem;
+        }
+
+        /* Alertes mobile */
+        .alert {
+            padding: 0.875rem;
+        }
+
+        .alert-ecart h5 {
+            font-size: 0.95rem;
+        }
+
+        .alert-ecart p {
+            font-size: 0.85rem;
+        }
+
+        /* Boutons mobile */
+        .btn {
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+            width: 100%;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9rem;
+        }
+
+        /* Actions mobile */
+        .actions-section {
+            flex-direction: column;
+        }
+
+        .actions-section > div {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .actions-section > a {
+            width: 100%;
+        }
+
+        /* Titres mobile */
+        h4 {
+            font-size: 1.1rem;
+        }
+
+        /* Jours manquants mobile */
+        .missing-days {
+            padding: 0.625rem;
+        }
+
+        .missing-days .badge {
+            font-size: 0.7rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .page-header {
+            padding: 1rem;
+        }
+
+        .page-header h2 {
+            font-size: 1.15rem;
+        }
+
+        .page-header p {
+            font-size: 0.8rem;
+        }
+
+        /* Cartes 1 colonne sur très petit écran */
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+
+        .summary-card h3 {
+            font-size: 1.5rem;
+        }
+
+        .decade-section {
+            padding: 0.875rem;
+        }
+
+        .decade-section h5 {
+            font-size: 0.9rem;
+        }
+
+        .detail-info span {
+            font-size: 0.8rem;
+        }
+
+        .day-comparison-container {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+        }
+
+        .day-comparison {
+            min-width: 600px;
+            font-size: 0.75rem;
+        }
+
+        .day-comparison th,
+        .day-comparison td {
+            padding: 0.4rem;
+        }
+
+        .btn {
+            font-size: 0.825rem;
+            padding: 0.5rem 0.875rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .page-header h2 {
+            font-size: 1.05rem;
+        }
+
+        .page-header p {
+            font-size: 0.75rem;
+        }
+
+        .summary-card h6 {
+            font-size: 0.6rem;
+        }
+
+        .summary-card h3 {
+            font-size: 1.3rem;
+        }
+
+        .decade-section h5 {
+            font-size: 0.85rem;
+        }
+
+        h4 {
+            font-size: 1rem;
+        }
+
+        .btn {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .summary-cards {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .summary-card {
+            padding: 0.75rem;
+        }
+
+        .summary-card h3 {
+            font-size: 1.25rem;
+        }
+
+        .decade-section .col-md-8 {
+            flex: 0 0 70%;
+            max-width: 70%;
+        }
+
+        .decade-section .col-md-4 {
+            flex: 0 0 30%;
+            max-width: 30%;
+            margin-top: 0;
+        }
+
+        .actions-section {
+            flex-direction: row;
+        }
+
+        .actions-section > div {
+            flex-direction: row;
+            width: auto;
+        }
+
+        .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input, button, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    .day-comparison tr:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE GLOBALE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .btn, .alert-dismissible .btn-close {
+            display: none !important;
+        }
+
+        .page-header {
+            background: none !important;
+            color: black !important;
+            border: 2px solid #667eea;
+        }
+
+        .summary-card {
+            border: 1px solid #dee2e6;
+            break-inside: avoid;
+        }
+
+        .decade-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .day-comparison-container {
+            overflow-x: visible !important;
+        }
+
+        .day-comparison {
+            min-width: 100% !important;
+            font-size: 0.8rem;
+        }
+
+        .badge {
+            border: 1px solid currentColor;
+            background: none !important;
+            color: black !important;
+        }
     }
 </style>
 {% endblock %}
@@ -351,7 +1164,7 @@
         {% trans "Détail Journalier" %}
     </h4>
     
-    <div class="table-responsive">
+    <div class="day-comparison-container">
         <table class="table table-hover day-comparison">
             <thead>
                 <tr>
@@ -523,7 +1336,7 @@
     {% endif %}
     
     <!-- Actions en bas de page -->
-    <div class="d-flex justify-content-between align-items-center mt-4">
+    <div class="actions-section mt-4">
         <div>
             <a href="{% url 'inventaire:comptabilisation_quittancements' %}" 
                class="btn btn-outline-secondary">
@@ -531,15 +1344,12 @@
                 {% trans "Retour à la comptabilisation" %}
             </a>
             
-            <button onclick="window.print()" class="btn btn-outline-primary ms-2">
+            <button onclick="window.print()" class="btn btn-outline-primary">
                 <i class="fas fa-print me-2"></i>
                 {% trans "Imprimer" %}
             </button>
             
-            <button onclick="exportToExcel()" class="btn btn-success ms-2">
-                <i class="fas fa-file-excel me-2"></i>
-                {% trans "Exporter Excel" %}
-            </button>
+            
         </div>
         
         {% if ecart|abs >= 1 and not justifications %}
@@ -560,14 +1370,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Animation des cartes au chargement
     const cards = document.querySelectorAll('.summary-card');
     cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
         setTimeout(() => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-            setTimeout(() => {
-                card.style.transition = 'all 0.5s ease';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, 50);
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
         }, index * 100);
     });
     
@@ -591,7 +1399,7 @@ document.addEventListener('DOMContentLoaded', function() {
     decades.forEach(decade => {
         if (decade.classList.contains('decade-error') || decade.classList.contains('decade-incomplete')) {
             decade.addEventListener('mouseenter', function() {
-                this.style.transform = 'scale(1.02)';
+                this.style.transform = 'scale(1.01)';
                 this.style.transition = 'all 0.3s ease';
             });
             decade.addEventListener('mouseleave', function() {
@@ -599,6 +1407,25 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+    
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Ajustement dynamique pour les petits écrans
+    function adjustForSmallScreen() {
+        if (window.innerWidth < 768) {
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+        }
+    }
+    
+    window.addEventListener('load', adjustForSmallScreen);
+    window.addEventListener('resize', adjustForSmallScreen);
 });
 
 // Fonction d'export Excel
@@ -615,45 +1442,9 @@ function exportToExcel() {
 
 // Fonction d'impression stylée
 function printDetails() {
-    // Ajouter une classe pour l'impression
     document.body.classList.add('printing');
     window.print();
     document.body.classList.remove('printing');
 }
 </script>
-
-<!-- Style d'impression -->
-<style>
-@media print {
-    .btn, .alert-dismissible .btn-close {
-        display: none !important;
-    }
-    
-    .page-header {
-        background: none !important;
-        color: black !important;
-        border: 2px solid #667eea;
-    }
-    
-    .summary-card {
-        border: 1px solid #dee2e6;
-        break-inside: avoid;
-    }
-    
-    .decade-section {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-    
-    .day-comparison {
-        font-size: 0.9rem;
-    }
-    
-    .badge {
-        border: 1px solid currentColor;
-        background: none !important;
-        color: black !important;
-    }
-}
-</style>
 {% endblock %}
