@@ -7,173 +7,894 @@
 
 {% block extra_css %}
 <style>
-:root {
-    --violet-principal: #0000FF;
-    --violet-fonce: #00008B;
-    --gris-clair: #F8FAFC;
-    --gris-moyen: #64748B;
-    --gris-fonce: #334155;
-    --accent-orange: #F59E0B;
-}
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 
-.detail-header {
-    background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
-    color: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-}
+    /* ============================================
+       VARIABLES CSS
+       ============================================ */
+    :root {
+        --violet-principal: #0000FF;
+        --violet-fonce: #00008B;
+        --gris-clair: #F8FAFC;
+        --gris-moyen: #64748B;
+        --gris-fonce: #334155;
+        --accent-orange: #F59E0B;
+        --success-color: #10B981;
+        --danger-color: #EF4444;
+    }
 
-.info-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-}
+    /* ============================================
+       CONTENEUR PRINCIPAL - ANTI-DÉBORDEMENT
+       ============================================ */
+    .container {
+        width: 100%;
+        max-width: 1200px;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
 
-.metric-card {
-    background: linear-gradient(135deg, #F8FAFC, #E2E8F0);
-    border-radius: 12px;
-    padding: 1.5rem;
-    text-align: center;
-    transition: all 0.3s ease;
-    border-left: 4px solid var(--violet-principal);
-}
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
 
-.metric-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
+    /* ============================================
+       HEADER PRINCIPAL - RESPONSIVE
+       ============================================ */
+    .detail-header {
+        background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        width: 100%;
+        overflow: hidden;
+    }
 
-.metric-value {
-    font-size: 2rem;
-    font-weight: bold;
-    color: var(--violet-principal);
-    margin-bottom: 0.5rem;
-}
+    .detail-header h1 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
 
-.metric-label {
-    color: var(--gris-moyen);
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
+    .detail-header p {
+        margin: 0;
+        opacity: 0.85;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
 
-.periode-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
-    border-left: 4px solid #E5E7EB;
-    transition: all 0.3s ease;
-}
+    /* Breadcrumb responsive */
+    .breadcrumb {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0;
+        margin: 0 0 1rem 0;
+        list-style: none;
+        background: transparent;
+    }
 
-.periode-card:hover {
-    border-left-color: var(--violet-principal);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
+    .breadcrumb-item {
+        font-size: 0.9rem;
+    }
 
-.periode-header {
-    font-weight: 600;
-    color: var(--violet-principal);
-    margin-bottom: 0.5rem;
-}
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: '/';
+        padding: 0 0.5rem;
+        color: rgba(255,255,255,0.5);
+    }
 
-.vehicule-count {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--gris-fonce);
-}
+    .breadcrumb-item a {
+        color: rgba(255,255,255,0.7);
+        text-decoration: none;
+    }
 
-.status-badge {
-    border-radius: 20px;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+    .breadcrumb-item.active {
+        color: white;
+    }
 
-.status-en-cours {
-    background: linear-gradient(45deg, #3B82F6, #2563EB);
-    color: white;
-}
+    /* ============================================
+       GRID BOOTSTRAP - RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
 
-.status-verrouille {
-    background: linear-gradient(45deg, #F59E0B, #F97316);
-    color: white;
-}
+    .col-lg-4, .col-lg-8, .col-md-3, .col-md-4, .col-md-6, .col-md-8, .col-12 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+    }
 
-.status-valide {
-    background: linear-gradient(45deg, #10B981, #059669);
-    color: white;
-}
+    /* ============================================
+       CARDS INFO - RESPONSIVE
+       ============================================ */
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+        overflow: hidden;
+    }
 
-.chart-container {
-    background: white;
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
+    .info-card h5, .info-card h6 {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
 
-.btn-violet {
-    background: linear-gradient(45deg, var(--violet-principal), var(--violet-fonce));
-    border: none;
-    color: white;
-    border-radius: 8px;
-    padding: 0.75rem 1.5rem;
-    transition: all 0.3s ease;
-}
+    .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
 
-.btn-violet:hover {
-    background: linear-gradient(45deg, var(--violet-fonce), #4C1D95);
-    color: white;
-    transform: translateY(-1px);
-}
+    .text-violet {
+        color: var(--violet-principal);
+    }
 
-.timeline-item {
-    position: relative;
-    padding-left: 2rem;
-    padding-bottom: 1rem;
-}
+    /* ============================================
+       METRIC CARDS - RESPONSIVE
+       ============================================ */
+    .metric-card {
+        background: linear-gradient(135deg, #F8FAFC, #E2E8F0);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        border-left: 4px solid var(--violet-principal);
+        margin-bottom: 1rem;
+        width: 100%;
+    }
 
-.timeline-item::before {
-    content: '';
-    position: absolute;
-    left: 0.5rem;
-    top: 0.5rem;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--violet-principal);
-}
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
 
-.timeline-item::after {
-    content: '';
-    position: absolute;
-    left: 0.75rem;
-    top: 1.5rem;
-    width: 2px;
-    height: calc(100% - 1rem);
-    background: #E5E7EB;
-}
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--violet-principal);
+        margin-bottom: 0.5rem;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
 
-.timeline-item:last-child::after {
-    display: none;
-}
+    .metric-label {
+        color: var(--gris-moyen);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
 
-.recette-card {
-    background: linear-gradient(135deg, #FEF3C7, #FDE68A);
-    border-radius: 12px;
-    padding: 1.5rem;
-    border-left: 4px solid var(--accent-orange);
-}
+    /* ============================================
+       PÉRIODE CARDS - RESPONSIVE
+       ============================================ */
+    .periode-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border-left: 4px solid #E5E7EB;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
 
-.recette-value {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #92400E;
-}
+    .periode-card:hover {
+        border-left-color: var(--violet-principal);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .periode-header {
+        font-weight: 600;
+        color: var(--violet-principal);
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .vehicule-count {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--gris-fonce);
+    }
+
+    /* ============================================
+       STATUS BADGES - RESPONSIVE
+       ============================================ */
+    .status-badge {
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .status-en-cours {
+        background: linear-gradient(45deg, #3B82F6, #2563EB);
+        color: white;
+    }
+
+    .status-verrouille {
+        background: linear-gradient(45deg, #F59E0B, #F97316);
+        color: white;
+    }
+
+    .status-valide {
+        background: linear-gradient(45deg, #10B981, #059669);
+        color: white;
+    }
+
+    /* ============================================
+       CHART CONTAINER - RESPONSIVE
+       ============================================ */
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .chart-container canvas {
+        max-width: 100%;
+        height: auto !important;
+    }
+
+    /* ============================================
+       BOUTONS - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+        min-height: 44px;
+        white-space: nowrap;
+    }
+
+    .btn-violet {
+        background: linear-gradient(45deg, var(--violet-principal), var(--violet-fonce));
+        border: none;
+        color: white;
+    }
+
+    .btn-violet:hover {
+        background: linear-gradient(45deg, var(--violet-fonce), #4C1D95);
+        color: white;
+        transform: translateY(-1px);
+    }
+
+    .btn-light {
+        background: white;
+        color: var(--violet-principal);
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8rem;
+        min-height: 36px;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       TIMELINE - RESPONSIVE
+       ============================================ */
+    .timeline {
+        width: 100%;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 2rem;
+        padding-bottom: 1rem;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0.5rem;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--violet-principal);
+    }
+
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 1.5rem;
+        width: 2px;
+        height: calc(100% - 1rem);
+        background: #E5E7EB;
+    }
+
+    .timeline-item:last-child::after {
+        display: none;
+    }
+
+    /* ============================================
+       RECETTE CARD - RESPONSIVE
+       ============================================ */
+    .recette-card {
+        background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border-left: 4px solid var(--accent-orange);
+        margin-bottom: 1.5rem;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .recette-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #92400E;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       BADGES GENERAUX
+       ============================================ */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+
+    .bg-danger {
+        background-color: var(--danger-color);
+        color: white;
+    }
+
+    .bg-success {
+        background-color: var(--success-color);
+        color: white;
+    }
+
+    .bg-warning {
+        background-color: var(--accent-orange);
+        color: white;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-1 { margin-top: 0.25rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .me-3 { margin-right: 1rem !important; }
+    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+    .text-center { text-align: center !important; }
+    .text-end { text-align: right !important; }
+    .text-muted { color: #6b7280 !important; }
+    .fw-bold { font-weight: 700 !important; }
+    .small { font-size: 0.85rem; }
+    .opacity-75 { opacity: 0.75; }
+
+    .d-flex { display: flex !important; }
+    .justify-content-between { justify-content: space-between !important; }
+    .align-items-center { align-items: center !important; }
+
+    hr {
+        border: none;
+        border-top: 1px solid #e5e7eb;
+        margin: 1rem 0;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 992px)
+       ============================================ */
+    @media (min-width: 992px) {
+        .col-lg-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-lg-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTE (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+
+        .text-end {
+            text-align: right !important;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction du débordement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0 !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Header */
+        .detail-header {
+            padding: 1.25rem 0;
+            margin-bottom: 1rem;
+        }
+
+        .detail-header .container {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .detail-header h1 {
+            font-size: 1.25rem;
+        }
+
+        .detail-header p {
+            font-size: 0.85rem;
+        }
+
+        .detail-header .row {
+            flex-direction: column;
+        }
+
+        .detail-header .col-md-4 {
+            margin-top: 1rem;
+            text-align: center !important;
+        }
+
+        .detail-header .btn-lg {
+            width: 100%;
+            max-width: 280px;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb {
+            margin-bottom: 0.75rem;
+        }
+
+        .breadcrumb-item {
+            font-size: 0.8rem;
+        }
+
+        /* Container */
+        .container,
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+
+        /* Row */
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-lg-4, .col-lg-8, .col-md-3, .col-md-4, .col-md-6, .col-md-8, .col-12 {
+            padding-left: 6px;
+            padding-right: 6px;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Info cards */
+        .info-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 10px;
+        }
+
+        .card-title {
+            font-size: 1rem;
+        }
+
+        /* Metric cards */
+        .metric-card {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+        }
+
+        /* Période cards */
+        .periode-card {
+            padding: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .periode-header {
+            font-size: 0.85rem;
+        }
+
+        .vehicule-count {
+            font-size: 1.25rem;
+        }
+
+        /* Chart */
+        .chart-container {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .chart-container h5 {
+            font-size: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-lg {
+            padding: 0.625rem 1.25rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-sm {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.75rem;
+            min-height: 32px;
+        }
+
+        .btn-group {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .btn-group .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Recette card */
+        .recette-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .recette-value {
+            font-size: 1.25rem;
+        }
+
+        /* Timeline */
+        .timeline-item {
+            padding-left: 1.5rem;
+            padding-bottom: 0.75rem;
+        }
+
+        .timeline-item::before {
+            width: 8px;
+            height: 8px;
+            left: 0.35rem;
+        }
+
+        .timeline-item::after {
+            left: 0.55rem;
+        }
+
+        /* Status badge */
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+        }
+
+        /* Badge */
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+
+        /* Text sizes */
+        .small {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .detail-header {
+            padding: 1rem 0;
+        }
+
+        .detail-header h1 {
+            font-size: 1.15rem;
+        }
+
+        .container,
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .info-card {
+            padding: 0.875rem;
+        }
+
+        .metric-card {
+            padding: 0.875rem;
+        }
+
+        .metric-value {
+            font-size: 1.35rem;
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+        }
+
+        .chart-container {
+            padding: 0.875rem;
+        }
+
+        .btn-group .btn {
+            font-size: 0.8rem;
+            padding: 0.5rem 0.875rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .detail-header h1 {
+            font-size: 1.05rem;
+        }
+
+        .breadcrumb-item {
+            font-size: 0.7rem;
+        }
+
+        .metric-value {
+            font-size: 1.2rem;
+        }
+
+        .metric-label {
+            font-size: 0.65rem;
+        }
+
+        .periode-header {
+            font-size: 0.8rem;
+        }
+
+        .vehicule-count {
+            font-size: 1.1rem;
+        }
+
+        .recette-value {
+            font-size: 1.1rem;
+        }
+
+        .btn-group .btn {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .detail-header .row {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .detail-header .col-md-4 {
+            margin-top: 0;
+            text-align: right !important;
+        }
+
+        .btn-group {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .btn-group .btn {
+            width: auto;
+            flex: 0 1 auto;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input, button, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    a:focus {
+        outline: 2px solid var(--violet-principal);
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       MODAL RESPONSIVE
+       ============================================ */
+    .modal-dialog {
+        margin: 1rem;
+        max-width: calc(100% - 2rem);
+    }
+
+    @media (min-width: 576px) {
+        .modal-dialog {
+            max-width: 500px;
+            margin: 1.75rem auto;
+        }
+    }
+
+    .modal-content {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .modal-body {
+        padding: 1.25rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #e5e7eb;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .detail-header {
+            background: #6B46C1 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+        }
+
+        .btn, .modal, .position-fixed, .btn-group {
+            display: none !important;
+        }
+
+        .info-card, .metric-card, .chart-container {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .container-fluid {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        @page {
+            margin: 1cm;
+            size: A4;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -204,21 +925,11 @@
             </div>
             <div class="col-md-4 text-end">
                 {% if can_edit %}
-                <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}" 
+                <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}"
                    class="btn btn-light btn-lg me-2">
                     <i class="fas fa-edit me-2"></i>{% trans "Modifier" %}
                 </a>
                 {% endif %}
-                {% comment %} {% if can_lock %}
-                <button class="btn btn-warning btn-lg" onclick="verrouillerInventaire()">
-                    <i class="fas fa-lock me-2"></i>{% trans "Verrouiller" %}
-                </button>
-                {% endif %}
-                {% if can_validate %}
-                <button class="btn btn-success btn-lg" onclick="validerInventaire()">
-                    <i class="fas fa-check me-2"></i>{% trans "Valider" %}
-                </button>
-                {% endif %} {% endcomment %}
             </div>
         </div>
     </div>
@@ -232,7 +943,7 @@
                 <h5 class="card-title text-violet mb-3">
                     <i class="fas fa-info-circle me-2"></i>{% trans "Informations Générales" %}
                 </h5>
-                
+
                 <div class="mb-3">
                     <strong>{% trans "Poste:" %}</strong>
                     <div>{{ inventaire.poste.nom }}</div>
@@ -324,7 +1035,7 @@
                 </h6>
                 <div class="mb-2">
                     <strong>{% trans "Montant déclaré:" %}</strong>
-                    <div class="recette-value">{{ recette.montant_declare|floatformat:0|format_milliers  }} FCFA</div>
+                    <div class="recette-value">{{ recette.montant_declare|floatformat:0|format_milliers }} FCFA</div>
                 </div>
                 {% if recette.recette_potentielle %}
                 <div class="mb-2">
@@ -350,25 +1061,25 @@
         <!-- Métriques et calculs -->
         <div class="col-lg-8">
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-md-3 col-6">
                     <div class="metric-card">
                         <div class="metric-value">{{ total_vehicules }}</div>
                         <div class="metric-label">{% trans "Total Véhicules" %}</div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 col-6">
                     <div class="metric-card">
                         <div class="metric-value">{{ moyenne_horaire }}</div>
                         <div class="metric-label">{% trans "Moyenne/Heure" %}</div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 col-6">
                     <div class="metric-card">
                         <div class="metric-value">{{ estimation_24h|floatformat:0 }}</div>
                         <div class="metric-label">{% trans "Estimation 24h" %}</div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3 col-6">
                     <div class="metric-card">
                         <div class="metric-value">{{ recette_potentielle|floatformat:0 }}</div>
                         <div class="metric-label">{% trans "Recette Pot. (FCFA)" %}</div>
@@ -389,11 +1100,11 @@
                 <h5 class="card-title text-violet mb-3">
                     <i class="fas fa-clock me-2"></i>{% trans "Détails par Période" %}
                 </h5>
-                
+
                 {% if details_periodes %}
                 <div class="row">
                     {% for detail in details_periodes %}
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 col-12 mb-3">
                         <div class="periode-card">
                             <div class="periode-header">{{ detail.get_periode_display }}</div>
                             <div class="d-flex justify-content-between align-items-center">
@@ -416,10 +1127,10 @@
                 </div>
                 {% else %}
                 <div class="text-center py-4">
-                    <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+                    <i class="fas fa-info-circle fa-3x text-muted mb-3" style="display: block;"></i>
                     <p class="text-muted">{% trans "Aucun détail de période disponible." %}</p>
                     {% if can_edit %}
-                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}" 
+                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}"
                        class="btn btn-violet">
                         <i class="fas fa-plus me-2"></i>{% trans "Ajouter des données" %}
                     </a>
@@ -440,7 +1151,7 @@
                         <i class="fas fa-arrow-left me-2"></i>{% trans "Retour à la liste" %}
                     </a>
                     {% if can_edit %}
-                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}" 
+                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}"
                        class="btn btn-outline-primary">
                         <i class="fas fa-edit me-2"></i>{% trans "Modifier les données" %}
                     </a>
@@ -451,12 +1162,6 @@
                     <button class="btn btn-outline-success" onclick="exporterPDF()">
                         <i class="fas fa-file-pdf me-2"></i>{% trans "Export PDF" %}
                     </button>
-                    {% comment %} {% if user.is_admin %}
-                    <a href="/django-admin/inventaire/inventairejournalier/{{ inventaire.id }}/change/" 
-                       class="btn btn-outline-warning">
-                        <i class="fas fa-cogs me-2"></i>{% trans "Admin" %}
-                    </a>
-                    {% endif %} {% endcomment %}
                 </div>
             </div>
         </div>
@@ -490,69 +1195,100 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Données pour le graphique
-const graphData = {{ graph_data|safe }};
+document.addEventListener('DOMContentLoaded', function() {
+    // Données pour le graphique
+    const graphData = {{ graph_data|safe }};
 
-// Configuration du graphique
-const ctx = document.getElementById('inventaireChart').getContext('2d');
-const inventaireChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: graphData.periodes,
-        datasets: [{
-            label: '{% trans "Nombre de véhicules" %}',
-            data: graphData.vehicules,
-            backgroundColor: 'rgba(107, 70, 193, 0.7)',
-            borderColor: 'rgba(107, 70, 193, 1)',
-            borderWidth: 2,
-            borderRadius: 8,
-            borderSkipped: false,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                titleColor: 'white',
-                bodyColor: 'white',
+    // Configuration du graphique
+    const ctx = document.getElementById('inventaireChart').getContext('2d');
+    const inventaireChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: graphData.periodes,
+            datasets: [{
+                label: '{% trans "Nombre de véhicules" %}',
+                data: graphData.vehicules,
+                backgroundColor: 'rgba(107, 70, 193, 0.7)',
                 borderColor: 'rgba(107, 70, 193, 1)',
-                borderWidth: 1,
-                cornerRadius: 8,
-                callbacks: {
-                    label: function(context) {
-                        return context.parsed.y + ' véhicules';
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    borderColor: 'rgba(107, 70, 193, 1)',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y + ' véhicules';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    ticks: {
+                        color: '#64748B'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#64748B',
+                        maxRotation: 45,
+                        minRotation: 45
                     }
                 }
             }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grid: {
-                    color: 'rgba(0, 0, 0, 0.1)'
-                },
-                ticks: {
-                    color: '#64748B'
-                }
-            },
-            x: {
-                grid: {
-                    display: false
-                },
-                ticks: {
-                    color: '#64748B'
-                }
-            }
+        }
+    });
+
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+
+    // Ajustement dynamique pour les petits écrans
+    function adjustForSmallScreen() {
+        if (window.innerWidth < 768) {
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
         }
     }
+
+    window.addEventListener('load', adjustForSmallScreen);
+    window.addEventListener('resize', adjustForSmallScreen);
+
+    // Gestion du token CSRF
+    if (!document.querySelector('[name=csrfmiddlewaretoken]')) {
+        const token = '{{ csrf_token }}';
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrfmiddlewaretoken';
+        input.value = token;
+        document.body.appendChild(input);
+    }
 });
-
-
 
 // Fonction d'impression
 function imprimerInventaire() {
@@ -561,36 +1297,20 @@ function imprimerInventaire() {
 
 // Fonction d'export PDF
 function exporterPDF() {
-    // Créer un canvas temporaire avec les données du graphique
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 800;
-    canvas.height = 400;
-    
-    // Redessiner le graphique sur le canvas temporaire
-    const tempChart = new Chart(ctx, inventaireChart.config);
-    
-    setTimeout(() => {
-        // Ici, on pourrait intégrer une bibliothèque comme jsPDF
-        alert('{% trans "Fonctionnalité d'export PDF en cours de développement" %}');
-        tempChart.destroy();
-    }, 1000);
+    alert('{% trans "Fonctionnalité d\'export PDF en cours de développement" %}');
 }
 
 // Auto-refresh des données toutes les 2 minutes si l'inventaire n'est pas verrouillé
-
 setInterval(() => {
     fetch(window.location.href)
         .then(response => response.text())
         .then(html => {
-            // Vérifier s'il y a des changements dans les métriques
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
-            const newTotal = doc.querySelector('.metric-value').textContent;
-            const currentTotal = document.querySelector('.metric-value').textContent;
-            
-            if (newTotal !== currentTotal) {
-                // Afficher une notification de mise à jour
+            const newTotal = doc.querySelector('.metric-value');
+            const currentTotal = document.querySelector('.metric-value');
+
+            if (newTotal && currentTotal && newTotal.textContent !== currentTotal.textContent) {
                 const toast = document.createElement('div');
                 toast.className = 'toast position-fixed top-0 end-0 m-3';
                 toast.style.zIndex = '9999';
@@ -604,56 +1324,19 @@ setInterval(() => {
                     </div>
                 `;
                 document.body.appendChild(toast);
-                new bootstrap.Toast(toast).show();
-                
+
+                if (typeof bootstrap !== 'undefined') {
+                    new bootstrap.Toast(toast).show();
+                }
+
                 setTimeout(() => {
-                    document.body.removeChild(toast);
+                    if (toast.parentNode) {
+                        document.body.removeChild(toast);
+                    }
                 }, 5000);
             }
         })
         .catch(error => console.error('Erreur refresh:', error));
 }, 120000);
-
-
-// Gestion du token CSRF
-document.addEventListener('DOMContentLoaded', function() {
-    // Ajouter le token CSRF s'il n'existe pas
-    if (!document.querySelector('[name=csrfmiddlewaretoken]')) {
-        const token = '{{ csrf_token }}';
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'csrfmiddlewaretoken';
-        input.value = token;
-        document.body.appendChild(input);
-    }
-});
 </script>
-
-<style media="print">
-/* Styles pour l'impression */
-.detail-header {
-    background: #6B46C1 !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-}
-
-.btn, .modal, .position-fixed {
-    display: none !important;
-}
-
-.info-card, .metric-card, .chart-container {
-    box-shadow: none !important;
-    border: 1px solid #ddd !important;
-}
-
-.container-fluid {
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-@page {
-    margin: 1cm;
-    size: A4;
-}
-</style>
 {% endblock %}

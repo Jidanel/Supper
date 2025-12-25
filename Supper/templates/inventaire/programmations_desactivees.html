@@ -1,55 +1,790 @@
 {% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Programmations Désactivées - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - RESPONSIVE
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE - RESPONSIVE
+       ============================================ */
+    .inventaire-header {
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        color: white;
+        box-shadow: 0 4px 15px rgba(107, 70, 193, 0.3);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .inventaire-header h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .inventaire-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       CONTENEUR DU TABLEAU - SCROLL INTERNE
+       ============================================ */
+    .table-inventaire {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-responsive-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #c1c1c1 #f1f1f1;
+    }
+
+    .table-responsive-wrapper::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive-wrapper::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-responsive-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       TABLEAU - STYLES DE BASE
+       ============================================ */
+    .table {
+        width: 100%;
+        min-width: 650px;
+        border-collapse: collapse;
+        margin: 0;
+    }
+
+    .table thead {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .table thead th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 2px solid #e2e8f0;
+        white-space: nowrap;
+    }
+
+    .table tbody tr {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .table tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        color: #334155;
+        font-size: 0.95rem;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.5;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 38px;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8rem;
+        min-height: 32px;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .d-inline {
+        display: inline;
+    }
+
+    /* Conteneur des boutons d'action dans le tableau */
+    .action-buttons-cell {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .action-buttons-cell form {
+        display: inline-flex;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       ALERTES - RESPONSIVE
+       ============================================ */
+    .alert {
+        width: 100%;
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert-info {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1px solid #93c5fd;
+        color: #1e40af;
+    }
+
+    .alert-info::before {
+        content: '\f05a';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        margin-right: 0.75rem;
+    }
+
+    /* ============================================
+       VERSION PC (≥ 768px) - INCHANGÉE
+       ============================================ */
+    @media (min-width: 768px) {
+        .container-fluid {
+            padding: 1.5rem;
+        }
+
+        .inventaire-header {
+            padding: 2rem;
+        }
+
+        .inventaire-header h2 {
+            font-size: 1.75rem;
+        }
+
+        .table thead th {
+            padding: 1.25rem;
+        }
+
+        .table tbody td {
+            padding: 1.25rem;
+        }
+    }
+
+    /* ============================================
+       GRANDS ÉCRANS (≥ 1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .inventaire-header {
+            padding: 2rem 2.5rem;
+        }
+
+        .inventaire-header h2 {
+            font-size: 2rem;
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : DÉBORDEMENT */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        /* CONTENEUR PRINCIPAL */
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        /* EN-TÊTE - AJUSTEMENTS MOBILE */
+        .inventaire-header {
+            padding: 1.25rem 1rem !important;
+            border-radius: 10px !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .inventaire-header h2 {
+            font-size: 1.25rem !important;
+            line-height: 1.3 !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        .inventaire-header p {
+            font-size: 0.85rem !important;
+            line-height: 1.4 !important;
+        }
+
+        /* TABLEAU - CONTENEUR AVEC SCROLL INTERNE */
+        .table-inventaire {
+            border-radius: 10px !important;
+            margin-bottom: 1rem !important;
+            overflow: hidden !important;
+        }
+
+        .table-responsive-wrapper {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .table {
+            min-width: 600px !important;
+            font-size: 0.85rem !important;
+        }
+
+        .table thead th {
+            padding: 0.875rem 0.75rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        .table tbody td {
+            padding: 0.875rem 0.75rem !important;
+            font-size: 0.85rem !important;
+        }
+
+        /* BOUTONS SUR MOBILE */
+        .btn {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.8rem !important;
+            min-height: 36px !important;
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.625rem !important;
+            font-size: 0.75rem !important;
+            min-height: 32px !important;
+        }
+
+        .action-buttons-cell {
+            flex-direction: column !important;
+            gap: 0.375rem !important;
+            align-items: flex-start !important;
+        }
+
+        .action-buttons-cell form {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.375rem !important;
+            width: 100% !important;
+        }
+
+        .action-buttons-cell .btn {
+            width: 100% !important;
+        }
+
+        /* ALERTES MOBILE */
+        .alert {
+            padding: 1rem !important;
+            font-size: 0.9rem !important;
+            border-radius: 10px !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .inventaire-header {
+            padding: 1rem 0.875rem !important;
+            border-radius: 8px !important;
+        }
+
+        .inventaire-header h2 {
+            font-size: 1.15rem !important;
+        }
+
+        .inventaire-header p {
+            font-size: 0.8rem !important;
+        }
+
+        .table-inventaire {
+            border-radius: 8px !important;
+        }
+
+        .table {
+            min-width: 550px !important;
+            font-size: 0.8rem !important;
+        }
+
+        .table thead th {
+            padding: 0.75rem 0.625rem !important;
+            font-size: 0.7rem !important;
+        }
+
+        .table tbody td {
+            padding: 0.75rem 0.625rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .btn-sm {
+            padding: 0.3rem 0.5rem !important;
+            font-size: 0.7rem !important;
+        }
+
+        .alert {
+            padding: 0.875rem !important;
+            font-size: 0.85rem !important;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        .inventaire-header {
+            padding: 0.875rem 0.75rem !important;
+        }
+
+        .inventaire-header h2 {
+            font-size: 1.1rem !important;
+        }
+
+        .inventaire-header p {
+            font-size: 0.75rem !important;
+        }
+
+        .table {
+            min-width: 500px !important;
+            font-size: 0.75rem !important;
+        }
+
+        .table thead th {
+            padding: 0.625rem 0.5rem !important;
+            font-size: 0.65rem !important;
+        }
+
+        .table tbody td {
+            padding: 0.625rem 0.5rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.4rem !important;
+            font-size: 0.65rem !important;
+        }
+
+        .alert {
+            padding: 0.75rem !important;
+            font-size: 0.8rem !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .inventaire-header {
+            padding: 1rem 1.25rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .inventaire-header h2 {
+            font-size: 1.25rem !important;
+        }
+
+        .table {
+            min-width: 600px !important;
+        }
+
+        .table thead th,
+        .table tbody td {
+            padding: 0.75rem !important;
+        }
+
+        .action-buttons-cell {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+
+        .action-buttons-cell form {
+            flex-direction: row !important;
+        }
+
+        .action-buttons-cell .btn {
+            width: auto !important;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        input[type="hidden"],
+        button,
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    .btn:focus-visible {
+        outline: 2px solid #6B46C1;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       GESTION DE L'IMPRESSION
+       ============================================ */
+    @media print {
+        .inventaire-header {
+            background: white !important;
+            color: black !important;
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            padding: 1rem !important;
+        }
+
+        .table-inventaire {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .table {
+            min-width: 100% !important;
+        }
+
+        .btn {
+            display: none !important;
+        }
+
+        .action-buttons-cell {
+            display: none !important;
+        }
+
+        .table thead th:last-child,
+        .table tbody td:last-child {
+            display: none !important;
+        }
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE GLOBALE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .inventaire-header,
+    .table-inventaire,
+    .alert {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       ÉTATS VISUELS SUPPLÉMENTAIRES
+       ============================================ */
+    .table tbody tr:nth-child(even) {
+        background-color: #fafafa;
+    }
+
+    .table tbody tr:nth-child(even):hover {
+        background-color: #f0f4f8;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="inventaire-header">
-        <h2>Programmations Désactivées</h2>
+        <h2>
+            <i class="fas fa-calendar-times me-2"></i>
+            Programmations Désactivées
+        </h2>
         <p>Gérez les programmations désactivées - Réactivation ou suppression définitive</p>
     </div>
     
     {% if programmations %}
     <div class="table-inventaire">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Poste</th>
-                    <th>Mois</th>
-                    <th>Motif</th>
-                    <th>Désactivée le</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for prog in programmations %}
-                <tr>
-                    <td>{{ prog.poste.nom }}</td>
-                    <td>{{ prog.mois|date:"F Y" }}</td>
-                    <td>{{ prog.get_motif_display }}</td>
-                    <td>{{ prog.date_creation|date:"d/m/Y" }}</td>
-                    <td>
-                        <form method="post" class="d-inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="programmation_id" value="{{ prog.id }}">
-                            <button type="submit" name="action" value="reactiver" 
-                                    class="btn btn-sm btn-success">
-                                Réactiver
-                            </button>
-                            <button type="submit" name="action" value="supprimer" 
-                                    class="btn btn-sm btn-danger"
-                                    onclick="return confirm('Supprimer définitivement ?')">
-                                Supprimer
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>
+                            <i class="fas fa-building me-1"></i>
+                            Poste
+                        </th>
+                        <th>
+                            <i class="fas fa-calendar me-1"></i>
+                            Mois
+                        </th>
+                        <th>
+                            <i class="fas fa-tag me-1"></i>
+                            Motif
+                        </th>
+                        <th>
+                            <i class="fas fa-clock me-1"></i>
+                            Désactivée le
+                        </th>
+                        <th>
+                            <i class="fas fa-cogs me-1"></i>
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prog in programmations %}
+                    <tr>
+                        <td>
+                            <strong>{{ prog.poste.nom }}</strong>
+                        </td>
+                        <td>{{ prog.mois|date:"F Y" }}</td>
+                        <td>{{ prog.get_motif_display }}</td>
+                        <td>{{ prog.date_creation|date:"d/m/Y" }}</td>
+                        <td>
+                            <div class="action-buttons-cell">
+                                <form method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="programmation_id" value="{{ prog.id }}">
+                                    <button type="submit" name="action" value="reactiver" 
+                                            class="btn btn-sm btn-success">
+                                        <i class="fas fa-play me-1"></i>
+                                        Réactiver
+                                    </button>
+                                    <button type="submit" name="action" value="supprimer" 
+                                            class="btn btn-sm btn-danger"
+                                            onclick="return confirm('Êtes-vous sûr de vouloir supprimer définitivement cette programmation ?')">
+                                        <i class="fas fa-trash me-1"></i>
+                                        Supprimer
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     {% else %}
     <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
         Aucune programmation désactivée
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction pour éviter le défilement horizontal non désiré sur mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+            
+            const contentWrapper = document.querySelector('.content-wrapper');
+            if (contentWrapper) {
+                contentWrapper.style.minWidth = '100%';
+                contentWrapper.style.maxWidth = '100vw';
+                contentWrapper.style.overflowX = 'hidden';
+            }
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    adjustForMobile();
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
+    
+    // Gestion des événements tactiles pour améliorer la réactivité
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    document.addEventListener('touchmove', function() {}, { passive: true });
+    
+    // Animation au survol des lignes du tableau (pour PC)
+    const tableRows = document.querySelectorAll('.table tbody tr');
+    tableRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.005)';
+            this.style.transition = 'transform 0.2s ease';
+        });
+        row.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
+    // Confirmation améliorée pour la suppression
+    const deleteButtons = document.querySelectorAll('.btn-danger');
+    deleteButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement cette programmation ?')) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

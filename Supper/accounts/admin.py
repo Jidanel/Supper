@@ -150,11 +150,11 @@ class UtilisateurSUPPERAdmin(UserAdmin):
         """Réinitialiser les mots de passe"""
         count = 0
         for user in queryset:
-            user.set_password('supper2025')
+            user.set_password('0000')
             user.save()
             count += 1
         
-        self.message_user(request, f'✓ {count} mot(s) de passe réinitialisé(s) à "supper2025".')
+        self.message_user(request, f'✓ {count} mot(s) de passe réinitialisé(s) à "0000".')
         
         # Log de l'action
         JournalAudit.objects.create(

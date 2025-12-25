@@ -1,6 +1,748 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
 
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - ANTI-DÉBORDEMENT
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       TYPOGRAPHIE RESPONSIVE
+       ============================================ */
+    h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+        color: #1e293b;
+    }
+
+    p.lead {
+        font-size: 1rem;
+        color: #64748b;
+        margin-bottom: 1.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       ALERTES - RESPONSIVE
+       ============================================ */
+    .alert {
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+    }
+
+    .alert-warning {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #fbbf24;
+        color: #92400e;
+    }
+
+    .alert-info {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 1px solid #60a5fa;
+        color: #1e40af;
+    }
+
+    .alert strong {
+        font-weight: 600;
+    }
+
+    .alert small {
+        font-size: 0.85rem;
+        display: block;
+        margin-top: 0.25rem;
+        opacity: 0.9;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       CARTES - RESPONSIVE
+       ============================================ */
+    .card {
+        width: 100%;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: white;
+    }
+
+    .card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: none;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    }
+
+    .card-header.bg-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    }
+
+    .card-header h5 {
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       GRID LAYOUT PÉRIODES - RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-md-3, .col-md-6 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    /* ============================================
+       FORMULAIRES - RESPONSIVE
+       ============================================ */
+    .form-label,
+    label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #fff;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .periode-input {
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .periode-input:focus {
+        border-color: #3b82f6;
+        background-color: #f0f9ff;
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    /* ============================================
+       SECTION TOTAUX - RESPONSIVE
+       ============================================ */
+    .totals-section {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-top: 1rem;
+        border: 1px solid #bae6fd;
+    }
+
+    .totals-section .row {
+        margin: 0;
+        width: 100%;
+    }
+
+    .totals-section .col-md-6 {
+        margin-bottom: 0.5rem;
+        padding: 0;
+    }
+
+    .totals-section strong {
+        color: #1e40af;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+
+    .badge.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: white;
+    }
+
+    .badge.bg-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white;
+    }
+
+    .badge.bg-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+        color: white;
+    }
+
+    .badge.bg-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        color: white;
+    }
+
+    .fs-6 {
+        font-size: 1rem !important;
+    }
+
+    /* ============================================
+       BOUTONS - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        min-height: 44px;
+        box-sizing: border-box;
+        white-space: nowrap;
+    }
+
+    .btn-lg {
+        padding: 0.875rem 1.75rem;
+        font-size: 1.05rem;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+    }
+
+    .btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(245, 158, 11, 0.4);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(107, 114, 128, 0.4);
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        color: #3b82f6;
+        border: 2px solid #3b82f6;
+    }
+
+    .btn-outline-primary:hover {
+        background: #3b82f6;
+        color: white;
+    }
+
+    /* ============================================
+       SECTION ACTIONS - RESPONSIVE
+       ============================================ */
+    .actions-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+
+    .d-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .gap-2 {
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       BORDURE DE MODIFICATION
+       ============================================ */
+    .border-warning {
+        border-color: #f59e0b !important;
+        background-color: #fffbeb !important;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+            margin-bottom: 1rem;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            margin-bottom: 0;
+        }
+
+        .card-body {
+            padding: 2rem;
+        }
+
+        .btn {
+            width: auto;
+        }
+
+        .d-md-block {
+            display: flex !important;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction du débordement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+        }
+
+        p.lead {
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Alertes mobile */
+        .alert {
+            padding: 0.875rem;
+            font-size: 0.9rem;
+        }
+
+        .alert small {
+            font-size: 0.8rem;
+        }
+
+        /* Cartes mobile */
+        .card {
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            padding: 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* Grid mobile - 2 colonnes pour les périodes */
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            padding-left: 6px;
+            padding-right: 6px;
+            margin-bottom: 0.75rem;
+        }
+
+        .col-md-6 {
+            flex: 0 0 100%;
+            max-width: 100%;
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        /* Formulaires mobile */
+        label {
+            font-size: 0.85rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .form-control {
+            padding: 0.625rem 0.75rem;
+            font-size: 16px; /* Empêche le zoom iOS */
+        }
+
+        .periode-input {
+            font-size: 1rem;
+            padding: 0.5rem;
+        }
+
+        textarea.form-control {
+            min-height: 80px;
+        }
+
+        /* Totaux mobile */
+        .totals-section {
+            padding: 1rem;
+        }
+
+        .totals-section .col-md-6 {
+            flex: 0 0 100%;
+            max-width: 100%;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .badge {
+            font-size: 0.85rem;
+            padding: 0.3rem 0.6rem;
+        }
+
+        /* Boutons mobile */
+        .btn {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-lg {
+            padding: 0.875rem 1.25rem;
+            font-size: 0.95rem;
+        }
+
+        .d-grid,
+        .actions-section {
+            flex-direction: column;
+        }
+
+        .d-grid .btn,
+        .actions-section .btn {
+            width: 100%;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        p.lead {
+            font-size: 0.85rem;
+        }
+
+        .alert {
+            padding: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .card-header {
+            padding: 0.875rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem;
+        }
+
+        .card-body {
+            padding: 0.875rem;
+        }
+
+        .row {
+            margin-left: -5px;
+            margin-right: -5px;
+            width: calc(100% + 10px);
+        }
+
+        .col-md-3 {
+            padding-left: 5px;
+            padding-right: 5px;
+            margin-bottom: 0.625rem;
+        }
+
+        .col-md-6 {
+            padding-left: 5px;
+            padding-right: 5px;
+        }
+
+        label {
+            font-size: 0.8rem;
+        }
+
+        .periode-input {
+            font-size: 0.95rem;
+            padding: 0.5rem 0.375rem;
+        }
+
+        .totals-section {
+            padding: 0.875rem;
+        }
+
+        .badge {
+            font-size: 0.8rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+            padding: 0.625rem 0.875rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        h2 {
+            font-size: 1.15rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.85rem;
+        }
+
+        /* Passer à 1 colonne pour les périodes */
+        .col-md-3 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        label {
+            font-size: 0.75rem;
+        }
+
+        .periode-input {
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+        }
+
+        .btn {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .totals-section .col-md-6 {
+            text-align: left;
+        }
+
+        .d-grid,
+        .actions-section {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            width: auto;
+            flex: 1;
+            min-width: 150px;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input, button, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .btn:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       ANIMATION
+       ============================================ */
+    .card {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .btn {
+            display: none !important;
+        }
+
+        .card {
+            box-shadow: none;
+            border: 1px solid #dee2e6;
+        }
+
+        .card-header {
+            background: none !important;
+            color: black !important;
+            border-bottom: 2px solid #dee2e6;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     {% if is_modification %}
@@ -46,12 +788,13 @@
                                value="{{ periode.value }}"
                                min="0" max="1000"
                                placeholder="0"
-                               onchange="calculerTotaux()">
+                               onchange="calculerTotaux()"
+                               aria-label="Nombre de véhicules pour {{ periode.display }}">
                     </div>
                     {% endfor %}
                 </div>
                 
-                <div class="alert alert-info mt-3">
+                <div class="alert alert-info totals-section mt-3">
                     <div class="row">
                         <div class="col-md-6">
                             <strong>Total véhicules :</strong> 
@@ -70,10 +813,11 @@
                               name="observations" 
                               class="form-control" 
                               rows="3" 
-                              placeholder="Ajoutez vos observations ici...">{{ inventaire.observations }}</textarea>
+                              placeholder="Ajoutez vos observations ici..."
+                              aria-label="Observations">{{ inventaire.observations }}</textarea>
                 </div>
                 
-                <div class="d-grid gap-2 d-md-block">
+                <div class="d-grid gap-2 d-md-block actions-section">
                     <button type="submit" name="save_inventaire" class="btn {% if is_modification %}btn-warning{% else %}btn-success{% endif %} btn-lg">
                         <i class="fas fa-save me-2"></i>
                         {% if is_modification %}Mettre à jour{% else %}Sauvegarder{% endif %} l'inventaire
@@ -126,8 +870,9 @@ function calculerTotaux() {
 }
 
 // Calculer au chargement
-window.onload = function() {
+document.addEventListener('DOMContentLoaded', function() {
     calculerTotaux();
+    
     {% if is_modification %}
     // Mettre en surbrillance les champs modifiés
     document.querySelectorAll('.periode-input').forEach(input => {
@@ -136,6 +881,39 @@ window.onload = function() {
         });
     });
     {% endif %}
-}
+    
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Ajustement dynamique pour les petits écrans
+    function adjustForSmallScreen() {
+        if (window.innerWidth < 768) {
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+        }
+    }
+    
+    window.addEventListener('load', adjustForSmallScreen);
+    window.addEventListener('resize', adjustForSmallScreen);
+    
+    // Amélioration pour mobile : focus sur le champ lorsqu'on touche la ligne
+    if (window.innerWidth <= 768) {
+        document.querySelectorAll('.col-md-3').forEach(col => {
+            col.addEventListener('click', function(e) {
+                if (!e.target.closest('input')) {
+                    const input = this.querySelector('input');
+                    if (input) {
+                        input.focus();
+                    }
+                }
+            });
+        });
+    }
+});
 </script>
 {% endblock %}

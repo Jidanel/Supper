@@ -6,128 +6,808 @@
 
 {% block extra_css %}
 <style>
-:root {
-    --violet-principal: #1e40af;
-    --violet-fonce: #3b82f6;
-    --gris-clair: #F8FAFC;
-    --gris-moyen: #64748B;
-    --gris-fonce: #334155;
-    --accent-orange: #F59E0B;
-}
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 
-.supper-header {
-    background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
-    color: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-}
+    /* ============================================
+       VARIABLES CSS
+       ============================================ */
+    :root {
+        --violet-principal: #1e40af;
+        --violet-fonce: #3b82f6;
+        --gris-clair: #F8FAFC;
+        --gris-moyen: #64748B;
+        --gris-fonce: #334155;
+        --accent-orange: #F59E0B;
+        --success-color: #10B981;
+        --danger-color: #EF4444;
+    }
 
-.inventaire-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-    border-left: 4px solid var(--violet-principal);
-}
+    /* ============================================
+       HEADER PRINCIPAL - RESPONSIVE
+       ============================================ */
+    .supper-header {
+        background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        width: 100%;
+        overflow: hidden;
+    }
 
-.inventaire-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
-}
+    .supper-header h1 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
 
-.badge-custom {
-    border-radius: 20px;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-}
+    .supper-header p {
+        margin: 0;
+        opacity: 0.85;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
 
-.badge-verrouille {
-    background: linear-gradient(45deg, #F59E0B, #F97316);
-    color: white;
-}
+    /* ============================================
+       CONTENEUR PRINCIPAL - ANTI-DÉBORDEMENT
+       ============================================ */
+    .container {
+        width: 100%;
+        max-width: 1200px;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
 
-.badge-valide {
-    background: linear-gradient(45deg, #10B981, #059669);
-    color: white;
-}
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
 
-.badge-en-cours {
-    background: linear-gradient(45deg, #3B82F6, #2563EB);
-    color: white;
-}
+    /* ============================================
+       GRID BOOTSTRAP - RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
 
-.btn-violet {
-    background: linear-gradient(45deg, var(--violet-principal), var(--violet-fonce));
-    border: none;
-    color: white;
-    border-radius: 8px;
-    padding: 0.75rem 1.5rem;
-    transition: all 0.3s ease;
-}
+    .col-lg-3, .col-md-4, .col-md-6, .col-md-8,
+    .col-12, .col-md-2, .col-md-1 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+    }
 
-.btn-violet:hover {
-    background: linear-gradient(45deg, var(--violet-fonce), #4C1D95);
-    color: white;
-    transform: translateY(-1px);
-}
+    /* ============================================
+       CARDS STATISTIQUES - RESPONSIVE
+       ============================================ */
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
 
-.filter-card {
-    background: var(--gris-clair);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-}
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
 
-.stats-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-}
+    .stats-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--violet-principal);
+        word-break: break-word;
+    }
 
-.stats-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
+    .stats-card .text-muted {
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
 
-.stats-number {
-    font-size: 2rem;
-    font-weight: bold;
-    color: var(--violet-principal);
-}
+    /* ============================================
+       SECTION FILTRES - RESPONSIVE
+       ============================================ */
+    .filter-card {
+        background: var(--gris-clair);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        width: 100%;
+        overflow: hidden;
+    }
 
-.table-custom {
-    background: white;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
+    .filter-card .form-label {
+        font-weight: 500;
+        margin-bottom: 0.375rem;
+        color: var(--gris-fonce);
+        font-size: 0.9rem;
+        display: block;
+    }
 
-.table-custom thead {
-    background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
-    color: white;
-}
+    .filter-card .form-control,
+    .filter-card .form-select {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.95rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #fff;
+        transition: all 0.3s ease;
+    }
 
-.pagination-custom .page-link {
-    color: var(--violet-principal);
-    border: 1px solid #E5E7EB;
-    margin: 0 2px;
-    border-radius: 6px;
-}
+    .filter-card .form-control:focus,
+    .filter-card .form-select:focus {
+        outline: none;
+        border-color: var(--violet-principal);
+        box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+    }
 
-.pagination-custom .page-link:hover {
-    background: var(--violet-principal);
-    color: white;
-}
+    /* ============================================
+       BOUTONS - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        min-height: 44px;
+        white-space: nowrap;
+    }
 
-.pagination-custom .page-item.active .page-link {
-    background: var(--violet-principal);
-    border-color: var(--violet-principal);
-}
-</style> 
+    .btn-violet {
+        background: linear-gradient(45deg, var(--violet-principal), var(--violet-fonce));
+        border: none;
+        color: white;
+    }
+
+    .btn-violet:hover {
+        background: linear-gradient(45deg, var(--violet-fonce), #4C1D95);
+        color: white;
+        transform: translateY(-1px);
+    }
+
+    .btn-light {
+        background: white;
+        color: var(--violet-principal);
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-light:hover {
+        background: #f8fafc;
+    }
+
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    /* ============================================
+       CONTENEUR TABLEAU - RESPONSIVE AVEC SCROLL
+       ============================================ */
+    .table-custom {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    .table-scroll-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+
+    /* Scrollbar personnalisée */
+    .table-scroll-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-scroll-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-scroll-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-scroll-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    .table-custom table {
+        width: 100%;
+        margin-bottom: 0;
+        min-width: 800px;
+        border-collapse: collapse;
+    }
+
+    .table-custom thead {
+        background: linear-gradient(135deg, var(--violet-principal), var(--violet-fonce));
+        color: white;
+    }
+
+    .table-custom th {
+        border: none;
+        padding: 1rem;
+        font-weight: 600;
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+
+    .table-custom td {
+        padding: 0.75rem 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+    }
+
+    .table-custom tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    /* ============================================
+       BADGES - RESPONSIVE
+       ============================================ */
+    .badge-custom {
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        font-size: 0.85rem;
+        display: inline-block;
+    }
+
+    .badge-verrouille {
+        background: linear-gradient(45deg, #F59E0B, #F97316);
+        color: white;
+    }
+
+    .badge-valide {
+        background: linear-gradient(45deg, #10B981, #059669);
+        color: white;
+    }
+
+    .badge-en-cours {
+        background: linear-gradient(45deg, #3B82F6, #2563EB);
+        color: white;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+
+    /* ============================================
+       GROUPE BOUTONS ACTIONS
+       ============================================ */
+    .btn-group {
+        display: inline-flex;
+        flex-wrap: nowrap;
+        gap: 0.25rem;
+    }
+
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        min-height: 32px;
+        min-width: 32px;
+    }
+
+    /* ============================================
+       PAGINATION - RESPONSIVE
+       ============================================ */
+    .pagination-custom {
+        margin-top: 1.5rem;
+        margin-bottom: 0;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.25rem;
+        display: flex;
+        list-style: none;
+        padding: 0;
+    }
+
+    .pagination-custom .page-link {
+        color: var(--violet-principal);
+        border: 1px solid #E5E7EB;
+        margin: 0 2px;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pagination-custom .page-link:hover {
+        background: var(--violet-principal);
+        color: white;
+    }
+
+    .pagination-custom .page-item.active .page-link {
+        background: var(--violet-principal);
+        border-color: var(--violet-principal);
+        color: white;
+    }
+
+    /* ============================================
+       MESSAGE VIDE
+       ============================================ */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        color: #d1d5db;
+        margin-bottom: 1rem;
+        display: block;
+    }
+
+    .empty-state p {
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .me-3 { margin-right: 1rem !important; }
+    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+    .text-center { text-align: center !important; }
+    .text-end { text-align: right !important; }
+    .text-muted { color: #6b7280 !important; }
+    .text-success { color: var(--success-color) !important; }
+    .text-info { color: #3B82F6 !important; }
+    .fw-bold { font-weight: 700 !important; }
+    .g-3 { gap: 1rem; }
+    .w-100 { width: 100% !important; }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 992px)
+       ============================================ */
+    @media (min-width: 992px) {
+        .col-lg-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTE (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-2 {
+            flex: 0 0 16.666667%;
+            max-width: 16.666667%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+
+        .col-md-1 {
+            flex: 0 0 8.333333%;
+            max-width: 8.333333%;
+        }
+
+        .text-end {
+            text-align: right !important;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction du débordement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0 !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Header */
+        .supper-header {
+            padding: 1.25rem 0;
+            margin-bottom: 1.25rem;
+        }
+
+        .supper-header h1 {
+            font-size: 1.35rem;
+        }
+
+        .supper-header p {
+            font-size: 0.85rem;
+        }
+
+        .supper-header .container {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .supper-header .row {
+            flex-direction: column;
+        }
+
+        .supper-header .col-md-4 {
+            margin-top: 1rem;
+            text-align: center !important;
+        }
+
+        .supper-header .btn-lg {
+            width: 100%;
+            max-width: 280px;
+        }
+
+        /* Container */
+        .container,
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+
+        /* Row */
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-lg-3, .col-md-4, .col-md-6, .col-md-8,
+        .col-12, .col-md-2, .col-md-1 {
+            padding-left: 6px;
+            padding-right: 6px;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Stats cards */
+        .stats-card {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .stats-number {
+            font-size: 1.5rem;
+        }
+
+        .stats-card .text-muted {
+            font-size: 0.8rem;
+        }
+
+        /* Filtres */
+        .filter-card {
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .filter-card .form-label {
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .filter-card .form-control,
+        .filter-card .form-select {
+            font-size: 16px; /* Empêche zoom iOS */
+            padding: 0.5rem 0.75rem;
+        }
+
+        .filter-card .row > div {
+            margin-bottom: 0.75rem;
+        }
+
+        .filter-card .btn {
+            width: 100%;
+        }
+
+        /* Tableau */
+        .table-custom {
+            border-radius: 8px;
+        }
+
+        .table-custom table {
+            min-width: 700px;
+        }
+
+        .table-custom th {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .table-custom td {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        /* Indicateur scroll tableau */
+        .table-scroll-container::after {
+            content: '← Faites défiler →';
+            display: block;
+            text-align: center;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            font-size: 0.75rem;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* Badges */
+        .badge-custom {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.75rem;
+        }
+
+        .badge {
+            font-size: 0.65rem;
+            padding: 0.15rem 0.35rem;
+        }
+
+        /* Boutons actions */
+        .btn-group .btn {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.75rem;
+            min-width: 28px;
+            min-height: 28px;
+        }
+
+        /* Pagination */
+        .pagination-custom {
+            margin-top: 1rem;
+        }
+
+        .pagination-custom .page-link {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        /* Message vide */
+        .empty-state {
+            padding: 2rem 1rem;
+        }
+
+        .empty-state i {
+            font-size: 2rem;
+        }
+
+        .empty-state p {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .supper-header {
+            padding: 1rem 0;
+        }
+
+        .supper-header h1 {
+            font-size: 1.2rem;
+        }
+
+        .supper-header p {
+            font-size: 0.8rem;
+        }
+
+        .container,
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .stats-card {
+            padding: 0.875rem;
+        }
+
+        .stats-number {
+            font-size: 1.35rem;
+        }
+
+        .filter-card {
+            padding: 0.875rem;
+        }
+
+        .table-custom table {
+            min-width: 600px;
+        }
+
+        .table-custom th {
+            padding: 0.625rem 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        .table-custom td {
+            padding: 0.5rem 0.4rem;
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .supper-header h1 {
+            font-size: 1.1rem;
+        }
+
+        .stats-number {
+            font-size: 1.2rem;
+        }
+
+        .table-custom table {
+            min-width: 550px;
+        }
+
+        .table-custom th,
+        .table-custom td {
+            font-size: 0.7rem;
+            padding: 0.4rem 0.3rem;
+        }
+
+        .btn-group .btn {
+            padding: 0.15rem 0.3rem;
+            min-width: 24px;
+            min-height: 24px;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-lg-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .supper-header .row {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .supper-header .col-md-4 {
+            margin-top: 0;
+            text-align: right !important;
+        }
+
+        .table-custom table {
+            min-width: 700px;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input, button, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .form-control:focus,
+    .btn:focus,
+    .page-link:focus {
+        outline: 2px solid var(--violet-principal);
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .supper-header,
+        .filter-card,
+        .btn-group,
+        .pagination-custom {
+            display: none !important;
+        }
+
+        .table-custom {
+            box-shadow: none;
+            border: 1px solid #dee2e6;
+        }
+
+        .table-custom thead {
+            background: none !important;
+            color: black !important;
+        }
+
+        .table-scroll-container::after {
+            display: none !important;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -181,45 +861,45 @@
         <div class="col-12">
             <div class="filter-card">
                 <form method="get" class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-3 col-12">
                         <label class="form-label">{% trans "Recherche" %}</label>
-                        <input type="text" class="form-control" name="search" 
-                               value="{{ current_filters.search }}" 
+                        <input type="text" class="form-control" name="search"
+                               value="{{ current_filters.search }}"
                                placeholder="{% trans 'Nom du poste, agent...' %}">
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 col-12">
                         <label class="form-label">{% trans "Poste" %}</label>
                         <select class="form-select" name="poste">
                             <option value="">{% trans "Tous les postes" %}</option>
                             {% for poste in postes %}
-                            <option value="{{ poste.id }}" 
+                            <option value="{{ poste.id }}"
                                     {% if current_filters.poste == poste.id|stringformat:"s" %}selected{% endif %}>
                                 {{ poste.nom }}
                             </option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 col-12">
                         <label class="form-label">{% trans "Date début" %}</label>
-                        <input type="date" class="form-control" name="date_debut" 
+                        <input type="date" class="form-control" name="date_debut"
                                value="{{ current_filters.date_debut }}">
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 col-12">
                         <label class="form-label">{% trans "Date fin" %}</label>
-                        <input type="date" class="form-control" name="date_fin" 
+                        <input type="date" class="form-control" name="date_fin"
                                value="{{ current_filters.date_fin }}">
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 col-12">
                         <label class="form-label">{% trans "Statut" %}</label>
                         <select class="form-select" name="statut">
                             <option value="">{% trans "Tous" %}</option>
-                            <option value="en_cours" 
+                            <option value="en_cours"
                                     {% if current_filters.statut == "en_cours" %}selected{% endif %}>
                                 {% trans "En cours" %}
                             </option>
                         </select>
                     </div>
-                    <div class="col-md-1">
+                    <div class="col-md-1 col-12">
                         <label class="form-label">&nbsp;</label>
                         <button type="submit" class="btn btn-violet w-100">
                             <i class="fas fa-search"></i>
@@ -234,88 +914,85 @@
     <div class="row">
         <div class="col-12">
             <div class="table-custom">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>{% trans "Date" %}</th>
-                            <th>{% trans "Poste" %}</th>
-                            <th>{% trans "Agent Saisie" %}</th>
-                            <th>{% trans "Total Véhicules" %}</th>
-                            <th>{% trans "Périodes" %}</th>
-                            <th>{% trans "Actions" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for inventaire in inventaires %}
-                        <tr>
-                            <td>
-                                <strong>{{ inventaire.date|date:"d/m/Y" }}</strong>
-                                <br><small class="text-muted">{{ inventaire.date_creation|date:"H:i" }}</small>
-                            </td>
-                            <td>
-                                <div>
-                                    <strong>{{ inventaire.poste.nom }}</strong>
-                                    <br><small class="text-muted">{{ inventaire.poste.code }}</small>
-                                </div>
-                            </td>
-                            <td>
-                                {% if inventaire.agent_saisie %}
-                                    {{ inventaire.agent_saisie.nom_complet }}
-                                    <br><small class="text-muted">{{ inventaire.agent_saisie.username }}</small>
-                                {% else %}
-                                    <span class="text-muted">{% trans "Non défini" %}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-primary fs-6">{{ inventaire.total_vehicules }}</span>
-                            </td>
-                            <td>
-                                <span class="badge bg-info">{{ inventaire.nombre_periodes_saisies }}/10</span>
-                            </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" 
-                                       class="btn btn-outline-primary btn-sm" title="{% trans 'Voir détails' %}">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    {% if can_edit %}
-                                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}" 
-                                       class="btn btn-outline-success btn-sm" title="{% trans 'Modifier' %}">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
+                <div class="table-scroll-container">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Poste" %}</th>
+                                <th>{% trans "Agent Saisie" %}</th>
+                                <th>{% trans "Total Véhicules" %}</th>
+                                <th>{% trans "Périodes" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inventaire in inventaires %}
+                            <tr>
+                                <td>
+                                    <strong>{{ inventaire.date|date:"d/m/Y" }}</strong>
+                                    <br><small class="text-muted">{{ inventaire.date_creation|date:"H:i" }}</small>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ inventaire.poste.nom }}</strong>
+                                        <br><small class="text-muted">{{ inventaire.poste.code }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if inventaire.agent_saisie %}
+                                        {{ inventaire.agent_saisie.nom_complet }}
+                                        <br><small class="text-muted">{{ inventaire.agent_saisie.username }}</small>
+                                    {% else %}
+                                        <span class="text-muted">{% trans "Non défini" %}</span>
                                     {% endif %}
-                                    {% if can_admin %}
-                                    <a href="/django-admin/inventaire/inventairejournalier/{{ inventaire.id }}/change/" 
-                                       class="btn btn-outline-warning btn-sm" title="{% trans 'Admin' %}">
-                                        <i class="fas fa-cogs"></i>
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center py-4">
-                                <div class="text-muted">
-                                    <i class="fas fa-inbox fa-3x mb-3"></i>
-                                    <p>{% trans "Aucun inventaire trouvé avec ces critères." %}</p>
-                                    {% if can_edit %}
-                                    <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-violet">
-                                        <i class="fas fa-plus me-2"></i>{% trans "Créer un inventaire" %}
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary fs-6">{{ inventaire.total_vehicules }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ inventaire.nombre_periodes_saisies }}/10</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}"
+                                           class="btn btn-outline-primary btn-sm" title="{% trans 'Voir détails' %}">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if can_edit %}
+                                        <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ inventaire.poste.id }}&date={{ inventaire.date|date:'Y-m-d' }}"
+                                           class="btn btn-outline-success btn-sm" title="{% trans 'Modifier' %}">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% endif %}
+    
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>{% trans "Aucun inventaire trouvé avec ces critères." %}</p>
+                                        {% if can_edit %}
+                                        <a href="{% url 'inventaire:saisie_inventaire' %}" class="btn btn-violet">
+                                            <i class="fas fa-plus me-2"></i>{% trans "Créer un inventaire" %}
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Pagination -->
             {% if is_paginated %}
             <nav aria-label="{% trans 'Navigation pagination' %}" class="mt-4">
-                <ul class="pagination pagination-custom justify-content-center">
+                <ul class="pagination-custom justify-content-center">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
                         <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
@@ -350,11 +1027,27 @@
     </div>
 </div>
 
-{% endblock %}
-
-{% block extra_js %}
 <script>
-// Actions rapides admin
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+
+    // Ajustement dynamique pour les petits écrans
+    function adjustForSmallScreen() {
+        if (window.innerWidth < 768) {
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+        }
+    }
+
+    window.addEventListener('load', adjustForSmallScreen);
+    window.addEventListener('resize', adjustForSmallScreen);
+});
 
 // Auto-refresh des stats toutes les 30 secondes
 setInterval(() => {

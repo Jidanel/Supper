@@ -503,12 +503,12 @@ class UserCreateForm(forms.ModelForm):
     """
     password = forms.CharField(
         label=_("Mot de passe"),
-        initial='supper2025',
+        initial='0000',
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'value': 'supper2025'
+            'value': '0000'
         }),
-        help_text=_("Mot de passe par défaut: supper2025")
+        help_text=_("Mot de passe par défaut: 0000")
     )
     
     class Meta:

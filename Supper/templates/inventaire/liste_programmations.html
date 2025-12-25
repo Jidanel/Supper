@@ -7,177 +7,996 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - RESPONSIVE
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-md-4, .col-md-8 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE - RESPONSIVE
+       ============================================ */
+    .page-header {
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0 0 0.5rem 0;
+        line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .page-header h2 i {
+        color: #6B46C1;
+        flex-shrink: 0;
+    }
+
+    .page-header .text-muted {
+        color: #6b7280 !important;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       STATISTIQUES RÉSUMÉES - GRID RESPONSIVE
+       ============================================ */
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+        width: 100%;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #6B46C1;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+
+    .stat-label {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       BARRE DE FILTRES - RESPONSIVE
+       ============================================ */
+    .filter-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .filter-bar .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin: 0;
+        width: 100%;
+    }
+
+    .filter-bar .col-md-3 {
+        flex: 1;
+        min-width: 200px;
+        padding: 0;
+    }
+
+    .filter-bar .form-label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #475569;
+        margin-bottom: 0.5rem;
+    }
+
+    .filter-bar .form-select,
+    .filter-bar .form-control {
+        width: 100%;
+        padding: 0.625rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background-color: #fff;
+    }
+
+    .filter-bar .form-select:focus,
+    .filter-bar .form-control:focus {
+        border-color: #6B46C1;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+    }
+
+    /* ============================================
+       CARTES DE PROGRAMMATION - RESPONSIVE
+       ============================================ */
     .programmation-card {
         background: white;
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         transition: all 0.3s ease;
         border-left: 4px solid #6B46C1;
+        width: 100%;
+        overflow: hidden;
     }
-    
+
     .programmation-card:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
         transform: translateY(-2px);
     }
-    
-    .motif-pills {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
-    
-    .motif-pill {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.5rem 1rem;
-        border-radius: 25px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        position: relative;
-    }
-    
-    .motif-pill-taux {
-        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        color: #dc2626;
-        border: 1px solid #fca5a5;
-    }
-    
-    .motif-pill-baisse {
-        background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
-        color: #d97706;
-        border: 1px solid #fbbf24;
-    }
-    
-    .motif-pill-stock {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        color: #2563eb;
-        border: 1px solid #93c5fd;
-    }
-    
-    .motif-detail {
-        font-size: 0.85rem;
-        margin-left: 0.5rem;
-        background: white;
-        padding: 0.2rem 0.5rem;
-        border-radius: 12px;
-    }
-    
+
+    /* ============================================
+       EN-TÊTE DE POSTE - RESPONSIVE
+       ============================================ */
     .poste-header {
         display: flex;
         justify-content: space-between;
-        align-items: start;
+        align-items: flex-start;
         margin-bottom: 1rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+        width: 100%;
     }
-    
+
+    .poste-info {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+
     .poste-info h5 {
         color: #1f2937;
         margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
-    
+
+    .poste-info h5 i {
+        color: #6B46C1;
+        flex-shrink: 0;
+    }
+
     .poste-meta {
         color: #6b7280;
-        font-size: 0.9rem;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    
+
+    .poste-meta span {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .poste-meta i {
+        margin-right: 0.25rem;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       BADGE DU MOIS - RESPONSIVE
+       ============================================ */
     .month-badge {
         background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
         color: white;
         padding: 0.5rem 1rem;
         border-radius: 8px;
         font-weight: 600;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
     }
-    
+
+    .month-badge i {
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       PILLS DE MOTIFS - RESPONSIVE
+       ============================================ */
+    .motif-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        width: 100%;
+    }
+
+    .motif-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        position: relative;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        max-width: 100%;
+    }
+
+    .motif-pill i {
+        flex-shrink: 0;
+    }
+
+    .motif-pill-taux {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626;
+        border: 1px solid #fca5a5;
+    }
+
+    .motif-pill-baisse {
+        background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+        color: #d97706;
+        border: 1px solid #fbbf24;
+    }
+
+    .motif-pill-stock {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: #2563eb;
+        border: 1px solid #93c5fd;
+    }
+
+    .motif-detail {
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
+        background: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION - RESPONSIVE
+       ============================================ */
     .action-buttons {
         display: flex;
+        flex-wrap: wrap;
         gap: 0.5rem;
+        width: 100%;
     }
-    
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.5;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 38px;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8rem;
+        min-height: 32px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #553C9A 0%, #44337A 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(107, 70, 193, 0.3);
+    }
+
     .btn-action {
-        padding: 0.25rem 0.75rem;
+        padding: 0.375rem 0.75rem;
         border-radius: 6px;
         font-size: 0.85rem;
         border: 1px solid transparent;
         transition: all 0.2s ease;
     }
-    
+
     .btn-view {
         background: #f3f4f6;
         color: #4b5563;
     }
-    
+
     .btn-view:hover {
         background: #e5e7eb;
     }
-    
+
     .btn-disable {
         background: #fef3c7;
         color: #92400e;
     }
-    
+
     .btn-disable:hover {
         background: #fed7aa;
     }
-    
+
     .btn-delete {
         background: #fee2e2;
         color: #991b1b;
     }
-    
+
     .btn-delete:hover {
         background: #fecaca;
     }
-    
+
+    /* ============================================
+       ÉTAT VIDE - RESPONSIVE
+       ============================================ */
     .empty-state {
         text-align: center;
         padding: 4rem 2rem;
         background: white;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        width: 100%;
+        overflow: hidden;
     }
-    
+
     .empty-state-icon {
         font-size: 4rem;
         color: #9ca3af;
         margin-bottom: 1rem;
     }
-    
-    .filter-bar {
-        background: white;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+
+    .empty-state h4 {
+        color: #1f2937;
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    
-    .stats-summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .stat-card {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .stat-value {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #6B46C1;
-    }
-    
-    .stat-label {
+
+    .empty-state p {
         color: #6b7280;
-        font-size: 0.9rem;
-        margin-top: 0.5rem;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
     }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .me-3 { margin-right: 1rem !important; }
+    .pt-3 { padding-top: 1rem !important; }
+    .text-end { text-align: right !important; }
+    .text-muted { color: #6b7280 !important; }
+    .border-top { border-top: 1px solid #e5e7eb !important; }
+
+    /* ============================================
+       VERSION PC (≥ 768px) - INCHANGÉE
+       ============================================ */
+    @media (min-width: 768px) {
+        .container-fluid {
+            padding: 1.5rem;
+        }
+
+        .col-md-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .page-header h2 {
+            font-size: 1.75rem;
+        }
+
+        .stats-summary {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .filter-bar .col-md-3 {
+            flex: 0 0 calc(25% - 0.75rem);
+            min-width: auto;
+        }
+
+        .poste-header {
+            flex-wrap: nowrap;
+        }
+
+        .poste-meta span {
+            display: inline;
+        }
+    }
+
+    /* ============================================
+       GRANDS ÉCRANS (≥ 1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .programmation-card {
+            padding: 1.75rem;
+        }
+
+        .stat-card {
+            padding: 1.75rem;
+        }
+
+        .stat-value {
+            font-size: 2.25rem;
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : DÉBORDEMENT */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        /* CONTENEUR PRINCIPAL */
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .row {
+            margin-left: -8px !important;
+            margin-right: -8px !important;
+            width: calc(100% + 16px) !important;
+        }
+
+        .col-md-4, .col-md-8 {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            margin-bottom: 1rem !important;
+        }
+
+        /* EN-TÊTE */
+        .page-header h2 {
+            font-size: 1.25rem !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+        }
+
+        .page-header .text-muted {
+            font-size: 0.85rem !important;
+        }
+
+        .text-end {
+            text-align: left !important;
+            margin-top: 1rem !important;
+        }
+
+        /* STATISTIQUES */
+        .stats-summary {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.75rem !important;
+        }
+
+        .stat-card {
+            padding: 1rem !important;
+            border-radius: 10px !important;
+        }
+
+        .stat-value {
+            font-size: 1.5rem !important;
+        }
+
+        .stat-label {
+            font-size: 0.8rem !important;
+        }
+
+        /* BARRE DE FILTRES */
+        .filter-bar {
+            padding: 1rem !important;
+            border-radius: 10px !important;
+            margin-bottom: 1.5rem !important;
+        }
+
+        .filter-bar .row {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+
+        .filter-bar .col-md-3 {
+            width: 100% !important;
+            min-width: 100% !important;
+        }
+
+        .filter-bar .form-label {
+            font-size: 0.8rem !important;
+        }
+
+        .filter-bar .form-select,
+        .filter-bar .form-control {
+            padding: 0.5rem 0.875rem !important;
+            font-size: 16px !important; /* Évite le zoom iOS */
+        }
+
+        /* CARTES DE PROGRAMMATION */
+        .programmation-card {
+            padding: 1rem !important;
+            margin-bottom: 1rem !important;
+            border-radius: 10px !important;
+        }
+
+        .poste-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.75rem !important;
+        }
+
+        .poste-info h5 {
+            font-size: 1rem !important;
+        }
+
+        .poste-meta {
+            font-size: 0.8rem !important;
+        }
+
+        .poste-meta span {
+            display: block !important;
+            margin-right: 0 !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .month-badge {
+            padding: 0.4rem 0.875rem !important;
+            font-size: 0.8rem !important;
+            align-self: flex-start !important;
+        }
+
+        /* PILLS DE MOTIFS */
+        .motif-pills {
+            gap: 0.375rem !important;
+        }
+
+        .motif-pill {
+            padding: 0.375rem 0.75rem !important;
+            font-size: 0.75rem !important;
+            border-radius: 20px !important;
+        }
+
+        .motif-detail {
+            font-size: 0.7rem !important;
+            padding: 0.15rem 0.375rem !important;
+            margin-left: 0.25rem !important;
+        }
+
+        /* BOUTONS D'ACTION */
+        .action-buttons {
+            flex-direction: column !important;
+            gap: 0.375rem !important;
+        }
+
+        .btn {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.85rem !important;
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.625rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .btn-action {
+            font-size: 0.8rem !important;
+        }
+
+        /* ÉTAT VIDE */
+        .empty-state {
+            padding: 2.5rem 1.5rem !important;
+            border-radius: 10px !important;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem !important;
+        }
+
+        .empty-state h4 {
+            font-size: 1.1rem !important;
+        }
+
+        .empty-state p {
+            font-size: 0.85rem !important;
+        }
+
+        /* BORDURES */
+        .border-top {
+            margin-top: 0.75rem !important;
+            padding-top: 0.75rem !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .page-header h2 {
+            font-size: 1.15rem !important;
+        }
+
+        .stats-summary {
+            grid-template-columns: 1fr !important;
+            gap: 0.625rem !important;
+        }
+
+        .stat-card {
+            padding: 0.875rem !important;
+        }
+
+        .stat-value {
+            font-size: 1.35rem !important;
+        }
+
+        .filter-bar {
+            padding: 0.875rem !important;
+        }
+
+        .programmation-card {
+            padding: 0.875rem !important;
+        }
+
+        .poste-info h5 {
+            font-size: 0.95rem !important;
+        }
+
+        .month-badge {
+            font-size: 0.75rem !important;
+            padding: 0.35rem 0.75rem !important;
+        }
+
+        .motif-pill {
+            padding: 0.3rem 0.625rem !important;
+            font-size: 0.7rem !important;
+        }
+
+        .motif-detail {
+            font-size: 0.65rem !important;
+        }
+
+        .btn {
+            font-size: 0.8rem !important;
+            padding: 0.4rem 0.625rem !important;
+        }
+
+        .empty-state {
+            padding: 2rem 1rem !important;
+        }
+
+        .empty-state-icon {
+            font-size: 2.5rem !important;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        .page-header h2 {
+            font-size: 1.1rem !important;
+        }
+
+        .stat-value {
+            font-size: 1.25rem !important;
+        }
+
+        .stat-label {
+            font-size: 0.75rem !important;
+        }
+
+        .poste-info h5 {
+            font-size: 0.9rem !important;
+        }
+
+        .poste-meta {
+            font-size: 0.75rem !important;
+        }
+
+        .motif-pill {
+            font-size: 0.65rem !important;
+            padding: 0.25rem 0.5rem !important;
+        }
+
+        .btn {
+            font-size: 0.75rem !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .stats-summary {
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 0.5rem !important;
+        }
+
+        .stat-card {
+            padding: 0.75rem !important;
+        }
+
+        .stat-value {
+            font-size: 1.25rem !important;
+        }
+
+        .filter-bar .row {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+
+        .filter-bar .col-md-3 {
+            flex: 0 0 calc(50% - 0.5rem) !important;
+            min-width: calc(50% - 0.5rem) !important;
+        }
+
+        .poste-header {
+            flex-direction: row !important;
+            align-items: flex-start !important;
+        }
+
+        .poste-meta span {
+            display: inline !important;
+            margin-right: 1rem !important;
+        }
+
+        .action-buttons {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+
+        .btn {
+            width: auto !important;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        button,
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    .btn:focus-visible,
+    .form-select:focus,
+    .form-control:focus {
+        outline: 2px solid #6B46C1;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       GESTION DE L'IMPRESSION
+       ============================================ */
+    @media print {
+        .filter-bar,
+        .action-buttons,
+        .btn,
+        .text-end {
+            display: none !important;
+        }
+
+        .container-fluid {
+            padding: 0 !important;
+        }
+
+        .programmation-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
+        }
+
+        .stat-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .stats-summary {
+            grid-template-columns: repeat(4, 1fr) !important;
+        }
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE GLOBALE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    .programmation-card,
+    .stat-card,
+    .filter-bar,
+    .empty-state {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Animation décalée pour les cartes */
+    .programmation-card:nth-child(1) { animation-delay: 0.05s; }
+    .programmation-card:nth-child(2) { animation-delay: 0.1s; }
+    .programmation-card:nth-child(3) { animation-delay: 0.15s; }
+    .programmation-card:nth-child(4) { animation-delay: 0.2s; }
+    .programmation-card:nth-child(5) { animation-delay: 0.25s; }
 </style>
 {% endblock %}
 
@@ -186,13 +1005,15 @@
     <!-- En-tête -->
     <div class="row mb-4">
         <div class="col-md-8">
-            <h2 class="mb-0">
-                <i class="fas fa-calendar-check me-2" style="color: #6B46C1;"></i>
-                {% trans "Programmations d'Inventaires" %}
-            </h2>
-            <p class="text-muted mt-2">
-                {% trans "Vue consolidée des inventaires programmés par poste et par mois" %}
-            </p>
+            <div class="page-header">
+                <h2 class="mb-0">
+                    <i class="fas fa-calendar-check me-2"></i>
+                    {% trans "Programmations d'Inventaires" %}
+                </h2>
+                <p class="text-muted mt-2">
+                    {% trans "Vue consolidée des inventaires programmés par poste et par mois" %}
+                </p>
+            </div>
         </div>
         <div class="col-md-4 text-end">
             {% if user.is_admin %}
@@ -274,14 +1095,14 @@
             <div class="poste-header">
                 <div class="poste-info">
                     <h5>
-                        <i class="fas fa-map-marker-alt me-2" style="color: #6B46C1;"></i>
+                        <i class="fas fa-map-marker-alt me-2"></i>
                         {{ prog.poste.nom }}
                     </h5>
                     <div class="poste-meta">
-                        <span class="me-3">
+                        <span>
                             <i class="fas fa-barcode me-1"></i>Code: {{ prog.poste.code }}
                         </span>
-                        <span class="me-3">
+                        <span>
                             <i class="fas fa-map me-1"></i>{{ prog.poste.get_region_display }}
                         </span>
                         <span>
@@ -337,7 +1158,7 @@
                 <div class="action-buttons">
                    <a href="{% url 'inventaire:detail_programmation' prog.poste.id prog.mois|date:'Y-m' %}" 
                     class="btn btn-sm btn-primary">
-                        <i class="fas fa-eye"></i> {% trans "Détails" %}
+                        <i class="fas fa-eye me-1"></i> {% trans "Détails" %}
                     </a>
                         
                     {% for motif in prog.motifs %}
@@ -374,12 +1195,19 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// Calcul des statistiques
 document.addEventListener('DOMContentLoaded', function() {
+    // Calcul des statistiques
     calculateStats();
     setupFilters();
+    adjustForMobile();
+    
+    // Gestion du redimensionnement
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
 });
 
 function calculateStats() {
@@ -440,20 +1268,37 @@ function setupFilters() {
         });
     };
     
-    filterMois.addEventListener('change', applyFilters);
-    filterRegion.addEventListener('change', applyFilters);
-    filterMotif.addEventListener('change', applyFilters);
-    searchPoste.addEventListener('input', applyFilters);
+    if (filterMois) filterMois.addEventListener('change', applyFilters);
+    if (filterRegion) filterRegion.addEventListener('change', applyFilters);
+    if (filterMotif) filterMotif.addEventListener('change', applyFilters);
+    if (searchPoste) searchPoste.addEventListener('input', applyFilters);
+}
+
+function adjustForMobile() {
+    if (window.innerWidth < 768) {
+        document.body.style.overflowX = 'hidden';
+        document.body.style.maxWidth = '100vw';
+        document.body.style.width = '100%';
+        
+        const contentWrapper = document.querySelector('.content-wrapper');
+        if (contentWrapper) {
+            contentWrapper.style.minWidth = '100%';
+            contentWrapper.style.maxWidth = '100vw';
+            contentWrapper.style.overflowX = 'hidden';
+        }
+    } else {
+        document.body.style.overflowX = '';
+        document.body.style.maxWidth = '';
+        document.body.style.width = '';
+    }
 }
 
 function voirDetails(posteId, mois) {
-    // Redirection vers une page de détails ou ouverture d'un modal
     window.location.href = `/inventaire/programmation/${posteId}/${mois}/`;
 }
 
 function desactiverMotif(posteId, mois, motif) {
     if (confirm('{% trans "Êtes-vous sûr de vouloir désactiver ce motif ?" %}')) {
-        // Construction manuelle de l'URL pour éviter l'erreur NoReverseMatch
         const url = `/inventaire/programmation/${posteId}/${mois}/${motif}/desactiver/`;
         
         fetch(url, {
@@ -477,5 +1322,9 @@ function desactiverMotif(posteId, mois, motif) {
         });
     }
 }
+
+// Gestion des événements tactiles
+document.addEventListener('touchstart', function() {}, { passive: true });
+document.addEventListener('touchmove', function() {}, { passive: true });
 </script>
 {% endblock %}

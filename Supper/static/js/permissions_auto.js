@@ -334,7 +334,7 @@ const PERMISSIONS_PAR_HABILITATION = {
         'peut_saisir_quittance_pesage', 'peut_voir_liste_quittancements_pesage',
         'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
         // Rapports
-        'peut_voir_classement_station_pesage'
+        'peut_voir_classement_station_pesage','peut_voir_pv_confrontation', 'peut_authentifier_document'
     ],
 
     /**

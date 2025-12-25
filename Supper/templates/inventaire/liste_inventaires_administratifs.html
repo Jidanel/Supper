@@ -7,6 +7,15 @@
 {% block extra_css %}
 <style>
     /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
        VARIABLES ET BASE
        ============================================ */
     :root {
@@ -20,13 +29,92 @@
         --secondary-color: #6b7280;
     }
 
-    /* Reset pour éviter le défilement horizontal */
-    * {
-        box-sizing: border-box;
+    /* ============================================
+       CONTENEUR PRINCIPAL - ANTI-DÉBORDEMENT
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
     }
 
-    body {
-        overflow-x: hidden;
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       EN-TÊTE PAGE - RESPONSIVE
+       ============================================ */
+    .page-header {
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .page-header h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+        color: #1e293b;
+    }
+
+    .page-header .text-muted {
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       BOUTONS HEADER - RESPONSIVE
+       ============================================ */
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .header-actions .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        min-height: 44px;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #553C9A 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(107, 70, 193, 0.4);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: linear-gradient(135deg, var(--secondary-color) 0%, #4b5563 100%);
+        color: white;
     }
 
     /* ============================================
@@ -37,37 +125,76 @@
         border-radius: var(--card-radius);
         padding: 1.5rem;
         box-shadow: var(--card-shadow);
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
         width: 100%;
+        text-align: center;
+        transition: all 0.3s ease;
     }
-    
+
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+    }
+
     .stats-card h5 {
         color: var(--primary-color);
         font-weight: 600;
         margin-bottom: 0.5rem;
         font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    
+
     .stats-value {
         font-size: 2rem;
         font-weight: bold;
         color: #1f2937;
     }
-    
+
     /* ============================================
        SECTION FILTRES - RESPONSIVE
        ============================================ */
     .filter-section {
         background: #f8f9fa;
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 1.5rem;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         width: 100%;
         overflow: hidden;
     }
-    
+
+    .filter-section .form-label {
+        font-weight: 500;
+        margin-bottom: 0.375rem;
+        color: #374151;
+        font-size: 0.9rem;
+        display: block;
+    }
+
+    .filter-section .form-select,
+    .filter-section .form-control {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.95rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #fff;
+        transition: all 0.3s ease;
+    }
+
+    .filter-section .form-select:focus,
+    .filter-section .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+    }
+
+    .filter-section .btn {
+        min-height: 44px;
+    }
+
     /* ============================================
-       BADGES TAUX
+       BADGES TAUX - RESPONSIVE
        ============================================ */
     .taux-badge {
         padding: 0.25rem 0.75rem;
@@ -77,24 +204,37 @@
         white-space: nowrap;
         display: inline-block;
     }
-    
-    .taux-danger { 
-        background: #fee2e2; 
-        color: var(--danger-color); 
+
+    .taux-danger {
+        background: #fee2e2;
+        color: var(--danger-color);
     }
-    
-    .taux-success { 
-        background: #d1fae5; 
-        color: #065f46; 
+
+    .taux-success {
+        background: #d1fae5;
+        color: #065f46;
     }
-    
-    .taux-secondary { 
-        background: #e5e7eb; 
-        color: var(--secondary-color); 
+
+    .taux-secondary {
+        background: #e5e7eb;
+        color: var(--secondary-color);
     }
-    
+
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+
+    .bg-purple {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #553C9A 100%);
+        color: white;
+    }
+
     /* ============================================
-       CONTENEUR TABLEAU - RESPONSIVE
+       CONTENEUR TABLEAU - RESPONSIVE AVEC SCROLL
        ============================================ */
     .table-inventaires {
         background: white;
@@ -102,84 +242,80 @@
         overflow: hidden;
         box-shadow: var(--card-shadow);
         width: 100%;
+        margin-bottom: 1rem;
     }
-    
-    /* Container avec scroll horizontal pour petits écrans */
+
     .table-responsive-custom {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         width: 100%;
     }
-    
+
+    /* Scrollbar personnalisée */
+    .table-responsive-custom::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive-custom::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive-custom::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-responsive-custom::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
     .table-inventaires table {
         width: 100%;
         margin-bottom: 0;
-        min-width: 900px; /* Largeur minimale pour forcer le scroll sur mobile */
+        min-width: 900px;
+        border-collapse: collapse;
     }
-    
+
     .table-inventaires thead {
         background: linear-gradient(135deg, var(--primary-color) 0%, #553C9A 100%);
         color: white;
     }
-    
+
     .table-inventaires th {
         border: none;
         padding: 1rem;
         font-weight: 600;
         white-space: nowrap;
+        font-size: 0.9rem;
     }
-    
+
     .table-inventaires td {
         padding: 0.75rem 1rem;
         vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
     }
-    
+
+    .table-inventaires tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
     /* ============================================
-       BOUTONS ACTIONS
+       BOUTONS ACTIONS TABLEAU
        ============================================ */
     .btn-action {
-        padding: 0.25rem 0.75rem;
-        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
         border-radius: 6px;
-        margin: 0 0.15rem;
+        margin: 0 0.1rem;
+        min-width: 32px;
+        min-height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
-    
-    /* ============================================
-       EN-TÊTE PAGE
-       ============================================ */
-    .page-header {
-        margin-bottom: 2rem;
-    }
-    
-    .page-header h2 {
-        font-size: 1.75rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .page-header .text-muted {
-        font-size: 0.95rem;
-    }
-    
-    /* Groupe de boutons header */
-    .header-actions {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-    }
-    
-    /* ============================================
-       PAGINATION
-       ============================================ */
-    .pagination {
-        margin-top: 1.5rem;
-        margin-bottom: 0;
-        flex-wrap: wrap;
-    }
-    
-    .pagination .page-link {
-        padding: 0.5rem 0.75rem;
-    }
-    
+
     /* ============================================
        MESSAGE VIDE
        ============================================ */
@@ -187,245 +323,291 @@
         text-align: center;
         padding: 3rem 1rem;
     }
-    
+
     .empty-state i {
         font-size: 3rem;
         color: #d1d5db;
         margin-bottom: 1rem;
+        display: block;
     }
-    
+
     .empty-state p {
         color: #6b7280;
         margin-bottom: 0.5rem;
     }
-    
+
     /* ============================================
-       RESPONSIVE - TABLETTES (≤ 992px)
+       PAGINATION - RESPONSIVE
        ============================================ */
-    @media (max-width: 992px) {
-        .stats-card {
-            padding: 1rem;
+    .pagination {
+        margin-top: 1.5rem;
+        margin-bottom: 0;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    .pagination .page-link {
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        color: var(--primary-color);
+        border: 1px solid #e5e7eb;
+    }
+
+    .pagination .page-item.active .page-link {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
+
+    /* ============================================
+       TEXTE TRONQUÉ
+       ============================================ */
+    .text-truncate-mobile {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 150px;
+        display: inline-block;
+    }
+
+    /* ============================================
+       GRID BOOTSTRAP RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-lg-3, .col-lg-4, .col-lg-8,
+    .col-md-6, .col-md-12,
+    .col-sm-6, .col-12 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 992px)
+       ============================================ */
+    @media (min-width: 992px) {
+        .col-lg-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
         }
-        
-        .stats-value {
-            font-size: 1.75rem;
+
+        .col-lg-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
         }
-        
-        .filter-section {
-            padding: 1rem;
+
+        .col-lg-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
         }
-        
-        .page-header h2 {
-            font-size: 1.5rem;
+
+        .text-lg-end {
+            text-align: right !important;
         }
     }
-    
+
     /* ============================================
-       RESPONSIVE - MOBILE (≤ 768px)
+       MEDIA QUERIES - TABLETTE (≥ 768px)
        ============================================ */
-    @media (max-width: 768px) {
-        /* Réduction padding général */
+    @media (min-width: 768px) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .text-truncate-mobile {
+            max-width: none;
+            white-space: normal;
+        }
+    }
+
+    @media (min-width: 576px) {
+        .col-sm-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction du débordement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+        }
+
         .container-fluid {
-            padding-left: 0.75rem !important;
-            padding-right: 0.75rem !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
         }
-        
-        /* Stats cards en colonne simple */
-        .stats-card {
-            padding: 1rem;
-            margin-bottom: 1rem;
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
         }
-        
-        .stats-card h5 {
-            font-size: 0.85rem;
-        }
-        
-        .stats-value {
-            font-size: 1.5rem;
-        }
-        
+
         /* En-tête page */
         .page-header {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
-        
+
         .page-header h2 {
-            font-size: 1.3rem;
+            font-size: 1.35rem;
         }
-        
+
         .page-header .text-muted {
             font-size: 0.85rem;
         }
-        
-        /* Boutons header empilés */
+
+        /* Boutons header */
         .header-actions {
             width: 100%;
             margin-top: 1rem;
+            justify-content: center;
         }
-        
+
         .header-actions .btn {
             flex: 1;
+            min-width: 0;
             font-size: 0.85rem;
             padding: 0.5rem 0.75rem;
         }
-        
-        .header-actions .btn i {
-            font-size: 0.9rem;
+
+        /* Stats cards */
+        .stats-card {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
         }
-        
-        /* Section filtres */
+
+        .stats-card h5 {
+            font-size: 0.8rem;
+        }
+
+        .stats-value {
+            font-size: 1.5rem;
+        }
+
+        /* Row mobile */
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-lg-3, .col-lg-4, .col-lg-8,
+        .col-md-6, .col-md-12,
+        .col-sm-6, .col-12 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        /* Filtres mobile */
         .filter-section {
             padding: 1rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
-        
+
         .filter-section .form-label {
             font-size: 0.85rem;
             margin-bottom: 0.25rem;
         }
-        
+
         .filter-section .form-select,
         .filter-section .form-control {
-            font-size: 0.9rem;
-            padding: 0.5rem;
+            font-size: 16px; /* Empêche zoom iOS */
+            padding: 0.5rem 0.75rem;
         }
-        
+
         .filter-section .btn {
+            width: 100%;
             font-size: 0.9rem;
-            padding: 0.5rem 1rem;
         }
-        
+
+        .filter-section .row > div {
+            margin-bottom: 0.75rem;
+        }
+
         /* Tableau */
         .table-inventaires {
-            margin-bottom: 1rem;
+            border-radius: 8px;
         }
-        
+
+        .table-inventaires table {
+            min-width: 800px;
+        }
+
         .table-inventaires th {
             padding: 0.75rem 0.5rem;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
-        
+
         .table-inventaires td {
-            padding: 0.75rem 0.5rem;
-            font-size: 0.85rem;
+            padding: 0.625rem 0.5rem;
+            font-size: 0.8rem;
         }
-        
-        /* Réduire taille des badges */
+
+        /* Badges */
         .taux-badge {
             font-size: 0.75rem;
             padding: 0.2rem 0.5rem;
         }
-        
+
         .badge {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.4rem;
+            font-size: 0.65rem;
+            padding: 0.15rem 0.35rem;
         }
-        
-        /* Boutons actions plus petits */
+
+        /* Boutons actions */
         .btn-action {
-            padding: 0.25rem 0.5rem;
+            padding: 0.2rem 0.4rem;
             font-size: 0.75rem;
+            min-width: 28px;
+            min-height: 28px;
         }
-        
-        /* Pagination plus compacte */
+
+        /* Pagination */
         .pagination {
             margin-top: 1rem;
         }
-        
+
         .pagination .page-link {
             padding: 0.375rem 0.5rem;
             font-size: 0.85rem;
         }
-        
-        /* Message vide */
-        .empty-state {
-            padding: 2rem 1rem;
-        }
-        
-        .empty-state i {
-            font-size: 2rem;
-        }
-        
-        .empty-state p {
-            font-size: 0.9rem;
-        }
-    }
-    
-    /* ============================================
-       RESPONSIVE - PETIT MOBILE (≤ 480px)
-       ============================================ */
-    @media (max-width: 480px) {
-        .container-fluid {
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-        }
-        
-        .stats-card {
-            padding: 0.75rem;
-        }
-        
-        .stats-value {
-            font-size: 1.25rem;
-        }
-        
-        .page-header h2 {
-            font-size: 1.1rem;
-        }
-        
-        .filter-section {
-            padding: 0.75rem;
-        }
-        
-        .filter-section .row > div {
-            margin-bottom: 0.75rem;
-        }
-        
-        .header-actions .btn {
-            font-size: 0.8rem;
-            padding: 0.4rem 0.6rem;
-        }
-        
-        /* Masquer certains textes sur très petits écrans */
-        .header-actions .btn .me-2 {
-            margin-right: 0.25rem !important;
-        }
-        
-        /* Icônes seulement pour certains boutons */
-        @media (max-width: 380px) {
-            .btn-text-hide {
-                font-size: 0;
-            }
-            
-            .btn-text-hide i {
-                font-size: 1rem;
-                margin: 0 !important;
-            }
-        }
-    }
-    
-    /* ============================================
-       AMÉLIORATION SCROLL HORIZONTAL TABLEAU
-       ============================================ */
-    .table-responsive-custom::-webkit-scrollbar {
-        height: 8px;
-    }
-    
-    .table-responsive-custom::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-    
-    .table-responsive-custom::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 4px;
-    }
-    
-    .table-responsive-custom::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-    }
-    
-    /* Indicateur visuel de scroll sur mobile */
-    @media (max-width: 768px) {
+
+        /* Indicateur scroll tableau */
         .table-responsive-custom::after {
             content: '← Faites défiler →';
             display: block;
@@ -436,36 +618,186 @@
             color: #6b7280;
             border-top: 1px solid #e5e7eb;
         }
+
+        /* Message vide */
+        .empty-state {
+            padding: 2rem 1rem;
+        }
+
+        .empty-state i {
+            font-size: 2rem;
+        }
+
+        .empty-state p {
+            font-size: 0.85rem;
+        }
     }
-    
+
     /* ============================================
-       CORRECTIONS DIVERSES
+       PETITS MOBILES (≤ 576px)
        ============================================ */
-    
-    /* Forcer le word-wrap sur les cellules */
-    .table-inventaires td {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .page-header h2 {
+            font-size: 1.2rem;
+        }
+
+        .header-actions .btn {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+        }
+
+        .stats-card {
+            padding: 0.875rem;
+        }
+
+        .stats-value {
+            font-size: 1.35rem;
+        }
+
+        .filter-section {
+            padding: 0.875rem;
+        }
+
+        .table-inventaires table {
+            min-width: 700px;
+        }
+
+        .table-inventaires th {
+            padding: 0.625rem 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        .table-inventaires td {
+            padding: 0.5rem 0.4rem;
+            font-size: 0.75rem;
+        }
     }
-    
-    /* S'assurer que les images/icônes ne débordent pas */
-    .table-inventaires img,
-    .table-inventaires i {
-        max-width: 100%;
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .page-header h2 {
+            font-size: 1.1rem;
+        }
+
+        .stats-value {
+            font-size: 1.25rem;
+        }
+
+        .stats-card h5 {
+            font-size: 0.75rem;
+        }
+
+        .header-actions {
+            flex-direction: column;
+        }
+
+        .header-actions .btn {
+            width: 100%;
+        }
+
+        .table-inventaires table {
+            min-width: 600px;
+        }
+
+        .table-inventaires th,
+        .table-inventaires td {
+            font-size: 0.7rem;
+            padding: 0.4rem 0.3rem;
+        }
     }
-    
-    /* Empêcher les longs textes de déborder */
-    .text-truncate-mobile {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 150px;
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-sm-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .header-actions {
+            flex-direction: row;
+        }
+
+        .header-actions .btn {
+            flex: 0 1 auto;
+        }
+
+        .table-inventaires table {
+            min-width: 800px;
+        }
     }
-    
-    @media (min-width: 769px) {
-        .text-truncate-mobile {
-            max-width: none;
-            white-space: normal;
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input, button, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .form-control:focus,
+    .btn:focus,
+    .page-link:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .ms-2 { margin-left: 0.5rem !important; }
+    .text-center { text-align: center !important; }
+    .text-end { text-align: right !important; }
+    .text-muted { color: #6b7280 !important; }
+    .text-danger { color: var(--danger-color) !important; }
+    .text-primary { color: var(--primary-color) !important; }
+    .text-warning { color: var(--warning-color) !important; }
+    .fw-bold { font-weight: 700 !important; }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .header-actions,
+        .filter-section,
+        .btn-action,
+        .pagination {
+            display: none !important;
+        }
+
+        .table-inventaires {
+            box-shadow: none;
+            border: 1px solid #dee2e6;
+        }
+
+        .table-inventaires thead {
+            background: none !important;
+            color: black !important;
+        }
+
+        .table-responsive-custom::after {
+            display: none !important;
         }
     }
 </style>
@@ -490,10 +822,6 @@
                     <i class="fas fa-plus me-2"></i>
                     <span>{% trans "Nouvelle Saisie" %}</span>
                 </a>
-                <button class="btn btn-success" onclick="exportExcel()">
-                    <i class="fas fa-file-excel me-2"></i>
-                    <span class="btn-text-hide">{% trans "Export Excel" %}</span>
-                </button>
             </div>
         </div>
     </div>
@@ -530,7 +858,7 @@
     <div class="filter-section">
         <form method="get" id="filterForm">
             <div class="row">
-                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
+                <div class="col-lg-3 col-md-6 col-12">
                     <label class="form-label">{% trans "Poste" %}</label>
                     <select name="poste" class="form-select">
                         <option value="">{% trans "Tous les postes" %}</option>
@@ -541,27 +869,27 @@
                         {% endfor %}
                     </select>
                 </div>
-                
-                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
+
+                <div class="col-lg-3 col-md-6 col-12">
                     <label class="form-label">{% trans "Date début" %}</label>
-                    <input type="date" name="date_debut" class="form-control" 
+                    <input type="date" name="date_debut" class="form-control"
                            value="{{ request.GET.date_debut }}">
                 </div>
-                
-                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
+
+                <div class="col-lg-3 col-md-6 col-12">
                     <label class="form-label">{% trans "Date fin" %}</label>
-                    <input type="date" name="date_fin" class="form-control" 
+                    <input type="date" name="date_fin" class="form-control"
                            value="{{ request.GET.date_fin }}">
                 </div>
-                
-                <div class="col-lg-3 col-md-6 col-12 mb-3 mb-lg-0">
+
+                <div class="col-lg-3 col-md-6 col-12">
                     <label class="form-label">{% trans "Recherche" %}</label>
-                    <input type="text" name="search" class="form-control" 
-                           placeholder="Nom du poste, code..." 
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Nom du poste, code..."
                            value="{{ request.GET.search }}">
                 </div>
             </div>
-            
+
             <div class="mt-3 text-center">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-filter me-2"></i>{% trans "Filtrer" %}
@@ -640,13 +968,13 @@
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{% url 'inventaire:inventaire_detail' inventaire.id %}" 
-                               class="btn btn-sm btn-info btn-action" 
+                            <a href="{% url 'inventaire:inventaire_detail' inventaire.id %}"
+                               class="btn btn-sm btn-info btn-action"
                                title="Voir les détails">
                                 <i class="fas fa-eye"></i>
                             </a>
                             {% if user.is_admin %}
-                            <a href="{% url 'inventaire:inventaire_admin_saisie' inventaire.poste.id inventaire.date|date:'Y-m-d' %}" 
+                            <a href="{% url 'inventaire:inventaire_admin_saisie' inventaire.poste.id inventaire.date|date:'Y-m-d' %}"
                                class="btn btn-sm btn-warning btn-action"
                                title="Modifier">
                                 <i class="fas fa-edit"></i>
@@ -677,12 +1005,12 @@
             {% if inventaires.has_previous %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ inventaires.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    <i class="fas fa-chevron-left d-md-none"></i>
-                    <span class="d-none d-md-inline">{% trans "Précédent" %}</span>
+                    <i class="fas fa-chevron-left"></i>
+                    <span class="d-none d-md-inline ms-1">{% trans "Précédent" %}</span>
                 </a>
             </li>
             {% endif %}
-            
+
             {% for num in inventaires.paginator.page_range %}
                 {% if inventaires.number == num %}
                 <li class="page-item active">
@@ -696,12 +1024,12 @@
                 </li>
                 {% endif %}
             {% endfor %}
-            
+
             {% if inventaires.has_next %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ inventaires.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                    <span class="d-none d-md-inline">{% trans "Suivant" %}</span>
-                    <i class="fas fa-chevron-right d-md-none"></i>
+                    <span class="d-none d-md-inline me-1">{% trans "Suivant" %}</span>
+                    <i class="fas fa-chevron-right"></i>
                 </a>
             </li>
             {% endif %}
@@ -711,22 +1039,37 @@
 </div>
 
 <script>
-// Calculer seulement le nombre d'alertes (le reste vient du backend)
 document.addEventListener('DOMContentLoaded', function() {
+    // Calculer le nombre d'alertes
     let alertCount = 0;
-    
-    // Compter les alertes (badges danger)
     document.querySelectorAll('.taux-danger').forEach(() => {
         alertCount++;
     });
-    
     document.getElementById('alertCount').textContent = alertCount;
+
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+
+    // Ajustement dynamique pour les petits écrans
+    function adjustForSmallScreen() {
+        if (window.innerWidth < 768) {
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+        }
+    }
+
+    window.addEventListener('load', adjustForSmallScreen);
+    window.addEventListener('resize', adjustForSmallScreen);
 });
 
 // Export Excel
 function exportExcel() {
     alert('Fonctionnalité d\'export à implémenter');
-    // Vous pouvez implémenter l'export ici
 }
 </script>
 {% endblock %}

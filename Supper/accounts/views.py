@@ -1290,41 +1290,61 @@ class PasswordResetView(GestionUtilisateursPermissionMixin, BilingualMixin,
 # ===================================================================
 
 PERMISSIONS_PAR_HABILITATION = {
+    # ADMINISTRATEUR PRINCIPAL - Accès total système
     'admin_principal': [
-        # Toutes les permissions
-        'acces_tous_postes', 'peut_saisir_peage', 'peut_saisir_pesage',
-        'voir_recettes_potentielles', 'voir_taux_deperdition', 'voir_statistiques_globales',
-        'peut_saisir_pour_autres_postes',
-        # Anciennes permissions modules
-        'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
-        'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
-        'peut_gerer_stocks_psrr', 'peut_gerer_stock_info',
+        # Inventaires (10)
+        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin', 'peut_programmer_inventaire',
+        'peut_voir_programmation_active', 'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin', 'peut_voir_jours_impertinents',
+        'peut_voir_stats_deperdition',
+        # Recettes Péage (6)
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_importer_recettes_peage', 'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage (3)
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
+        # Pesage (12)
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende', 'peut_saisir_pesee_jour',
+        'peut_voir_objectifs_pesage', 'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Stock Péage (9)
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_transferer_stock_peage', 'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage', 'peut_simuler_commandes_peage',
+        # Gestion (6)
+        'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
+        'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
+        # Rapports (7)
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
+        'peut_voir_classement_agents_inventaire',
+        # Autres (5)
+        'peut_parametrage_global', 'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
+        'peut_authentifier_document', 'peut_voir_tous_postes',
+    ],
+
+    # COORDONNATEUR PSRR - Accès complet système
+    'coord_psrr': [
         # Inventaires
-        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
-        'peut_programmer_inventaire', 'peut_voir_programmation_active',
-        'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
-        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
-        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
-        # Recettes péage
-        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
-        'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
-        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
-        # Quittances péage
-        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
-        'peut_comptabiliser_quittances_peage',
+        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin', 'peut_programmer_inventaire',
+        'peut_voir_programmation_active', 'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin', 'peut_voir_jours_impertinents',
+        'peut_voir_stats_deperdition',
+        # Recettes Péage
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_importer_recettes_peage', 'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
         # Pesage
-        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
-        'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
-        'peut_valider_paiement_amende', 'peut_lister_amendes',
-        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
-        'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
-        'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
-        # Stock péage
-        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
-        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
-        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
-        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
-        'peut_simuler_commandes_peage',
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende', 'peut_saisir_pesee_jour',
+        'peut_voir_objectifs_pesage', 'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Stock Péage
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_transferer_stock_peage', 'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage', 'peut_simuler_commandes_peage',
         # Gestion
         'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
         'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
@@ -1334,238 +1354,249 @@ PERMISSIONS_PAR_HABILITATION = {
         'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
         'peut_voir_classement_agents_inventaire',
         # Autres
-        'peut_parametrage_global', 'peut_voir_compte_emploi',
-        'peut_voir_pv_confrontation', 'peut_authentifier_document', 'peut_voir_tous_postes',
+        'peut_parametrage_global', 'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
+        'peut_authentifier_document', 'peut_voir_tous_postes',
     ],
-    
-    'coord_psrr': [
-        # Identique à admin_principal
-        'acces_tous_postes', 'peut_saisir_peage', 'peut_saisir_pesage',
-        'voir_recettes_potentielles', 'voir_taux_deperdition', 'voir_statistiques_globales',
-        'peut_saisir_pour_autres_postes',
-        'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
-        'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
-        'peut_gerer_stocks_psrr', 'peut_gerer_stock_info',
-        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
-        'peut_programmer_inventaire', 'peut_voir_programmation_active',
-        'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
-        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
-        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
-        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
-        'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
-        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
-        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
-        'peut_comptabiliser_quittances_peage',
-        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
-        'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
-        'peut_valider_paiement_amende', 'peut_lister_amendes',
-        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
-        'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
-        'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
-        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
-        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
-        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
-        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
-        'peut_simuler_commandes_peage',
-        'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
-        'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
-        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
-        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
-        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
-        'peut_voir_classement_agents_inventaire',
-        'peut_parametrage_global', 'peut_voir_compte_emploi',
-        'peut_voir_pv_confrontation', 'peut_authentifier_document', 'peut_voir_tous_postes',
-    ],
-    
+
+    # SERVICE INFORMATIQUE - Accès complet système + maintenance
     'serv_info': [
-        # Service Informatique - Accès complet
-        'acces_tous_postes', 'peut_saisir_peage', 'peut_saisir_pesage',
-        'voir_recettes_potentielles', 'voir_taux_deperdition', 'voir_statistiques_globales',
-        'peut_saisir_pour_autres_postes',
-        'peut_gerer_peage', 'peut_gerer_pesage', 'peut_gerer_personnel',
-        'peut_gerer_budget', 'peut_gerer_inventaire', 'peut_gerer_archives',
-        'peut_gerer_stocks_psrr', 'peut_gerer_stock_info',
-        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin',
-        'peut_programmer_inventaire', 'peut_voir_programmation_active',
-        'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
-        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
-        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
-        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
-        'peut_voir_stats_recettes_peage', 'peut_importer_recettes_peage',
-        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
-        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
-        'peut_comptabiliser_quittances_peage',
-        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
-        'peut_saisir_pesee_jour', 'peut_voir_objectifs_pesage',
-        'peut_valider_paiement_amende', 'peut_lister_amendes',
-        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
-        'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
-        'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
-        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
-        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
-        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
-        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
-        'peut_simuler_commandes_peage',
+        # Inventaires
+        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin', 'peut_programmer_inventaire',
+        'peut_voir_programmation_active', 'peut_desactiver_programmation', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin', 'peut_voir_jours_impertinents',
+        'peut_voir_stats_deperdition',
+        # Recettes Péage
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_importer_recettes_peage', 'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
+        # Pesage
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende', 'peut_saisir_pesee_jour',
+        'peut_voir_objectifs_pesage', 'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Stock Péage
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_transferer_stock_peage', 'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage', 'peut_simuler_commandes_peage',
+        # Gestion
         'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
         'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
+        # Rapports
         'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
         'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
         'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
         'peut_voir_classement_agents_inventaire',
-        'peut_parametrage_global', 'peut_voir_compte_emploi',
-        'peut_voir_pv_confrontation', 'peut_authentifier_document', 'peut_voir_tous_postes',
+        # Autres
+        'peut_parametrage_global', 'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
+        'peut_authentifier_document', 'peut_voir_tous_postes',
     ],
-    
+
+    # SERVICE ÉMISSIONS ET RECOUVREMENT - Gestion financière
     'serv_emission': [
-        # Service Émission et Recouvrement
-        'acces_tous_postes', 'voir_statistiques_globales',
-        'voir_recettes_potentielles', 'voir_taux_deperdition',
-        'peut_programmer_inventaire', 'peut_voir_programmation_active',
-        'peut_voir_programmation_desactivee', 'peut_voir_liste_inventaires',
-        'peut_voir_liste_inventaires_admin', 'peut_voir_jours_impertinents',
+        # Inventaires
+        'peut_saisir_inventaire_normal', 'peut_saisir_inventaire_admin', 'peut_programmer_inventaire',
+        'peut_voir_programmation_active', 'peut_voir_programmation_desactivee',
+        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin', 'peut_voir_jours_impertinents',
         'peut_voir_stats_deperdition',
+        # Recettes Péage
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
+        # Pesage
+        'peut_voir_objectifs_pesage', 'peut_lister_amendes',
+        'peut_comptabiliser_quittances_pesage', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Stock Péage
+        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_transferer_stock_peage', 'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage', 'peut_simuler_commandes_peage',
+        # Rapports
+        'peut_voir_classement_peage_rendement', 'peut_voir_classement_station_pesage',
+        'peut_voir_classement_peage_deperdition', 'peut_voir_classement_agents_inventaire',
+        # Autres
+        'peut_voir_compte_emploi', 'peut_voir_pv_confrontation', 'peut_authentifier_document',
+        'peut_voir_tous_postes',
+    ],
+
+    # SERVICE DES AFFAIRES GÉNÉRALES - Gestion RH et administrative
+    'chef_ag': [
+        # Gestion
+        'peut_gerer_postes', 'peut_ajouter_poste', 'peut_creer_poste_masse',
+        'peut_gerer_utilisateurs', 'peut_creer_utilisateur', 'peut_voir_journal_audit',
+        # Autres
+        'peut_parametrage_global', 'peut_voir_tous_postes',
+    ],
+
+    # SERVICE CONTRÔLE ET VALIDATION - Audit et validation
+    'serv_controle': [
+        # Inventaires
+        'peut_voir_liste_inventaires', 'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        # Recettes Péage
         'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
         'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage
         'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
-        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
-        'peut_voir_stock_date_peage', 'peut_transferer_stock_peage',
-        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
-        'peut_voir_historique_stock_peage', 'peut_simuler_commandes_peage',
+        # Pesage
+        'peut_voir_objectifs_pesage', 'peut_lister_amendes',
+        'peut_comptabiliser_quittances_pesage', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Stock Péage
+        'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage', 'peut_voir_historique_stock_peage',
+        # Gestion
+        'peut_voir_journal_audit',
+        # Rapports
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
+        'peut_voir_classement_agents_inventaire',
+        # Autres
+        'peut_parametrage_global', 'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
+        'peut_authentifier_document', 'peut_voir_tous_postes',
+    ],
+
+    # SERVICE ORDRE/SECRÉTARIAT - Archivage et documentation
+    'serv_ordre': [
+        # Inventaires
+        'peut_voir_stats_deperdition',
+        # Recettes Péage
+        'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage
+        'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
+        # Pesage
+        'peut_voir_objectifs_pesage', 'peut_lister_amendes',
+        'peut_comptabiliser_quittances_pesage', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Stock Péage
+        'peut_voir_liste_stocks_peage', 'peut_voir_tracabilite_tickets',
+        'peut_voir_bordereaux_peage', 'peut_voir_historique_stock_peage',
+        # Rapports
+        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
+        # Autres
+        'peut_voir_compte_emploi', 'peut_voir_pv_confrontation', 'peut_authentifier_document',
+        'peut_voir_tous_postes',
+    ],
+
+    # ═══════════════════════════════════════════════════════════════
+    # CISOP - Cellules d'Inspection et Suivi des Opérations
+    # ═══════════════════════════════════════════════════════════════
+
+    # CISOP PÉAGE - Inspection des postes de péage
+    'cisop_peage': [
+        # Inventaires
+        'peut_voir_liste_inventaires', 'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        # Recettes Péage
+        'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage
+        'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
+        # Stock Péage
+        'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage', 'peut_voir_historique_stock_peage',
+        # Rapports
         'peut_voir_rapports_defaillants_peage', 'peut_voir_rapport_inventaires',
         'peut_voir_classement_peage_rendement', 'peut_voir_classement_peage_deperdition',
         'peut_voir_classement_agents_inventaire',
+        # Autres
+        'peut_voir_compte_emploi', 'peut_voir_pv_confrontation', 'peut_authentifier_document',
         'peut_voir_tous_postes',
     ],
-    
-    'chef_ag': [
-        # Chef Service Affaires Générales
-        'acces_tous_postes', 'voir_statistiques_globales',
-        'peut_gerer_personnel',
-        'peut_voir_liste_inventaires', 
-        'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
-        'peut_voir_rapports_defaillants_peage', 'peut_voir_classement_agents_inventaire',
-        'peut_voir_tous_postes',
-    ],
-    
-    'serv_controle': [
-        # Service Contrôle et Validation
-        'acces_tous_postes', 'voir_statistiques_globales',
-        'voir_recettes_potentielles', 'voir_taux_deperdition',
-        'peut_voir_programmation_active', 'peut_voir_programmation_desactivee',
-        'peut_voir_liste_inventaires', 'peut_voir_liste_inventaires_admin',
-        'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
-        'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
-        'peut_voir_liste_quittances_peage',
-        'peut_lister_amendes', 'peut_voir_liste_quittancements_pesage',
-        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
-        'peut_voir_liste_stocks_peage', 'peut_voir_tracabilite_tickets',
-        'peut_voir_bordereaux_peage',
-        'peut_voir_rapports_defaillants_peage', 'peut_voir_rapports_defaillants_pesage',
-        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
-        'peut_voir_classement_station_pesage', 'peut_voir_classement_peage_deperdition',
-        'peut_voir_compte_emploi', 'peut_voir_pv_confrontation',
-        'peut_authentifier_document', 'peut_voir_tous_postes',
-    ],
-    
-    'serv_ordre': [
-        # Service Ordre/Secrétariat
-        'acces_tous_postes', 'peut_gerer_archives',
-        'peut_voir_liste_inventaires', 'peut_voir_stats_deperdition',
-        'peut_voir_liste_recettes_peage',
-        'peut_voir_tous_postes',
-    ],
-    
-    'imprimerie': [
-        # Imprimerie Nationale
-        'acces_tous_postes',
-        'peut_charger_stock_peage', 'peut_voir_liste_stocks_peage',
-        'peut_voir_stock_date_peage', 'peut_voir_tracabilite_tickets',
-        'peut_voir_bordereaux_peage', 'peut_simuler_commandes_peage',
-        'peut_voir_tous_postes',
-    ],
-    
-    'cisop_peage': [
-        # CISOP Péage
-        'acces_tous_postes',
-        'voir_statistiques_globales',
-        'peut_voir_liste_recettes_peage',
-        'peut_voir_stats_recettes_peage',
-        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
-        'peut_voir_liste_quittances_peage',
-        'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
-        'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
-        'peut_voir_historique_stock_peage',
-        'peut_voir_rapports_defaillants_peage',
-        'peut_voir_classement_peage_rendement', 
-        'peut_voir_tous_postes',
-    ],
-    
+
+    # CISOP PESAGE - Inspection des stations de pesage
     'cisop_pesage': [
-        # CISOP Pesage
-        'acces_tous_postes',
-        'voir_statistiques_globales',
-        'peut_voir_historique_vehicule_pesage',
-        'peut_voir_objectifs_pesage',
-        'peut_lister_amendes',
-        'peut_comptabiliser_quittances_pesage',
+        # Pesage
+        'peut_voir_historique_vehicule_pesage', 'peut_voir_objectifs_pesage', 'peut_lister_amendes',
         'peut_voir_liste_quittancements_pesage', 'peut_voir_historique_pesees',
         'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Rapports
         'peut_voir_rapports_defaillants_pesage', 'peut_voir_classement_station_pesage',
-        'peut_voir_tous_postes',
+        # Autres
+        'peut_voir_pv_confrontation', 'peut_authentifier_document', 'peut_voir_tous_postes',
     ],
-    
+
+    # ═══════════════════════════════════════════════════════════════
+    # POSTES DE PÉAGE - Accès limité au poste d'affectation
+    # ═══════════════════════════════════════════════════════════════
+
+    # CHEF DE POSTE PÉAGE - Gestion complète du poste de péage
     'chef_peage': [
-        # Chef de Poste Péage
-        'peut_saisir_peage', 'voir_recettes_potentielles', 'voir_taux_deperdition',
-        'peut_saisir_inventaire_normal', 'peut_voir_programmation_active',
-        'peut_voir_liste_inventaires', 'peut_voir_stats_deperdition',
-        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage',
-        'peut_voir_stats_recettes_peage', 'peut_voir_evolution_peage',
-        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage',
-        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
-        'peut_voir_classement_peage_rendement', 'peut_voir_classement_peage_deperdition',
-    ],
-    
-    'chef_station_pesage': [
-        # Chef de Station Pesage
-        'peut_voir_historique_vehicule_pesage','peut_voir_objectifs_pesage',
-        'peut_lister_amendes',
-        'peut_voir_liste_quittancements_pesage',
-        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
-        'peut_voir_classement_station_pesage','peut_voir_pv_confrontation',
-    ],
-    
-    'regisseur_pesage': [
-        # Régisseur de Station Pesage
-        'peut_voir_historique_vehicule_pesage',
-        'peut_voir_objectifs_pesage', 'peut_valider_paiement_amende', 'peut_lister_amendes',
-        'peut_saisir_quittance_pesage', 'peut_comptabiliser_quittances_pesage',
-        'peut_voir_liste_quittancements_pesage', 'peut_voir_recettes_pesage','peut_voir_classement_station_pesage',
-        'peut_voir_pv_confrontation',
-    ],
-    
-    'chef_equipe_pesage': [
-        # Chef d'Équipe Pesage
-        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
-        'peut_saisir_pesee_jour', 'peut_lister_amendes',
-        'peut_voir_historique_pesees',
-    ],
-    
-    'agent_inventaire': [
-        # Agent Inventaire
-        'peut_saisir_peage',
-        'peut_saisir_inventaire_normal',
-        'peut_voir_liste_inventaires',
-    ],
-    
-    'comptable_mat': [
-        # Comptable Matières
-        'acces_tous_postes', 'peut_gerer_archives',
+        # Inventaires
+        'peut_voir_liste_inventaires', 'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        'peut_voir_liste_inventaires_admin',
+        # Recettes Péage
+        'peut_saisir_recette_peage', 'peut_voir_liste_recettes_peage', 'peut_voir_stats_recettes_peage',
+        'peut_voir_evolution_peage', 'peut_voir_objectifs_peage',
+        # Quittances Péage
+        'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
+        # Stock Péage
         'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
         'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
-        'peut_voir_historique_stock_peage',
-        'peut_voir_tous_postes',
+        'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
+        # Rapports
+        'peut_voir_rapport_inventaires', 'peut_voir_classement_peage_rendement',
+        'peut_voir_classement_peage_deperdition', 'peut_voir_classement_agents_inventaire',
+        # Autres
+        'peut_voir_compte_emploi', 'peut_authentifier_document',
     ],
+
+    # AGENT INVENTAIRE - Saisie des inventaires uniquement
+    'agent_inventaire': [
+        # Inventaires - Saisie uniquement
+        'peut_saisir_inventaire_normal','peut_voir_liste_inventaires', 'peut_voir_jours_impertinents', 'peut_voir_stats_deperdition',
+        'peut_voir_classement_agents_inventaire',
+    ],
+
+    # ═══════════════════════════════════════════════════════════════
+    # STATIONS DE PESAGE - Accès limité à la station d'affectation
+    # ═══════════════════════════════════════════════════════════════
+
+    # CHEF DE STATION PESAGE - Supervision de la station de pesage
+    'chef_station_pesage': [
+        # Pesage
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende',
+        'peut_voir_objectifs_pesage', 'peut_lister_amendes',
+        'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Rapports
+        'peut_voir_classement_station_pesage',
+        # Autres
+        'peut_voir_pv_confrontation', 'peut_authentifier_document',
+    ],
+
+    # RÉGISSEUR DE STATION PESAGE - Gestion financière de la station
+    'regisseur_pesage': [
+        # Pesage
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende', 'peut_saisir_pesee_jour',
+        'peut_voir_objectifs_pesage', 'peut_valider_paiement_amende', 'peut_lister_amendes',
+        'peut_saisir_quittance_pesage', 'peut_voir_liste_quittancements_pesage',
+        'peut_voir_historique_pesees', 'peut_voir_recettes_pesage', 'peut_voir_stats_pesage',
+        # Rapports
+        'peut_voir_classement_station_pesage',
+    ],
+
+    # CHEF D'ÉQUIPE STATION PESAGE - Opérations quotidiennes de pesage
+    'chef_equipe_pesage': [
+        # Pesage
+        'peut_voir_historique_vehicule_pesage', 'peut_saisir_amende', 'peut_saisir_pesee_jour',
+        'peut_voir_objectifs_pesage', 'peut_lister_amendes',
+        'peut_voir_historique_pesees', 'peut_voir_stats_pesage',
+    ],
+
+    # ═══════════════════════════════════════════════════════════════
+    # EXTERNES
+    # ═══════════════════════════════════════════════════════════════
+
+    # IMPRIMERIE NATIONALE - Consultation historique uniquement
+    'imprimerie': [
+        # Stock Péage - Historique uniquement
+        'peut_voir_historique_stock_peage',
+    ],
+
     
 }
 

@@ -4,6 +4,967 @@
 
 {% block title %}{{ title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - RESPONSIVE
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .mb-0 {
+        margin-bottom: 0 !important;
+    }
+
+    .ms-2 {
+        margin-left: 0.5rem !important;
+    }
+
+    .mt-1 {
+        margin-top: 0.25rem !important;
+    }
+
+    .p-2 {
+        padding: 0.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-md-3 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 0.75rem;
+    }
+
+    /* ============================================
+       CARTES - STYLES DE BASE RESPONSIVE
+       ============================================ */
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+        margin-bottom: 1.5rem;
+        border: none;
+    }
+
+    .card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: white;
+    }
+
+    .card-header h3 {
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .card-header h3 i {
+        flex-shrink: 0;
+    }
+
+    .card-header h5 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+        color: #1f2937;
+    }
+
+    .card-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       BADGES - RESPONSIVE
+       ============================================ */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+
+    .bg-info {
+        background-color: #0ea5e9 !important;
+        color: white;
+    }
+
+    .bg-success {
+        background-color: #10b981 !important;
+        color: white;
+    }
+
+    .bg-warning {
+        background-color: #f59e0b !important;
+        color: white;
+    }
+
+    .bg-danger {
+        background-color: #ef4444 !important;
+        color: white;
+    }
+
+    /* ============================================
+       ALERTES STATISTIQUES - RESPONSIVE
+       ============================================ */
+    .alert {
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 0;
+        border: none;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert strong {
+        display: block;
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+        color: inherit;
+        opacity: 0.85;
+    }
+
+    .alert-info {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #1e40af;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        color: #065f46;
+    }
+
+    .alert-warning {
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        color: #92400e;
+    }
+
+    .alert-danger {
+        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+        color: #991b1b;
+    }
+
+    /* ============================================
+       CONTENEUR DE TABLEAUX - SCROLL INTERNE
+       ============================================ */
+    .table-responsive,
+    .table-scroll-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #c1c1c1 #f1f1f1;
+        border-radius: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar,
+    .table-scroll-wrapper::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track,
+    .table-scroll-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb,
+    .table-scroll-wrapper::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover,
+    .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       TABLEAUX - STYLES DE BASE
+       ============================================ */
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0;
+    }
+
+    .table-bordered {
+        border: 1px solid #e2e8f0;
+    }
+
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #e2e8f0;
+    }
+
+    .table thead th {
+        padding: 0.875rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #475569;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        white-space: nowrap;
+    }
+
+    .table tbody td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        color: #334155;
+        font-size: 0.9rem;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    /* ============================================
+       CALENDRIER - STYLES SPÉCIFIQUES
+       ============================================ */
+    .calendar-table {
+        min-width: 700px;
+    }
+
+    .calendar-table th {
+        text-align: center;
+        padding: 0.75rem 0.5rem;
+        font-size: 0.85rem;
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        color: white;
+    }
+
+    .calendar-table td {
+        vertical-align: top;
+        min-height: 80px;
+        height: 90px;
+        width: 14.28%;
+        position: relative;
+    }
+
+    .calendar-table td > div:first-child {
+        font-weight: 700;
+        font-size: 1rem;
+        color: #1f2937;
+        margin-bottom: 0.25rem;
+    }
+
+    .calendar-table .bg-light {
+        background-color: #f8fafc !important;
+    }
+
+    .calendar-table .bg-success-subtle {
+        background-color: #ecfdf5 !important;
+    }
+
+    .calendar-table .bg-warning-subtle {
+        background-color: #fffbeb !important;
+    }
+
+    .calendar-table .bg-danger-subtle {
+        background-color: #fef2f2 !important;
+    }
+
+    .calendar-table .bg-info-subtle {
+        background-color: #eff6ff !important;
+    }
+
+    .calendar-table small {
+        font-size: 0.7rem;
+        line-height: 1.3;
+    }
+
+    .calendar-table .text-primary {
+        color: #2563eb !important;
+    }
+
+    .calendar-table .text-success {
+        color: #059669 !important;
+    }
+
+    .calendar-table .d-block {
+        display: block !important;
+    }
+
+    /* ============================================
+       TABLEAU DÉTAILLÉ
+       ============================================ */
+    .detail-table {
+        min-width: 800px;
+    }
+
+    .detail-table .text-muted {
+        color: #9ca3af !important;
+        font-style: italic;
+    }
+
+    /* ============================================
+       BOUTONS - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.5;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 38px;
+        gap: 0.25rem;
+    }
+
+    .btn-sm {
+        padding: 0.35rem 0.625rem;
+        font-size: 0.75rem;
+        min-height: 30px;
+        border-radius: 6px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-info {
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+        color: white;
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        color: #3b82f6;
+        border: 1px solid #3b82f6;
+    }
+
+    .btn-outline-primary:hover {
+        background: #3b82f6;
+        color: white;
+    }
+
+    /* ============================================
+       VERSION PC (≥ 768px) - INCHANGÉE
+       ============================================ */
+    @media (min-width: 768px) {
+        .container-fluid {
+            padding: 1.5rem;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+            margin-bottom: 0;
+        }
+
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+        }
+
+        .card-header {
+            padding: 1.5rem 2rem;
+        }
+
+        .card-header h3 {
+            font-size: 1.5rem;
+        }
+
+        .card-body {
+            padding: 1.75rem;
+        }
+
+        .calendar-table td {
+            height: 100px;
+        }
+
+        .calendar-table small {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       GRANDS ÉCRANS (≥ 1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .card-header h3 {
+            font-size: 1.6rem;
+        }
+
+        .calendar-table td {
+            height: 110px;
+        }
+
+        .table thead th {
+            padding: 1rem;
+        }
+
+        .table tbody td {
+            padding: 1rem;
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : DÉBORDEMENT */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        /* CONTENEUR PRINCIPAL */
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        .mt-4 {
+            margin-top: 1rem !important;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem !important;
+        }
+
+        .row {
+            margin-left: -8px !important;
+            margin-right: -8px !important;
+            width: calc(100% + 16px) !important;
+        }
+
+        .col-md-3 {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            flex: 0 0 50% !important;
+            max-width: 50% !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* CARTES */
+        .card {
+            border-radius: 10px !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .card-header {
+            padding: 1rem !important;
+        }
+
+        .card-header h3 {
+            font-size: 1.15rem !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.25rem !important;
+        }
+
+        .card-header h3 i {
+            font-size: 1rem !important;
+        }
+
+        .card-header h5 {
+            font-size: 1rem !important;
+        }
+
+        .card-header p {
+            font-size: 0.8rem !important;
+        }
+
+        .card-body {
+            padding: 1rem !important;
+        }
+
+        /* BADGES */
+        .badge {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.7rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .ms-2 {
+            margin-left: 0.25rem !important;
+        }
+
+        /* MOTIFS */
+        .card-body > .mb-3 {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 0.25rem !important;
+            align-items: center !important;
+        }
+
+        .card-body > .mb-3 > strong {
+            width: 100% !important;
+            margin-bottom: 0.5rem !important;
+            font-size: 0.9rem !important;
+        }
+
+        .card-body > .mb-3 small {
+            font-size: 0.7rem !important;
+        }
+
+        /* ALERTES STATISTIQUES */
+        .alert {
+            padding: 0.75rem !important;
+            border-radius: 8px !important;
+        }
+
+        .alert strong {
+            font-size: 0.7rem !important;
+        }
+
+        /* CONTENEUR CALENDRIER */
+        .table-scroll-wrapper {
+            margin-left: -0.5rem !important;
+            margin-right: -0.5rem !important;
+            width: calc(100% + 1rem) !important;
+            border-radius: 0 !important;
+        }
+
+        /* CALENDRIER */
+        .calendar-table {
+            min-width: 600px !important;
+            font-size: 0.75rem !important;
+        }
+
+        .calendar-table th {
+            padding: 0.5rem 0.25rem !important;
+            font-size: 0.7rem !important;
+        }
+
+        .calendar-table td {
+            padding: 0.375rem !important;
+            height: 75px !important;
+            min-height: 75px !important;
+        }
+
+        .calendar-table td > div:first-child {
+            font-size: 0.85rem !important;
+        }
+
+        .calendar-table small {
+            font-size: 0.6rem !important;
+            line-height: 1.2 !important;
+        }
+
+        .calendar-table .btn-sm {
+            padding: 0.2rem 0.4rem !important;
+            font-size: 0.6rem !important;
+            min-height: 24px !important;
+        }
+
+        /* TABLEAU DÉTAILLÉ */
+        .detail-table {
+            min-width: 650px !important;
+            font-size: 0.8rem !important;
+        }
+
+        .detail-table thead th {
+            padding: 0.625rem 0.5rem !important;
+            font-size: 0.7rem !important;
+        }
+
+        .detail-table tbody td {
+            padding: 0.625rem 0.5rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .detail-table .btn-sm {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.7rem !important;
+        }
+
+        /* BOUTONS */
+        .btn {
+            padding: 0.4rem 0.75rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .btn-sm {
+            padding: 0.3rem 0.5rem !important;
+            font-size: 0.7rem !important;
+            min-height: 28px !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .row {
+            margin-left: -6px !important;
+            margin-right: -6px !important;
+            width: calc(100% + 12px) !important;
+        }
+
+        .col-md-3 {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+        }
+
+        .card-header {
+            padding: 0.875rem !important;
+        }
+
+        .card-header h3 {
+            font-size: 1.1rem !important;
+        }
+
+        .card-header p {
+            font-size: 0.75rem !important;
+        }
+
+        .card-body {
+            padding: 0.875rem !important;
+        }
+
+        .alert {
+            padding: 0.625rem !important;
+        }
+
+        .alert strong {
+            font-size: 0.65rem !important;
+        }
+
+        .calendar-table {
+            min-width: 550px !important;
+        }
+
+        .calendar-table th {
+            font-size: 0.65rem !important;
+        }
+
+        .calendar-table td {
+            height: 65px !important;
+            min-height: 65px !important;
+        }
+
+        .calendar-table td > div:first-child {
+            font-size: 0.8rem !important;
+        }
+
+        .calendar-table small {
+            font-size: 0.55rem !important;
+        }
+
+        .calendar-table .btn-sm {
+            font-size: 0.55rem !important;
+            padding: 0.15rem 0.3rem !important;
+        }
+
+        .detail-table {
+            min-width: 600px !important;
+        }
+
+        .detail-table thead th {
+            font-size: 0.65rem !important;
+            padding: 0.5rem 0.375rem !important;
+        }
+
+        .detail-table tbody td {
+            font-size: 0.75rem !important;
+            padding: 0.5rem 0.375rem !important;
+        }
+
+        .badge {
+            font-size: 0.6rem !important;
+            padding: 0.2rem 0.4rem !important;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        .card-header h3 {
+            font-size: 1rem !important;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem !important;
+        }
+
+        .calendar-table {
+            min-width: 500px !important;
+        }
+
+        .calendar-table th {
+            font-size: 0.6rem !important;
+            padding: 0.375rem 0.2rem !important;
+        }
+
+        .calendar-table td {
+            height: 60px !important;
+            padding: 0.25rem !important;
+        }
+
+        .calendar-table small {
+            font-size: 0.5rem !important;
+        }
+
+        .detail-table {
+            min-width: 550px !important;
+        }
+
+        .detail-table thead th,
+        .detail-table tbody td {
+            font-size: 0.65rem !important;
+            padding: 0.375rem 0.25rem !important;
+        }
+
+        .alert strong {
+            font-size: 0.6rem !important;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-3 {
+            flex: 0 0 25% !important;
+            max-width: 25% !important;
+        }
+
+        .calendar-table {
+            min-width: 650px !important;
+        }
+
+        .calendar-table td {
+            height: 70px !important;
+        }
+
+        .detail-table {
+            min-width: 700px !important;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        button,
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    .btn:focus-visible {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       GESTION DE L'IMPRESSION
+       ============================================ */
+    @media print {
+        .container-fluid {
+            padding: 0 !important;
+        }
+
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
+        }
+
+        .card-header.bg-primary {
+            background: #f0f0f0 !important;
+            color: black !important;
+        }
+
+        .btn {
+            display: none !important;
+        }
+
+        .table-responsive,
+        .table-scroll-wrapper {
+            overflow-x: visible !important;
+        }
+
+        .calendar-table,
+        .detail-table {
+            min-width: 100% !important;
+        }
+
+        .calendar-table th {
+            background: #f0f0f0 !important;
+            color: black !important;
+        }
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE GLOBALE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    .card {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Animation décalée pour les cartes */
+    .card:nth-child(1) { animation-delay: 0.05s; }
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.15s; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
     <!-- En-tête avec informations du poste -->
@@ -59,71 +1020,73 @@
     <!-- Calendrier avec inventaires -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5>Calendrier des inventaires</h5>
+            <h5><i class="fas fa-calendar-alt me-2"></i>Calendrier des inventaires</h5>
         </div>
         <div class="card-body">
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Lun</th>
-                        <th>Mar</th>
-                        <th>Mer</th>
-                        <th>Jeu</th>
-                        <th>Ven</th>
-                        <th>Sam</th>
-                        <th>Dim</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for semaine in calendrier %}
-                    <tr>
-                        {% for jour_data in semaine %}
-                            {% if jour_data %}
-                            <td class="p-2 {% if jour_data.inventaire or jour_data.recette %}bg-{{ jour_data.couleur_alerte }}-subtle{% endif %}">
-                                <div><strong>{{ jour_data.jour }}</strong></div>
-                                {% if jour_data.inventaire %}
-                                    <small class="text-primary">
-                                        <i class="fas fa-clipboard-check"></i> 
-                                        {{ jour_data.inventaire.total_vehicules }} véh.
-                                    </small>
-                                {% endif %}
-                                {% if jour_data.recette %}
-                                    <small class="d-block text-success">
-                                        <i class="fas fa-coins"></i> 
-                                        {{ jour_data.recette.montant_declare|floatformat:0|format_milliers  }} FCFA
-                                    </small>
-                                    {% if jour_data.taux_deperdition %}
-                                    <small class="d-block">
-                                        TD: {{ jour_data.taux_deperdition|floatformat:1 }}%
-                                    </small>
+            <div class="table-scroll-wrapper">
+                <table class="table table-bordered calendar-table">
+                    <thead>
+                        <tr>
+                            <th>Lun</th>
+                            <th>Mar</th>
+                            <th>Mer</th>
+                            <th>Jeu</th>
+                            <th>Ven</th>
+                            <th>Sam</th>
+                            <th>Dim</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for semaine in calendrier %}
+                        <tr>
+                            {% for jour_data in semaine %}
+                                {% if jour_data %}
+                                <td class="p-2 {% if jour_data.inventaire or jour_data.recette %}bg-{{ jour_data.couleur_alerte }}-subtle{% endif %}">
+                                    <div><strong>{{ jour_data.jour }}</strong></div>
+                                    {% if jour_data.inventaire %}
+                                        <small class="text-primary">
+                                            <i class="fas fa-clipboard-check"></i> 
+                                            {{ jour_data.inventaire.total_vehicules }} véh.
+                                        </small>
                                     {% endif %}
+                                    {% if jour_data.recette %}
+                                        <small class="d-block text-success">
+                                            <i class="fas fa-coins"></i> 
+                                            {{ jour_data.recette.montant_declare|floatformat:0|format_milliers  }} FCFA
+                                        </small>
+                                        {% if jour_data.taux_deperdition %}
+                                        <small class="d-block">
+                                            TD: {{ jour_data.taux_deperdition|floatformat:1 }}%
+                                        </small>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% if not jour_data.inventaire %}
+                                        <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ poste.id }}&date={{ jour_data.date|date:'Y-m-d' }}" 
+                                           class="btn btn-sm btn-outline-primary mt-1">
+                                            <i class="fas fa-plus"></i> Saisir
+                                        </a>
+                                    {% endif %}
+                                </td>
+                                {% else %}
+                                <td class="bg-light"></td>
                                 {% endif %}
-                                {% if not jour_data.inventaire %}
-                                    <a href="{% url 'inventaire:saisie_inventaire' %}?poste={{ poste.id }}&date={{ jour_data.date|date:'Y-m-d' }}" 
-                                       class="btn btn-sm btn-outline-primary mt-1">
-                                        <i class="fas fa-plus"></i> Saisir
-                                    </a>
-                                {% endif %}
-                            </td>
-                            {% else %}
-                            <td class="bg-light"></td>
-                            {% endif %}
+                            {% endfor %}
+                        </tr>
                         {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     
     <!-- Liste détaillée des inventaires -->
     <div class="card">
         <div class="card-header">
-            <h5>Détail des inventaires et recettes</h5>
+            <h5><i class="fas fa-list-alt me-2"></i>Détail des inventaires et recettes</h5>
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover detail-table">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -189,4 +1152,76 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction pour éviter le défilement horizontal non désiré sur mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+            
+            const contentWrapper = document.querySelector('.content-wrapper');
+            if (contentWrapper) {
+                contentWrapper.style.minWidth = '100%';
+                contentWrapper.style.maxWidth = '100vw';
+                contentWrapper.style.overflowX = 'hidden';
+            }
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    adjustForMobile();
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
+    
+    // Gestion des événements tactiles pour améliorer la réactivité
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    document.addEventListener('touchmove', function() {}, { passive: true });
+    
+    // Ajouter indication de scroll pour les tableaux
+    const tableWrappers = document.querySelectorAll('.table-responsive, .table-scroll-wrapper');
+    tableWrappers.forEach(wrapper => {
+        if (wrapper.scrollWidth > wrapper.clientWidth) {
+            wrapper.style.position = 'relative';
+            
+            // Indicateur de scroll si nécessaire
+            const scrollIndicator = document.createElement('div');
+            scrollIndicator.style.cssText = `
+                position: absolute;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                background: linear-gradient(to right, transparent, rgba(0,0,0,0.1));
+                width: 30px;
+                height: 100%;
+                pointer-events: none;
+                display: none;
+            `;
+            
+            if (window.innerWidth < 768) {
+                scrollIndicator.style.display = 'block';
+            }
+            
+            wrapper.appendChild(scrollIndicator);
+            
+            wrapper.addEventListener('scroll', function() {
+                if (this.scrollLeft + this.clientWidth >= this.scrollWidth - 10) {
+                    scrollIndicator.style.display = 'none';
+                } else {
+                    scrollIndicator.style.display = window.innerWidth < 768 ? 'block' : 'none';
+                }
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

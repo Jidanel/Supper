@@ -691,7 +691,7 @@ def import_utilisateurs_excel(request):
     if request.method == 'POST':
         fichier = request.FILES.get('fichier_excel')
         action_doublon = request.POST.get('action_doublon', 'sauter')
-        mot_de_passe_defaut = request.POST.get('mot_de_passe_defaut', 'supper2025')
+        mot_de_passe_defaut = request.POST.get('mot_de_passe_defaut', '0000')
         
         if not fichier:
             messages.error(request, "Veuillez sélectionner un fichier Excel")

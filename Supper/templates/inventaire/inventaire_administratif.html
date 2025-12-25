@@ -1,22 +1,433 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
 
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL - ANTI-DÉBORDEMENT
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       TYPOGRAPHIE RESPONSIVE
+       ============================================ */
+    h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+        color: #1e293b;
+    }
+
+    p.lead {
+        font-size: 1rem;
+        color: #64748b;
+        margin-bottom: 1.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       CARTES - RESPONSIVE
+       ============================================ */
+    .card {
+        width: 100%;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: white;
+    }
+
+    .card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: none;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    }
+
+    .card-header h5 {
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       FORMULAIRES - RESPONSIVE
+       ============================================ */
+    .form-label,
+    label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-size: 0.95rem;
+    }
+
+    .form-select,
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #fff;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 16px 12px;
+        padding-right: 2.5rem;
+    }
+
+    /* ============================================
+       GRID LAYOUT - RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-md-6 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    /* ============================================
+       BOUTONS - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        min-height: 44px;
+        box-sizing: border-box;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+    }
+
+    .mt-3 {
+        margin-top: 1rem !important;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            margin-bottom: 0;
+        }
+
+        .card-body {
+            padding: 2rem;
+        }
+
+        .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction du débordement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        p.lead {
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .card {
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            padding: 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 1rem;
+        }
+
+        .card-body {
+            padding: 1.25rem;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-md-6 {
+            padding-left: 8px;
+            padding-right: 8px;
+            margin-bottom: 0.75rem;
+        }
+
+        .form-select,
+        .form-control {
+            padding: 0.625rem 0.875rem;
+            font-size: 16px; /* Empêche le zoom iOS */
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        h2 {
+            font-size: 1.35rem;
+        }
+
+        p.lead {
+            font-size: 0.85rem;
+        }
+
+        .card-header {
+            padding: 0.875rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-md-6 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        label {
+            font-size: 0.9rem;
+        }
+
+        .form-select,
+        .form-control {
+            padding: 0.5rem 0.75rem;
+        }
+
+        .btn {
+            font-size: 0.9rem;
+            padding: 0.625rem 1rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            margin-bottom: 0;
+        }
+
+        .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input, button, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .form-control:focus,
+    .btn:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <h2>Inventaire Administratif</h2>
-    <p>Saisie d'inventaire multi-postes par l'administrateur</p>
+    <p class="lead">Saisie d'inventaire multi-postes par l'administrateur</p>
     
     <div class="card">
         <div class="card-header bg-primary text-white">
-            <h5>Étape 1 : Sélection du poste et de la date</h5>
+            <h5 class="mb-0">
+                <i class="fas fa-clipboard-list me-2"></i>
+                Étape 1 : Sélection du poste et de la date
+            </h5>
         </div>
         <div class="card-body">
             <form method="post">
                 {% csrf_token %}
                 <div class="row">
                     <div class="col-md-6">
-                        <label>Poste :</label>
-                        <select name="poste_id" class="form-select" required>
+                        <label for="poste_id">Poste :</label>
+                        <select name="poste_id" id="poste_id" class="form-select" required>
                             <option value="">-- Sélectionner un poste --</option>
                             {% for poste in postes %}
                             <option value="{{ poste.id }}">
@@ -26,16 +437,40 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label>Date :</label>
-                        <input type="date" name="date" class="form-control" 
+                        <label for="date">Date :</label>
+                        <input type="date" name="date" id="date" class="form-control" 
                                value="{{ today|date:'Y-m-d' }}" required>
                     </div>
                 </div>
                 <button type="submit" name="select_poste" class="btn btn-primary mt-3">
+                    <i class="fas fa-arrow-right me-2"></i>
                     Continuer vers la saisie
                 </button>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    
+    // Ajustement dynamique pour les petits écrans
+    function adjustForSmallScreen() {
+        if (window.innerWidth < 768) {
+            document.body.style.minWidth = '100%';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.body.style.minWidth = '';
+            document.body.style.maxWidth = '';
+            document.body.style.overflowX = '';
+        }
+    }
+    
+    window.addEventListener('load', adjustForSmallScreen);
+    window.addEventListener('resize', adjustForSmallScreen);
+});
+</script>
 {% endblock %}
