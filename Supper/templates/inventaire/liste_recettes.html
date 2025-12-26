@@ -7,16 +7,29 @@
 {% block extra_css %}
 <style>
     /* ============================================
-       RÉINITIALISATION DES STYLES POUR MOBILE
+       RÉINITIALISATION GLOBALE POUR MOBILE
        ============================================ */
     * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* ============================================
+       CORRECTION DU DÉFILEMENT HORIZONTAL - CRITIQUE
+       ============================================ */
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
+        position: relative;
     }
 
     .recettes-page {
         width: 100%;
         max-width: 100%;
         overflow-x: hidden;
+        position: relative;
     }
 
     .container-fluid {
@@ -54,6 +67,12 @@
         flex-wrap: wrap;
         gap: 1rem;
         margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .page-header-content {
+        flex: 1;
+        min-width: 0;
     }
 
     .page-header h2 {
@@ -64,18 +83,23 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
     }
 
     .page-header p {
         margin: 0.5rem 0 0 0;
         color: #6b7280;
         font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .header-buttons {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+        flex-shrink: 0;
     }
 
     /* ============================================
@@ -83,7 +107,7 @@
        ============================================ */
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(4, 1fr);
         gap: 1rem;
         margin-bottom: 1.5rem;
         width: 100%;
@@ -96,6 +120,7 @@
         border-radius: 12px;
         text-align: center;
         width: 100%;
+        overflow: hidden;
     }
 
     .stat-value {
@@ -104,11 +129,14 @@
         margin-bottom: 0.5rem;
         word-break: break-word;
         overflow-wrap: break-word;
+        line-height: 1.2;
     }
 
     .stat-label {
         font-size: 0.85rem;
         opacity: 0.9;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     /* ============================================
@@ -121,6 +149,7 @@
         margin-bottom: 1.5rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         width: 100%;
+        overflow: hidden;
     }
 
     .filter-section h5 {
@@ -129,6 +158,8 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .filter-row {
@@ -136,6 +167,7 @@
         gap: 1rem;
         flex-wrap: wrap;
         align-items: flex-end;
+        width: 100%;
     }
 
     .filter-group {
@@ -149,6 +181,8 @@
         font-weight: 500;
         font-size: 0.9rem;
         color: #374151;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .filter-group .form-select,
@@ -158,6 +192,14 @@
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         font-size: 0.95rem;
+        box-sizing: border-box;
+    }
+
+    .filter-group .form-select:focus,
+    .filter-group .form-control:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+        border-color: #667eea;
     }
 
     .filter-buttons {
@@ -177,6 +219,7 @@
         border-radius: 10px;
         padding: 1rem;
         margin-bottom: 1.5rem;
+        overflow: hidden;
     }
 
     .alert-warning {
@@ -192,11 +235,16 @@
         align-items: center;
         flex-wrap: wrap;
         gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
     }
 
     .alert > p {
         margin: 0 0 1rem 0;
         font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .jours-stats-cards {
@@ -204,6 +252,7 @@
         flex-wrap: wrap;
         gap: 1rem;
         margin-bottom: 1rem;
+        width: 100%;
     }
 
     .jours-stats-cards .card {
@@ -222,14 +271,20 @@
         font-size: 1.5rem;
         margin: 0 0 0.25rem 0;
         word-break: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.2;
     }
 
     .jours-stats-cards p {
         margin: 0;
         font-size: 0.85rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
-    /* Accordion */
+    /* ============================================
+       ACCORDION
+       ============================================ */
     .accordion {
         width: 100%;
     }
@@ -253,24 +308,69 @@
         text-align: left;
         cursor: pointer;
         font-size: 0.9rem;
+        display: block;
     }
 
     .accordion-button:not(.collapsed) {
         background: #eff6ff;
     }
 
+    .accordion-button-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .accordion-button-left {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .accordion-button-right {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        color: #dc2626;
+        font-size: 0.85rem;
+    }
+
     .accordion-body {
         padding: 1rem;
         background: white;
+        overflow: hidden;
+    }
+
+    .accordion-body .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-top: 0.5rem;
     }
 
     .accordion-body .table {
         width: 100%;
+        min-width: 300px;
         font-size: 0.85rem;
+        border-collapse: collapse;
+    }
+
+    .accordion-body .table th,
+    .accordion-body .table td {
+        padding: 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
     }
 
     /* ============================================
-       TABLEAU DES RECETTES
+       TABLEAU DES RECETTES - CONTENEUR SCROLLABLE
        ============================================ */
     .table-container {
         width: 100%;
@@ -278,6 +378,26 @@
         -webkit-overflow-scrolling: touch;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        background: white;
+    }
+
+    /* Scrollbar personnalisée pour le tableau */
+    .table-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
     }
 
     .recette-table {
@@ -285,7 +405,8 @@
         border-radius: 12px;
         overflow: hidden;
         width: 100%;
-        min-width: 700px;
+        min-width: 800px;
+        border-collapse: collapse;
     }
 
     .recette-table thead {
@@ -299,6 +420,7 @@
         border: none;
         white-space: nowrap;
         font-size: 0.9rem;
+        text-align: left;
     }
 
     .recette-table td {
@@ -374,6 +496,7 @@
         cursor: pointer;
         box-sizing: border-box;
         border: none;
+        min-height: 44px;
     }
 
     .btn-primary {
@@ -422,6 +545,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        min-height: 36px;
+        min-width: 36px;
     }
 
     .btn-view {
@@ -455,6 +580,7 @@
         list-style: none;
         padding: 0;
         margin: 1.5rem 0 0 0;
+        width: 100%;
     }
 
     .page-item {
@@ -462,7 +588,9 @@
     }
 
     .page-link {
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 0.5rem 0.875rem;
         border: 1px solid #e5e7eb;
         border-radius: 6px;
@@ -470,6 +598,7 @@
         text-decoration: none;
         font-size: 0.875rem;
         background: white;
+        min-height: 40px;
     }
 
     .page-item.active .page-link {
@@ -492,6 +621,7 @@
         background: white;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        width: 100%;
     }
 
     .empty-state-icon {
@@ -504,10 +634,14 @@
         margin: 0 0 0.5rem 0;
         font-size: 1.25rem;
         color: #374151;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .empty-state p {
         margin: 0 0 1rem 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     /* ============================================
@@ -556,9 +690,31 @@
     }
 
     /* ============================================
-       RESPONSIVE - TABLETTES (768px - 1024px)
+       RESPONSIVE - PC (≥ 1024px)
        ============================================ */
-    @media (min-width: 768px) {
+    @media (min-width: 1024px) {
+        .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .filter-group {
+            min-width: 150px;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - TABLETTES (768px - 1023px)
+       ============================================ */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
         .col-md-6 {
             flex: 0 0 50%;
             max-width: 50%;
@@ -566,18 +722,34 @@
 
         .filter-group {
             min-width: 150px;
+            flex: 0 0 calc(50% - 0.5rem);
         }
     }
 
     /* ============================================
-       RESPONSIVE - MOBILE (max 767px)
+       RESPONSIVE - MOBILE (≤ 767px) - CRITIQUE
        ============================================ */
     @media (max-width: 767px) {
-        /* Correction globale du défilement */
+        /* CORRECTION CRITIQUE : Empêcher le défilement horizontal */
         html, body {
             overflow-x: hidden !important;
             width: 100% !important;
             max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+            overflow-x: hidden !important;
         }
 
         .recettes-page {
@@ -590,11 +762,14 @@
             padding-left: 10px;
             padding-right: 10px;
             overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100% !important;
         }
 
         .row {
             margin-left: -10px;
             margin-right: -10px;
+            width: calc(100% + 20px);
         }
 
         .col-md-6, .col-12 {
@@ -613,6 +788,7 @@
 
         .page-header h2 {
             font-size: 1.25rem;
+            width: 100%;
         }
 
         .page-header p {
@@ -621,12 +797,14 @@
 
         .header-buttons {
             width: 100%;
+            flex-direction: row;
         }
 
         .header-buttons .btn {
             flex: 1;
             font-size: 0.8rem;
             padding: 0.5rem 0.75rem;
+            min-height: 44px;
         }
 
         /* Stats */
@@ -682,10 +860,12 @@
 
         .filter-buttons {
             width: 100%;
+            flex-direction: row;
         }
 
         .filter-buttons .btn {
             flex: 1;
+            min-height: 44px;
         }
 
         /* Alertes journées non déclarées */
@@ -719,15 +899,26 @@
             font-size: 0.8rem;
         }
 
+        /* Accordion */
         .accordion-button {
             padding: 0.75rem;
             font-size: 0.8rem;
         }
 
-        .accordion-button .d-flex {
+        .accordion-button-content {
             flex-direction: column;
-            align-items: flex-start !important;
+            align-items: flex-start;
             gap: 0.5rem;
+        }
+
+        .accordion-button-left {
+            width: 100%;
+        }
+
+        .accordion-button-right {
+            width: 100%;
+            justify-content: flex-start;
+            font-size: 0.8rem;
         }
 
         .accordion-body {
@@ -739,7 +930,17 @@
             font-size: 0.8rem;
         }
 
-        /* Tableau avec scroll interne */
+        .accordion-body .table {
+            font-size: 0.75rem;
+            min-width: 280px;
+        }
+
+        .accordion-body .table th,
+        .accordion-body .table td {
+            padding: 0.375rem;
+        }
+
+        /* Tableau avec scroll interne - CRITIQUE */
         .table-container {
             border-radius: 10px;
             margin-left: -10px;
@@ -749,7 +950,7 @@
         }
 
         .recette-table {
-            min-width: 600px;
+            min-width: 650px;
             border-radius: 0;
         }
 
@@ -776,6 +977,8 @@
         .btn-action {
             padding: 0.35rem 0.6rem;
             font-size: 0.75rem;
+            min-height: 36px;
+            min-width: 36px;
         }
 
         /* Pagination */
@@ -786,6 +989,7 @@
         .page-link {
             padding: 0.4rem 0.625rem;
             font-size: 0.8rem;
+            min-height: 36px;
         }
 
         /* État vide */
@@ -808,9 +1012,13 @@
     }
 
     /* ============================================
-       TRÈS PETITS ÉCRANS (max 576px)
+       TRÈS PETITS ÉCRANS (≤ 576px)
        ============================================ */
     @media (max-width: 576px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
         .container-fluid {
             padding-left: 8px;
             padding-right: 8px;
@@ -819,6 +1027,7 @@
         .row {
             margin-left: -8px;
             margin-right: -8px;
+            width: calc(100% + 16px);
         }
 
         .col-md-6, .col-12 {
@@ -830,13 +1039,18 @@
             font-size: 1.15rem;
         }
 
+        .header-buttons {
+            flex-direction: column;
+        }
+
         .header-buttons .btn {
-            font-size: 0.75rem;
-            padding: 0.4rem 0.625rem;
+            width: 100%;
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
         }
 
         .stats-grid {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.5rem;
         }
 
@@ -867,7 +1081,7 @@
         }
 
         .recette-table {
-            min-width: 550px;
+            min-width: 580px;
         }
 
         .recette-table th,
@@ -878,17 +1092,26 @@
 
         .accordion-button {
             font-size: 0.75rem;
+            padding: 0.625rem;
+        }
+
+        .accordion-body {
+            padding: 0.625rem;
         }
 
         .accordion-body .table {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
         }
     }
 
     /* ============================================
-       TRÈS PETITS MOBILES (max 375px)
+       TRÈS PETITS MOBILES (≤ 375px)
        ============================================ */
     @media (max-width: 375px) {
+        .content-wrapper {
+            padding: 0.375rem !important;
+        }
+
         .container-fluid {
             padding-left: 6px;
             padding-right: 6px;
@@ -897,6 +1120,7 @@
         .row {
             margin-left: -6px;
             margin-right: -6px;
+            width: calc(100% + 12px);
         }
 
         .col-md-6, .col-12 {
@@ -908,16 +1132,13 @@
             font-size: 1.05rem;
         }
 
-        .header-buttons {
-            flex-direction: column;
-        }
-
-        .header-buttons .btn {
-            width: 100%;
-        }
-
         .stats-grid {
             grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .stat-card {
+            padding: 0.75rem;
         }
 
         .stat-value {
@@ -928,6 +1149,10 @@
             font-size: 0.75rem;
         }
 
+        .filter-section {
+            padding: 0.75rem;
+        }
+
         .table-container {
             margin-left: -6px;
             margin-right: -6px;
@@ -935,7 +1160,7 @@
         }
 
         .recette-table {
-            min-width: 500px;
+            min-width: 520px;
         }
 
         .recette-table th,
@@ -947,6 +1172,24 @@
         .page-link {
             padding: 0.35rem 0.5rem;
             font-size: 0.75rem;
+            min-height: 32px;
+        }
+
+        .btn {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.625rem;
+        }
+
+        .alert h5 {
+            font-size: 0.85rem;
+        }
+
+        .alert > p {
+            font-size: 0.8rem;
+        }
+
+        .jours-stats-cards h3 {
+            font-size: 1.1rem;
         }
     }
 
@@ -964,8 +1207,8 @@
         }
 
         .filter-group {
-            min-width: calc(50% - 0.5rem);
-            flex: 0 0 calc(50% - 0.5rem);
+            min-width: calc(33.333% - 0.75rem);
+            flex: 0 0 calc(33.333% - 0.75rem);
         }
 
         .jours-stats-cards {
@@ -974,6 +1217,28 @@
 
         .jours-stats-cards .card {
             min-width: calc(50% - 0.5rem);
+        }
+
+        .header-buttons {
+            flex-direction: row;
+        }
+
+        .header-buttons .btn {
+            width: auto;
+        }
+
+        .accordion-button-content {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .accordion-button-left {
+            width: auto;
+        }
+
+        .accordion-button-right {
+            width: auto;
+            margin-left: auto;
         }
     }
 
@@ -995,23 +1260,16 @@
        ============================================ */
     .btn:focus,
     .form-select:focus,
-    .form-control:focus {
+    .form-control:focus,
+    .btn-action:focus,
+    .page-link:focus,
+    .accordion-button:focus {
         outline: 2px solid #667eea;
         outline-offset: 2px;
     }
 
     /* ============================================
-       HAUTEURS MINIMALES POUR LE TOUCH
-       ============================================ */
-    .btn,
-    .form-select,
-    .form-control,
-    .btn-action {
-        min-height: 44px;
-    }
-
-    /* ============================================
-       SCROLLBAR PERSONNALISÉE
+       SCROLLBAR GLOBALE PERSONNALISÉE
        ============================================ */
     ::-webkit-scrollbar {
         width: 8px;
@@ -1032,17 +1290,25 @@
         background: #a8a8a8;
     }
 
-    .table-container::-webkit-scrollbar {
-        height: 6px;
-    }
+    /* Scrollbar mobile plus fine */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
 
-    .table-container::-webkit-scrollbar-track {
-        background: #e5e7eb;
-    }
+        .table-container::-webkit-scrollbar {
+            height: 6px;
+        }
 
-    .table-container::-webkit-scrollbar-thumb {
-        background: #9ca3af;
-        border-radius: 3px;
+        .table-container::-webkit-scrollbar-track {
+            background: #e5e7eb;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 3px;
+        }
     }
 
     /* ============================================
@@ -1057,6 +1323,7 @@
 
         .table-container {
             overflow: visible !important;
+            box-shadow: none !important;
         }
 
         .recette-table {
@@ -1073,6 +1340,17 @@
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
+
+        .recettes-page {
+            overflow: visible !important;
+        }
+
+        .page-header,
+        .stats-grid,
+        .alert,
+        .table-container {
+            page-break-inside: avoid;
+        }
     }
 </style>
 {% endblock %}
@@ -1082,7 +1360,7 @@
     <div class="container-fluid py-4">
         <!-- En-tête -->
         <div class="page-header mb-4">
-            <div>
+            <div class="page-header-content">
                 <h2 class="mb-0">
                     <i class="fas fa-coins me-2" style="color: #764ba2;"></i>
                     {% trans "Liste des Recettes" %}
@@ -1166,13 +1444,13 @@
                         <button class="accordion-button collapsed" type="button" 
                                 data-bs-toggle="collapse" 
                                 data-bs-target="#collapse{{ forloop.counter }}">
-                            <div class="d-flex justify-content-between w-100 pe-3">
-                                <span>
+                            <div class="accordion-button-content">
+                                <span class="accordion-button-left">
                                     <strong>{{ item.poste.nom }}</strong>
                                     <span class="badge bg-danger ms-2">{{ item.nombre_jours }} jour(s)</span>
                                     <span class="badge bg-warning ms-2">{{ item.pourcentage|floatformat:1 }}%</span>
                                 </span>
-                                <span class="text-danger">
+                                <span class="accordion-button-right">
                                     <i class="fas fa-money-bill-wave me-1"></i>
                                     ~{{ item.estimation_manquante|floatformat:0|format_milliers }} FCFA manquants
                                 </span>
@@ -1491,15 +1769,20 @@ document.addEventListener('DOMContentLoaded', function() {
         moisGroup.style.display = value === 'mois' ? 'block' : 'none';
     }
     
-    periodeSelect.addEventListener('change', togglePeriodeFields);
-    togglePeriodeFields();
+    if (periodeSelect) {
+        periodeSelect.addEventListener('change', togglePeriodeFields);
+        togglePeriodeFields();
+    }
     
     // Gestion sélection mois/année
     const moisSelect = document.querySelector('select[name="mois"]');
     if (moisSelect) {
         moisSelect.addEventListener('change', function() {
             const selected = this.options[this.selectedIndex];
-            document.getElementById('anneeInput').value = selected.dataset.annee;
+            const anneeInput = document.getElementById('anneeInput');
+            if (anneeInput && selected.dataset.annee) {
+                anneeInput.value = selected.dataset.annee;
+            }
         });
     }
 
@@ -1508,19 +1791,45 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.innerWidth <= 768) {
             document.documentElement.style.overflowX = 'hidden';
             document.body.style.overflowX = 'hidden';
+            document.body.style.width = '100%';
+            document.body.style.maxWidth = '100vw';
             
-            document.querySelectorAll('.recettes-page, .container-fluid').forEach(el => {
-                el.style.overflowX = 'hidden';
-                el.style.maxWidth = '100vw';
+            document.querySelectorAll('.recettes-page, .container-fluid, .main-content, .content-wrapper').forEach(el => {
+                if (el) {
+                    el.style.overflowX = 'hidden';
+                    el.style.maxWidth = '100vw';
+                    el.style.width = '100%';
+                }
             });
         } else {
             document.documentElement.style.overflowX = '';
             document.body.style.overflowX = '';
+            document.body.style.width = '';
+            document.body.style.maxWidth = '';
         }
     }
     
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', function() {
+        setTimeout(fixMobileScrolling, 100);
+    });
+    
+    // Ajustement dynamique pour les très petits écrans
+    function adjustForSmallScreen() {
+        const viewportWidth = window.innerWidth;
+        
+        if (viewportWidth < 768) {
+            // Forcer le conteneur à rester dans les limites
+            const containers = document.querySelectorAll('.container-fluid, .recettes-page');
+            containers.forEach(container => {
+                container.style.maxWidth = viewportWidth + 'px';
+            });
+        }
+    }
+    
+    adjustForSmallScreen();
+    window.addEventListener('resize', adjustForSmallScreen);
 });
 
 // Fonction suppression
@@ -1544,4 +1853,4 @@ function supprimerRecette(id) {
 // Correction pour empêcher le zoom automatique sur iOS
 document.addEventListener('touchstart', function() {}, {passive: true});
 </script>
-{% endblock %}
+{% endblock %}1

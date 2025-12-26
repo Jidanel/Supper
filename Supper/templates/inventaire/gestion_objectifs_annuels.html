@@ -14,6 +14,13 @@
         box-sizing: border-box;
     }
 
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
+        position: relative;
+    }
+
     :root {
         --primary-color: #667eea;
         --primary-dark: #5a67d8;
@@ -24,6 +31,7 @@
         width: 100%;
         max-width: 100%;
         overflow-x: hidden;
+        position: relative;
     }
 
     .container-fluid {
@@ -62,6 +70,7 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .mode-lecture-badge {
@@ -78,23 +87,28 @@
        SÉLECTEUR D'ANNÉE
        ============================================ */
     .year-selector {
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.25rem;
         border-radius: 12px;
         margin-bottom: 1.5rem;
         width: 100%;
+        overflow: hidden;
     }
 
     .year-selector h4 {
         font-size: 1.25rem;
         margin: 0 0 0.25rem 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .year-selector p {
         margin: 0;
         opacity: 0.85;
         font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .year-buttons {
@@ -112,6 +126,10 @@
         font-size: 0.85rem;
         transition: all 0.2s;
         white-space: nowrap;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .year-btn.active {
@@ -148,6 +166,7 @@
         text-align: center;
         border: 1px solid rgba(102, 126, 234, 0.1);
         width: 100%;
+        overflow: hidden;
     }
 
     .stat-card h5 {
@@ -158,6 +177,8 @@
         align-items: center;
         justify-content: center;
         gap: 0.25rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .stat-card h3 {
@@ -166,6 +187,7 @@
         font-size: 1.25rem;
         margin: 0;
         word-break: break-word;
+        overflow-wrap: break-word;
     }
 
     /* ============================================
@@ -241,6 +263,7 @@
         border-radius: 6px;
         padding: 0.375rem 0.5rem;
         font-size: 0.9rem;
+        min-height: 44px;
     }
 
     .input-objectif:focus {
@@ -342,6 +365,7 @@
         cursor: pointer;
         box-sizing: border-box;
         border: none;
+        min-height: 44px;
     }
 
     .btn-primary-custom {
@@ -394,6 +418,8 @@
         font-size: 0.85rem;
         flex: 1;
         min-width: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .footer-buttons {
@@ -415,6 +441,7 @@
     .fw-bold { font-weight: 600 !important; }
     .mb-0 { margin-bottom: 0 !important; }
     .mb-1 { margin-bottom: 0.25rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
     .mb-4 { margin-bottom: 1.5rem !important; }
     .me-1 { margin-right: 0.25rem !important; }
     .me-2 { margin-right: 0.5rem !important; }
@@ -437,7 +464,7 @@
     .bg-primary { background-color: var(--primary-color) !important; }
 
     /* ============================================
-       RESPONSIVE - TABLETTES (768px - 1024px)
+       RESPONSIVE - PC/TABLETTES (≥768px)
        ============================================ */
     @media (min-width: 768px) {
         .col-md-6 {
@@ -447,14 +474,55 @@
     }
 
     /* ============================================
-       RESPONSIVE - MOBILE (max 767px)
+       GRANDS ÉCRANS (≥1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .year-selector {
+            padding: 1.5rem;
+        }
+        
+        .stats-summary {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .objectifs-container {
+            padding: 2rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS GRANDS ÉCRANS (≥1400px)
+       ============================================ */
+    @media (min-width: 1400px) {
+        .container-fluid {
+            max-width: 1400px;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (≤767px)
        ============================================ */
     @media (max-width: 767px) {
-        /* Correction globale du défilement */
+        /* CORRECTION CRITIQUE : Défilement horizontal */
         html, body {
             overflow-x: hidden !important;
             width: 100% !important;
             max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
         }
 
         .objectifs-page {
@@ -472,6 +540,7 @@
         .row {
             margin-left: -10px;
             margin-right: -10px;
+            width: calc(100% + 20px);
         }
 
         .col-md-6, .col-12 {
@@ -519,6 +588,7 @@
         .year-btn {
             padding: 0.3rem 0.6rem;
             font-size: 0.8rem;
+            min-height: 36px;
         }
 
         /* Stats */
@@ -542,6 +612,7 @@
         .stat-card .btn {
             font-size: 0.75rem;
             padding: 0.4rem 0.75rem;
+            min-height: 38px;
         }
 
         /* Conteneur objectifs */
@@ -550,7 +621,7 @@
             border-radius: 10px;
         }
 
-        /* Tableau */
+        /* Tableau - Extension complète */
         .table-wrapper {
             margin-left: -1rem;
             margin-right: -1rem;
@@ -582,6 +653,7 @@
             width: 100px;
             padding: 0.3rem 0.4rem;
             font-size: 0.8rem;
+            min-height: 38px;
         }
 
         .progress-cell {
@@ -639,9 +711,13 @@
     }
 
     /* ============================================
-       TRÈS PETITS ÉCRANS (max 576px)
+       PETITS MOBILES (≤576px)
        ============================================ */
     @media (max-width: 576px) {
+        .content-wrapper {
+            padding: 0.75rem !important;
+        }
+
         .container-fluid {
             padding-left: 8px;
             padding-right: 8px;
@@ -650,6 +726,7 @@
         .row {
             margin-left: -8px;
             margin-right: -8px;
+            width: calc(100% + 16px);
         }
 
         .col-md-6, .col-12 {
@@ -706,9 +783,13 @@
     }
 
     /* ============================================
-       TRÈS PETITS MOBILES (max 375px)
+       TRÈS PETITS MOBILES (≤375px)
        ============================================ */
     @media (max-width: 375px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
         .container-fluid {
             padding-left: 6px;
             padding-right: 6px;
@@ -717,6 +798,7 @@
         .row {
             margin-left: -6px;
             margin-right: -6px;
+            width: calc(100% + 12px);
         }
 
         .col-md-6, .col-12 {
@@ -776,6 +858,19 @@
     }
 
     /* ============================================
+       CORRECTION POUR EMPÊCHER LE ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 480px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        textarea,
+        select {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
        AMÉLIORATION DE L'ACCESSIBILITÉ
        ============================================ */
     .btn:focus,
@@ -783,25 +878,6 @@
     .form-select:focus {
         outline: 2px solid var(--primary-color);
         outline-offset: 2px;
-    }
-
-    /* ============================================
-       HAUTEURS MINIMALES POUR LE TOUCH
-       ============================================ */
-    .btn,
-    .input-objectif,
-    .year-btn {
-        min-height: 44px;
-    }
-
-    @media (max-width: 767px) {
-        .input-objectif {
-            min-height: 38px;
-        }
-
-        .year-btn {
-            min-height: 36px;
-        }
     }
 
     /* ============================================
@@ -824,6 +900,13 @@
 
     ::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8;
+    }
+
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
     }
 
     .table-wrapper::-webkit-scrollbar {
@@ -1203,6 +1286,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
 });
 
 // Correction pour empêcher le zoom automatique sur iOS

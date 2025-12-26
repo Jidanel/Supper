@@ -13,10 +13,18 @@
         box-sizing: border-box;
     }
 
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
+        position: relative;
+    }
+
     .stats-page {
         width: 100%;
         max-width: 100%;
         overflow-x: hidden;
+        position: relative;
     }
 
     .container-fluid {
@@ -48,12 +56,13 @@
        EN-TÊTE STATS
        ============================================ */
     .stats-header {
-        background: linear-gradient(135deg, #667eea, #1e40af);
+        background: linear-gradient(135deg, #667eea 0%, #1e40af 100%);
         color: white;
         padding: 1.5rem;
         border-radius: 12px;
         margin-bottom: 1.5rem;
         width: 100%;
+        overflow: hidden;
     }
 
     .stats-header h2 {
@@ -64,12 +73,15 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .stats-header p {
         margin: 0;
         opacity: 0.9;
         font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     /* ============================================
@@ -82,6 +94,7 @@
         margin-bottom: 1.5rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         width: 100%;
+        overflow: hidden;
     }
 
     .filter-bar .row {
@@ -107,6 +120,7 @@
         border-radius: 8px;
         font-size: 0.95rem;
         background-color: white;
+        min-height: 44px;
     }
 
     .filter-bar .form-select:focus {
@@ -134,6 +148,7 @@
         border-left: 4px solid;
         transition: transform 0.2s;
         width: 100%;
+        overflow: hidden;
     }
 
     .summary-card:hover {
@@ -149,6 +164,7 @@
         color: #6b7280;
         margin: 0 0 0.5rem 0;
         word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .summary-card h4 {
@@ -157,6 +173,7 @@
         font-size: 1.35rem;
         margin: 0 0 0.25rem 0;
         word-break: break-word;
+        overflow-wrap: break-word;
     }
 
     .summary-card small {
@@ -164,6 +181,8 @@
         margin-top: 0.5rem;
         font-size: 0.8rem;
         color: #6b7280;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .summary-card .mt-2 small {
@@ -203,6 +222,7 @@
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         margin-bottom: 1.5rem;
+        background: white;
     }
 
     .stats-table {
@@ -220,7 +240,7 @@
     }
 
     .stats-table thead {
-        background: linear-gradient(135deg, #f093fb, #f5576c);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         color: white;
     }
 
@@ -259,12 +279,15 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         margin-top: 1.5rem;
         width: 100%;
+        overflow: hidden;
     }
 
     .top-postes-table h5 {
         font-size: 1.1rem;
         margin: 0 0 1rem 0;
         color: #1f2937;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .top-postes-container {
@@ -331,6 +354,7 @@
         cursor: pointer;
         box-sizing: border-box;
         border: none;
+        min-height: 44px;
     }
 
     .btn-primary {
@@ -368,7 +392,7 @@
     .w-100 { width: 100% !important; }
 
     /* ============================================
-       RESPONSIVE - TABLETTES (768px - 1024px)
+       RESPONSIVE - PC/TABLETTES (≥768px)
        ============================================ */
     @media (min-width: 768px) {
         .col-md-2 { flex: 0 0 16.666667%; max-width: 16.666667%; }
@@ -380,14 +404,55 @@
     }
 
     /* ============================================
-       RESPONSIVE - MOBILE (max 767px)
+       GRANDS ÉCRANS (≥1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .stats-header {
+            padding: 2rem;
+        }
+        
+        .stats-header h2 {
+            font-size: 1.75rem;
+        }
+        
+        .summary-cards {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* ============================================
+       TRÈS GRANDS ÉCRANS (≥1400px)
+       ============================================ */
+    @media (min-width: 1400px) {
+        .container-fluid {
+            max-width: 1400px;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (≤767px)
        ============================================ */
     @media (max-width: 767px) {
-        /* Correction globale du défilement */
+        /* CORRECTION CRITIQUE : Défilement horizontal */
         html, body {
             overflow-x: hidden !important;
             width: 100% !important;
             max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
         }
 
         .stats-page {
@@ -405,6 +470,7 @@
         .row {
             margin-left: -10px;
             margin-right: -10px;
+            width: calc(100% + 20px);
         }
 
         .col-md-2, .col-md-3, .col-12 {
@@ -463,7 +529,7 @@
 
         /* Cartes de résumé */
         .summary-cards {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
@@ -474,15 +540,15 @@
         }
 
         .summary-card h6 {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
         }
 
         .summary-card h4 {
-            font-size: 1.15rem;
+            font-size: 1rem;
         }
 
         .summary-card small {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
         }
 
         /* Graphique */
@@ -496,7 +562,7 @@
             height: 280px !important;
         }
 
-        /* Tableaux */
+        /* Tableaux - Extension complète */
         .table-container {
             border-radius: 10px;
             margin-left: -10px;
@@ -566,9 +632,13 @@
     }
 
     /* ============================================
-       TRÈS PETITS ÉCRANS (max 576px)
+       PETITS MOBILES (≤576px)
        ============================================ */
     @media (max-width: 576px) {
+        .content-wrapper {
+            padding: 0.75rem !important;
+        }
+
         .container-fluid {
             padding-left: 8px;
             padding-right: 8px;
@@ -577,6 +647,7 @@
         .row {
             margin-left: -8px;
             margin-right: -8px;
+            width: calc(100% + 16px);
         }
 
         .col-md-2, .col-md-3, .col-12 {
@@ -598,6 +669,10 @@
 
         .filter-bar {
             padding: 0.875rem;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr;
         }
 
         .summary-card {
@@ -648,9 +723,13 @@
     }
 
     /* ============================================
-       TRÈS PETITS MOBILES (max 375px)
+       TRÈS PETITS MOBILES (≤375px)
        ============================================ */
     @media (max-width: 375px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
         .container-fluid {
             padding-left: 6px;
             padding-right: 6px;
@@ -659,6 +738,7 @@
         .row {
             margin-left: -6px;
             margin-right: -6px;
+            width: calc(100% + 12px);
         }
 
         .col-md-2, .col-md-3, .col-12 {
@@ -671,11 +751,11 @@
         }
 
         .summary-card h4 {
-            font-size: 1rem;
+            font-size: 0.95rem;
         }
 
         .summary-card h6 {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
         }
 
         .chart-container canvas {
@@ -760,14 +840,6 @@
     }
 
     /* ============================================
-       HAUTEURS MINIMALES POUR LE TOUCH
-       ============================================ */
-    .btn,
-    .form-select {
-        min-height: 44px;
-    }
-
-    /* ============================================
        SCROLLBAR PERSONNALISÉE
        ============================================ */
     ::-webkit-scrollbar {
@@ -787,6 +859,13 @@
 
     ::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8;
+    }
+
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
     }
 
     .table-container::-webkit-scrollbar,
@@ -1087,6 +1166,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
 });
 
 // Correction pour empêcher le zoom automatique sur iOS

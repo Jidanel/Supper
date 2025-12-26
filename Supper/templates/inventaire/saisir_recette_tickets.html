@@ -7,10 +7,20 @@
 {% block extra_css %}
 <style>
     /* ============================================
-       RÉINITIALISATION DES STYLES POUR MOBILE
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
        ============================================ */
     * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
     }
 
     .recette-page {
@@ -34,7 +44,7 @@
         margin-right: -15px;
         display: flex;
         flex-wrap: wrap;
-        width: 100%;
+        width: calc(100% + 30px);
     }
 
     .col-md-2, .col-md-3, .col-md-5, .col-md-9, .col-md-12, .col-12 {
@@ -53,6 +63,8 @@
         border-radius: 12px;
         overflow: hidden;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        background: white;
+        border: none;
     }
 
     .card-header {
@@ -164,6 +176,7 @@
         text-decoration: none;
         cursor: pointer;
         box-sizing: border-box;
+        border: none;
     }
 
     .btn-suivant {
@@ -515,7 +528,7 @@
     .badge.bg-success { background-color: #10b981 !important; color: white; }
 
     /* ============================================
-       RESPONSIVE - TABLETTES (768px - 1024px)
+       VERSION PC (≥ 768px)
        ============================================ */
     @media (min-width: 768px) {
         .col-md-2 { flex: 0 0 16.666667%; max-width: 16.666667%; }
@@ -539,14 +552,33 @@
     }
 
     /* ============================================
-       RESPONSIVE - MOBILE (max 767px)
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
        ============================================ */
     @media (max-width: 767px) {
-        /* Correction globale du défilement */
-        html, body {
+        /* CORRECTION PRINCIPALE : DÉBORDEMENT */
+        body, html {
             overflow-x: hidden !important;
             width: 100% !important;
             max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
         }
 
         .recette-page {
@@ -556,14 +588,15 @@
         }
 
         .container-fluid {
-            padding-left: 10px;
-            padding-right: 10px;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
             overflow-x: hidden !important;
         }
 
         .row {
             margin-left: -10px;
             margin-right: -10px;
+            width: calc(100% + 20px);
         }
 
         .col-md-2, .col-md-3, .col-md-5, .col-md-9, .col-md-12, .col-12 {
@@ -781,17 +814,18 @@
     }
 
     /* ============================================
-       TRÈS PETITS ÉCRANS (max 576px)
+       PETITS MOBILES (≤ 576px)
        ============================================ */
     @media (max-width: 576px) {
         .container-fluid {
-            padding-left: 8px;
-            padding-right: 8px;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
         }
 
         .row {
             margin-left: -8px;
             margin-right: -8px;
+            width: calc(100% + 16px);
         }
 
         .col-md-2, .col-md-3, .col-md-5, .col-md-9, .col-md-12, .col-12 {
@@ -866,17 +900,18 @@
     }
 
     /* ============================================
-       TRÈS PETITS MOBILES (max 375px)
+       TRÈS PETITS ÉCRANS (< 375px)
        ============================================ */
     @media (max-width: 375px) {
         .container-fluid {
-            padding-left: 6px;
-            padding-right: 6px;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
         }
 
         .row {
             margin-left: -6px;
             margin-right: -6px;
+            width: calc(100% + 12px);
         }
 
         .col-md-2, .col-md-3, .col-md-5, .col-md-9, .col-md-12, .col-12 {
