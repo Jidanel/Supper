@@ -13,10 +13,10 @@ CHEMIN: Supper/templates/admin/index.html
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
 {% block content %}
-<!-- STYLES INTÉGRÉS DIRECTEMENT - VERSION MOBILE OPTIMISÉE -->
+<!-- STYLES INTéGRéS DIRECTEMENT - VERSION MOBILE OPTIMISéE -->
 <style>
     /* ============================================
-       RESET GLOBAL - CORRECTION DÉFILEMENT HORIZONTAL
+       RESET GLOBAL - CORRECTION DéFILEMENT HORIZONTAL
        ============================================ */
     .supper-dashboard * { 
         box-sizing: border-box;
@@ -47,7 +47,7 @@ CHEMIN: Supper/templates/admin/index.html
             overflow-x: hidden !important;
         }
         
-        /* Éviter tout débordement */
+        /* éviter tout débordement */
         .supper-dashboard > * {
             max-width: 100% !important;
             overflow-x: hidden !important;
@@ -63,7 +63,7 @@ CHEMIN: Supper/templates/admin/index.html
     }
     
     /* ============================================
-       EN-TÊTE - RESPONSIVE COMPLÈTE
+       EN-TÊTE - RESPONSIVE COMPLETE
        ============================================ */
     .supper-header {
         background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
@@ -767,7 +767,7 @@ CHEMIN: Supper/templates/admin/index.html
     }
     
     /* ============================================
-       LISTE D'ACTIVITÉS
+       LISTE D'ACTIVITéS
        ============================================ */
     .supper-activity-list {
         list-style: none;
@@ -835,7 +835,7 @@ CHEMIN: Supper/templates/admin/index.html
     }
     
     /* ============================================
-       TABLEAU TOP POSTES - RESPONSIVE AVEC DÉFILEMENT
+       TABLEAU TOP POSTES - RESPONSIVE AVEC DéFILEMENT
        ============================================ */
     .supper-top-postes-container {
         width: 100%;
@@ -884,18 +884,43 @@ CHEMIN: Supper/templates/admin/index.html
     }
     
     /* ============================================
-       RESPONSIVE BREAKPOINTS - OPTIMISÉ POUR MOBILE
+       RESPONSIVE BREAKPOINTS - OPTIMISé POUR MOBILE
        ============================================ */
     
     /* ============================================
-       CORRECTION SPÉCIFIQUE POUR MOBILE
+       CORRECTION SPéCIFIQUE POUR MOBILE
        ============================================ */
     @media (max-width: 768px) {
-        /* Correction globale */
+        /* CORRECTION CRITIQUE : html et body - Empeche le defilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* CORRECTION CRITIQUE : conteneurs de base_site.html */
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+        
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+            overflow-x: hidden !important;
+        }
+        
+        /* Correction globale dashboard */
         .supper-dashboard {
             padding: 0.75rem !important;
             margin: 0 !important;
-            width: 100vw !important;
+            width: 100% !important;
             max-width: 100vw !important;
             overflow-x: hidden !important;
         }
@@ -1104,9 +1129,14 @@ CHEMIN: Supper/templates/admin/index.html
     }
     
     /* ============================================
-       TRÈS PETITS ÉCRANS (≤ 576px)
+       TRES PETITS éCRANS (â‰¤ 576px)
        ============================================ */
     @media (max-width: 576px) {
+        /* Renforcement des corrections de defilement */
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+        
         .supper-dashboard {
             padding: 0.5rem !important;
         }
@@ -1166,6 +1196,11 @@ CHEMIN: Supper/templates/admin/index.html
        MOBILE TRÈS PETIT (≤ 375px)
        ============================================ */
     @media (max-width: 375px) {
+        /* Renforcement des corrections de defilement */
+        .content-wrapper {
+            padding: 0.25rem !important;
+        }
+        
         .supper-dashboard {
             padding: 0.25rem !important;
         }
@@ -1196,6 +1231,85 @@ CHEMIN: Supper/templates/admin/index.html
             margin-left: -0.25rem;
             margin-right: -0.25rem;
             width: calc(100% + 0.5rem);
+        }
+    }
+    
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .supper-stats {
+            grid-template-columns: repeat(2, 1fr) !important;
+        }
+        
+        .supper-actions {
+            grid-template-columns: repeat(2, 1fr) !important;
+        }
+        
+        .supper-objectives {
+            grid-template-columns: repeat(3, 1fr) !important;
+        }
+        
+        .supper-pesage-stats {
+            grid-template-columns: repeat(3, 1fr) !important;
+        }
+        
+        .supper-month-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+        }
+        
+        .supper-btn {
+            flex: 1 0 calc(33% - 0.4rem) !important;
+            min-width: calc(33% - 0.4rem) !important;
+        }
+        
+        .supper-rank {
+            flex-direction: row;
+            text-align: left;
+        }
+        
+        .supper-rank-info {
+            text-align: left;
+        }
+    }
+    
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="email"],
+        input[type="password"],
+        select,
+        textarea,
+        button {
+            font-size: 16px !important;
+        }
+    }
+    
+    /* ============================================
+       SCROLLBAR PERSONNALISEE - MOBILE
+       ============================================ */
+    @media (max-width: 768px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
     }
     
@@ -1352,7 +1466,7 @@ CHEMIN: Supper/templates/admin/index.html
                     </div>
                 </div>
                 <div class="supper-stat-value">{{ stats_recettes.montant_mois|floatformat:0|intcomma }}</div>
-                <div class="supper-stat-detail">{{ stats_recettes.nombre_recettes_mois }} {% trans "recettes saisies" %} • FCFA</div>
+                <div class="supper-stat-detail">{{ stats_recettes.nombre_recettes_mois }} {% trans "recettes saisies" %} â€¢ FCFA</div>
             </div>
 
             <!-- Taux Déperdition -->
@@ -1366,7 +1480,7 @@ CHEMIN: Supper/templates/admin/index.html
                 </div>
                 <div class="supper-stat-value">{{ stats_recettes.taux_moyen_mois|floatformat:2 }}%</div>
                 {% if stats_recettes.can_view_potentiel and stats_recettes.ecart_mois is not None %}
-                <div class="supper-stat-detail">{% trans "Écart:" %} {{ stats_recettes.ecart_mois|floatformat:0|intcomma }} FCFA</div>
+                <div class="supper-stat-detail">{% trans "écart:" %} {{ stats_recettes.ecart_mois|floatformat:0|intcomma }} FCFA</div>
                 {% endif %}
             </div>
             {% endif %}
@@ -1438,7 +1552,7 @@ CHEMIN: Supper/templates/admin/index.html
             <div class="supper-section">
                 <h2 class="supper-section-title">
                     <i class="fas fa-chart-area"></i> 
-                    {% trans "Évolution des Recettes (7 jours)" %}
+                    {% trans "évolution des Recettes (7 jours)" %}
                 </h2>
                 <div class="supper-chart-container">
                     <canvas id="chartRecettes"></canvas>
@@ -1461,7 +1575,7 @@ CHEMIN: Supper/templates/admin/index.html
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- RANG POSTE PÉAGE -->
+        <!-- RANG POSTE PéAGE -->
         <!-- ============================================================ -->
         {% if rang_poste_peage and rang_poste_peage.rang %}
         <div class="supper-section">
@@ -1473,16 +1587,16 @@ CHEMIN: Supper/templates/admin/index.html
                     <h4>
                         <i class="fas fa-road" style="margin-right: 0.5rem;"></i>
                         {% if rang_poste_peage.rang == 1 %}
-                        🏆 {% trans "Meilleur poste de péage !" %}
+                        ðŸ† {% trans "Meilleur poste de péage !" %}
                         {% elif rang_poste_peage.rang <= 3 %}
-                        🥈 {% trans "Top 3 des postes de péage" %}
+                        ðŸ¥ˆ {% trans "Top 3 des postes de péage" %}
                         {% elif rang_poste_peage.rang <= 5 %}
-                        ⭐ {% trans "Top 5 des postes" %}
+                        â­ {% trans "Top 5 des postes" %}
                         {% else %}
-                        📊 {% trans "Votre classement péage" %}
+                         {% trans "Votre classement péage" %}
                         {% endif %}
                     </h4>
-                    <p>{{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}er{% else %}ème{% endif %} {% trans "sur" %} {{ rang_poste_peage.total_postes }} {% trans "postes de péage" %}</p>
+                    <p>{{ rang_poste_peage.rang }}{% if rang_poste_peage.rang == 1 %}er{% else %}eme{% endif %} {% trans "sur" %} {{ rang_poste_peage.total_postes }} {% trans "postes de péage" %}</p>
                     <small>{% trans "Total recettes" %} {{ current_year }}: {{ rang_poste_peage.total_recettes|floatformat:0|intcomma }} FCFA</small>
                 </div>
             </div>
@@ -1512,19 +1626,19 @@ CHEMIN: Supper/templates/admin/index.html
                 {% if stats_pesage.can_saisir_pesee or stats_pesage.can_voir_historique %}
                 <div class="supper-pesage-stat purple">
                     <div class="supper-pesage-stat-label"><i class="fas fa-balance-scale"></i> {% trans "Pesées Jour" %}</div>
-                    <div class="supper-pesage-stat-value">{{ stats_pesage.pesees_jour|default:"—" }}</div>
+                    <div class="supper-pesage-stat-value">{{ stats_pesage.pesees_jour|default:"â€”" }}</div>
                 </div>
                 {% endif %}
                 
-                <!-- Émissions -->
+                <!-- émissions -->
                 <div class="supper-pesage-stat amber">
-                    <div class="supper-pesage-stat-label"><i class="fas fa-file-invoice"></i> {% trans "Émissions Jour" %}</div>
+                    <div class="supper-pesage-stat-label"><i class="fas fa-file-invoice"></i> {% trans "émissions Jour" %}</div>
                     <div class="supper-pesage-stat-value">{{ stats_pesage.emissions_jour|default:0 }}</div>
                     <div class="supper-pesage-stat-unit">{% trans "dont" %} {{ stats_pesage.hors_gabarit_jour|default:0 }} HG</div>
                 </div>
                 
                 <div class="supper-pesage-stat blue">
-                    <div class="supper-pesage-stat-label"><i class="fas fa-coins"></i> {% trans "Émis Jour" %}</div>
+                    <div class="supper-pesage-stat-label"><i class="fas fa-coins"></i> {% trans "émis Jour" %}</div>
                     <div class="supper-pesage-stat-value">{{ stats_pesage.montant_emis_jour|floatformat:0|intcomma }}</div>
                     <div class="supper-pesage-stat-unit">FCFA</div>
                 </div>
@@ -1562,11 +1676,11 @@ CHEMIN: Supper/templates/admin/index.html
                 </h4>
                 <div class="supper-month-grid">
                     <div class="supper-month-item">
-                        <label>{% trans "Émissions" %}</label>
+                        <label>{% trans "émissions" %}</label>
                         <span class="blue">{{ stats_pesage.emissions_mois }}</span>
                     </div>
                     <div class="supper-month-item">
-                        <label>{% trans "Montant Émis" %}</label>
+                        <label>{% trans "Montant émis" %}</label>
                         <span class="amber">{{ stats_pesage.montant_emis_mois|floatformat:0|intcomma }}</span>
                     </div>
                     <div class="supper-month-item">
@@ -1598,20 +1712,20 @@ CHEMIN: Supper/templates/admin/index.html
                 <div class="supper-rank-info">
                     <h4 style="color: #5b21b6;">
                         {% if rang_station_pesage.rang == 1 %}
-                        🏆 {% trans "Champion des stations !" %}
+                        ðŸ† {% trans "Champion des stations !" %}
                         {% elif rang_station_pesage.rang <= 3 %}
-                        🥈 {% trans "Dans le top 3 !" %}
+                        ðŸ¥ˆ {% trans "Dans le top 3 !" %}
                         {% elif rang_station_pesage.rang <= 5 %}
-                        ⭐ {% trans "Dans le top 5" %}
+                        â­ {% trans "Dans le top 5" %}
                         {% else %}
-                        📊 {% trans "Classement actuel" %}
+                        ðŸ“Š {% trans "Classement actuel" %}
                         {% endif %}
                     </h4>
-                    <p style="color: #7c3aed;">{{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}ère{% else %}ème{% endif %} {% trans "position sur" %} {{ rang_station_pesage.total_stations }} {% trans "stations" %}</p>
+                    <p style="color: #7c3aed;">{{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}re{% else %}ème{% endif %} {% trans "position sur" %} {{ rang_station_pesage.total_stations }} {% trans "stations" %}</p>
                     <small style="color: #6d28d9;">
                         {% trans "Total recouvré:" %} {{ rang_station_pesage.total_recouvre|floatformat:0|intcomma }} FCFA
                         {% if rang_station_pesage.taux_recouvrement %}
-                        • {% trans "Taux:" %} {{ rang_station_pesage.taux_recouvrement }}%
+                        â€¢ {% trans "Taux:" %} {{ rang_station_pesage.taux_recouvrement }}%
                         {% endif %}
                     </small>
                 </div>
@@ -1715,7 +1829,7 @@ CHEMIN: Supper/templates/admin/index.html
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- ACTIVITÉS RÉCENTES -->
+        <!-- ACTIVITéS RéCENTES -->
         <!-- ============================================================ -->
         {% if activites_recentes %}
         <div class="supper-section">
@@ -1810,7 +1924,7 @@ CHEMIN: Supper/templates/admin/index.html
         {% endif %}
 
         <!-- ============================================================ -->
-        <!-- STATISTIQUES SYSTÈME -->
+        <!-- STATISTIQUES SYSTEME -->
         <!-- ============================================================ -->
         {% if stats_systeme and user_permissions.gestion.peut_voir_journal_audit %}
         <div class="supper-section">
@@ -1975,7 +2089,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Correction du défilement horizontal sur mobile
     function fixMobileScrolling() {
         if (window.innerWidth <= 768) {
-            // Force le conteneur à ne pas dépasser
+            // Force le conteneur A  ne pas dépasser
             document.querySelectorAll('.supper-dashboard, .supper-container').forEach(el => {
                 el.style.overflowX = 'hidden';
                 el.style.maxWidth = '100vw';

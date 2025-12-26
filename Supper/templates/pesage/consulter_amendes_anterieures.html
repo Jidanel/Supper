@@ -5,89 +5,1110 @@
 
 {% block content %}
 <style>
-:root {
-    --primary: #10B981;
-    --warning: #F59E0B;
-    --danger: #EF4444;
-    --info: #3B82F6;
-    --dark: #1F2937;
-    --muted: #6B7280;
-    --border: #E5E7EB;
-}
+    /* ============================================
+       VARIABLES CSS
+       ============================================ */
+    :root {
+        --primary: #10B981;
+        --warning: #F59E0B;
+        --danger: #EF4444;
+        --info: #3B82F6;
+        --dark: #1F2937;
+        --muted: #6B7280;
+        --border: #E5E7EB;
+    }
 
-.info-banner {
-    background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-    border: 1px solid #FCD34D;
-    border-left: 5px solid var(--warning);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-}
+    /* ============================================
+       RÉINITIALISATION GLOBALE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
 
-.info-banner.no-warning {
-    background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
-    border-color: var(--primary);
-    border-left-color: var(--primary);
-}
+    /* ============================================
+       CORRECTION DU DÉFILEMENT HORIZONTAL
+       ============================================ */
+    html, body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        width: 100% !important;
+        position: relative !important;
+    }
 
-.card-amende {
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    border: 1px solid var(--border);
-    overflow: hidden;
-}
+    .main-content {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
 
-.card-header-primary { background: linear-gradient(135deg, var(--info) 0%, #2563EB 100%); color: white; }
-.card-header-warning { background: linear-gradient(135deg, var(--warning) 0%, #D97706 100%); color: white; }
-.card-header-danger { background: linear-gradient(135deg, var(--danger) 0%, #DC2626 100%); color: white; }
-.card-header-success { background: linear-gradient(135deg, var(--primary) 0%, #059669 100%); color: white; }
+    .content-wrapper {
+        min-width: 100% !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
 
-.stat-card {
-    background: white;
-    border-radius: 10px;
-    padding: 1rem;
-    text-align: center;
-    border: 1px solid var(--border);
-}
-.stat-card .stat-value { font-size: 1.75rem; font-weight: 700; }
-.stat-card .stat-label { font-size: 0.8rem; color: var(--muted); }
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin: 0 auto;
+        overflow-x: hidden;
+    }
 
-.btn-validate {
-    background: linear-gradient(135deg, var(--primary), #059669);
-    border: none;
-    color: white;
-    padding: 1rem 2rem;
-    font-size: 1.1rem;
-    font-weight: 600;
-    border-radius: 10px;
-}
-.btn-validate:hover {
-    background: linear-gradient(135deg, #059669, #047857);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-}
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
 
-.table-amendes th { background: #F9FAFB; font-weight: 600; }
-.table-amendes td { vertical-align: middle; }
+    /* ============================================
+       BANNIÈRE D'INFORMATION
+       ============================================ */
+    .info-banner {
+        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+        border: 1px solid #FCD34D;
+        border-left: 5px solid var(--warning);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+        overflow: hidden;
+    }
 
-.checkbox-confirm {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: #FEF2F2;
-    border: 1px solid #FECACA;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-}
-.checkbox-confirm input { width: 20px; height: 20px; accent-color: var(--danger); }
-.checkbox-confirm label { margin: 0; font-weight: 500; color: #991B1B; }
+    .info-banner.no-warning {
+        background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+        border-color: var(--primary);
+        border-left-color: var(--primary);
+    }
 
-@media (max-width: 768px) {
-    .stat-card .stat-value { font-size: 1.25rem; }
-    .btn-validate { width: 100%; }
-}
+    .info-banner .d-flex {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .info-banner i.fa-2x {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .info-banner h5 {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .info-banner p {
+        margin: 0;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .info-banner small {
+        font-size: 0.85rem;
+    }
+
+    /* ============================================
+       GRILLE ROW
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -12px;
+        margin-right: -12px;
+        width: calc(100% + 24px);
+    }
+
+    .col-lg-5, .col-lg-7 {
+        padding-left: 12px;
+        padding-right: 12px;
+        width: 100%;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       CARTES AMENDES
+       ============================================ */
+    .card-amende {
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        width: 100%;
+        background: white;
+    }
+
+    .card-amende .card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: none;
+    }
+
+    .card-amende .card-header h5 {
+        margin: 0;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-amende .card-header h5 i {
+        flex-shrink: 0;
+    }
+
+    .card-amende .card-header .badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .card-header-primary { background: linear-gradient(135deg, var(--info) 0%, #2563EB 100%); color: white; }
+    .card-header-warning { background: linear-gradient(135deg, var(--warning) 0%, #D97706 100%); color: white; }
+    .card-header-danger { background: linear-gradient(135deg, var(--danger) 0%, #DC2626 100%); color: white; }
+    .card-header-success { background: linear-gradient(135deg, var(--primary) 0%, #059669 100%); color: white; }
+
+    .card-amende .card-body {
+        padding: 1.25rem;
+        width: 100%;
+    }
+
+    .h-100 {
+        height: 100%;
+    }
+
+    /* ============================================
+       TABLEAUX
+       ============================================ */
+    .table {
+        width: 100%;
+        margin-bottom: 0;
+        border-collapse: collapse;
+    }
+
+    .table-borderless td, 
+    .table-borderless th {
+        border: none;
+        padding: 0.625rem 0.5rem;
+        vertical-align: top;
+    }
+
+    .table-borderless th {
+        font-weight: 600;
+        color: var(--muted);
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+
+    .table-borderless td {
+        color: var(--dark);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Tableaux avec défilement horizontal */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0;
+    }
+
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    .table-amendes {
+        min-width: 400px;
+    }
+
+    .table-amendes th { 
+        background: #F9FAFB; 
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .table-amendes td { 
+        vertical-align: middle;
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .table-amendes tfoot td {
+        font-size: 0.9rem;
+        padding: 0.75rem;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+
+    /* ============================================
+       BADGES
+       ============================================ */
+    .badge {
+        display: inline-block;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 0.375rem;
+        white-space: nowrap;
+    }
+
+    .bg-primary { background-color: var(--info) !important; }
+    .bg-secondary { background-color: var(--muted) !important; }
+    .bg-success { background-color: var(--primary) !important; }
+    .bg-danger { background-color: var(--danger) !important; }
+    .bg-warning { background-color: var(--warning) !important; }
+    .bg-info { background-color: #0891B2 !important; }
+    .bg-light { background-color: #F3F4F6 !important; }
+
+    .text-dark { color: var(--dark) !important; }
+    .text-primary { color: var(--info) !important; }
+    .text-success { color: var(--primary) !important; }
+    .text-danger { color: var(--danger) !important; }
+    .text-warning { color: var(--warning) !important; }
+    .text-muted { color: var(--muted) !important; }
+
+    /* ============================================
+       STATISTIQUES
+       ============================================ */
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        border: 1px solid var(--border);
+        width: 100%;
+        height: 100%;
+    }
+
+    .stat-card .stat-value { 
+        font-size: 1.75rem; 
+        font-weight: 700;
+        line-height: 1.2;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .stat-card .stat-label { 
+        font-size: 0.8rem; 
+        color: var(--muted);
+        margin-top: 0.25rem;
+    }
+
+    .row.g-3 {
+        --bs-gutter-x: 1rem;
+        --bs-gutter-y: 1rem;
+        margin-left: calc(var(--bs-gutter-x) * -0.5);
+        margin-right: calc(var(--bs-gutter-x) * -0.5);
+        margin-top: calc(var(--bs-gutter-y) * -1);
+    }
+
+    .row.g-3 > * {
+        padding-left: calc(var(--bs-gutter-x) * 0.5);
+        padding-right: calc(var(--bs-gutter-x) * 0.5);
+        margin-top: var(--bs-gutter-y);
+    }
+
+    .col-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    .col-md-3 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 44px;
+    }
+
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    .btn-validate {
+        background: linear-gradient(135deg, var(--primary), #059669);
+        border: none;
+        color: white;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 10px;
+    }
+
+    .btn-validate:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-validate:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border-color: var(--muted);
+        color: var(--muted);
+    }
+
+    .btn-outline-secondary:hover {
+        background: var(--muted);
+        color: white;
+    }
+
+    .btn-outline-info {
+        background: transparent;
+        border-color: var(--info);
+        color: var(--info);
+    }
+
+    .btn-outline-info:hover {
+        background: var(--info);
+        color: white;
+    }
+
+    /* ============================================
+       CHECKBOX CONFIRMATION
+       ============================================ */
+    .checkbox-confirm {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+
+    .checkbox-confirm input {
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        accent-color: var(--danger);
+        margin-top: 0.125rem;
+        flex-shrink: 0;
+    }
+
+    .checkbox-confirm label {
+        margin: 0;
+        font-weight: 500;
+        color: #991B1B;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       FLEXBOX UTILITIES
+       ============================================ */
+    .d-flex {
+        display: flex;
+    }
+
+    .justify-content-between {
+        justify-content: space-between;
+    }
+
+    .align-items-center {
+        align-items: center;
+    }
+
+    .flex-wrap {
+        flex-wrap: wrap;
+    }
+
+    .gap-2 {
+        gap: 0.5rem;
+    }
+
+    .gap-3 {
+        gap: 1rem;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    .py-5 {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
+
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-1 { margin-bottom: 0.25rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .me-3 { margin-right: 1rem !important; }
+    .ms-2 { margin-left: 0.5rem !important; }
+    .p-0 { padding: 0 !important; }
+
+    .fs-4 { font-size: 1.5rem; }
+    .fs-5 { font-size: 1.25rem; }
+    .fw-bold { font-weight: 700; }
+
+    .d-none { display: none !important; }
+    .d-md-inline { display: none; }
+
+    /* ============================================
+       SITUATION VÉHICULE (pas d'amendes)
+       ============================================ */
+    .card-body.text-center.py-5 i.fa-4x {
+        font-size: 3rem;
+    }
+
+    .card-body.text-center.py-5 h5 {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .card-body.text-center.py-5 p {
+        font-size: 0.9rem;
+    }
+
+    /* ============================================
+       VERSION PC (≥ 992px)
+       ============================================ */
+    @media (min-width: 992px) {
+        .col-lg-5 {
+            flex: 0 0 41.666667%;
+            max-width: 41.666667%;
+        }
+
+        .col-lg-7 {
+            flex: 0 0 58.333333%;
+            max-width: 58.333333%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .d-md-inline {
+            display: inline !important;
+        }
+
+        .content-wrapper {
+            padding: 2rem !important;
+        }
+    }
+
+    /* ============================================
+       TABLETTE (768px - 991px)
+       ============================================ */
+    @media (min-width: 768px) and (max-width: 991px) {
+        .col-lg-5, .col-lg-7 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .d-md-inline {
+            display: inline !important;
+        }
+
+        .content-wrapper {
+            padding: 1.5rem !important;
+        }
+    }
+
+    /* ============================================
+       MOBILE (≤ 767px) - CORRECTIONS CRITIQUES
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction principale du défilement */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            padding: 1rem !important;
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        /* Row */
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-lg-5, .col-lg-7 {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem !important;
+        }
+
+        /* Bannière */
+        .info-banner {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .info-banner .d-flex {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .info-banner i.fa-2x {
+            font-size: 1.25rem;
+        }
+
+        .info-banner h5 {
+            font-size: 1rem;
+        }
+
+        .info-banner p {
+            font-size: 0.875rem;
+        }
+
+        .info-banner small {
+            font-size: 0.8rem;
+        }
+
+        /* Cartes */
+        .card-amende {
+            border-radius: 10px;
+        }
+
+        .card-amende .card-header {
+            padding: 0.875rem 1rem;
+        }
+
+        .card-amende .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .card-amende .card-header .badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+
+        .card-amende .card-body {
+            padding: 1rem;
+        }
+
+        /* Tableaux */
+        .table-borderless th {
+            font-size: 0.8rem;
+            padding: 0.5rem 0.25rem;
+            width: 35%;
+        }
+
+        .table-borderless td {
+            font-size: 0.85rem;
+            padding: 0.5rem 0.25rem;
+        }
+
+        .table-amendes {
+            min-width: 350px;
+            font-size: 0.8rem;
+        }
+
+        .table-amendes th {
+            font-size: 0.75rem;
+            padding: 0.5rem;
+        }
+
+        .table-amendes td {
+            font-size: 0.8rem;
+            padding: 0.5rem;
+        }
+
+        .table-amendes tfoot td {
+            font-size: 0.8rem;
+            padding: 0.5rem;
+        }
+
+        /* Badges */
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+
+        /* Stats */
+        .stat-card {
+            padding: 0.75rem;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.25rem;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.7rem;
+        }
+
+        .col-6, .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .row.g-3 {
+            --bs-gutter-x: 0.75rem;
+            --bs-gutter-y: 0.75rem;
+        }
+
+        /* Boutons */
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            min-height: 44px;
+        }
+
+        .btn-lg {
+            padding: 0.625rem 1.25rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-validate {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.95rem;
+            width: 100%;
+        }
+
+        .btn-outline-secondary,
+        .btn-outline-info {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Actions du formulaire */
+        .d-flex.justify-content-between.flex-wrap.gap-3 {
+            flex-direction: column;
+            gap: 0.75rem !important;
+        }
+
+        .d-flex.gap-2 {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .d-flex.gap-2 .btn {
+            width: 100%;
+        }
+
+        /* Checkbox */
+        .checkbox-confirm {
+            padding: 0.875rem;
+        }
+
+        .checkbox-confirm label {
+            font-size: 0.8rem;
+        }
+
+        /* Tailles de texte */
+        .fs-4 {
+            font-size: 1.25rem;
+        }
+
+        .fs-5 {
+            font-size: 1.1rem;
+        }
+
+        /* Situation véhicule */
+        .card-body.text-center.py-5 {
+            padding: 1.5rem !important;
+        }
+
+        .card-body.text-center.py-5 i.fa-4x {
+            font-size: 2.5rem;
+        }
+
+        .card-body.text-center.py-5 h5 {
+            font-size: 1rem;
+        }
+
+        .card-body.text-center.py-5 p {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-lg-5, .col-lg-7 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        /* Bannière */
+        .info-banner {
+            padding: 0.875rem;
+        }
+
+        .info-banner h5 {
+            font-size: 0.95rem;
+        }
+
+        .info-banner p {
+            font-size: 0.8rem;
+        }
+
+        /* Cartes */
+        .card-amende .card-header {
+            padding: 0.75rem 0.875rem;
+        }
+
+        .card-amende .card-header h5 {
+            font-size: 0.9rem;
+        }
+
+        .card-amende .card-body {
+            padding: 0.875rem;
+        }
+
+        /* Tableaux */
+        .table-borderless th {
+            font-size: 0.75rem;
+        }
+
+        .table-borderless td {
+            font-size: 0.8rem;
+        }
+
+        .table-amendes {
+            min-width: 320px;
+        }
+
+        .table-amendes th,
+        .table-amendes td {
+            padding: 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        /* Stats */
+        .stat-card {
+            padding: 0.625rem;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.1rem;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.65rem;
+        }
+
+        .row.g-3 {
+            --bs-gutter-x: 0.5rem;
+            --bs-gutter-y: 0.5rem;
+        }
+
+        /* Boutons */
+        .btn {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-lg {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-validate {
+            padding: 0.625rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Checkbox */
+        .checkbox-confirm {
+            padding: 0.75rem;
+        }
+
+        .checkbox-confirm input {
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+        }
+
+        .checkbox-confirm label {
+            font-size: 0.75rem;
+        }
+
+        /* Tailles de texte */
+        .fs-4 {
+            font-size: 1.1rem;
+        }
+
+        .fs-5 {
+            font-size: 1rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .info-banner {
+            padding: 0.75rem;
+        }
+
+        .info-banner h5 {
+            font-size: 0.9rem;
+        }
+
+        .info-banner p {
+            font-size: 0.75rem;
+        }
+
+        .card-amende .card-header {
+            padding: 0.625rem 0.75rem;
+        }
+
+        .card-amende .card-header h5 {
+            font-size: 0.85rem;
+        }
+
+        .card-amende .card-body {
+            padding: 0.75rem;
+        }
+
+        .table-borderless th {
+            font-size: 0.7rem;
+        }
+
+        .table-borderless td {
+            font-size: 0.75rem;
+        }
+
+        .table-amendes {
+            min-width: 300px;
+        }
+
+        .table-amendes th,
+        .table-amendes td {
+            padding: 0.35rem;
+            font-size: 0.7rem;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1rem;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.6rem;
+        }
+
+        .btn {
+            font-size: 0.75rem;
+            padding: 0.4rem 0.75rem;
+        }
+
+        .btn-validate {
+            font-size: 0.85rem;
+            padding: 0.5rem 0.875rem;
+        }
+
+        .checkbox-confirm label {
+            font-size: 0.7rem;
+        }
+
+        .fs-4 {
+            font-size: 1rem;
+        }
+
+        .fs-5 {
+            font-size: 0.9rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-lg-5 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-lg-7 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .d-flex.justify-content-between.flex-wrap.gap-3 {
+            flex-direction: row;
+        }
+
+        .d-flex.gap-2 {
+            flex-direction: row;
+            width: auto;
+        }
+
+        .d-flex.gap-2 .btn {
+            width: auto;
+        }
+
+        .btn-validate {
+            width: auto;
+        }
+
+        .btn-outline-secondary,
+        .btn-outline-info {
+            width: auto;
+            margin-bottom: 0;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    .checkbox-confirm input:focus {
+        outline: 2px solid var(--info);
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    .card-amende {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Désactiver animations sur mobile */
+    @media (max-width: 767px) {
+        .card-amende {
+            animation: none;
+        }
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -402,6 +1423,21 @@ document.addEventListener('DOMContentLoaded', function() {
             btnValidate.style.opacity = this.checked ? '1' : '0.6';
         });
     }
+
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+
+    // Ajustement pour mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+        }
+    }
+    
+    adjustForMobile();
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
 });
 </script>
 {% endblock %}

@@ -7,37 +7,729 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION GLOBALE - CORRECTION DÉFILEMENT
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        max-width: 100%;
+    }
+
+    html, body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        width: 100% !important;
+        position: relative !important;
+    }
+
+    .main-content {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+
+    .content-wrapper {
+        min-width: 100% !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        padding: 1rem !important;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .col-12, .col-md-4, .col-md-6 {
+        padding-left: 15px;
+        padding-right: 15px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE ÉCART - RESPONSIVE
+       ============================================ */
     .ecart-info {
         background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         color: white;
         padding: 2rem;
         border-radius: 15px;
         margin-bottom: 2rem;
+        width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
     }
-    
+
+    .ecart-info h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    .ecart-info h5 {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .ecart-info p {
+        margin-bottom: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+
+    .ecart-info .fs-4 {
+        font-size: 1.25rem !important;
+    }
+
+    /* ============================================
+       CARTES - RESPONSIVE
+       ============================================ */
     .ecart-card {
         background: white;
         border-radius: 10px;
         padding: 1.5rem;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         margin-bottom: 1.5rem;
+        width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
     }
-    
+
+    .ecart-card h5 {
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    /* ============================================
+       TABLEAU - AVEC DÉFILEMENT INTERNE
+       ============================================ */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        margin-bottom: 1rem;
+    }
+
+    .table {
+        width: 100%;
+        margin-bottom: 0;
+        border-collapse: collapse;
+        min-width: 500px;
+    }
+
+    .table-borderless {
+        border: none;
+    }
+
+    .table-borderless td,
+    .table-borderless th {
+        border: none;
+        padding: 0.75rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .table td:first-child {
+        white-space: nowrap;
+        font-weight: 600;
+    }
+
+    .table td:last-child {
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .table-danger {
+        background-color: #f8d7da;
+    }
+
+    .table-warning {
+        background-color: #fff3cd;
+    }
+
+    /* ============================================
+       ALERTES - RESPONSIVE
+       ============================================ */
+    .alert {
+        width: 100%;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
+        line-height: 1.5;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        border-color: #ffecb5;
+        color: #856404;
+    }
+
+    .alert-success {
+        background-color: #d1e7dd;
+        border-color: #badbcc;
+        color: #0f5132;
+    }
+
+    .alert i {
+        margin-right: 0.5rem;
+    }
+
+    /* ============================================
+       FORMULAIRE - RESPONSIVE
+       ============================================ */
     .justification-form textarea {
         min-height: 150px;
-        font-size: 1.1rem;
+        width: 100%;
+        font-size: 1rem;
+        padding: 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        box-sizing: border-box;
+        resize: vertical;
     }
-    
+
+    .justification-form textarea:focus {
+        border-color: #e74c3c;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25);
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #333;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       BOUTONS - RESPONSIVE
+       ============================================ */
+    .btn {
+        display: inline-block;
+        font-weight: 400;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        user-select: none;
+        border: 1px solid transparent;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        border-radius: 8px;
+        transition: all 0.3s;
+        text-decoration: none;
+        cursor: pointer;
+        min-height: 44px;
+    }
+
     .btn-valider {
         background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         border: none;
+        color: white;
         padding: 12px 30px;
         font-size: 1.1rem;
     }
-    
+
     .btn-valider:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        color: white;
+    }
+
+    .btn-danger {
+        background-color: #e74c3c;
+        border-color: #e74c3c;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background-color: #c0392b;
+        border-color: #c0392b;
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        color: #6c757d;
+        border-color: #6c757d;
+        background-color: transparent;
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn i {
+        margin-right: 0.5rem;
+    }
+
+    /* ============================================
+       CLASSES UTILITAIRES
+       ============================================ */
+    .text-danger {
+        color: #e74c3c !important;
+    }
+
+    .text-warning {
+        color: #f39c12 !important;
+    }
+
+    .text-success {
+        color: #27ae60 !important;
+    }
+
+    .text-info {
+        color: #3498db !important;
+    }
+
+    .text-muted {
+        color: #6c757d !important;
+    }
+
+    .text-end {
+        text-align: right !important;
+    }
+
+    .mb-2 {
+        margin-bottom: 0.5rem !important;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem !important;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem !important;
+    }
+
+    .mb-0 {
+        margin-bottom: 0 !important;
+    }
+
+    .d-flex {
+        display: flex !important;
+    }
+
+    .justify-content-between {
+        justify-content: space-between !important;
+    }
+
+    .align-items-center {
+        align-items: center !important;
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE
+       ============================================ */
+    .table-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Conteneur principal */
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-12, .col-md-4, .col-md-6 {
+            padding-left: 8px;
+            padding-right: 8px;
+            margin-bottom: 1rem;
+        }
+
+        /* En-tête */
+        .ecart-info {
+            padding: 1.25rem 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 10px;
+        }
+
+        .ecart-info h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .ecart-info h5 {
+            font-size: 0.9rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .ecart-info p {
+            font-size: 0.85rem;
+        }
+
+        .ecart-info .fs-4 {
+            font-size: 1.1rem !important;
+        }
+
+        /* Cartes */
+        .ecart-card {
+            padding: 1.25rem 1rem;
+            margin-bottom: 1.25rem;
+            border-radius: 8px;
+        }
+
+        .ecart-card h5 {
+            font-size: 1rem;
+            margin-bottom: 0.875rem;
+        }
+
+        /* Tableau */
+        .table-container {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+
+        .table {
+            font-size: 0.85rem;
+            min-width: 450px;
+        }
+
+        .table-borderless td,
+        .table-borderless th {
+            padding: 0.5rem 0.375rem;
+        }
+
+        /* Alertes */
+        .alert {
+            padding: 0.875rem;
+            font-size: 0.875rem;
+        }
+
+        /* Formulaire */
+        .justification-form textarea {
+            min-height: 120px;
+            font-size: 0.95rem;
+            padding: 0.625rem;
+        }
+
+        .form-label {
+            font-size: 0.9rem;
+        }
+
+        .form-text {
+            font-size: 0.8rem;
+        }
+
+        /* Boutons */
+        .btn {
+            padding: 0.625rem 1.25rem;
+            font-size: 0.95rem;
+            white-space: normal;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .btn-valider {
+            padding: 0.75rem 1.25rem;
+            font-size: 1rem;
+        }
+
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .d-flex.justify-content-between .btn {
+            width: 100%;
+        }
+
+        /* Espacement */
+        .mb-4 {
+            margin-bottom: 1.25rem !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-12, .col-md-4, .col-md-6 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .ecart-info {
+            padding: 1rem 0.875rem;
+        }
+
+        .ecart-info h2 {
+            font-size: 1.125rem;
+        }
+
+        .ecart-info h5 {
+            font-size: 0.85rem;
+        }
+
+        .ecart-info p {
+            font-size: 0.8rem;
+        }
+
+        .ecart-card {
+            padding: 1rem 0.875rem;
+        }
+
+        .ecart-card h5 {
+            font-size: 0.95rem;
+        }
+
+        .table-container {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .table {
+            font-size: 0.8rem;
+            min-width: 400px;
+        }
+
+        .table-borderless td,
+        .table-borderless th {
+            padding: 0.375rem 0.25rem;
+        }
+
+        .alert {
+            padding: 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .justification-form textarea {
+            font-size: 0.9rem;
+            min-height: 100px;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-valider {
+            padding: 0.625rem 1rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .ecart-info h2 {
+            font-size: 1.05rem;
+        }
+
+        .ecart-info .fs-4 {
+            font-size: 1rem !important;
+        }
+
+        .table {
+            font-size: 0.75rem;
+            min-width: 350px;
+        }
+
+        .alert {
+            font-size: 0.75rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .ecart-info {
+            padding: 1rem;
+        }
+
+        .ecart-info h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .row .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .d-flex.justify-content-between {
+            flex-direction: row !important;
+        }
+
+        .d-flex.justify-content-between .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       TABLETTE (769px à 1024px)
+       ============================================ */
+    @media (min-width: 769px) {
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .d-flex.justify-content-between .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input,
+        textarea,
+        select,
+        button {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    textarea:focus,
+    .btn:focus {
+        outline: 2px solid #e74c3c;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .ecart-card,
+    .ecart-info {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 {% endblock %}
@@ -53,18 +745,18 @@
                     {% trans "Justification d'écart nécessaire - PESAGE" %}
                 </h2>
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <h5>{% trans "Station" %}</h5>
                         <p class="mb-0">{{ station.nom }}</p>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <h5>{% trans "Période" %}</h5>
                         <p class="mb-0">{{ date_debut|date:"d/m/Y" }} {% trans "au" %} {{ date_fin|date:"d/m/Y" }}</p>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <h5>{% trans "Écart constaté" %}</h5>
                         <p class="mb-0 fs-4">
-                            <strong class="{% if ecart < 0 %}text-danger{% else %}text-warning{% endif %}">
+                            <strong class="{% if ecart < 0 %}text-white{% else %}text-white{% endif %}">
                                 {{ ecart|floatformat:0|format_milliers }} FCFA
                             </strong>
                             ({{ ecart_pourcentage|floatformat:2 }}%)
@@ -75,32 +767,36 @@
 
             <!-- Détails de l'écart -->
             <div class="row mb-4">
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <div class="ecart-card">
                         <h5 class="text-danger mb-3">
                             <i class="fas fa-calculator me-2"></i>
                             {% trans "Détails financiers" %}
                         </h5>
-                        <table class="table table-borderless">
-                            <tr>
-                                <td><strong>{% trans "Total amendes payées" %}:</strong></td>
-                                <td class="text-end">{{ total_attendu|floatformat:0|format_milliers }} FCFA</td>
-                            </tr>
-                            <tr>
-                                <td><strong>{% trans "Total quittancé" %}:</strong></td>
-                                <td class="text-end">{{ total_quittance|floatformat:0|format_milliers }} FCFA</td>
-                            </tr>
-                            <tr class="{% if ecart < 0 %}table-danger{% else %}table-warning{% endif %}">
-                                <td><strong>{% trans "Écart" %}:</strong></td>
-                                <td class="text-end">
-                                    <strong>{{ ecart|floatformat:0|format_milliers }} FCFA</strong>
-                                </td>
-                            </tr>
-                        </table>
+                        <div class="table-container">
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>{% trans "Total amendes payées" %}:</strong></td>
+                                        <td class="text-end">{{ total_attendu|floatformat:0|format_milliers }} FCFA</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>{% trans "Total quittancé" %}:</strong></td>
+                                        <td class="text-end">{{ total_quittance|floatformat:0|format_milliers }} FCFA</td>
+                                    </tr>
+                                    <tr class="{% if ecart < 0 %}table-danger{% else %}table-warning{% endif %}">
+                                        <td><strong>{% trans "Écart" %}:</strong></td>
+                                        <td class="text-end">
+                                            <strong>{{ ecart|floatformat:0|format_milliers }} FCFA</strong>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <div class="ecart-card">
                         <h5 class="text-info mb-3">
                             <i class="fas fa-chart-line me-2"></i>
@@ -223,6 +919,42 @@ document.addEventListener('DOMContentLoaded', function() {
         counter.className = `form-text ${color}`;
         counter.textContent = `${length} / 20 caractères minimum`;
     });
+
+    // Correction pour le zoom sur iOS
+    document.querySelectorAll('textarea').forEach(input => {
+        input.addEventListener('focus', function() {
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    input.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 100);
+            }
+        });
+    });
+
+    // Ajustement responsive
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    adjustForMobile();
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
+    
+    // Gestion des événements tactiles
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    document.addEventListener('touchmove', function() {}, { passive: true });
 });
 </script>
 {% endblock %}

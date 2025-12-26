@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SUPPER - Connexion Sécurisée</title>
     
     <!-- Bootstrap CSS -->
@@ -13,37 +13,51 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
+        /* ============================================
+           VARIABLES CSS - PALETTE BLEUE PROFESSIONNELLE
+           ============================================ */
         :root {
-            /* PALETTE BLEUE PROFESSIONNELLE - Style Atlantique Pesage */
-            --bleu-principal: #2563EB;      /* Bleu primaire moderne */
-            --bleu-fonce: #1E40AF;          /* Bleu foncé navigation */
-            --bleu-clair: #3B82F6;          /* Bleu clair accents */
-            --bleu-tres-clair: #DBEAFE;     /* Bleu très clair backgrounds */
+            --bleu-principal: #2563EB;
+            --bleu-fonce: #1E40AF;
+            --bleu-clair: #3B82F6;
+            --bleu-tres-clair: #DBEAFE;
             --blanc-pur: #FFFFFF;
             --gris-clair: #F8FAFC;
             --gris-moyen: #64748B;
             --gris-fonce: #334155;
-            --accent-orange: #F59E0B;       /* Orange pour CTAs */
+            --accent-orange: #F59E0B;
             --ombre-card: 0 25px 50px -12px rgba(37, 99, 235, 0.25);
             --ombre-hover: 0 30px 60px -12px rgba(37, 99, 235, 0.35);
         }
 
+        /* ============================================
+           RÉINITIALISATION GLOBALE
+           ============================================ */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        html, body {
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
+            position: relative;
+            -webkit-text-size-adjust: 100%;
+        }
+
         body {
             font-family: 'Inter', 'Segoe UI', sans-serif;
-            /* Gradient bleu professionnel inspiré d'Atlantique Pesage */
             background: linear-gradient(135deg, #1E40AF 0%, #2563EB 50%, #3B82F6 100%);
             min-height: 100vh;
             overflow-x: hidden;
             position: relative;
         }
 
-        /* Background Animation avec tons bleus */
+        /* ============================================
+           BACKGROUND ANIMATION
+           ============================================ */
         body::before {
             content: '';
             position: absolute;
@@ -56,6 +70,7 @@
                 radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.3) 0%, transparent 50%), 
                 radial-gradient(circle at 40% 40%, rgba(30, 64, 175, 0.5) 0%, transparent 50%);
             animation: backgroundMove 20s ease-in-out infinite alternate;
+            pointer-events: none;
         }
 
         @keyframes backgroundMove {
@@ -63,13 +78,49 @@
             100% { transform: translateX(10px) translateY(10px); }
         }
 
-        /* Header Bleu avec design Atlantique */
+        /* ============================================
+           NOTIFICATION BAND
+           ============================================ */
+        .notification-band {
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #dc7c0b 100%);
+            color: var(--blanc-pur);
+            padding: 0.75rem 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            z-index: 10;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .notification-band::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: slide 3s ease-in-out infinite;
+        }
+
+        @keyframes slide {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* ============================================
+           HEADER BLEU
+           ============================================ */
         .header-bleu {
             background: linear-gradient(135deg, var(--bleu-principal) 0%, var(--bleu-fonce) 100%);
             padding: 1rem 0;
             box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
             position: relative;
             z-index: 10;
+            width: 100%;
         }
 
         .header-content {
@@ -79,23 +130,31 @@
             gap: 1rem;
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 0 1.5rem;
+            width: 100%;
         }
 
         .logo-icon {
             width: 50px;
             height: 50px;
+            min-width: 50px;
             background: rgba(255, 255, 255, 0.15);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             backdrop-filter: blur(10px);
+            flex-shrink: 0;
         }
 
         .logo-icon i {
             font-size: 24px;
             color: var(--blanc-pur);
+        }
+
+        .logo-text {
+            text-align: left;
+            min-width: 0;
         }
 
         .logo-text h1 {
@@ -104,6 +163,7 @@
             color: var(--blanc-pur);
             margin: 0;
             letter-spacing: 1px;
+            line-height: 1.2;
         }
 
         .logo-text .subtitle {
@@ -111,17 +171,24 @@
             color: rgba(255, 255, 255, 0.9);
             font-weight: 400;
             margin-top: -2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* Main Login Container */
+        /* ============================================
+           MAIN LOGIN CONTAINER
+           ============================================ */
         .login-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: calc(100vh - 120px);
+            min-height: calc(100vh - 140px);
             padding: 2rem;
             position: relative;
             z-index: 5;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .login-wrapper {
@@ -133,17 +200,21 @@
             width: 100%;
         }
 
-        /* Left Side - Professional Info */
+        /* ============================================
+           LEFT SIDE - PROFESSIONAL INFO
+           ============================================ */
         .login-info {
             color: var(--blanc-pur);
             text-align: left;
         }
 
         .login-info h2 {
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 700;
             margin-bottom: 1.5rem;
             line-height: 1.2;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .login-info p {
@@ -151,11 +222,14 @@
             line-height: 1.6;
             opacity: 0.9;
             margin-bottom: 2rem;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .features-list {
             list-style: none;
             padding: 0;
+            margin: 0;
         }
 
         .features-list li {
@@ -167,8 +241,9 @@
         }
 
         .features-list li i {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
             background: rgba(255, 255, 255, 0.2);
             border-radius: 6px;
             display: flex;
@@ -178,15 +253,20 @@
             font-size: 12px;
         }
 
-        /* Right Side - Login Card */
+        /* ============================================
+           RIGHT SIDE - LOGIN CARD
+           ============================================ */
         .login-card {
             background: var(--blanc-pur);
             border-radius: 20px;
             box-shadow: var(--ombre-card);
-            padding: 3rem;
+            padding: 2.5rem;
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
         }
 
         .login-card:hover {
@@ -194,27 +274,32 @@
             transform: translateY(-5px);
         }
 
-        .card-header {
+        .card-header-login {
             text-align: center;
-            margin-bottom: 2.5rem;
+            margin-bottom: 2rem;
         }
 
-        .card-header h3 {
-            font-size: 1.8rem;
+        .card-header-login h3 {
+            font-size: 1.6rem;
             font-weight: 600;
             color: var(--gris-fonce);
             margin-bottom: 0.5rem;
+            line-height: 1.3;
         }
 
-        .card-header p {
+        .card-header-login p {
             color: var(--gris-moyen);
             font-size: 0.95rem;
+            margin: 0;
         }
 
-        /* Form Styling */
+        /* ============================================
+           FORM STYLING
+           ============================================ */
         .form-group {
             margin-bottom: 1.5rem;
             position: relative;
+            width: 100%;
         }
 
         .form-label {
@@ -225,14 +310,20 @@
             font-size: 0.95rem;
         }
 
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
         .form-control {
             width: 100%;
-            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            padding: 0.75rem 1rem 0.75rem 2.75rem;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
-            font-size: 0.95rem;
+            font-size: 16px; /* Prevent iOS zoom */
             transition: all 0.3s ease;
             background: var(--gris-clair);
+            box-sizing: border-box;
         }
 
         .form-control:focus {
@@ -254,6 +345,7 @@
             transform: translateY(-50%);
             color: var(--gris-moyen);
             font-size: 1rem;
+            pointer-events: none;
         }
 
         .password-toggle {
@@ -267,13 +359,16 @@
             cursor: pointer;
             padding: 0.25rem;
             transition: color 0.3s ease;
+            z-index: 2;
         }
 
         .password-toggle:hover {
             color: var(--bleu-principal);
         }
 
-        /* Alert Styling */
+        /* ============================================
+           ALERT STYLING
+           ============================================ */
         .alert {
             padding: 1rem 1.25rem;
             border-radius: 10px;
@@ -281,6 +376,10 @@
             border: none;
             font-size: 0.95rem;
             animation: slideDown 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         @keyframes slideDown {
@@ -318,7 +417,9 @@
             font-size: 0.875rem;
         }
 
-        /* Submit Button */
+        /* ============================================
+           SUBMIT BUTTON
+           ============================================ */
         .btn-login {
             width: 100%;
             padding: 0.875rem;
@@ -334,6 +435,11 @@
             margin-top: 1.5rem;
             position: relative;
             overflow: hidden;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
 
         .btn-login:hover {
@@ -359,7 +465,9 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Footer */
+        /* ============================================
+           FOOTER
+           ============================================ */
         .login-footer {
             margin-top: 2rem;
             text-align: center;
@@ -372,20 +480,44 @@
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--gris-moyen);
+            flex-wrap: wrap;
+            text-align: center;
         }
 
         .security-info i {
             color: #10b981;
             font-size: 1rem;
+            flex-shrink: 0;
         }
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
+        /* ============================================
+           VERSION PC (≥ 992px)
+           ============================================ */
+        @media (min-width: 992px) {
+            .login-wrapper {
+                grid-template-columns: 1fr 420px;
+                gap: 5rem;
+            }
+
+            .login-info h2 {
+                font-size: 3rem;
+            }
+
+            .login-card {
+                padding: 3rem;
+            }
+        }
+
+        /* ============================================
+           TABLETTE (768px - 991px)
+           ============================================ */
+        @media (min-width: 768px) and (max-width: 991px) {
             .login-wrapper {
                 grid-template-columns: 1fr;
                 gap: 2rem;
+                max-width: 500px;
             }
 
             .login-info {
@@ -396,40 +528,524 @@
                 font-size: 2rem;
             }
 
+            .features-list {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .features-list li {
+                flex: 0 0 auto;
+                margin-bottom: 0;
+            }
+        }
+
+        /* ============================================
+           MOBILE (≤ 767px) - CORRECTIONS CRITIQUES
+           ============================================ */
+        @media (max-width: 767px) {
+            /* CORRECTION PRINCIPALE : DÉFILEMENT HORIZONTAL */
+            html, body {
+                overflow-x: hidden !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                position: relative !important;
+            }
+
+            /* NOTIFICATION BAND */
+            .notification-band {
+                padding: 0.625rem 0.875rem;
+                font-size: 0.8rem;
+                line-height: 1.4;
+            }
+
+            /* HEADER */
+            .header-bleu {
+                padding: 0.75rem 0;
+            }
+
+            .header-content {
+                padding: 0 1rem;
+                gap: 0.75rem;
+            }
+
+            .logo-icon {
+                width: 42px;
+                height: 42px;
+                min-width: 42px;
+            }
+
+            .logo-icon i {
+                font-size: 20px;
+            }
+
+            .logo-text h1 {
+                font-size: 1.5rem;
+            }
+
+            .logo-text .subtitle {
+                font-size: 0.75rem;
+            }
+
+            /* MAIN CONTAINER */
+            .login-container {
+                padding: 1.25rem;
+                min-height: calc(100vh - 120px);
+                align-items: flex-start;
+                padding-top: 1.5rem;
+            }
+
+            .login-wrapper {
+                grid-template-columns: 1fr !important;
+                gap: 1.5rem;
+                max-width: 100%;
+                width: 100%;
+            }
+
+            /* LOGIN INFO - Masqué ou réduit sur mobile */
+            .login-info {
+                text-align: center;
+                order: 2;
+            }
+
+            .login-info h2 {
+                font-size: 1.5rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .login-info p {
+                font-size: 0.9rem;
+                margin-bottom: 1rem;
+                display: none; /* Masquer sur mobile pour économiser l'espace */
+            }
+
+            .features-list {
+                display: none; /* Masquer sur mobile */
+            }
+
+            /* LOGIN CARD */
             .login-card {
-                padding: 2rem;
+                padding: 1.5rem;
+                border-radius: 16px;
+                max-width: 100%;
+                width: 100%;
+                order: 1;
+            }
+
+            .login-card:hover {
+                transform: none; /* Désactiver l'animation hover sur mobile */
+            }
+
+            .card-header-login {
+                margin-bottom: 1.5rem;
+            }
+
+            .card-header-login h3 {
+                font-size: 1.35rem;
+            }
+
+            .card-header-login p {
+                font-size: 0.875rem;
+            }
+
+            /* FORM */
+            .form-group {
+                margin-bottom: 1.25rem;
+            }
+
+            .form-label {
+                font-size: 0.9rem;
+                margin-bottom: 0.375rem;
+            }
+
+            .form-control {
+                padding: 0.75rem 1rem 0.75rem 2.5rem;
+                font-size: 16px !important; /* Prevent iOS zoom */
+                border-radius: 8px;
+            }
+
+            .input-icon {
+                left: 0.875rem;
+                font-size: 0.9rem;
+            }
+
+            .password-toggle {
+                right: 0.875rem;
+            }
+
+            /* ALERTS */
+            .alert {
+                padding: 0.875rem 1rem;
+                font-size: 0.875rem;
+                margin-bottom: 1.25rem;
+            }
+
+            /* BUTTON */
+            .btn-login {
+                padding: 0.75rem;
+                font-size: 0.95rem;
+                margin-top: 1.25rem;
+                min-height: 48px;
+            }
+
+            /* FOOTER */
+            .login-footer {
+                margin-top: 1.5rem;
+                padding-top: 1.25rem;
+            }
+
+            .security-info {
+                font-size: 0.7rem;
+                line-height: 1.4;
+            }
+
+            .security-info i {
+                font-size: 0.875rem;
+            }
+        }
+
+        /* ============================================
+           PETITS MOBILES (≤ 576px)
+           ============================================ */
+        @media (max-width: 576px) {
+            .notification-band {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+            }
+
+            .header-content {
+                padding: 0 0.75rem;
+            }
+
+            .logo-icon {
+                width: 38px;
+                height: 38px;
+                min-width: 38px;
+            }
+
+            .logo-icon i {
+                font-size: 18px;
+            }
+
+            .logo-text h1 {
+                font-size: 1.35rem;
+            }
+
+            .logo-text .subtitle {
+                font-size: 0.7rem;
+            }
+
+            .login-container {
+                padding: 1rem;
+            }
+
+            .login-card {
+                padding: 1.25rem;
+                border-radius: 14px;
+            }
+
+            .card-header-login h3 {
+                font-size: 1.25rem;
+            }
+
+            .card-header-login p {
+                font-size: 0.8rem;
+            }
+
+            .form-label {
+                font-size: 0.85rem;
+            }
+
+            .form-control {
+                padding: 0.625rem 0.875rem 0.625rem 2.25rem;
+            }
+
+            .input-icon {
+                left: 0.75rem;
+            }
+
+            .btn-login {
+                padding: 0.625rem;
+                font-size: 0.9rem;
+            }
+
+            .login-info h2 {
+                font-size: 1.35rem;
+            }
+
+            .security-info {
+                font-size: 0.65rem;
+            }
+        }
+
+        /* ============================================
+           TRÈS PETITS ÉCRANS (≤ 375px)
+           ============================================ */
+        @media (max-width: 375px) {
+            .notification-band {
+                font-size: 0.7rem;
+                padding: 0.5rem;
+            }
+
+            .header-content {
+                padding: 0 0.5rem;
+                gap: 0.5rem;
+            }
+
+            .logo-icon {
+                width: 34px;
+                height: 34px;
+                min-width: 34px;
+            }
+
+            .logo-icon i {
+                font-size: 16px;
+            }
+
+            .logo-text h1 {
+                font-size: 1.2rem;
+            }
+
+            .logo-text .subtitle {
+                font-size: 0.65rem;
+            }
+
+            .login-container {
+                padding: 0.75rem;
+            }
+
+            .login-card {
+                padding: 1rem;
+                border-radius: 12px;
+            }
+
+            .card-header-login {
+                margin-bottom: 1.25rem;
+            }
+
+            .card-header-login h3 {
+                font-size: 1.15rem;
+            }
+
+            .card-header-login p {
+                font-size: 0.75rem;
+            }
+
+            .form-group {
+                margin-bottom: 1rem;
+            }
+
+            .form-label {
+                font-size: 0.8rem;
+            }
+
+            .form-control {
+                padding: 0.5rem 0.75rem 0.5rem 2rem;
+                font-size: 16px !important;
+            }
+
+            .input-icon {
+                left: 0.625rem;
+                font-size: 0.85rem;
+            }
+
+            .alert {
+                padding: 0.75rem;
+                font-size: 0.8rem;
+            }
+
+            .btn-login {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+                margin-top: 1rem;
+            }
+
+            .login-footer {
+                margin-top: 1.25rem;
+                padding-top: 1rem;
+            }
+
+            .security-info {
+                font-size: 0.6rem;
+            }
+
+            .login-info h2 {
+                font-size: 1.2rem;
+                display: none; /* Masquer complètement sur très petit écran */
+            }
+        }
+
+        /* ============================================
+           ORIENTATION PAYSAGE SUR MOBILE
+           ============================================ */
+        @media (max-width: 896px) and (orientation: landscape) {
+            .login-container {
+                min-height: auto;
+                padding: 1rem 2rem;
+            }
+
+            .login-wrapper {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 2rem;
+                max-width: 100%;
+            }
+
+            .login-info {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                order: 1;
+            }
+
+            .login-info h2 {
+                font-size: 1.5rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .login-info p {
+                display: block;
+                font-size: 0.85rem;
+                margin-bottom: 0.75rem;
             }
 
             .features-list {
                 display: none;
             }
+
+            .login-card {
+                order: 2;
+                padding: 1.25rem;
+            }
+
+            .card-header-login {
+                margin-bottom: 1rem;
+            }
+
+            .card-header-login h3 {
+                font-size: 1.2rem;
+            }
+
+            .form-group {
+                margin-bottom: 1rem;
+            }
+
+            .btn-login {
+                margin-top: 1rem;
+            }
+
+            .login-footer {
+                margin-top: 1rem;
+                padding-top: 1rem;
+            }
         }
 
-        /* Notification Band */
-        .notification-band {
-            background: linear-gradient(135deg, var(--accent-orange) 0%, #dc7c0b 100%);
-            color: var(--blanc-pur);
-            padding: 0.75rem;
-            text-align: center;
-            font-size: 0.9rem;
-            position: relative;
-            overflow: hidden;
+        /* ============================================
+           CORRECTION DU ZOOM SUR iOS
+           ============================================ */
+        @media (max-width: 768px) {
+            input[type="text"],
+            input[type="password"],
+            input[type="email"],
+            input[type="number"],
+            select,
+            textarea {
+                font-size: 16px !important;
+            }
         }
 
-        .notification-band::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            animation: slide 3s ease-in-out infinite;
+        /* ============================================
+           ACCESSIBILITÉ
+           ============================================ */
+        .form-control:focus,
+        .btn-login:focus,
+        .password-toggle:focus {
+            outline: 2px solid var(--bleu-principal);
+            outline-offset: 2px;
         }
 
-        @keyframes slide {
-            0% { left: -100%; }
-            100% { left: 100%; }
+        /* ============================================
+           GESTION DU TEXTE TRÈS LONG
+           ============================================ */
+        .notification-band,
+        .logo-text .subtitle,
+        .login-info h2,
+        .login-info p,
+        .card-header-login h3,
+        .card-header-login p,
+        .alert,
+        .security-info span {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+
+        /* ============================================
+           SCROLLBAR STYLISÉE
+           ============================================ */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* ============================================
+           ANIMATION D'APPARITION
+           ============================================ */
+        .login-card {
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-info {
+            animation: fadeInLeft 0.5s ease-out 0.2s both;
+        }
+
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Désactiver les animations sur mobile pour les performances */
+        @media (max-width: 767px) {
+            .login-card,
+            .login-info {
+                animation: none;
+            }
+
+            .login-card:hover {
+                transform: none;
+                box-shadow: var(--ombre-card);
+            }
         }
     </style>
 </head>
@@ -467,26 +1083,26 @@
                 <ul class="features-list">
                     <li>
                         <i class="fas fa-shield-alt"></i>
-                        Connexion sécurisée et chiffrée
+                        <span>Connexion sécurisée et chiffrée</span>
                     </li>
                     <li>
                         <i class="fas fa-chart-line"></i>
-                        Tableaux de bord en temps réel
+                        <span>Tableaux de bord en temps réel</span>
                     </li>
                     <li>
                         <i class="fas fa-users-cog"></i>
-                        Gestion multi-utilisateurs
+                        <span>Gestion multi-utilisateurs</span>
                     </li>
                     <li>
                         <i class="fas fa-file-alt"></i>
-                        Rapports et analyses avancées
+                        <span>Rapports et analyses avancées</span>
                     </li>
                 </ul>
             </div>
 
             <!-- Right Side - Login Card -->
             <div class="login-card">
-                <div class="card-header">
+                <div class="card-header-login">
                     <h3>Connexion Sécurisée</h3>
                     <p>Veuillez vous identifier pour accéder au système</p>
                 </div>
@@ -507,7 +1123,7 @@
                     {% endfor %}
                 {% endif %}
 
-                <!-- Erreurs générales du formulaire (non-field errors) - AJOUT POUR MESSAGES SPÉCIFIQUES -->
+                <!-- Erreurs générales du formulaire (non-field errors) -->
                 {% if form.non_field_errors %}
                     {% for error in form.non_field_errors %}
                         <div class="alert alert-danger">
@@ -519,7 +1135,7 @@
 
                 <!-- Formulaire de connexion -->
                 <form method="post" id="loginForm" novalidate>
-                     {% csrf_token %} 
+                    {% csrf_token %}
                     
                     <!-- Matricule -->
                     <div class="form-group">
@@ -527,10 +1143,10 @@
                             <i class="fas fa-user me-1"></i>
                             Matricule
                         </label>
-                        <div class="position-relative">
+                        <div class="input-wrapper">
                             <input 
                                 type="text" 
-                                class="form-control with-icon {% if form.username.errors %}is-invalid{% endif %}" 
+                                class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
                                 id="id_username" 
                                 name="username" 
                                 placeholder="Entrez votre matricule"
@@ -538,7 +1154,8 @@
                                 required
                                 autofocus
                                 maxlength="20"
-                                style="text-transform: uppercase;"
+                                autocomplete="username"
+                                autocapitalize="characters"
                             >
                             <i class="fas fa-user input-icon"></i>
                         </div>
@@ -557,18 +1174,19 @@
                             <i class="fas fa-lock me-1"></i>
                             Mot de passe
                         </label>
-                        <div class="position-relative">
+                        <div class="input-wrapper">
                             <input 
                                 type="password" 
-                                class="form-control with-icon {% if form.password.errors %}is-invalid{% endif %}" 
+                                class="form-control {% if form.password.errors %}is-invalid{% endif %}" 
                                 id="id_password" 
                                 name="password" 
                                 placeholder="Entrez votre mot de passe"
                                 required
                                 minlength="4"
+                                autocomplete="current-password"
                             >
                             <i class="fas fa-lock input-icon"></i>
-                            <button type="button" class="password-toggle" id="togglePassword">
+                            <button type="button" class="password-toggle" id="togglePassword" aria-label="Afficher/masquer le mot de passe">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
@@ -583,8 +1201,8 @@
 
                     <!-- Bouton de connexion -->
                     <button type="submit" class="btn-login" id="submitBtn">
-                        <i class="fas fa-sign-in-alt me-2"></i>
-                        Se connecter
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Se connecter</span>
                     </button>
                 </form>
 
@@ -627,7 +1245,7 @@
             form.addEventListener('submit', function(e) {
                 if (form.checkValidity()) {
                     submitBtn.classList.add('btn-loading');
-                    submitBtn.innerHTML = '<i class="fas fa-spinner me-2"></i>Connexion en cours...';
+                    submitBtn.innerHTML = '<i class="fas fa-spinner"></i><span>Connexion en cours...</span>';
                     submitBtn.disabled = true;
                 } else {
                     e.preventDefault();
@@ -635,10 +1253,11 @@
                 }
             });
 
-            // Auto-hide alerts
+            // Auto-hide alerts after 5 seconds
             setTimeout(function() {
                 const alerts = document.querySelectorAll('.alert');
                 alerts.forEach(function(alert) {
+                    alert.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                     alert.style.opacity = '0';
                     alert.style.transform = 'translateY(-20px)';
                     setTimeout(() => alert.remove(), 300);
@@ -647,6 +1266,31 @@
 
             // Focus management
             usernameField.focus();
+
+            // Correction pour éviter le zoom automatique sur iOS
+            document.addEventListener('touchstart', function() {}, {passive: true});
+
+            // Fonction pour ajuster le layout sur mobile
+            function adjustForMobile() {
+                if (window.innerWidth < 768) {
+                    document.body.style.overflowX = 'hidden';
+                    document.body.style.maxWidth = '100vw';
+                    document.body.style.width = '100%';
+                } else {
+                    document.body.style.overflowX = '';
+                    document.body.style.maxWidth = '';
+                    document.body.style.width = '';
+                }
+            }
+            
+            // Exécuter au chargement et au redimensionnement
+            adjustForMobile();
+            window.addEventListener('resize', adjustForMobile);
+            window.addEventListener('orientationchange', adjustForMobile);
+
+            // Gestion des événements tactiles
+            document.addEventListener('touchstart', function() {}, { passive: true });
+            document.addEventListener('touchmove', function() {}, { passive: true });
         });
     </script>
 </body>
