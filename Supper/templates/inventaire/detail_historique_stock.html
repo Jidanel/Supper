@@ -1,4 +1,4 @@
-<!-- templates/inventaire/detail_historique_stock.html - VERSION CORRIGÉE FINALE -->
+<!-- templates/inventaire/detail_historique_stock.html - VERSION RESPONSIVE MOBILE -->
 {% extends "admin/base_site.html" %}
 {% load static i18n inventaire_extras %}
 
@@ -6,110 +6,984 @@
 
 {% block extra_css %}
 <style>
-    .card-section {
-        margin-bottom: 2rem;
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
-    
+
+    /* ============================================
+       CONTENEUR PRINCIPAL RESPONSIVE
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       FIL D'ARIANE RESPONSIVE
+       ============================================ */
+    .breadcrumb {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        list-style: none;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .breadcrumb-item {
+        font-size: 0.9rem;
+    }
+
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: "/";
+        padding: 0 0.5rem;
+        color: #6c757d;
+    }
+
+    .breadcrumb-item a {
+        color: #3b82f6;
+        text-decoration: none;
+    }
+
+    .breadcrumb-item.active {
+        color: #6c757d;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE RESPONSIVE
+       ============================================ */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        color: #1e293b;
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .page-header h2 i {
+        color: #3b82f6;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       CARTES SECTIONS RESPONSIVES
+       ============================================ */
+    .card-section {
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .card {
+        width: 100%;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+    }
+
+    .shadow {
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .card-header h5 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-header.bg-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; }
+    .card-header.bg-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important; }
+    .card-header.bg-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+    .card-header.bg-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important; }
+    .card-header.bg-dark { background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important; }
+    .card-header.bg-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important; }
+
+    .text-white { color: white !important; }
+    .text-dark { color: #1e293b !important; }
+
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       GRILLES RESPONSIVES
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-md-3, .col-md-4, .col-md-6 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    /* ============================================
+       BADGES RESPONSIVES
+       ============================================ */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 50px;
+    }
+
     .badge-action {
         padding: 0.4rem 0.8rem;
         border-radius: 5px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
-    
-    .badge-vendue {
-        background-color: #dc3545;
-        color: white;
-    }
-    
-    .badge-transferee {
-        background-color: #fd7e14;
-        color: white;
-    }
-    
-    .badge-debitee {
-        background-color: #6f42c1;
-        color: white;
-    }
-    
-    .badge-ajoutee {
-        background-color: #28a745;
-        color: white;
-    }
-    
-    .badge-creditee {
-        background-color: #20c997;
-        color: white;
-    }
-    
-    .badge-conservee {
-        background-color: #6c757d;
-        color: white;
-    }
-    
+
+    .badge-vendue { background-color: #dc3545; color: white; }
+    .badge-transferee { background-color: #fd7e14; color: white; }
+    .badge-debitee { background-color: #6f42c1; color: white; }
+    .badge-ajoutee { background-color: #28a745; color: white; }
+    .badge-creditee { background-color: #20c997; color: white; }
+    .badge-conservee { background-color: #6c757d; color: white; }
+
+    .bg-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; }
+    .bg-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important; }
+    .bg-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+    .bg-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important; }
+    .bg-secondary { background: linear-gradient(135deg, #64748b 0%, #475569 100%) !important; }
+    .bg-light { background-color: #f8f9fa !important; }
+
+    /* ============================================
+       STOCK SUMMARY CARD
+       ============================================ */
     .stock-summary-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.5rem;
         border-radius: 10px;
         margin-bottom: 1rem;
+        width: 100%;
     }
-    
+
+    .stock-summary-card .row {
+        margin: 0;
+        width: 100%;
+    }
+
     .stock-value {
         font-size: 1.5rem;
         font-weight: bold;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
     }
-    
+
+    /* ============================================
+       OPERATION CARD
+       ============================================ */
     .operation-card {
         border-left: 4px solid #ffc107;
         background: #fffbf0;
         padding: 1rem;
         margin: 1rem 0;
+        border-radius: 0 8px 8px 0;
+        width: 100%;
     }
-    
+
+    /* ============================================
+       ALERTES RESPONSIVES
+       ============================================ */
+    .alert {
+        padding: 1rem 1.25rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert-info {
+        background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+        border: 1px solid #7dd3fc;
+        color: #0369a1;
+    }
+
+    .alert-warning {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #fcd34d;
+        color: #92400e;
+    }
+
+    .alert-secondary {
+        background: #e9ecef;
+        border: 1px solid #ced4da;
+        color: #495057;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border: 1px solid #6ee7b7;
+        color: #065f46;
+    }
+
+    .alert-light {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        color: #495057;
+    }
+
+    .alert i {
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       CONTENEUR TABLEAU AVEC DÉFILEMENT INTERNE
+       ============================================ */
+    .table-responsive-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        margin-bottom: 1rem;
+    }
+
+    .table-responsive-container::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive-container::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 3px;
+    }
+
+    .table-responsive-container::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+    /* ============================================
+       TABLEAUX RESPONSIVES
+       ============================================ */
+    .table {
+        width: 100%;
+        min-width: 500px;
+        border-collapse: collapse;
+        margin: 0;
+    }
+
     .table-stock-detail {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
     }
-    
+
     .table-stock-detail th {
         background-color: #f8f9fa;
         font-weight: 600;
     }
-    
-    .highlight-removed {
-        background-color: #f8d7da !important;
+
+    .table thead th {
+        padding: 0.75rem 0.875rem;
+        text-align: left;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        border: none;
     }
-    
-    .highlight-transferred {
-        background-color: #fff3cd !important;
+
+    .table-dark { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; }
+    .table-primary { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; }
+    .table-success { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; }
+    .table-warning { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+    .table-light { background: #f8f9fa; color: #495057; }
+
+    .table tbody tr {
+        border-bottom: 1px solid #f1f5f9;
     }
-    
-    .highlight-added {
-        background-color: #d4edda !important;
+
+    .table tbody td {
+        padding: 0.75rem 0.875rem;
+        vertical-align: middle;
+        font-size: 0.9rem;
+        color: #475569;
+        border: none;
     }
-    
-    .highlight-credited {
-        background-color: #d1f2eb !important;
+
+    .table-bordered {
+        border: 1px solid #dee2e6;
     }
-    
+
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #dee2e6;
+    }
+
+    /* Highlights */
+    .highlight-removed { background-color: #f8d7da !important; }
+    .highlight-transferred { background-color: #fff3cd !important; }
+    .highlight-added { background-color: #d4edda !important; }
+    .highlight-credited { background-color: #d1f2eb !important; }
+
+    /* ============================================
+       TIMELINE ARROW
+       ============================================ */
     .timeline-arrow {
         text-align: center;
         font-size: 2rem;
         color: #6c757d;
-        margin: 1rem 0;
+        margin: 1.5rem 0;
     }
-    
+
+    /* ============================================
+       STOCK CONSOLIDATED
+       ============================================ */
     .stock-consolidated {
         background: #e9ecef;
         padding: 0.5rem;
         border-radius: 5px;
         margin-bottom: 0.5rem;
     }
-    
+
+    /* ============================================
+       NO DATA MESSAGE
+       ============================================ */
     .no-data-message {
         padding: 2rem;
         text-align: center;
         color: #6c757d;
         font-style: italic;
+    }
+
+    .no-data-message i {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ============================================
+       BOUTONS RESPONSIVES
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        line-height: 1.4;
+        text-align: center;
+        text-decoration: none;
+        white-space: nowrap;
+        vertical-align: middle;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #cbd5e1;
+    }
+
+    .btn-secondary:hover {
+        background: #e2e8f0;
+        border-color: #94a3b8;
+    }
+
+    .btn-lg {
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    /* ============================================
+       CLASSES UTILITAIRES
+       ============================================ */
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-1 { margin-bottom: 0.25rem !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+
+    .text-center { text-align: center !important; }
+    .text-end { text-align: right !important; }
+    .text-muted { color: #6c757d !important; }
+    .text-success { color: #10b981 !important; }
+    .text-danger { color: #ef4444 !important; }
+    .text-primary { color: #3b82f6 !important; }
+
+    .d-flex { display: flex !important; }
+    .justify-content-between { justify-content: space-between !important; }
+    .align-items-center { align-items: center !important; }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .page-header h2 {
+            font-size: 1.75rem;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .stock-value {
+            font-size: 1.75rem;
+        }
+
+        .table {
+            min-width: auto;
+        }
+
+        .stock-summary-card .col-md-6 {
+            margin-bottom: 0;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - GRANDS ÉCRANS (≥ 1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .container-fluid {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+
+        .stock-value {
+            font-size: 2rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION CRITIQUE : Empêcher le défilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Conteneur principal */
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        /* Fil d'Ariane */
+        .breadcrumb {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.8rem;
+        }
+
+        .breadcrumb-item {
+            font-size: 0.8rem;
+        }
+
+        /* En-tête */
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .page-header h2 {
+            font-size: 1.25rem;
+            width: 100%;
+        }
+
+        .page-header .btn {
+            width: 100%;
+        }
+
+        /* Grille */
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-md-3, .col-md-4, .col-md-6 {
+            padding-left: 8px;
+            padding-right: 8px;
+            flex: 0 0 100%;
+            max-width: 100%;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Cartes */
+        .card {
+            border-radius: 10px;
+        }
+
+        .card-section {
+            margin-bottom: 1.25rem;
+        }
+
+        .card-header {
+            padding: 0.875rem 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* Stock summary */
+        .stock-summary-card {
+            padding: 1.25rem;
+        }
+
+        .stock-value {
+            font-size: 1.25rem;
+        }
+
+        .stock-summary-card .col-md-6 {
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .stock-summary-card .col-md-6:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Alertes */
+        .alert {
+            padding: 0.875rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .badge-action {
+            padding: 0.35rem 0.6rem;
+            font-size: 0.75rem;
+        }
+
+        /* Tableaux */
+        .table-responsive-container {
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px);
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+
+        .table {
+            min-width: 500px;
+            font-size: 0.85rem;
+        }
+
+        .table thead th {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .table tbody td {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .table-stock-detail {
+            font-size: 0.8rem;
+        }
+
+        /* Timeline */
+        .timeline-arrow {
+            font-size: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        /* No data */
+        .no-data-message {
+            padding: 1.5rem;
+        }
+
+        /* Boutons */
+        .btn {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.95rem;
+            width: 100%;
+        }
+
+        .text-center .btn-lg {
+            max-width: 300px;
+        }
+
+        /* Cards internes */
+        .card .card-body h3 {
+            font-size: 1.25rem;
+        }
+
+        .card .card-body h5 {
+            font-size: 1rem;
+        }
+
+        .card .card-body h6 {
+            font-size: 0.9rem;
+        }
+
+        .card-body p {
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .content-wrapper {
+            padding: 0.75rem !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .page-header h2 {
+            font-size: 1.15rem;
+        }
+
+        .breadcrumb {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-md-3, .col-md-4, .col-md-6 {
+            padding-left: 6px;
+            padding-right: 6px;
+            margin-bottom: 0.625rem;
+        }
+
+        .card-header {
+            padding: 0.75rem 0.875rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.85rem;
+        }
+
+        .card-body {
+            padding: 0.875rem;
+        }
+
+        .stock-summary-card {
+            padding: 1rem;
+        }
+
+        .stock-value {
+            font-size: 1.1rem;
+        }
+
+        .alert {
+            padding: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .table-responsive-container {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+        }
+
+        .table {
+            min-width: 450px;
+        }
+
+        .table thead th {
+            padding: 0.5rem 0.375rem;
+            font-size: 0.65rem;
+        }
+
+        .table tbody td {
+            padding: 0.5rem 0.375rem;
+            font-size: 0.75rem;
+        }
+
+        .badge {
+            padding: 0.25rem 0.4rem;
+            font-size: 0.65rem;
+        }
+
+        .badge-action {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .page-header h2 {
+            font-size: 1.05rem;
+        }
+
+        .breadcrumb-item {
+            font-size: 0.7rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.8rem;
+        }
+
+        .stock-value {
+            font-size: 1rem;
+        }
+
+        .table-responsive-container {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .table {
+            min-width: 420px;
+        }
+
+        .table thead th {
+            padding: 0.4rem 0.3rem;
+            font-size: 0.6rem;
+        }
+
+        .table tbody td {
+            padding: 0.4rem 0.3rem;
+            font-size: 0.7rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .table-responsive-container {
+            margin-left: 0;
+            margin-right: 0;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .table {
+            min-width: auto;
+        }
+
+        .page-header {
+            flex-direction: row;
+        }
+
+        .page-header .btn {
+            width: auto;
+        }
+
+        .btn-lg {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .card:focus-within,
+    .btn:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR GLOBALE MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       GESTION DU TEXTE LONG
+       ============================================ */
+    .page-header h2,
+    .card-header h5,
+    .stock-value,
+    .alert,
+    .card-body p,
+    .no-data-message {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .card {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 {% endblock %}
@@ -121,17 +995,21 @@
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
             <li class="breadcrumb-item">
-                <a href="{% url 'inventaire:liste_postes_stocks' %}">Stocks</a>
+                <a href="{% url 'inventaire:liste_postes_stocks' %}">
+                    <i class="fas fa-boxes me-1"></i>Stocks
+                </a>
             </li>
             <li class="breadcrumb-item">
-                <a href="{% url 'inventaire:historique_stock' poste.id %}">Historique {{ poste.nom }}</a>
+                <a href="{% url 'inventaire:historique_stock' poste.id %}">
+                    <i class="fas fa-history me-1"></i>Historique {{ poste.nom }}
+                </a>
             </li>
             <li class="breadcrumb-item active">Détail opération</li>
         </ol>
     </nav>
     
     <!-- En-tête -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
         <h2>
             <i class="fas fa-info-circle text-primary"></i>
             Détail de l'opération
@@ -154,11 +1032,11 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-3">
-                    <p><strong>Date :</strong><br>
+                    <p><strong><i class="fas fa-calendar me-1"></i>Date :</strong><br>
                     {{ historique.date_mouvement|date:"d/m/Y à H:i" }}</p>
                 </div>
                 <div class="col-md-3">
-                    <p><strong>Type d'opération :</strong><br>
+                    <p><strong><i class="fas fa-tag me-1"></i>Type d'opération :</strong><br>
                     <span class="badge bg-{{ historique.type_mouvement|type_mouvement_badge_class }} text-white">
                         {{ historique.get_type_mouvement_display }}
                     </span>
@@ -174,11 +1052,11 @@
                     </p>
                 </div>
                 <div class="col-md-3">
-                    <p><strong>Type de stock :</strong><br>
+                    <p><strong><i class="fas fa-layer-group me-1"></i>Type de stock :</strong><br>
                     {{ historique.get_type_stock_display|default:"N/A" }}</p>
                 </div>
                 <div class="col-md-3">
-                    <p><strong>Effectué par :</strong><br>
+                    <p><strong><i class="fas fa-user me-1"></i>Effectué par :</strong><br>
                     {{ historique.effectue_par.nom_complet }}</p>
                 </div>
             </div>
@@ -187,7 +1065,9 @@
                 <div class="col-md-4 text-center">
                     <div class="card bg-light">
                         <div class="card-body">
-                            <h6 class="text-muted">Montant de l'opération</h6>
+                            <h6 class="text-muted">
+                                <i class="fas fa-coins me-1"></i>Montant de l'opération
+                            </h6>
                             <h3 class="text-{{ historique.type_mouvement|text_color_by_mouvement }}">
                                 {% if historique.type_mouvement == 'CREDIT' %}+{% else %}-{% endif %}
                                 {{ historique.montant|format_fcfa }}
@@ -198,7 +1078,9 @@
                 <div class="col-md-4 text-center">
                     <div class="card bg-light">
                         <div class="card-body">
-                            <h6 class="text-muted">Nombre de tickets</h6>
+                            <h6 class="text-muted">
+                                <i class="fas fa-ticket-alt me-1"></i>Nombre de tickets
+                            </h6>
                             <h3>{{ historique.nombre_tickets|default_if_none_or_empty }} tickets</h3>
                         </div>
                     </div>
@@ -206,7 +1088,9 @@
                 <div class="col-md-4 text-center">
                     <div class="card bg-light">
                         <div class="card-body">
-                            <h6 class="text-muted">Poste</h6>
+                            <h6 class="text-muted">
+                                <i class="fas fa-building me-1"></i>Poste
+                            </h6>
                             <h5>{{ poste.nom }}</h5>
                             <small class="text-muted">{{ poste.code }}</small>
                         </div>
@@ -236,33 +1120,35 @@
             </h5>
         </div>
         <div class="card-body">
-            <h6>Séries de tickets vendues</h6>
-            <table class="table table-bordered">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Couleur</th>
-                        <th>Premier N°</th>
-                        <th>Dernier N°</th>
-                        <th>Nombre de tickets</th>
-                        <th>Montant</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for detail in details_vente %}
-                    <tr>
-                        <td>
-                            <span class="badge" style="background-color: #6B7280;">
-                                {{ detail.couleur.libelle_affichage }}
-                            </span>
-                        </td>
-                        <td><strong>#{{ detail.numero_premier }}</strong></td>
-                        <td><strong>#{{ detail.numero_dernier }}</strong></td>
-                        <td>{{ detail.nombre_tickets|format_milliers }} tickets</td>
-                        <td class="text-success"><strong>{{ detail.montant|format_fcfa }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h6><i class="fas fa-list me-2"></i>Séries de tickets vendues</h6>
+            <div class="table-responsive-container">
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Couleur</th>
+                            <th>Premier N°</th>
+                            <th>Dernier N°</th>
+                            <th>Nombre de tickets</th>
+                            <th>Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in details_vente %}
+                        <tr>
+                            <td>
+                                <span class="badge" style="background-color: #6B7280;">
+                                    {{ detail.couleur.libelle_affichage }}
+                                </span>
+                            </td>
+                            <td><strong>#{{ detail.numero_premier }}</strong></td>
+                            <td><strong>#{{ detail.numero_dernier }}</strong></td>
+                            <td>{{ detail.nombre_tickets|format_milliers }} tickets</td>
+                            <td class="text-success"><strong>{{ detail.montant|format_fcfa }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     {% endif %}
@@ -277,37 +1163,39 @@
         </div>
         <div class="card-body">
             {% if details_approvisionnement.series %}
-            <h6>Séries de tickets reçues</h6>
-            <table class="table table-bordered">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Couleur</th>
-                        <th>Premier N°</th>
-                        <th>Dernier N°</th>
-                        <th>Nombre de tickets</th>
-                        <th>Valeur</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for serie in details_approvisionnement.series %}
-                    <tr class="highlight-added">
-                        <td>
-                            <span class="badge" style="background-color: #6B7280;">
-                                {% if serie.couleur %}
-                                    {{ serie.couleur.libelle_affichage }}
-                                {% else %}
-                                    {{ serie.couleur_nom }}
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td><strong>#{{ serie.numero_premier }}</strong></td>
-                        <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                        <td>{{ serie.nombre_tickets|format_milliers }} tickets</td>
-                        <td class="text-success"><strong>{{ serie.valeur|format_fcfa }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h6><i class="fas fa-list me-2"></i>Séries de tickets reçues</h6>
+            <div class="table-responsive-container">
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Couleur</th>
+                            <th>Premier N°</th>
+                            <th>Dernier N°</th>
+                            <th>Nombre de tickets</th>
+                            <th>Valeur</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for serie in details_approvisionnement.series %}
+                        <tr class="highlight-added">
+                            <td>
+                                <span class="badge" style="background-color: #6B7280;">
+                                    {% if serie.couleur %}
+                                        {{ serie.couleur.libelle_affichage }}
+                                    {% else %}
+                                        {{ serie.couleur_nom }}
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td><strong>#{{ serie.numero_premier }}</strong></td>
+                            <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                            <td>{{ serie.nombre_tickets|format_milliers }} tickets</td>
+                            <td class="text-success"><strong>{{ serie.valeur|format_fcfa }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
             <div class="alert alert-info">
                 <i class="fas fa-info-circle me-2"></i>
@@ -362,62 +1250,65 @@
             
             {% if info_transfert.series %}
             <h6>
+                <i class="fas fa-list me-2"></i>
                 {% if info_transfert.type == 'entrant' %}
                     Séries de tickets reçues
                 {% else %}
                     Séries de tickets transférées
                 {% endif %}
             </h6>
-            <table class="table table-bordered">
-                <thead class="{% if info_transfert.type == 'entrant' %}table-success{% else %}table-warning{% endif %}">
-                    <tr>
-                        <th>Couleur</th>
-                        <th>Premier N°</th>
-                        <th>Dernier N°</th>
-                        <th>Nombre de tickets</th>
-                        <th>Valeur</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for serie in info_transfert.series %}
-                    <tr class="{% if info_transfert.type == 'entrant' %}highlight-credited{% else %}highlight-transferred{% endif %}">
-                        <td>
-                            <span class="badge" style="background-color: #6B7280;">
-                                {% if serie.couleur %}
-                                    {{ serie.couleur.libelle_affichage }}
+            <div class="table-responsive-container">
+                <table class="table table-bordered">
+                    <thead class="{% if info_transfert.type == 'entrant' %}table-success{% else %}table-warning{% endif %}">
+                        <tr>
+                            <th>Couleur</th>
+                            <th>Premier N°</th>
+                            <th>Dernier N°</th>
+                            <th>Nombre de tickets</th>
+                            <th>Valeur</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for serie in info_transfert.series %}
+                        <tr class="{% if info_transfert.type == 'entrant' %}highlight-credited{% else %}highlight-transferred{% endif %}">
+                            <td>
+                                <span class="badge" style="background-color: #6B7280;">
+                                    {% if serie.couleur %}
+                                        {{ serie.couleur.libelle_affichage }}
+                                    {% else %}
+                                        Inconnu
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td><strong>#{{ serie.numero_premier }}</strong></td>
+                            <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                            <td>{{ serie.nombre_tickets|format_milliers }} tickets</td>
+                            <td><strong>{{ serie.nombre_tickets|calculer_valeur_tickets|format_fcfa }}</strong></td>
+                            <td>
+                                {% if info_transfert.type == 'entrant' %}
+                                    <span class="badge badge-action badge-creditee">
+                                        <i class="fas fa-plus me-1"></i>Crédité
+                                    </span>
                                 {% else %}
-                                    Inconnu
+                                    <span class="badge badge-action badge-transferee">
+                                        <i class="fas fa-arrow-right me-1"></i>Transféré
+                                    </span>
                                 {% endif %}
-                            </span>
-                        </td>
-                        <td><strong>#{{ serie.numero_premier }}</strong></td>
-                        <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                        <td>{{ serie.nombre_tickets|format_milliers }} tickets</td>
-                        <td><strong>{{ serie.nombre_tickets|calculer_valeur_tickets|format_fcfa }}</strong></td>
-                        <td>
-                            {% if info_transfert.type == 'entrant' %}
-                                <span class="badge badge-action badge-creditee">
-                                    <i class="fas fa-plus me-1"></i>Crédité
-                                </span>
-                            {% else %}
-                                <span class="badge badge-action badge-transferee">
-                                    <i class="fas fa-arrow-right me-1"></i>Transféré
-                                </span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="table-light">
-                    <tr>
-                        <th colspan="3">Total</th>
-                        <th>{{ historique.nombre_tickets|format_milliers }} tickets</th>
-                        <th>{{ historique.montant|format_fcfa }}</th>
-                        <th></th>
-                    </tr>
-                </tfoot>
-            </table>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3">Total</th>
+                            <th>{{ historique.nombre_tickets|format_milliers }} tickets</th>
+                            <th>{{ historique.montant|format_fcfa }}</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
             {% else %}
             <div class="alert alert-warning">
                 <i class="fas fa-exclamation-triangle me-2"></i>
@@ -467,54 +1358,56 @@
                 </div>
                 
                 {% if series_avant_groupees %}
-                <table class="table table-stock-detail table-bordered">
-                    <thead class="table-primary">
-                        <tr>
-                            <th>Couleur</th>
-                            <th>Premier N°</th>
-                            <th>Dernier N°</th>
-                            <th>Nombre</th>
-                            <th>Valeur</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for couleur, series in series_avant_groupees.items %}
-                            {% for serie in series %}
-                            <tr class="{% if serie.action == 'vendue' %}highlight-removed{% elif serie.action == 'transférée' %}highlight-transferred{% elif serie.action == 'débitée' %}highlight-removed{% endif %}">
-                                <td>
-                                    <span class="badge" style="background-color: #6B7280;">
-                                        {{ couleur }}
-                                    </span>
-                                </td>
-                                <td><strong>#{{ serie.numero_premier }}</strong></td>
-                                <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                                <td>{{ serie.nombre_tickets }}</td>
-                                <td>{{ serie.valeur|format_fcfa }}</td>
-                                <td>
-                                    {% if serie.action == 'vendue' %}
-                                    <span class="badge badge-action badge-vendue">
-                                        <i class="fas fa-shopping-cart me-1"></i>Vendue
-                                    </span>
-                                    {% elif serie.action == 'transférée' %}
-                                    <span class="badge badge-action badge-transferee">
-                                        <i class="fas fa-arrow-right me-1"></i>Transférée
-                                    </span>
-                                    {% elif serie.action == 'débitée' %}
-                                    <span class="badge badge-action badge-debitee">
-                                        <i class="fas fa-minus me-1"></i>Débitée
-                                    </span>
-                                    {% else %}
-                                    <span class="badge badge-action badge-conservee">
-                                        <i class="fas fa-check me-1"></i>En stock
-                                    </span>
-                                    {% endif %}
-                                </td>
+                <div class="table-responsive-container">
+                    <table class="table table-stock-detail table-bordered">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>Couleur</th>
+                                <th>Premier N°</th>
+                                <th>Dernier N°</th>
+                                <th>Nombre</th>
+                                <th>Valeur</th>
+                                <th>Action</th>
                             </tr>
+                        </thead>
+                        <tbody>
+                            {% for couleur, series in series_avant_groupees.items %}
+                                {% for serie in series %}
+                                <tr class="{% if serie.action == 'vendue' %}highlight-removed{% elif serie.action == 'transférée' %}highlight-transferred{% elif serie.action == 'débitée' %}highlight-removed{% endif %}">
+                                    <td>
+                                        <span class="badge" style="background-color: #6B7280;">
+                                            {{ couleur }}
+                                        </span>
+                                    </td>
+                                    <td><strong>#{{ serie.numero_premier }}</strong></td>
+                                    <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                                    <td>{{ serie.nombre_tickets }}</td>
+                                    <td>{{ serie.valeur|format_fcfa }}</td>
+                                    <td>
+                                        {% if serie.action == 'vendue' %}
+                                        <span class="badge badge-action badge-vendue">
+                                            <i class="fas fa-shopping-cart me-1"></i>Vendue
+                                        </span>
+                                        {% elif serie.action == 'transférée' %}
+                                        <span class="badge badge-action badge-transferee">
+                                            <i class="fas fa-arrow-right me-1"></i>Transférée
+                                        </span>
+                                        {% elif serie.action == 'débitée' %}
+                                        <span class="badge badge-action badge-debitee">
+                                            <i class="fas fa-minus me-1"></i>Débitée
+                                        </span>
+                                        {% else %}
+                                        <span class="badge badge-action badge-conservee">
+                                            <i class="fas fa-check me-1"></i>En stock
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
                             {% endfor %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
                 {% else %}
                 <div class="no-data-message">
                     <i class="fas fa-box-open fa-2x mb-2"></i>
@@ -550,50 +1443,52 @@
                 </div>
                 
                 {% if series_apres_groupees %}
-                <table class="table table-stock-detail table-bordered">
-                    <thead class="table-success">
-                        <tr>
-                            <th>Couleur</th>
-                            <th>Premier N°</th>
-                            <th>Dernier N°</th>
-                            <th>Nombre</th>
-                            <th>Valeur</th>
-                            <th>Statut</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for couleur, series in series_apres_groupees.items %}
-                            {% for serie in series %}
-                            <tr class="{% if serie.action == 'ajoutée' %}highlight-added{% elif serie.action == 'créditée' %}highlight-credited{% endif %}">
-                                <td>
-                                    <span class="badge" style="background-color: #6B7280;">
-                                        {{ couleur }}
-                                    </span>
-                                </td>
-                                <td><strong>#{{ serie.numero_premier }}</strong></td>
-                                <td><strong>#{{ serie.numero_dernier }}</strong></td>
-                                <td>{{ serie.nombre_tickets }}</td>
-                                <td>{{ serie.valeur|format_fcfa }}</td>
-                                <td>
-                                    {% if serie.action == 'ajoutée' %}
-                                    <span class="badge badge-action badge-ajoutee">
-                                        <i class="fas fa-plus me-1"></i>Ajoutée
-                                    </span>
-                                    {% elif serie.action == 'créditée' %}
-                                    <span class="badge badge-action badge-creditee">
-                                        <i class="fas fa-download me-1"></i>Créditée
-                                    </span>
-                                    {% else %}
-                                    <span class="badge badge-action badge-conservee">
-                                        <i class="fas fa-check me-1"></i>En stock
-                                    </span>
-                                    {% endif %}
-                                </td>
+                <div class="table-responsive-container">
+                    <table class="table table-stock-detail table-bordered">
+                        <thead class="table-success">
+                            <tr>
+                                <th>Couleur</th>
+                                <th>Premier N°</th>
+                                <th>Dernier N°</th>
+                                <th>Nombre</th>
+                                <th>Valeur</th>
+                                <th>Statut</th>
                             </tr>
+                        </thead>
+                        <tbody>
+                            {% for couleur, series in series_apres_groupees.items %}
+                                {% for serie in series %}
+                                <tr class="{% if serie.action == 'ajoutée' %}highlight-added{% elif serie.action == 'créditée' %}highlight-credited{% endif %}">
+                                    <td>
+                                        <span class="badge" style="background-color: #6B7280;">
+                                            {{ couleur }}
+                                        </span>
+                                    </td>
+                                    <td><strong>#{{ serie.numero_premier }}</strong></td>
+                                    <td><strong>#{{ serie.numero_dernier }}</strong></td>
+                                    <td>{{ serie.nombre_tickets }}</td>
+                                    <td>{{ serie.valeur|format_fcfa }}</td>
+                                    <td>
+                                        {% if serie.action == 'ajoutée' %}
+                                        <span class="badge badge-action badge-ajoutee">
+                                            <i class="fas fa-plus me-1"></i>Ajoutée
+                                        </span>
+                                        {% elif serie.action == 'créditée' %}
+                                        <span class="badge badge-action badge-creditee">
+                                            <i class="fas fa-download me-1"></i>Créditée
+                                        </span>
+                                        {% else %}
+                                        <span class="badge badge-action badge-conservee">
+                                            <i class="fas fa-check me-1"></i>En stock
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
                             {% endfor %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
                 {% else %}
                 <div class="no-data-message">
                     <i class="fas fa-box-open fa-2x mb-2"></i>
@@ -613,4 +1508,31 @@
     </div>
     
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            document.body.style.width = '100%';
+            document.body.style.maxWidth = '100vw';
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+            document.body.style.width = '';
+            document.body.style.maxWidth = '';
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, { passive: true });
+});
+</script>
 {% endblock %}

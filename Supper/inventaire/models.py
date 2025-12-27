@@ -2965,6 +2965,9 @@ class SerieTicket(models.Model):
             models.Index(fields=['poste', 'statut']),
             models.Index(fields=['couleur', 'statut']),
             models.Index(fields=['statut', 'date_reception']),
+            # NOUVEAUX INDEX pour optimiser la recherche d'unicité
+            models.Index(fields=['couleur', 'date_reception', 'type_entree']),
+            models.Index(fields=['numero_premier', 'numero_dernier']),
         ]
         # Contrainte : pas de chevauchement de numéros pour même poste et couleur en stock
         constraints = [

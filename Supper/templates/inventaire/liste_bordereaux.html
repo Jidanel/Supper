@@ -1,11 +1,301 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
-{%load inventaire_extras%}
+{% load inventaire_extras %}
 
 {% block title %}Liste des Bordereaux de Transfert - SUPPER{% endblock %}
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .mb-2 {
+        margin-bottom: 0.5rem !important;
+    }
+
+    .mb-0 {
+        margin-bottom: 0 !important;
+    }
+
+    .me-1 {
+        margin-right: 0.25rem !important;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem !important;
+    }
+
+    .ms-3 {
+        margin-left: 1rem !important;
+    }
+
+    .mt-3 {
+        margin-top: 1rem !important;
+    }
+
+    .pt-3 {
+        padding-top: 1rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .col-12, .col-md-3, .col-md-4, .col-md-6, .col-md-8 {
+        padding-left: 15px;
+        padding-right: 15px;
+        width: 100%;
+        position: relative;
+    }
+
+    /* ============================================
+       BREADCRUMB
+       ============================================ */
+    .breadcrumb {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        list-style: none;
+        background-color: #f8fafc;
+        border-radius: 8px;
+    }
+
+    .breadcrumb-item {
+        display: flex;
+        align-items: center;
+    }
+
+    .breadcrumb-item + .breadcrumb-item {
+        padding-left: 0.5rem;
+    }
+
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: "/";
+        padding-right: 0.5rem;
+        color: #94a3b8;
+    }
+
+    .breadcrumb-item a {
+        color: #3b82f6;
+        text-decoration: none;
+    }
+
+    .breadcrumb-item a:hover {
+        color: #2563eb;
+        text-decoration: underline;
+    }
+
+    .breadcrumb-item.active {
+        color: #64748b;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
+    .page-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h2 {
+        font-size: 1.75rem;
+        margin: 0 0 0.5rem 0;
+        color: #1e293b;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .page-header h2 i {
+        margin-right: 0.5rem;
+        color: #3b82f6;
+    }
+
+    .page-header p {
+        margin: 0;
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    .text-end {
+        text-align: right;
+    }
+
+    /* ============================================
+       CARTES STATISTIQUES
+       ============================================ */
+    .stats-card {
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        color: white;
+        margin-bottom: 1rem;
+    }
+
+    .stats-card.blue {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .stats-card.green {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .stats-card h2 {
+        font-size: 1.75rem;
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+        word-break: break-word;
+    }
+
+    .stats-card p {
+        margin: 0;
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    /* ============================================
+       CARTES
+       ============================================ */
+    .card {
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+    }
+
+    .shadow-sm {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* ============================================
+       FORMULAIRES - FILTRES
+       ============================================ */
+    .form-label {
+        display: block;
+        font-weight: 500;
+        color: #334155;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .form-select,
+    .form-control {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background-color: #fff;
+    }
+
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+        padding-right: 2.5rem;
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .g-3 {
+        gap: 1rem;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .w-100 {
+        width: 100% !important;
+    }
+
+    /* ============================================
+       CARTE BORDEREAU
+       ============================================ */
     .bordereau-card {
         border: 1px solid #e5e7eb;
         border-radius: 12px;
@@ -13,11 +303,13 @@
         margin-bottom: 1rem;
         transition: all 0.3s ease;
         background: white;
+        width: 100%;
     }
 
     .bordereau-card:hover {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         transform: translateY(-2px);
+        border-color: #6366f1;
     }
 
     .bordereau-numero {
@@ -25,12 +317,17 @@
         font-weight: bold;
         color: #6366f1;
         font-size: 1.1rem;
+        word-break: break-all;
     }
 
+    /* ============================================
+       BADGES POSTE
+       ============================================ */
     .poste-badge {
-        padding: 0.5rem 1rem;
+        padding: 0.75rem;
         border-radius: 8px;
         font-weight: 500;
+        margin-bottom: 0.5rem;
     }
 
     .poste-origine {
@@ -43,22 +340,99 @@
         border-left: 3px solid #10b981;
     }
 
+    .poste-badge small {
+        display: block;
+        font-size: 0.75rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .poste-badge strong {
+        display: block;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .poste-badge .text-muted {
+        font-size: 0.8rem;
+    }
+
+    .text-danger {
+        color: #dc2626 !important;
+    }
+
+    .text-success {
+        color: #059669 !important;
+    }
+
+    .text-muted {
+        color: #64748b !important;
+    }
+
+    .text-primary {
+        color: #3b82f6 !important;
+    }
+
+    /* ============================================
+       CONTENEUR POSTES
+       ============================================ */
+    .postes-container {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .postes-container .poste-badge {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    .arrow-icon {
+        color: #3b82f6;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       BOÎTE MONTANT
+       ============================================ */
     .montant-box {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1rem;
         border-radius: 8px;
         text-align: center;
+        margin-bottom: 1rem;
     }
 
+    .montant-box strong {
+        display: block;
+        font-size: 1rem;
+        word-break: break-word;
+    }
+
+    .montant-box small {
+        font-size: 0.8rem;
+        opacity: 0.9;
+    }
+
+    /* ============================================
+       BOUTONS BORDEREAU
+       ============================================ */
     .btn-bordereau {
-        padding: 0.5rem 1rem;
+        padding: 0.625rem 1rem;
         border-radius: 8px;
         font-weight: 500;
         transition: all 0.3s ease;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 0.5rem;
+        text-decoration: none;
+        font-size: 0.85rem;
+        width: 100%;
+        margin-bottom: 0.5rem;
     }
 
     .btn-bordereau:hover {
@@ -88,19 +462,652 @@
         color: white;
     }
 
-    .stats-card {
-        border-radius: 12px;
+    .actions-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       INFOS SUPPLÉMENTAIRES
+       ============================================ */
+    .bordereau-info {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .bordereau-info small {
+        color: #64748b;
+        font-size: 0.85rem;
+        display: block;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       ALERTES
+       ============================================ */
+    .alert {
+        width: 100%;
         padding: 1.5rem;
+        border-radius: 10px;
         text-align: center;
-        color: white;
     }
 
-    .stats-card.blue {
+    .alert-info {
+        background-color: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+    }
+
+    .alert-warning {
+        background-color: #fefce8;
+        border: 1px solid #fde047;
+        color: #854d0e;
+    }
+
+    .alert i.fa-3x {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        display: block;
+    }
+
+    .alert h5 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .alert p {
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    /* ============================================
+       PAGINATION
+       ============================================ */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        list-style: none;
+        padding: 0;
+        margin: 1.5rem 0;
+        gap: 0.25rem;
+    }
+
+    .page-item {
+        margin: 0.125rem;
+    }
+
+    .page-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0.875rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #3b82f6;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        background: #fff;
+    }
+
+    .page-link:hover {
+        background: #eff6ff;
+        border-color: #3b82f6;
+    }
+
+    .page-item.active .page-link {
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border-color: #3b82f6;
     }
 
-    .stats-card.green {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .d-flex {
+        display: flex !important;
+    }
+
+    .flex-column {
+        flex-direction: column !important;
+    }
+
+    .gap-2 {
+        gap: 0.5rem !important;
+    }
+
+    .align-items-center {
+        align-items: center !important;
+    }
+
+    .align-items-end {
+        align-items: flex-end !important;
+    }
+
+    .flex-grow-1 {
+        flex-grow: 1 !important;
+    }
+
+    .justify-content-center {
+        justify-content: center !important;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTES (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+
+        .bordereau-card .row {
+            align-items: center;
+        }
+
+        .text-end {
+            text-align: right;
+        }
+
+        .btn-bordereau {
+            width: auto;
+        }
+
+        .actions-container {
+            flex-direction: column;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - DESKTOP (≥ 1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .container-fluid {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+
+        .bordereau-card {
+            padding: 1.5rem;
+        }
+
+        .postes-container {
+            flex-wrap: nowrap;
+        }
+
+        .postes-container .poste-badge {
+            min-width: auto;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION CRITIQUE : Empêcher défilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Conteneur principal */
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-12, .col-md-3, .col-md-4, .col-md-6, .col-md-8 {
+            padding-left: 8px;
+            padding-right: 8px;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.85rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-item {
+            margin-bottom: 0.25rem;
+        }
+
+        /* En-tête */
+        .page-header h2 {
+            font-size: 1.4rem;
+        }
+
+        .page-header p {
+            font-size: 0.9rem;
+        }
+
+        .text-end {
+            text-align: left;
+            margin-top: 1rem;
+        }
+
+        .text-end .btn {
+            width: 100%;
+        }
+
+        /* Stats */
+        .stats-card {
+            padding: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .stats-card h2 {
+            font-size: 1.5rem;
+        }
+
+        .stats-card p {
+            font-size: 0.85rem;
+        }
+
+        /* Formulaires filtres */
+        .card-body {
+            padding: 1rem;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+        }
+
+        .form-select,
+        .form-control {
+            padding: 0.5rem 0.75rem;
+            font-size: 16px !important; /* Empêche zoom iOS */
+        }
+
+        .g-3 {
+            gap: 0.75rem;
+        }
+
+        /* Boutons */
+        .btn {
+            width: 100%;
+            padding: 0.625rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Carte Bordereau - Layout mobile */
+        .bordereau-card {
+            padding: 1rem;
+            margin-bottom: 0.875rem;
+        }
+
+        .bordereau-card .row {
+            flex-direction: column;
+        }
+
+        .bordereau-numero {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Postes */
+        .postes-container {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.5rem;
+        }
+
+        .postes-container .poste-badge {
+            min-width: 100%;
+        }
+
+        .arrow-icon {
+            transform: rotate(90deg);
+            margin: 0.5rem auto;
+            display: block;
+            text-align: center;
+        }
+
+        /* Montant */
+        .montant-box {
+            padding: 0.875rem;
+            margin-top: 0.75rem;
+        }
+
+        .montant-box strong {
+            font-size: 0.95rem;
+        }
+
+        .montant-box small {
+            font-size: 0.75rem;
+        }
+
+        /* Boutons actions */
+        .actions-container {
+            margin-top: 0.75rem;
+        }
+
+        .btn-bordereau {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.85rem;
+        }
+
+        /* Infos */
+        .bordereau-info {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+        }
+
+        .bordereau-info small {
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        /* Alertes */
+        .alert {
+            padding: 1.25rem;
+        }
+
+        .alert i.fa-3x {
+            font-size: 2rem;
+        }
+
+        .alert h5 {
+            font-size: 1rem;
+        }
+
+        .alert p {
+            font-size: 0.9rem;
+        }
+
+        /* Pagination */
+        .pagination {
+            gap: 0.125rem;
+        }
+
+        .page-link {
+            padding: 0.4rem 0.625rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-12, .col-md-3, .col-md-4, .col-md-6, .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .breadcrumb {
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .stats-card {
+            padding: 1rem;
+        }
+
+        .stats-card h2 {
+            font-size: 1.35rem;
+        }
+
+        .bordereau-card {
+            padding: 0.875rem;
+        }
+
+        .bordereau-numero {
+            font-size: 0.95rem;
+        }
+
+        .poste-badge {
+            padding: 0.625rem;
+        }
+
+        .poste-badge strong {
+            font-size: 0.9rem;
+        }
+
+        .poste-badge small {
+            font-size: 0.7rem;
+        }
+
+        .montant-box {
+            padding: 0.75rem;
+        }
+
+        .montant-box strong {
+            font-size: 0.9rem;
+        }
+
+        .btn-bordereau {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .form-label {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .page-header h2 {
+            font-size: 1.15rem;
+        }
+
+        .breadcrumb {
+            font-size: 0.75rem;
+        }
+
+        .stats-card h2 {
+            font-size: 1.25rem;
+        }
+
+        .bordereau-numero {
+            font-size: 0.9rem;
+        }
+
+        .poste-badge strong {
+            font-size: 0.85rem;
+        }
+
+        .btn-bordereau {
+            font-size: 0.75rem;
+            padding: 0.5rem 0.625rem;
+        }
+
+        .btn-bordereau span {
+            display: none;
+        }
+
+        .montant-box strong {
+            font-size: 0.85rem;
+        }
+
+        .page-link {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .bordereau-card .row {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .postes-container {
+            flex-direction: row;
+            flex-wrap: nowrap;
+        }
+
+        .arrow-icon {
+            transform: none;
+        }
+
+        .btn {
+            width: auto;
+        }
+
+        .actions-container {
+            flex-direction: row;
+        }
+
+        .btn-bordereau {
+            flex: 1;
+        }
+
+        .text-end {
+            text-align: right;
+        }
+
+        .text-end .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="email"],
+        input[type="password"],
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .form-control:focus,
+    .btn:focus,
+    .btn-bordereau:focus,
+    .page-link:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    .bordereau-card {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 {% endblock %}
@@ -128,16 +1135,18 @@
 
     <!-- En-tête -->
     <div class="row mb-4">
-        <div class="col-md-8">
-            <h2>
-                <i class="fas fa-file-alt text-primary me-2"></i>
-                Liste des Bordereaux de Transfert
-            </h2>
-            <p class="text-muted">
-                Consultation de tous les transferts de stock inter-postes
-            </p>
+        <div class="col-12 col-md-8">
+            <div class="page-header">
+                <h2>
+                    <i class="fas fa-file-alt text-primary me-2"></i>
+                    Liste des Bordereaux de Transfert
+                </h2>
+                <p class="text-muted">
+                    Consultation de tous les transferts de stock inter-postes
+                </p>
+            </div>
         </div>
-        <div class="col-md-4 text-end">
+        <div class="col-12 col-md-4 text-end">
             <a href="{% url 'inventaire:selection_transfert_stock' %}" 
                class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
@@ -148,13 +1157,13 @@
 
     <!-- Statistiques -->
     <div class="row mb-4">
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="stats-card blue">
                 <h2 class="mb-2">{{ stats.total_transferts|default:0 }}</h2>
                 <p class="mb-0">Transferts Effectués</p>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="stats-card green">
                 <h2 class="mb-2">{{ stats.montant_total|floatformat:0|default:"0"|format_milliers }} FCFA</h2>
                 <p class="mb-0">Montant Total Transféré</p>
@@ -166,7 +1175,7 @@
     <div class="card mb-4 shadow-sm">
         <div class="card-body">
             <form method="get" class="row g-3">
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <label for="poste" class="form-label">Poste</label>
                     <select name="poste" id="poste" class="form-select">
                         <option value="">Tous les postes</option>
@@ -179,7 +1188,7 @@
                     </select>
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <label for="date_debut" class="form-label">Date Début</label>
                     <input type="date" 
                            name="date_debut" 
@@ -188,7 +1197,7 @@
                            value="{{ filters.date_debut|default:'' }}">
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <label for="date_fin" class="form-label">Date Fin</label>
                     <input type="date" 
                            name="date_fin" 
@@ -197,7 +1206,7 @@
                            value="{{ filters.date_fin|default:'' }}">
                 </div>
 
-                <div class="col-md-3 d-flex align-items-end">
+                <div class="col-12 col-md-3 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="fas fa-filter me-2"></i>
                         Filtrer
@@ -213,7 +1222,7 @@
         <div class="bordereau-card">
             <div class="row align-items-center">
                 <!-- Numéro et Date -->
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <div class="bordereau-numero mb-2">
                         {{ bordereau.numero_bordereau }}
                     </div>
@@ -224,8 +1233,8 @@
                 </div>
 
                 <!-- Postes -->
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center gap-2">
+                <div class="col-12 col-md-4">
+                    <div class="postes-container d-flex align-items-center gap-2">
                         <!-- Poste Origine -->
                         <div class="poste-badge poste-origine flex-grow-1">
                             <small class="d-block text-danger">
@@ -239,7 +1248,7 @@
                         </div>
 
                         <!-- Flèche -->
-                        <i class="fas fa-arrow-right fa-2x text-primary"></i>
+                        <i class="fas fa-arrow-right fa-2x text-primary arrow-icon"></i>
 
                         <!-- Poste Destination -->
                         <div class="poste-badge poste-destination flex-grow-1">
@@ -256,7 +1265,7 @@
                 </div>
 
                 <!-- Montant -->
-                <div class="col-md-2">
+                <div class="col-12 col-md-2">
                     <div class="montant-box">
                         <strong class="d-block">
                             {{ bordereau.montant|floatformat:0|format_milliers }} FCFA
@@ -266,11 +1275,11 @@
                 </div>
 
                 <!-- Actions - LES DEUX BORDEREAUX -->
-                <div class="col-md-3">
-                    <div class="d-flex flex-column gap-2">
+                <div class="col-12 col-md-3">
+                    <div class="actions-container d-flex flex-column gap-2">
                         <!-- ✅ BORDEREAU DE CESSION -->
                         <a href="{% url 'inventaire:bordereaux_transfert' numero_bordereau=bordereau.numero_bordereau %}?type=cession" 
-                           class="btn btn-bordereau btn-cession"
+                           class="btn-bordereau btn-cession"
                            target="_blank"
                            title="Bordereau pour le poste émetteur">
                             <i class="fas fa-file-pdf"></i>
@@ -279,7 +1288,7 @@
 
                         <!-- ✅ BORDEREAU DE RÉCEPTION -->
                         <a href="{% url 'inventaire:bordereaux_transfert' numero_bordereau=bordereau.numero_bordereau %}?type=reception" 
-                           class="btn btn-bordereau btn-reception"
+                           class="btn-bordereau btn-reception"
                            target="_blank"
                            title="Bordereau pour le poste destinataire">
                             <i class="fas fa-file-pdf"></i>
@@ -290,7 +1299,7 @@
             </div>
 
             <!-- Informations supplémentaires (repliable) -->
-            <div class="mt-3 pt-3 border-top">
+            <div class="bordereau-info mt-3 pt-3 border-top">
                 <small class="text-muted">
                     <i class="fas fa-user me-2"></i>
                     Effectué par : <strong>{{ bordereau.effectue_par.nom_complet }}</strong>
@@ -367,6 +1376,25 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+
     // Animation au survol des cartes
     const cards = document.querySelectorAll('.bordereau-card');
     
@@ -401,6 +1429,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     }
+    
+    // Éviter le zoom sur iOS
+    document.addEventListener('touchstart', function() {}, { passive: true });
 });
 </script>
 {% endblock %}

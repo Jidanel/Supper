@@ -1270,75 +1270,90 @@ class ChargementStockTicketsForm(forms.Form):
         """
         from django.utils import timezone
         
+        from django.utils import timezone
+        from django.db.models import Q
+        from datetime import datetime
+        
         annee_courante = timezone.now().year
         
-        # Normaliser la couleur pour la recherche
-        # La normalisation doit correspondre à celle de CouleurTicket
-        couleur_normalisee = couleur_saisie.strip().lower()
-        # Remplacer les caractères spéciaux et accents pour la normalisation
+        # Utiliser une plage de dates au lieu de __year (BEAUCOUP plus rapide)
+        debut_annee = timezone.make_aware(datetime(annee_courante, 1, 1, 0, 0, 0))
+        fin_annee = timezone.make_aware(datetime(annee_courante, 12, 31, 23, 59, 59))
+        
+        # Normaliser la couleur
         import unicodedata
+        couleur_normalisee = couleur_saisie.strip().lower()
         couleur_normalisee = ''.join(
             c for c in unicodedata.normalize('NFD', couleur_normalisee)
             if unicodedata.category(c) != 'Mn'
         )
         couleur_normalisee = couleur_normalisee.replace(' ', '_').replace('-', '_')
         
-        # Chercher toutes les séries chargées cette année pour cette couleur
-        # On ne considère que les chargements (imprimerie_nationale, regularisation)
-        # Les transferts (transfert_recu) ne comptent pas car c'est le même ticket qui bouge
-        series_existantes = SerieTicket.objects.filter(
+        # ===== REQUÊTE OPTIMISÉE =====
+        # 1. Utiliser date_reception__range au lieu de __year
+        # 2. Filtrer directement les chevauchements dans la requête SQL
+        # 3. Limiter les résultats (on n'a pas besoin de TOUS les conflits)
+        series_en_conflit = SerieTicket.objects.filter(
             couleur__code_normalise=couleur_normalisee,
-            date_creation__year=annee_courante,
-            type_entree__in=['imprimerie_nationale', 'regularisation']
+            date_reception__range=[debut_annee, fin_annee],  # Plus rapide que __year
+            type_entree__in=['imprimerie_nationale', 'regularisation'],
+            # Filtrer les chevauchements directement en SQL
+            numero_premier__lte=numero_dernier,
+            numero_dernier__gte=numero_premier
         ).exclude(
-            statut='annule'  # Ignorer les séries annulées
-        ).select_related('poste', 'couleur')
+            statut='annule'
+        ).select_related('poste').only(
+            # Charger uniquement les champs nécessaires
+            'id', 'numero_premier', 'numero_dernier', 
+            'date_reception', 'type_entree',
+            'poste__nom', 'poste__code'
+        )[:10]  # Limiter à 10 résultats max (suffisant pour afficher l'erreur)
         
+        # Convertir en liste (exécute la requête UNE SEULE fois)
+        conflits_list = list(series_en_conflit)
+        
+        if not conflits_list:
+            return True, "", {'annee': annee_courante}
+        
+        # Construire les détails des conflits
         conflits = []
-        
-        for serie in series_existantes:
-            # Vérifier le chevauchement de plages
-            # Deux plages [a,b] et [c,d] se chevauchent si a <= d ET c <= b
-            if numero_premier <= serie.numero_dernier and serie.numero_premier <= numero_dernier:
-                # Calculer la plage de chevauchement
-                debut_chevauchement = max(numero_premier, serie.numero_premier)
-                fin_chevauchement = min(numero_dernier, serie.numero_dernier)
-                nb_tickets_conflit = fin_chevauchement - debut_chevauchement + 1
-                
-                conflits.append({
-                    'poste': serie.poste.nom if serie.poste else 'Inconnu',
-                    'poste_code': serie.poste.code if serie.poste else 'N/A',
-                    'serie_id': serie.id,
-                    'plage_existante': f"{serie.numero_premier:,} - {serie.numero_dernier:,}".replace(',', ' '),
-                    'plage_chevauchement': f"{debut_chevauchement:,} - {fin_chevauchement:,}".replace(',', ' '),
-                    'nb_tickets_conflit': nb_tickets_conflit,
-                    'date_chargement': serie.date_creation.strftime('%d/%m/%Y'),
-                    'type_entree': serie.get_type_entree_display() if hasattr(serie, 'get_type_entree_display') else serie.type_entree
-                })
-        
-        if conflits:
-            # Construire un message d'erreur détaillé
-            if len(conflits) == 1:
-                c = conflits[0]
-                message = (
-                    f"⚠️ Conflit d'unicité annuelle détecté !\n\n"
-                    f"Les tickets #{c['plage_chevauchement']} ({c['nb_tickets_conflit']} tickets) "
-                    f"ont déjà été chargés cette année au poste {c['poste']} ({c['poste_code']}) "
-                    f"le {c['date_chargement']} via {c['type_entree']}.\n\n"
-                    f"Un même numéro de ticket ne peut être chargé qu'une seule fois par année."
-                )
-            else:
-                message = f"⚠️ Conflit d'unicité annuelle détecté avec {len(conflits)} séries existantes !\n\n"
-                for i, c in enumerate(conflits, 1):
-                    message += (
-                        f"{i}. Tickets #{c['plage_chevauchement']} ({c['nb_tickets_conflit']} tickets) "
-                        f"déjà au poste {c['poste']} depuis le {c['date_chargement']}\n"
-                    )
-                message += "\nUn même numéro de ticket ne peut être chargé qu'une seule fois par année."
+        for serie in conflits_list:
+            debut_chevauchement = max(numero_premier, serie.numero_premier)
+            fin_chevauchement = min(numero_dernier, serie.numero_dernier)
+            nb_tickets_conflit = fin_chevauchement - debut_chevauchement + 1
             
-            return False, message, {'conflits': conflits, 'annee': annee_courante}
+            conflits.append({
+                'poste': serie.poste.nom if serie.poste else 'Inconnu',
+                'poste_code': serie.poste.code if serie.poste else 'N/A',
+                'plage_existante': f"{serie.numero_premier:,} - {serie.numero_dernier:,}".replace(',', ' '),
+                'plage_chevauchement': f"{debut_chevauchement:,} - {fin_chevauchement:,}".replace(',', ' '),
+                'nb_tickets_conflit': nb_tickets_conflit,
+                'date_chargement': serie.date_reception.strftime('%d/%m/%Y'),
+                'type_entree': serie.get_type_entree_display() if hasattr(serie, 'get_type_entree_display') else serie.type_entree
+            })
         
-        return True, "", {'annee': annee_courante}
+        # Message d'erreur
+        if len(conflits) == 1:
+            c = conflits[0]
+            message = (
+                f"⚠️ Conflit d'unicité annuelle détecté !\n\n"
+                f"Les tickets #{c['plage_chevauchement']} ({c['nb_tickets_conflit']} tickets) "
+                f"ont déjà été chargés cette année au poste {c['poste']} ({c['poste_code']}) "
+                f"le {c['date_chargement']} via {c['type_entree']}.\n\n"
+                f"Un même numéro de ticket ne peut être chargé qu'une seule fois par année."
+            )
+        else:
+            message = f"⚠️ Conflit d'unicité annuelle détecté avec {len(conflits)} séries !\n\n"
+            for i, c in enumerate(conflits[:5], 1):  # Afficher max 5
+                message += (
+                    f"{i}. Tickets #{c['plage_chevauchement']} ({c['nb_tickets_conflit']} tickets) "
+                    f"déjà au poste {c['poste']} depuis le {c['date_chargement']}\n"
+                )
+            if len(conflits) > 5:
+                message += f"\n... et {len(conflits) - 5} autre(s) conflit(s)"
+            message += "\n\nUn même numéro de ticket ne peut être chargé qu'une seule fois par année."
+        
+        return False, message, {'conflits': conflits, 'annee': annee_courante}
     
     def clean(self):
         cleaned_data = super().clean()

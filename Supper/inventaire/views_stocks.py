@@ -227,15 +227,15 @@ def liste_postes_stocks(request):
     """
     Vue pour afficher tous les stocks des postes avec calcul de date d'épuisement.
     
-    AVANT:
-        - Accès: @user_passes_test(is_admin) - seuls admins
-        - Pas de logs détaillés
-        - Pas de vérification granulaire
+    FONCTIONNALITÉS:
+        - Recherche côté serveur sur tous les postes (nom et code)
+        - Pagination avec conservation du paramètre de recherche
+        - Calcul de date d'épuisement basé sur ventes moyennes
+        - Niveaux d'alerte (danger, warning, info, success)
     
-    APRÈS:
-        - Accès: peut_voir_liste_stocks_peage OU is_admin_user OU is_cisop_peage
-        - Logs détaillés avec log_user_action
-        - Variables contexte IDENTIQUES pour ne pas casser les templates
+    PARAMÈTRES GET:
+        - q: terme de recherche (optionnel)
+        - page: numéro de page (optionnel)
     """
     user = request.user
     
@@ -255,11 +255,22 @@ def liste_postes_stocks(request):
         )
         return redirect('common:dashboard')
     
+    # ===================================================================
+    # RÉCUPÉRATION DU PARAMÈTRE DE RECHERCHE
+    # ===================================================================
+    search_query = request.GET.get('q', '').strip()
+    
     # Log de l'accès
-    logger.info(
-        f"📦 CONSULTATION STOCKS | {get_user_short_description(user)} | "
-        f"Accès à la liste des stocks"
-    )
+    if search_query:
+        logger.info(
+            f"📦 RECHERCHE STOCKS | {get_user_short_description(user)} | "
+            f"Terme: '{search_query}'"
+        )
+    else:
+        logger.info(
+            f"📦 CONSULTATION STOCKS | {get_user_short_description(user)} | "
+            f"Accès à la liste des stocks"
+        )
     
     # ===================================================================
     # RÉCUPÉRATION DES POSTES SELON LES PERMISSIONS
@@ -273,6 +284,16 @@ def liste_postes_stocks(request):
         postes = Poste.objects.filter(id=user.poste_affectation.id, is_active=True)
     else:
         postes = Poste.objects.none()
+    
+    # ===================================================================
+    # FILTRAGE PAR RECHERCHE (si un terme est fourni)
+    # ===================================================================
+    if search_query:
+        # Recherche insensible à la casse sur le nom OU le code
+        postes = postes.filter(
+            models.Q(nom__icontains=search_query) |
+            models.Q(code__icontains=search_query)
+        )
     
     # ===================================================================
     # CALCUL DES DONNÉES DE STOCK
@@ -312,11 +333,11 @@ def liste_postes_stocks(request):
             date_epuisement = date_fin + timedelta(days=jours_restants - 7)
             
             # Déterminer le niveau d'alerte
-            if jours_restants <= 7:
+            if jours_restants <= 14:
                 alerte_stock = 'danger'
-            elif jours_restants <= 14:
+            elif jours_restants > 14 and jours_restants <= 21:
                 alerte_stock = 'warning'
-            elif jours_restants <= 30:
+            elif jours_restants > 21 and jours_restants <= 30:
                 alerte_stock = 'info'
         
         stocks_data.append({
@@ -334,33 +355,79 @@ def liste_postes_stocks(request):
     # Trier par valeur monétaire (stocks les plus bas en premier)
     stocks_data.sort(key=lambda x: x['valeur_monetaire'])
     
-    # Pagination
+    # ===================================================================
+    # STATISTIQUES GLOBALES (calculées sur TOUS les postes, pas filtrés)
+    # ===================================================================
+    # Pour les stats, on récupère tous les postes accessibles (sans filtre de recherche)
+    if user_has_acces_tous_postes(user):
+        all_postes = Poste.objects.filter(is_active=True, type='peage')
+    elif user.poste_affectation:
+        all_postes = Poste.objects.filter(id=user.poste_affectation.id, is_active=True)
+    else:
+        all_postes = Poste.objects.none()
+    
+    # Calculer les stats globales
+    all_stocks = GestionStock.objects.filter(poste__in=all_postes)
+    total_stock = all_stocks.aggregate(total=Sum('valeur_monetaire'))['total'] or Decimal('0')
+    total_tickets = all_stocks.aggregate(total=Sum('nombre_tickets'))['total'] or 0
+    
+    # Compter les stocks critiques et faibles (basé sur les données calculées)
+    all_stocks_data = []
+    for poste in all_postes:
+        stock, _ = GestionStock.objects.get_or_create(
+            poste=poste,
+            defaults={'valeur_monetaire': Decimal('0')}
+        )
+        
+        date_fin = date.today()
+        date_debut = date_fin - timedelta(days=30)
+        
+        ventes_mois = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__range=[date_debut, date_fin]
+        ).aggregate(
+            total=Sum('montant_declare'),
+            nombre_jours=models.Count('id')
+        )
+        
+        vente_moyenne = Decimal('0')
+        if ventes_mois['total'] and ventes_mois['nombre_jours'] > 0:
+            vente_moyenne = ventes_mois['total'] / ventes_mois['nombre_jours']
+        
+        jours_restants = None
+        if vente_moyenne > 0:
+            jours_restants = int(stock.valeur_monetaire / vente_moyenne)
+        
+        all_stocks_data.append({'jours_restants': jours_restants})
+    
+    stocks_critiques = len([s for s in all_stocks_data if s['jours_restants'] is not None and s['jours_restants'] <= 14])
+    stocks_faibles = len([s for s in all_stocks_data if s['jours_restants'] is not None and 14 < s['jours_restants'] <= 21])
+    
+    # ===================================================================
+    # PAGINATION
+    # ===================================================================
     paginator = Paginator(stocks_data, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
-    # Statistiques globales
-    total_stock = sum(s['valeur_monetaire'] for s in stocks_data)
-    total_tickets = sum(s['nombre_tickets'] for s in stocks_data)
-    stocks_critiques = len([s for s in stocks_data if s['alerte'] == 'danger'])
-    stocks_faibles = len([s for s in stocks_data if s['alerte'] == 'warning'])
     
     # Log de l'action
     log_user_action(
         user,
         "CONSULTATION_LISTE_STOCKS",
         f"Consultation de {len(stocks_data)} poste(s) - "
+        f"{'Recherche: ' + search_query + ' - ' if search_query else ''}"
         f"Stock total: {total_stock:,.0f} FCFA - "
         f"Stocks critiques: {stocks_critiques}",
         request,
         nb_postes=len(stocks_data),
         total_stock=str(total_stock),
         stocks_critiques=stocks_critiques,
-        stocks_faibles=stocks_faibles
+        stocks_faibles=stocks_faibles,
+        search_query=search_query if search_query else None
     )
     
     # ===================================================================
-    # CONTEXTE - VARIABLES IDENTIQUES À L'ANCIENNE VERSION
+    # CONTEXTE
     # ===================================================================
     context = {
         'page_obj': page_obj,
@@ -368,11 +435,11 @@ def liste_postes_stocks(request):
         'total_tickets': total_tickets,
         'stocks_critiques': stocks_critiques,
         'stocks_faibles': stocks_faibles,
+        'search_query': search_query,  # NOUVEAU: terme de recherche pour le template
         'title': 'Gestion des Stocks - Vue d\'ensemble'
     }
     
     return render(request, 'inventaire/liste_stocks.html', context)
-
 
 # ===================================================================
 # VUE: SÉLECTION DE POSTE POUR CHARGEMENT

@@ -5,6 +5,125 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .col-md-6, .col-md-3 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+    }
+
+    /* ============================================
+       TYPOGRAPHIE RESPONSIVE
+       ============================================ */
+    h2 {
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+    }
+
+    h3 {
+        font-size: 1.5rem;
+        margin-bottom: 0.75rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    h5 {
+        font-size: 1.125rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       CARTES RESPONSIVES
+       ============================================ */
+    .card {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #dee2e6;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: white;
+    }
+
+    .card-header.bg-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white;
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+    }
+
+    .border-primary {
+        border-color: #3b82f6 !important;
+    }
+
+    /* ============================================
+       SÉRIE STOCK CARD
+       ============================================ */
     .serie-stock-card {
         border-left: 4px solid #3b82f6;
         margin-bottom: 1rem;
@@ -12,26 +131,870 @@
         background: white;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    
+
+    /* ============================================
+       COULEUR BADGE
+       ============================================ */
     .couleur-badge {
         display: inline-block;
         padding: 0.25rem 0.75rem;
         border-radius: 20px;
         font-weight: 600;
         font-size: 0.85rem;
+        white-space: nowrap;
     }
-    
+
+    /* ============================================
+       SECTIONS DE COULEUR
+       ============================================ */
+    .couleur-section-wrapper {
+        max-height: 300px;
+        overflow-y: auto;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .couleur-section-wrapper::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .couleur-section-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .couleur-section-wrapper::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    .couleur-item {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .couleur-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .couleur-item .d-flex {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .couleur-item .text-muted {
+        font-size: 0.875rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .couleur-item .small {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    .couleur-item .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 0.375rem;
+        white-space: nowrap;
+        margin-bottom: 0.25rem;
+    }
+
+    .badge.bg-secondary {
+        background-color: #6b7280 !important;
+        color: white;
+    }
+
+    /* ============================================
+       FORMULAIRES RESPONSIVES
+       ============================================ */
+    .form-label {
+        color: #334155;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .form-control,
+    .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        max-width: 100%;
+        box-sizing: border-box;
+        display: block;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
     .form-calculated {
         background-color: #f3f4f6;
         font-weight: 600;
+        color: #1f2937;
+    }
+
+    .form-text {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-top: 0.25rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .form-check {
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 2px solid #e5e7eb;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-check:hover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+    }
+
+    .form-check-input {
+        margin-right: 0.75rem;
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    .form-check-label {
+        font-size: 0.95rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem !important;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem !important;
+    }
+
+    .me-1 {
+        margin-right: 0.25rem !important;
+    }
+
+    .fw-bold {
+        font-weight: 700 !important;
+    }
+
+    /* ============================================
+       BOUTONS RESPONSIVES
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        user-select: none;
+        border: 1px solid transparent;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        cursor: pointer;
+        gap: 0.5rem;
+    }
+
+    .btn-lg {
+        padding: 1rem 2rem;
+        font-size: 1.125rem;
+        border-radius: 10px;
+    }
+
+    .btn-success {
+        color: #fff;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border-color: transparent;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-secondary {
+        color: #fff;
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+
+    .btn-secondary:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+
+    .text-center {
+        text-align: center !important;
+    }
+
+    /* ============================================
+       TABLEAU HISTORIQUE RESPONSIVE
+       ============================================ */
+    .table-responsive-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .table-responsive-wrapper::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive-wrapper::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    .table {
+        width: 100%;
+        min-width: 500px;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
+
+    .table-sm th,
+    .table-sm td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        white-space: nowrap;
+    }
+
+    .table thead {
+        background: #f8fafc;
+    }
+
+    .table thead th {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e5e7eb;
+    }
+
+    .table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .table .badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .badge.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    }
+
+    .badge.bg-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    }
+
+    /* ============================================
+       STOCK INFO
+       ============================================ */
+    .stock-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e40af;
+        word-break: break-word;
+    }
+
+    .stock-tickets {
+        font-size: 1rem;
+        color: #64748b;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - DESKTOP (≥ 1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .btn-lg {
+            padding: 1rem 2.5rem;
+        }
+
+        .buttons-container {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .buttons-container .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTE (768px à 1023px)
+       ============================================ */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        .stock-value {
+            font-size: 1.25rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION DU DÉFILEMENT HORIZONTAL */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+        }
+
+        .col-md-6, .col-md-3 {
+            flex: 0 0 100%;
+            max-width: 100%;
+            padding-left: 10px;
+            padding-right: 10px;
+            margin-bottom: 1rem;
+        }
+
+        /* Typographie mobile */
+        h2 {
+            font-size: 1.35rem;
+            margin-bottom: 1rem;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+        }
+
+        h5 {
+            font-size: 1rem;
+        }
+
+        /* Cartes mobile */
+        .card {
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            padding: 0.875rem 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* Stock value mobile */
+        .stock-value {
+            font-size: 1.25rem;
+        }
+
+        .stock-tickets {
+            font-size: 0.9rem;
+        }
+
+        /* Couleur section mobile */
+        .couleur-section-wrapper {
+            max-height: 250px;
+        }
+
+        .couleur-badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+        }
+
+        .couleur-item .text-muted {
+            font-size: 0.8rem;
+            width: 100%;
+            text-align: left;
+            margin-top: 0.25rem;
+        }
+
+        .couleur-item .d-flex {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        /* Formulaires mobile */
+        .form-control,
+        .form-select {
+            padding: 0.625rem;
+            font-size: 16px !important; /* Empêche le zoom iOS */
+        }
+
+        .form-label {
+            font-size: 0.9rem;
+        }
+
+        .form-check {
+            padding: 0.875rem;
+        }
+
+        .form-check-label {
+            font-size: 0.9rem;
+        }
+
+        /* Type stock en colonne sur mobile */
+        .type-stock-row .col-md-6 {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Boutons mobile */
+        .btn {
+            padding: 0.625rem 1rem;
+            font-size: 0.95rem;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 1.25rem;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+        .buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .buttons-container .btn {
+            width: 100%;
+        }
+
+        /* Tableau mobile */
+        .table-responsive-wrapper {
+            margin-left: -1rem;
+            margin-right: -1rem;
+            width: calc(100% + 2rem);
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+
+        .table {
+            min-width: 450px;
+            font-size: 0.85rem;
+        }
+
+        .table-sm th,
+        .table-sm td {
+            padding: 0.5rem;
+        }
+
+        .table thead th {
+            font-size: 0.7rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .content-wrapper {
+            padding: 0.75rem !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-md-6, .col-md-3 {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        h3 {
+            font-size: 1.1rem;
+        }
+
+        .card-header {
+            padding: 0.75rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem;
+        }
+
+        .card-body {
+            padding: 0.875rem;
+        }
+
+        .stock-value {
+            font-size: 1.1rem;
+        }
+
+        .stock-tickets {
+            font-size: 0.85rem;
+        }
+
+        .form-control,
+        .form-select {
+            padding: 0.5rem;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+        }
+
+        .form-check {
+            padding: 0.75rem;
+        }
+
+        .form-check-label {
+            font-size: 0.85rem;
+        }
+
+        .couleur-section-wrapper {
+            max-height: 200px;
+        }
+
+        .couleur-badge {
+            font-size: 0.7rem;
+        }
+
+        .couleur-item .badge {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.4rem;
+        }
+
+        .btn {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-lg {
+            padding: 0.625rem 1rem;
+            font-size: 0.95rem;
+        }
+
+        .table {
+            min-width: 400px;
+            font-size: 0.8rem;
+        }
+
+        .table-sm th,
+        .table-sm td {
+            padding: 0.4rem;
+        }
+
+        .table thead th {
+            font-size: 0.65rem;
+        }
+
+        .table-responsive-wrapper {
+            margin-left: -0.875rem;
+            margin-right: -0.875rem;
+            width: calc(100% + 1.75rem);
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        h2 {
+            font-size: 1.15rem;
+        }
+
+        h3 {
+            font-size: 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.85rem;
+        }
+
+        .stock-value {
+            font-size: 1rem;
+        }
+
+        .form-label {
+            font-size: 0.8rem;
+        }
+
+        .form-check-label {
+            font-size: 0.8rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .couleur-badge {
+            font-size: 0.65rem;
+            padding: 0.15rem 0.4rem;
+        }
+
+        .table {
+            min-width: 350px;
+            font-size: 0.75rem;
+        }
+
+        .table-sm th,
+        .table-sm td {
+            padding: 0.35rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .buttons-container {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .buttons-container .btn {
+            flex: 1 1 45%;
+            max-width: 48%;
+        }
+
+        .type-stock-row .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .couleur-section-wrapper {
+            max-height: 180px;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="email"],
+        input[type="password"],
+        select,
+        textarea,
+        button {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .form-select:focus,
+    .btn:focus,
+    .form-check-input:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       HAUTEURS MINIMALES POUR TACTILE
+       ============================================ */
+    .form-control,
+    .form-select,
+    .btn {
+        min-height: 44px;
+    }
+
+    .form-check {
+        min-height: 44px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       ANIMATION
+       ============================================ */
+    .card {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <h2><i class="fas fa-plus-circle"></i> Charger le stock - {{ poste.nom }}</h2>
+    <h2><i class="fas fa-plus-circle me-2"></i>Charger le stock - {{ poste.nom }}</h2>
     
     <div class="row mt-4">
         <!-- Stock actuel (ancien système) -->
@@ -41,8 +1004,8 @@
                     <h5><i class="fas fa-box me-2"></i>Stock actuel (valeur globale)</h5>
                 </div>
                 <div class="card-body">
-                    <h3>{{ stock.valeur_monetaire|floatformat:0|format_milliers }} FCFA</h3>
-                    <p>{{ stock.nombre_tickets|format_milliers }} tickets</p>
+                    <div class="stock-value">{{ stock.valeur_monetaire|floatformat:0|format_milliers }} FCFA</div>
+                    <p class="stock-tickets mb-0">{{ stock.nombre_tickets|format_milliers }} tickets</p>
                 </div>
             </div>
         </div>
@@ -53,29 +1016,30 @@
                 <div class="card-header">
                     <h5><i class="fas fa-palette me-2"></i>Séries en stock par couleur</h5>
                 </div>
-                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
-                    {% if series_par_couleur %}
-                        {% for couleur_code, data in series_par_couleur.items %}
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="couleur-badge" style="background: #e0e7ff; color: #3730a3;">
-                                    {{ data.couleur.libelle_affichage }}
-                                </span>
-                                <span class="text-muted">
-                                    {{ data.total_tickets }} tickets = {{ data.valeur_totale|floatformat:0|format_milliers }} FCFA
-                                </span>
+                <div class="card-body">
+                    <div class="couleur-section-wrapper">
+                        {% if series_par_couleur %}
+                            {% for couleur_code, data in series_par_couleur.items %}
+                            <div class="couleur-item">
+                                <div class="d-flex">
+                                    <span class="couleur-badge" style="background: #e0e7ff; color: #3730a3;">
+                                        {{ data.couleur.libelle_affichage }}
+                                    </span>
+                                    <span class="text-muted">
+                                        {{ data.total_tickets }} tickets = {{ data.valeur_totale|floatformat:0|format_milliers }} FCFA
+                                    </span>
+                                </div>
+                                <div class="small text-muted mt-2">
+                                    {% for serie in data.series %}
+                                        <span class="badge bg-secondary">#{{ serie.numero_premier }}-{{ serie.numero_dernier }}</span>
+                                    {% endfor %}
+                                </div>
                             </div>
-                            <div class="small text-muted">
-                                {% for serie in data.series %}
-                                    <span class="badge bg-secondary me-1">#{{ serie.numero_premier }}-{{ serie.numero_dernier }}</span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        <hr>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted">Aucune série en stock</p>
-                    {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted mb-0">Aucune série en stock</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -93,7 +1057,7 @@
                 <!-- Type de stock -->
                 <div class="mb-4">
                     <label class="form-label fw-bold">{{ form.type_stock.label }} *</label>
-                    <div class="row">
+                    <div class="row type-stock-row">
                         {% for radio in form.type_stock %}
                         <div class="col-md-6">
                             <div class="form-check form-check-lg">
@@ -153,7 +1117,7 @@
                     {{ form.commentaire }}
                 </div>
                 
-                <div class="text-center mt-4">
+                <div class="text-center mt-4 buttons-container">
                     <button type="submit" class="btn btn-success btn-lg">
                         <i class="fas fa-check me-2"></i>Valider le chargement
                     </button>
@@ -172,38 +1136,40 @@
             <h5><i class="fas fa-history me-2"></i>Historique récent</h5>
         </div>
         <div class="card-body">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Montant</th>
-                        <th>Commentaire</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for h in historique_recent %}
-                    <tr>
-                        <td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td>
-                        <td>
-                            <span class="badge bg-{% if h.type_stock == 'regularisation' %}primary{% else %}success{% endif %}">
-                                {{ h.get_type_stock_display }}
-                            </span>
-                        </td>
-                        <td>{{ h.montant|floatformat:0|format_milliers }} FCFA</td>
-                        <td><small>{{ h.commentaire|truncatewords:10 }}</small></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive-wrapper">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Montant</th>
+                            <th>Commentaire</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in historique_recent %}
+                        <tr>
+                            <td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="badge bg-{% if h.type_stock == 'regularisation' %}primary{% else %}success{% endif %}">
+                                    {{ h.get_type_stock_display }}
+                                </span>
+                            </td>
+                            <td>{{ h.montant|floatformat:0|format_milliers }} FCFA</td>
+                            <td><small>{{ h.commentaire|truncatewords:10 }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     {% endif %}
 </div>
 
 <script>
-// Calcul automatique du nombre de tickets et montant
 document.addEventListener('DOMContentLoaded', function() {
+    // Calcul automatique du nombre de tickets et montant
     const numPremier = document.getElementById('{{ form.numero_premier.id_for_label }}');
     const numDernier = document.getElementById('{{ form.numero_dernier.id_for_label }}');
     const nombreCalc = document.getElementById('nombre_calcule');
@@ -225,11 +1191,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    numPremier.addEventListener('input', calculer);
-    numDernier.addEventListener('input', calculer);
+    if (numPremier && numDernier) {
+        numPremier.addEventListener('input', calculer);
+        numDernier.addEventListener('input', calculer);
+        
+        // Calcul initial si valeurs présentes
+        calculer();
+    }
     
-    // Calcul initial si valeurs présentes
-    calculer();
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    
+    // Focus amélioré pour mobile
+    document.querySelectorAll('input, select, textarea').forEach(input => {
+        input.addEventListener('focus', function() {
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    this.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 100);
+            }
+        });
+    });
 });
 </script>
 {% endblock %}
