@@ -1308,9 +1308,7 @@
                                     <a class="dropdown-item rounded" href="{% url 'accounts:journal_audit' %}">
                                         <i class="fas fa-book-open me-2 text-warning"></i>{% trans "Journal d'Audit" %}
                                     </a>
-                                    <a class="dropdown-item rounded" href="#" onclick="marquerJourImpertinent(); return false;">
-                                        <i class="fas fa-flag-checkered me-2 text-danger"></i>{% trans "Marquer Jour Impertinent" %}
-                                    </a>
+                
                                     {% endif %}
                                     
                                 </div>
@@ -2106,21 +2104,7 @@
                                     <div class="dropdown-divider"></div>
                                     {% endif %}
                                     
-                                    <!-- Section Outils -->
-                                    {% if user.peut_voir_rapports_defaillants_peage or user.peut_voir_rapports_defaillants_pesage %}
-                                    <h6 class="dropdown-header text-success">
-                                        <i class="fas fa-tools me-1"></i>{% trans "Outils" %}
-                                    </h6>
-                                    <a class="dropdown-item" href="{% url 'inventaire:rapport_generation' %}">
-                                        <i class="fas fa-file-pdf me-2 text-danger"></i>{% trans "Générer Rapports" %}
-                                    </a>
-                                    <a class="dropdown-item" href="{% url 'inventaire:api_inventaire_stats' %}">
-                                        <i class="fas fa-chart-gantt me-2 text-info"></i>{% trans "Statistiques" %}
-                                    </a>
-                                    <a class="dropdown-item" href="{% url 'inventaire:backup_inventaires' %}">
-                                        <i class="fas fa-cloud-arrow-down me-2 text-success"></i>{% trans "Sauvegarde" %}
-                                    </a>
-                                    {% endif %}
+                                   
                                 </div>
                             </li>
                             {% endif %}
