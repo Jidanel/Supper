@@ -1412,6 +1412,128 @@ CHEMIN: Supper/templates/admin/index.html
         </div>
         {% endif %}
 
+        {% if rang_agent_inventaire %}
+        <div class="supper-section" style="background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%); border-left: 4px solid #f59e0b;">
+            <h2 class="supper-section-title" style="color: #78350f;">
+                <i class="fas fa-medal" style="color: #f59e0b;"></i>
+                {% trans "Votre Classement Agent d'Inventaire" %}
+                <span class="supper-section-meta" style="color: #92400e;">
+                    {{ current_month }} {{ current_year }}
+                </span>
+            </h2>
+            
+            <div class="supper-rank" style="background: linear-gradient(135deg, #fff7ed, #ffedd5); border-color: #fed7aa;">
+                <!-- Badge de rang -->
+                <div class="supper-rank-badge {% if rang_agent_inventaire.rang == 1 %}gold{% elif rang_agent_inventaire.rang == 2 %}silver{% elif rang_agent_inventaire.rang == 3 %}bronze{% elif rang_agent_inventaire.rang <= 5 %}purple{% else %}default{% endif %}">
+                    {% if rang_agent_inventaire.rang == 1 %}
+                        🥇
+                    {% elif rang_agent_inventaire.rang == 2 %}
+                        🥈
+                    {% elif rang_agent_inventaire.rang == 3 %}
+                        🥉
+                    {% elif rang_agent_inventaire.rang <= 5 %}
+                        ⭐
+                    {% else %}
+                        {{ rang_agent_inventaire.rang }}
+                    {% endif %}
+                </div>
+                
+                <!-- Informations de rang -->
+                <div class="supper-rank-info" style="flex: 1;">
+                    <h4 style="color: #78350f; margin-bottom: 0.5rem;">
+                        {% if rang_agent_inventaire.rang == 1 %}
+                            🏆 {% trans "Champion du mois !" %}
+                        {% elif rang_agent_inventaire.rang <= 3 %}
+                            🌟 {% trans "Podium du mois !" %}
+                        {% elif rang_agent_inventaire.rang <= 5 %}
+                            👏 {% trans "Top 5 du mois" %}
+                        {% else %}
+                            📊 {% trans "Votre classement" %}
+                        {% endif %}
+                    </h4>
+                    <p style="color: #92400e; font-size: 1.1rem; margin-bottom: 0.25rem;">
+                        <strong>{{ rang_agent_inventaire.rang }}{% if rang_agent_inventaire.rang == 1 %}er{% else %}ème{% endif %}</strong> 
+                        {% trans "sur" %} {{ rang_agent_inventaire.total_agents }} {% trans "agents" %}
+                    </p>
+                    <small style="color: #a16207;">
+                        {{ rang_agent_inventaire.message_performance }}
+                    </small>
+                </div>
+                
+                <!-- Note et statistiques -->
+                <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.7); border-radius: 12px; min-width: 140px;">
+                    <div style="font-size: 2rem; font-weight: 800; color: #b45309;">
+                        {{ rang_agent_inventaire.note|floatformat:1 }}
+                        <span style="font-size: 1rem; color: #92400e;">/20</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #78350f; margin-top: 0.25rem;">
+                        {% trans "Note globale" %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistiques détaillées -->
+            <div class="supper-pesage-stats" style="margin-top: 1.25rem;">
+                <!-- Jours travaillés -->
+                <div class="supper-pesage-stat" style="background: linear-gradient(135deg, #059669, #10b981);">
+                    <div class="supper-pesage-stat-label">
+                        <i class="fas fa-calendar-check"></i> {% trans "Jours travaillés" %}
+                    </div>
+                    <div class="supper-pesage-stat-value">{{ rang_agent_inventaire.jours_travailles }}</div>
+                    <div class="supper-pesage-stat-unit">{% trans "ce mois" %}</div>
+                </div>
+                
+                <!-- Taux de présence -->
+                <div class="supper-pesage-stat" style="background: linear-gradient(135deg, #1e40af, #3b82f6);">
+                    <div class="supper-pesage-stat-label">
+                        <i class="fas fa-percentage"></i> {% trans "Taux présence" %}
+                    </div>
+                    <div class="supper-pesage-stat-value">{{ rang_agent_inventaire.taux_presence|floatformat:0 }}%</div>
+                    <div class="supper-pesage-stat-unit">{% trans "régularité" %}</div>
+                </div>
+                
+                <!-- Cohérence 3/3 critères -->
+                {% if rang_agent_inventaire.jours_3_criteres is not None %}
+                <div class="supper-pesage-stat" style="background: linear-gradient(135deg, #7c3aed, #8b5cf6);">
+                    <div class="supper-pesage-stat-label">
+                        <i class="fas fa-check-double"></i> {% trans "Cohérence 3/3" %}
+                    </div>
+                    <div class="supper-pesage-stat-value">{{ rang_agent_inventaire.jours_3_criteres }}</div>
+                    <div class="supper-pesage-stat-unit">{% trans "jours parfaits" %}</div>
+                </div>
+                {% endif %}
+                
+                <!-- Jours impertinents (alerte si > 0) -->
+                {% if rang_agent_inventaire.jours_impertinents > 0 %}
+                <div class="supper-pesage-stat" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
+                    <div class="supper-pesage-stat-label">
+                        <i class="fas fa-exclamation-triangle"></i> {% trans "Jours impertinents" %}
+                    </div>
+                    <div class="supper-pesage-stat-value">{{ rang_agent_inventaire.jours_impertinents }}</div>
+                    <div class="supper-pesage-stat-unit">{% trans "attention" %}</div>
+                </div>
+                {% else %}
+                <div class="supper-pesage-stat outline" style="border-color: #10b981;">
+                    <div class="supper-pesage-stat-label" style="color: #059669;">
+                        <i class="fas fa-check-circle"></i> {% trans "Aucun impertinent" %}
+                    </div>
+                    <div class="supper-pesage-stat-value" style="color: #059669;">✓</div>
+                    <div class="supper-pesage-stat-unit" style="color: #10b981;">{% trans "parfait" %}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Lien vers le classement complet -->
+            <div style="text-align: center; margin-top: 1.25rem;">
+                <a href="{% url 'inventaire:classement_agents_performances' %}" class="supper-link-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                    <i class="fas fa-trophy"></i>
+                    {% trans "Voir le classement complet" %}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+
         <!-- ============================================================ -->
         <!-- STATISTIQUES PRINCIPALES -->
         <!-- ============================================================ -->

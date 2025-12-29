@@ -763,7 +763,42 @@ def index_dashboard(request):
         logger.debug(f"[DASHBOARD] Stats système chargées pour {user.username}")
     
     # ================================================================
-    # 15. RANGS ET CLASSEMENTS
+    # 15. RANG AGENT D'INVENTAIRE 
+    # ================================================================
+    rang_agent_inventaire = None
+    
+    # Vérifier si l'utilisateur est un agent d'inventaire
+    if user.habilitation == 'agent_inventaire':
+        try:
+            # Essayer d'abord le service complet
+            try:
+                from inventaire.services.classement_service import get_rang_agent_inventaire_dashboard
+                rang_agent_inventaire = get_rang_agent_inventaire_dashboard(user)
+            except ImportError:
+                # Fallback vers la version simplifiée
+                from common.views import get_rang_agent_inventaire_pour_dashboard
+                rang_agent_inventaire = get_rang_agent_inventaire_pour_dashboard(user)
+            
+            if rang_agent_inventaire:
+                log_user_action(
+                    user,
+                    "Consultation rang agent inventaire",
+                    f"Rang: {rang_agent_inventaire['rang']}/{rang_agent_inventaire['total_agents']} | "
+                    f"Note: {rang_agent_inventaire['note']:.2f}/20 | "
+                    f"Jours travaillés: {rang_agent_inventaire['jours_travailles']}",
+                    request
+                )
+                logger.info(
+                    f"[DASHBOARD] Rang agent inventaire {user.nom_complet}: "
+                    f"#{rang_agent_inventaire['rang']} avec {rang_agent_inventaire['note']:.2f}/20"
+                )
+                
+        except Exception as e:
+            logger.error(f"[DASHBOARD] Erreur calcul rang agent inventaire: {e}")
+            rang_agent_inventaire = None
+    
+    # ================================================================
+    # 16. RANGS ET CLASSEMENTS
     # ================================================================
     rang_poste_peage = None
     rang_station_pesage = None
@@ -836,6 +871,7 @@ def index_dashboard(request):
         'top_postes_peage': top_postes_peage,
         'top_stations_pesage': top_stations_pesage,
         'top_postes': top_postes,
+        'rang_agent_inventaire': rang_agent_inventaire,
         
         # Activités et alertes
         'activites_recentes': activites_recentes,
@@ -877,6 +913,118 @@ def index_dashboard(request):
     logger.info(f"[DASHBOARD] Rendu terminé pour {user.username} avec {len(actions_rapides)} actions rapides")
     
     return render(request, 'admin/index.html', context)
+
+def get_rang_agent_inventaire_pour_dashboard(user) -> dict:
+    """
+    Obtient le rang de l'agent d'inventaire pour affichage dans le dashboard.
+    
+    Cette fonction est une alternative autonome si le service de classement
+    n'est pas disponible.
+    
+    Args:
+        user: Instance UtilisateurSUPPER
+        
+    Returns:
+        Dict avec rang, note, et statistiques, ou None
+    """
+    import logging
+    from datetime import date, timedelta
+    from django.db.models import Count, Avg
+    
+    logger = logging.getLogger('supper')
+    
+    # Vérifier que c'est un agent d'inventaire
+    if getattr(user, 'habilitation', None) != 'agent_inventaire':
+        return None
+    
+    try:
+        from inventaire.models import InventaireJournalier, RecetteJournaliere
+        from accounts.models import UtilisateurSUPPER
+        
+        # Période: mois en cours
+        today = date.today()
+        date_debut = today.replace(day=1)
+        date_fin = today
+        
+        # Compter les inventaires de l'agent ce mois
+        inventaires_agent = InventaireJournalier.objects.filter(
+            agent_saisie=user,
+            date__range=[date_debut, date_fin]
+        ).count()
+        
+        if inventaires_agent == 0:
+            return None
+        
+        # Obtenir tous les agents ayant saisi des inventaires ce mois
+        agents_stats = InventaireJournalier.objects.filter(
+            date__range=[date_debut, date_fin],
+            agent_saisie__habilitation='agent_inventaire'
+        ).values('agent_saisie').annotate(
+            nb_inventaires=Count('id')
+        ).order_by('-nb_inventaires')
+        
+        # Calculer le rang de l'agent
+        rang = 1
+        for stats in agents_stats:
+            if stats['agent_saisie'] == user.id:
+                break
+            rang += 1
+        
+        total_agents = len(agents_stats)
+        
+        # Calculer une note approximative basée sur la régularité
+        jours_possibles = (date_fin - date_debut).days + 1
+        taux_presence = (inventaires_agent / jours_possibles * 100) if jours_possibles > 0 else 0
+        
+        # Note basique basée sur le taux de présence
+        if taux_presence >= 80:
+            note_base = 16
+        elif taux_presence >= 60:
+            note_base = 14
+        elif taux_presence >= 40:
+            note_base = 12
+        elif taux_presence >= 20:
+            note_base = 10
+        else:
+            note_base = 8
+        
+        # Ajuster selon le rang
+        bonus_rang = max(0, (total_agents - rang) / total_agents * 2)
+        note_finale = min(20, note_base + bonus_rang)
+        
+        # Médaille selon le rang
+        if rang == 1:
+            medaille = "🥇"
+            message = "🏆 Félicitations ! Vous êtes le meilleur agent ce mois-ci !"
+        elif rang == 2:
+            medaille = "🥈"
+            message = f"🌟 Excellent travail ! 2ème sur {total_agents} agents !"
+        elif rang == 3:
+            medaille = "🥉"
+            message = f"🌟 Excellent travail ! 3ème sur {total_agents} agents !"
+        elif rang <= 5:
+            medaille = "⭐"
+            message = f"👏 Très bien ! Top 5 sur {total_agents} agents."
+        else:
+            medaille = "📊"
+            message = f"📈 Continuez vos efforts ! Rang {rang}/{total_agents}."
+        
+        return {
+            'rang': rang,
+            'total_agents': total_agents,
+            'note': note_finale,
+            'jours_travailles': inventaires_agent,
+            'taux_presence': taux_presence,
+            'medaille': medaille,
+            'message_performance': message,
+            'jours_3_criteres': 0,  # À calculer si service complet disponible
+            'jours_impertinents': 0  # À calculer si service complet disponible
+        }
+        
+    except Exception as e:
+        logger.error(f"[DASHBOARD] Erreur calcul rang agent: {e}")
+        return None
+
 
 
 class DashboardAdminView(LoginRequiredMixin, TemplateView):

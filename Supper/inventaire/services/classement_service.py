@@ -6,6 +6,24 @@ from decimal import Decimal
 from datetime import date, timedelta
 from django.db.models import Avg, Sum, Q, Min, Max
 import calendar
+import logging
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, field
+from collections import defaultdict
+
+from django.db.models import Sum, Avg, Count, Q
+from django.utils import timezone
+
+# Import du service de notation
+from inventaire.services.notation_agent_service import (
+    get_notation_service,
+    PerformanceAgentPeriode,
+    NoteJournaliere
+)
+
+logger = logging.getLogger('supper.classement')
 
 from inventaire.models import (
     RecetteJournaliere, InventaireJournalier, ConfigurationJour,
@@ -523,3 +541,325 @@ def get_rang_poste_peage(poste, annee=None):
         'total_postes': len(postes_stats),
         'total_recettes': 0
     }
+# ===================================================================
+# inventaire/services/classement_service.py
+# SERVICE DE CLASSEMENT DES AGENTS D'INVENTAIRE - VERSION AMÉLIORÉE
+# Application SUPPER - Intégration avec le système de notation avancée
+# ===================================================================
+"""
+Ce service gère le classement des agents d'inventaire en utilisant
+le nouveau système de notation basé sur la cohérence des 3 critères.
+
+FONCTIONNALITÉS:
+- Classement global des agents sur une période
+- Classement par poste
+- Obtention du rang d'un agent spécifique
+- Statistiques détaillées
+
+AUTEUR: Service SUPPER
+DATE: 2025
+"""
+
+
+
+
+# ===================================================================
+# DATACLASSES POUR LES RÉSULTATS
+# ===================================================================
+
+@dataclass
+class ResultatClassementAgent:
+    """Résultat du classement d'un agent"""
+    rang: int
+    agent: Any  # UtilisateurSUPPER
+    performance: PerformanceAgentPeriode
+    postes_travailles: List[str]
+    
+    @property
+    def note_finale(self) -> float:
+        return self.performance.note_finale
+    
+    @property
+    def moyenne_globale(self) -> float:
+        return self.performance.note_finale
+
+
+@dataclass
+class StatistiquesClassement:
+    """Statistiques globales du classement"""
+    nombre_agents: int = 0
+    note_moyenne_globale: float = 0.0
+    note_max: float = 0.0
+    note_min: float = 0.0
+    total_jours_travailles: int = 0
+    taux_presence_moyen: float = 0.0
+    taux_coherence_3_criteres: float = 0.0
+
+
+# ===================================================================
+# SERVICE DE CLASSEMENT
+# ===================================================================
+
+class ClassementService:
+    """
+    Service de classement des agents d'inventaire.
+    Utilise le NotationAgentService pour calculer les performances.
+    """
+    
+    @staticmethod
+    def generer_classement_periode(
+        date_debut: date,
+        date_fin: date,
+        postes_ids: Optional[List[int]] = None
+    ) -> Dict[str, Any]:
+        """
+        Génère le classement complet des agents sur une période.
+        
+        Args:
+            date_debut: Date de début de la période
+            date_fin: Date de fin de la période
+            postes_ids: Optionnel - filtrer sur certains postes
+            
+        Returns:
+            Dict avec:
+            - 'agents': Liste des ResultatClassementAgent triés par rang
+            - 'statistiques': StatistiquesClassement
+        """
+        notation_service = get_notation_service()
+        
+        logger.info(
+            f"[CLASSEMENT] Génération classement du {date_debut} au {date_fin}"
+        )
+        
+        # Obtenir les performances des agents
+        performances = notation_service.generer_classement_agents(
+            date_debut,
+            date_fin,
+            postes_ids
+        )
+        
+        # Construire les résultats du classement
+        from accounts.models import UtilisateurSUPPER
+        
+        resultats = []
+        for rang, perf in enumerate(performances, 1):
+            try:
+                agent = UtilisateurSUPPER.objects.get(id=perf.agent_id)
+                
+                resultat = ResultatClassementAgent(
+                    rang=rang,
+                    agent=agent,
+                    performance=perf,
+                    postes_travailles=perf.postes_travailles
+                )
+                resultats.append(resultat)
+                
+            except UtilisateurSUPPER.DoesNotExist:
+                logger.warning(f"[CLASSEMENT] Agent ID {perf.agent_id} non trouvé")
+        
+        # Calculer les statistiques globales
+        stats = StatistiquesClassement()
+        
+        if performances:
+            stats.nombre_agents = len(performances)
+            stats.note_moyenne_globale = sum(p.note_finale for p in performances) / len(performances)
+            stats.note_max = max(p.note_finale for p in performances)
+            stats.note_min = min(p.note_finale for p in performances)
+            stats.total_jours_travailles = sum(p.jours_travailles for p in performances)
+            stats.taux_presence_moyen = sum(p.taux_presence for p in performances) / len(performances)
+            
+            total_jours_3_criteres = sum(p.jours_3_criteres for p in performances)
+            total_jours = stats.total_jours_travailles
+            stats.taux_coherence_3_criteres = (
+                (total_jours_3_criteres / total_jours * 100) if total_jours > 0 else 0
+            )
+        
+        logger.info(
+            f"[CLASSEMENT] Classement généré: {len(resultats)} agents, "
+            f"note moyenne = {stats.note_moyenne_globale:.2f}/20"
+        )
+        
+        # Format compatible avec la vue existante
+        agents_format_ancien = []
+        for resultat in resultats:
+            perf = resultat.performance
+            
+            # Créer les données pour chaque poste
+            postes_data = []
+            for poste_nom in perf.postes_travailles:
+                postes_data.append({
+                    'poste': {'nom': poste_nom},
+                    'performance': {
+                        'note_stock': perf.note_finale * 0.3,  # Approximation
+                        'note_recettes': perf.note_finale * 0.3,
+                        'note_taux': perf.note_finale * 0.4,
+                        'note_moyenne': perf.note_finale,
+                        'nombre_jours_impertinents': perf.jours_impertinents,
+                        'taux_moyen_avant': None,
+                        'taux_moyen_apres': None,
+                        'date_debut': perf.date_debut,
+                        'date_fin': perf.date_fin
+                    }
+                })
+            
+            agents_format_ancien.append({
+                'agent': resultat.agent,
+                'postes': postes_data,
+                'moyenne_globale': perf.note_finale,
+                'performance_detaillee': perf
+            })
+        
+        return {
+            'agents': agents_format_ancien,
+            'resultats': resultats,
+            'statistiques': stats
+        }
+    
+    @staticmethod
+    def obtenir_rang_agent(
+        agent,
+        date_debut: date,
+        date_fin: date
+    ) -> Dict[str, Any]:
+        """
+        Obtient le rang et les statistiques d'un agent spécifique.
+        
+        Args:
+            agent: Instance UtilisateurSUPPER
+            date_debut: Date de début
+            date_fin: Date de fin
+            
+        Returns:
+            Dict avec rang, note, statistiques détaillées
+        """
+        notation_service = get_notation_service()
+        
+        logger.info(
+            f"[CLASSEMENT] Obtention rang de {agent.nom_complet} "
+            f"du {date_debut} au {date_fin}"
+        )
+        
+        return notation_service.obtenir_rang_agent(agent, date_debut, date_fin)
+    
+    @staticmethod
+    def obtenir_rang_agent_mois_courant(agent) -> Dict[str, Any]:
+        """
+        Obtient le rang d'un agent pour le mois en cours.
+        
+        Args:
+            agent: Instance UtilisateurSUPPER
+            
+        Returns:
+            Dict avec rang et statistiques
+        """
+        today = date.today()
+        date_debut = today.replace(day=1)
+        date_fin = today
+        
+        return ClassementService.obtenir_rang_agent(agent, date_debut, date_fin)
+    
+    @staticmethod
+    def obtenir_performance_agent_poste(
+        agent,
+        poste,
+        date_debut: date,
+        date_fin: date
+    ) -> Optional[PerformanceAgentPeriode]:
+        """
+        Obtient la performance détaillée d'un agent sur un poste spécifique.
+        
+        Args:
+            agent: Instance UtilisateurSUPPER
+            poste: Instance Poste
+            date_debut: Date de début
+            date_fin: Date de fin
+            
+        Returns:
+            PerformanceAgentPeriode ou None
+        """
+        notation_service = get_notation_service()
+        
+        return notation_service.calculer_performance_agent_periode(
+            agent,
+            date_debut,
+            date_fin,
+            poste=poste
+        )
+
+
+# ===================================================================
+# FONCTIONS UTILITAIRES POUR L'INTÉGRATION
+# ===================================================================
+
+def get_rang_agent_inventaire_dashboard(user) -> Optional[Dict[str, Any]]:
+    """
+    Fonction utilitaire pour obtenir le rang d'un agent d'inventaire
+    à afficher dans le dashboard.
+    
+    Args:
+        user: Instance UtilisateurSUPPER
+        
+    Returns:
+        Dict avec les informations de rang, ou None si non applicable
+    """
+    # Vérifier que c'est bien un agent d'inventaire
+    if getattr(user, 'habilitation', None) != 'agent_inventaire':
+        return None
+    
+    try:
+        rang_info = ClassementService.obtenir_rang_agent_mois_courant(user)
+        
+        if rang_info.get('rang'):
+            return {
+                'rang': rang_info['rang'],
+                'total_agents': rang_info['total_agents'],
+                'note': rang_info['note'],
+                'jours_travailles': rang_info.get('jours_travailles', 0),
+                'taux_presence': rang_info.get('taux_presence', 0),
+                'jours_3_criteres': rang_info.get('jours_3_criteres', 0),
+                'jours_impertinents': rang_info.get('jours_impertinents', 0),
+                'medaille': _get_medaille(rang_info['rang']),
+                'message_performance': _generer_message_performance(rang_info)
+            }
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"[CLASSEMENT] Erreur obtention rang dashboard: {e}")
+        return None
+
+
+def _get_medaille(rang: int) -> str:
+    """Retourne l'emoji médaille selon le rang."""
+    if rang == 1:
+        return "🥇"
+    elif rang == 2:
+        return "🥈"
+    elif rang == 3:
+        return "🥉"
+    elif rang <= 5:
+        return "⭐"
+    else:
+        return "📊"
+
+
+def _generer_message_performance(rang_info: Dict[str, Any]) -> str:
+    """Génère un message de performance encourageant."""
+    rang = rang_info.get('rang', 0)
+    note = rang_info.get('note', 0)
+    total = rang_info.get('total_agents', 0)
+    
+    if rang == 1:
+        return "🏆 Félicitations ! Vous êtes le meilleur agent ce mois-ci !"
+    elif rang <= 3:
+        return f"🌟 Excellent travail ! Top 3 sur {total} agents !"
+    elif rang <= 5:
+        return f"👏 Très bien ! Top 5 sur {total} agents."
+    elif note >= 15:
+        return f"✅ Bonne performance ({note:.1f}/20)."
+    elif note >= 12:
+        return f"📈 Performance correcte ({note:.1f}/20). Continuez !"
+    elif note >= 10:
+        return f"⚠️ Note passable ({note:.1f}/20). Amélioration possible."
+    else:
+        return f"❗ Note faible ({note:.1f}/20). Attention à la cohérence des données."

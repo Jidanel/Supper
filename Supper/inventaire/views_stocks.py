@@ -227,6 +227,11 @@ def liste_postes_stocks(request):
     """
     Vue pour afficher tous les stocks des postes avec calcul de date d'épuisement.
     
+    VERSION MISE À JOUR - Ajout des statistiques globales :
+        - Total chargé Imprimerie Nationale (montant + tickets)
+        - Total vendu (montant + tickets)
+        - Total restant (montant + tickets)
+    
     FONCTIONNALITÉS:
         - Recherche côté serveur sur tous les postes (nom et code)
         - Pagination avec conservation du paramètre de recherche
@@ -275,9 +280,6 @@ def liste_postes_stocks(request):
     # ===================================================================
     # RÉCUPÉRATION DES POSTES SELON LES PERMISSIONS
     # ===================================================================
-    # Utilisateurs avec accès tous postes voient tout
-    # Sinon, uniquement leur poste (si chef de poste)
-    
     if user_has_acces_tous_postes(user):
         postes = Poste.objects.filter(is_active=True, type='peage')
     elif user.poste_affectation:
@@ -289,19 +291,17 @@ def liste_postes_stocks(request):
     # FILTRAGE PAR RECHERCHE (si un terme est fourni)
     # ===================================================================
     if search_query:
-        # Recherche insensible à la casse sur le nom OU le code
         postes = postes.filter(
             models.Q(nom__icontains=search_query) |
             models.Q(code__icontains=search_query)
         )
     
     # ===================================================================
-    # CALCUL DES DONNÉES DE STOCK
+    # CALCUL DES DONNÉES DE STOCK PAR POSTE
     # ===================================================================
     stocks_data = []
     
     for poste in postes:
-        # Récupérer ou créer le stock
         stock, created = GestionStock.objects.get_or_create(
             poste=poste,
             defaults={'valeur_monetaire': Decimal('0')}
@@ -332,7 +332,6 @@ def liste_postes_stocks(request):
             jours_restants = int(stock.valeur_monetaire / vente_moyenne_journaliere)
             date_epuisement = date_fin + timedelta(days=jours_restants - 7)
             
-            # Déterminer le niveau d'alerte
             if jours_restants <= 14:
                 alerte_stock = 'danger'
             elif jours_restants > 14 and jours_restants <= 21:
@@ -356,9 +355,8 @@ def liste_postes_stocks(request):
     stocks_data.sort(key=lambda x: x['valeur_monetaire'])
     
     # ===================================================================
-    # STATISTIQUES GLOBALES (calculées sur TOUS les postes, pas filtrés)
+    # STATISTIQUES GLOBALES EXISTANTES (sans filtre de recherche)
     # ===================================================================
-    # Pour les stats, on récupère tous les postes accessibles (sans filtre de recherche)
     if user_has_acces_tous_postes(user):
         all_postes = Poste.objects.filter(is_active=True, type='peage')
     elif user.poste_affectation:
@@ -366,12 +364,11 @@ def liste_postes_stocks(request):
     else:
         all_postes = Poste.objects.none()
     
-    # Calculer les stats globales
     all_stocks = GestionStock.objects.filter(poste__in=all_postes)
     total_stock = all_stocks.aggregate(total=Sum('valeur_monetaire'))['total'] or Decimal('0')
     total_tickets = all_stocks.aggregate(total=Sum('nombre_tickets'))['total'] or 0
     
-    # Compter les stocks critiques et faibles (basé sur les données calculées)
+    # Calcul des stocks critiques et faibles
     all_stocks_data = []
     for poste in all_postes:
         stock, _ = GestionStock.objects.get_or_create(
@@ -404,43 +401,119 @@ def liste_postes_stocks(request):
     stocks_faibles = len([s for s in all_stocks_data if s['jours_restants'] is not None and 14 < s['jours_restants'] <= 21])
     
     # ===================================================================
+    # NOUVELLES STATISTIQUES GLOBALES - IMPRIMERIE NATIONALE ET VENTES
+    # ===================================================================
+    
+    # 1. TOTAL CHARGÉ PAR L'IMPRIMERIE NATIONALE
+    # Historique type_mouvement='CREDIT' ET type_stock='imprimerie_nationale'
+    stats_imprimerie = HistoriqueStock.objects.filter(
+        poste__in=all_postes,
+        type_mouvement='CREDIT',
+        type_stock='imprimerie_nationale'
+    ).aggregate(
+        total_montant=Sum('montant'),
+        total_tickets=Sum('nombre_tickets')
+    )
+    
+    total_imprimerie_montant = stats_imprimerie['total_montant'] or Decimal('0')
+    total_imprimerie_tickets = stats_imprimerie['total_tickets'] or 0
+    
+    logger.debug(
+        f"📊 STATS IMPRIMERIE | Montant: {total_imprimerie_montant:,.0f} FCFA | "
+        f"Tickets: {total_imprimerie_tickets:,}"
+    )
+    
+    # 2. TOTAL VENDU (DÉBIT avec reference_recette = ventes)
+    # Note: Les ventes sont enregistrées comme DEBIT avec reference_recette non null
+    stats_ventes = HistoriqueStock.objects.filter(
+        poste__in=all_postes,
+        type_mouvement='DEBIT',
+        reference_recette__isnull=False
+    ).aggregate(
+        total_montant=Sum('montant'),
+        total_tickets=Sum('nombre_tickets')
+    )
+    
+    total_vendu_montant = stats_ventes['total_montant'] or Decimal('0')
+    total_vendu_tickets = stats_ventes['total_tickets'] or 0
+    
+    logger.debug(
+        f"📊 STATS VENTES | Montant: {total_vendu_montant:,.0f} FCFA | "
+        f"Tickets: {total_vendu_tickets:,}"
+    )
+    
+    # 3. TOTAL RESTANT (déjà calculé ci-dessus: total_stock et total_tickets)
+    # Utilise les données de GestionStock
+    total_restant_montant = total_stock
+    total_restant_tickets = total_tickets
+    
+    logger.debug(
+        f"📊 STATS RESTANT | Montant: {total_restant_montant:,.0f} FCFA | "
+        f"Tickets: {total_restant_tickets:,}"
+    )
+    
+    # ===================================================================
     # PAGINATION
     # ===================================================================
     paginator = Paginator(stocks_data, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Log de l'action
+    # ===================================================================
+    # LOG DE L'ACTION UTILISATEUR (détaillé)
+    # ===================================================================
     log_user_action(
         user,
         "CONSULTATION_LISTE_STOCKS",
         f"Consultation de {len(stocks_data)} poste(s) - "
         f"{'Recherche: ' + search_query + ' - ' if search_query else ''}"
         f"Stock total: {total_stock:,.0f} FCFA - "
-        f"Stocks critiques: {stocks_critiques}",
+        f"Stocks critiques: {stocks_critiques} - "
+        f"Imprimerie chargé: {total_imprimerie_montant:,.0f} FCFA ({total_imprimerie_tickets:,} tickets) - "
+        f"Vendu: {total_vendu_montant:,.0f} FCFA ({total_vendu_tickets:,} tickets) - "
+        f"Restant: {total_restant_montant:,.0f} FCFA ({total_restant_tickets:,} tickets)",
         request,
         nb_postes=len(stocks_data),
         total_stock=str(total_stock),
         stocks_critiques=stocks_critiques,
         stocks_faibles=stocks_faibles,
-        search_query=search_query if search_query else None
+        search_query=search_query if search_query else None,
+        total_imprimerie_montant=str(total_imprimerie_montant),
+        total_imprimerie_tickets=total_imprimerie_tickets,
+        total_vendu_montant=str(total_vendu_montant),
+        total_vendu_tickets=total_vendu_tickets,
+        total_restant_montant=str(total_restant_montant),
+        total_restant_tickets=total_restant_tickets
     )
     
     # ===================================================================
-    # CONTEXTE
+    # CONTEXTE - AVEC LES NOUVELLES VARIABLES
     # ===================================================================
     context = {
+        # Données existantes (inchangées)
         'page_obj': page_obj,
         'total_stock': total_stock,
         'total_tickets': total_tickets,
         'stocks_critiques': stocks_critiques,
         'stocks_faibles': stocks_faibles,
-        'search_query': search_query,  # NOUVEAU: terme de recherche pour le template
-        'title': 'Gestion des Stocks - Vue d\'ensemble'
+        'search_query': search_query,
+        'title': 'Gestion des Stocks - Vue d\'ensemble',
+        
+        # NOUVELLES STATISTIQUES
+        # Imprimerie Nationale
+        'total_imprimerie_montant': total_imprimerie_montant,
+        'total_imprimerie_tickets': total_imprimerie_tickets,
+        
+        # Ventes (déstockage)
+        'total_vendu_montant': total_vendu_montant,
+        'total_vendu_tickets': total_vendu_tickets,
+        
+        # Stock restant (redondant avec total_stock mais explicite)
+        'total_restant_montant': total_restant_montant,
+        'total_restant_tickets': total_restant_tickets,
     }
     
     return render(request, 'inventaire/liste_stocks.html', context)
-
 # ===================================================================
 # VUE: SÉLECTION DE POSTE POUR CHARGEMENT
 # ===================================================================

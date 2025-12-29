@@ -1,4 +1,13 @@
-<!-- templates/inventaire/liste_stocks.html - VERSION RESPONSIVE MOBILE -->
+<!-- ===================================================================
+     templates/inventaire/liste_stocks.html - VERSION COMPLÈTE
+     Application SUPPER - Gestion des Stocks Péage
+     Chemin: templates/inventaire/liste_stocks.html
+     
+     MODIFICATIONS APPORTÉES:
+     - Ajout de la section "Répartition Globale des Stocks"
+     - Nouvelles cartes: Imprimerie Nationale, Total Vendu, Stock Restant
+     - CSS responsive pour la nouvelle section
+     =================================================================== -->
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
 {% load inventaire_extras %}
@@ -67,7 +76,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1rem;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         width: 100%;
     }
 
@@ -102,6 +111,109 @@
         opacity: 0.9;
         word-wrap: break-word;
         overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       NOUVELLE SECTION : STATISTIQUES DÉTAILLÉES
+       Imprimerie / Ventes / Restant
+       ============================================ */
+    .stats-detail-section {
+        width: 100%;
+        overflow-x: hidden;
+        margin-top: 0.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stats-detail-section h5 {
+        font-size: 1.1rem;
+        color: #1e293b;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .stats-detail-section h5 i {
+        color: #667eea;
+    }
+
+    .stats-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .stats-detail-card {
+        color: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .stats-detail-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .stats-detail-card .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .stats-detail-card .card-icon {
+        background: rgba(255,255,255,0.2);
+        padding: 0.625rem;
+        border-radius: 10px;
+    }
+
+    .stats-detail-card .card-icon i {
+        font-size: 1.25rem;
+    }
+
+    .stats-detail-card .card-label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    .stats-detail-card .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    .stats-detail-card .card-tickets {
+        font-size: 0.9rem;
+        opacity: 0.85;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    /* Couleurs des cartes détaillées */
+    .stats-detail-card.card-imprimerie {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        box-shadow: 0 4px 15px rgba(17, 153, 142, 0.3);
+    }
+
+    .stats-detail-card.card-vendu {
+        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        box-shadow: 0 4px 15px rgba(235, 51, 73, 0.3);
+    }
+
+    .stats-detail-card.card-restant {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
     }
 
     /* ============================================
@@ -673,6 +785,46 @@
     }
 
     /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .stock-card {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    .stat-box {
+        animation: fadeInUp 0.3s ease-out;
+    }
+
+    .search-container {
+        animation: fadeInUp 0.35s ease-out;
+    }
+
+    .stats-detail-card {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Délai d'animation */
+    .stats-grid .stat-box:nth-child(1) { animation-delay: 0.05s; }
+    .stats-grid .stat-box:nth-child(2) { animation-delay: 0.1s; }
+    .stats-grid .stat-box:nth-child(3) { animation-delay: 0.15s; }
+    .stats-grid .stat-box:nth-child(4) { animation-delay: 0.2s; }
+
+    .stats-detail-grid .stats-detail-card:nth-child(1) { animation-delay: 0.1s; }
+    .stats-detail-grid .stats-detail-card:nth-child(2) { animation-delay: 0.2s; }
+    .stats-detail-grid .stats-detail-card:nth-child(3) { animation-delay: 0.3s; }
+
+    /* ============================================
        MEDIA QUERIES - VERSION PC (≥ 768px)
        ============================================ */
     @media (min-width: 768px) {
@@ -709,6 +861,10 @@
         .search-input-group input {
             padding-right: 2.5rem;
         }
+
+        .stats-detail-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
 
     /* ============================================
@@ -735,13 +891,24 @@
         .search-input-group input {
             font-size: 1rem;
         }
+
+        .stats-detail-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .stats-detail-card {
+            padding: 1.5rem;
+        }
+
+        .stats-detail-card .card-value {
+            font-size: 1.75rem;
+        }
     }
 
     /* ============================================
        MEDIA QUERIES - MOBILE (≤ 767px)
        ============================================ */
     @media (max-width: 767px) {
-        /* CORRECTION CRITIQUE : Empêcher le défilement horizontal */
         html, body {
             overflow-x: hidden !important;
             width: 100% !important;
@@ -763,7 +930,6 @@
             overflow-x: hidden !important;
         }
 
-        /* Conteneur principal */
         .container-fluid {
             padding-left: 12px;
             padding-right: 12px;
@@ -772,7 +938,6 @@
             overflow-x: hidden;
         }
 
-        /* En-tête */
         .page-header {
             flex-direction: column;
             align-items: flex-start;
@@ -785,11 +950,10 @@
             width: 100%;
         }
 
-        /* Statistiques */
         .stats-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 0.75rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .stat-box {
@@ -805,7 +969,35 @@
             font-size: 0.8rem;
         }
 
-        /* Barre de recherche */
+        /* Nouvelle section stats detail */
+        .stats-detail-section {
+            margin-top: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stats-detail-section h5 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .stats-detail-grid {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+
+        .stats-detail-card {
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .stats-detail-card .card-value {
+            font-size: 1.25rem;
+        }
+
+        .stats-detail-card .card-tickets {
+            font-size: 0.8rem;
+        }
+
         .search-container {
             padding: 1rem;
             margin-bottom: 1.25rem;
@@ -824,7 +1016,7 @@
 
         .search-input-group input {
             padding: 0.75rem 2.25rem 0.75rem 2.5rem;
-            font-size: 16px; /* Empêche le zoom sur iOS */
+            font-size: 16px;
             border-radius: 8px;
         }
 
@@ -872,7 +1064,6 @@
             font-size: 0.875rem;
         }
 
-        /* Cartes de stock */
         .stock-card {
             padding: 1rem;
             margin-bottom: 0.75rem;
@@ -905,7 +1096,6 @@
             font-size: 0.85rem;
         }
 
-        /* Grille interne */
         .stock-card .row {
             margin-left: -8px;
             margin-right: -8px;
@@ -929,7 +1119,6 @@
             padding: 0.2rem 0.5rem;
         }
 
-        /* Boutons */
         .buttons-container {
             justify-content: flex-start;
             width: 100%;
@@ -940,7 +1129,6 @@
             font-size: 0.75rem;
         }
 
-        /* Pagination */
         .pagination {
             margin: 1rem 0;
         }
@@ -968,7 +1156,6 @@
             font-size: 1.15rem;
         }
 
-        /* Statistiques - 1 colonne sur très petits écrans */
         .stats-grid {
             grid-template-columns: 1fr;
             gap: 0.625rem;
@@ -986,7 +1173,18 @@
             font-size: 0.75rem;
         }
 
-        /* Barre de recherche */
+        .stats-detail-section h5 {
+            font-size: 0.95rem;
+        }
+
+        .stats-detail-card {
+            padding: 0.875rem;
+        }
+
+        .stats-detail-card .card-value {
+            font-size: 1.15rem;
+        }
+
         .search-container {
             padding: 0.875rem;
         }
@@ -1009,7 +1207,6 @@
             font-size: 0.75rem;
         }
 
-        /* Cartes de stock */
         .stock-card {
             padding: 0.875rem;
         }
@@ -1034,7 +1231,6 @@
             font-size: 0.75rem;
         }
 
-        /* Boutons - empilés */
         .buttons-container {
             flex-direction: column;
             align-items: stretch;
@@ -1078,6 +1274,18 @@
             font-size: 0.7rem;
         }
 
+        .stats-detail-section h5 {
+            font-size: 0.9rem;
+        }
+
+        .stats-detail-card {
+            padding: 0.75rem;
+        }
+
+        .stats-detail-card .card-value {
+            font-size: 1.05rem;
+        }
+
         .search-container {
             padding: 0.75rem;
         }
@@ -1115,6 +1323,10 @@
     @media (max-width: 896px) and (orientation: landscape) {
         .stats-grid {
             grid-template-columns: repeat(4, 1fr);
+        }
+
+        .stats-detail-grid {
+            grid-template-columns: repeat(3, 1fr);
         }
 
         .stock-card .col-md-4 {
@@ -1213,38 +1425,6 @@
         overflow-wrap: break-word;
         hyphens: auto;
     }
-
-    /* ============================================
-       ANIMATION D'APPARITION
-       ============================================ */
-    .stock-card {
-        animation: fadeInUp 0.4s ease-out;
-    }
-
-    .stat-box {
-        animation: fadeInUp 0.3s ease-out;
-    }
-
-    .search-container {
-        animation: fadeInUp 0.35s ease-out;
-    }
-
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(15px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    /* Délai d'animation pour les stat-box */
-    .stats-grid .stat-box:nth-child(1) { animation-delay: 0.05s; }
-    .stats-grid .stat-box:nth-child(2) { animation-delay: 0.1s; }
-    .stats-grid .stat-box:nth-child(3) { animation-delay: 0.15s; }
-    .stats-grid .stat-box:nth-child(4) { animation-delay: 0.2s; }
 </style>
 {% endblock %}
 
@@ -1258,25 +1438,95 @@
         </h2>
     </div>
     
-    <!-- Statistiques globales -->
+    <!-- Statistiques principales (4 cartes existantes) -->
     <div class="stats-grid">
         <div class="stat-box">
             <h4>{{ total_stock|floatformat:0|default:"0"|format_milliers }} FCFA</h4>
-            <p>Stock total</p>
+            <p>Stock total disponible</p>
         </div>
         <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
             <h4>{{ total_tickets|default:"0"|format_milliers }}</h4>
-            <p>Tickets totaux</p>
+            <p>Tickets totaux en stock</p>
         </div>
         <div class="stat-box" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
             <h4>{{ stocks_critiques }}</h4>
-            <p>Stocks critiques</p>
+            <p>Stocks critiques (&lt;14j)</p>
         </div>
         <div class="stat-box" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
             <h4>{{ stocks_faibles }}</h4>
-            <p>Stocks faibles</p>
+            <p>Stocks faibles (14-21j)</p>
         </div>
     </div>
+    
+    <!-- NOUVELLE SECTION : Répartition Globale des Stocks -->
+    <div class="stats-detail-section">
+        <h5>
+            <i class="fas fa-chart-pie"></i>
+            Répartition Globale des Stocks
+        </h5>
+        
+        <div class="stats-detail-grid">
+            
+            <!-- Card: Total chargé Imprimerie Nationale -->
+            <div class="stats-detail-card card-imprimerie">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-industry"></i>
+                    </div>
+                    <div>
+                        <span class="card-label">Chargé - Imprimerie Nationale</span>
+                    </div>
+                </div>
+                <div class="card-value">
+                    {{ total_imprimerie_montant|floatformat:0|default:"0"|format_milliers }} FCFA
+                </div>
+                <div class="card-tickets">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>{{ total_imprimerie_tickets|default:"0"|format_milliers }} tickets chargés</span>
+                </div>
+            </div>
+            
+            <!-- Card: Total vendu (déstocké) -->
+            <div class="stats-detail-card card-vendu">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div>
+                        <span class="card-label">Total Vendu</span>
+                    </div>
+                </div>
+                <div class="card-value">
+                    {{ total_vendu_montant|floatformat:0|default:"0"|format_milliers }} FCFA
+                </div>
+                <div class="card-tickets">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>{{ total_vendu_tickets|default:"0"|format_milliers }} tickets vendus</span>
+                </div>
+            </div>
+            
+            <!-- Card: Total restant -->
+            <div class="stats-detail-card card-restant">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <div>
+                        <span class="card-label">Stock Restant</span>
+                    </div>
+                </div>
+                <div class="card-value">
+                    {{ total_restant_montant|floatformat:0|default:"0"|format_milliers }} FCFA
+                </div>
+                <div class="card-tickets">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>{{ total_restant_tickets|default:"0"|format_milliers }} tickets disponibles</span>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    <!-- FIN NOUVELLE SECTION -->
     
     <!-- Barre de recherche -->
     <div class="search-container">

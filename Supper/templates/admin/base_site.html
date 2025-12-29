@@ -1367,11 +1367,11 @@
                                         <i class="fas fa-ranking-star me-2 text-primary"></i>{% trans "Rendement Péage" %}
                                     </a>
                                     {% endif %}
-                                    {% if user.peut_voir_classement_peage_deperdition %}
+                                    {% comment %} {% if user.peut_voir_classement_peage_deperdition %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:classement_postes_performances' %}">
                                         <i class="fas fa-award me-2 text-info"></i>{% trans "Déperdition Péage" %}
                                     </a>
-                                    {% endif %}
+                                    {% endif %} {% endcomment %}
                                     {% endif %}
                                     
                                 </div>
@@ -1382,18 +1382,18 @@
                                     <!-- Section Classements Pesage & Agents -->
                                     {% if user.peut_voir_classement_station_pesage or user.peut_voir_classement_agents_inventaire %}
                                     <h6 class="dropdown-header px-0 text-purple">
-                                        <i class="fas fa-medal me-1"></i>{% trans "Autres Classements" %}
+                                        <i class="fas fa-medal me-1"></i>{% trans "Classement Pesage" %}
                                     </h6>
                                     {% if user.peut_voir_classement_station_pesage %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:classement_stations_pesage_rendement' %}">
                                         <i class="fas fa-weight-hanging me-2 text-purple"></i>{% trans "Stations Pesage" %}
                                     </a>
                                     {% endif %}
-                                    {% if user.peut_voir_classement_agents_inventaire %}
+                                    {% comment %} {% if user.peut_voir_classement_agents_inventaire %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:classement_agents_performances' %}">
                                         <i class="fas fa-medal me-2 text-warning"></i>{% trans "Agents Inventaires" %}
                                     </a>
-                                    {% endif %}
+                                    {% endif %} {% endcomment %}
                                     <hr class="my-2">
                                     {% endif %}
                                     
@@ -2078,11 +2078,11 @@
                                         <i class="fas fa-ranking-star me-2 text-primary"></i>{% trans "Rendement Péage" %}
                                     </a>
                                     {% endif %}
-                                    {% if user.peut_voir_classement_peage_deperdition %}
+                                    {% comment %} {% if user.peut_voir_classement_peage_deperdition %}
                                     <a class="dropdown-item" href="{% url 'inventaire:classement_postes_performances' %}">
                                         <i class="fas fa-award me-2 text-info"></i>{% trans "Déperdition Péage" %}
                                     </a>
-                                    {% endif %}
+                                    {% endif %} {% endcomment %}
                                     <div class="dropdown-divider"></div>
                                     {% endif %}
                                     
@@ -2096,11 +2096,11 @@
                                         <i class="fas fa-weight-hanging me-2 text-purple"></i>{% trans "Stations Pesage" %}
                                     </a>
                                     {% endif %}
-                                    {% if user.peut_voir_classement_agents_inventaire %}
+                                    {% comment %} {% if user.peut_voir_classement_agents_inventaire %}
                                     <a class="dropdown-item" href="{% url 'inventaire:classement_agents_performances' %}">
                                         <i class="fas fa-medal me-2 text-warning"></i>{% trans "Agents Inventaires" %}
                                     </a>
-                                    {% endif %}
+                                    {% endif %} {% endcomment %}
                                     <div class="dropdown-divider"></div>
                                     {% endif %}
                                     

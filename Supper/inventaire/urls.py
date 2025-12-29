@@ -206,9 +206,14 @@ urlpatterns = [
          views_classement.detail_performance_poste, 
          name='detail_performance_poste'),
     
-    path('classement/agent/<int:agent_id>/', 
-         views_classement.detail_performance_agent, 
-         name='detail_performance_agent'),
+#     path('classement/agent/<int:agent_id>/', 
+#          views_classement.detail_performance_agent, 
+#          name='detail_performance_agent'),
+     path(
+    'agent/<int:agent_id>/performance/',
+    views_classement.detail_performance_agent,
+    name='detail_performance_agent'
+),
      
 # Quittancements - URLs CORRIGÉES
 path('quittancements/saisie/', views.saisie_quittancement, name='saisie_quittancement'),

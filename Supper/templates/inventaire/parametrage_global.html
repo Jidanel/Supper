@@ -5,18 +5,893 @@
 
 {% block extra_css %}
 <style>
-    .preview-header {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        padding: 20px;
-        border-radius: 8px;
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-12, .col-lg-6, .col-md-6 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       TYPOGRAPHIE RESPONSIVE
+       ============================================ */
+    h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    h5 {
+        font-size: 1.1rem;
+        margin-bottom: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    p.text-muted {
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        margin-bottom: 1rem;
+    }
+
+    /* ============================================
+       BOÎTE D'INFORMATION RESPONSIVE
+       ============================================ */
     .info-box {
         background: #e3f2fd;
         border-left: 4px solid #2196F3;
-        padding: 15px;
-        margin-bottom: 20px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
         border-radius: 4px;
+        width: 100%;
+        box-sizing: border-box;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .info-box i {
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       CARTES RESPONSIVES
+       ============================================ */
+    .card {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: #fff;
+        box-sizing: border-box;
+    }
+
+    .card.shadow {
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+
+    .card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(0,0,0,0.125);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: white !important;
+    }
+
+    .card-header.bg-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white !important;
+    }
+
+    .card-header.bg-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+        color: #1f2937 !important;
+    }
+
+    .card-header.bg-info {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%) !important;
+        color: white !important;
+    }
+
+    .card-header h5 {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .card-header h5 i {
+        flex-shrink: 0;
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       FORMULAIRES RESPONSIVES
+       ============================================ */
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #334155;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        box-sizing: border-box;
+        max-width: 100%;
+        background-color: #fff;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem !important;
+    }
+
+    small.text-muted {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.8rem;
+        color: #64748b;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+    }
+
+    /* ============================================
+       SECTION LOGO RESPONSIVE
+       ============================================ */
+    .logo-section .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .logo-upload-area {
+        width: 100%;
+    }
+
+    .logo-preview-area {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .logo-preview-area img {
+        max-width: 150px;
+        max-height: 150px;
+        border-radius: 8px;
+        object-fit: contain;
+    }
+
+    .logo-placeholder {
+        border: 2px dashed #d1d5db;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        background: #f8fafc;
+    }
+
+    .logo-placeholder i {
+        font-size: 2.5rem;
+        color: #9ca3af;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ============================================
+       APERÇU EN-TÊTE RESPONSIVE
+       ============================================ */
+    .preview-header {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 1.25rem;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .preview-content {
+        min-width: 100%;
+    }
+
+    .preview-header .row {
+        margin: 0;
+        width: 100%;
+    }
+
+    .preview-col-left,
+    .preview-col-center,
+    .preview-col-right {
+        width: 100%;
+        padding: 0.5rem;
+        text-align: center;
+    }
+
+    .preview-col-left p,
+    .preview-col-right p {
+        margin-bottom: 0.25rem;
+        font-size: 0.75rem;
+        line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .preview-col-center {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 1rem;
+    }
+
+    .preview-col-center img {
+        max-width: 80px;
+        max-height: 80px;
+    }
+
+    .preview-info-text {
+        text-align: center;
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px dashed #d1d5db;
+    }
+
+    .preview-info-text p {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin: 0;
+    }
+
+    /* ============================================
+       BOUTONS RESPONSIVES
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-weight: 500;
+        text-align: center;
+        text-decoration: none;
+        vertical-align: middle;
+        cursor: pointer;
+        user-select: none;
+        border: 1px solid transparent;
+        padding: 0.75rem 1.25rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        box-sizing: border-box;
+    }
+
+    .btn-lg {
+        padding: 0.875rem 1.5rem;
+        font-size: 1.05rem;
+    }
+
+    .btn-primary {
+        color: #fff;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border-color: #2563eb;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn-outline-secondary {
+        color: #475569;
+        background-color: transparent;
+        border-color: #cbd5e1;
+    }
+
+    .btn-outline-secondary:hover {
+        color: #1e293b;
+        background-color: #f1f5f9;
+        border-color: #94a3b8;
+    }
+
+    .btn i {
+        flex-shrink: 0;
+    }
+
+    /* Conteneur boutons */
+    .buttons-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-lg-6, .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .preview-col-left {
+            flex: 0 0 40%;
+            max-width: 40%;
+            text-align: left;
+        }
+
+        .preview-col-center {
+            flex: 0 0 20%;
+            max-width: 20%;
+        }
+
+        .preview-col-right {
+            flex: 0 0 40%;
+            max-width: 40%;
+            text-align: right;
+        }
+
+        .buttons-container {
+            flex-wrap: nowrap;
+        }
+
+        .buttons-container .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - GRANDS ÉCRANS (≥ 992px)
+       ============================================ */
+    @media (min-width: 992px) {
+        .container-fluid {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .preview-header {
+            padding: 1.5rem;
+        }
+
+        .preview-col-center img {
+            max-width: 100px;
+            max-height: 100px;
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : DÉFILEMENT HORIZONTAL */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Conteneur principal */
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        /* Typographie mobile */
+        h2 {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        h2 i {
+            font-size: 1.25rem;
+        }
+
+        p.text-muted {
+            font-size: 0.9rem;
+        }
+
+        /* Grille mobile */
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-12, .col-lg-6, .col-md-6 {
+            padding-left: 8px;
+            padding-right: 8px;
+            flex: 0 0 100%;
+            max-width: 100%;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Info box mobile */
+        .info-box {
+            padding: 0.875rem;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+
+        /* Cartes mobile */
+        .card {
+            margin-bottom: 1rem;
+            border-radius: 10px;
+        }
+
+        .card-header {
+            padding: 0.875rem 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 1rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* Formulaires mobile */
+        .form-label {
+            font-size: 0.9rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .form-control {
+            padding: 0.625rem;
+            font-size: 16px !important; /* Empêche le zoom iOS */
+        }
+
+        small.text-muted {
+            font-size: 0.75rem;
+        }
+
+        /* Section logo mobile */
+        .logo-preview-area {
+            margin-top: 1rem;
+            padding: 0.75rem;
+        }
+
+        .logo-preview-area img {
+            max-width: 120px;
+            max-height: 120px;
+        }
+
+        .logo-placeholder {
+            padding: 1rem;
+        }
+
+        .logo-placeholder i {
+            font-size: 2rem;
+        }
+
+        /* Aperçu mobile - défilement horizontal interne */
+        .preview-header {
+            padding: 1rem;
+            margin-left: -12px;
+            margin-right: -12px;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+
+        .preview-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .preview-col-left,
+        .preview-col-center,
+        .preview-col-right {
+            width: 100%;
+            text-align: center;
+            padding: 0.5rem 0;
+        }
+
+        .preview-col-left {
+            order: 2;
+            border-top: 1px dashed #d1d5db;
+            padding-top: 1rem;
+        }
+
+        .preview-col-center {
+            order: 1;
+        }
+
+        .preview-col-right {
+            order: 3;
+            border-top: 1px dashed #d1d5db;
+            padding-top: 1rem;
+        }
+
+        .preview-col-left p,
+        .preview-col-right p {
+            font-size: 0.7rem;
+            text-align: center;
+        }
+
+        .preview-col-center img {
+            max-width: 70px;
+            max-height: 70px;
+        }
+
+        .preview-info-text {
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+        }
+
+        .preview-info-text p {
+            font-size: 0.7rem;
+        }
+
+        /* Boutons mobile */
+        .buttons-container {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .buttons-container .btn {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-12, .col-lg-6, .col-md-6 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        h2 {
+            font-size: 1.35rem;
+        }
+
+        h2 i {
+            font-size: 1.1rem;
+        }
+
+        .card-header {
+            padding: 0.75rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .card-body {
+            padding: 0.875rem;
+        }
+
+        .info-box {
+            padding: 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .form-control {
+            padding: 0.5rem;
+        }
+
+        .logo-preview-area img {
+            max-width: 100px;
+            max-height: 100px;
+        }
+
+        .preview-col-left p,
+        .preview-col-right p {
+            font-size: 0.65rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        .card-header h5 {
+            font-size: 0.9rem;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+        }
+
+        .info-box {
+            font-size: 0.75rem;
+        }
+
+        .preview-col-left p,
+        .preview-col-right p {
+            font-size: 0.6rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+            padding: 0.5rem 0.875rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-lg-6, .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .preview-content {
+            flex-direction: row;
+            flex-wrap: nowrap;
+        }
+
+        .preview-col-left,
+        .preview-col-center,
+        .preview-col-right {
+            order: unset;
+            border-top: none;
+            padding-top: 0.5rem;
+        }
+
+        .preview-col-left {
+            flex: 0 0 40%;
+            text-align: left;
+        }
+
+        .preview-col-center {
+            flex: 0 0 20%;
+        }
+
+        .preview-col-right {
+            flex: 0 0 40%;
+            text-align: right;
+        }
+
+        .buttons-container {
+            flex-direction: row;
+        }
+
+        .buttons-container .btn {
+            width: auto;
+            flex: 1;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="file"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .btn:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE - MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .card {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       GESTION DE L'IMPRESSION
+       ============================================ */
+    @media print {
+        .container-fluid {
+            padding: 0 !important;
+        }
+
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
+        }
+
+        .btn {
+            display: none !important;
+        }
+
+        .preview-header {
+            border: 1px solid #ddd !important;
+        }
     }
 </style>
 {% endblock %}
@@ -143,13 +1018,13 @@
         <!-- Logo Global -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="card shadow">
+                <div class="card shadow logo-section">
                     <div class="card-header bg-warning text-dark">
                         <h5 class="mb-0"><i class="fas fa-image me-2"></i>Logo (Tous les postes)</h5>
                     </div>
                     <div class="card-body">
                         <div class="row align-items-center">
-                            <div class="col-md-6">
+                            <div class="col-md-6 logo-upload-area">
                                 <label class="form-label">Télécharger le logo</label>
                                 <input type="file" name="logo" class="form-control" accept="image/*">
                                 <small class="text-muted d-block mt-2">
@@ -157,18 +1032,17 @@
                                     Format recommandé : PNG transparent, 300x300px (max 2MB)
                                 </small>
                             </div>
-                            <div class="col-md-6 text-center">
+                            <div class="col-md-6 logo-preview-area">
                                 {% if config.logo %}
                                 <img src="{{ config.logo.url }}" alt="Logo actuel" 
-                                     style="max-width: 150px; max-height: 150px;" 
                                      class="border rounded shadow-sm">
-                                <p class="mt-2 mb-0 text-muted">
+                                <p class="mt-2 mb-0 text-muted" style="font-size: 0.85rem;">
                                     <i class="fas fa-check-circle text-success me-1"></i>
                                     Logo actuel
                                 </p>
                                 {% else %}
-                                <div class="border rounded p-4 d-inline-block bg-light">
-                                    <i class="fas fa-image fa-3x text-muted"></i>
+                                <div class="logo-placeholder">
+                                    <i class="fas fa-image"></i>
                                     <p class="mt-2 mb-0 text-muted small">Aucun logo configuré</p>
                                 </div>
                                 {% endif %}
@@ -186,46 +1060,50 @@
                     <div class="card-header bg-info text-white">
                         <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Aperçu de l'en-tête</h5>
                     </div>
-                    <div class="card-body preview-header">
-                        <div class="row text-center small">
-                            <div class="col-4 text-start">
-                                <p class="mb-1"><strong>{{ config.republique_fr }}</strong></p>
-                                <p class="mb-1">{{ config.devise_fr }}</p>
-                                <p class="mb-1">*****</p>
-                                <p class="mb-1"><strong>{{ config.ministere_fr }}</strong></p>
-                                <p class="mb-1">*****</p>
-                                <p class="mb-1"><strong>{{ config.direction_fr }}</strong></p>
-                                <p class="mb-1">**********</p>
-                                <p class="mb-1"><strong>{{ config.programme_fr }}</strong></p>
-                                <p class="mb-1">*********</p>
-                                <p class="mb-1 text-primary"><strong>POSTE DE [NOM DU POSTE]</strong></p>
-                            </div>
-                            <div class="col-4">
-                                {% if config.logo %}
-                                <img src="{{ config.logo.url }}" alt="Logo" style="max-width: 100px;">
-                                {% else %}
-                                <div class="border rounded p-3 d-inline-block" style="width: 100px; height: 100px;">
-                                    <p class="text-muted small mb-0 mt-3">DGI</p>
+                    <div class="card-body">
+                        <div class="preview-header">
+                            <div class="preview-content">
+                                <div class="preview-col-left">
+                                    <p class="mb-1"><strong>{{ config.republique_fr }}</strong></p>
+                                    <p class="mb-1">{{ config.devise_fr }}</p>
+                                    <p class="mb-1">*****</p>
+                                    <p class="mb-1"><strong>{{ config.ministere_fr }}</strong></p>
+                                    <p class="mb-1">*****</p>
+                                    <p class="mb-1"><strong>{{ config.direction_fr }}</strong></p>
+                                    <p class="mb-1">**********</p>
+                                    <p class="mb-1"><strong>{{ config.programme_fr }}</strong></p>
+                                    <p class="mb-1">*********</p>
+                                    <p class="mb-1 text-primary"><strong>POSTE DE [NOM DU POSTE]</strong></p>
                                 </div>
-                                {% endif %}
+                                <div class="preview-col-center">
+                                    {% if config.logo %}
+                                    <img src="{{ config.logo.url }}" alt="Logo">
+                                    {% else %}
+                                    <div class="logo-placeholder" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                                        <p class="text-muted small mb-0">DGI</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="preview-col-right">
+                                    <p class="mb-1"><strong>{{ config.republique_en }}</strong></p>
+                                    <p class="mb-1">{{ config.devise_en }}</p>
+                                    <p class="mb-1">*****</p>
+                                    <p class="mb-1"><strong>{{ config.ministere_en }}</strong></p>
+                                    <p class="mb-1">*****</p>
+                                    <p class="mb-1"><strong>{{ config.direction_en }}</strong></p>
+                                    <p class="mb-1">**********</p>
+                                    <p class="mb-1"><strong>{{ config.programme_en }}</strong></p>
+                                    <p class="mb-1">*********</p>
+                                    <p class="mb-1 text-primary"><strong>POST OF [POST NAME]</strong></p>
+                                </div>
                             </div>
-                            <div class="col-4 text-end">
-                                <p class="mb-1"><strong>{{ config.republique_en }}</strong></p>
-                                <p class="mb-1">{{ config.devise_en }}</p>
-                                <p class="mb-1">*****</p>
-                                <p class="mb-1"><strong>{{ config.ministere_en }}</strong></p>
-                                <p class="mb-1">*****</p>
-                                <p class="mb-1"><strong>{{ config.direction_en }}</strong></p>
-                                <p class="mb-1">**********</p>
-                                <p class="mb-1"><strong>{{ config.programme_en }}</strong></p>
-                                <p class="mb-1">*********</p>
-                                <p class="mb-1 text-primary"><strong>POST OF [POST NAME]</strong></p>
+                            <div class="preview-info-text">
+                                <p>
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Le nom du poste sera automatiquement inséré lors de la génération des documents
+                                </p>
                             </div>
                         </div>
-                        <p class="text-center text-muted small mt-3 mb-0">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Le nom du poste sera automatiquement inséré lors de la génération des documents
-                        </p>
                     </div>
                 </div>
             </div>
@@ -234,8 +1112,8 @@
         <!-- Boutons -->
         <div class="row">
             <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary btn-lg">
+                <div class="buttons-container">
+                    <a href="{% url 'common:dashboard' %}" class="btn btn-outline-secondary btn-lg">
                         <i class="fas fa-arrow-left me-2"></i>Retour
                     </a>
                     <button type="submit" class="btn btn-primary btn-lg">
@@ -248,4 +1126,45 @@
     </form>
     
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction pour le zoom sur iOS
+    document.querySelectorAll('input, select, textarea').forEach(input => {
+        input.addEventListener('focus', function() {
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    this.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 100);
+            }
+        });
+    });
+
+    // Fonction pour ajuster le layout sur mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    adjustForMobile();
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
+    
+    // Gestion des événements tactiles
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    document.addEventListener('touchmove', function() {}, { passive: true });
+});
+</script>
 {% endblock %}

@@ -6,50 +6,954 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .ms-2 {
+        margin-left: 0.5rem !important;
+    }
+
+    .me-1 {
+        margin-right: 0.25rem !important;
+    }
+
+    .mt-1 {
+        margin-top: 0.25rem !important;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem !important;
+    }
+
+    .mt-3 {
+        margin-top: 1rem !important;
+    }
+
+    /* ============================================
+       GRILLE RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .col-12, .col-md-2, .col-md-3, .col-md-6 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .g-2 {
+        gap: 0.5rem;
+    }
+
+    .g-3 {
+        gap: 1rem;
+    }
+
+    /* ============================================
+       TYPOGRAPHIE RESPONSIVE
+       ============================================ */
+    h1.display-5 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    h1.display-5 i {
+        flex-shrink: 0;
+    }
+
+    p.text-muted {
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        margin-bottom: 0;
+    }
+
+    /* ============================================
+       CARTES RESPONSIVES
+       ============================================ */
+    .card {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        overflow: hidden;
+        background: #fff;
+        box-sizing: border-box;
+    }
+
+    .card-header {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(0,0,0,0.125);
+        background-color: #f8f9fa;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       CARTE DE PERFORMANCE RESPONSIVE
+       ============================================ */
     .card-performance {
         border-left: 4px solid #6B46C1;
         transition: all 0.3s;
+        height: 100%;
     }
-    
+
     .card-performance:hover {
         transform: translateY(-5px);
         box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
-    
-    .badge-rang {
-        font-size: 1.5rem;
-        padding: 0.5rem 1rem;
+
+    .card-performance .card-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
     }
-    
-    .rang-1 { background: linear-gradient(135deg, #FFD700, #FFA500); }
-    .rang-2 { background: linear-gradient(135deg, #C0C0C0, #A8A8A8); }
-    .rang-3 { background: linear-gradient(135deg, #CD7F32, #B87333); }
-    
+
+    .card-performance .card-header > div:first-child {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .card-performance .card-header strong {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    /* ============================================
+       BADGES RESPONSIVE
+       ============================================ */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+        flex-shrink: 0;
+    }
+
+    .badge-rang {
+        font-size: 1.25rem;
+        padding: 0.5rem 0.875rem;
+        border-radius: 8px;
+    }
+
+    .rang-1 { 
+        background: linear-gradient(135deg, #FFD700, #FFA500) !important; 
+        color: #78350f !important;
+    }
+    .rang-2 { 
+        background: linear-gradient(135deg, #C0C0C0, #A8A8A8) !important; 
+        color: #1f2937 !important;
+    }
+    .rang-3 { 
+        background: linear-gradient(135deg, #CD7F32, #B87333) !important; 
+        color: #fff !important;
+    }
+
+    .bg-info {
+        background-color: #0dcaf0 !important;
+        color: #000 !important;
+    }
+
+    .bg-secondary {
+        background-color: #6c757d !important;
+        color: #fff !important;
+    }
+
+    .bg-success {
+        background-color: #198754 !important;
+        color: #fff !important;
+    }
+
+    .bg-danger {
+        background-color: #dc3545 !important;
+        color: #fff !important;
+    }
+
+    /* ============================================
+       CARTE MÉTRIQUE RESPONSIVE
+       ============================================ */
     .metric-card {
         background: #f8f9fa;
         border-radius: 8px;
-        padding: 1rem;
-        margin: 0.5rem 0;
+        padding: 0.875rem;
+        margin: 0.25rem 0;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
-    
+
+    .metric-card small {
+        display: block;
+        color: #6c757d;
+        font-size: 0.75rem;
+        margin-bottom: 0.25rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .metric-card strong,
+    .metric-card span {
+        display: block;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       TAUX / COULEURS
+       ============================================ */
     .taux-bon { color: #10B981; font-weight: bold; }
     .taux-moyen { color: #F59E0B; font-weight: bold; }
     .taux-mauvais { color: #EF4444; font-weight: bold; }
-    
+
+    .text-success { color: #198754 !important; }
+    .text-danger { color: #dc3545 !important; }
+    .text-warning { color: #ffc107 !important; }
+
+    /* ============================================
+       ÉLÉMENTS AGENT RESPONSIVE
+       ============================================ */
     .agent-item {
         border-left: 3px solid #e5e7eb;
+        padding: 0.75rem;
         padding-left: 1rem;
         margin: 0.5rem 0;
+        border-radius: 0 6px 6px 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    
+
     .agent-item.meilleur {
         border-left-color: #10B981;
         background: rgba(16, 185, 129, 0.05);
     }
-    
+
     .agent-item.pire {
         border-left-color: #EF4444;
         background: rgba(239, 68, 68, 0.05);
+    }
+
+    .agent-item strong {
+        font-size: 0.9rem;
+    }
+
+    .agent-item .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    /* ============================================
+       FORMULAIRES RESPONSIFS
+       ============================================ */
+    .form-label {
+        display: block;
+        margin-bottom: 0.375rem;
+        font-weight: 500;
+        color: #334155;
+        font-size: 0.9rem;
+    }
+
+    .form-select {
+        width: 100%;
+        padding: 0.625rem 2rem 0.625rem 0.75rem;
+        font-size: 0.95rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background-color: #fff;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 14px 10px;
+        appearance: none;
+        box-sizing: border-box;
+    }
+
+    .form-select:focus {
+        border-color: #6B46C1;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.15);
+    }
+
+    /* ============================================
+       BOUTONS RESPONSIFS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        font-weight: 500;
+        text-align: center;
+        text-decoration: none;
+        vertical-align: middle;
+        cursor: pointer;
+        user-select: none;
+        border: 1px solid transparent;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        box-sizing: border-box;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-primary {
+        color: #fff;
+        background: linear-gradient(135deg, #6B46C1 0%, #553C9A 100%);
+        border-color: #553C9A;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #553C9A 0%, #44337A 100%);
+        transform: translateY(-1px);
+    }
+
+    .btn-outline-primary {
+        color: #6B46C1;
+        background-color: transparent;
+        border-color: #6B46C1;
+    }
+
+    .btn-outline-primary:hover {
+        color: #fff;
+        background-color: #6B46C1;
+    }
+
+    .btn-link {
+        color: #6B46C1;
+        text-decoration: none;
+        background: none;
+        border: none;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .btn-link:hover {
+        text-decoration: underline;
+    }
+
+    .w-100 {
+        width: 100% !important;
+    }
+
+    /* ============================================
+       ALERTES RESPONSIVES
+       ============================================ */
+    .alert {
+        width: 100%;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert-info {
+        background-color: #cff4fc;
+        border: 1px solid #b6effb;
+        color: #055160;
+    }
+
+    .alert i {
+        margin-right: 0.5rem;
+    }
+
+    /* ============================================
+       COLLAPSE / ACCORDÉON
+       ============================================ */
+    .collapse {
+        display: none;
+    }
+
+    .collapse.show {
+        display: block;
+    }
+
+    /* ============================================
+       UTILITAIRES FLEXBOX
+       ============================================ */
+    .d-flex {
+        display: flex !important;
+    }
+
+    .justify-content-between {
+        justify-content: space-between !important;
+    }
+
+    .align-items-center {
+        align-items: center !important;
+    }
+
+    .align-items-end {
+        align-items: flex-end !important;
+    }
+
+    .text-center {
+        text-align: center !important;
+    }
+
+    .text-end {
+        text-align: right !important;
+    }
+
+    .h-100 {
+        height: 100% !important;
+    }
+
+    .d-block {
+        display: block !important;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-2 {
+            flex: 0 0 16.666667%;
+            max-width: 16.666667%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        h1.display-5 {
+            font-size: 2.5rem;
+        }
+
+        .badge-rang {
+            font-size: 1.5rem;
+            padding: 0.5rem 1rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - GRANDS ÉCRANS (≥ 992px)
+       ============================================ */
+    @media (min-width: 992px) {
+        .container-fluid {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : DÉFILEMENT HORIZONTAL */
+        body, html {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Conteneur principal mobile */
+        .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+
+        .mt-4 {
+            margin-top: 1rem !important;
+        }
+
+        /* Typographie mobile */
+        h1.display-5 {
+            font-size: 1.5rem;
+            margin-bottom: 0.375rem;
+        }
+
+        h1.display-5 i {
+            font-size: 1.25rem;
+        }
+
+        p.text-muted {
+            font-size: 0.85rem;
+        }
+
+        /* Grille mobile */
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-12, .col-md-2, .col-md-3, .col-md-6, .col-6 {
+            padding-left: 8px;
+            padding-right: 8px;
+            flex: 0 0 100%;
+            max-width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Grille métriques - 2 colonnes */
+        .row.g-2 .col-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .row.g-2 .col-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* Cartes filtres mobile */
+        .card .card-body form.row {
+            flex-direction: column;
+        }
+
+        .card .card-body form.row > div {
+            margin-bottom: 0.75rem;
+        }
+
+        /* Carte performance mobile */
+        .card-performance {
+            margin-bottom: 1rem;
+        }
+
+        .card-performance:hover {
+            transform: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .card-performance .card-header {
+            padding: 0.875rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .card-performance .card-header > div:first-child {
+            width: 100%;
+        }
+
+        .card-performance .card-header .btn {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* Badges mobile */
+        .badge-rang {
+            font-size: 1.1rem;
+            padding: 0.375rem 0.75rem;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        /* Métriques mobile */
+        .metric-card {
+            padding: 0.75rem;
+            margin: 0.125rem 0;
+        }
+
+        .metric-card small {
+            font-size: 0.7rem;
+        }
+
+        .metric-card strong,
+        .metric-card span {
+            font-size: 0.85rem;
+        }
+
+        /* Agents mobile */
+        .agent-item {
+            padding: 0.625rem;
+            padding-left: 0.875rem;
+            margin: 0.375rem 0;
+        }
+
+        .agent-item strong {
+            font-size: 0.8rem;
+        }
+
+        .agent-item .badge {
+            font-size: 0.65rem;
+        }
+
+        .agent-item small {
+            font-size: 0.7rem;
+        }
+
+        /* Formulaires mobile */
+        .form-label {
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .form-select {
+            padding: 0.5rem 1.75rem 0.5rem 0.625rem;
+            font-size: 16px !important; /* Empêche le zoom iOS */
+        }
+
+        /* Boutons mobile */
+        .btn {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.625rem;
+            font-size: 0.75rem;
+        }
+
+        /* Alignement bouton filtre */
+        .d-flex.align-items-end {
+            align-items: stretch !important;
+        }
+
+        .d-flex.align-items-end .btn {
+            height: auto;
+        }
+
+        /* Collapse mobile */
+        .collapse .agent-item {
+            margin: 0.25rem 0;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-12, .col-md-2, .col-md-3, .col-md-6, .col-6 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        h1.display-5 {
+            font-size: 1.35rem;
+        }
+
+        .card-header {
+            padding: 0.75rem;
+        }
+
+        .card-body {
+            padding: 0.875rem;
+        }
+
+        .badge-rang {
+            font-size: 1rem;
+            padding: 0.35rem 0.625rem;
+        }
+
+        .metric-card {
+            padding: 0.625rem;
+        }
+
+        .metric-card small {
+            font-size: 0.65rem;
+        }
+
+        .metric-card strong,
+        .metric-card span {
+            font-size: 0.8rem;
+        }
+
+        /* Métriques - 1 colonne sur très petit écran */
+        .row.g-2 .col-6 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .agent-item {
+            padding: 0.5rem;
+            padding-left: 0.75rem;
+        }
+
+        .agent-item strong {
+            font-size: 0.75rem;
+        }
+
+        .btn {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        h1.display-5 {
+            font-size: 1.2rem;
+        }
+
+        h1.display-5 i {
+            font-size: 1rem;
+        }
+
+        .badge-rang {
+            font-size: 0.9rem;
+            padding: 0.3rem 0.5rem;
+        }
+
+        .card-performance .card-header strong {
+            font-size: 0.85rem;
+        }
+
+        .metric-card small {
+            font-size: 0.6rem;
+        }
+
+        .metric-card strong,
+        .metric-card span {
+            font-size: 0.75rem;
+        }
+
+        .btn {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.625rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .row.g-2 .col-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .card-performance:hover {
+            transform: translateY(-3px);
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea,
+        button {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .btn:focus {
+        outline: 2px solid #6B46C1;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR STYLISÉE - MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    .card-performance {
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       GESTION DE L'IMPRESSION
+       ============================================ */
+    @media print {
+        .container-fluid {
+            padding: 0 !important;
+        }
+
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
+        }
+
+        .card-performance:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn {
+            display: none !important;
+        }
+
+        .collapse {
+            display: block !important;
+        }
     }
 </style>
 {% endblock %}
@@ -70,78 +974,78 @@
     </div>
 
     <!-- Filtres -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Période</label>
-                <select name="periode" class="form-select" onchange="this.form.submit()">
-                    <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mensuel</option>
-                    <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestriel</option>
-                    <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestriel</option>
-                    <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
-                </select>
-            </div>
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Période</label>
+                    <select name="periode" class="form-select" onchange="this.form.submit()">
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>Mensuel</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>Trimestriel</option>
+                        <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>Semestriel</option>
+                        <option value="annuel" {% if periode == 'annuel' %}selected{% endif %}>Annuel</option>
+                    </select>
+                </div>
 
-            <div class="col-md-2">
-                <label class="form-label">Année</label>
-                <select name="annee" class="form-select" onchange="this.form.submit()">
-                    {% for year in annees_disponibles %}
-                        <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                <div class="col-md-2">
+                    <label class="form-label">Année</label>
+                    <select name="annee" class="form-select" onchange="this.form.submit()">
+                        {% for year in annees_disponibles %}
+                            <option value="{{ year }}" {% if year == annee %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            {% if periode == 'mois' %}
-            <div class="col-md-3">
-                <label class="form-label">Mois</label>
-                <select name="mois" class="form-select" onchange="this.form.submit()">
-                    <option value="">Mois en cours</option>
-                    {% for m in mois_liste %}
-                        <option value="{{ m }}" {% if request.GET.mois == m|stringformat:"d" %}selected{% endif %}>
-                            {{ m|nom_mois }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
+                {% if periode == 'mois' %}
+                <div class="col-md-3">
+                    <label class="form-label">Mois</label>
+                    <select name="mois" class="form-select" onchange="this.form.submit()">
+                        <option value="">Mois en cours</option>
+                        {% for m in mois_liste %}
+                            <option value="{{ m }}" {% if request.GET.mois == m|stringformat:"d" %}selected{% endif %}>
+                                {{ m|nom_mois }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
 
-            {% if periode == 'trimestre' %}
-            <div class="col-md-3">
-                <label class="form-label">Trimestre</label>
-                <select name="trimestre" class="form-select" onchange="this.form.submit()">
-                    <option value="">Trimestre en cours</option>
-                    {% for t in trimestres %}
-                        <option value="{{ t }}" {% if request.GET.trimestre == t|stringformat:"d" %}selected{% endif %}>
-                            {{ t|nom_trimestre }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
+                {% if periode == 'trimestre' %}
+                <div class="col-md-3">
+                    <label class="form-label">Trimestre</label>
+                    <select name="trimestre" class="form-select" onchange="this.form.submit()">
+                        <option value="">Trimestre en cours</option>
+                        {% for t in trimestres %}
+                            <option value="{{ t }}" {% if request.GET.trimestre == t|stringformat:"d" %}selected{% endif %}>
+                                {{ t|nom_trimestre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
 
-            {% if periode == 'semestre' %}
-            <div class="col-md-3">
-                <label class="form-label">Semestre</label>
-                <select name="semestre" class="form-select" onchange="this.form.submit()">
-                    <option value="">Semestre en cours</option>
-                    {% for s in semestres %}
-                        <option value="{{ s }}" {% if request.GET.semestre == s|stringformat:"d" %}selected{% endif %}>
-                            {{ s|nom_semestre }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
+                {% if periode == 'semestre' %}
+                <div class="col-md-3">
+                    <label class="form-label">Semestre</label>
+                    <select name="semestre" class="form-select" onchange="this.form.submit()">
+                        <option value="">Semestre en cours</option>
+                        {% for s in semestres %}
+                            <option value="{{ s }}" {% if request.GET.semestre == s|stringformat:"d" %}selected{% endif %}>
+                                {{ s|nom_semestre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
 
-            <div class="col-md-2 d-flex align-items-end">
-                <a href="{% url 'inventaire:classement_agents_performances' %}" class="btn btn-primary w-100">
-                    <i class="fas fa-users"></i> Classement Agents
-                </a>
-            </div>
-        </form>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{% url 'inventaire:classement_agents_performances' %}" class="btn btn-primary w-100">
+                        <i class="fas fa-users"></i> Classement Agents
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
     <!-- Classement des postes -->
     <div class="row">
@@ -304,20 +1208,57 @@
 
 {% block extra_js %}
 <script>
+document.addEventListener('DOMContentLoaded', function() {
     // Animation au chargement
-    document.addEventListener('DOMContentLoaded', function() {
-        const cards = document.querySelectorAll('.card-performance');
-        cards.forEach((card, index) => {
+    const cards = document.querySelectorAll('.card-performance');
+    cards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
             setTimeout(() => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 50);
+        }, index * 100);
+    });
+
+    // Correction pour le zoom sur iOS
+    document.querySelectorAll('select').forEach(select => {
+        select.addEventListener('focus', function() {
+            if (window.innerWidth < 768) {
                 setTimeout(() => {
-                    card.style.transition = 'all 0.5s ease';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, 50);
-            }, index * 100);
+                    this.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 100);
+            }
         });
     });
+
+    // Fonction pour ajuster le layout sur mobile
+    function adjustForMobile() {
+        if (window.innerWidth < 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    // Exécuter au chargement et au redimensionnement
+    adjustForMobile();
+    window.addEventListener('load', adjustForMobile);
+    window.addEventListener('resize', adjustForMobile);
+    window.addEventListener('orientationchange', adjustForMobile);
+    
+    // Gestion des événements tactiles
+    document.addEventListener('touchstart', function() {}, { passive: true });
+    document.addEventListener('touchmove', function() {}, { passive: true });
+});
 </script>
 {% endblock %}
