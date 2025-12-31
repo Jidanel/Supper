@@ -24,10 +24,10 @@ except ImportError:
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Clé secrète Django
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-changez-moi-en-production-2025')
+SECRET_KEY = config('SECRET_KEY', default='5326326435Jid@nell!$%&/()=?^$#@!z8y7x6w5v4u3t2s1')
 
 # Mode développement
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Hôtes autorisés
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'accounts.apps.AccountsConfig',      # Gestion des utilisateurs et authentification
     'inventaire.apps.InventaireConfig',  # Module de gestion des inventaires
     'common.apps.CommonConfig',  
+    'dj-database-url',
 ]
 
 # ===================================================================
