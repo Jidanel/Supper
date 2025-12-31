@@ -30,7 +30,7 @@ SECRET_KEY = config('SECRET_KEY', default='5326326435Jid@nell!$%&/()=?^$#@!z8y7x
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Hôtes autorisés
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1, JidanelS.pythonanaywhere.com').split(',')
 # ALLOWED_HOSTS = ('10.87.11.160')
 # ===================================================================
 # APPLICATIONS INSTALLÉES
@@ -47,8 +47,7 @@ INSTALLED_APPS = [
     # Applications SUPPER
     'accounts.apps.AccountsConfig',      # Gestion des utilisateurs et authentification
     'inventaire.apps.InventaireConfig',  # Module de gestion des inventaires
-    'common.apps.CommonConfig',  
-    'dj-database-url',
+    'common.apps.CommonConfig', 
 ]
 
 # ===================================================================
