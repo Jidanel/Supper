@@ -1133,12 +1133,12 @@
                     {% trans "Attention : Ce véhicule a d'autres amendes non payées" %}
                 </h5>
                 <p class="mb-2">
-                    Le véhicule <strong>{{ amende.immatriculation }}</strong> a 
-                    <strong class="text-danger">{{ infos_autres_amendes.total }}</strong> 
-                    autre(s) amende(s) non payée(s) pour un total de 
+                    Le véhicule <strong>{{ amende.immatriculation }}</strong> a
+                    <strong class="text-danger">{{ infos_autres_amendes.total }}</strong>
+                    autre(s) amende(s) non payée(s) pour un total de
                     <strong class="text-danger">{{ infos_autres_amendes.montant_total|floatformat:0|format_milliers }} FCFA</strong>.
                 </p>
-                
+
                 <!-- Détail par localisation -->
                 <div class="row mt-3">
                     {% if infos_autres_amendes.autres_stations.count > 0 %}
@@ -1155,7 +1155,7 @@
                         </small>
                     </div>
                     {% endif %}
-                    
+
                     {% if infos_autres_amendes.meme_station.count > 0 %}
                     <div class="col-md-6">
                         <div class="d-flex align-items-center">
@@ -1168,15 +1168,15 @@
                     </div>
                     {% endif %}
                 </div>
-                
+
                 <!-- Bouton vers la page de consultation -->
                 <div class="mt-3">
-                    <a href="{% url 'inventaire:consulter_amendes_anterieures' amende.pk %}" 
+                    <a href="{% url 'inventaire:consulter_amendes_anterieures' amende.pk %}"
                        class="btn btn-warning">
                         <i class="fas fa-search me-2"></i>
                         {% trans "Voir toutes les amendes de ce véhicule" %}
                     </a>
-                    <a href="{% url 'inventaire:recherche_historique_vehicule' %}?immatriculation={{ amende.immatriculation }}" 
+                    <a href="{% url 'inventaire:recherche_historique_vehicule' %}?immatriculation={{ amende.immatriculation }}"
                        class="btn btn-outline-secondary ms-2">
                         <i class="fas fa-history me-2"></i>
                         {% trans "Historique complet" %}
@@ -1217,8 +1217,8 @@
                             <p class="fw-bold fs-5 mb-0">
                                 {{ amende.immatriculation }}
                                 {% if has_autres_amendes %}
-                                <a href="{% url 'inventaire:consulter_amendes_anterieures' amende.pk %}" 
-                                   class="badge bg-warning text-dark ms-2" 
+                                <a href="{% url 'inventaire:consulter_amendes_anterieures' amende.pk %}"
+                                   class="badge bg-warning text-dark ms-2"
                                    title="{% trans 'Ce véhicule a d\'autres amendes non payées' %}">
                                     <i class="fas fa-exclamation-triangle"></i>
                                     {{ infos_autres_amendes.total }}
@@ -1279,18 +1279,23 @@
                                 </span>
                                 {% endif %}
                                 {% if amende.est_hors_gabarit %}
-                                <span class="badge bg-info">
+                                <span class="badge bg-info me-1">
                                     <i class="fas fa-expand-arrows-alt me-1"></i>{% trans "Hors Gabarit" %}
                                 </span>
                                 {% endif %}
-                                {% if not amende.est_surcharge and not amende.est_hors_gabarit %}
+                                {% if amende.est_delit_fuite %}
+                                <span class="badge bg-dark">
+                                    <i class="fas fa-running me-1"></i>{% trans "Délit de Fuite" %}
+                                </span>
+                                {% endif %}
+                                {% if not amende.est_surcharge and not amende.est_hors_gabarit and not amende.est_delit_fuite %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
                             </p>
-                            {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                            {% if amende.nombre_amendes_comptabilisees > 1 %}
                             <small class="text-muted">
                                 <i class="fas fa-info-circle me-1"></i>
-                                {% trans "Compte pour 2 amendes dans les statistiques" %}
+                                {% blocktrans with nb=amende.nombre_amendes_comptabilisees %}Compte pour {{ nb }} amendes dans les statistiques{% endblocktrans %}
                             </small>
                             {% endif %}
                         </div>
@@ -1351,6 +1356,53 @@
                 </div>
             </div>
         </div>
+        {% if amende.date_derniere_modification %}
+        <div class="card mt-3 border-warning">
+            <div class="card-header bg-warning text-dark">
+                <i class="fas fa-history me-2"></i>
+                {% trans "Historique des modifications administrateur" %}
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Dernière modification:</strong></p>
+                        <p class="mb-0">{{ amende.date_derniere_modification|date:"d/m/Y à H:i" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Modifié par:</strong></p>
+                        <p class="mb-0">{{ amende.modifie_par.nom_complet|default:"N/A" }}</p>
+                    </div>
+                </div>
+                {% if amende.ancien_statut_avant_modification %}
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Ancien statut:</strong></p>
+                        <p class="mb-0">
+                            <span class="badge bg-secondary">{{ amende.ancien_statut_avant_modification }}</span>
+                        </p>
+                    </div>
+                    {% if amende.ancien_montant_valide %}
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Ancien montant validé:</strong></p>
+                        <p class="mb-0">{{ amende.ancien_montant_valide|floatformat:0 }} FCFA</p>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if amende.date_paiement_originale %}
+                <hr>
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Date de paiement originale conservée:</strong>
+                    {{ amende.date_paiement_originale|date:"d/m/Y à H:i" }}
+                    <br>
+                    <small>La recette sera comptabilisée à cette date lors de la revalidation.</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Sidebar -->
         <div class="col-lg-4">
@@ -1394,13 +1446,13 @@
                     {% if amende.statut == 'non_paye' %}
                         {% if peut_valider_paiement %}
                         <h6 class="text-success mb-3">{% trans "Action disponible" %}</h6>
-                        
+
                         {% if has_autres_amendes %}
                         <!-- Avertissement avant validation -->
                         <div class="alert alert-warning py-2 mb-3 text-start">
                             <small>
                                 <i class="fas fa-exclamation-triangle me-1"></i>
-                                {% trans "Ce véhicule a" %} {{ infos_autres_amendes.total }} 
+                                {% trans "Ce véhicule a" %} {{ infos_autres_amendes.total }}
                                 {% trans "autre(s) amende(s) non payée(s)." %}
                                 <a href="{% url 'inventaire:consulter_amendes_anterieures' amende.pk %}" class="alert-link">
                                     {% trans "Voir détails" %}
@@ -1408,24 +1460,24 @@
                             </small>
                         </div>
                         {% endif %}
-                        
+
                         <form method="post" action="{% url 'inventaire:valider_paiement' amende.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-lg w-100" 
+                            <button type="submit" class="btn btn-success btn-lg w-100"
                                     onclick="return confirm('{% if has_autres_amendes %}{% trans "ATTENTION: Ce véhicule a d\'autres amendes non payées.\n\nConfirmer la validation du paiement ?" %}{% else %}{% trans "Confirmer la validation du paiement ?" %}{% endif %}')">
                                 <i class="fas fa-check-circle me-2"></i>
                                 {% trans "Valider le paiement" %}
                             </button>
                         </form>
-                        
+
                         {% if has_autres_amendes %}
-                        <a href="{% url 'inventaire:consulter_amendes_anterieures' amende.pk %}" 
+                        <a href="{% url 'inventaire:consulter_amendes_anterieures' amende.pk %}"
                            class="btn btn-outline-warning w-100 mt-2">
                             <i class="fas fa-eye me-2"></i>
                             {% trans "Voir détails avant validation" %}
                         </a>
                         {% endif %}
-                        
+
                         {% else %}
                         <h6 class="text-warning mb-3">{% trans "En attente de paiement" %}</h6>
                         <p class="text-muted small mb-0">
@@ -1465,7 +1517,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Correction pour éviter le zoom automatique sur iOS
     document.addEventListener('touchstart', function() {}, {passive: true});
-    
+
     // Fonction pour ajuster le layout sur mobile
     function adjustForMobile() {
         if (window.innerWidth < 768) {
@@ -1479,13 +1531,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.width = '';
         }
     }
-    
+
     // Exécuter au chargement et au redimensionnement
     adjustForMobile();
     window.addEventListener('load', adjustForMobile);
     window.addEventListener('resize', adjustForMobile);
     window.addEventListener('orientationchange', adjustForMobile);
-    
+
     // Gestion des événements tactiles
     document.addEventListener('touchstart', function() {}, { passive: true });
     document.addEventListener('touchmove', function() {}, { passive: true });

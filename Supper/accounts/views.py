@@ -2443,12 +2443,12 @@ def journal_audit(request):
     # Actions uniques pour filtre
     actions_uniques = JournalAudit.objects.values_list(
         'action', flat=True
-    ).distinct()[:30]
+    ).distinct()
     
     # Utilisateurs actifs récemment
     users_actifs = UtilisateurSUPPER.objects.filter(
         actions_journal__timestamp__gte=timezone.now() - timedelta(days=7)
-    ).distinct()[:20]
+    ).distinct()
     
     context = {
         'page_obj': page_obj,

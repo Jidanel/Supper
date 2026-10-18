@@ -1,0 +1,223 @@
+{# templates/inventaire/transporteurs/stats.html #}
+{# Statistiques transporteurs : 3 modes (par poste, par agence, par plaque) #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Statistiques transporteurs" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau et l'impression restent inchangés) ===================== */
+/* Toutes les règles sont limitées à l'écran (« screen ») : l'impression A4 de _styles.html n'est jamais modifiée */
+@media screen {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+  .tr { width: 100%; }
+  .tr-scroll { -webkit-overflow-scrolling: touch; }
+}
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media screen and (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+  .tr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }       /* filtres sur 2 colonnes */
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media screen and (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; }
+
+  /* En-tête : titre puis boutons d'action (« Rapprocher les plaques », « Imprimer ») empilés en pleine largeur */
+  .tr > .d-flex { flex-direction: column; align-items: stretch; }
+  .tr > .d-flex > div { width: 100%; }
+  .tr > .d-flex > .d-flex { flex-direction: column; align-items: stretch; }
+  .tr > .d-flex .tr-btn, .tr > .d-flex .tr-btn-ghost { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; text-align: center; }
+
+  /* Onglets : 3 onglets répartis sur la largeur, zones tactiles 44px */
+  .tr-tabs { gap: .35rem; }
+  .tr-tabs a { flex: 1 1 calc(33% - 6px); min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; padding: .4rem .5rem; font-size: .88rem; }
+
+  /* Filtres : une colonne, champs et bouton en pleine largeur */
+  .tr-grid { grid-template-columns: 1fr; }
+  .tr-grid .form-select, .tr-grid .form-control { width: 100%; max-width: 100%; }
+  .tr-grid .tr-btn { display: block; width: 100%; }
+  .tr input, .tr select { font-size: 16px !important; }                /* anti-zoom iOS */
+  .tr input, .tr select, .tr .tr-btn { min-height: 44px; }
+
+  /* En-têtes de panneaux : titre + total sur plusieurs lignes si besoin */
+  .tr-head { font-size: .95rem; word-break: break-word; }
+
+  /* Totaux : puces sur 2 colonnes */
+  .tr-chips { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tr-chip { width: 100%; min-width: 0; word-break: break-word; }
+
+  /* Tableaux : largeur du contenu, défilement horizontal dans leur conteneur, jamais sur la page */
+  .tr-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+  .tr-table { width: max-content; min-width: 100%; font-size: .85rem; }
+  .tr-table th, .tr-table td { padding: .5rem .55rem; }
+  .tr-table td.num, .tr-table td b { white-space: nowrap; }
+
+  /* Icône « corriger la plaque » (administrateur) : zone tactile 44px */
+  .tr-table td.no-print a.js-modif-plaque { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media screen and (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+  .tr-table { font-size: .8rem; }
+  .tr-chip { font-size: .85rem; }
+  .tr-tabs a { font-size: .82rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media screen and (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+  .tr-chips { grid-template-columns: 1fr; }
+  .tr-tabs a { flex: 1 1 100%; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+  .tr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tr-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2 no-print">
+    <div><h1>{% trans "Statistiques des transporteurs" %}</h1>
+      <p class="tr-sub">{% trans "Choisissez une vue et une période." %}</p></div>
+    {# Imprimer : visible seulement quand un résultat est affiché #}
+    <div class="d-flex gap-2">
+      {% if est_admin %}<a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_rapprochement' %}{% if mode == 'agence' and agence_id %}?agence={{ agence_id }}{% endif %}">{% trans "Rapprocher les plaques" %}</a>{% endif %}
+      {% if calcule %}<button type="button" class="tr-btn" onclick="window.print()">🖨 {% trans "Imprimer" %}</button>{% endif %}</div>
+  </div>
+
+  {# En-tête de rapport : invisible à l'écran, imprimé en haut de la page #}
+  {% if calcule %}
+  <div class="tr-print-only tr-rapport-entete">
+    <h2>SUPPER — {% trans "Statistiques des transporteurs de personnes" %}
+      ({% if mode == 'poste' %}{% trans "par poste" %}{% elif mode == 'agence' %}{% trans "par agence" %}{% else %}{% trans "par plaque" %}{% endif %})</h2>
+    <p>
+      {% if mode == 'poste' and poste %}<b>{% trans "Poste" %} :</b> {{ poste.nom }} · {% endif %}
+      {% if mode == 'agence' %}<b>{% trans "Agence" %} :</b> {% if agence %}{{ agence.nom }}{% else %}{% trans "Toutes les agences" %}{% endif %} · {% endif %}
+      {% if mode == 'plaque' %}<b>{% trans "Plaque" %} :</b> {{ plaque_q }} · {% endif %}
+      <b>{% trans "Période" %} :</b> {{ debut }} → {{ fin }}
+    </p>
+    <p>{% trans "Édité le" %} {% now "d/m/Y H:i" %} {% trans "par" %} {{ user.nom_complet|default:user.username }}</p>
+  </div>
+  {% endif %}
+
+  {# Onglets : le mode est conservé dans l'URL (?mode=...) #}
+  <div class="tr-tabs no-print">
+    <a class="{% if mode == 'poste' %}actif{% endif %}" href="?mode=poste">{% trans "Par poste" %}</a>
+    <a class="{% if mode == 'agence' %}actif{% endif %}" href="?mode=agence">{% trans "Par agence" %}</a>
+    <a class="{% if mode == 'plaque' %}actif{% endif %}" href="?mode=plaque">{% trans "Par plaque" %}</a>
+  </div>
+
+  <form method="get" class="tr-panel no-print"><div class="tr-body tr-grid">
+    <input type="hidden" name="mode" value="{{ mode }}"><input type="hidden" name="go" value="1">
+    {% if mode == 'poste' or mode == 'agence' %}{% if choix_poste %}
+    <div><label class="tr-lbl">{% trans "Poste" %}{% if mode == 'agence' %} ({% trans "facultatif" %}){% endif %}</label>
+      <select name="poste" class="form-select">
+        <option value="">{% if mode == 'agence' %}{% trans "Tous les postes" %}{% else %}{% trans "— Choisir —" %}{% endif %}</option>
+        {% for p in postes %}<option value="{{ p.id }}" {% if poste_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+      </select></div>{% endif %}{% endif %}
+    {% if mode == 'agence' %}<div><label class="tr-lbl">{% trans "Agence" %}</label>
+      <select name="agence" class="form-select"><option value="">{% trans "Toutes les agences" %}</option>
+        {% for a in agences %}<option value="{{ a.id }}" {% if agence_id == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nom }}</option>{% endfor %}
+      </select></div>{% endif %}
+    {% if mode == 'plaque' %}<div><label class="tr-lbl">{% trans "Plaque (ou début/fragment)" %}</label>
+      <input class="form-control" name="plaque" value="{{ plaque_q }}" placeholder="LT123AB"></div>{% endif %}
+    <div><label class="tr-lbl">{% trans "Du" %}</label><input type="date" name="date_debut" value="{{ debut }}" class="form-control"></div>
+    <div><label class="tr-lbl">{% trans "Au" %}</label><input type="date" name="date_fin" value="{{ fin }}" class="form-control"></div>
+    <div><button class="tr-btn" type="submit">{% trans "Calculer" %}</button></div>
+  </div></form>
+
+  {% if calcule %}
+
+  {# ======================= MODE POSTE ======================= #}
+  {% if mode == 'poste' and poste %}
+  <div class="tr-panel"><div class="tr-head">{{ poste.nom }} — {{ debut }} → {{ fin }}</div>
+    <div class="tr-body tr-chips">{% for lib, n in par_type %}<div class="tr-chip">{{ lib }}<b>{{ n }}</b></div>{% endfor %}
+      <div class="tr-chip total">{% trans "Véhicules" %}<b>{{ total }}</b></div><div class="tr-chip total">{% trans "Agences" %}<b>{{ par_agence|length }}</b></div></div></div>
+  <div class="tr-panel"><div class="tr-head">{% trans "Agences passées" %}</div><div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th>{% trans "Agence" %}</th><th class="num">{% trans "Jours" %}</th><th class="num">{% trans "Véhicules" %}</th>{% for code, lib in types %}<th class="num">{{ lib }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in par_agence %}<tr><td>{{ r.agence_nom }}</td><td class="num">{{ r.jours }}</td><td class="num"><b>{{ r.total }}</b></td>
+      <td class="num">{{ r.coaster }}</td><td class="num">{{ r.bus_ordinaire }}</td><td class="num">{{ r.bus_clim }}</td><td class="num">{{ r.hiace }}</td></tr>
+    {% empty %}<tr><td colspan="7" class="text-center text-muted py-3">{% trans "Aucune donnée." %}</td></tr>{% endfor %}</tbody></table></div></div>
+  {% endif %}
+
+  {# ======================= MODE AGENCE ======================= #}
+  {% if mode == 'agence' %}
+  <div class="tr-panel"><div class="tr-head">{% if agence %}{{ agence.nom }}{% else %}{% trans "Toutes les agences" %}{% endif %} — {{ debut }} → {{ fin }}
+      <span class="text-muted">{{ total }} {% trans "passages(s)" %}</span></div>
+    <div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th>{% trans "Poste" %}</th><th class="num">{% trans "Jours" %}</th><th class="num">{% trans "Agences" %}</th><th class="num">{% trans "Véhicules" %}</th>{% for code, lib in types %}<th class="num">{{ lib }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in par_poste %}<tr><td>{{ r.inventaire__poste__nom }}</td><td class="num">{{ r.jours }}</td><td class="num">{{ r.n_agences }}</td><td class="num"><b>{{ r.total }}</b></td>
+      <td class="num">{{ r.coaster }}</td><td class="num">{{ r.bus_ordinaire }}</td><td class="num">{{ r.bus_clim }}</td><td class="num">{{ r.hiace }}</td></tr>
+    {% empty %}<tr><td colspan="8" class="text-center text-muted py-3">{% trans "Aucune donnée." %}</td></tr>{% endfor %}</tbody></table></div></div>
+  {% if par_agence %}<div class="tr-panel"><div class="tr-head">{% trans "Classement des agences" %}</div><div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th>{% trans "Agence" %}</th><th class="num">{% trans "Postes" %}</th><th class="num">{% trans "Véhicules" %}</th></tr></thead>
+    <tbody>{% for r in par_agence %}<tr><td>{{ r.agence_nom }}</td><td class="num">{{ r.n_postes }}</td><td class="num"><b>{{ r.total }}</b></td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+  {% endif %}
+
+  {# Liste des véhicules (modes poste et agence) #}
+  {% if mode == 'poste' or mode == 'agence' %}{% if vehicules %}
+  <div class="tr-panel"><div class="tr-head">{% trans "Véhicules utilisés" %} ({{ vehicules|length }})</div><div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th>{% trans "Plaque" %}</th><th>{% trans "Agence" %}</th><th>{% trans "Type" %}</th><th class="num">{% trans "Passages" %}</th>{% if mode == 'agence' %}<th class="num">{% trans "Postes" %}</th>{% else %}<th>{% trans "Dernier passage" %}</th>{% endif %}{% if est_admin %}<th class="no-print"></th>{% endif %}</tr></thead>
+    <tbody>{% for v in vehicules %}<tr><td><b>{{ v.plaque }}</b></td><td>{{ v.agence_nom }}</td><td>{{ v.type_libelle }}</td><td class="num">{{ v.passages }}</td>
+      {% if mode == 'agence' %}<td class="num">{{ v.n_postes }}</td>{% else %}<td>{{ v.dernier|date:"d/m/Y" }}</td>{% endif %}
+      {% if est_admin %}<td class="no-print"><a href="#" class="js-modif-plaque" title="{% trans 'Corriger la plaque' %}" data-plaque="{{ v.plaque }}" data-ancienne="{{ v.plaque_normalisee }}" data-agence="{{ v.agence_nom }}"><i class="fas fa-edit"></i></a></td>{% endif %}</tr>{% endfor %}</tbody></table></div></div>
+  {% endif %}{% endif %}
+
+  {# ======================= MODE PLAQUE ======================= #}
+  {% if mode == 'plaque' %}
+  <div class="tr-panel"><div class="tr-head">{% trans "Plaque" %} « {{ plaque_q }} » — {{ debut }} → {{ fin }}<span class="text-muted">{{ total }} {% trans "passage(s)" %}</span></div>
+    <div class="tr-body">{% if plaques_trouvees %}<div class="tr-chips">{% for p in plaques_trouvees %}<div class="tr-chip">{{ p }}</div>{% endfor %}</div>{% else %}<span class="text-muted">{% trans "Aucun passage trouvé." %}</span>{% endif %}</div></div>
+  {% if par_poste %}<div class="tr-panel"><div class="tr-head">{% trans "Postes traversés" %}</div><div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th>{% trans "Poste" %}</th><th class="num">{% trans "Passages" %}</th><th>{% trans "Dernier passage" %}</th></tr></thead>
+    <tbody>{% for r in par_poste %}<tr><td>{{ r.inventaire__poste__nom }}</td><td class="num"><b>{{ r.passages }}</b></td><td>{{ r.dernier|date:"d/m/Y" }}</td></tr>{% endfor %}</tbody></table></div></div>
+  <div class="tr-panel"><div class="tr-head">{% trans "Historique chronologique" %}</div><div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th>{% trans "Date" %}</th><th>{% trans "Poste" %}</th><th>{% trans "Plaque" %}</th><th>{% trans "Agence" %}</th><th>{% trans "Type" %}</th>{% if est_admin %}<th class="no-print"></th>{% endif %}</tr></thead>
+    <tbody>{% for p in passages %}<tr><td>{{ p.inventaire.date|date:"d/m/Y" }}</td><td>{{ p.inventaire.poste.nom }}</td><td><b>{{ p.plaque }}</b></td><td>{{ p.agence_nom }}</td><td>{{ p.get_type_vehicule_display }}</td>
+      {% if est_admin %}<td class="no-print"><a href="#" class="js-modif-plaque" title="{% trans 'Corriger la plaque' %}" data-plaque="{{ p.plaque }}" data-ancienne="{{ p.plaque_normalisee }}" data-agence="{{ p.agence_nom }}"><i class="fas fa-edit"></i></a></td>{% endif %}</tr>{% endfor %}</tbody></table></div></div>{% endif %}
+  {% endif %}
+
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+  /* Avant impression : on rend les conteneurs à leur état d'origine, après impression on réapplique */
+  window.addEventListener('beforeprint', function () {
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left', 'width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); });
+    }
+  });
+  window.addEventListener('afterprint', recadrer);
+})();
+</script>
+{% if est_admin and calcule %}{% include "inventaire/transporteurs/_modal_plaque.html" %}{% endif %}
+{% endblock %}

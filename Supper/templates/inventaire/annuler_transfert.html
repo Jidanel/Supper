@@ -1,0 +1,695 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Annuler le transfert {{ numero_bordereau }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 15px;
+    }
+
+    h2 {
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+        color: #1e293b;
+        text-align: center;
+    }
+
+    h2 i {
+        color: #ef4444;
+    }
+
+    /* Carte principale */
+    .annulation-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .annulation-header {
+        padding: 1.5rem;
+        text-align: center;
+        color: white;
+    }
+
+    .annulation-header.warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .annulation-header.danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+
+    .annulation-header.success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .annulation-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .annulation-header p {
+        margin: 0.5rem 0 0;
+        opacity: 0.9;
+    }
+
+    .annulation-body {
+        padding: 1.5rem;
+    }
+
+    /* Informations du transfert */
+    .transfert-info {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .transfert-info h4 {
+        margin: 0 0 1rem;
+        color: #64748b;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .info-item {
+        padding: 0.75rem;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .info-item .label {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-bottom: 0.25rem;
+    }
+
+    .info-item .value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    /* Postes */
+    .postes-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .poste-box {
+        flex: 1;
+        min-width: 200px;
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .poste-box.origine {
+        background: #fef2f2;
+        border: 2px solid #fca5a5;
+    }
+
+    .poste-box.destination {
+        background: #f0fdf4;
+        border: 2px solid #86efac;
+    }
+
+    .poste-box .icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .poste-box.origine .icon {
+        color: #ef4444;
+    }
+
+    .poste-box.destination .icon {
+        color: #10b981;
+    }
+
+    .poste-box .name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #1e293b;
+    }
+
+    .poste-box .code {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+
+    .arrow-container {
+        font-size: 2rem;
+        color: #667eea;
+    }
+
+    /* Séries */
+    .series-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .series-section h4 {
+        margin: 0 0 1rem;
+        color: #1e293b;
+        font-size: 1rem;
+    }
+
+    .serie-item {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 0.875rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .serie-item .couleur {
+        font-weight: 600;
+        color: #667eea;
+    }
+
+    .serie-item .numeros {
+        font-family: 'Courier New', monospace;
+        color: #1e293b;
+    }
+
+    .serie-item .stats {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .serie-item .badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .badge.tickets {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+
+    .badge.montant {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    /* Total */
+    .total-box {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .total-box .label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        margin-bottom: 0.25rem;
+    }
+
+    .total-box .value {
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .total-box .tickets {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    /* Formulaire motif */
+    .motif-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .motif-section label {
+        display: block;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+
+    .motif-section label .required {
+        color: #ef4444;
+    }
+
+    .motif-section textarea {
+        width: 100%;
+        padding: 0.875rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 1rem;
+        resize: vertical;
+        min-height: 100px;
+        transition: all 0.3s ease;
+    }
+
+    .motif-section textarea:focus {
+        outline: none;
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+
+    .motif-section .help-text {
+        font-size: 0.85rem;
+        color: #64748b;
+        margin-top: 0.5rem;
+    }
+
+    /* Avertissement */
+    .warning-box {
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .warning-box i {
+        font-size: 1.5rem;
+        color: #d97706;
+        flex-shrink: 0;
+    }
+
+    .warning-box-content h5 {
+        margin: 0 0 0.5rem;
+        color: #92400e;
+    }
+
+    .warning-box-content p {
+        margin: 0;
+        color: #a16207;
+        font-size: 0.9rem;
+    }
+
+    .warning-box-content ul {
+        margin: 0.5rem 0 0;
+        padding-left: 1.25rem;
+        color: #a16207;
+        font-size: 0.9rem;
+    }
+
+    /* Erreur (ne peut pas annuler) */
+    .error-box {
+        background: #fee2e2;
+        border: 2px solid #ef4444;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .error-box i {
+        font-size: 3rem;
+        color: #dc2626;
+        margin-bottom: 1rem;
+    }
+
+    .error-box h4 {
+        margin: 0 0 1rem;
+        color: #991b1b;
+    }
+
+    .error-box .problemes {
+        text-align: left;
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .error-box .problemes li {
+        color: #dc2626;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Boutons */
+    .buttons-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(239, 68, 68, 0.4);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4);
+        color: white;
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        h2 {
+            font-size: 1.4rem;
+        }
+
+        .annulation-header h3 {
+            font-size: 1.25rem;
+        }
+
+        .annulation-body {
+            padding: 1rem;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .postes-container {
+            flex-direction: column;
+        }
+
+        .poste-box {
+            min-width: 100%;
+        }
+
+        .arrow-container {
+            transform: rotate(90deg);
+        }
+
+        .serie-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .serie-item .stats {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .buttons-container {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+        }
+
+        .total-box .value {
+            font-size: 1.5rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding: 0 10px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        .transfert-info {
+            padding: 1rem;
+        }
+
+        .warning-box {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>
+        <i class="fas fa-undo-alt"></i>
+        Annuler le transfert
+    </h2>
+    
+    <div class="annulation-card">
+        {% if peut_annuler %}
+        <!-- CAS 1: Annulation possible -->
+        <div class="annulation-header warning">
+            <h3><i class="fas fa-exclamation-triangle me-2"></i>Confirmation d'annulation</h3>
+            <p>Vous êtes sur le point d'annuler le transfert <strong>{{ numero_bordereau }}</strong></p>
+        </div>
+        
+        <div class="annulation-body">
+            <!-- Postes concernés -->
+            <div class="postes-container">
+                <div class="poste-box destination">
+                    <div class="icon"><i class="fas fa-building"></i></div>
+                    <div class="name">{{ details.poste_destination.nom }}</div>
+                    <div class="code">{{ details.poste_destination.code }}</div>
+                    <small class="text-muted">Les tickets partent d'ici</small>
+                </div>
+                
+                <div class="arrow-container">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                
+                <div class="poste-box origine">
+                    <div class="icon"><i class="fas fa-building"></i></div>
+                    <div class="name">{{ details.poste_origine.nom }}</div>
+                    <div class="code">{{ details.poste_origine.code }}</div>
+                    <small class="text-muted">Les tickets reviennent ici</small>
+                </div>
+            </div>
+            
+            <!-- Informations du transfert -->
+            <div class="transfert-info">
+                <h4><i class="fas fa-info-circle me-2"></i>Informations du transfert original</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="label">N° Bordereau</div>
+                        <div class="value">{{ numero_bordereau }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Date du transfert</div>
+                        <div class="value">{{ details.date_transfert|date:"d/m/Y à H:i" }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Nombre de séries</div>
+                        <div class="value">{{ details.series_info|length }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Effectué par</div>
+                        <div class="value">{{ details.hist_cession.effectue_par.nom_complet }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Séries concernées -->
+            <div class="series-section">
+                <h4><i class="fas fa-ticket-alt me-2"></i>Séries à remettre en stock</h4>
+                {% for serie in details.series_info %}
+                <div class="serie-item">
+                    <div>
+                        <span class="couleur">{{ serie.couleur }}</span>
+                        <span class="numeros">#{{ serie.numero_premier|format_milliers }} - {{ serie.numero_dernier|format_milliers }}</span>
+                    </div>
+                    <div class="stats">
+                        <span class="badge tickets">{{ serie.nombre_tickets }} tickets</span>
+                        <span class="badge montant">{{ serie.montant|floatformat:0|format_milliers }} FCFA</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Total -->
+            <div class="total-box">
+                <div class="label">Montant total à remettre en stock</div>
+                <div class="value">{{ details.montant_total|floatformat:0|format_milliers }} FCFA</div>
+                <div class="tickets">{{ details.nombre_tickets_total|format_milliers }} tickets</div>
+            </div>
+            
+            <!-- Avertissement -->
+            <div class="warning-box">
+                <i class="fas fa-exclamation-circle"></i>
+                <div class="warning-box-content">
+                    <h5>Attention - Action irréversible</h5>
+                    <p>L'annulation de ce transfert va :</p>
+                    <ul>
+                        <li>Remettre les tickets en stock au poste <strong>{{ details.poste_origine.nom }}</strong></li>
+                        <li>Retirer les tickets du stock du poste <strong>{{ details.poste_destination.nom }}</strong></li>
+                        <li>Créer un historique d'annulation pour la traçabilité</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Formulaire -->
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="motif-section">
+                    <label for="motif">
+                        Motif de l'annulation <span class="required">*</span>
+                    </label>
+                    <textarea name="motif" 
+                              id="motif" 
+                              placeholder="Indiquez la raison de l'annulation..."
+                              required></textarea>
+                    <p class="help-text">
+                        Ce motif sera enregistré dans l'historique pour la traçabilité.
+                    </p>
+                </div>
+                
+                <div class="buttons-container">
+                    <button type="submit" name="action" value="confirmer" class="btn btn-danger">
+                        <i class="fas fa-undo-alt me-2"></i>Confirmer l'annulation
+                    </button>
+                    <button type="submit" name="action" value="annuler" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Abandonner
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        {% else %}
+        <!-- CAS 2: Annulation impossible -->
+        <div class="annulation-header danger">
+            <h3><i class="fas fa-ban me-2"></i>Annulation impossible</h3>
+            <p>Le transfert <strong>{{ numero_bordereau }}</strong> ne peut pas être annulé</p>
+        </div>
+        
+        <div class="annulation-body">
+            <div class="error-box">
+                <i class="fas fa-times-circle"></i>
+                <h4>{{ message }}</h4>
+                
+                {% if details.problemes %}
+                <div class="problemes">
+                    <strong>Raisons :</strong>
+                    <ul>
+                        {% for probleme in details.problemes %}
+                        <li>{{ probleme }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="buttons-container" style="margin-top: 1.5rem;">
+                <a href="{% url 'inventaire:liste_bordereaux' %}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Retour à la liste
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if peut_annuler %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validation du formulaire
+    const form = document.querySelector('form');
+    const motifTextarea = document.getElementById('motif');
+    
+    form.addEventListener('submit', function(e) {
+        const action = e.submitter.value;
+        
+        if (action === 'confirmer') {
+            const motif = motifTextarea.value.trim();
+            
+            if (!motif) {
+                e.preventDefault();
+                alert('Veuillez indiquer un motif pour l\'annulation.');
+                motifTextarea.focus();
+                return false;
+            }
+            
+            if (motif.length < 10) {
+                e.preventDefault();
+                alert('Le motif doit contenir au moins 10 caractères.');
+                motifTextarea.focus();
+                return false;
+            }
+            
+            const confirmMsg = 
+                'Êtes-vous sûr de vouloir annuler ce transfert ?\n\n' +
+                'Cette action est irréversible.\n\n' +
+                'Les tickets seront remis en stock au poste {{ details.poste_origine.nom }}.';
+            
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

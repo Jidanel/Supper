@@ -1,4 +1,4 @@
-{% extends 'admin/base_site.html' %}
+{% extends "admin/base_site.html" %}
 {% load static %}
 {% load inventaire_extras %}
 
@@ -6,7 +6,6 @@
 
 {% block extra_css %}
 <style>
-    /* Variables de couleur selon le design */
     :root {
         --violet-principal: #6B46C1;
         --violet-fonce: #553C9A;
@@ -105,11 +104,11 @@
         font-weight: bold;
     }
 
-    .stat-value.positif {
+    .stat-value.positif, .positif {
         color: var(--vert-success);
     }
 
-    .stat-value.negatif {
+    .stat-value.negatif, .negatif {
         color: var(--rouge-danger);
     }
 
@@ -131,33 +130,6 @@
         color: white;
         font-weight: bold;
         transition: width 1s ease;
-    }
-
-    .postes-risque-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 0.5rem;
-    }
-
-    .poste-badge {
-        background: var(--gris-clair);
-        color: var(--gris-fonce);
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.875rem;
-        transition: all 0.3s ease;
-    }
-
-    .poste-badge:hover {
-        background: var(--violet-principal);
-        color: white;
-        transform: scale(1.05);
-    }
-
-    .poste-badge.danger {
-        background: #fee2e2;
-        color: var(--rouge-danger);
     }
 
     .contribution-card {
@@ -185,11 +157,101 @@
         border-bottom: 1px solid #e5e7eb;
     }
 
+    /* ========== TABLEAUX DE RISQUE ========== */
+    .risque-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.75rem;
+        font-size: 0.88rem;
+    }
+
+    .risque-table th {
+        background: var(--gris-clair);
+        color: var(--gris-fonce);
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        border-bottom: 2px solid #e5e7eb;
+    }
+
+    .risque-table td {
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .risque-table tr:hover {
+        background: #fef2f2;
+    }
+
+    .risque-table .text-end {
+        text-align: right;
+    }
+
+    .risque-table .text-center {
+        text-align: center;
+    }
+
+    .risque-badge {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .risque-badge.danger {
+        background: var(--rouge-danger);
+    }
+
+    .risque-badge.warning {
+        background: var(--accent-orange);
+    }
+
+    .risque-subsection {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .risque-subsection:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .risque-subsection h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gris-fonce);
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .risque-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--rouge-danger);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
     .action-buttons {
         display: flex;
         gap: 1rem;
         justify-content: center;
         margin: 2rem 0;
+        flex-wrap: wrap;
     }
 
     .btn-primary-custom {
@@ -216,10 +278,6 @@
         background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
     }
 
-    .btn-excel {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    }
-
     .alert-info {
         background: #dbeafe;
         border: 1px solid #60a5fa;
@@ -228,22 +286,57 @@
         border-radius: 8px;
     }
 
+    .alert-success {
+        background: #dcfce7;
+        border: 1px solid #86efac;
+        color: #166534;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+
+    .text-end { text-align: right; }
+    .text-center { text-align: center; }
+    .text-muted { color: var(--gris-moyen); }
+    .mt-3 { margin-top: 1rem; }
+    .mt-4 { margin-top: 1.5rem; }
+    .mt-5 { margin-top: 2rem; }
+    .mb-0 { margin-bottom: 0; }
+    .mb-3 { margin-bottom: 1rem; }
+
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 768px) {
+        .synoptique-header { padding: 1.25rem; }
+        .synoptique-header h1 { font-size: 1.4rem; }
+        .synoptique-header h3 { font-size: 1rem; }
+        .section-card { padding: 1rem; }
+        .stat-grid { grid-template-columns: 1fr; }
+        .stat-value { font-size: 1.2rem; }
+        .risque-table { font-size: 0.8rem; }
+        .risque-table th, .risque-table td { padding: 0.4rem 0.5rem; }
+        .contribution-card .row { flex-direction: column; gap: 1rem; }
+        .contribution-card .col-md-3 { width: 100%; }
+        .action-buttons { flex-direction: column; align-items: center; }
+    }
+
+    @media (max-width: 576px) {
+        .risque-table { font-size: 0.75rem; }
+        .comparison-table { font-size: 0.8rem; }
+        .defaillants-table { font-size: 0.8rem; }
+    }
+
     @media print {
-        .no-print {
-            display: none;
-        }
-        
+        .no-print { display: none; }
         .section-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd;
             page-break-inside: avoid;
         }
-    }
-
-    .text-end {
-        text-align: right;
-    }
-
-    .text-center {
-        text-align: center;
+        .synoptique-header {
+            background: #6B46C1 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .risque-table { font-size: 0.75rem; }
     }
 </style>
 {% endblock %}
@@ -252,47 +345,51 @@
 <div class="container-fluid mt-4">
     <!-- En-tête -->
     <div class="synoptique-header">
-        <h1 class="display-4">
+        <h1>
             <i class="fas fa-chart-line"></i>
             Fiche Synoptique du Péage
         </h1>
         <h3>Du {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}</h3>
-        <p class="mb-0 opacity-75">
-            PSRR {{ date_fin.year }} - Extrait des recettes du péage routier
+        <p class="mb-0" style="opacity: 0.75;">
+            PSRR {{ date_fin.year }} — Extrait des recettes du péage routier
         </p>
     </div>
 
     <!-- Boutons d'action -->
     <div class="action-buttons no-print">
-        <a href="?date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&action=pdf" 
+        <a href="?date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}&action=pdf"
            class="btn-primary-custom btn-pdf">
             <i class="fas fa-file-pdf"></i> Générer PDF
         </a>
-        <button onclick="window.print()" class="btn btn-primary-custom">
-        <i class="fas fa-print me-2"></i> Imprimer
+        <button onclick="window.print()" class="btn-primary-custom">
+            <i class="fas fa-print"></i> Imprimer
         </button>
     </div>
 
-    <!-- Section A : Défaillants -->
+    {# ================================================================ #}
+    {# SECTION A : POSTES DÉFAILLANTS                                    #}
+    {# ================================================================ #}
     <div class="section-card">
         <h2 class="section-title">
             <i class="fas fa-exclamation-triangle"></i>
-            Postes Défaillants - Dates Manquantes (Du 1er au {{ date_fin|date:"d" }} {{ date_fin|date:"F Y" }})
+            Postes Défaillants — Dates Manquantes (du 1er au {{ date_fin|date:"d F Y" }})
         </h2>
-        
+
         {% if donnees.defaillants %}
-        <div class="alert alert-info mb-3">
+        <div class="alert-info mb-3">
             <i class="fas fa-info-circle"></i>
-            <strong>Note:</strong> Les défaillants sont calculés sur le mois complet (du 1er {{ date_fin|date:"F" }} au {{ date_fin|date:"d F Y" }})
+            <strong>Note :</strong> Les défaillants sont calculés sur le mois complet
+            (du 1er {{ date_fin|date:"F" }} au {{ date_fin|date:"d F Y" }}).
         </div>
-        
+
+        <div style="overflow-x: auto;">
         <table class="defaillants-table">
             <thead>
                 <tr>
                     <th>Poste</th>
                     <th>Dates manquantes</th>
-                    <th>Nombre de journées</th>
-                    <th>Estimation moyenne</th>
+                    <th class="text-center">Nbre journées</th>
+                    <th class="text-end">Estimation moyenne</th>
                 </tr>
             </thead>
             <tbody>
@@ -301,9 +398,7 @@
                     <td><strong>{{ defaillant.poste.nom }}</strong></td>
                     <td>{{ defaillant.dates_manquantes }}</td>
                     <td class="text-center">{{ defaillant.nombre_jours }}</td>
-                    <td class="text-end">
-                        {{ defaillant.estimation_moyenne|floatformat:0|intcomma }} FCFA
-                    </td>
+                    <td class="text-end">{{ defaillant.estimation_moyenne|floatformat:0|intcomma }} FCFA</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -311,43 +406,41 @@
                 <tr style="background: var(--gris-clair);">
                     <td colspan="2"><strong>TOTAL</strong></td>
                     <td class="text-center"><strong>{{ donnees.total_jours_manquants }}</strong></td>
-                    <td class="text-end">
-                        <strong>{{ donnees.total_estimation_manquante|floatformat:0|intcomma }} FCFA</strong>
-                    </td>
+                    <td class="text-end"><strong>{{ donnees.total_estimation_manquante|floatformat:0|intcomma }} FCFA</strong></td>
                 </tr>
             </tfoot>
         </table>
+        </div>
         {% else %}
-        <div class="alert alert-success">
+        <div class="alert-success">
             <i class="fas fa-check-circle"></i>
-            Aucun poste défaillant sur cette période
+            Aucun poste défaillant sur cette période.
         </div>
         {% endif %}
     </div>
 
-    <!-- Section B : Recettes comparées et prévisionnelles -->
+    {# ================================================================ #}
+    {# SECTION B : RECETTES COMPARÉES ET PRÉVISIONNELLES                 #}
+    {# ================================================================ #}
     <div class="section-card">
         <h2 class="section-title">
             <i class="fas fa-chart-bar"></i>
             Recettes Comparées et Prévisionnelles
         </h2>
-        
+
         <div class="stat-grid">
             <div class="stat-item">
                 <div class="stat-label">Recettes déclarées</div>
                 <div class="stat-value">{{ donnees.recettes_declarees|floatformat:0|intcomma }}</div>
             </div>
-            
             <div class="stat-item">
-                <div class="stat-label">Estimation jours non déclarés (mois)</div>
+                <div class="stat-label">Estimation jours non déclarés</div>
                 <div class="stat-value">{{ donnees.estimation_jours_non_declares|floatformat:0|intcomma }}</div>
             </div>
-            
             <div class="stat-item">
                 <div class="stat-label">Estimation au {{ date_fin|date:"d/m/Y" }}</div>
                 <div class="stat-value">{{ donnees.estimation_date_fin|floatformat:0|intcomma }}</div>
             </div>
-            
             <div class="stat-item">
                 <div class="stat-label">Estimation au {{ donnees.date_fin_mois|date:"d F Y" }}</div>
                 <div class="stat-value">{{ donnees.estimation_fin_mois|floatformat:0|intcomma }}</div>
@@ -358,10 +451,7 @@
         <h3 class="mt-4 mb-3">Comparaison avec {{ date_fin|date:"F" }} {{ donnees.annee_n1 }}</h3>
         <table class="comparison-table">
             <thead>
-                <tr>
-                    <th>Indicateur</th>
-                    <th class="text-end">Valeur</th>
-                </tr>
+                <tr><th>Indicateur</th><th class="text-end">Valeur</th></tr>
             </thead>
             <tbody>
                 <tr>
@@ -387,10 +477,7 @@
         <h3 class="mt-4 mb-3">Comparaison avec {{ date_fin|date:"F" }} {{ donnees.annee_n2 }}</h3>
         <table class="comparison-table">
             <thead>
-                <tr>
-                    <th>Indicateur</th>
-                    <th class="text-end">Valeur</th>
-                </tr>
+                <tr><th>Indicateur</th><th class="text-end">Valeur</th></tr>
             </thead>
             <tbody>
                 <tr>
@@ -413,7 +500,9 @@
         </table>
     </div>
 
-    <!-- Section Cumul Annuel -->
+    {# ================================================================ #}
+    {# SECTION C : CUMUL ANNUEL                                          #}
+    {# ================================================================ #}
     <div class="section-card">
         <h2 class="section-title">
             <i class="fas fa-calendar-alt"></i>
@@ -425,7 +514,6 @@
                 <div class="stat-label">Estimation cumul {{ date_fin.year }} (au {{ date_fin|date:"d/m" }})</div>
                 <div class="stat-value">{{ donnees.estimation_cumul_annuel|floatformat:0|intcomma }}</div>
             </div>
-            
             <div class="stat-item">
                 <div class="stat-label">Estimation cumul au {{ donnees.date_fin_mois|date:"d/m/Y" }}</div>
                 <div class="stat-value">{{ donnees.estimation_cumul_fin_mois|floatformat:0|intcomma }}</div>
@@ -433,7 +521,6 @@
         </div>
 
         <h4 class="mt-3">Comparaison avec les années précédentes (même période)</h4>
-        
         <table class="comparison-table">
             <thead>
                 <tr>
@@ -468,33 +555,34 @@
         </table>
     </div>
 
-    <!-- Objectif annuel avec barre de progression -->
+    {# ================================================================ #}
+    {# OBJECTIF ANNUEL AVEC BARRE DE PROGRESSION                         #}
+    {# ================================================================ #}
     <div class="contribution-card mt-4">
         <h3 class="mb-3">
             <i class="fas fa-bullseye"></i>
             Objectif Annuel {{ date_fin.year }}
         </h3>
-        
-        <div class="row">
-            <div class="col-md-3">
-                <div class="stat-label text-white-50">Objectif total</div>
-                <div class="h3 mb-0">{{ donnees.objectif_annuel|floatformat:0|intcomma }} FCFA</div>
+
+        <div class="row" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+            <div class="col-md-3" style="flex: 1; min-width: 150px;">
+                <div class="stat-label" style="color: rgba(255,255,255,0.7);">Objectif total</div>
+                <div style="font-size: 1.25rem; font-weight: 700;">{{ donnees.objectif_annuel|floatformat:0|intcomma }} FCFA</div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-label text-white-50">Réalisé à ce jour</div>
-                <div class="h3 mb-0">{{ donnees.estimation_cumul_annuel|floatformat:0|intcomma }} FCFA</div>
+            <div class="col-md-3" style="flex: 1; min-width: 150px;">
+                <div class="stat-label" style="color: rgba(255,255,255,0.7);">Réalisé à ce jour</div>
+                <div style="font-size: 1.25rem; font-weight: 700;">{{ donnees.estimation_cumul_annuel|floatformat:0|intcomma }} FCFA</div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-label text-white-50">Reste à réaliser</div>
-                <div class="h3 mb-0">{{ donnees.reste_a_realiser|floatformat:0|intcomma }} FCFA</div>
+            <div class="col-md-3" style="flex: 1; min-width: 150px;">
+                <div class="stat-label" style="color: rgba(255,255,255,0.7);">Reste à réaliser</div>
+                <div style="font-size: 1.25rem; font-weight: 700;">{{ donnees.reste_a_realiser|floatformat:0|intcomma }} FCFA</div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-label text-white-50">Taux de progression</div>
-                <div class="h3 mb-0">{{ donnees.taux_progression_objectif|floatformat:1 }}%</div>
+            <div class="col-md-3" style="flex: 1; min-width: 150px;">
+                <div class="stat-label" style="color: rgba(255,255,255,0.7);">Taux de progression</div>
+                <div style="font-size: 1.25rem; font-weight: 700;">{{ donnees.taux_progression_objectif|floatformat:1 }}%</div>
             </div>
         </div>
-        
-        <!-- Barre de progression -->
+
         <div class="progress-bar-container mt-3">
             <div class="progress-bar" style="width: {{ donnees.taux_progression_objectif|floatformat:0 }}%;">
                 {{ donnees.taux_progression_objectif|floatformat:1 }}%
@@ -502,37 +590,167 @@
         </div>
     </div>
 
-    <!-- Section D : Postes à risque -->
-    {% if donnees.postes_risque_mensuel_n1 %}
+    {# ================================================================ #}
+    {# SECTION D : POSTES À RISQUE DE BAISSE — AVEC ÉCARTS DÉTAILLÉS     #}
+    {# ================================================================ #}
+    {% if donnees.postes_risque_mensuel_n1 or donnees.postes_risque_mensuel_n2 or donnees.postes_risque_annuel %}
     <div class="section-card">
-        <h2 class="section-title">
+        <h2 class="section-title" style="color: var(--rouge-danger); border-color: var(--rouge-danger);">
             <i class="fas fa-exclamation-circle"></i>
             Postes à Risque de Baisse
         </h2>
-        
-        <!-- Risque mensuel N-1 -->
-        <h3 class="h5 mb-3">Baisse Mensuelle (vs {{ date_fin|date:"F" }} {{ donnees.annee_n1 }})</h3>
-        <div class="postes-risque-list">
-            {% for risque in donnees.postes_risque_mensuel_n1|slice:":30" %}
-            <span class="poste-badge danger" title="Baisse: {{ risque.taux|floatformat:1 }}%">
-                {{ risque.poste.nom }}
-            </span>
-            {% empty %}
-            <span class="text-muted">Aucun poste en baisse significative</span>
-            {% endfor %}
+
+        {# ============================================================ #}
+        {# D.1 — RISQUE MENSUEL vs N-1                                   #}
+        {# ============================================================ #}
+        {% if donnees.postes_risque_mensuel_n1 %}
+        <div class="risque-subsection">
+            <h3>
+                <i class="fas fa-calendar-alt" style="color: var(--rouge-danger);"></i>
+                Baisse Mensuelle vs {{ date_fin|date:"F" }} {{ donnees.annee_n1 }}
+                <span class="risque-count">{{ donnees.postes_risque_mensuel_n1|length }}</span>
+            </h3>
+            <p style="color: var(--gris-moyen); font-size: 0.85rem; margin-bottom: 0.75rem;">
+                Postes dont la projection au dernier jour de {{ date_fin|date:"F" }} {{ date_fin.year }}
+                est inférieure au rendement de {{ date_fin|date:"F" }} {{ donnees.annee_n1 }}.
+            </p>
+
+            <div style="overflow-x: auto;">
+            <table class="risque-table">
+                <thead>
+                    <tr>
+                        <th>Poste</th>
+                        <th class="text-end">Projection {{ date_fin|date:"F" }} {{ date_fin.year }}</th>
+                        <th class="text-end">{{ date_fin|date:"F" }} {{ donnees.annee_n1 }}</th>
+                        <th class="text-end">Écart (FCFA)</th>
+                        <th class="text-center">Taux</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for risque in donnees.postes_risque_mensuel_n1 %}
+                    <tr>
+                        <td><strong>{{ risque.poste.nom }}</strong></td>
+                        <td class="text-end">{{ risque.recettes_projetees|floatformat:0|intcomma }}</td>
+                        <td class="text-end">{{ risque.recettes_n1|floatformat:0|intcomma }}</td>
+                        <td class="text-end negatif" style="font-weight: 600;">
+                            {{ risque.ecart|floatformat:0|intcomma }}
+                        </td>
+                        <td class="text-center">
+                            <span class="risque-badge danger">{{ risque.taux|floatformat:1 }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
         </div>
-        
-        <!-- Risque mensuel N-2 -->
+        {% endif %}
+
+        {# ============================================================ #}
+        {# D.2 — RISQUE MENSUEL vs N-2                                   #}
+        {# ============================================================ #}
         {% if donnees.postes_risque_mensuel_n2 %}
-        <h3 class="h5 mb-3 mt-4">Baisse Mensuelle (vs {{ date_fin|date:"F" }} {{ donnees.annee_n2 }})</h3>
-        <div class="postes-risque-list">
-            {% for risque in donnees.postes_risque_mensuel_n2|slice:":30" %}
-            <span class="poste-badge danger" title="Baisse: {{ risque.taux|floatformat:1 }}%">
-                {{ risque.poste.nom }}
-            </span>
-            {% empty %}
-            <span class="text-muted">Aucun poste en baisse significative</span>
-            {% endfor %}
+        <div class="risque-subsection">
+            <h3>
+                <i class="fas fa-calendar-alt" style="color: var(--accent-orange);"></i>
+                Baisse Mensuelle vs {{ date_fin|date:"F" }} {{ donnees.annee_n2 }}
+                <span class="risque-count" style="background: var(--accent-orange);">{{ donnees.postes_risque_mensuel_n2|length }}</span>
+            </h3>
+            <p style="color: var(--gris-moyen); font-size: 0.85rem; margin-bottom: 0.75rem;">
+                Postes dont la projection au dernier jour de {{ date_fin|date:"F" }} {{ date_fin.year }}
+                est inférieure au rendement de {{ date_fin|date:"F" }} {{ donnees.annee_n2 }}.
+            </p>
+
+            <div style="overflow-x: auto;">
+            <table class="risque-table">
+                <thead>
+                    <tr>
+                        <th>Poste</th>
+                        <th class="text-end">Projection {{ date_fin|date:"F" }} {{ date_fin.year }}</th>
+                        <th class="text-end">{{ date_fin|date:"F" }} {{ donnees.annee_n2 }}</th>
+                        <th class="text-end">Écart (FCFA)</th>
+                        <th class="text-center">Taux</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for risque in donnees.postes_risque_mensuel_n2 %}
+                    <tr>
+                        <td><strong>{{ risque.poste.nom }}</strong></td>
+                        <td class="text-end">{{ risque.recettes_projetees|floatformat:0|intcomma }}</td>
+                        <td class="text-end">{{ risque.recettes_n2|floatformat:0|intcomma }}</td>
+                        <td class="text-end negatif" style="font-weight: 600;">
+                            {{ risque.ecart|floatformat:0|intcomma }}
+                        </td>
+                        <td class="text-center">
+                            <span class="risque-badge warning">{{ risque.taux|floatformat:1 }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ============================================================ #}
+        {# D.3 — RISQUE ANNUEL (Projection au 31/12)                     #}
+        {# ============================================================ #}
+        {% if donnees.postes_risque_annuel %}
+        <div class="risque-subsection">
+            <h3>
+                <i class="fas fa-calendar" style="color: var(--rouge-danger);"></i>
+                Risque de Baisse Annuelle — Projection au 31/12/{{ date_fin.year }}
+                <span class="risque-count">{{ donnees.postes_risque_annuel|length }}</span>
+            </h3>
+            <p style="color: var(--gris-moyen); font-size: 0.85rem; margin-bottom: 0.75rem;">
+                Postes dont la projection au 31 décembre {{ date_fin.year }} (basée sur la moyenne journalière
+                depuis le 1er janvier) est inférieure au rendement annuel consolidé de {{ donnees.annee_n1 }}.
+            </p>
+
+            <div style="overflow-x: auto;">
+            <table class="risque-table">
+                <thead>
+                    <tr>
+                        <th>Poste</th>
+                        <th class="text-end">Réalisé à date</th>
+                        <th class="text-end">Projection 31/12/{{ date_fin.year }}</th>
+                        <th class="text-end">Total {{ donnees.annee_n1 }}</th>
+                        <th class="text-end">Écart vs {{ donnees.annee_n1 }}</th>
+                        <th class="text-center">Taux vs {{ donnees.annee_n1 }}</th>
+                        <th class="text-end">Écart vs {{ donnees.annee_n2 }}</th>
+                        <th class="text-center">Taux vs {{ donnees.annee_n2 }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for risque in donnees.postes_risque_annuel %}
+                    <tr>
+                        <td><strong>{{ risque.poste.nom }}</strong></td>
+                        <td class="text-end">{{ risque.realise|floatformat:0|intcomma }}</td>
+                        <td class="text-end" style="font-weight: 600;">{{ risque.estimation_31dec|floatformat:0|intcomma }}</td>
+                        <td class="text-end">{{ risque.total_n1|floatformat:0|intcomma }}</td>
+                        <td class="text-end negatif" style="font-weight: 600;">
+                            {{ risque.ecart_n1|floatformat:0|intcomma }}
+                        </td>
+                        <td class="text-center">
+                            <span class="risque-badge danger">{{ risque.taux_n1|floatformat:1 }}%</span>
+                        </td>
+                        <td class="text-end {% if risque.ecart_n2 < 0 %}negatif{% else %}positif{% endif %}" style="font-weight: 600;">
+                            {{ risque.ecart_n2|floatformat:0|intcomma }}
+                        </td>
+                        <td class="text-center">
+                            {% if risque.taux_n2 is not None %}
+                            <span class="risque-badge {% if risque.taux_n2 < 0 %}danger{% else %}warning{% endif %}">
+                                {{ risque.taux_n2|floatformat:1 }}%
+                            </span>
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -542,8 +760,8 @@
     <div class="text-center text-muted mt-5 mb-3">
         <small>
             <i class="fas fa-info-circle"></i>
-            PSRR {{ date_fin.year }} - 
-            Extrait des recettes du péage routier - 
+            PSRR {{ date_fin.year }} —
+            Extrait des recettes du péage routier —
             Édition du {{ "now"|date:"d/m/Y, H:i" }}
         </small>
     </div>
@@ -552,58 +770,28 @@
 
 {% block extra_js %}
 <script>
-// Animation des valeurs au chargement
 document.addEventListener('DOMContentLoaded', function() {
     // Animation des statistiques
-    const statValues = document.querySelectorAll('.stat-value');
-    statValues.forEach((value, index) => {
+    var statValues = document.querySelectorAll('.stat-value');
+    statValues.forEach(function(value, index) {
         value.style.opacity = '0';
         value.style.transform = 'translateY(10px)';
-        
-        setTimeout(() => {
+        setTimeout(function() {
             value.style.transition = 'all 0.5s ease';
             value.style.opacity = '1';
             value.style.transform = 'translateY(0)';
         }, 100 * index);
     });
-    
-    // Animation de la barre de progression
-    const progressBar = document.querySelector('.progress-bar');
+
+    // Animation barre de progression
+    var progressBar = document.querySelector('.progress-bar');
     if (progressBar) {
-        const targetWidth = progressBar.style.width;
+        var targetWidth = progressBar.style.width;
         progressBar.style.width = '0%';
-        setTimeout(() => {
+        setTimeout(function() {
             progressBar.style.width = targetWidth;
         }, 500);
     }
-    
-    // Tooltips pour les postes à risque
-    const posteBadges = document.querySelectorAll('.poste-badge[title]');
-    posteBadges.forEach(badge => {
-        badge.addEventListener('mouseenter', function(e) {
-            const tooltip = document.createElement('div');
-            tooltip.className = 'custom-tooltip';
-            tooltip.textContent = e.target.title;
-            tooltip.style.cssText = `
-                position: absolute;
-                background: #1f2937;
-                color: white;
-                padding: 0.25rem 0.5rem;
-                border-radius: 4px;
-                font-size: 0.75rem;
-                z-index: 1000;
-            `;
-            document.body.appendChild(tooltip);
-            
-            const rect = e.target.getBoundingClientRect();
-            tooltip.style.left = rect.left + 'px';
-            tooltip.style.top = (rect.top - 30) + 'px';
-            
-            e.target.addEventListener('mouseleave', function() {
-                tooltip.remove();
-            });
-        });
-    });
 });
 </script>
 {% endblock %}

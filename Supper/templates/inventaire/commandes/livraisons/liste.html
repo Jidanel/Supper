@@ -1,0 +1,524 @@
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #1a5f2a;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --bg-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    * { box-sizing: border-box; }
+
+    .liste-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--success-color), #1e7e34);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+        font-size: 0.95rem;
+    }
+
+    .btn-light {
+        background: white;
+        color: var(--success-color);
+    }
+
+    .btn-light:hover {
+        background: #f8f9fa;
+        text-decoration: none;
+    }
+
+    /* Filtres */
+    .filtres-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 25px;
+        overflow: hidden;
+    }
+
+    .filtres-header {
+        background: var(--bg-light);
+        padding: 15px 25px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .filtres-header h2 {
+        margin: 0;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .filtres-body {
+        padding: 20px 25px;
+    }
+
+    .filtres-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        align-items: end;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-group label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .form-control,
+    .form-select {
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--success-color);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+    }
+
+    .btn-filter {
+        background: var(--info-color);
+        color: white;
+        height: 42px;
+    }
+
+    .btn-reset {
+        background: white;
+        color: #666;
+        border: 1px solid var(--border-color);
+        height: 42px;
+    }
+
+    /* Tableau */
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .table-livraisons {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }
+
+    .table-livraisons thead {
+        background: linear-gradient(135deg, var(--success-color), #1e7e34);
+        color: white;
+    }
+
+    .table-livraisons th {
+        padding: 14px 12px;
+        text-align: left;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .table-livraisons td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+    }
+
+    .table-livraisons tbody tr:hover {
+        background: rgba(40, 167, 69, 0.03);
+    }
+
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+
+    .poste-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .poste-nom {
+        font-weight: 500;
+    }
+
+    .poste-region {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .commande-info {
+        font-size: 0.9rem;
+    }
+
+    .commande-numero {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .montant {
+        font-weight: 600;
+        color: var(--success-color);
+        white-space: nowrap;
+    }
+
+    .carnets-badge {
+        background: #d4edda;
+        color: #155724;
+        padding: 4px 10px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .recharges-count {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--info-color);
+        font-weight: 500;
+    }
+
+    .createur {
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    /* Actions */
+    .actions-cell {
+        display: flex;
+        gap: 6px;
+    }
+
+    .action-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        border: none;
+    }
+
+    .action-btn.view {
+        background: var(--info-color);
+        color: white;
+    }
+
+    .action-btn.edit {
+        background: var(--warning-color);
+        color: #333;
+    }
+
+    .action-btn.delete {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .action-btn:hover {
+        transform: scale(1.1);
+    }
+
+    /* Pagination */
+    .pagination-container {
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .pagination {
+        display: flex;
+        gap: 5px;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .pagination li a,
+    .pagination li span {
+        padding: 8px 14px;
+        border-radius: 6px;
+        background: var(--bg-light);
+        color: #333;
+        text-decoration: none;
+        display: block;
+    }
+
+    .pagination li.active span {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .pagination li a:hover {
+        background: #e9ecef;
+    }
+
+    /* Message vide */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        .liste-container {
+            padding: 15px;
+        }
+
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .page-header h1 {
+            font-size: 1.3rem;
+        }
+
+        .filtres-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .table-livraisons {
+            font-size: 0.85rem;
+        }
+
+        .actions-cell {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="liste-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <h1><i class="fas fa-truck"></i> Liste des Livraisons</h1>
+        <a href="{% url 'inventaire:creer_livraison_etape1' %}" class="btn btn-light">
+            <i class="fas fa-plus"></i> Nouvelle Livraison
+        </a>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filtres-card">
+        <div class="filtres-header">
+            <h2><i class="fas fa-filter"></i> Filtres</h2>
+            <a href="{% url 'inventaire:liste_livraisons' %}" class="btn btn-reset btn-sm">
+                <i class="fas fa-redo"></i> Réinitialiser
+            </a>
+        </div>
+        <div class="filtres-body">
+            <form method="get" id="filtreForm">
+                <div class="filtres-grid">
+                    <div class="form-group">
+                        <label>Exercice</label>
+                        {{ form.exercice }}
+                    </div>
+                    <div class="form-group">
+                        <label>Commande</label>
+                        {{ form.commande }}
+                    </div>
+                    <div class="form-group">
+                        <label>Poste</label>
+                        {{ form.poste }}
+                    </div>
+                    <div class="form-group">
+                        <label>Du</label>
+                        {{ form.date_debut }}
+                    </div>
+                    <div class="form-group">
+                        <label>Au</label>
+                        {{ form.date_fin }}
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-filter">
+                            <i class="fas fa-search"></i> Filtrer
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau -->
+    <div class="table-card">
+        {% if livraisons %}
+        <div class="table-responsive">
+            <table class="table-livraisons">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Commande</th>
+                        <th>Poste</th>
+                        <th class="text-right">Montant</th>
+                        <th class="text-center">Carnets</th>
+                        <th class="text-center">Recharges</th>
+                        <th>Créé par</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in livraisons %}
+                    <tr>
+                        <td>{{ item.livraison.date_livraison|date:"d/m/Y" }}</td>
+                        <td>
+                            <div class="commande-info">
+                                <span class="commande-numero">N°{{ item.livraison.commande.numero_commande }} / {{ item.livraison.commande.exercice }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="poste-info">
+                                <span class="poste-nom">{{ item.livraison.poste.nom }}</span>
+                                <span class="poste-region">{{ item.livraison.poste.region.nom|default:"" }}</span>
+                            </div>
+                        </td>
+                        <td class="text-right">
+                            <span class="montant">{{ item.livraison.montant_livre|floatformat:0|format_milliers }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="carnets-badge">{{ item.livraison.nombre_carnets_livres }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="recharges-count">
+                                <i class="fas fa-layer-group"></i> {{ item.nb_recharges }}
+                            </span>
+                        </td>
+                        <td>
+                            <!-- CORRECTION: Utiliser item.nom_createur (calculé dans la vue liste_livraisons) -->
+                            <span class="createur">{{ item.nom_createur }}</span>
+                        </td>
+                        <td>
+                            <div class="actions-cell">
+                                <a href="{% url 'inventaire:tableau_livraisons_commande' item.livraison.commande.id %}" 
+                                   class="action-btn view" title="Voir suivi">
+                                    <i class="fas fa-chart-bar"></i>
+                                </a>
+                                {% if peut_administrer %}
+                                <a href="{% url 'inventaire:modifier_livraison' item.livraison.id %}" 
+                                   class="action-btn edit" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="post" action="{% url 'inventaire:supprimer_livraison' item.livraison.id %}" 
+                                      style="display:inline;" 
+                                      onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette livraison ?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="action-btn delete" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if livraisons.has_other_pages %}
+        <div class="pagination-container">
+            <ul class="pagination">
+                {% if livraisons.has_previous %}
+                <li><a href="?page={{ livraisons.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a></li>
+                {% endif %}
+                
+                {% for num in livraisons.paginator.page_range %}
+                    {% if livraisons.number == num %}
+                    <li class="active"><span>{{ num }}</span></li>
+                    {% elif num > livraisons.number|add:'-3' and num < livraisons.number|add:'3' %}
+                    <li><a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if livraisons.has_next %}
+                <li><a href="?page={{ livraisons.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a></li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-truck"></i>
+            <p>Aucune livraison trouvée</p>
+            <a href="{% url 'inventaire:creer_livraison_etape1' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Créer une livraison
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

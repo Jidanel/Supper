@@ -1,0 +1,547 @@
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #1a5f2a;
+        --primary-light: #2d8a3e;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --bg-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    * { box-sizing: border-box; }
+
+    .simulateur-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--warning-color), #e0a800);
+        color: #333;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+    }
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .header-info h1 {
+        margin: 0 0 8px 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .header-meta {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+    }
+
+    .meta-badge {
+        background: rgba(0,0,0,0.1);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+    }
+
+    /* Étapes */
+    .etapes-nav {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 25px;
+    }
+
+    .etape-item {
+        flex: 1;
+        padding: 15px 20px;
+        background: white;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: var(--card-shadow);
+        opacity: 0.6;
+    }
+
+    .etape-item.active {
+        opacity: 1;
+        border: 2px solid var(--warning-color);
+        background: #fff8e1;
+    }
+
+    .etape-item.completed {
+        opacity: 1;
+        background: #d4edda;
+    }
+
+    .etape-numero {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--warning-color);
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+
+    .etape-item.completed .etape-numero {
+        background: var(--success-color);
+        color: white;
+    }
+
+    /* Résumé */
+    .resume-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+
+    .resume-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 20px;
+    }
+
+    .resume-item {
+        text-align: center;
+        padding: 15px;
+        background: var(--bg-light);
+        border-radius: 10px;
+    }
+
+    .resume-item .value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .resume-item .value.warning {
+        color: var(--warning-color);
+    }
+
+    .resume-item .label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: 5px;
+    }
+
+    /* Tableau */
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .table-header {
+        background: var(--bg-light);
+        padding: 18px 25px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .table-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .table-commande {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+    }
+
+    .table-commande thead {
+        background: linear-gradient(135deg, var(--warning-color), #e0a800);
+        color: #333;
+    }
+
+    .table-commande th {
+        padding: 14px 12px;
+        text-align: left;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .table-commande td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+    }
+
+    .table-commande tbody tr:hover {
+        background: rgba(255, 193, 7, 0.05);
+    }
+
+    .table-commande tr.nouveau {
+        background: #e8f5e9;
+    }
+
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+
+    .poste-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .poste-nom {
+        font-weight: 500;
+    }
+
+    .poste-code {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .badge-nouveau {
+        background: var(--success-color);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        margin-left: 8px;
+    }
+
+    .montant {
+        font-weight: 600;
+        color: var(--warning-color);
+    }
+
+    /* Input carnets */
+    .input-carnets {
+        width: 80px;
+        padding: 8px;
+        text-align: center;
+        border: 2px solid var(--border-color);
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .input-carnets:focus {
+        border-color: var(--warning-color);
+        box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.2);
+        outline: none;
+    }
+
+    .input-carnets.modified {
+        background: #fff8e1;
+        border-color: var(--warning-color);
+    }
+
+    /* QR Code */
+    .qr-preview {
+        width: 60px;
+        height: 60px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Footer */
+    .table-commande tfoot {
+        background: var(--bg-light);
+        font-weight: 600;
+    }
+
+    .table-commande tfoot td {
+        padding: 15px 12px;
+        border-top: 2px solid var(--warning-color);
+    }
+
+    /* Boutons */
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 25px;
+        background: var(--bg-light);
+        border-top: 1px solid var(--border-color);
+        gap: 15px;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: #333;
+    }
+
+    .btn-warning:hover {
+        background: #e0a800;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #666;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        .simulateur-container {
+            padding: 15px;
+        }
+
+        .etapes-nav {
+            flex-direction: column;
+        }
+
+        .resume-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="simulateur-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-info">
+                <h1><i class="fas fa-edit"></i> {{ titre_commande }}</h1>
+                <div class="header-meta">
+                    <span class="meta-badge">
+                        <i class="fas fa-calendar"></i> {{ periode_desc }}
+                    </span>
+                    <span class="meta-badge">
+                        <i class="fas fa-map-marker-alt"></i> {{ nb_postes }} poste(s)
+                    </span>
+                    {% if nb_nouveaux > 0 %}
+                    <span class="meta-badge" style="background: var(--success-color); color: white;">
+                        <i class="fas fa-plus"></i> {{ nb_nouveaux }} nouveau(x)
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation étapes -->
+    <div class="etapes-nav">
+        <div class="etape-item completed">
+            <div class="etape-numero"><i class="fas fa-check"></i></div>
+            <div class="etape-titre">Paramètres</div>
+        </div>
+        <div class="etape-item active">
+            <div class="etape-numero">2</div>
+            <div class="etape-titre">Validation</div>
+        </div>
+    </div>
+
+    <!-- Résumé -->
+    <div class="resume-card">
+        <div class="resume-grid">
+            <div class="resume-item">
+                <div class="value">{{ nb_postes }}</div>
+                <div class="label">Postes</div>
+            </div>
+            <div class="resume-item">
+                <div class="value" id="totalCarnets">{{ nombre_carnets_total|format_milliers }}</div>
+                <div class="label">Carnets</div>
+            </div>
+            <div class="resume-item">
+                <div class="value" id="totalTickets">{{ nombre_tickets_total|format_milliers }}</div>
+                <div class="label">Tickets</div>
+            </div>
+            <div class="resume-item">
+                <div class="value warning" id="totalMontant">{{ montant_total|format_milliers }}</div>
+                <div class="label">FCFA Total</div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="formValidation">
+        {% csrf_token %}
+        
+        <div class="table-card">
+            <div class="table-header">
+                <h2><i class="fas fa-list-alt"></i> Détails par Poste</h2>
+                <small style="color: var(--text-muted);">
+                    <i class="fas fa-info-circle"></i> Modifiez le nombre de carnets si nécessaire
+                </small>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table-commande">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Poste</th>
+                            <th>Région</th>
+                            <th class="text-center">Carnets</th>
+                            <th class="text-right">Tickets</th>
+                            <th class="text-right">Montant</th>
+                            <th>Couleur</th>
+                            <th>QR Code</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in details_postes %}
+                        <tr class="{% if detail.est_nouveau %}nouveau{% endif %}" data-poste="{{ detail.poste.id }}">
+                            <td>{{ detail.numero_ordre }}</td>
+                            <td>
+                                <div class="poste-info">
+                                    <span class="poste-nom">
+                                        {{ detail.poste.nom }}
+                                        {% if detail.est_nouveau %}
+                                        <span class="badge-nouveau">NOUVEAU</span>
+                                        {% endif %}
+                                    </span>
+                                    <span class="poste-code">{{ detail.poste.code }}</span>
+                                </div>
+                            </td>
+                            <td>{{ detail.region }}</td>
+                            <td class="text-center">
+                                <input type="number" 
+                                       name="carnets_{{ detail.poste.id }}" 
+                                       class="input-carnets" 
+                                       value="{{ detail.nombre_carnets }}"
+                                       data-original="{{ detail.nombre_carnets }}"
+                                       min="0"
+                                       onchange="recalculerLigne(this)">
+                            </td>
+                            <td class="text-right tickets-cell">{{ detail.nombre_tickets|format_milliers }}</td>
+                            <td class="text-right montant-cell">
+                                <span class="montant">{{ detail.montant|format_milliers }}</span>
+                            </td>
+                            <td>{{ detail.couleur }}</td>
+                            <td>
+                                {% if detail.qr_base64 %}
+                                <img src="{{ detail.qr_base64 }}" class="qr-preview" alt="QR Code">
+                                {% else %}
+                                <span style="color: #999;">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3"><strong>TOTAUX</strong></td>
+                            <td class="text-center" id="footCarnets"><strong>{{ nombre_carnets_total|format_milliers }}</strong></td>
+                            <td class="text-right" id="footTickets"><strong>{{ nombre_tickets_total|format_milliers }}</strong></td>
+                            <td class="text-right" id="footMontant"><strong class="montant">{{ montant_total|format_milliers }}</strong></td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'inventaire:modifier_commande_etape1' commande.id %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour
+                </a>
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-save"></i> Enregistrer les modifications
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function formatMilliers(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function recalculerLigne(input) {
+    const row = input.closest('tr');
+    const carnets = parseInt(input.value) || 0;
+    const tickets = carnets * 100;
+    const montant = carnets * 50000;
+    
+    // Mettre à jour l'affichage
+    row.querySelector('.tickets-cell').textContent = formatMilliers(tickets);
+    row.querySelector('.montant-cell .montant').textContent = formatMilliers(montant);
+    
+    // Highlight si modifié
+    const original = parseInt(input.dataset.original) || 0;
+    if (carnets !== original) {
+        input.classList.add('modified');
+    } else {
+        input.classList.remove('modified');
+    }
+    
+    recalculerTotaux();
+}
+
+function recalculerTotaux() {
+    let totalCarnets = 0;
+    let totalTickets = 0;
+    let totalMontant = 0;
+    
+    document.querySelectorAll('.input-carnets').forEach(input => {
+        const carnets = parseInt(input.value) || 0;
+        totalCarnets += carnets;
+        totalTickets += carnets * 100;
+        totalMontant += carnets * 50000;
+    });
+    
+    // Résumé en haut
+    document.getElementById('totalCarnets').textContent = formatMilliers(totalCarnets);
+    document.getElementById('totalTickets').textContent = formatMilliers(totalTickets);
+    document.getElementById('totalMontant').textContent = formatMilliers(totalMontant);
+    
+    // Footer tableau
+    document.getElementById('footCarnets').innerHTML = '<strong>' + formatMilliers(totalCarnets) + '</strong>';
+    document.getElementById('footTickets').innerHTML = '<strong>' + formatMilliers(totalTickets) + '</strong>';
+    document.getElementById('footMontant').innerHTML = '<strong class="montant">' + formatMilliers(totalMontant) + '</strong>';
+}
+</script>
+{% endblock %}

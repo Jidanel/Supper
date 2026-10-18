@@ -1,0 +1,336 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+ 
+{% block title %}{{ title }}{% endblock %}
+ 
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0EA5E9;
+        --secondary-color: #38BDF8;
+        --primary-dark: #0284C7;
+        --primary-light: #E0F2FE;
+        --success-color: #22C55E;
+        --warning-color: #F97316;
+        --danger-color: #EF4444;
+    }
+ 
+    .csp-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+ 
+    .header-section {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+        text-align: center;
+    }
+ 
+    .header-section h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.8rem;
+    }
+ 
+    .header-section .subtitle {
+        opacity: 0.9;
+        font-size: 1rem;
+    }
+ 
+    .selection-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+ 
+    .selection-card h2 {
+        color: var(--primary-dark);
+        font-size: 1.3rem;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--primary-light);
+    }
+ 
+    .form-group {
+        margin-bottom: 20px;
+    }
+ 
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #374151;
+    }
+ 
+    .form-group label .required {
+        color: var(--danger-color);
+    }
+ 
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #E5E7EB;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+ 
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+    }
+ 
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+ 
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 14px 30px;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+ 
+    .btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+    }
+ 
+    .btn-secondary {
+        background: #F3F4F6;
+        color: #374151;
+        border: 1px solid #D1D5DB;
+        padding: 14px 30px;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+ 
+    .btn-secondary:hover {
+        background: #E5E7EB;
+    }
+ 
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 25px;
+    }
+ 
+    .info-box {
+        background: var(--primary-light);
+        border-left: 4px solid var(--primary-color);
+        padding: 15px;
+        border-radius: 0 8px 8px 0;
+        margin-bottom: 20px;
+    }
+ 
+    .info-box h4 {
+        margin: 0 0 8px 0;
+        color: var(--primary-dark);
+        font-size: 0.95rem;
+    }
+ 
+    .info-box p {
+        margin: 0;
+        color: #4B5563;
+        font-size: 0.9rem;
+    }
+ 
+    .alert {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+ 
+    .alert-danger {
+        background: #FEE2E2;
+        color: #991B1B;
+        border-left: 4px solid var(--danger-color);
+    }
+ 
+    .alert-warning {
+        background: #FEF3C7;
+        color: #92400E;
+        border-left: 4px solid var(--warning-color);
+    }
+ 
+    .help-text {
+        font-size: 0.85rem;
+        color: #6B7280;
+        margin-top: 5px;
+    }
+ 
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .btn-group {
+            flex-direction: column;
+        }
+        
+        .btn-group .btn-primary,
+        .btn-group .btn-secondary {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+ 
+{% block content %}
+<div class="csp-container">
+    
+    <!-- En-tête -->
+    <div class="header-section">
+        <h1><i class="fas fa-file-contract"></i> Contrôle Sur Pièce - Péage</h1>
+        <div class="subtitle">
+            Sélectionnez la période pour générer le rapport CSP
+        </div>
+    </div>
+ 
+    <!-- Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+ 
+    <!-- Carte de sélection -->
+    <div class="selection-card">
+        <h2><i class="fas fa-calendar-alt"></i> Période du rapport</h2>
+        
+        <div class="info-box">
+            <h4><i class="fas fa-info-circle"></i> Information</h4>
+            <p>
+                Le Contrôle Sur Pièce (CSP) permet de comparer les ventes déclarées avec les montants quittancés
+                pour chaque poste de péage sur la période sélectionnée.
+            </p>
+        </div>
+        
+        <form method="post" action="{% url 'inventaire:selection_csp_peage' %}">
+            {% csrf_token %}
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="date_debut">
+                        Date de début <span class="required">*</span>
+                    </label>
+                    <input type="date" 
+                           id="date_debut" 
+                           name="date_debut" 
+                           class="form-control"
+                           value="{{ date_debut_suggestion|date:'Y-m-d' }}"
+                           max="{{ date_max|date:'Y-m-d' }}"
+                           required>
+                    <div class="help-text">Premier jour de la période à analyser</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="date_fin">
+                        Date de fin <span class="required">*</span>
+                    </label>
+                    <input type="date" 
+                           id="date_fin" 
+                           name="date_fin" 
+                           class="form-control"
+                           value="{{ date_fin_suggestion|date:'Y-m-d' }}"
+                           max="{{ date_max|date:'Y-m-d' }}"
+                           required>
+                    <div class="help-text">Dernier jour de la période à analyser</div>
+                </div>
+            </div>
+            
+            {% if acces_tous_postes and postes.count > 1 %}
+            <div class="form-group">
+                <label for="poste_id">
+                    Filtrer par poste (optionnel)
+                </label>
+                <select id="poste_id" name="poste_id" class="form-control">
+                    <option value="">-- Tous les postes de péage --</option>
+                    {% regroup postes by region as postes_par_region %}
+                    {% for region in postes_par_region %}
+                    <optgroup label="{{ region.grouper }}">
+                        {% for poste in region.list %}
+                        <option value="{{ poste.id }}">{{ poste.nom }} ({{ poste.code }})</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+                <div class="help-text">Laissez vide pour inclure tous les postes accessibles</div>
+            </div>
+            {% endif %}
+            
+            <div class="btn-group">
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-file-alt"></i> Générer le rapport CSP
+                </button>
+                <a href="{% url 'common:dashboard' %}" class="btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+                </a>
+            </div>
+        </form>
+    </div>
+ 
+    <!-- Informations complémentaires -->
+    <div class="selection-card">
+        <h2><i class="fas fa-table"></i> Contenu du rapport</h2>
+        <p>Le rapport CSP Péage contiendra les informations suivantes pour chaque poste :</p>
+        <ul style="margin-left: 20px; color: #4B5563;">
+            <li><strong>Stock début</strong> : Valeur du stock de tickets au début de la période</li>
+            <li><strong>Ventes déclarées</strong> : Total des recettes déclarées sur la période</li>
+            <li><strong>Nombre de jours déclarés</strong> : Jours avec déclarations / Jours de la période</li>
+            <li><strong>Montant quittancé</strong> : Total des quittancements sur la période</li>
+            <li><strong>Nombre de jours quittancés</strong> : Jours avec quittancements / Jours de la période</li>
+            <li><strong>Écart</strong> : Différence entre montant quittancé et ventes déclarées  </li>
+            <li><strong>Montant dernières quittances</strong> : Total des 3 derniers quittancements</li>
+        </ul>
+    </div>
+ 
+</div>
+ 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateDebut = document.getElementById('date_debut');
+    const dateFin = document.getElementById('date_fin');
+    
+    // Validation des dates
+    dateDebut.addEventListener('change', function() {
+        if (dateFin.value && dateDebut.value > dateFin.value) {
+            dateFin.value = dateDebut.value;
+        }
+    });
+    
+    dateFin.addEventListener('change', function() {
+        if (dateDebut.value && dateFin.value < dateDebut.value) {
+            dateDebut.value = dateFin.value;
+        }
+    });
+});
+</script>
+{% endblock %}

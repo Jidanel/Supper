@@ -160,6 +160,28 @@
         word-wrap: break-word;
     }
 
+    /* Styles pour les alertes de taille réduite */
+    .alert-sm {
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Animation pour la date invalide */
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+    }
+
+    .form-control.is-invalid {
+        animation: shake 0.5s;
+        border-color: #dc3545 !important;
+    }
+
+    .form-control.is-valid {
+        border-color: #10b981 !important;
+    }
+
     /* ============================================
        BOUTONS RESPONSIVES
        ============================================ */
@@ -303,6 +325,70 @@
     .selection-complete {
         background: #d1fae5;
         border-left-color: #10b981;
+    }
+
+    /* ============================================
+       SECTION EXPLICATIVE DES RÈGLES
+       ============================================ */
+    .regles-card {
+        border: 2px solid #3b82f6;
+        background: linear-gradient(to bottom, #eff6ff, white);
+        margin-bottom: 1rem;
+    }
+
+    .regles-card .card-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .regles-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .regles-list li {
+        padding: 0.5rem 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .regles-list li i {
+        margin-top: 0.25rem;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       CALENDRIER VISUEL 7 JOURS
+       ============================================ */
+    .calendar-day-card {
+        border: 2px solid #e5e7eb;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: white;
+    }
+
+    .calendar-day-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border-color: #667eea;
+    }
+
+    .calendar-day-card.selected {
+        border-color: #10b981;
+        background: #d1fae5;
+    }
+
+    .calendar-day-card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #f3f4f6;
+    }
+
+    .calendar-day-card.today {
+        border-color: #dc3545;
+        background: #fee2e2;
     }
 
     /* ============================================
@@ -472,6 +558,34 @@
         box-sizing: border-box;
         border-radius: 8px;
         padding: 1rem;
+        border: none;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .alert-danger {
+        background: #fee2e2;
+        color: #991b1b;
+        border-left: 4px solid #dc3545;
+    }
+
+    .alert-warning {
+        background: #fef3c7;
+        color: #92400e;
+        border-left: 4px solid #f59e0b;
+    }
+
+    .alert-info {
+        background: #dbeafe;
+        color: #1e40af;
+        border-left: 4px solid #3b82f6;
+    }
+
+    .alert-success {
+        background: #d1fae5;
+        color: #065f46;
+        border-left: 4px solid #10b981;
     }
 
     /* ============================================
@@ -482,25 +596,32 @@
     .text-muted { color: #6b7280 !important; }
     .text-primary { color: #667eea !important; }
     .text-white { color: white !important; }
+    .text-info { color: #3b82f6 !important; }
+    .text-warning { color: #f59e0b !important; }
 
     .fw-bold { font-weight: 600 !important; }
     .mb-0 { margin-bottom: 0 !important; }
     .mb-2 { margin-bottom: 0.5rem !important; }
     .mb-3 { margin-bottom: 1rem !important; }
     .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
     .mt-3 { margin-top: 1rem !important; }
     .mt-4 { margin-top: 1.5rem !important; }
     .me-1 { margin-right: 0.25rem !important; }
     .me-2 { margin-right: 0.5rem !important; }
     .mx-3 { margin-left: 1rem !important; margin-right: 1rem !important; }
+    .py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 
     .d-flex { display: flex !important; }
     .flex-wrap { flex-wrap: wrap !important; }
     .align-items-center { align-items: center !important; }
+    .align-items-start { align-items: flex-start !important; }
     .align-items-end { align-items: flex-end !important; }
     .justify-content-between { justify-content: space-between !important; }
     .justify-content-center { justify-content: center !important; }
+    .gap-1 { gap: 0.25rem !important; }
     .gap-2 { gap: 0.5rem !important; }
+    .gap-3 { gap: 1rem !important; }
 
     .text-center { text-align: center !important; }
     .text-end { text-align: right !important; }
@@ -512,9 +633,14 @@
     .bg-info { background-color: #3b82f6 !important; }
     .bg-light { background-color: #f8f9fa !important; }
     .bg-secondary { background-color: #6b7280 !important; }
+    .bg-danger { background-color: #dc3545 !important; }
+    .bg-warning { background-color: #f59e0b !important; }
+    .bg-opacity-10 { opacity: 0.1; }
 
     .border-primary { border-color: #667eea !important; }
     .border-success { border-color: #10b981 !important; }
+    .border-info { border-color: #3b82f6 !important; }
+    .border-danger { border-color: #dc3545 !important; }
 
     .badge {
         display: inline-block;
@@ -526,6 +652,8 @@
 
     .badge.bg-secondary { background-color: #6b7280 !important; color: white; }
     .badge.bg-success { background-color: #10b981 !important; color: white; }
+    .badge.bg-danger { background-color: #dc3545 !important; color: white; }
+    .badge.bg-warning { background-color: #f59e0b !important; color: #92400e; }
 
     /* ============================================
        VERSION PC (≥ 768px)
@@ -534,6 +662,7 @@
         .col-md-2 { flex: 0 0 16.666667%; max-width: 16.666667%; }
         .col-md-3 { flex: 0 0 25%; max-width: 25%; }
         .col-md-5 { flex: 0 0 41.666667%; max-width: 41.666667%; }
+        .col-md-6 { flex: 0 0 50%; max-width: 50%; }
         .col-md-9 { flex: 0 0 75%; max-width: 75%; }
         .col-md-12 { flex: 0 0 100%; max-width: 100%; }
 
@@ -599,7 +728,7 @@
             width: calc(100% + 20px);
         }
 
-        .col-md-2, .col-md-3, .col-md-5, .col-md-9, .col-md-12, .col-12 {
+        .col-md-2, .col-md-3, .col-md-5, .col-md-6, .col-md-9, .col-md-12, .col-12 {
             padding-left: 10px;
             padding-right: 10px;
             flex: 0 0 100%;
@@ -683,6 +812,16 @@
 
         .card-footer .btn-outline-primary {
             width: 100%;
+        }
+
+        /* Règles de saisie */
+        .regles-card .card-body .row {
+            flex-direction: column;
+        }
+
+        /* Calendrier */
+        .calendar-day-card {
+            margin-bottom: 0.5rem;
         }
 
         /* Stock */
@@ -828,7 +967,7 @@
             width: calc(100% + 16px);
         }
 
-        .col-md-2, .col-md-3, .col-md-5, .col-md-9, .col-md-12, .col-12 {
+        .col-md-2, .col-md-3, .col-md-5, .col-md-6, .col-md-9, .col-md-12, .col-12 {
             padding-left: 8px;
             padding-right: 8px;
         }
@@ -914,7 +1053,7 @@
             width: calc(100% + 12px);
         }
 
-        .col-md-2, .col-md-3, .col-md-5, .col-md-9, .col-md-12, .col-12 {
+        .col-md-2, .col-md-3, .col-md-5, .col-md-6, .col-md-9, .col-md-12, .col-12 {
             padding-left: 6px;
             padding-right: 6px;
         }
@@ -1053,7 +1192,7 @@
     <div class="container-fluid mt-3 mt-md-4">
         <div class="row">
             <div class="col-12 {% if afficher_formulaire_complet %}col-md-9{% else %}col-md-12{% endif %}">
-                
+
                 <!-- ================================================================= -->
                 <!-- ÉTAPE 1 : Sélection Poste/Date avec BOUTON SUIVANT -->
                 <!-- ================================================================= -->
@@ -1085,15 +1224,32 @@
                                     <label class="form-label fw-bold">
                                         <i class="fas fa-calendar-alt me-1"></i> Date <span class="text-danger">*</span>
                                     </label>
-                                    <input 
-                                        type="date" 
-                                        name="date" 
-                                        id="id_date" 
+                                    <input
+                                        type="date"
+                                        name="date"
+                                        id="id_date"
                                         class="form-control form-control-lg"
-                                        value="{% if date_selectionnee %}{{ date_selectionnee|date:'Y-m-d' }}{% else %}{{ form.date.value|date:'Y-m-d' }}{% endif %}"
-                                        max="{{ "now"|date:'Y-m-d' }}"
+                                        value="{% if date_selectionnee %}{{ date_selectionnee|date:'Y-m-d' }}{% else %}{{ date_max_autorisee|date:'Y-m-d' }}{% endif %}"
+                                        max="{{ date_max_autorisee|date:'Y-m-d' }}"
                                         required
                                     >
+
+                                    {# Message d'aide sur les dates autorisées #}
+                                    <div class="mt-2">
+                                        {% if date_invalide %}
+                                        <div class="alert alert-danger alert-sm mb-0 py-2">
+                                            <i class="fas fa-exclamation-circle me-1"></i>
+                                            <strong>Date non autorisée !</strong>
+                                            Vous ne pouvez pas saisir la recette du jour même.
+                                        </div>
+                                        {% else %}
+                                        <div class="alert alert-info alert-sm mb-0 py-2">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Saisie autorisée du <strong>{{ date_max_autorisee|date:"d/m/Y" }}</strong> (J-1)
+                                            jusqu'au <strong>{{ date_min_affichee|date:"d/m/Y" }}</strong>
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 <div class="col-12 col-md-2 d-flex align-items-end">
                                     <button type="submit" class="btn btn-suivant w-100" id="btnSuivant" disabled>
@@ -1101,7 +1257,7 @@
                                     </button>
                                 </div>
                             </div>
-                            
+
                             <!-- Message d'indication dynamique -->
                             <div id="selectionHint" class="selection-hint mt-3">
                                 <i class="fas fa-info-circle me-2 text-warning"></i>
@@ -1109,7 +1265,7 @@
                             </div>
                         </form>
                     </div>
-                    
+
                     {% if afficher_formulaire_complet %}
                     <!-- Récapitulatif de la sélection -->
                     <div class="card-footer bg-light">
@@ -1127,7 +1283,215 @@
                     </div>
                     {% endif %}
                 </div>
-                
+                {% if recette_existante %}
+                <!-- ================================================================= -->
+                <!-- ALERTE : RECETTE EXISTANTE DÉTECTÉE                               -->
+                <!-- ================================================================= -->
+                <div class="card mb-3" style="border: 3px solid #dc3545; border-radius: 12px;">
+                    <div class="card-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
+                        <h5 class="mb-0 d-flex align-items-center flex-wrap gap-2">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Recette déjà enregistrée pour cette date</span>
+                        </h5>
+                    </div>
+                    <div class="card-body" style="background: #fff5f5;">
+                        <div class="row">
+                            <div class="col-12 col-md-6 mb-3 mb-md-0">
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fas fa-calendar-alt text-danger"></i>
+                                        <strong>Date :</strong>
+                                        <span>{{ recette_existante.date|date:"d/m/Y" }}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fas fa-building text-danger"></i>
+                                        <strong>Poste :</strong>
+                                        <span>{{ recette_existante.poste.nom }}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fas fa-user text-danger"></i>
+                                        <strong>Saisie par :</strong>
+                                        <span>{{ recette_existante.chef_poste.nom_complet|default:"N/A" }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="text-center p-3" style="background: white; border-radius: 10px; border: 2px solid #dc3545;">
+                                    <div class="text-muted mb-1">
+                                        <i class="fas fa-money-bill-wave"></i> Montant enregistré
+                                    </div>
+                                    <div style="font-size: 1.75rem; font-weight: bold; color: #dc3545;">
+                                        {{ recette_existante.montant_declare|floatformat:0|default:"0"|format_milliers }} FCFA
+                                    </div>
+                                    <div class="text-muted mt-1" style="font-size: 0.85rem;">
+                                        <i class="fas fa-clock"></i>
+                                        Saisie le {{ recette_existante.date_saisie|date:"d/m/Y à H:i"|default:"N/A" }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-3">
+
+                        <div class="d-flex flex-wrap gap-2 justify-content-center">
+                            <a href="{% url 'inventaire:recette_detail' recette_existante.pk %}"
+                               class="btn btn-outline-danger">
+                                <i class="fas fa-eye me-1"></i>
+                                Voir les détails de cette recette
+                            </a>
+                            <a href="{% url 'inventaire:liste_recettes' %}"
+                               class="btn btn-secondary">
+                                <i class="fas fa-list me-1"></i>
+                                Consulter toutes les recettes
+                            </a>
+                        </div>
+
+                        <div class="alert alert-info mt-3 mb-0" style="border-radius: 8px;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Que faire ?</strong>
+                            Veuillez sélectionner une autre date pour saisir une nouvelle recette,
+                            ou consultez la recette existante si vous souhaitez vérifier les informations enregistrées.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if not afficher_formulaire_complet %}
+                <!-- ================================================================= -->
+                <!-- SECTION EXPLICATIVE DES RÈGLES (visible avant sélection) -->
+                <!-- ================================================================= -->
+                <div class="card regles-card mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-white">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            Règles de saisie des recettes
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12 col-md-6 mb-3 mb-md-0">
+                                <h6 class="text-success">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Dates AUTORISÉES
+                                </h6>
+                                <ul class="regles-list">
+                                    <li>
+                                        <i class="fas fa-arrow-right text-success"></i>
+                                        <div>
+                                            <strong>J-1 :</strong>
+                                            {{ date_max_autorisee|date:"l d F Y" }}
+                                            <span class="badge bg-success">Recommandé</span>
+                                            <br>
+                                            <small class="text-muted">Saisir la recette de la veille</small>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-arrow-right text-success"></i>
+                                        <div>
+                                            <strong>J-2, J-3, etc. :</strong>
+                                            Toutes les dates antérieures
+                                            <br>
+                                            <small class="text-muted">Vous pouvez saisir les recettes en retard</small>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <h6 class="text-danger">
+                                    <i class="fas fa-times-circle me-1"></i>
+                                    Dates INTERDITES
+                                </h6>
+                                <ul class="regles-list">
+                                    <li>
+                                        <i class="fas fa-ban text-danger"></i>
+                                        <div>
+                                            <strong>Aujourd'hui (J) :</strong>
+                                            {{ "now"|date:"l d F Y" }}
+                                            <span class="badge bg-danger">Bloqué</span>
+                                            <br>
+                                            <small class="text-muted">Impossible de saisir le jour même</small>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <i class="fas fa-ban text-danger"></i>
+                                        <div>
+                                            <strong>Dates futures :</strong>
+                                            Impossible de saisir à l'avance
+                                            <br>
+                                            <small class="text-muted">La recette du jour J est saisie le lendemain (J+1)</small>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Pourquoi cette règle ?</strong>
+                            La recette d'une journée ne peut être consolidée qu'une fois la journée complètement terminée.
+                            C'est pourquoi la saisie pour le jour J est interdite.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================================================================= -->
+                <!-- CALENDRIER VISUEL DES 7 DERNIERS JOURS (optionnel) -->
+                <!-- ================================================================= -->
+                {% if poste_selectionne %}
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-week me-2"></i>
+                            Aperçu des 7 derniers jours
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            {% for i in "0123456" %}
+                            {% with jour_offset=i|add:"0" %}
+                            {# Calculer la date : date_max_autorisee - i jours #}
+                            <div class="col">
+                                <div class="card calendar-day-card text-center {% if forloop.counter == 1 %}selected{% endif %}">
+                                    <div class="card-body p-2">
+                                        <div class="small text-muted">
+                                            {# Afficher le jour de la semaine #}
+                                        </div>
+                                        <div class="fw-bold">
+                                            {# Afficher le numéro du jour #}
+                                        </div>
+                                        <div class="small">
+                                            {# Afficher le mois #}
+                                        </div>
+
+                                        {# Badge de statut : saisie effectuée ou en attente #}
+                                        <span class="badge bg-warning w-100 mt-1">
+                                            <i class="fas fa-clock"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endwith %}
+                            {% endfor %}
+                        </div>
+
+                        <div class="mt-3 d-flex justify-content-center gap-3 flex-wrap">
+                            <span class="small">
+                                <i class="fas fa-check text-success me-1"></i>
+                                Saisie effectuée
+                            </span>
+                            <span class="small">
+                                <i class="fas fa-clock text-warning me-1"></i>
+                                En attente de saisie
+                            </span>
+                            <span class="small">
+                                <i class="fas fa-ban text-danger me-1"></i>
+                                Date interdite
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+
                 {% if afficher_formulaire_complet %}
                 <!-- ================================================================= -->
                 <!-- STOCK DISPONIBLE -->
@@ -1151,7 +1515,7 @@
                                     <small class="text-muted">{{ stock_couleur.valeur_totale|floatformat:0|format_milliers }} FCFA</small>
                                 </div>
                             </div>
-                            
+
                             <div class="series-list">
                                 <strong class="text-muted" style="font-size: 0.85rem;">Séries disponibles :</strong>
                                 {% for serie in stock_couleur.series %}
@@ -1169,10 +1533,11 @@
                 {% else %}
                 <div class="alert alert-warning">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Aucun stock disponible</strong> pour ce poste. Vous ne pourrez pas saisir de recette.
+                    <strong>Aucun stock disponible</strong> pour ce poste à la date {{ date_selectionnee|date:"d/m/Y" }}.
+                    Vous ne pourrez pas saisir de recette.
                 </div>
                 {% endif %}
-                
+
                 <!-- ================================================================= -->
                 <!-- ÉTAPE 2 : FORMULAIRE DE SAISIE DES SÉRIES -->
                 <!-- ================================================================= -->
@@ -1188,19 +1553,28 @@
                     <div class="card-body">
                         <form method="post" id="formRecette">
                             {% csrf_token %}
-                            
+
                             <!-- Champs cachés pour poste et date -->
                             <input type="hidden" name="poste" value="{{ poste_selectionne.id }}">
                             <input type="hidden" name="date" value="{{ date_selectionnee|date:'Y-m-d' }}">
-                            
+
                             {% if form.errors or formset.errors %}
                             <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
                                 <strong>Erreurs de saisie :</strong>
-                                {{ form.errors }}
-                                {{ formset.errors }}
+                                <ul class="mb-0 mt-2">
+                                    {% for field, errors in form.errors.items %}
+                                    <li><strong>{{ field }} :</strong> {{ errors|join:", " }}</li>
+                                    {% endfor %}
+                                    {% for form_error in formset.errors %}
+                                    {% if form_error %}
+                                    <li>{{ form_error }}</li>
+                                    {% endif %}
+                                    {% endfor %}
+                                </ul>
                             </div>
                             {% endif %}
-                            
+
                             <!-- Séries de tickets vendus -->
                             <div class="card mb-4 border-primary">
                                 <div class="card-header bg-light">
@@ -1208,7 +1582,7 @@
                                 </div>
                                 <div class="card-body">
                                     {{ formset.management_form }}
-                                    
+
                                     <div id="formset-container">
                                         {% for form_detail in formset %}
                                         <div class="formset-row" data-formset-index="{{ forloop.counter0 }}">
@@ -1220,7 +1594,7 @@
                                                 </button>
                                                 {% endif %}
                                             </div>
-                                            
+
                                             <div class="row">
                                                 <!-- Couleur -->
                                                 <div class="col-12 col-md-3 mb-2">
@@ -1228,37 +1602,35 @@
                                                     {{ form_detail.couleur }}
                                                     <small class="text-muted">Couleurs en stock</small>
                                                 </div>
-                                                
+
                                                 <!-- Premier numéro -->
                                                 <div class="col-12 col-md-2 mb-2">
                                                     <label class="form-label fw-bold">{{ form_detail.numero_premier.label }} *</label>
                                                     {{ form_detail.numero_premier }}
                                                 </div>
-                                                
+
                                                 <!-- Dernier numéro -->
                                                 <div class="col-12 col-md-2 mb-2">
                                                     <label class="form-label fw-bold">{{ form_detail.numero_dernier.label }} *</label>
                                                     {{ form_detail.numero_dernier }}
                                                 </div>
-                                                
+
                                                 <!-- Nombre (calculé) -->
                                                 <div class="col-12 col-md-2 mb-2">
                                                     <label class="form-label">Nombre</label>
                                                     <input type="text" class="form-control form-calculated nombre-tickets-calc" readonly>
                                                 </div>
-                                                
+
                                                 <!-- Montant (calculé) -->
                                                 <div class="col-12 col-md-3 mb-2">
                                                     <label class="form-label">Montant (FCFA)</label>
                                                     <input type="text" class="form-control form-calculated montant-calc" readonly>
                                                 </div>
                                             </div>
-                                            
-                                            {% comment %} {{ form_detail.DELETE }} {% endcomment %}
                                         </div>
                                         {% endfor %}
                                     </div>
-                                    
+
                                     <div class="text-center mt-3">
                                         <button type="button" class="btn btn-add-serie" onclick="addFormset()">
                                             <i class="fas fa-plus me-2"></i>Ajouter une autre série
@@ -1266,7 +1638,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Montant total calculé -->
                             <div class="card mb-3 montant-total-card">
                                 <div class="card-body text-center">
@@ -1275,13 +1647,17 @@
                                     <input type="hidden" name="montant_declare" id="montant_declare" value="0">
                                 </div>
                             </div>
-                            
+
                             <!-- Observations -->
                             <div class="mb-3">
-                                <label class="form-label fw-bold">{{ form.observations.label }}</label>
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-comment-alt me-1"></i>
+                                    {{ form.observations.label }}
+                                </label>
                                 {{ form.observations }}
+                                <small class="text-muted">Ajoutez des remarques ou observations concernant cette recette (optionnel)</small>
                             </div>
-                            
+
                             <div class="text-center mt-4">
                                 <button type="submit" class="btn btn-success btn-lg mb-2">
                                     <i class="fas fa-save me-2"></i>Valider la recette
@@ -1296,9 +1672,11 @@
                 {% endif %}
                 {% endif %}
             </div>
-            
+
             {% if afficher_formulaire_complet %}
-            <!-- Colonne latérale : statistiques -->
+            <!-- ================================================================= -->
+            <!-- COLONNE LATÉRALE : STATISTIQUES ET RECETTES RÉCENTES -->
+            <!-- ================================================================= -->
             <div class="col-12 col-md-3 stats-sidebar">
                 <!-- Statistiques rapides -->
                 <div class="card mb-3">
@@ -1306,11 +1684,19 @@
                         <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Statistiques</h5>
                     </div>
                     <div class="card-body">
-                        <p><strong>Total du mois :</strong><br>{{ stats.total_mois|floatformat:0|default:"0"|format_milliers }} FCFA</p>
-                        <p class="mb-0"><strong>Taux moyen :</strong><br>{{ stats.moyenne_taux|floatformat:2|default:"0"|format_milliers }}%</p>
+                        <p>
+                            <strong>Total du mois :</strong><br>
+                            <span class="text-success fs-5">{{ stats.total_mois|floatformat:0|default:"0"|format_milliers }} FCFA</span>
+                        </p>
+                        <p class="mb-0">
+                            <strong>Taux moyen :</strong><br>
+                            <span class="{% if stats.moyenne_taux >= -10 %}text-success{% elif stats.moyenne_taux >= -30 %}text-warning{% else %}text-danger{% endif %} fs-5">
+                                {{ stats.moyenne_taux|floatformat:2|default:"0" }}%
+                            </span>
+                        </p>
                     </div>
                 </div>
-                
+
                 <!-- Recettes récentes -->
                 <div class="card">
                     <div class="card-header bg-light">
@@ -1322,12 +1708,15 @@
                             <a href="{% url 'inventaire:recette_detail' recette.pk %}" class="list-group-item list-group-item-action">
                                 <div class="d-flex justify-content-between flex-wrap gap-1">
                                     <small><strong>{{ recette.date|date:"d/m" }}</strong></small>
-                                    <small class="text-success">{{ recette.montant_declare|floatformat:0|format_milliers }} FCFA</small>
+                                    <small class="text-success fw-bold">{{ recette.montant_declare|floatformat:0|format_milliers }} FCFA</small>
                                 </div>
                                 <small class="text-muted">{{ recette.poste.nom }}</small>
                             </a>
                             {% empty %}
-                            <p class="text-muted text-center mb-0">Aucune recette récente</p>
+                            <p class="text-muted text-center mb-0 py-3">
+                                <i class="fas fa-inbox me-2"></i>
+                                Aucune recette récente
+                            </p>
                             {% endfor %}
                         </div>
                     </div>
@@ -1341,119 +1730,353 @@
 <!-- ================================================================= -->
 <!-- JAVASCRIPT : Gestion du bouton Suivant et des formsets -->
 <!-- ================================================================= -->
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // ===================================================================
-    // GESTION DU BOUTON SUIVANT (ÉTAPE 1)
+    // GESTION DU BOUTON SUIVANT (ÉTAPE 1) - VERSION CORRIGÉE
     // ===================================================================
+
     const posteSelect = document.getElementById('id_poste');
     const dateInput = document.getElementById('id_date');
     const btnSuivant = document.getElementById('btnSuivant');
     const selectionHint = document.getElementById('selectionHint');
     const hintText = document.getElementById('hintText');
-    
+
+    // ===================================================================
+    // CORRECTION #1 : Utiliser une date JavaScript au lieu de chaînes
+    // ===================================================================
+
+    // Date maximale autorisée (J-1) - PARSÉE CORRECTEMENT
+    const dateMaxAutoriseeStr = '{{ date_max_autorisee|date:"Y-m-d" }}';
+
+    // Créer un objet Date pour comparaison fiable
+    // Si le template ne fournit pas la date, calculer côté client
+    let dateMaxAutorisee;
+    if (dateMaxAutoriseeStr && dateMaxAutoriseeStr !== '' && dateMaxAutoriseeStr !== 'None') {
+        dateMaxAutorisee = new Date(dateMaxAutoriseeStr + 'T00:00:00');
+    } else {
+        // Fallback : calculer J-1 côté client
+        const aujourdhui = new Date();
+        dateMaxAutorisee = new Date(aujourdhui);
+        dateMaxAutorisee.setDate(dateMaxAutorisee.getDate() - 1);
+    }
+
+    // Date d'aujourd'hui pour comparaison
+    const aujourdhui = new Date();
+    aujourdhui.setHours(0, 0, 0, 0);  // Normaliser à minuit
+
+    // Log pour debug (à retirer en production)
+    console.log('[SUPPER DEBUG] Date max autorisée:', dateMaxAutorisee.toISOString().split('T')[0]);
+    console.log('[SUPPER DEBUG] Aujourd\'hui:', aujourdhui.toISOString().split('T')[0]);
+
+    // ===================================================================
+    // CORRECTION #2 : Fonction de validation robuste
+    // ===================================================================
+
+    function validateDate() {
+        // Si pas d'input date, retourner false (pas d'erreur, juste pas validé)
+        if (!dateInput || !dateInput.value) {
+            console.log('[SUPPER DEBUG] Pas de date sélectionnée');
+            return { valid: false, reason: 'empty' };
+        }
+
+        const dateValue = dateInput.value;  // Format: YYYY-MM-DD (standard HTML5)
+
+        // Parser la date sélectionnée
+        const dateParts = dateValue.split('-');
+        if (dateParts.length !== 3) {
+            console.log('[SUPPER DEBUG] Format de date invalide:', dateValue);
+            return { valid: false, reason: 'format' };
+        }
+
+        // Créer objet Date pour la valeur saisie
+        const dateSelectionnee = new Date(
+            parseInt(dateParts[0]),      // Année
+            parseInt(dateParts[1]) - 1,  // Mois (0-indexé)
+            parseInt(dateParts[2])       // Jour
+        );
+        dateSelectionnee.setHours(0, 0, 0, 0);  // Normaliser à minuit
+
+        console.log('[SUPPER DEBUG] Date sélectionnée:', dateSelectionnee.toISOString().split('T')[0]);
+
+        // ===================================================================
+        // VALIDATION : La date doit être <= J-1 (date max autorisée)
+        // ===================================================================
+
+        // Comparer les timestamps (plus fiable que les chaînes)
+        if (dateSelectionnee.getTime() > dateMaxAutorisee.getTime()) {
+            // Date trop récente (aujourd'hui ou futur)
+            console.log('[SUPPER DEBUG] Date refusée - trop récente');
+            dateInput.classList.add('is-invalid');
+            dateInput.classList.remove('is-valid');
+            return { valid: false, reason: 'future' };
+        }
+
+        // Date valide
+        console.log('[SUPPER DEBUG] Date acceptée');
+        dateInput.classList.remove('is-invalid');
+        dateInput.classList.add('is-valid');
+        return { valid: true, reason: 'ok' };
+    }
+
+    // ===================================================================
+    // CORRECTION #3 : Mise à jour de l'état du bouton plus robuste
+    // ===================================================================
+
     function updateButtonState() {
-        const posteSelected = posteSelect && posteSelect.value;
-        const dateSelected = dateInput && dateInput.value;
-        
-        if (posteSelected && dateSelected) {
-            // Les deux champs sont remplis
+        // Vérifier l'existence des éléments
+        if (!posteSelect || !dateInput || !btnSuivant) {
+            console.warn('[SUPPER DEBUG] Éléments manquants dans le DOM');
+            return;
+        }
+
+        const posteSelected = posteSelect.value && posteSelect.value !== '';
+        const dateSelected = dateInput.value && dateInput.value !== '';
+
+        // Valider la date seulement si elle est sélectionnée
+        let dateValidation = { valid: false, reason: 'empty' };
+        if (dateSelected) {
+            dateValidation = validateDate();
+        }
+
+        console.log('[SUPPER DEBUG] État:', {
+            posteSelected: posteSelected,
+            dateSelected: dateSelected,
+            dateValid: dateValidation.valid,
+            reason: dateValidation.reason
+        });
+
+        // ===================================================================
+        // Logique de mise à jour du bouton et du message
+        // ===================================================================
+
+        if (posteSelected && dateSelected && dateValidation.valid) {
+            // ✅ Tout est OK - activer le bouton
             btnSuivant.disabled = false;
-            selectionHint.classList.add('selection-complete');
-            selectionHint.classList.remove('selection-hint');
-            hintText.innerHTML = '<i class="fas fa-check-circle me-2 text-success"></i>Cliquez sur <strong>Suivant</strong> pour afficher le stock et le formulaire de saisie.';
-        } else if (posteSelected) {
-            // Seulement le poste
+            btnSuivant.classList.remove('btn-secondary');
+            btnSuivant.classList.add('btn-suivant');
+
+            if (selectionHint && hintText) {
+                selectionHint.classList.add('selection-complete');
+                selectionHint.style.background = '#d1fae5';
+                selectionHint.style.borderLeftColor = '#10b981';
+                hintText.innerHTML = '<i class="fas fa-check-circle me-2 text-success"></i>Cliquez sur <strong>Suivant</strong> pour afficher le stock et le formulaire de saisie.';
+            }
+
+        } else if (posteSelected && dateSelected && !dateValidation.valid) {
+            // ❌ Date invalide
             btnSuivant.disabled = true;
-            selectionHint.classList.remove('selection-complete');
-            hintText.innerHTML = '<i class="fas fa-calendar-alt me-2"></i>Maintenant, sélectionnez une <strong>date</strong>.';
-        } else if (dateSelected) {
-            // Seulement la date
+
+            if (selectionHint && hintText) {
+                selectionHint.classList.remove('selection-complete');
+                selectionHint.style.background = '#fee2e2';
+                selectionHint.style.borderLeftColor = '#dc3545';
+
+                if (dateValidation.reason === 'future') {
+                    hintText.innerHTML = '<i class="fas fa-exclamation-triangle me-2 text-danger"></i><strong>Date non autorisée !</strong> Vous ne pouvez pas saisir la recette pour le jour J ou dans le futur. Sélectionnez J-1 ou une date antérieure.';
+                } else {
+                    hintText.innerHTML = '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>Format de date invalide.';
+                }
+            }
+
+        } else if (posteSelected && !dateSelected) {
+            // ⏳ Poste OK, en attente de la date
             btnSuivant.disabled = true;
-            selectionHint.classList.remove('selection-complete');
-            hintText.innerHTML = '<i class="fas fa-building me-2"></i>Veuillez sélectionner un <strong>poste</strong>.';
+
+            if (selectionHint && hintText) {
+                selectionHint.classList.remove('selection-complete');
+                selectionHint.style.background = '#fef3c7';
+                selectionHint.style.borderLeftColor = '#f59e0b';
+                hintText.innerHTML = '<i class="fas fa-calendar-alt me-2"></i>Maintenant, sélectionnez une <strong>date</strong> (J-1 ou antérieure).';
+            }
+
+        } else if (!posteSelected && dateSelected) {
+            // ⏳ Date OK, en attente du poste
+            btnSuivant.disabled = true;
+
+            if (selectionHint && hintText) {
+                selectionHint.classList.remove('selection-complete');
+                selectionHint.style.background = '#fef3c7';
+                selectionHint.style.borderLeftColor = '#f59e0b';
+                hintText.innerHTML = '<i class="fas fa-building me-2"></i>Veuillez sélectionner un <strong>poste</strong>.';
+            }
+
         } else {
-            // Aucun champ rempli
+            // ⏳ Rien de sélectionné
             btnSuivant.disabled = true;
-            selectionHint.classList.remove('selection-complete');
-            hintText.innerHTML = '<i class="fas fa-info-circle me-2"></i>Veuillez sélectionner un poste et une date pour continuer.';
+
+            if (selectionHint && hintText) {
+                selectionHint.classList.remove('selection-complete');
+                selectionHint.style.background = '#fef3c7';
+                selectionHint.style.borderLeftColor = '#f59e0b';
+                hintText.innerHTML = '<i class="fas fa-info-circle me-2"></i>Veuillez sélectionner un poste et une date pour continuer.';
+            }
         }
     }
-    
-    // Écouter les changements sur les champs
-    if (posteSelect) {
-        posteSelect.addEventListener('change', updateButtonState);
-    }
+
+    // ===================================================================
+    // CORRECTION #4 : Attacher les événements de manière robuste
+    // ===================================================================
+
     if (dateInput) {
-        dateInput.addEventListener('change', updateButtonState);
-        dateInput.addEventListener('input', updateButtonState);
+        // Événements multiples pour couvrir tous les cas
+        dateInput.addEventListener('change', function() {
+            console.log('[SUPPER DEBUG] Événement change sur date');
+            updateButtonState();
+        });
+
+        dateInput.addEventListener('input', function() {
+            console.log('[SUPPER DEBUG] Événement input sur date');
+            updateButtonState();
+        });
+
+        // Aussi sur blur (quand l'utilisateur quitte le champ)
+        dateInput.addEventListener('blur', function() {
+            console.log('[SUPPER DEBUG] Événement blur sur date');
+            updateButtonState();
+        });
     }
-    
-    // État initial
+
+    if (posteSelect) {
+        posteSelect.addEventListener('change', function() {
+            console.log('[SUPPER DEBUG] Événement change sur poste');
+            updateButtonState();
+        });
+    }
+
+    // ===================================================================
+    // CORRECTION #5 : Validation au submit du formulaire
+    // ===================================================================
+
+    const formSelection = document.getElementById('formSelection');
+    if (formSelection) {
+        formSelection.addEventListener('submit', function(e) {
+            const dateValidation = validateDate();
+
+            if (!dateValidation.valid) {
+                e.preventDefault();
+
+                let message = '⚠️ DATE NON AUTORISÉE\n\n';
+                if (dateValidation.reason === 'future') {
+                    const dateMaxStr = dateMaxAutorisee.toLocaleDateString('fr-FR');
+                    message += 'Vous ne pouvez pas saisir la recette pour cette date.\n';
+                    message += 'Saisie autorisée uniquement pour J-1 et avant.\n\n';
+                    message += 'Date maximale autorisée : ' + dateMaxStr;
+                } else if (dateValidation.reason === 'empty') {
+                    message = '⚠️ Veuillez sélectionner une date.';
+                } else {
+                    message += 'Format de date invalide.';
+                }
+
+                alert(message);
+                if (dateInput) dateInput.focus();
+                return false;
+            }
+
+            // Vérifier aussi le poste
+            if (!posteSelect || !posteSelect.value) {
+                e.preventDefault();
+                alert('⚠️ Veuillez sélectionner un poste.');
+                if (posteSelect) posteSelect.focus();
+                return false;
+            }
+        });
+    }
+
+    // ===================================================================
+    // INITIALISATION : Exécuter une première fois
+    // ===================================================================
+
+    console.log('[SUPPER DEBUG] Initialisation du formulaire de sélection');
     updateButtonState();
-    
+
+    // ===================================================================
+    // SUITE DU CODE POUR FORMSET (si formulaire complet affiché)
+    // ===================================================================
+
     {% if afficher_formulaire_complet and formset %}
-    // ===================================================================
-    // GESTION DES FORMSETS (ÉTAPE 2)
-    // ===================================================================
+    // Gestion des formsets pour les séries de tickets
     let formsetIndex = {{ formset.total_form_count }};
 
-    // Calcul automatique du montant d'une série
     window.calculerMontantSerie = function(row) {
-        const premier = parseInt(row.querySelector('[name*="numero_premier"]').value) || 0;
-        const dernier = parseInt(row.querySelector('[name*="numero_dernier"]').value) || 0;
-        
+        const premierInput = row.querySelector('[name*="numero_premier"]');
+        const dernierInput = row.querySelector('[name*="numero_dernier"]');
+
+        if (!premierInput || !dernierInput) return 0;
+
+        const premier = parseInt(premierInput.value) || 0;
+        const dernier = parseInt(dernierInput.value) || 0;
+
+        const nombreCalc = row.querySelector('.nombre-tickets-calc');
+        const montantCalc = row.querySelector('.montant-calc');
+
         if (premier > 0 && dernier >= premier) {
             const nombre = dernier - premier + 1;
             const montant = nombre * 500;
-            
-            row.querySelector('.nombre-tickets-calc').value = nombre.toLocaleString('fr-FR') + ' tickets';
-            row.querySelector('.montant-calc').value = montant.toLocaleString('fr-FR') + ' FCFA';
-            
+
+            if (nombreCalc) nombreCalc.value = nombre.toLocaleString('fr-FR') + ' tickets';
+            if (montantCalc) montantCalc.value = montant.toLocaleString('fr-FR') + ' FCFA';
+
             return montant;
         } else {
-            row.querySelector('.nombre-tickets-calc').value = '';
-            row.querySelector('.montant-calc').value = '';
+            if (nombreCalc) nombreCalc.value = '';
+            if (montantCalc) montantCalc.value = '';
             return 0;
         }
     };
 
-    // Calcul du montant total
     window.calculerMontantTotal = function() {
         let total = 0;
-        
+
         document.querySelectorAll('.formset-row:not(.to-delete)').forEach(row => {
             total += calculerMontantSerie(row);
         });
-        
-        document.getElementById('montantTotalDisplay').textContent = 
-            total.toLocaleString('fr-FR') + ' FCFA';
-        document.getElementById('montant_declare').value = total;
+
+        const totalDisplay = document.getElementById('montantTotalDisplay');
+        const totalHidden = document.getElementById('montant_declare');
+
+        if (totalDisplay) {
+            totalDisplay.textContent = total.toLocaleString('fr-FR') + ' FCFA';
+        }
+        if (totalHidden) {
+            totalHidden.value = total;
+        }
     };
 
-    // Ajouter une série
     window.addFormset = function() {
         const container = document.getElementById('formset-container');
         const totalForms = document.getElementById('id_tickets-TOTAL_FORMS');
-        
+
+        if (!container || !totalForms) return;
+
         const firstRow = document.querySelector('.formset-row');
+        if (!firstRow) return;
+
         const newRow = firstRow.cloneNode(true);
-        
+
         newRow.querySelectorAll('input, select').forEach(input => {
             const name = input.name.replace(/tickets-\d+/, `tickets-${formsetIndex}`);
             const id = input.id.replace(/id_tickets-\d+/, `id_tickets-${formsetIndex}`);
-            
+
             input.name = name;
             input.id = id;
             input.value = '';
+            input.classList.remove('is-valid', 'is-invalid');
         });
-        
+
+        const nombreCalc = newRow.querySelector('.nombre-tickets-calc');
+        const montantCalc = newRow.querySelector('.montant-calc');
+        if (nombreCalc) nombreCalc.value = '';
+        if (montantCalc) montantCalc.value = '';
+
         const header = newRow.querySelector('h6');
-        header.innerHTML = `<i class="fas fa-layer-group me-2"></i>Série #${formsetIndex + 1}`;
-        
-        // Ajouter le bouton supprimer s'il n'existe pas
+        if (header) {
+            header.innerHTML = `<i class="fas fa-layer-group me-2"></i>Série #${formsetIndex + 1}`;
+        }
+
         const formsetHeader = newRow.querySelector('.formset-header');
-        if (!newRow.querySelector('.btn-remove-serie')) {
+        if (formsetHeader && !newRow.querySelector('.btn-remove-serie')) {
             const btnRemove = document.createElement('button');
             btnRemove.type = 'button';
             btnRemove.className = 'btn btn-remove-serie';
@@ -1461,58 +2084,83 @@ document.addEventListener('DOMContentLoaded', function() {
             btnRemove.onclick = function() { removeFormset(this); };
             formsetHeader.appendChild(btnRemove);
         }
-        
+
         container.appendChild(newRow);
-        
+
         newRow.querySelectorAll('[name*="numero_"]').forEach(input => {
             input.addEventListener('input', calculerMontantTotal);
         });
-        
+
         formsetIndex++;
         totalForms.value = formsetIndex;
     };
 
-    // Supprimer une série
     window.removeFormset = function(btn) {
         const row = btn.closest('.formset-row');
-        row.classList.add('to-delete');
-        
-        const deleteInput = row.querySelector('[name*="DELETE"]');
-        if (deleteInput) {
-            deleteInput.checked = true;
-        } else {
-            row.remove();
+        if (!row) return;
+
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette série ?')) {
+            row.classList.add('to-delete');
+
+            const deleteInput = row.querySelector('[name*="DELETE"]');
+            if (deleteInput) {
+                deleteInput.checked = true;
+            } else {
+                row.remove();
+            }
+
+            calculerMontantTotal();
         }
-        
-        calculerMontantTotal();
     };
 
     // Initialisation des calculs
     calculerMontantTotal();
-    
+
     document.querySelectorAll('[name*="numero_"]').forEach(input => {
         input.addEventListener('input', calculerMontantTotal);
     });
-    
-    // Validation avant soumission
-    document.getElementById('formRecette').addEventListener('submit', function(e) {
-        const total = parseFloat(document.getElementById('montant_declare').value);
-        
-        if (total <= 0) {
-            e.preventDefault();
-            alert('Vous devez saisir au moins une série de tickets vendus');
-        }
-    });
+
+    // Validation du formulaire de recette
+    const formRecette = document.getElementById('formRecette');
+    if (formRecette) {
+        formRecette.addEventListener('submit', function(e) {
+            const totalHidden = document.getElementById('montant_declare');
+            const total = parseFloat(totalHidden ? totalHidden.value : 0);
+
+            if (total <= 0) {
+                e.preventDefault();
+                alert('⚠️ Vous devez saisir au moins une série de tickets vendus avant de valider la recette.');
+                return false;
+            }
+
+            const posteNom = '{{ poste_selectionne.nom|default:"N/A" }}';
+            const dateStr = '{{ date_selectionnee|date:"d/m/Y"|default:"N/A" }}';
+
+            const confirmation = confirm(
+                '📋 CONFIRMATION DE SAISIE\n\n' +
+                'Poste : ' + posteNom + '\n' +
+                'Date : ' + dateStr + '\n' +
+                'Montant total : ' + total.toLocaleString('fr-FR') + ' FCFA\n\n' +
+                'Confirmez-vous la validation de cette recette ?'
+            );
+
+            if (!confirmation) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    }
     {% endif %}
-    
+
     // ===================================================================
     // CORRECTION DU DÉFILEMENT HORIZONTAL SUR MOBILE
     // ===================================================================
+
     function fixMobileScrolling() {
         if (window.innerWidth <= 768) {
             document.documentElement.style.overflowX = 'hidden';
             document.body.style.overflowX = 'hidden';
-            
+
             document.querySelectorAll('.recette-page, .container-fluid').forEach(el => {
                 el.style.overflowX = 'hidden';
                 el.style.maxWidth = '100vw';
@@ -1522,7 +2170,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflowX = '';
         }
     }
-    
+
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
 });

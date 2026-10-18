@@ -295,21 +295,16 @@ def log_inventaire_deletion(sender, instance, **kwargs):
 def log_recette_deletion(sender, instance, **kwargs):
     """Journalise la suppression de recettes"""
     try:
-        from accounts.models import JournalAudit
-        
-        # Créer une entrée de journal pour la suppression
-        JournalAudit.objects.create(
-            utilisateur=None,  # Impossible de récupérer l'utilisateur après suppression
-            action="Suppression recette",
-            details=f"Recette supprimée: {instance.poste.nom} du {instance.date} | Montant: {instance.montant_declare} FCFA",
-            succes=True
+        # Ne PAS créer de JournalAudit ici car utilisateur=None
+        # viole la contrainte NOT NULL et provoque un rollback
+        # de toute la transaction atomic.
+        # La journalisation est faite manuellement dans la vue supprimer_recette.
+        logger.warning(
+            f"Signal post_delete RecetteJournaliere: "
+            f"{instance.poste.nom} du {instance.date} - {instance.montant_declare} FCFA"
         )
-        
-        logger.warning(f"Recette supprimée: {instance.poste.nom} du {instance.date} - {instance.montant_declare} FCFA")
-        
     except Exception as e:
         logger.error(f"Erreur signal suppression recette: {str(e)}")
-
 
 # ===================================================================
 # UTILITAIRES POUR LA MAINTENANCE DES SIGNAUX

@@ -30,8 +30,16 @@ SECRET_KEY = config('SECRET_KEY', default='5326326435Jid@nell!$%&/()=?^$#@!z8y7x
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Hôtes autorisés
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1, JidanelS.pythonanaywhere.com').split(',')
+# ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='JidanelS.pythonanaywhere.com').split(',')
 # ALLOWED_HOSTS = ('10.87.11.160')
+ALLOWED_HOSTS = [
+    'jidanels.pythonanywhere.com',
+    'www.jidanels.pythonanywhere.com',
+    'localhost',
+    '127.0.0.1',
+    'supper-cm.ink',
+    'www.supper-cm.ink',
+]
 # ===================================================================
 # APPLICATIONS INSTALLÉES
 # ===================================================================
@@ -43,11 +51,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Applications SUPPER
     'accounts.apps.AccountsConfig',      # Gestion des utilisateurs et authentification
     'inventaire.apps.InventaireConfig',  # Module de gestion des inventaires
-    'common.apps.CommonConfig', 
+    'common.apps.CommonConfig',
 ]
 
 # ===================================================================
@@ -57,7 +65,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',      
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -103,18 +111,20 @@ WSGI_APPLICATION = 'Supper.wsgi.application'
 # ===================================================================
 
 DATABASES = {
-     'default': {
+     'default':{
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='supper_db'),
-        'USER': config('DB_USER', default='supper_user'),
-        'PASSWORD': config('DB_PASSWORD', default='SupperDB2025'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+        'NAME': config('DB_NAME', default='postgres'),
+        'USER': config('DB_USER', default='super'),
+        'PASSWORD': config('DB_PASSWORD', default='Supper2025'),
+        'HOST': config('DB_HOST', default='JidanelS-5000.postgres.pythonanywhere-services.com'),
+        'PORT': config('DB_PORT', default='15000'),
         'CONN_MAX_AGE': 60,
+        # 'default':{
+        #     'ENGINE':'django.db.backends.sqlite3',
+        #     'NAME':BASE_DIR/'db.sqlite3',
 
-    #      'ENGINE': 'django.db.backends.sqlite3',
-    #      'NAME': BASE_DIR / 'db_test.sqlite3',
-     }
+
+}
  }
 # # Fallback SQLite pour les tests si PostgreSQL non disponible
 # if config('USE_SQLITE_FOR_TESTS', default=False, cast=bool):
@@ -171,15 +181,24 @@ LOCALE_PATHS = [
 # FICHIERS STATIQUES ET MÉDIA
 # ===================================================================
 
+# STATIC_URL = '/static/'
+# STATICFILES_DIRS = [
+#     BASE_DIR / 'static',
+# ]
+# STATIC_ROOT = BASE_DIR / 'staticfiles'  # Pour la collecte en production
+
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # ← AJOUTER CETTE LIGNE
+
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    os.path.join(BASE_DIR, 'static'),
 ]
-STATIC_ROOT = BASE_DIR / 'staticfiles'  # Pour la collecte en production
 
 # Fichiers média (uploads utilisateurs, photos, documents)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+#MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # ===================================================================
 # MODÈLE UTILISATEUR PERSONNALISÉ
@@ -200,104 +219,129 @@ SESSION_COOKIE_AGE = 3600  # 1 heure d'inactivité
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  # Nécessaire pour la journalisation
 SESSION_COOKIE_NAME = 'supper_sessionid'
-SESSION_COOKIE_SECURE = not DEBUG  # HTTPS en production
+SESSION_COOKIE_SECURE = True  # HTTPS en production
 SESSION_COOKIE_HTTPONLY = True
+
 
 # ===================================================================
 # CONFIGURATION DE LA JOURNALISATION COMPLÈTE
 # ===================================================================
 
 # Créer le dossier logs s'il n'existe pas
-LOGS_DIR = BASE_DIR / 'logs'
-LOGS_DIR.mkdir(exist_ok=True)
+# LOGS_DIR = BASE_DIR / 'logs'
+# LOGS_DIR.mkdir(exist_ok=True)
+
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'formatters': {
+#         'verbose': {
+#             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+#             'style': '{',
+#         },
+#         'simple': {
+#             'format': '{levelname} {asctime} {message}',
+#             'style': '{',
+#         },
+#         'audit': {
+#             'format': '{asctime} | {name} | {levelname} | {message}',
+#             'style': '{',
+#         },
+#     },
+#     'handlers': {
+#         # Fichier principal de l'application
+#         'file_app': {
+#             'level': 'INFO',
+#             'class': 'logging.handlers.RotatingFileHandler',
+#             'filename': LOGS_DIR / 'supper_app.log',
+#             'maxBytes': 5*1024*1024,  # 5 MB
+#             'backupCount': 5,
+#             'formatter': 'verbose',
+#             'encoding': 'utf-8',
+#         },
+#         # Fichier spécifique pour l'audit utilisateur
+#         'file_audit': {
+#             'level': 'INFO',
+#             'class': 'logging.handlers.RotatingFileHandler',
+#             'filename': LOGS_DIR / 'supper_audit.log',
+#             'maxBytes': 10*1024*1024,  # 10 MB
+#             'backupCount': 10,
+#             'formatter': 'audit',
+#             'encoding': 'utf-8',
+#         },
+#         # Fichier pour les erreurs
+#         'file_error': {
+#             'level': 'ERROR',
+#             'class': 'logging.handlers.RotatingFileHandler',
+#             'filename': LOGS_DIR / 'supper_errors.log',
+#             'maxBytes': 5*1024*1024,  # 5 MB
+#             'backupCount': 3,
+#             'formatter': 'verbose',
+#             'encoding': 'utf-8',
+#         },
+#         # Console pour le développement
+#         'console': {
+#             'level': 'DEBUG' if DEBUG else 'INFO',
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'simple',
+#         },
+#     },
+#     'loggers': {
+#         # Logger principal de SUPPER
+#         'supper': {
+#             'handlers': ['file_app', 'file_audit', 'console'],
+#             'level': 'INFO',
+#             'propagate': False,
+#         },
+#         # Logger Django
+#         'django': {
+#             'handlers': ['file_error', 'console'],
+#             'level': 'INFO',
+#             'propagate': False,
+#         },
+#         # Logger base de données (limité pour éviter trop de logs)
+#         'django.db.backends': {
+#             'handlers': ['file_app'],
+#             'level': 'WARNING',
+#             'propagate': False,
+#         },
+#         # Logger requêtes HTTP
+#         'django.request': {
+#             'handlers': ['file_error', 'console'],
+#             'level': 'ERROR',
+#             'propagate': False,
+#         },
+#     },
+#     'root': {
+#         'handlers': ['console'],
+#         'level': 'WARNING',
+#     },
+# }
+
+# ===================================================================
+# CONFIGURATION DE LA JOURNALISATION - VERSION PYTHONANYWHERE
+# ===================================================================
 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {asctime} {message}',
-            'style': '{',
-        },
-        'audit': {
-            'format': '{asctime} | {name} | {levelname} | {message}',
-            'style': '{',
-        },
-    },
     'handlers': {
-        # Fichier principal de l'application
-        'file_app': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': LOGS_DIR / 'supper_app.log',
-            'maxBytes': 5*1024*1024,  # 5 MB
-            'backupCount': 5,
-            'formatter': 'verbose',
-            'encoding': 'utf-8',
-        },
-        # Fichier spécifique pour l'audit utilisateur
-        'file_audit': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': LOGS_DIR / 'supper_audit.log',
-            'maxBytes': 10*1024*1024,  # 10 MB
-            'backupCount': 10,
-            'formatter': 'audit',
-            'encoding': 'utf-8',
-        },
-        # Fichier pour les erreurs
-        'file_error': {
-            'level': 'ERROR',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': LOGS_DIR / 'supper_errors.log',
-            'maxBytes': 5*1024*1024,  # 5 MB
-            'backupCount': 3,
-            'formatter': 'verbose',
-            'encoding': 'utf-8',
-        },
-        # Console pour le développement
         'console': {
-            'level': 'DEBUG' if DEBUG else 'INFO',
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-    },
-    'loggers': {
-        # Logger principal de SUPPER
-        'supper': {
-            'handlers': ['file_app', 'file_audit', 'console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        # Logger Django
-        'django': {
-            'handlers': ['file_error', 'console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        # Logger base de données (limité pour éviter trop de logs)
-        'django.db.backends': {
-            'handlers': ['file_app'],
-            'level': 'WARNING',
-            'propagate': False,
-        },
-        # Logger requêtes HTTP
-        'django.request': {
-            'handlers': ['file_error', 'console'],
-            'level': 'ERROR',
-            'propagate': False,
         },
     },
     'root': {
         'handlers': ['console'],
         'level': 'WARNING',
     },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
 }
-
 # ===================================================================
 # CONFIGURATION DES MESSAGES
 # ===================================================================
@@ -376,14 +420,16 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_DOMAIN = None
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
 
 # Protection CSRF
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    
+    'https://jidanels.pythonanywhere.com',
+    'https://supper-cm.ink',
+    'https://www.supper-cm.ink',
 ]
 
 # ===================================================================
@@ -393,17 +439,17 @@ CSRF_TRUSTED_ORIGINS = [
 if DEBUG:
     # Autoriser tous les hôtes en développement
     ALLOWED_HOSTS = ['*']
-    
+
     # Debug Toolbar si installé
     # try:
     #     import debug_toolbar
     #     INSTALLED_APPS.append('debug_toolbar')
     #     MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
-        
+
     #     DEBUG_TOOLBAR_CONFIG = {
     #         'SHOW_TOOLBAR_CALLBACK': lambda request: True,
     #     }
-        
+
     # except ImportError:
     #     pass
 
@@ -429,13 +475,7 @@ ADMIN_INDEX_TITLE = 'Tableau de Bord SUPPER'
 
 # À ajouter dans settings.py si pas déjà présent :
 
-# Protection CSRF
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://192.168.1.162:8000',
-    'http:// 10.69.248.229:8000',
-]
+
 
 # Configuration des cookies
 CSRF_COOKIE_SECURE = not DEBUG  # False en développement

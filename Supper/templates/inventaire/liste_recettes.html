@@ -7,7 +7,7 @@
 {% block extra_css %}
 <style>
     /* ============================================
-       RÉINITIALISATION GLOBALE POUR MOBILE
+       RÉinitialisation GLOBALE - CORRECTION DÉFILEMENT
        ============================================ */
     * {
         box-sizing: border-box;
@@ -15,16 +15,16 @@
         padding: 0;
     }
 
-    /* ============================================
-       CORRECTION DU DÉFILEMENT HORIZONTAL - CRITIQUE
-       ============================================ */
     html, body {
-        overflow-x: hidden;
-        width: 100%;
-        max-width: 100vw;
-        position: relative;
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        width: 100% !important;
+        position: relative !important;
     }
 
+    /* ============================================
+       CONTENEURS PRINCIPAUX
+       ============================================ */
     .recettes-page {
         width: 100%;
         max-width: 100%;
@@ -42,19 +42,25 @@
         overflow-x: hidden;
     }
 
-    .row {
-        margin-left: -15px;
-        margin-right: -15px;
-        display: flex;
-        flex-wrap: wrap;
-        width: 100%;
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
     }
 
-    .col-md-6, .col-12 {
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .col-md-6,
+    .col-12 {
         padding-left: 15px;
         padding-right: 15px;
-        position: relative;
         width: 100%;
+        max-width: 100%;
     }
 
     /* ============================================
@@ -73,6 +79,7 @@
     .page-header-content {
         flex: 1;
         min-width: 0;
+        max-width: 100%;
     }
 
     .page-header h2 {
@@ -80,15 +87,14 @@
         margin: 0;
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         gap: 0.5rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        line-height: 1.4;
+        line-height: 1.3;
     }
 
     .page-header p {
-        margin: 0.5rem 0 0 0;
+        margin: 0.5rem 0 0;
         color: #6b7280;
         font-size: 0.95rem;
         word-wrap: break-word;
@@ -103,7 +109,24 @@
     }
 
     /* ============================================
-       STATISTIQUES EN GRILLE
+       BADGE PÉRIODE
+       ============================================ */
+    .periode-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       STATISTIQUES - GRID RESPONSIVE
        ============================================ */
     .stats-grid {
         display: grid;
@@ -114,7 +137,7 @@
     }
 
     .stat-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #667eea, #764ba2);
         color: white;
         padding: 1.25rem;
         border-radius: 12px;
@@ -140,26 +163,37 @@
     }
 
     /* ============================================
-       SECTION FILTRES
+       SECTION FILTRES - RESPONSIVE
        ============================================ */
     .filter-section {
         background: white;
         border-radius: 12px;
         padding: 1.25rem;
         margin-bottom: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         width: 100%;
         overflow: hidden;
     }
 
     .filter-section h5 {
         font-size: 1.1rem;
-        margin: 0 0 1rem 0;
+        margin: 0 0 1rem;
         display: flex;
         align-items: center;
         gap: 0.5rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
+    }
+
+    .filter-temporal-row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        width: 100%;
     }
 
     .filter-row {
@@ -172,7 +206,14 @@
 
     .filter-group {
         flex: 1;
-        min-width: 180px;
+        min-width: 150px;
+        max-width: 100%;
+    }
+
+    .filter-group-small {
+        flex: 0 0 auto;
+        min-width: 120px;
+        max-width: 100%;
     }
 
     .filter-group label {
@@ -192,33 +233,40 @@
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         font-size: 0.95rem;
+        max-width: 100%;
         box-sizing: border-box;
     }
 
     .filter-group .form-select:focus,
     .filter-group .form-control:focus {
         outline: 2px solid #667eea;
-        outline-offset: 2px;
         border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
     .filter-buttons {
         display: flex;
         gap: 0.5rem;
         flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .conditional-field {
+        display: none;
+    }
+
+    .conditional-field.active {
+        display: block;
     }
 
     /* ============================================
-       ALERTE JOURNÉES NON DÉCLARÉES
+       ALERTES - JOURNÉES NON DÉCLARÉES
        ============================================ */
     .alert {
-        width: 100%;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        box-sizing: border-box;
         border-radius: 10px;
         padding: 1rem;
         margin-bottom: 1.5rem;
+        width: 100%;
         overflow: hidden;
     }
 
@@ -230,18 +278,16 @@
 
     .alert h5 {
         font-size: 1.1rem;
-        margin: 0 0 0.75rem 0;
+        margin: 0 0 0.75rem;
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         gap: 0.5rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        line-height: 1.4;
     }
 
     .alert > p {
-        margin: 0 0 1rem 0;
+        margin: 0 0 1rem;
         font-size: 0.9rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
@@ -269,10 +315,9 @@
 
     .jours-stats-cards h3 {
         font-size: 1.5rem;
-        margin: 0 0 0.25rem 0;
+        margin: 0 0 0.25rem;
         word-break: break-word;
         overflow-wrap: break-word;
-        line-height: 1.2;
     }
 
     .jours-stats-cards p {
@@ -283,21 +328,13 @@
     }
 
     /* ============================================
-       ACCORDION
+       ACCORDION - JOURS MANQUANTS
        ============================================ */
-    .accordion {
-        width: 100%;
-    }
-
     .accordion-item {
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         margin-bottom: 0.5rem;
         overflow: hidden;
-    }
-
-    .accordion-header {
-        margin: 0;
     }
 
     .accordion-button {
@@ -327,7 +364,6 @@
     .accordion-button-left {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         gap: 0.5rem;
         flex: 1;
         min-width: 0;
@@ -336,23 +372,24 @@
     .accordion-button-right {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         gap: 0.25rem;
         color: #dc2626;
         font-size: 0.85rem;
+        flex-shrink: 0;
     }
 
     .accordion-body {
         padding: 1rem;
         background: white;
+        width: 100%;
         overflow: hidden;
     }
 
     .accordion-body .table-container {
         width: 100%;
         overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
         margin-top: 0.5rem;
+        -webkit-overflow-scrolling: touch;
     }
 
     .accordion-body .table {
@@ -366,51 +403,54 @@
     .accordion-body .table td {
         padding: 0.5rem;
         border-bottom: 1px solid #e5e7eb;
-        text-align: left;
+        white-space: nowrap;
     }
 
     /* ============================================
-       TABLEAU DES RECETTES - CONTENEUR SCROLLABLE
+       CONTENEUR TABLEAU - AVEC DÉFILEMENT INTERNE
        ============================================ */
     .table-container {
         width: 100%;
         overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         background: white;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
     }
 
-    /* Scrollbar personnalisée pour le tableau */
+    /* Scrollbar personnalisée */
     .table-container::-webkit-scrollbar {
         height: 8px;
     }
 
     .table-container::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: #f1f5f9;
         border-radius: 4px;
     }
 
     .table-container::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
+        background: #cbd5e1;
         border-radius: 4px;
     }
 
     .table-container::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
+        background: #94a3b8;
     }
 
+    /* ============================================
+       TABLEAU PRINCIPAL
+       ============================================ */
     .recette-table {
         background: white;
         border-radius: 12px;
-        overflow: hidden;
         width: 100%;
         min-width: 800px;
         border-collapse: collapse;
     }
 
     .recette-table thead {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #667eea, #764ba2);
         color: white;
     }
 
@@ -428,10 +468,15 @@
         vertical-align: middle;
         border-bottom: 1px solid #f3f4f6;
         font-size: 0.9rem;
+        white-space: nowrap;
     }
 
     .recette-table tbody tr:hover {
         background: #f9fafb;
+    }
+
+    .recette-table tbody tr:last-child td {
+        border-bottom: none;
     }
 
     /* ============================================
@@ -446,24 +491,17 @@
         white-space: nowrap;
     }
 
-    .badge-taux {
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.8rem;
-    }
-
-    .badge-bon, .bg-success {
+    .bg-success {
         background: #d4edda;
         color: #155724;
     }
 
-    .badge-moyen, .bg-warning {
+    .bg-warning {
         background: #fff3cd;
         color: #856404;
     }
 
-    .badge-mauvais, .bg-danger {
+    .bg-danger {
         background: #f8d7da;
         color: #721c24;
     }
@@ -490,17 +528,16 @@
         border-radius: 8px;
         font-weight: 600;
         font-size: 0.9rem;
-        transition: all 0.3s ease;
-        white-space: nowrap;
+        transition: all 0.3s;
         text-decoration: none;
         cursor: pointer;
-        box-sizing: border-box;
         border: none;
         min-height: 44px;
+        white-space: nowrap;
     }
 
     .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #667eea, #764ba2);
         color: white;
     }
 
@@ -525,8 +562,14 @@
         color: white;
     }
 
-    .btn-secondary:hover {
-        background: #4b5563;
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid #6b7280;
+        color: #6b7280;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6b7280;
         color: white;
     }
 
@@ -547,6 +590,7 @@
         justify-content: center;
         min-height: 36px;
         min-width: 36px;
+        cursor: pointer;
     }
 
     .btn-view {
@@ -554,19 +598,9 @@
         color: #3730a3;
     }
 
-    .btn-edit {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .btn-delete {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
     .btn-action:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     /* ============================================
@@ -579,12 +613,7 @@
         gap: 0.25rem;
         list-style: none;
         padding: 0;
-        margin: 1.5rem 0 0 0;
-        width: 100%;
-    }
-
-    .page-item {
-        margin: 0;
+        margin: 1.5rem 0 0;
     }
 
     .page-link {
@@ -599,6 +628,7 @@
         font-size: 0.875rem;
         background: white;
         min-height: 40px;
+        white-space: nowrap;
     }
 
     .page-item.active .page-link {
@@ -620,7 +650,7 @@
         color: #6b7280;
         background: white;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         width: 100%;
     }
 
@@ -631,58 +661,82 @@
     }
 
     .empty-state h4 {
-        margin: 0 0 0.5rem 0;
+        margin: 0 0 0.5rem;
         font-size: 1.25rem;
         color: #374151;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-
-    .empty-state p {
-        margin: 0 0 1rem 0;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
     }
 
     /* ============================================
-       UTILITAIRES
+       CLASSES UTILITAIRES
        ============================================ */
-    .text-danger { color: #dc2626 !important; }
-    .text-success { color: #059669 !important; }
-    .text-muted { color: #6b7280 !important; }
-    .text-warning { color: #d97706 !important; }
-    .text-white { color: white !important; }
-    .text-dark { color: #1f2937 !important; }
-    .text-center { text-align: center !important; }
+    .text-danger {
+        color: #dc2626 !important;
+    }
 
-    .bg-danger { background-color: #dc2626 !important; }
-    .bg-warning { background-color: #f59e0b !important; }
+    .text-success {
+        color: #059669 !important;
+    }
 
-    .fw-bold { font-weight: 600 !important; }
-    .mb-0 { margin-bottom: 0 !important; }
-    .mb-2 { margin-bottom: 0.5rem !important; }
-    .mb-3 { margin-bottom: 1rem !important; }
-    .mb-4 { margin-bottom: 1.5rem !important; }
-    .mt-2 { margin-top: 0.5rem !important; }
-    .mt-3 { margin-top: 1rem !important; }
-    .mt-4 { margin-top: 1.5rem !important; }
-    .me-1 { margin-right: 0.25rem !important; }
-    .me-2 { margin-right: 0.5rem !important; }
-    .ms-2 { margin-left: 0.5rem !important; }
-    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
-    .pe-3 { padding-right: 1rem !important; }
+    .text-muted {
+        color: #6b7280 !important;
+    }
 
-    .d-flex { display: flex !important; }
-    .flex-wrap { flex-wrap: wrap !important; }
-    .align-items-center { align-items: center !important; }
-    .justify-content-between { justify-content: space-between !important; }
-    .justify-content-center { justify-content: center !important; }
-    .w-100 { width: 100% !important; }
+    .text-white {
+        color: white !important;
+    }
+
+    .text-dark {
+        color: #1f2937 !important;
+    }
+
+    .fw-bold {
+        font-weight: 600 !important;
+    }
+
+    .mb-0 {
+        margin-bottom: 0 !important;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem !important;
+    }
+
+    .mt-3 {
+        margin-top: 1rem !important;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem !important;
+    }
+
+    .me-1 {
+        margin-right: 0.25rem !important;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem !important;
+    }
+
+    .ms-2 {
+        margin-left: 0.5rem !important;
+    }
+
+    .py-4 {
+        padding: 1.5rem 0 !important;
+    }
 
     .card {
         border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
     .card-body {
@@ -690,25 +744,7 @@
     }
 
     /* ============================================
-       RESPONSIVE - PC (≥ 1024px)
-       ============================================ */
-    @media (min-width: 1024px) {
-        .stats-grid {
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .filter-group {
-            min-width: 150px;
-        }
-
-        .col-md-6 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-    }
-
-    /* ============================================
-       RESPONSIVE - TABLETTES (768px - 1023px)
+       RESPONSIVE - TABLETTE (768px à 1023px)
        ============================================ */
     @media (min-width: 768px) and (max-width: 1023px) {
         .stats-grid {
@@ -721,21 +757,23 @@
         }
 
         .filter-group {
-            min-width: 150px;
             flex: 0 0 calc(50% - 0.5rem);
         }
     }
 
     /* ============================================
-       RESPONSIVE - MOBILE (≤ 767px) - CRITIQUE
+       RESPONSIVE - MOBILE (≤ 767px)
        ============================================ */
     @media (max-width: 767px) {
         /* CORRECTION CRITIQUE : Empêcher le défilement horizontal */
-        html, body {
+        html,
+        body {
             overflow-x: hidden !important;
             width: 100% !important;
             max-width: 100vw !important;
             position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         .main-content {
@@ -752,18 +790,12 @@
             overflow-x: hidden !important;
         }
 
-        .recettes-page {
-            overflow-x: hidden !important;
-            width: 100% !important;
-            max-width: 100vw !important;
-        }
-
+        /* Conteneur principal */
         .container-fluid {
             padding-left: 10px;
             padding-right: 10px;
-            overflow-x: hidden !important;
             width: 100% !important;
-            max-width: 100% !important;
+            max-width: 100vw !important;
         }
 
         .row {
@@ -772,23 +804,21 @@
             width: calc(100% + 20px);
         }
 
-        .col-md-6, .col-12 {
+        .col-md-6,
+        .col-12 {
             padding-left: 10px;
             padding-right: 10px;
-            flex: 0 0 100%;
-            max-width: 100%;
         }
 
         /* En-tête */
         .page-header {
             flex-direction: column;
             align-items: flex-start;
-            gap: 1rem;
+            gap: 0.75rem;
         }
 
         .page-header h2 {
             font-size: 1.25rem;
-            width: 100%;
         }
 
         .page-header p {
@@ -797,25 +827,22 @@
 
         .header-buttons {
             width: 100%;
-            flex-direction: row;
         }
 
         .header-buttons .btn {
             flex: 1;
             font-size: 0.8rem;
-            padding: 0.5rem 0.75rem;
-            min-height: 44px;
+        }
+
+        .periode-badge {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
         }
 
         /* Stats */
         .stats-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 0.75rem;
-        }
-
-        .stat-card {
-            padding: 1rem;
-            border-radius: 10px;
         }
 
         .stat-value {
@@ -829,74 +856,41 @@
         /* Filtres */
         .filter-section {
             padding: 1rem;
-            border-radius: 10px;
         }
 
-        .filter-section h5 {
-            font-size: 1rem;
-            margin-bottom: 0.75rem;
-        }
-
+        .filter-temporal-row,
         .filter-row {
             flex-direction: column;
             gap: 0.75rem;
         }
 
-        .filter-group {
+        .filter-group,
+        .filter-group-small {
             min-width: 100%;
             width: 100%;
-        }
-
-        .filter-group label {
-            font-size: 0.85rem;
-            margin-bottom: 0.375rem;
         }
 
         .filter-group .form-select,
         .filter-group .form-control {
-            padding: 0.5rem 0.75rem;
-            font-size: 16px !important; /* Empêche zoom iOS */
+            font-size: 16px !important;
+            /* Empêche le zoom iOS */
         }
 
         .filter-buttons {
             width: 100%;
-            flex-direction: row;
         }
 
         .filter-buttons .btn {
             flex: 1;
-            min-height: 44px;
         }
 
-        /* Alertes journées non déclarées */
-        .alert {
-            padding: 0.875rem;
-            border-radius: 8px;
-        }
-
-        .alert h5 {
-            font-size: 0.95rem;
-        }
-
-        .alert > p {
-            font-size: 0.85rem;
-        }
-
+        /* Alertes */
         .jours-stats-cards {
             flex-direction: column;
-            gap: 0.75rem;
         }
 
         .jours-stats-cards .card {
             min-width: 100%;
-        }
-
-        .jours-stats-cards h3 {
-            font-size: 1.25rem;
-        }
-
-        .jours-stats-cards p {
-            font-size: 0.8rem;
         }
 
         /* Accordion */
@@ -908,41 +902,14 @@
         .accordion-button-content {
             flex-direction: column;
             align-items: flex-start;
-            gap: 0.5rem;
-        }
-
-        .accordion-button-left {
-            width: 100%;
         }
 
         .accordion-button-right {
-            width: 100%;
-            justify-content: flex-start;
-            font-size: 0.8rem;
+            margin-top: 0.5rem;
         }
 
-        .accordion-body {
-            padding: 0.75rem;
-        }
-
-        .accordion-body .alert {
-            padding: 0.625rem;
-            font-size: 0.8rem;
-        }
-
-        .accordion-body .table {
-            font-size: 0.75rem;
-            min-width: 280px;
-        }
-
-        .accordion-body .table th,
-        .accordion-body .table td {
-            padding: 0.375rem;
-        }
-
-        /* Tableau avec scroll interne - CRITIQUE */
+        /* Tableau - Défilement interne */
         .table-container {
-            border-radius: 10px;
             margin-left: -10px;
             margin-right: -10px;
             width: calc(100% + 20px);
@@ -954,31 +921,20 @@
             border-radius: 0;
         }
 
-        .recette-table th {
-            padding: 0.75rem 0.5rem;
-            font-size: 0.8rem;
-        }
-
+        .recette-table th,
         .recette-table td {
             padding: 0.75rem 0.5rem;
             font-size: 0.8rem;
         }
 
+        /* Badges */
         .badge {
             font-size: 0.7rem;
-            padding: 0.25rem 0.5rem;
         }
 
-        .badge-taux {
-            font-size: 0.7rem;
-            padding: 0.3rem 0.5rem;
-        }
-
-        .btn-action {
-            padding: 0.35rem 0.6rem;
-            font-size: 0.75rem;
-            min-height: 36px;
-            min-width: 36px;
+        /* Boutons */
+        .btn {
+            font-size: 0.85rem;
         }
 
         /* Pagination */
@@ -995,24 +951,15 @@
         /* État vide */
         .empty-state {
             padding: 2rem 1rem;
-            border-radius: 10px;
         }
 
         .empty-state-icon {
             font-size: 2.5rem;
         }
-
-        .empty-state h4 {
-            font-size: 1.1rem;
-        }
-
-        .empty-state p {
-            font-size: 0.875rem;
-        }
     }
 
     /* ============================================
-       TRÈS PETITS ÉCRANS (≤ 576px)
+       RESPONSIVE - PETIT MOBILE (≤ 576px)
        ============================================ */
     @media (max-width: 576px) {
         .content-wrapper {
@@ -1030,11 +977,7 @@
             width: calc(100% + 16px);
         }
 
-        .col-md-6, .col-12 {
-            padding-left: 8px;
-            padding-right: 8px;
-        }
-
+        /* En-tête */
         .page-header h2 {
             font-size: 1.15rem;
         }
@@ -1045,35 +988,22 @@
 
         .header-buttons .btn {
             width: 100%;
-            font-size: 0.8rem;
-            padding: 0.5rem 0.75rem;
         }
 
+        /* Stats */
         .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
             gap: 0.5rem;
         }
 
         .stat-card {
-            padding: 0.875rem;
+            padding: 1rem;
         }
 
         .stat-value {
             font-size: 1.1rem;
         }
 
-        .stat-label {
-            font-size: 0.7rem;
-        }
-
-        .filter-section {
-            padding: 0.875rem;
-        }
-
-        .filter-section h5 {
-            font-size: 0.95rem;
-        }
-
+        /* Tableau */
         .table-container {
             margin-left: -8px;
             margin-right: -8px;
@@ -1089,106 +1019,21 @@
             padding: 0.625rem 0.4rem;
             font-size: 0.75rem;
         }
-
-        .accordion-button {
-            font-size: 0.75rem;
-            padding: 0.625rem;
-        }
-
-        .accordion-body {
-            padding: 0.625rem;
-        }
-
-        .accordion-body .table {
-            font-size: 0.7rem;
-        }
     }
 
     /* ============================================
-       TRÈS PETITS MOBILES (≤ 375px)
+       RESPONSIVE - TRÈS PETIT MOBILE (≤ 375px)
        ============================================ */
     @media (max-width: 375px) {
-        .content-wrapper {
-            padding: 0.375rem !important;
-        }
-
-        .container-fluid {
-            padding-left: 6px;
-            padding-right: 6px;
-        }
-
-        .row {
-            margin-left: -6px;
-            margin-right: -6px;
-            width: calc(100% + 12px);
-        }
-
-        .col-md-6, .col-12 {
-            padding-left: 6px;
-            padding-right: 6px;
-        }
-
-        .page-header h2 {
-            font-size: 1.05rem;
-        }
-
         .stats-grid {
             grid-template-columns: 1fr;
-            gap: 0.5rem;
-        }
-
-        .stat-card {
-            padding: 0.75rem;
-        }
-
-        .stat-value {
-            font-size: 1.25rem;
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-        }
-
-        .filter-section {
-            padding: 0.75rem;
-        }
-
-        .table-container {
-            margin-left: -6px;
-            margin-right: -6px;
-            width: calc(100% + 12px);
         }
 
         .recette-table {
             min-width: 520px;
         }
 
-        .recette-table th,
-        .recette-table td {
-            padding: 0.5rem 0.35rem;
-            font-size: 0.7rem;
-        }
-
-        .page-link {
-            padding: 0.35rem 0.5rem;
-            font-size: 0.75rem;
-            min-height: 32px;
-        }
-
-        .btn {
-            font-size: 0.8rem;
-            padding: 0.4rem 0.625rem;
-        }
-
-        .alert h5 {
-            font-size: 0.85rem;
-        }
-
-        .alert > p {
-            font-size: 0.8rem;
-        }
-
-        .jours-stats-cards h3 {
+        .page-header h2 {
             font-size: 1.1rem;
         }
     }
@@ -1201,114 +1046,65 @@
             grid-template-columns: repeat(4, 1fr);
         }
 
+        .filter-temporal-row,
         .filter-row {
             flex-direction: row;
-            flex-wrap: wrap;
         }
 
         .filter-group {
-            min-width: calc(33.333% - 0.75rem);
-            flex: 0 0 calc(33.333% - 0.75rem);
-        }
-
-        .jours-stats-cards {
-            flex-direction: row;
-        }
-
-        .jours-stats-cards .card {
-            min-width: calc(50% - 0.5rem);
-        }
-
-        .header-buttons {
-            flex-direction: row;
-        }
-
-        .header-buttons .btn {
-            width: auto;
-        }
-
-        .accordion-button-content {
-            flex-direction: row;
-            align-items: center;
-        }
-
-        .accordion-button-left {
-            width: auto;
-        }
-
-        .accordion-button-right {
-            width: auto;
-            margin-left: auto;
+            flex: 1;
         }
     }
 
     /* ============================================
-       CORRECTION POUR EMPÊCHER LE ZOOM SUR iOS
+       CORRECTION DU ZOOM SUR iOS
        ============================================ */
-    @media (max-width: 480px) {
+    @media (max-width: 768px) {
         input[type="text"],
         input[type="number"],
         input[type="date"],
+        input[type="email"],
+        input[type="password"],
+        select,
         textarea,
-        select {
+        button {
             font-size: 16px !important;
         }
     }
 
     /* ============================================
-       AMÉLIORATION DE L'ACCESSIBILITÉ
+       SCROLLBAR PERSONNALISÉE - MOBILE
        ============================================ */
-    .btn:focus,
-    .form-select:focus,
-    .form-control:focus,
-    .btn-action:focus,
-    .page-link:focus,
-    .accordion-button:focus {
-        outline: 2px solid #667eea;
-        outline-offset: 2px;
-    }
-
-    /* ============================================
-       SCROLLBAR GLOBALE PERSONNALISÉE
-       ============================================ */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-    }
-
-    /* Scrollbar mobile plus fine */
-    @media (max-width: 767px) {
+    @media (max-width: 768px) {
         ::-webkit-scrollbar {
             width: 4px;
             height: 4px;
         }
 
-        .table-container::-webkit-scrollbar {
-            height: 6px;
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
         }
 
-        .table-container::-webkit-scrollbar-track {
-            background: #e5e7eb;
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
         }
 
-        .table-container::-webkit-scrollbar-thumb {
-            background: #9ca3af;
-            border-radius: 3px;
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-select:focus,
+    .form-control:focus,
+    .btn:focus,
+    .page-link:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
     }
 
     /* ============================================
@@ -1317,7 +1113,8 @@
     @media print {
         .btn,
         .filter-section,
-        .header-buttons {
+        .header-buttons,
+        .pagination {
             display: none !important;
         }
 
@@ -1330,26 +1127,12 @@
             min-width: 100% !important;
         }
 
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+
         .stats-grid {
             grid-template-columns: repeat(4, 1fr);
-        }
-
-        .stat-card {
-            background: #f3f4f6 !important;
-            color: #1f2937 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        .recettes-page {
-            overflow: visible !important;
-        }
-
-        .page-header,
-        .stats-grid,
-        .alert,
-        .table-container {
-            page-break-inside: avoid;
         }
     }
 </style>
@@ -1358,7 +1141,7 @@
 {% block content %}
 <div class="recettes-page">
     <div class="container-fluid py-4">
-        <!-- En-tête -->
+        <!-- En-tête de la page -->
         <div class="page-header mb-4">
             <div class="page-header-content">
                 <h2 class="mb-0">
@@ -1368,13 +1151,19 @@
                 <p class="text-muted mt-2">
                     {% trans "Gestion et suivi des recettes journalières avec taux de déperdition" %}
                 </p>
+                <div class="periode-badge">
+                    <i class="fas fa-calendar-alt"></i>
+                    {{ periode_label|default:"Mois en cours" }}
+                </div>
             </div>
             <div class="header-buttons">
-                {% if user.is_chef_poste or user.is_admin %}
+                {% if can_edit %}
                 <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary">
                     <i class="fas fa-plus me-2"></i>
                     {% trans "Nouvelle Recette" %}
                 </a>
+                {% endif %}
+                {% if can_view_stats %}
                 <a href="{% url 'inventaire:statistiques_recettes' %}" class="btn btn-info">
                     <i class="fas fa-chart-bar me-2"></i>
                     {% trans "Statistiques" %}
@@ -1383,132 +1172,115 @@
             </div>
         </div>
 
-        <!-- Statistiques -->
+        <!-- Statistiques globales -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-value">{{ stats.total_recettes|default:0 }}</div>
-                <div class="stat-label">{% trans "Total Recettes" %}</div>
+                <div class="stat-label">{% trans "Recettes affichées" %}</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
                 <div class="stat-value">{{ stats.total_montant|floatformat:0|default:"0"|format_milliers }} FCFA</div>
                 <div class="stat-label">{% trans "Montant Total" %}</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            {% if user.voir_taux_deperdition %}
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
                 <div class="stat-value">
                     {% if stats.moyenne_taux != None %}
-                        {{ stats.moyenne_taux|floatformat:2 }}%
+                    {{ stats.moyenne_taux|floatformat:2 }}%
                     {% else %}
-                        N/A
+                    N/A
                     {% endif %}
                 </div>
                 <div class="stat-label">{% trans "Taux Moyen" %}</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+            {% endif %}
+            <div class="stat-card" style="background: linear-gradient(135deg, #11998e, #38ef7d);">
                 <div class="stat-value">{{ stats.recettes_jour|default:0 }}</div>
                 <div class="stat-label">{% trans "Aujourd'hui" %}</div>
             </div>
         </div>
 
-        <!-- Section Journées Non Déclarées -->
+        <!-- Alerte : Journées Non Déclarées -->
         {% if jours_non_declares.par_poste %}
         <div class="alert alert-warning mt-4">
             <h5>
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                Journées Non Déclarées avec Estimation des Recettes Manquantes
+                {% trans "Journées Non Déclarées" %}
             </h5>
-            <p>Période : {{ jours_non_declares.periode_debut|date:"d/m/Y" }} - {{ jours_non_declares.periode_fin|date:"d/m/Y" }}</p>
-            
+            <p>
+                {% trans "Période" %}: {{ jours_non_declares.periode_debut|date:"d/m/Y" }} - {{ jours_non_declares.periode_fin|date:"d/m/Y" }}
+            </p>
+
             <div class="jours-stats-cards row mb-3">
                 <div class="col-12 col-md-6 mb-2 mb-md-0">
                     <div class="card bg-danger text-white">
-                        <div class="card-body text-center">
+                        <div class="card-body">
                             <h3>{{ jours_non_declares.total_jours_manquants }}</h3>
-                            <p class="mb-0">Jours sans déclaration</p>
+                            <p class="mb-0">{% trans "Jours sans déclaration" %}</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-12 col-md-6">
                     <div class="card bg-warning text-dark">
-                        <div class="card-body text-center">
+                        <div class="card-body">
                             <h3>{{ jours_non_declares.total_estimation_manquante|floatformat:0|format_milliers }} FCFA</h3>
-                            <p class="mb-0">Recettes estimées manquantes</p>
+                            <p class="mb-0">{% trans "Recettes estimées manquantes" %}</p>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="accordion mt-3" id="accordionJoursManquants">
+
+            <div class="accordion" id="accordionJoursManquants">
                 {% for item in jours_non_declares.par_poste %}
                 <div class="accordion-item">
                     <h6 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" 
-                                data-bs-toggle="collapse" 
-                                data-bs-target="#collapse{{ forloop.counter }}">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#collapse{{ forloop.counter }}"
+                                aria-expanded="false">
                             <div class="accordion-button-content">
                                 <span class="accordion-button-left">
                                     <strong>{{ item.poste.nom }}</strong>
-                                    <span class="badge bg-danger ms-2">{{ item.nombre_jours }} jour(s)</span>
-                                    <span class="badge bg-warning ms-2">{{ item.pourcentage|floatformat:1 }}%</span>
+                                    <span class="badge bg-danger ms-2">
+                                        {{ item.nombre_jours }} {% trans "jour(s)" %}
+                                    </span>
+                                    <span class="badge bg-warning ms-2">
+                                        {{ item.pourcentage|floatformat:1 }}%
+                                    </span>
                                 </span>
                                 <span class="accordion-button-right">
                                     <i class="fas fa-money-bill-wave me-1"></i>
-                                    ~{{ item.estimation_manquante|floatformat:0|format_milliers }} FCFA manquants
+                                    ~{{ item.estimation_manquante|floatformat:0|format_milliers }} FCFA
                                 </span>
                             </div>
                         </button>
                     </h6>
-                    <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse">
+                    <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse"
+                         data-bs-parent="#accordionJoursManquants">
                         <div class="accordion-body">
                             <div class="alert alert-info mb-3">
                                 <i class="fas fa-chart-line me-2"></i>
-                                Méthode de calcul : <strong>{{ item.methode_calcul|upper }}</strong>
-                                {% if item.methode_calcul == 'forecasting' %}
-                                (Modèle statistique avancé basé sur l'historique)
-                                {% else %}
-                                (Moyenne des 30 derniers jours)
-                                {% endif %}
+                                {% trans "Méthode" %}: <strong>{{ item.methode_calcul|upper }}</strong>
                             </div>
-                            
-                            <strong>Dates manquantes avec estimations :</strong>
+
+                            <strong>{% trans "Dates manquantes" %}:</strong>
                             <div class="table-container mt-2">
                                 <table class="table table-sm">
                                     <thead>
                                         <tr>
-                                            <th>Date</th>
-                                            <th>Recette Estimée</th>
+                                            <th>{% trans "Date" %}</th>
+                                            <th>{% trans "Estimation" %}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {% if item.details_estimations %}
-                                            {% for detail in item.details_estimations %}
-                                            <tr>
-                                                <td>{{ detail.date|date:"d/m/Y (l)" }}</td>
-                                                <td class="text-warning">
-                                                    ~{{ detail.montant_estime|floatformat:0|format_milliers }} FCFA
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        {% else %}
-                                            {% for jour in item.jours %}
-                                            <tr>
-                                                <td>{{ jour|date:"d/m/Y (l)" }}</td>
-                                                <td class="text-muted">
-                                                    ~{{ item.estimation_manquante|dividedby:item.nombre_jours|floatformat:0|format_milliers }} FCFA
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        {% endif %}
+                                        {% for jour in item.jours %}
+                                        <tr>
+                                            <td>{{ jour|date:"d/m/Y (l)" }}</td>
+                                            <td class="text-muted">-</td>
+                                        </tr>
+                                        {% endfor %}
                                     </tbody>
                                 </table>
-                            </div>
-                            
-                            <div class="alert alert-secondary mt-3 mb-0">
-                                <small>
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    Ces estimations sont calculées à partir de l'historique des recettes 
-                                    et des tendances observées. Elles servent d'indicateur pour évaluer 
-                                    l'impact des déclarations manquantes.
-                                </small>
                             </div>
                         </div>
                     </div>
@@ -1524,64 +1296,98 @@
                 <i class="fas fa-filter me-2"></i>
                 {% trans "Filtres" %}
             </h5>
-            
+
             <form method="get" id="filterForm">
+                <!-- Ligne 1: Filtres temporels -->
+                <div class="filter-temporal-row">
+                    <div class="filter-group filter-group-small">
+                        <label>{% trans "Année" %}</label>
+                        <select name="annee" class="form-select" id="anneeSelect">
+                            {% for annee in annees_disponibles %}
+                            <option value="{{ annee }}" {% if annee == annee_selectionnee %}selected{% endif %}>
+                                {{ annee }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group filter-group-small">
+                        <label>{% trans "Période" %}</label>
+                        <select name="periode" class="form-select" id="periodeSelect">
+                            <option value="jour" {% if periode_selectionnee == 'jour' %}selected{% endif %}>
+                                {% trans "Jour" %}
+                            </option>
+                            <option value="semaine" {% if periode_selectionnee == 'semaine' %}selected{% endif %}>
+                                {% trans "Semaine" %}
+                            </option>
+                            <option value="mois" {% if periode_selectionnee == 'mois' %}selected{% endif %}>
+                                {% trans "Mois" %}
+                            </option>
+                            <option value="trimestre" {% if periode_selectionnee == 'trimestre' %}selected{% endif %}>
+                                {% trans "Trimestre" %}
+                            </option>
+                            <option value="annee" {% if periode_selectionnee == 'annee' %}selected{% endif %}>
+                                {% trans "Année entière" %}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group conditional-field" id="dateGroup">
+                        <label>{% trans "Date" %}</label>
+                        <input type="date" name="date" class="form-control" value="{{ current_filters.date }}">
+                    </div>
+
+                    <div class="filter-group conditional-field" id="semaineGroup">
+                        <label>{% trans "Semaine" %}</label>
+                        <select name="semaine" class="form-select">
+                            {% for sem in semaines_disponibles %}
+                            <option value="{{ sem }}" {% if sem == semaine_selectionnee %}selected{% endif %}>
+                                {% trans "Sem." %} {{ sem }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group conditional-field" id="moisGroup">
+                        <label>{% trans "Mois" %}</label>
+                        <select name="mois" class="form-select">
+                            {% for mois_num, mois_label in mois_disponibles %}
+                            <option value="{{ mois_num }}" {% if mois_num == mois_selectionne %}selected{% endif %}>
+                                {{ mois_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group conditional-field" id="trimestreGroup">
+                        <label>{% trans "Trimestre" %}</label>
+                        <select name="trimestre" class="form-select">
+                            {% for trim_num, trim_label in trimestres_disponibles %}
+                            <option value="{{ trim_num }}" {% if trim_num == trimestre_selectionne %}selected{% endif %}>
+                                {{ trim_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Ligne 2: Autres filtres -->
                 <div class="filter-row">
-                    <!-- Filtre Poste -->
                     <div class="filter-group">
-                        <label class="form-label">{% trans "Poste" %}</label>
+                        <label>{% trans "Poste" %}</label>
                         <select name="poste" class="form-select">
                             <option value="">{% trans "Tous les postes" %}</option>
                             {% for poste in postes %}
-                            <option value="{{ poste.id }}" {% if current_filters.poste == poste.id|stringformat:"s" %}selected{% endif %}>
+                            <option value="{{ poste.id }}"
+                                    {% if current_filters.poste == poste.id|stringformat:"s" %}selected{% endif %}>
                                 {{ poste.nom }} ({{ poste.code }})
                             </option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <!-- Filtre Période -->
                     <div class="filter-group">
-                        <label class="form-label">{% trans "Période" %}</label>
-                        <select name="periode" class="form-select" id="periodeSelect">
-                            <option value="all" {% if current_filters.periode == 'all' or not current_filters.periode %}selected{% endif %}>
-                                {% trans "Toutes les périodes" %}
-                            </option>
-                            <option value="jour" {% if current_filters.periode == 'jour' %}selected{% endif %}>
-                                {% trans "Par jour" %}
-                            </option>
-                            <option value="semaine" {% if current_filters.periode == 'semaine' %}selected{% endif %}>
-                                {% trans "Cette semaine" %}
-                            </option>
-                            <option value="mois" {% if current_filters.periode == 'mois' %}selected{% endif %}>
-                                {% trans "Par mois" %}
-                            </option>
-                        </select>
-                    </div>
-
-                    <!-- Sélection Date (pour jour) -->
-                    <div class="filter-group" id="dateGroup" style="display: none;">
-                        <label class="form-label">{% trans "Date" %}</label>
-                        <input type="date" name="date" class="form-control" value="{{ current_filters.date }}">
-                    </div>
-
-                    <!-- Sélection Mois -->
-                    <div class="filter-group" id="moisGroup" style="display: none;">
-                        <label class="form-label">{% trans "Mois" %}</label>
-                        <select name="mois" class="form-select">
-                            {% for mois in mois_disponibles %}
-                            <option value="{{ mois.mois }}" data-annee="{{ mois.annee }}"
-                                    {% if current_filters.mois == mois.mois|stringformat:"s" and current_filters.annee == mois.annee|stringformat:"s" %}selected{% endif %}>
-                                {{ mois.label }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <input type="hidden" name="annee" id="anneeInput" value="{{ current_filters.annee }}">
-                    </div>
-
-                    <!-- Filtre Taux -->
-                    <div class="filter-group">
-                        <label class="form-label">{% trans "Taux déperdition" %}</label>
+                        <label>{% trans "Taux déperdition" %}</label>
                         <select name="taux_filtre" class="form-select">
                             <option value="">{% trans "Tous" %}</option>
                             <option value="bon" {% if current_filters.taux_filtre == 'bon' %}selected{% endif %}>
@@ -1596,23 +1402,21 @@
                         </select>
                     </div>
 
-                    <!-- Recherche -->
                     <div class="filter-group">
-                        <label class="form-label">{% trans "Rechercher" %}</label>
-                        <input type="text" name="search" class="form-control" 
-                               placeholder="{% trans 'Poste, code...' %}" 
+                        <label>{% trans "Rechercher" %}</label>
+                        <input type="text" name="search" class="form-control"
+                               placeholder="{% trans 'Poste, code...' %}"
                                value="{{ current_filters.search }}">
                     </div>
 
-                    <!-- Boutons -->
                     <div class="filter-group">
-                        <label class="form-label">&nbsp;</label>
+                        <label>&nbsp;</label>
                         <div class="filter-buttons">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-search me-1"></i>
                                 {% trans "Filtrer" %}
                             </button>
-                            <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-secondary">
+                            <a href="{% url 'inventaire:liste_recettes' %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-redo me-1"></i>
                                 {% trans "Reset" %}
                             </a>
@@ -1638,28 +1442,26 @@
                         <th>{% trans "Taux Déperdition" %}</th>
                         {% endif %}
                         <th>{% trans "Chef de Poste" %}</th>
-                        <th>{% trans "Detail" %}</th>
+                        <th>{% trans "Détail" %}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for recette in recettes %}
                     <tr>
                         <td>
-                            <strong>{{ recette.date|date:"d/m/Y" }}</strong>
-                            <br>
+                            <strong>{{ recette.date|date:"d/m/Y" }}</strong><br>
                             <small class="text-muted">{{ recette.date|date:"l" }}</small>
                         </td>
                         <td>
-                            <strong>{{ recette.poste.nom }}</strong>
-                            <br>
+                            <strong>{{ recette.poste.nom }}</strong><br>
                             <small class="text-muted">{{ recette.poste.code }}</small>
                         </td>
                         <td>
                             <strong class="text-success">
                                 {% if recette.montant_declare != None %}
-                                    {{ recette.montant_declare|floatformat:0|format_milliers }} FCFA
+                                {{ recette.montant_declare|floatformat:0|format_milliers }} FCFA
                                 {% else %}
-                                    -
+                                -
                                 {% endif %}
                             </strong>
                         </td>
@@ -1675,25 +1477,32 @@
                         {% if user.voir_taux_deperdition %}
                         <td>
                             {% if recette.taux_deperdition != None %}
-                                <span class="badge bg-{{ recette.get_couleur_alerte }}">
-                                    {{ recette.taux_deperdition|floatformat:2 }}% - {{ recette.get_statut_deperdition }}
-                                </span>
+                            <span class="badge bg-{{ recette.get_couleur_alerte }}">
+                                {{ recette.taux_deperdition|floatformat:2 }}%
+                            </span>
                             {% else %}
-                                <span class="badge bg-secondary">N/A</span>
+                            <span class="badge bg-secondary">N/A</span>
                             {% endif %}
                         </td>
                         {% endif %}
+                        <td>{{ recette.chef_poste.nom_complet }}</td>
                         <td>
-                            {{ recette.chef_poste.nom_complet }}
-                        </td>
-                        <td>
-                            <div class="action-buttons">
-                                <a href="{% url 'inventaire:recette_detail' recette.pk %}" 
-                                   class="btn-action btn-view" title="{% trans 'Voir' %}">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                            </div>
-                        </td>
+                        <div class="action-buttons">
+                            <a href="{% url 'inventaire:recette_detail' recette.pk %}"
+                               class="btn-action btn-view"
+                               title="{% trans 'Voir' %}">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if is_admin %}
+                            <a href="{% url 'inventaire:supprimer_recette' pk=recette.pk %}"
+                               class="btn-action"
+                               style="background: #fee2e2; color: #dc2626;"
+                               title="{% trans 'Supprimer' %}">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -1702,7 +1511,7 @@
 
         <!-- Pagination -->
         {% if is_paginated %}
-        <nav class="mt-4">
+        <nav class="mt-4" aria-label="{% trans 'Pagination' %}">
             <ul class="pagination justify-content-center">
                 {% if page_obj.has_previous %}
                 <li class="page-item">
@@ -1716,13 +1525,13 @@
                     </a>
                 </li>
                 {% endif %}
-                
+
                 <li class="page-item active">
                     <span class="page-link">
                         {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
                     </span>
                 </li>
-                
+
                 {% if page_obj.has_next %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in current_filters.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
@@ -1744,8 +1553,11 @@
         <div class="empty-state">
             <i class="fas fa-inbox empty-state-icon"></i>
             <h4>{% trans "Aucune recette trouvée" %}</h4>
-            <p>{% trans "Aucune recette ne correspond aux filtres sélectionnés" %}</p>
-            {% if user.is_chef_poste or user.is_admin %}
+            <p>
+                {% trans "Aucune recette ne correspond aux filtres sélectionnés pour" %}
+                <strong>{{ periode_label }}</strong>
+            </p>
+            {% if can_edit %}
             <a href="{% url 'inventaire:saisir_recette_avec_tickets' %}" class="btn btn-primary mt-3">
                 <i class="fas fa-plus me-2"></i>
                 {% trans "Saisir une recette" %}
@@ -1758,99 +1570,75 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Gestion des filtres dynamiques
+    // Gestion des filtres conditionnels
     const periodeSelect = document.getElementById('periodeSelect');
     const dateGroup = document.getElementById('dateGroup');
+    const semaineGroup = document.getElementById('semaineGroup');
     const moisGroup = document.getElementById('moisGroup');
-    
+    const trimestreGroup = document.getElementById('trimestreGroup');
+
     function togglePeriodeFields() {
-        const value = periodeSelect.value;
-        dateGroup.style.display = value === 'jour' ? 'block' : 'none';
-        moisGroup.style.display = value === 'mois' ? 'block' : 'none';
+        // Masquer tous les champs
+        if (dateGroup) dateGroup.classList.remove('active');
+        if (semaineGroup) semaineGroup.classList.remove('active');
+        if (moisGroup) moisGroup.classList.remove('active');
+        if (trimestreGroup) trimestreGroup.classList.remove('active');
+
+        // Afficher le champ approprié
+        const value = periodeSelect ? periodeSelect.value : 'mois';
+        if (value === 'jour' && dateGroup) {
+            dateGroup.classList.add('active');
+        } else if (value === 'semaine' && semaineGroup) {
+            semaineGroup.classList.add('active');
+        } else if (value === 'mois' && moisGroup) {
+            moisGroup.classList.add('active');
+        } else if (value === 'trimestre' && trimestreGroup) {
+            trimestreGroup.classList.add('active');
+        }
     }
-    
+
     if (periodeSelect) {
         periodeSelect.addEventListener('change', togglePeriodeFields);
         togglePeriodeFields();
     }
-    
-    // Gestion sélection mois/année
-    const moisSelect = document.querySelector('select[name="mois"]');
-    if (moisSelect) {
-        moisSelect.addEventListener('change', function() {
-            const selected = this.options[this.selectedIndex];
-            const anneeInput = document.getElementById('anneeInput');
-            if (anneeInput && selected.dataset.annee) {
-                anneeInput.value = selected.dataset.annee;
-            }
+
+    // Soumission automatique lors du changement d'année
+    const anneeSelect = document.getElementById('anneeSelect');
+    if (anneeSelect) {
+        anneeSelect.addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
         });
     }
 
     // Correction du défilement horizontal sur mobile
     function fixMobileScrolling() {
         if (window.innerWidth <= 768) {
+            // Forcer la suppression du défilement horizontal
             document.documentElement.style.overflowX = 'hidden';
             document.body.style.overflowX = 'hidden';
-            document.body.style.width = '100%';
-            document.body.style.maxWidth = '100vw';
-            
-            document.querySelectorAll('.recettes-page, .container-fluid, .main-content, .content-wrapper').forEach(el => {
+
+            // S'assurer que tous les conteneurs sont bien contraints
+            document.querySelectorAll('.recettes-page, .container-fluid').forEach(el => {
                 if (el) {
                     el.style.overflowX = 'hidden';
                     el.style.maxWidth = '100vw';
-                    el.style.width = '100%';
                 }
             });
         } else {
-            document.documentElement.style.overflowX = '';
-            document.body.style.overflowX = '';
-            document.body.style.width = '';
-            document.body.style.maxWidth = '';
+            // Restaurer le comportement normal sur desktop
+            document.documentElement.style.overflowX = 'visible';
+            document.body.style.overflowX = 'visible';
         }
     }
-    
+
+    // Exécuter au chargement et au redimensionnement
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
-    window.addEventListener('orientationchange', function() {
-        setTimeout(fixMobileScrolling, 100);
-    });
-    
-    // Ajustement dynamique pour les très petits écrans
-    function adjustForSmallScreen() {
-        const viewportWidth = window.innerWidth;
-        
-        if (viewportWidth < 768) {
-            // Forcer le conteneur à rester dans les limites
-            const containers = document.querySelectorAll('.container-fluid, .recettes-page');
-            containers.forEach(container => {
-                container.style.maxWidth = viewportWidth + 'px';
-            });
-        }
-    }
-    
-    adjustForSmallScreen();
-    window.addEventListener('resize', adjustForSmallScreen);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+
+    // Gestion des événements tactiles pour une meilleure expérience mobile
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    document.addEventListener('touchmove', function() {}, {passive: true});
 });
-
-// Fonction suppression
-function supprimerRecette(id) {
-    if (confirm("{% trans 'Êtes-vous sûr de vouloir supprimer cette recette ?' %}")) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `/inventaire/recettes/${id}/supprimer/`;
-        
-        const csrfToken = document.createElement('input');
-        csrfToken.type = 'hidden';
-        csrfToken.name = 'csrfmiddlewaretoken';
-        csrfToken.value = '{{ csrf_token }}';
-        
-        form.appendChild(csrfToken);
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-// Correction pour empêcher le zoom automatique sur iOS
-document.addEventListener('touchstart', function() {}, {passive: true});
 </script>
-{% endblock %}1
+{% endblock %}

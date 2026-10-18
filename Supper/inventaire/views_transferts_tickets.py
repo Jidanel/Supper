@@ -279,7 +279,7 @@ def selection_postes_transfert_tickets(request):
                     f"Saisissez maintenant les tickets à transférer."
                 )
                 
-                return redirect('inventaire:saisie_tickets_transfert')
+                return redirect('inventaire:saisie_transfert_multiple')
         else:
             # Erreurs de validation du formulaire
             for field, errors in form.errors.items():

@@ -1,0 +1,1087 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Historiques ACCT Pesage{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION GLOBALE MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+    
+    /* ============================================
+       VARIABLES CSS
+       ============================================ */
+    :root {
+        --primary-color: #3b82f6;
+        --primary-dark: #2563eb;
+        --success-color: #10b981;
+        --success-dark: #059669;
+        --info-color: #06b6d4;
+        --purple-color: #8b5cf6;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-500: #6b7280;
+        --gray-700: #374151;
+        --gray-900: #111827;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin: 0 auto;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .page-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+    }
+    
+    .page-header p {
+        margin: 0.25rem 0 0;
+        color: var(--gray-500);
+        font-size: 0.9rem;
+    }
+
+    /* ============================================
+       CARTE FILTRES
+       ============================================ */
+    .filter-card {
+        background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+    
+    .filter-card .form-label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--gray-700);
+        margin-bottom: 0.35rem;
+    }
+    
+    .filter-card .form-select,
+    .filter-card .form-control {
+        border-radius: 8px;
+        border: 1px solid var(--gray-300);
+        font-size: 0.9rem;
+        padding: 0.5rem 0.75rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       GRILLE STATISTIQUES
+       ============================================ */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+    
+    .stat-card {
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-card.primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    }
+    
+    .stat-card.success {
+        background: linear-gradient(135deg, var(--success-color), var(--success-dark));
+    }
+    
+    .stat-card.info {
+        background: linear-gradient(135deg, var(--info-color), #0891b2);
+    }
+    
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+        margin-top: 0.25rem;
+    }
+
+    /* ============================================
+       CARTE TABLEAU
+       ============================================ */
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+    }
+    
+    /* ============================================
+       CONTENEUR TABLEAU RESPONSIVE
+       ============================================ */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Scrollbar personnalisée pour le tableau */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+        background: var(--gray-100);
+        border-radius: 4px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--gray-300);
+        border-radius: 4px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--gray-500);
+    }
+    
+    /* ============================================
+       TABLEAU HISTORIQUES
+       ============================================ */
+    .historique-table {
+        margin-bottom: 0;
+        font-size: 0.9rem;
+        width: 100%;
+        min-width: 700px;
+    }
+    
+    .historique-table thead th {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        font-weight: 600;
+        padding: 0.875rem 0.75rem;
+        border: none;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    
+    .historique-table tbody td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--gray-100);
+    }
+    
+    .historique-table tbody tr:hover {
+        background-color: var(--gray-50);
+    }
+    
+    .historique-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* ============================================
+       COLONNES TABLEAU
+       ============================================ */
+    .col-station {
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+    
+    .col-region {
+        color: var(--gray-500);
+        font-size: 0.85rem;
+    }
+    
+    .badge-periode {
+        background: linear-gradient(135deg, var(--purple-color), #7c3aed);
+        color: white;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        white-space: nowrap;
+    }
+    
+    .montant-global {
+        color: var(--primary-dark);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    
+    .montant-reel {
+        color: var(--success-dark);
+        font-weight: 700;
+        font-size: 0.95rem;
+        white-space: nowrap;
+    }
+    
+    .col-reference {
+        color: var(--gray-500);
+        font-size: 0.85rem;
+    }
+    
+    .col-date {
+        text-align: center;
+        color: var(--gray-700);
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION
+       ============================================ */
+    .action-btn {
+        padding: 0.35rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+    }
+    
+    .action-btn:hover {
+        transform: scale(1.05);
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    /* ============================================
+       ÉTAT VIDE
+       ============================================ */
+    .empty-state {
+        padding: 3rem 1.5rem;
+        text-align: center;
+        color: var(--gray-500);
+    }
+    
+    .empty-state i {
+        font-size: 3.5rem;
+        color: var(--gray-300);
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state h5 {
+        color: var(--gray-700);
+        margin-bottom: 0.5rem;
+    }
+    
+    .empty-state p {
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+    }
+
+    /* ============================================
+       PAGINATION
+       ============================================ */
+    .pagination-wrapper {
+        padding: 1rem;
+        border-top: 1px solid var(--gray-100);
+        background: var(--gray-50);
+    }
+    
+    .pagination {
+        margin-bottom: 0;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .page-link {
+        border-radius: 6px;
+        margin: 0 2px;
+        border: 1px solid var(--gray-200);
+        color: var(--gray-700);
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .page-link:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
+    
+    .page-item.active .page-link {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    /* ============================================
+       LÉGENDE
+       ============================================ */
+    .legend-card {
+        margin-top: 1rem;
+    }
+    
+    .legend-card .card-body {
+        padding: 0.75rem 1rem;
+    }
+
+    /* ============================================
+       BOUTONS GÉNÉRAUX
+       ============================================ */
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, var(--success-color) 0%, var(--success-dark) 100%);
+        color: white;
+        border: none;
+    }
+    
+    .btn-success:hover {
+        color: white;
+        transform: translateY(-1px);
+    }
+
+    /* ============================================
+       GRILLE RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+    
+    .col-md-2, .col-md-3, .col-md-4, .col-md-8 {
+        padding-left: 15px;
+        padding-right: 15px;
+        width: 100%;
+    }
+    
+    .g-3 {
+        --bs-gutter-x: 1rem;
+        --bs-gutter-y: 1rem;
+    }
+
+    /* ============================================
+       VERSION PC (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-2 {
+            flex: 0 0 16.666667%;
+            max-width: 16.666667%;
+        }
+        
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+        
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+        
+        .col-md-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+    }
+    
+    /* ============================================
+       TABLETTE (769px - 1024px)
+       ============================================ */
+    @media (max-width: 1024px) and (min-width: 769px) {
+        .stats-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+        }
+    }
+
+    /* ============================================
+       CORRECTION MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Empêcher le défilement horizontal global */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+        
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+        
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+            overflow-x: hidden !important;
+        }
+        
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+        
+        .col-md-2, .col-md-3, .col-md-4, .col-md-8 {
+            padding-left: 8px;
+            padding-right: 8px;
+            flex: 0 0 100%;
+            max-width: 100%;
+            margin-bottom: 0.75rem;
+        }
+        
+        /* En-tête */
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+        
+        .page-header p {
+            font-size: 0.85rem;
+        }
+        
+        .page-header .btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        /* Filtres */
+        .filter-card {
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        
+        .filter-card .form-label {
+            font-size: 0.8rem;
+        }
+        
+        .filter-card .form-select,
+        .filter-card .form-control {
+            font-size: 16px !important; /* Empêche zoom iOS */
+            padding: 0.625rem;
+        }
+        
+        /* Statistiques */
+        .stats-row {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+        
+        .stat-card {
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        .stat-card .stat-label {
+            font-size: 0.8rem;
+        }
+        
+        /* Tableau */
+        .table-card {
+            border-radius: 8px;
+        }
+        
+        .table-responsive {
+            margin: 0;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .historique-table {
+            font-size: 0.8rem;
+            min-width: 600px;
+        }
+        
+        .historique-table thead th {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .historique-table tbody td {
+            padding: 0.5rem;
+        }
+        
+        .badge-periode {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+        }
+        
+        .montant-reel {
+            font-size: 0.85rem;
+        }
+        
+        /* Masquer colonnes secondaires sur mobile */
+        .hide-mobile {
+            display: none !important;
+        }
+        
+        /* Actions */
+        .action-btn {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        /* État vide */
+        .empty-state {
+            padding: 2rem 1rem;
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+        }
+        
+        .empty-state h5 {
+            font-size: 1rem;
+        }
+        
+        .empty-state p {
+            font-size: 0.85rem;
+        }
+        
+        /* Pagination */
+        .pagination-wrapper {
+            padding: 0.75rem;
+        }
+        
+        .page-link {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Légende */
+        .legend-card .card-body {
+            padding: 0.625rem;
+        }
+        
+        .legend-card small {
+            font-size: 0.75rem;
+            display: block;
+            line-height: 1.4;
+        }
+        
+        .legend-card .row {
+            flex-direction: column;
+        }
+        
+        .legend-card .col-md-8,
+        .legend-card .col-md-4 {
+            text-align: left !important;
+            margin-bottom: 0.5rem;
+        }
+        
+        .legend-card .btn-sm {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+    }
+    
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+        
+        .col-md-2, .col-md-3, .col-md-4, .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+        
+        .page-header h2 {
+            font-size: 1.15rem;
+        }
+        
+        .filter-card {
+            padding: 0.875rem;
+        }
+        
+        .stat-card {
+            padding: 0.875rem;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 1.35rem;
+        }
+        
+        .historique-table {
+            font-size: 0.75rem;
+            min-width: 550px;
+        }
+        
+        .historique-table thead th {
+            padding: 0.5rem 0.375rem;
+            font-size: 0.7rem;
+        }
+        
+        .historique-table tbody td {
+            padding: 0.375rem;
+        }
+        
+        .badge-periode {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.4rem;
+        }
+    }
+    
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .page-header h2 {
+            font-size: 1.05rem;
+        }
+        
+        .filter-card .form-label {
+            font-size: 0.75rem;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 1.2rem;
+        }
+        
+        .stat-card .stat-label {
+            font-size: 0.75rem;
+        }
+        
+        .historique-table {
+            min-width: 500px;
+        }
+        
+        .historique-table thead th,
+        .historique-table tbody td {
+            font-size: 0.7rem;
+        }
+        
+        .btn {
+            font-size: 0.85rem;
+            padding: 0.5rem 0.75rem;
+        }
+    }
+    
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .stats-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .col-md-3 {
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+        }
+        
+        .page-header {
+            flex-direction: row;
+            align-items: center;
+        }
+        
+        .page-header .btn {
+            width: auto;
+        }
+    }
+    
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 480px) {
+        input[type="text"],
+        input[type="search"],
+        select {
+            font-size: 16px !important;
+        }
+    }
+    
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .form-select:focus,
+    .btn:focus,
+    .page-link:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       PRINT
+       ============================================ */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        
+        .table-card {
+            box-shadow: none;
+            border: 1px solid #ddd;
+        }
+        
+        .stat-card {
+            background: white !important;
+            color: black !important;
+            border: 1px solid #ddd;
+        }
+        
+        .badge-periode {
+            background: #eee !important;
+            color: black !important;
+        }
+        
+        .historique-table {
+            min-width: 100%;
+        }
+        
+        .hide-mobile {
+            display: table-cell !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    
+    <!-- HEADER -->
+    <div class="page-header">
+        <div>
+            <h2>
+                <i class="fas fa-history text-primary me-2"></i>
+                {% trans "Historiques ACCT Pesage" %}
+            </h2>
+            <p>{% trans "Liste des historiques mensuels des stations de pesage" %}</p>
+        </div>
+        {% if peut_saisir %}
+        <a href="{% url 'inventaire:saisir_historique_pesage' %}" class="btn btn-success no-print">
+            <i class="fas fa-plus me-1"></i> {% trans "Nouvel historique" %}
+        </a>
+        {% endif %}
+    </div>
+    
+    <!-- FILTRES -->
+    <div class="filter-card no-print">
+        <form method="get" id="filterForm">
+            <div class="row g-3 align-items-end">
+                {% if acces_tous_postes %}
+                <div class="col-md-3">
+                    <label class="form-label">
+                        <i class="fas fa-building me-1"></i> {% trans "Station" %}
+                    </label>
+                    <select name="station" class="form-select" onchange="this.form.submit()">
+                        <option value="">{% trans "Toutes les stations" %}</option>
+                        {% for station in stations_accessibles %}
+                        <option value="{{ station.id }}" {% if current_filters.station == station.id|stringformat:"s" %}selected{% endif %}>
+                            {{ station.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-2">
+                    <label class="form-label">
+                        <i class="fas fa-calendar me-1"></i> {% trans "Année" %}
+                    </label>
+                    <select name="annee" class="form-select" onchange="this.form.submit()">
+                        <option value="">{% trans "Toutes" %}</option>
+                        {% for annee in annees_disponibles %}
+                        <option value="{{ annee }}" {% if current_filters.annee == annee|stringformat:"s" %}selected{% endif %}>
+                            {{ annee }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">
+                        <i class="fas fa-calendar-day me-1"></i> {% trans "Mois" %}
+                    </label>
+                    <select name="mois" class="form-select" onchange="this.form.submit()">
+                        <option value="">{% trans "Tous" %}</option>
+                        {% for code, nom in mois_disponibles %}
+                        <option value="{{ code }}" {% if current_filters.mois == code %}selected{% endif %}>
+                            {{ nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">
+                        <i class="fas fa-search me-1"></i> {% trans "Recherche" %}
+                    </label>
+                    <div class="input-group">
+                        <input type="text" 
+                               name="q" 
+                               class="form-control" 
+                               placeholder="{% trans 'Station, observations...' %}"
+                               value="{{ query }}">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="col-md-2">
+                    <a href="{% url 'inventaire:liste_historiques_pesage' %}" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-times me-1"></i> {% trans "Réinitialiser" %}
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- STATISTIQUES -->
+    {% if historiques %}
+    <div class="stats-row">
+        <div class="stat-card primary">
+            <div class="stat-value">{{ stats.total_historiques }}</div>
+            <div class="stat-label">{% trans "Historiques affichés" %}</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-value">{{ stats.total_montant_reel|format_milliers }}</div>
+            <div class="stat-label">{% trans "Total montants réels (FCFA)" %}</div>
+        </div>
+        <div class="stat-card info">
+            <div class="stat-value">{{ stats.stations_couvertes }}</div>
+            <div class="stat-label">{% trans "Stations concernées" %}</div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- TABLEAU -->
+    <div class="table-card">
+        {% if historiques %}
+        <div class="table-responsive">
+            <table class="table table-hover historique-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Station" %}</th>
+                        <th class="hide-mobile">{% trans "Région" %}</th>
+                        <th class="text-center">{% trans "Période" %}</th>
+                        <th class="text-end hide-mobile">{% trans "Montant global" %}</th>
+                        <th class="text-end">{% trans "Montant réel" %}</th>
+                        <th class="text-center no-print">{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in historiques %}
+                    <tr>
+                        <td class="col-station">
+                            {{ h.station.nom }}
+                        </td>
+                        <td class="col-region hide-mobile">
+                            {{ h.station.region.nom|default:"-" }}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge-periode">
+                                {{ h.get_mois_display }}
+                            </span>
+                        </td>
+                        <td class="text-end montant-global hide-mobile">
+                            {{ h.montant_global|format_milliers }} FCFA
+                        </td>
+                        <td class="text-end montant-reel">
+                            {{ h.montant_reel|format_milliers }} FCFA
+                        </td>
+                        <td class="text-center no-print">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'inventaire:detail_historique_pesage' h.pk %}" 
+                                   class="btn btn-sm btn-outline-primary action-btn"
+                                   title="{% trans 'Voir détails' %}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if peut_supprimer %}
+                                <a href="{% url 'inventaire:supprimer_historique_pesage' h.pk %}" 
+                                   class="btn btn-sm btn-outline-danger action-btn"
+                                   title="{% trans 'Supprimer' %}">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination-wrapper">
+            <nav aria-label="{% trans 'Pagination' %}">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if current_filters.station %}&station={{ current_filters.station }}{% endif %}{% if current_filters.annee %}&annee={{ current_filters.annee }}{% endif %}{% if current_filters.mois %}&mois={{ current_filters.mois }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_filters.station %}&station={{ current_filters.station }}{% endif %}{% if current_filters.annee %}&annee={{ current_filters.annee }}{% endif %}{% if current_filters.mois %}&mois={{ current_filters.mois }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_filters.station %}&station={{ current_filters.station }}{% endif %}{% if current_filters.annee %}&annee={{ current_filters.annee }}{% endif %}{% if current_filters.mois %}&mois={{ current_filters.mois }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_filters.station %}&station={{ current_filters.station }}{% endif %}{% if current_filters.annee %}&annee={{ current_filters.annee }}{% endif %}{% if current_filters.mois %}&mois={{ current_filters.mois }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <!-- État vide -->
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h5>{% trans "Aucun historique trouvé" %}</h5>
+            <p>
+                {% if query or current_filters.station or current_filters.annee or current_filters.mois %}
+                {% trans "Aucun historique ne correspond aux critères de recherche." %}
+                {% else %}
+                {% trans "Aucun historique ACCT n'a encore été enregistré." %}
+                {% endif %}
+            </p>
+            {% if peut_saisir %}
+            <a href="{% url 'inventaire:saisir_historique_pesage' %}" class="btn btn-success">
+                <i class="fas fa-plus me-1"></i> {% trans "Créer un historique" %}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- LÉGENDE -->
+    {% if historiques %}
+    <div class="card legend-card no-print">
+        <div class="card-body py-3">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>{% trans "Montant global" %}</strong> : {% trans "Total versé à la perception (peut inclure plusieurs stations)" %} |
+                        <strong>{% trans "Montant réel" %}</strong> : {% trans "Part de cette station dans le versement" %}
+                    </small>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-print me-1"></i> {% trans "Imprimer" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation des cartes statistiques
+    const statCards = document.querySelectorAll('.stat-card');
+    statCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.4s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+</script>
+{% endblock %}

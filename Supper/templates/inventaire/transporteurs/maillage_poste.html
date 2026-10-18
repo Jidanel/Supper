@@ -1,0 +1,58 @@
+{# templates/inventaire/transporteurs/maillage_poste.html #}
+{# Voisins d'un poste : modifier les tarifs, retirer, ajouter plusieurs voisins #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{{ poste.nom }} - {% trans "Maillage" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2">
+    <div><h1>{{ poste.nom }}</h1>
+      <p class="tr-sub">{{ poste.region }} — {% trans "postes voisins et tarif par passager (FCFA, sens simple). Une liaison saisie ici vaut dans les deux sens." %}</p></div>
+    <a class="tr-btn-ghost text-decoration-none align-self-start" href="{% url 'inventaire:transporteurs_maillage' %}">← {% trans "Tous les postes" %}</a>
+  </div>
+
+  <form method="post" action="{% url 'inventaire:transporteurs_maillage_poste_enregistrer' poste.id %}">{% csrf_token %}
+  <div class="tr-panel"><div class="tr-head">{% trans "Voisins actuels" %} <span class="text-muted">{{ lignes|length }}</span></div>
+    <div class="tr-scroll"><table class="tr-table">
+      <thead><tr><th>{% trans "Poste voisin" %}</th><th>{% trans "Région" %}</th><th class="num" style="width:160px">{% trans "Tarif (FCFA)" %}</th><th style="width:90px">{% trans "Retirer" %}</th></tr></thead>
+      <tbody>{% for x in lignes %}<tr>
+        <td><b>{{ x.voisin.nom }}</b></td><td>{{ x.voisin.region }}</td>
+        <td><input name="tarif_{{ x.liaison.id }}" value="{{ x.tarif }}" inputmode="numeric" class="form-control form-control-sm text-end"></td>
+        <td class="text-center"><input type="checkbox" name="suppr_{{ x.liaison.id }}" class="form-check-input"></td></tr>
+      {% empty %}<tr><td colspan="4" class="text-center text-muted py-3">{% trans "Aucun voisin renseigné." %}</td></tr>{% endfor %}</tbody></table></div></div>
+
+  <div class="tr-panel"><div class="tr-head">{% trans "Ajouter des voisins" %}
+      <button type="button" class="tr-btn-ghost" id="btnPlus">＋ {% trans "Ajouter une ligne" %}</button></div>
+    <div class="tr-body" id="zoneAjout"></div></div>
+
+  <button class="tr-btn" type="submit">{% trans "Enregistrer" %}</button>
+  </form>
+
+  {# Modèle de ligne d'ajout (cloné par le script) #}
+  <template id="modeleLigne">
+    <div class="tr-grid mb-2 ligne-ajout">
+      <div><select name="nouveau_poste" class="form-select">
+        <option value="">— {% trans "Poste voisin" %} —</option>
+        {% for c in candidats %}<option value="{{ c.id }}">{{ c.nom }} ({{ c.region }})</option>{% endfor %}</select></div>
+      <div><input name="nouveau_tarif" inputmode="numeric" class="form-control" placeholder="{% trans 'Tarif (FCFA)' %}"></div>
+      <div><button type="button" class="tr-btn-danger js-enlever">✕</button></div>
+    </div>
+  </template>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  // Ajoute / retire des lignes « nouveau voisin » (plusieurs voisins en une seule validation)
+  var zone = document.getElementById('zoneAjout'), modele = document.getElementById('modeleLigne');
+  function ajouter() { zone.appendChild(modele.content.cloneNode(true)); }
+  document.getElementById('btnPlus').addEventListener('click', ajouter);
+  zone.addEventListener('click', function (e) {
+    var b = e.target.closest('.js-enlever');
+    if (b) b.closest('.ligne-ajout').remove();
+  });
+  ajouter();   // une première ligne prête à remplir
+})();
+</script>
+{% endblock %}

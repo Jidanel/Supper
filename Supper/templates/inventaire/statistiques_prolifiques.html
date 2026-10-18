@@ -1,0 +1,408 @@
+{# templates/inventaire/statistiques_prolifiques.html  - V3 (refonte du design) #}
+{# Jour et heure les plus prolifiques - SUPPER #}
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{% trans "Jour et heure prolifiques" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ===== Jetons de design (alignés sur le bleu SUPPER de base_site.html) ===== */
+.sp {
+  --sp-ink: #0F172A;            /* texte principal */
+  --sp-muted: #64748B;          /* texte secondaire */
+  --sp-line: #E2E8F0;           /* bordures */
+  --sp-surface: #FFFFFF;        /* fond des panneaux */
+  --sp-blue: #2563EB;           /* action / données */
+  --sp-blue-soft: #EFF6FF;      /* fond bleu léger */
+  --sp-amber: #F59E0B;          /* record (comme un feu de signalisation) */
+  --sp-amber-soft: #FEF3C7;
+  color: var(--sp-ink);
+  font-variant-numeric: tabular-nums;   /* chiffres alignés dans les colonnes */
+}
+
+/* ===== Titre de page ===== */
+.sp-titre h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 .25rem; }
+.sp-titre p  { color: var(--sp-muted); margin: 0 0 1.5rem; max-width: 62ch; }
+
+/* ===== Panneaux ===== */
+.sp-panel { background: var(--sp-surface); border: 1px solid var(--sp-line); border-radius: 10px; }
+.sp-panel-head { padding: .9rem 1.1rem; border-bottom: 1px solid var(--sp-line); font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.sp-panel-body { padding: 1.1rem; }
+
+/* ===== Formulaire : deux colonnes ===== */
+.sp-form { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 1.25rem; align-items: start; margin-bottom: 1.5rem; }
+.sp-champ { margin-bottom: 1.1rem; }
+.sp-champ:last-child { margin-bottom: 0; }
+.sp-champ > label, .sp-champ > .sp-lbl { display: block; font-weight: 600; font-size: .9rem; margin-bottom: .4rem; }
+.sp-aide { color: var(--sp-muted); font-size: .8rem; margin-top: .3rem; }
+.sp-dates { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.sp-presets { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+.sp-chip-btn { border: 1px solid var(--sp-line); background: #fff; color: var(--sp-ink); border-radius: 999px; padding: .2rem .75rem; font-size: .8rem; cursor: pointer; }
+.sp-chip-btn:hover { border-color: var(--sp-blue); color: var(--sp-blue); }
+
+/* ===== Choix segmentés (boutons radio) ===== */
+.sp-seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--sp-line); border-radius: 8px; overflow: hidden; background: #fff; }
+.sp-seg label { position: relative; margin: 0; cursor: pointer; }
+.sp-seg input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.sp-seg span { display: block; padding: .45rem .9rem; font-size: .88rem; border-right: 1px solid var(--sp-line); }
+.sp-seg label:last-child span { border-right: 0; }
+.sp-seg input:checked + span { background: var(--sp-blue); color: #fff; font-weight: 600; }
+.sp-seg input:focus-visible + span { outline: 2px solid var(--sp-amber); outline-offset: -2px; }
+
+/* ===== Liste des postes ===== */
+.sp-recherche { width: 100%; border: 1px solid var(--sp-line); border-radius: 8px; padding: .5rem .75rem; font-size: .9rem; }
+.sp-recherche:focus { outline: 2px solid var(--sp-blue); border-color: var(--sp-blue); }
+.sp-actions-liste { display: flex; align-items: center; gap: .5rem; margin: .6rem 0; flex-wrap: wrap; }
+.sp-compteur { margin-left: auto; font-size: .82rem; color: var(--sp-muted); }
+.sp-postes { max-height: 300px; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; padding: .1rem; }
+.sp-poste { position: relative; margin: 0; }
+.sp-poste input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.sp-poste span { display: block; padding: .38rem .6rem; border: 1px solid var(--sp-line); border-radius: 6px; font-size: .84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-poste:hover span { border-color: var(--sp-blue); }
+.sp-poste input:checked + span { background: var(--sp-blue-soft); border-color: var(--sp-blue); color: var(--sp-blue); font-weight: 600; }
+.sp-poste input:focus-visible + span { outline: 2px solid var(--sp-amber); }
+
+/* ===== Bouton principal ===== */
+.sp-btn { background: var(--sp-blue); color: #fff; border: 0; border-radius: 8px; padding: .65rem 1.4rem; font-weight: 600; width: 100%; }
+.sp-btn:hover { background: #1D4ED8; color: #fff; }
+.sp-btn:focus-visible { outline: 2px solid var(--sp-amber); outline-offset: 2px; }
+
+/* ===== Etat vide ===== */
+.sp-vide { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.sp-vide h3 { font-size: 1rem; font-weight: 600; margin: 0 0 .3rem; }
+.sp-vide p { color: var(--sp-muted); font-size: .9rem; margin: 0; }
+.sp-vide .sp-panel-body { border-left: 3px solid var(--sp-blue); }
+
+/* ===== Bandeau de synthèse ===== */
+.sp-synthese { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--sp-surface); border: 1px solid var(--sp-line); border-radius: 10px; margin-bottom: 1.25rem; }
+.sp-synthese > div { padding: 1rem 1.1rem; border-right: 1px solid var(--sp-line); }
+.sp-synthese > div:last-child { border-right: 0; }
+.sp-synthese .v { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.sp-synthese .l { color: var(--sp-muted); font-size: .82rem; }
+
+/* ===== Classement ===== */
+.sp-table { width: 100%; border-collapse: collapse; }
+.sp-table th { text-align: left; font-size: .8rem; font-weight: 600; color: var(--sp-muted); padding: .6rem .75rem; border-bottom: 1px solid var(--sp-line); white-space: nowrap; }
+.sp-table td { padding: .65rem .75rem; border-bottom: 1px solid var(--sp-line); vertical-align: middle; }
+.sp-table tr:last-child td { border-bottom: 0; }
+.sp-table .num { text-align: right; }
+.sp-table .sec { color: var(--sp-muted); font-size: .86rem; }
+.sp-rang { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: #F1F5F9; font-weight: 700; font-size: .85rem; }
+.sp-rang.r1 { background: var(--sp-amber); color: #fff; }
+.sp-rang.r2, .sp-rang.r3 { background: var(--sp-blue-soft); color: var(--sp-blue); }
+.sp-nom { font-weight: 600; }
+.sp-sous { color: var(--sp-muted); font-size: .8rem; }
+.sp-barre-cell { min-width: 220px; }
+.sp-barre { height: 8px; background: #F1F5F9; border-radius: 4px; overflow: hidden; margin-top: .35rem; }
+.sp-barre i { display: block; height: 100%; background: var(--sp-blue); border-radius: 4px; }
+tr.top1 .sp-barre i { background: var(--sp-amber); }
+.sp-valeur { font-weight: 700; font-size: 1.05rem; }
+.sp-creneau { display: inline-block; background: var(--sp-blue-soft); color: var(--sp-blue); border-radius: 6px; padding: .1rem .5rem; font-weight: 600; font-size: .85rem; }
+
+/* ===== Graphique ===== */
+.sp-graph { position: relative; height: 280px; }
+
+/* ===== 5 points de rupture ===== */
+@media (max-width: 1400px) { .sp-postes { max-height: 280px; } }
+@media (max-width: 1200px) { .sp-synthese .v { font-size: 1.3rem; } }
+@media (max-width: 992px)  { .sp-form, .sp-vide { grid-template-columns: 1fr; } .sp-synthese { grid-template-columns: repeat(2, 1fr); } .sp-synthese > div:nth-child(2) { border-right: 0; } .sp-synthese > div:nth-child(-n+2) { border-bottom: 1px solid var(--sp-line); } }
+@media (max-width: 768px)  { .sp-titre h1 { font-size: 1.35rem; } .sp-barre-cell { min-width: 160px; } }
+@media (max-width: 480px)  { .sp-postes { grid-template-columns: 1fr; } .sp-dates { grid-template-columns: 1fr; } .sp-seg span { padding: .4rem .65rem; } }
+
+/* ===== Impression ===== */
+@media print {
+  .sp-form, .sp-vide { display: none !important; }
+  .sp-panel, .sp-synthese { border: 1px solid #999; page-break-inside: avoid; }
+}
+@media (prefers-reduced-motion: reduce) { .sp * { transition: none !important; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sp container-fluid">
+
+  <div class="sp-titre">
+    <h1>{% trans "Jour et heure les plus prolifiques" %}</h1>
+    <p>{% trans "Le jour ou l'heure prolifique est celui qui compte le plus de véhicules. Avec plusieurs postes, vous obtenez le classement des postes. Avec un seul poste, vous obtenez ses meilleurs jours ou heures." %}</p>
+  </div>
+
+  {# =============================== FORMULAIRE =============================== #}
+  <form method="get" class="sp-form" id="formStats">
+
+    {# ---------- Colonne gauche : postes ---------- #}
+    <div class="sp-panel">
+      <div class="sp-panel-head">{% trans "Postes" %}</div>
+      <div class="sp-panel-body">
+        <input type="search" id="rechPoste" class="sp-recherche" placeholder="{% trans 'Rechercher un poste' %}" aria-label="{% trans 'Rechercher un poste' %}">
+        <div class="sp-actions-liste">
+          <button type="button" class="sp-chip-btn" id="btnToutCocher">{% trans "Tout cocher" %}</button>
+          <button type="button" class="sp-chip-btn" id="btnToutDecocher">{% trans "Tout décocher" %}</button>
+          <span class="sp-compteur" id="compteurPostes" aria-live="polite"></span>
+        </div>
+        <div class="sp-postes" id="listePostes">
+          {% for p in postes %}
+          <label class="sp-poste" data-nom="{{ p.nom|lower }}">
+            <input type="checkbox" name="postes" value="{{ p.id }}" {% if p.id in postes_selectionnes_ids %}checked{% endif %}>
+            <span title="{{ p.nom }}">{{ p.nom }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="sp-aide">{% trans "Aucun poste coché : tous les postes sont analysés." %}</div>
+      </div>
+    </div>
+
+    {# ---------- Colonne droite : paramètres ---------- #}
+    <div class="sp-panel">
+      <div class="sp-panel-head">{% trans "Paramètres" %}</div>
+      <div class="sp-panel-body">
+
+        <div class="sp-champ">
+          <span class="sp-lbl">{% trans "Période" %}</span>
+          <div class="sp-dates">
+            <input type="date" name="date_debut" id="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d' }}" aria-label="{% trans 'Du' %}">
+            <input type="date" name="date_fin" id="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d' }}" aria-label="{% trans 'Au' %}">
+          </div>
+          <div class="sp-presets">
+            <button type="button" class="sp-chip-btn" data-preset="mois">{% trans "Ce mois" %}</button>
+            <button type="button" class="sp-chip-btn" data-preset="trimestre">{% trans "Ce trimestre" %}</button>
+            <button type="button" class="sp-chip-btn" data-preset="annee">{% trans "Depuis le 1er janvier" %}</button>
+            <button type="button" class="sp-chip-btn" data-preset="12mois">{% trans "12 derniers mois" %}</button>
+          </div>
+        </div>
+
+        <div class="sp-champ">
+          <span class="sp-lbl">{% trans "Analyser" %}</span>
+          <div class="sp-seg">
+            {% for valeur, libelle in criteres %}
+            <label><input type="radio" name="critere" value="{{ valeur }}" {% if valeur == critere %}checked{% endif %}><span>{{ libelle }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="sp-champ">
+          <span class="sp-lbl">{% trans "Type d'inventaire" %}</span>
+          <div class="sp-seg">
+            {% for valeur, libelle in types_inventaire %}
+            <label><input type="radio" name="type_inventaire" value="{{ valeur }}" {% if valeur == type_inventaire %}checked{% endif %}><span>{{ libelle }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-7 sp-champ mb-0">
+            <span class="sp-lbl">{% trans "Classer les postes par" %}</span>
+            <div class="sp-seg">
+              {% for valeur, libelle in classer_par_choix %}
+              <label><input type="radio" name="classer_par" value="{{ valeur }}" {% if valeur == classer_par %}checked{% endif %}><span>{{ libelle }}</span></label>
+              {% endfor %}
+            </div>
+            <div class="sp-aide">{% trans "Utilisé quand plusieurs postes sont analysés." %}</div>
+          </div>
+          <div class="col-12 col-md-5 sp-champ mb-0">
+            <label for="top_n" class="sp-lbl">{% trans "Nombre de lignes (un seul poste)" %}</label>
+            <input type="number" name="top_n" id="top_n" class="form-control" min="1" max="{{ top_n_max }}" value="{{ top_n }}">
+          </div>
+        </div>
+
+        <div class="sp-champ" style="margin-top:1.25rem;">
+          <button type="submit" name="calculer" value="1" class="sp-btn">
+            <i class="fas fa-calculator me-2"></i>{% trans "Calculer le classement" %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  {# =============================== RÉSULTATS =============================== #}
+  {% if not resultat %}
+    <div class="sp-vide">
+      <div class="sp-panel"><div class="sp-panel-body">
+        <h3>{% trans "Plusieurs postes ou tous les postes" %}</h3>
+        <p>{% trans "Vous obtenez le classement des postes, avec pour chacun son jour record et son heure record." %}</p>
+      </div></div>
+      <div class="sp-panel"><div class="sp-panel-body">
+        <h3>{% trans "Un seul poste" %}</h3>
+        <p>{% trans "Vous obtenez ses meilleurs jours ou ses meilleures heures, du 1er au dernier, chaque heure avec son jour." %}</p>
+      </div></div>
+    </div>
+
+  {% elif not resultat.nb_inventaires %}
+    <div class="sp-panel"><div class="sp-panel-body">
+      <h3 class="h6 mb-1">{% trans "Aucun inventaire trouvé" %}</h3>
+      <p class="mb-0 text-muted">{% trans "Élargissez la période, changez de poste ou passez à un autre type d'inventaire." %}</p>
+    </div></div>
+
+  {% else %}
+
+    {# ---------- Synthèse ---------- #}
+    <div class="sp-synthese">
+      <div><div class="v">{{ resultat.total_vehicules|format_milliers }}</div><div class="l">{% trans "véhicules comptés" %}</div></div>
+      <div><div class="v">{{ resultat.nb_inventaires }}</div><div class="l">{% trans "inventaires (poste et jour)" %}</div></div>
+      <div><div class="v">{{ resultat.nb_postes }}</div><div class="l">{% trans "poste(s) analysé(s)" %}</div></div>
+      <div><div class="v" style="font-size:1.05rem;">{{ resultat.date_debut|date:"d/m/Y" }} au {{ resultat.date_fin|date:"d/m/Y" }}</div><div class="l">{% trans "période" %}</div></div>
+    </div>
+
+    {% if resultat.poste_unique %}
+      {# ============ UN SEUL POSTE : classement 1er..Ne ============ #}
+      <div class="sp-panel mb-4">
+        <div class="sp-panel-head">
+          <span>{% if resultat.critere == "heure" %}{% trans "Meilleures heures" %}{% else %}{% trans "Meilleurs jours" %}{% endif %} : {{ resultat.poste_nom }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="sp-table">
+            {% if resultat.critere == "heure" %}
+            <thead><tr><th>{% trans "Rang" %}</th><th>{% trans "Jour associé" %}</th><th>{% trans "Créneau" %}</th><th>{% trans "Véhicules" %}</th></tr></thead>
+            <tbody>
+              {% for r in resultat.top_heures %}
+              <tr class="{% if r.rang == 1 %}top1{% endif %}">
+                <td><span class="sp-rang r{{ r.rang }}">{{ r.rang }}</span></td>
+                <td class="sp-nom">{{ r.date|date:"l d/m/Y" }}</td>
+                <td><span class="sp-creneau">{{ r.creneau }}</span></td>
+                <td class="sp-barre-cell"><span class="sp-valeur">{{ r.valeur|format_milliers }}</span><div class="sp-barre"><i style="width: {{ r.pct }}%"></i></div></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            {% else %}
+            <thead><tr><th>{% trans "Rang" %}</th><th>{% trans "Jour" %}</th><th>{% trans "Véhicules" %}</th></tr></thead>
+            <tbody>
+              {% for r in resultat.top_jours %}
+              <tr class="{% if r.rang == 1 %}top1{% endif %}">
+                <td><span class="sp-rang r{{ r.rang }}">{{ r.rang }}</span></td>
+                <td class="sp-nom">{{ r.date|date:"l d/m/Y" }}</td>
+                <td class="sp-barre-cell"><span class="sp-valeur">{{ r.valeur|format_milliers }}</span><div class="sp-barre"><i style="width: {{ r.pct }}%"></i></div></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+
+    {% else %}
+      {# ============ PLUSIEURS POSTES : classement des postes ============ #}
+      <div class="sp-panel mb-4">
+        <div class="sp-panel-head">
+          <span>{% trans "Classement des postes" %}</span>
+          <span class="sp-sous">
+            {% if resultat.classer_par == "total" %}{% trans "classés par total de véhicules sur la période" %}
+            {% elif resultat.critere == "heure" %}{% trans "classés par leur heure la plus prolifique" %}
+            {% else %}{% trans "classés par leur jour le plus prolifique" %}{% endif %}
+          </span>
+        </div>
+        <div class="table-responsive">
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th>{% trans "Rang" %}</th>
+                <th>{% trans "Poste" %}</th>
+                <th>{% if resultat.classer_par == "total" %}{% trans "Total période" %}{% elif resultat.critere == "heure" %}{% trans "Heure record" %}{% else %}{% trans "Jour record" %}{% endif %}</th>
+                <th class="num">{% trans "Inventaires" %}</th>
+                <th class="num">{% trans "Total période" %}</th>
+                <th>{% trans "Jour record" %}</th>
+                <th>{% trans "Heure record" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in resultat.classement_postes %}
+              <tr class="{% if p.rang == 1 %}top1{% endif %}">
+                <td><span class="sp-rang r{{ p.rang }}">{{ p.rang }}</span></td>
+                <td class="sp-nom">{{ p.poste_nom }}</td>
+                <td class="sp-barre-cell">
+                  <span class="sp-valeur">{{ p.valeur|format_milliers }}</span>
+                  <span class="sp-sous ms-1">{{ p.detail }}</span>
+                  <div class="sp-barre"><i style="width: {{ p.pct }}%"></i></div>
+                </td>
+                <td class="num sec">{{ p.nb_inventaires }}</td>
+                <td class="num sec">{{ p.total_vehicules|format_milliers }}</td>
+                <td class="sec">{{ p.jour_record.date|date:"d/m/Y" }} ({{ p.jour_record.valeur|format_milliers }})</td>
+                <td class="sec">{{ p.heure_record.creneau }} le {{ p.heure_record.date|date:"d/m/Y" }} ({{ p.heure_record.valeur|format_milliers }})</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+    {# ---------- Graphique ---------- #}
+    <div class="sp-panel mb-4">
+      <div class="sp-panel-head">{% trans "Véhicules par créneau horaire sur la période" %}</div>
+      <div class="sp-panel-body"><div class="sp-graph"><canvas id="graphHeures"></canvas></div></div>
+    </div>
+
+    {{ graph_labels|json_script:"graph-labels" }}
+    {{ graph_totaux|json_script:"graph-totaux" }}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  // ----- Liste des postes : recherche, cocher/décocher, compteur -----
+  const liste = document.getElementById("listePostes");
+  const boites = liste ? Array.from(liste.querySelectorAll("input[type=checkbox]")) : [];
+  const compteur = document.getElementById("compteurPostes");
+
+  function majCompteur() {                                   // affiche le nombre de postes cochés
+    const n = boites.filter(b => b.checked).length;
+    compteur.textContent = n === 0 ? "Tous les postes (" + boites.length + ")"
+                                   : n + " sélectionné(s) sur " + boites.length;
+  }
+  boites.forEach(b => b.addEventListener("change", majCompteur));
+
+  document.getElementById("rechPoste").addEventListener("input", function () {   // filtre par nom
+    const q = this.value.trim().toLowerCase();
+    liste.querySelectorAll(".sp-poste").forEach(l => {
+      l.style.display = l.dataset.nom.includes(q) ? "" : "none";
+    });
+  });
+  document.getElementById("btnToutCocher").addEventListener("click", function () {   // coche les postes visibles
+    liste.querySelectorAll(".sp-poste").forEach(l => {
+      if (l.style.display !== "none") l.querySelector("input").checked = true;
+    });
+    majCompteur();
+  });
+  document.getElementById("btnToutDecocher").addEventListener("click", function () { // décoche tout
+    boites.forEach(b => b.checked = false);
+    majCompteur();
+  });
+  majCompteur();
+
+  // ----- Raccourcis de période -----
+  const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  document.querySelectorAll("[data-preset]").forEach(btn => {
+    btn.addEventListener("click", function () {
+      const auj = new Date(); let debut = new Date(auj);
+      if (this.dataset.preset === "mois") debut = new Date(auj.getFullYear(), auj.getMonth(), 1);
+      if (this.dataset.preset === "trimestre") debut = new Date(auj.getFullYear(), Math.floor(auj.getMonth() / 3) * 3, 1);
+      if (this.dataset.preset === "annee") debut = new Date(auj.getFullYear(), 0, 1);
+      if (this.dataset.preset === "12mois") debut = new Date(auj.getFullYear() - 1, auj.getMonth(), auj.getDate() + 1);
+      document.getElementById("date_debut").value = iso(debut);
+      document.getElementById("date_fin").value = iso(auj);
+    });
+  });
+})();
+</script>
+
+{% if resultat and resultat.nb_inventaires %}
+<script>
+  // ----- Graphique (Chart.js est déjà chargé par base_site.html) -----
+  const labels = JSON.parse(document.getElementById("graph-labels").textContent);
+  const totaux = JSON.parse(document.getElementById("graph-totaux").textContent);
+  const max = Math.max.apply(null, totaux);                    // créneau record
+  new Chart(document.getElementById("graphHeures"), {
+    type: "bar",
+    data: { labels: labels, datasets: [{
+      label: "Véhicules", data: totaux, borderRadius: 4,
+      backgroundColor: totaux.map(v => v === max ? "#F59E0B" : "#2563EB")   // record en ambre
+    }] },
+    options: { responsive: true, maintainAspectRatio: false,
+               plugins: { legend: { display: false } },
+               scales: { y: { beginAtZero: true, grid: { color: "#E2E8F0" } }, x: { grid: { display: false } } } }
+  });
+</script>
+{% endif %}
+{% endblock %}

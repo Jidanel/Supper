@@ -12,6 +12,8 @@
        ============================================ */
     * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
 
     html, body {
@@ -19,6 +21,7 @@
         max-width: 100vw;
         width: 100%;
         position: relative;
+        -webkit-text-size-adjust: 100%;
     }
 
     .main-content {
@@ -51,8 +54,28 @@
         padding-bottom: 1.5rem !important;
     }
 
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .col-md-2, .col-md-3, .col-md-4, .col-md-6, .col-md-12 {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .g-3 {
+        gap: 1rem;
+    }
+
     /* ============================================
-       EN-TÊTE DE PAGE
+       EN-TÊTE DE PAGE - STYLE PESAGE (ROUGE)
        ============================================ */
     .page-header {
         background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
@@ -77,6 +100,7 @@
         font-size: 0.95rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
+        opacity: 0.95;
     }
 
     .page-header .badge {
@@ -92,7 +116,8 @@
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
-        align-items: flex-start;
+        align-items: center;
+        justify-content: space-between;
     }
 
     /* ============================================
@@ -105,7 +130,7 @@
         margin-bottom: 2rem;
         width: 100%;
     }
-
+    
     .stat-card {
         background: white;
         border-radius: 10px;
@@ -114,47 +139,56 @@
         text-align: center;
         transition: all 0.3s ease;
         width: 100%;
+        box-sizing: border-box;
         overflow: hidden;
     }
-
+    
     .stat-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+    
+    .stat-card.primary {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+    
+    .stat-card.success {
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        color: white;
+    }
+    
+    .stat-card.info {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+    }
+    
+    .stat-card.warning {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white;
+    }
+    
+    .stat-card h3 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
 
     .stat-card p {
         margin-bottom: 0.5rem;
         font-size: 0.9rem;
         word-wrap: break-word;
-    }
-
-    .stat-card h3 {
-        font-size: 1.75rem;
-        margin-bottom: 0.5rem;
-        word-break: break-word;
+        overflow-wrap: break-word;
     }
 
     .stat-card small {
         font-size: 0.8rem;
-    }
-
-    .stat-card.primary {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-        color: white;
-    }
-
-    .stat-card.success {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        color: white;
-    }
-
-    .stat-card.info {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        color: white;
+        opacity: 0.9;
     }
 
     /* ============================================
-       CARTES DE FILTRE
+       CARTE DE FILTRES
        ============================================ */
     .filter-card {
         background: white;
@@ -163,164 +197,58 @@
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         margin-bottom: 2rem;
         width: 100%;
+        box-sizing: border-box;
         overflow: hidden;
     }
 
     .filter-card h5 {
         font-size: 1.1rem;
         margin-bottom: 1rem;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .filter-card h5 i {
+        color: #e74c3c;
     }
 
     .filter-card .row {
-        display: flex;
-        flex-wrap: wrap;
-        margin-left: -8px;
-        margin-right: -8px;
-        width: calc(100% + 16px);
-    }
-
-    .filter-card .col-md-2,
-    .filter-card .col-md-3 {
-        padding-left: 8px;
-        padding-right: 8px;
+        margin: 0;
         width: 100%;
-        margin-bottom: 0.75rem;
     }
 
-    .filter-card .form-label {
-        font-size: 0.9rem;
-        font-weight: 500;
-        margin-bottom: 0.375rem;
+    /* ============================================
+       FORMULAIRES
+       ============================================ */
+    .form-label {
         display: block;
-        word-wrap: break-word;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-size: 0.9rem;
     }
 
-    .filter-card .form-select,
-    .filter-card .form-control {
+    .form-select,
+    .form-control {
         width: 100%;
         padding: 0.625rem 0.875rem;
-        font-size: 1rem;
-        border: 1px solid #ced4da;
+        border: 1px solid #d1d5db;
         border-radius: 8px;
+        font-size: 1rem;
         background-color: #fff;
-        min-height: 44px;
-    }
-
-    .filter-card .form-select:focus,
-    .filter-card .form-control:focus {
-        border-color: #e74c3c;
-        outline: 0;
-        box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25);
-    }
-
-    /* ============================================
-       TABLEAU RESPONSIVE
-       ============================================ */
-    .table-responsive {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin-bottom: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-
-    /* Scrollbar personnalisée */
-    .table-responsive::-webkit-scrollbar {
-        height: 8px;
-    }
-
-    .table-responsive::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 4px;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-    }
-
-    .table-quittances {
-        width: 100%;
-        min-width: 1000px;
-        border-collapse: collapse;
-        background: white;
-        margin-bottom: 0;
-    }
-
-    .table-quittances thead {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-        color: white;
-    }
-
-    .table-quittances thead th {
-        padding: 1rem 0.75rem;
-        font-size: 0.85rem;
-        font-weight: 600;
-        white-space: nowrap;
-        text-align: left;
-        border: none;
-    }
-
-    .table-quittances thead th.text-end {
-        text-align: right;
-    }
-
-    .table-quittances thead th.text-center {
-        text-align: center;
-    }
-
-    .table-quittances tbody td {
-        padding: 0.875rem 0.75rem;
-        font-size: 0.9rem;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-
-    .table-quittances tbody tr {
         transition: all 0.3s ease;
+        box-sizing: border-box;
     }
 
-    .table-quittances tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-
-    /* ============================================
-       BADGES
-       ============================================ */
-    .badge {
-        display: inline-block;
-        padding: 0.35rem 0.65rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        border-radius: 0.375rem;
-        white-space: nowrap;
-    }
-
-    .badge.bg-secondary {
-        background-color: #6c757d !important;
-        color: white;
-    }
-
-    .badge.bg-info {
-        background-color: #17a2b8 !important;
-        color: white;
-    }
-
-    .badge-type {
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-weight: 600;
-    }
-
-    .badge-pesage {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-        color: white;
+    .form-select:focus,
+    .form-control:focus {
+        border-color: #e74c3c;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
     }
 
     /* ============================================
@@ -332,177 +260,331 @@
         justify-content: center;
         gap: 0.5rem;
         padding: 0.625rem 1.25rem;
+        border: none;
+        border-radius: 8px;
         font-size: 0.95rem;
         font-weight: 500;
-        border-radius: 8px;
-        border: 1px solid transparent;
         cursor: pointer;
         transition: all 0.3s ease;
         text-decoration: none;
         white-space: nowrap;
-        min-height: 44px;
+        box-sizing: border-box;
     }
 
     .btn-lg {
-        padding: 0.875rem 1.5rem;
+        padding: 0.75rem 1.5rem;
         font-size: 1rem;
     }
 
     .btn-sm {
         padding: 0.375rem 0.75rem;
-        font-size: 0.8rem;
-        min-height: 36px;
-    }
-
-    .btn-light {
-        background-color: #fff;
-        border-color: #fff;
-        color: #333;
-    }
-
-    .btn-light:hover {
-        background-color: #f8f9fa;
+        font-size: 0.85rem;
     }
 
     .btn-danger {
-        background-color: #e74c3c;
-        border-color: #e74c3c;
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         color: white;
     }
 
     .btn-danger:hover {
-        background-color: #c0392b;
-        border-color: #c0392b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    }
+
+    .btn-light {
+        background: white;
+        color: #374151;
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-light:hover {
+        background: #f3f4f6;
     }
 
     .btn-outline-secondary {
-        background-color: transparent;
-        border-color: #6c757d;
+        background: transparent;
+        border: 1px solid #6c757d;
         color: #6c757d;
     }
 
     .btn-outline-secondary:hover {
-        background-color: #6c757d;
+        background: #6c757d;
         color: white;
     }
 
     .btn-outline-danger {
-        background-color: transparent;
-        border-color: #e74c3c;
+        background: transparent;
+        border: 1px solid #e74c3c;
         color: #e74c3c;
     }
 
     .btn-outline-danger:hover {
-        background-color: #e74c3c;
+        background: #e74c3c;
         color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
     }
 
     .btn-action {
         transition: all 0.3s ease;
+        margin: 0 2px;
     }
-
+    
     .btn-action:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     }
 
+    .btn i {
+        flex-shrink: 0;
+    }
+
+    .flex-fill {
+        flex: 1 1 auto;
+    }
+
+    .gap-2 {
+        gap: 0.5rem;
+    }
+
     /* ============================================
-       PAGINATION RESPONSIVE
+       GROUPE D'ACTIONS DANS LE TABLEAU
+       ============================================ */
+    .actions-group {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        flex-wrap: nowrap;
+    }
+
+    /* ============================================
+       ALERTES
+       ============================================ */
+    .alert {
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        width: 100%;
+        box-sizing: border-box;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert-info {
+        background: #fef3cd;
+        border-left: 4px solid #f39c12;
+        color: #856404;
+    }
+
+    .alert-dismissible {
+        padding-right: 3rem;
+        position: relative;
+    }
+
+    .btn-close {
+        position: absolute;
+        top: 50%;
+        right: 1rem;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        opacity: 0.5;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
+    }
+
+    /* ============================================
+       TABLEAU DES QUITTANCEMENTS
+       ============================================ */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 1rem;
+        border-radius: 10px;
+    }
+
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    .table-quittances {
+        width: 100%;
+        min-width: 1200px;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .table-quittances thead {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+
+    .table-quittances th {
+        padding: 1rem 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .table-quittances td {
+        padding: 0.875rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+    
+    .table-quittances tbody tr {
+        transition: all 0.3s ease;
+    }
+    
+    .table-quittances tbody tr:hover {
+        background: #fff5f5;
+    }
+
+    .table-quittances .text-end {
+        text-align: right;
+    }
+
+    .table-quittances .text-center {
+        text-align: center;
+    }
+
+    .text-danger {
+        color: #e74c3c !important;
+    }
+
+    .text-success {
+        color: #27ae60 !important;
+    }
+
+    .text-warning {
+        color: #f39c12 !important;
+    }
+
+    .text-muted {
+        color: #6b7280 !important;
+    }
+
+    /* ============================================
+       BADGES
+       ============================================ */
+    .badge {
+        display: inline-block;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 0.375rem;
+        white-space: nowrap;
+    }
+
+    .badge-type {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .bg-danger {
+        background-color: #e74c3c !important;
+        color: white;
+    }
+
+    .bg-secondary {
+        background-color: #6b7280 !important;
+        color: white;
+    }
+
+    .bg-info {
+        background-color: #3498db !important;
+        color: white;
+    }
+
+    .bg-success {
+        background-color: #27ae60 !important;
+        color: white;
+    }
+
+    /* ============================================
+       PAGINATION
        ============================================ */
     .pagination {
         display: flex;
-        flex-wrap: wrap;
         justify-content: center;
-        padding-left: 0;
         list-style: none;
+        padding: 0;
+        margin: 2rem 0 1rem;
+        flex-wrap: wrap;
         gap: 0.25rem;
-        margin-top: 2rem;
     }
 
-    .pagination .page-item .page-link {
+    .page-item {
+        margin: 0;
+    }
+
+    .page-link {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.9rem;
-        color: #e74c3c;
-        background-color: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
+        padding: 0.5rem 0.875rem;
+        border: 1px solid #e5e7eb;
+        background: white;
+        color: #374151;
         text-decoration: none;
-        min-width: 38px;
-        min-height: 38px;
+        border-radius: 6px;
+        font-size: 0.9rem;
         transition: all 0.2s ease;
+        min-width: 40px;
+        min-height: 40px;
     }
 
-    .pagination .page-item .page-link:hover {
-        background-color: #e74c3c;
-        color: white;
+    .page-link:hover {
+        background: #fff5f5;
         border-color: #e74c3c;
+        color: #e74c3c;
     }
 
-    .pagination .page-item.active .page-link {
-        background-color: #e74c3c;
-        color: white;
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         border-color: #e74c3c;
-    }
-
-    .pagination .page-item.disabled .page-link {
-        color: #6c757d;
-        pointer-events: none;
-        background-color: #fff;
-        border-color: #dee2e6;
-    }
-
-    /* ============================================
-       ACTIONS EN BAS DE PAGE
-       ============================================ */
-    .d-flex.justify-content-between {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        width: 100%;
+        color: white;
     }
 
     /* ============================================
        UTILITAIRES
        ============================================ */
-    .text-end {
-        text-align: right !important;
+    .d-flex {
+        display: flex;
     }
 
-    .text-center {
-        text-align: center !important;
+    .justify-content-between {
+        justify-content: space-between;
     }
 
-    .text-muted {
-        color: #6c757d !important;
+    .align-items-center {
+        align-items: center;
     }
 
-    .text-success {
-        color: #28a745 !important;
-    }
-
-    .text-danger {
-        color: #dc3545 !important;
-    }
-
-    .text-warning {
-        color: #ffc107 !important;
-    }
-
-    .mb-0 {
-        margin-bottom: 0 !important;
-    }
-
-    .mb-2 {
-        margin-bottom: 0.5rem !important;
-    }
-
-    .mb-3 {
-        margin-bottom: 1rem !important;
+    .align-items-end {
+        align-items: flex-end;
     }
 
     .mt-2 {
@@ -517,77 +599,76 @@
         margin-top: 1.5rem !important;
     }
 
-    .ms-2 {
-        margin-left: 0.5rem !important;
+    .mb-0 {
+        margin-bottom: 0 !important;
     }
 
-    .me-1 {
-        margin-right: 0.25rem !important;
+    .mb-2 {
+        margin-bottom: 0.5rem !important;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+
+    .ms-2 {
+        margin-left: 0.5rem !important;
     }
 
     .me-2 {
         margin-right: 0.5rem !important;
     }
 
-    .g-3 {
-        gap: 1rem;
-    }
-
-    .flex-fill {
-        flex: 1 1 auto !important;
-    }
-
-    .gap-2 {
-        gap: 0.5rem !important;
-    }
-
-    .d-flex.align-items-end {
-        display: flex;
-        align-items: flex-end;
+    .me-1 {
+        margin-right: 0.25rem !important;
     }
 
     .d-block {
         display: block !important;
     }
 
-    .fa-3x {
-        font-size: 3rem;
+    .fade.show {
+        opacity: 1;
     }
 
     /* ============================================
-       MEDIA QUERIES - TABLETTE (769px - 1024px)
+       VERSION PC (≥ 768px)
        ============================================ */
-    @media (min-width: 769px) and (max-width: 1024px) {
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .filter-card .col-md-2,
-        .filter-card .col-md-3 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-
-        .page-header h2 {
-            font-size: 1.35rem;
-        }
-    }
-
-    @media (min-width: 769px) {
-        .filter-card .col-md-2 {
+    @media (min-width: 768px) {
+        .col-md-2 {
             flex: 0 0 16.666667%;
             max-width: 16.666667%;
         }
 
-        .filter-card .col-md-3 {
+        .col-md-3 {
             flex: 0 0 25%;
             max-width: 25%;
         }
 
-        .page-header .d-flex {
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
+        .col-md-4 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .filter-card .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -0.5rem;
+        }
+
+        .filter-card .row > div {
+            padding: 0 0.5rem;
+            margin-bottom: 0.75rem;
         }
     }
 
@@ -595,8 +676,7 @@
        MEDIA QUERIES - MOBILE (≤ 768px)
        ============================================ */
     @media (max-width: 768px) {
-        /* Correction du défilement horizontal */
-        html, body {
+        body, html {
             overflow-x: hidden !important;
             width: 100% !important;
             max-width: 100vw !important;
@@ -616,8 +696,10 @@
         }
 
         .container-fluid {
-            padding-left: 12px;
-            padding-right: 12px;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
         }
 
         .py-4 {
@@ -625,285 +707,314 @@
             padding-bottom: 1rem !important;
         }
 
-        /* En-tête */
+        .row {
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+            width: calc(100% + 20px) !important;
+        }
+
         .page-header {
-            padding: 1.25rem;
-            border-radius: 12px;
-            margin-bottom: 1.5rem;
-        }
-
-        .page-header h2 {
-            font-size: 1.2rem;
-            line-height: 1.4;
-        }
-
-        .page-header p {
-            font-size: 0.85rem;
+            padding: 1.25rem 1rem !important;
+            margin-bottom: 1.25rem !important;
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 0 12px 12px !important;
         }
 
         .page-header .d-flex {
-            flex-direction: column;
-            align-items: flex-start;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 1rem !important;
         }
 
-        .page-header .btn-lg {
-            width: 100%;
-            margin-top: 1rem;
+        .page-header h2 {
+            font-size: 1.25rem !important;
+            margin-bottom: 0.25rem !important;
         }
 
-        /* Statistiques */
+        .page-header p {
+            font-size: 0.85rem !important;
+        }
+
+        .page-header .btn {
+            width: 100% !important;
+        }
+
         .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.75rem !important;
+            margin-bottom: 1.25rem !important;
         }
 
         .stat-card {
-            padding: 1rem;
+            padding: 1rem !important;
         }
 
         .stat-card h3 {
-            font-size: 1.35rem;
+            font-size: 1.25rem !important;
         }
 
         .stat-card p {
-            font-size: 0.8rem;
+            font-size: 0.8rem !important;
         }
 
         .stat-card small {
-            font-size: 0.7rem;
+            font-size: 0.7rem !important;
         }
 
-        /* Filtres */
         .filter-card {
-            padding: 1.25rem;
-            margin-bottom: 1.5rem;
+            padding: 1rem !important;
+            margin-bottom: 1rem !important;
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 !important;
         }
 
         .filter-card h5 {
-            font-size: 1rem;
+            font-size: 1rem !important;
+            margin-bottom: 0.75rem !important;
         }
 
-        .filter-card .col-md-2,
-        .filter-card .col-md-3 {
-            flex: 0 0 100%;
-            max-width: 100%;
+        .filter-card .row {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
         }
 
-        .filter-card .form-select,
-        .filter-card .form-control {
-            font-size: 16px; /* Évite le zoom iOS */
-            padding: 0.75rem;
+        .filter-card .row > div {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        .form-label {
+            font-size: 0.85rem !important;
+            margin-bottom: 0.375rem !important;
+        }
+
+        .form-select,
+        .form-control {
+            padding: 0.625rem !important;
+            font-size: 16px !important;
         }
 
         .filter-card .d-flex.align-items-end {
-            flex-direction: column;
+            flex-direction: column !important;
             align-items: stretch !important;
+            gap: 0.5rem !important;
+            width: 100% !important;
         }
 
-        .filter-card .d-flex.align-items-end .btn {
-            width: 100%;
-            margin-bottom: 0.5rem;
+        .filter-card .btn {
+            width: 100% !important;
         }
 
-        .filter-card .d-flex.align-items-end .btn:last-child {
-            margin-bottom: 0;
+        .filter-card .flex-fill {
+            flex: none !important;
         }
 
-        /* Tableau */
+        .alert {
+            padding: 0.875rem 1rem !important;
+            margin-left: -12px;
+            margin-right: -12px;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 !important;
+            font-size: 0.85rem !important;
+        }
+
         .table-responsive {
             margin-left: -12px;
             margin-right: -12px;
-            width: calc(100% + 24px);
-            border-radius: 0;
-            box-shadow: none;
-            border-top: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
+            width: calc(100% + 24px) !important;
+            border-radius: 0 !important;
         }
 
         .table-quittances {
-            min-width: 900px;
+            min-width: 1050px;
             font-size: 0.8rem;
+            border-radius: 0;
         }
 
-        .table-quittances thead th {
-            padding: 0.75rem 0.5rem;
-            font-size: 0.7rem;
+        .table-quittances th {
+            padding: 0.75rem 0.5rem !important;
+            font-size: 0.75rem !important;
         }
 
-        .table-quittances tbody td {
-            padding: 0.625rem 0.5rem;
-            font-size: 0.75rem;
+        .table-quittances td {
+            padding: 0.625rem 0.5rem !important;
+            font-size: 0.8rem !important;
         }
 
-        /* Badges */
         .badge {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.65rem;
+            padding: 0.2rem 0.4rem !important;
+            font-size: 0.65rem !important;
         }
 
         .badge-type {
-            padding: 0.35rem 0.65rem;
-        }
-
-        /* Pagination */
-        .pagination {
-            margin-top: 1.5rem;
-        }
-
-        .pagination .page-item .page-link {
-            padding: 0.375rem 0.625rem;
-            font-size: 0.8rem;
-            min-width: 34px;
-            min-height: 34px;
-        }
-
-        /* Boutons généraux */
-        .btn {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
-
-        .btn-lg {
-            padding: 0.75rem 1.25rem;
-            font-size: 0.95rem;
+            padding: 0.3rem 0.6rem !important;
         }
 
         .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.7rem;
-            min-height: 32px;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.75rem !important;
         }
 
-        /* Actions bas de page */
-        .d-flex.justify-content-between {
-            flex-direction: column;
-            gap: 0.75rem;
+        .actions-group {
+            gap: 0.25rem;
         }
 
-        .d-flex.justify-content-between .btn,
-        .d-flex.justify-content-between > div {
-            width: 100%;
+        .pagination {
+            margin-top: 1.5rem !important;
+            gap: 0.2rem !important;
         }
 
-        .d-flex.justify-content-between > div {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+        .page-link {
+            padding: 0.375rem 0.625rem !important;
+            font-size: 0.8rem !important;
+            min-width: 36px !important;
+            min-height: 36px !important;
         }
 
-        .d-flex.justify-content-between > div .btn {
-            width: 100%;
+        .d-flex.justify-content-between.align-items-center.mt-4 {
+            flex-direction: column !important;
+            gap: 1rem !important;
+            align-items: stretch !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > a,
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            width: 100% !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 .btn {
+            width: 100% !important;
         }
     }
 
     /* ============================================
-       MEDIA QUERIES - PETIT MOBILE (≤ 576px)
+       PETITS MOBILES (≤ 576px)
        ============================================ */
     @media (max-width: 576px) {
         .container-fluid {
-            padding-left: 10px;
-            padding-right: 10px;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
         }
 
         .page-header {
-            padding: 1rem;
-            border-radius: 10px;
+            padding: 1rem 0.875rem !important;
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px) !important;
         }
 
         .page-header h2 {
-            font-size: 1.1rem;
+            font-size: 1.15rem !important;
         }
 
-        .page-header p {
-            font-size: 0.8rem;
-        }
-
-        /* Statistiques en une colonne sur très petit */
         .stats-grid {
-            grid-template-columns: 1fr;
-            gap: 0.625rem;
+            grid-template-columns: 1fr !important;
+            gap: 0.625rem !important;
         }
 
         .stat-card {
-            padding: 0.875rem;
+            padding: 0.875rem !important;
         }
 
         .stat-card h3 {
-            font-size: 1.25rem;
+            font-size: 1.5rem !important;
         }
 
         .filter-card {
-            padding: 1rem;
-        }
-
-        .filter-card h5 {
-            font-size: 0.95rem;
+            padding: 0.875rem !important;
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px) !important;
         }
 
         .table-responsive {
             margin-left: -10px;
             margin-right: -10px;
-            width: calc(100% + 20px);
+            width: calc(100% + 20px) !important;
         }
 
         .table-quittances {
-            min-width: 850px;
-        }
-
-        .table-quittances thead th {
-            padding: 0.625rem 0.375rem;
-            font-size: 0.65rem;
-        }
-
-        .table-quittances tbody td {
-            padding: 0.5rem 0.375rem;
-            font-size: 0.7rem;
-        }
-
-        .pagination .page-item .page-link {
-            padding: 0.25rem 0.5rem;
+            min-width: 1000px;
             font-size: 0.75rem;
-            min-width: 30px;
-            min-height: 30px;
+        }
+
+        .table-quittances th,
+        .table-quittances td {
+            padding: 0.5rem 0.375rem !important;
+        }
+
+        .alert {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px) !important;
+            font-size: 0.8rem !important;
         }
 
         .btn {
-            font-size: 0.8rem;
-            padding: 0.5rem 0.875rem;
+            font-size: 0.9rem !important;
+            padding: 0.625rem 1rem !important;
+        }
+
+        .btn-lg {
+            font-size: 0.95rem !important;
         }
     }
 
     /* ============================================
-       MEDIA QUERIES - TRÈS PETIT ÉCRAN (≤ 375px)
+       TRÈS PETITS ÉCRANS (< 375px)
        ============================================ */
     @media (max-width: 375px) {
         .page-header h2 {
-            font-size: 1rem;
+            font-size: 1.05rem !important;
+        }
+
+        .page-header p {
+            font-size: 0.8rem !important;
         }
 
         .stat-card h3 {
-            font-size: 1.15rem;
+            font-size: 1.25rem !important;
+        }
+
+        .stat-card p {
+            font-size: 0.75rem !important;
+        }
+
+        .filter-card h5 {
+            font-size: 0.95rem !important;
+        }
+
+        .form-label {
+            font-size: 0.8rem !important;
         }
 
         .table-quittances {
-            min-width: 800px;
+            min-width: 950px;
+            font-size: 0.7rem;
         }
 
-        .table-quittances thead th,
-        .table-quittances tbody td {
-            font-size: 0.6rem;
-            padding: 0.5rem 0.25rem;
+        .page-link {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.75rem !important;
+            min-width: 32px !important;
+            min-height: 32px !important;
         }
 
         .btn {
-            font-size: 0.75rem;
-        }
-
-        .pagination .page-item .page-link {
-            padding: 0.2rem 0.4rem;
-            font-size: 0.7rem;
-            min-width: 28px;
-            min-height: 28px;
+            font-size: 0.85rem !important;
+            padding: 0.5rem 0.875rem !important;
         }
     }
 
@@ -912,90 +1023,96 @@
        ============================================ */
     @media (max-width: 896px) and (orientation: landscape) {
         .stats-grid {
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .filter-card .col-md-2,
-        .filter-card .col-md-3 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-
-        .page-header .d-flex {
-            flex-direction: row;
-            align-items: center;
-        }
-
-        .page-header .btn-lg {
-            width: auto;
-            margin-top: 0;
-        }
-
-        .d-flex.justify-content-between {
-            flex-direction: row;
-        }
-
-        .d-flex.justify-content-between .btn,
-        .d-flex.justify-content-between > div {
-            width: auto;
-        }
-
-        .d-flex.justify-content-between > div {
-            flex-direction: row;
-        }
-    }
-
-    /* ============================================
-       GESTION DU ZOOM SUR iOS
-       ============================================ */
-    @media (max-width: 768px) {
-        input[type="date"],
-        input[type="month"],
-        input[type="text"],
-        input[type="number"],
-        select,
-        textarea {
-            font-size: 16px !important;
-        }
-    }
-
-    /* ============================================
-       ACCESSIBILITÉ
-       ============================================ */
-    .form-control:focus,
-    .form-select:focus,
-    .btn:focus,
-    .page-link:focus {
-        outline: 2px solid #e74c3c;
-        outline-offset: 2px;
-    }
-
-    /* ============================================
-       IMPRESSION
-       ============================================ */
-    @media print {
-        .page-header {
-            background: #e74c3c !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            grid-template-columns: repeat(4, 1fr) !important;
         }
 
         .stat-card {
-            break-inside: avoid;
+            padding: 0.75rem !important;
+        }
+
+        .stat-card h3 {
+            font-size: 1.1rem !important;
+        }
+
+        .filter-card .row {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+
+        .filter-card .row > div {
+            flex: 0 0 calc(50% - 0.5rem) !important;
+            max-width: calc(50% - 0.5rem) !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 {
+            flex-direction: row !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > a,
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            width: auto !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 > div {
+            flex-direction: row !important;
+        }
+
+        .d-flex.justify-content-between.align-items-center.mt-4 .btn {
+            width: auto !important;
+        }
+    }
+
+    /* ============================================
+       ANIMATION D'APPARITION
+       ============================================ */
+    .page-header,
+    .stat-card,
+    .filter-card {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS POUR L'IMPRESSION
+       ============================================ */
+    @media print {
+        .page-header,
+        .stat-card,
+        .filter-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
         }
 
         .table-responsive {
-            overflow: visible;
+            overflow-x: visible !important;
         }
 
         .table-quittances {
-            min-width: 100%;
+            min-width: 100% !important;
         }
 
         .btn,
         .filter-card,
-        .pagination {
+        .pagination,
+        .actions-group {
             display: none !important;
+        }
+
+        .page-header {
+            background: #e74c3c !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
     }
 </style>
@@ -1009,19 +1126,20 @@
         <div class="d-flex justify-content-between align-items-center">
             <div>
                 <h2 class="mb-2">
-                    <i class="fas fa-file-invoice-dollar me-2"></i>
+                    <i class="fas fa-weight me-2"></i>
                     {% trans "Liste des Quittancements Pesage" %}
-                    <span class="badge bg-light text-dark ms-2">PESAGE</span>
                 </h2>
                 <p class="mb-0">
-                    {% trans "Gestion et consultation des quittancements de recettes pesage (amendes)" %}
+                    {% trans "Gestion et consultation des quittancements de recettes pesage" %}
                 </p>
             </div>
             <div>
+                {% if peut_saisir_quittance %}
                 <a href="{% url 'inventaire:saisie_quittancement_pesage' %}" class="btn btn-light btn-lg">
                     <i class="fas fa-plus-circle me-2"></i>
                     {% trans "Nouveau Quittancement" %}
                 </a>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -1046,7 +1164,7 @@
             <small>{% trans "Période actuelle" %}</small>
         </div>
         
-        <div class="stat-card">
+        <div class="stat-card warning">
             <p class="mb-2">{% trans "Exercice" %}</p>
             <h3>{{ exercice_courant }}</h3>
             <small>{% trans "Année en cours" %}</small>
@@ -1063,7 +1181,7 @@
         <form method="get" action="{% url 'inventaire:liste_quittancements_pesage' %}">
             <div class="row g-3">
                 
-                <!-- Filtre Station (Admin/Régisseur seulement) -->
+                <!-- Filtre Station -->
                 {% if stations %}
                 <div class="col-md-3">
                     <label class="form-label">{% trans "Station" %}</label>
@@ -1106,12 +1224,11 @@
                     <label class="form-label">{% trans "Type" %}</label>
                     <select name="type_declaration" class="form-select">
                         <option value="">{% trans "Tous" %}</option>
-                        <option value="journaliere" {% if request.GET.type_declaration == 'journaliere' %}selected{% endif %}>
-                            {% trans "Journalière" %}
+                        {% for code, label in types_declaration %}
+                        <option value="{{ code }}" {% if request.GET.type_declaration == code %}selected{% endif %}>
+                            {{ label }}
                         </option>
-                        <option value="decade" {% if request.GET.type_declaration == 'decade' %}selected{% endif %}>
-                            {% trans "Décade" %}
-                        </option>
+                        {% endfor %}
                     </select>
                 </div>
                 
@@ -1168,6 +1285,26 @@
         </form>
     </div>
 
+    <!-- Résumé des filtres actifs -->
+    {% if request.GET %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <strong>{% trans "Filtres actifs :" %}</strong>
+        {% if request.GET.station %}
+            <span class="badge bg-danger ms-2">Station: {{ request.GET.station }}</span>
+        {% endif %}
+        {% if request.GET.mois %}
+            <span class="badge bg-danger ms-2">Mois: {{ request.GET.mois }}</span>
+        {% endif %}
+        {% if request.GET.exercice %}
+            <span class="badge bg-danger ms-2">Exercice: {{ request.GET.exercice }}</span>
+        {% endif %}
+        {% if request.GET.type_declaration %}
+            <span class="badge bg-danger ms-2">Type: {{ request.GET.type_declaration }}</span>
+        {% endif %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
     <!-- Tableau des quittancements -->
     <div class="table-responsive">
         <table class="table table-hover table-quittances">
@@ -1183,6 +1320,9 @@
                     <th class="text-end">{% trans "Montant Attendu" %}</th>
                     <th class="text-end">{% trans "Écart" %}</th>
                     <th class="text-center">{% trans "Document" %}</th>
+                    {% if is_admin %}
+                    <th class="text-center">{% trans "Actions" %}</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -1217,8 +1357,8 @@
                         {% endif %}
                     </td>
                     <td class="text-end">
-                        {% if quittancement.ecart %}
-                            <span class="{% if quittancement.ecart|abs < 1 %}text-success{% elif quittancement.ecart < 0 %}text-danger{% else %}text-warning{% endif %}">
+                        {% if quittancement.ecart is not None %}
+                            <span class="{% if quittancement.ecart == 0 %}text-success{% elif quittancement.ecart < 0 %}text-danger{% else %}text-warning{% endif %}">
                                 {{ quittancement.ecart|floatformat:0|format_milliers }} FCFA
                             </span>
                         {% else %}
@@ -1237,10 +1377,21 @@
                         <span class="text-muted">-</span>
                         {% endif %}
                     </td>
+                    {% if is_admin %}
+                    <td class="text-center">
+                        <div class="actions-group">
+                            <a href="{% url 'inventaire:confirmer_suppression_quittancement_pesage' quittancement.pk %}"
+                               class="btn btn-sm btn-outline-danger btn-action"
+                               title="{% trans 'Supprimer ce quittancement' %}">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                        </div>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="10" class="text-center text-muted py-4">
+                    <td colspan="{% if is_admin %}11{% else %}10{% endif %}" class="text-center text-muted py-4">
                         <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                         <p class="mb-0">{% trans "Aucun quittancement pesage trouvé" %}</p>
                         {% if request.GET %}
@@ -1316,17 +1467,20 @@
 
     <!-- Actions en bas de page -->
     <div class="d-flex justify-content-between align-items-center mt-4">
+        {% if is_admin %}
         <a href="{% url 'inventaire:comptabilisation_quittancements_pesage' %}" class="btn btn-danger">
             <i class="fas fa-calculator me-2"></i>
             {% trans "Comptabilisation" %}
         </a>
+        {% else %}
+        <div></div>
+        {% endif %}
         
         <div>
             <button onclick="window.print()" class="btn btn-outline-danger">
                 <i class="fas fa-print me-2"></i>
                 {% trans "Imprimer" %}
             </button>
-            
         </div>
     </div>
 </div>
@@ -1335,6 +1489,18 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Animation des cartes au chargement
+    const cards = document.querySelectorAll('.stat-card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+
     // Correction du défilement horizontal sur mobile
     function fixMobileScrolling() {
         if (window.innerWidth <= 768) {
@@ -1352,14 +1518,12 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', fixMobileScrolling);
     window.addEventListener('orientationchange', fixMobileScrolling);
     
-    // Gestion des événements tactiles
-    document.addEventListener('touchstart', function() {}, { passive: true });
+    // Fermeture des alertes
+    document.querySelectorAll('.btn-close').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            this.closest('.alert').remove();
+        });
+    });
 });
-
-function exportToExcel() {
-    const params = new URLSearchParams(window.location.search);
-    params.set('format', 'excel');
-    window.location.href = "{% url 'inventaire:export_quittancements_pesage' %}?" + params.toString();
-}
 </script>
 {% endblock %}

@@ -824,7 +824,7 @@
         <i class="fas fa-chart-line me-2"></i>
         Taux d'Évolution et Estimations
     </h2>
-    
+ 
     <!-- Formulaire de sélection -->
     <div class="evolution-card">
         <form method="get" class="row g-3">
@@ -832,10 +832,10 @@
                 <label class="form-label">Type d'analyse</label>
                 <select name="type_analyse" class="form-select">
                     <option value="mensuel" {% if type_analyse == 'mensuel' %}selected{% endif %}>Mensuel</option>
-                    <option value="annuel" {% if type_analyse == 'annuel' %}selected{% endif %}>Annuel</option>
+                    <option value="annuel" {% if type_analyse == 'annuel' %}selected{% endif %}>Annuel (projection au 31/12)</option>
                 </select>
             </div>
-            
+ 
             <div class="col-md-2">
                 <label class="form-label">Mois</label>
                 <select name="mois" class="form-select">
@@ -853,23 +853,25 @@
                     <option value="12" {% if mois_selectionne == 12 %}selected{% endif %}>Décembre</option>
                 </select>
             </div>
-            
+ 
             <div class="col-md-2">
                 <label class="form-label">Année</label>
-                <input type="number" name="annee" class="form-control" 
+                <input type="number" name="annee" class="form-control"
                        value="{{ annee_selectionnee }}" min="2020" max="2030">
             </div>
-            
+ 
             <div class="col-md-3">
                 <label class="form-label">Poste</label>
                 <select name="poste" class="form-select">
                     <option value="tous">Tous les postes</option>
                     {% for poste in postes %}
-                    <option value="{{ poste.id }}">{{ poste.nom }}</option>
+                    <option value="{{ poste.id }}" {% if poste.id|stringformat:"s" == poste_selectionne %}selected{% endif %}>
+                        {{ poste.nom }}
+                    </option>
                     {% endfor %}
                 </select>
             </div>
-            
+ 
             <div class="col-md-2">
                 <label class="form-label">&nbsp;</label>
                 <button type="submit" class="btn btn-primary w-100">
@@ -878,16 +880,16 @@
             </div>
         </form>
     </div>
-    
+ 
     <!-- Objectifs globaux -->
     <div class="objectif-card">
         <div class="row text-center">
             <div class="col-md-3">
-                <h5>Objectif Global</h5>
+                <h5>Objectif Global {{ annee_selectionnee }}</h5>
                 <h3>{{ totaux.objectif_global|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
             </div>
             <div class="col-md-3">
-                <h5>Réalisé</h5>
+                <h5>Réalisé à date</h5>
                 <h3>{{ totaux.realise_global|floatformat:0|default:"0"|format_milliers }} FCFA</h3>
             </div>
             <div class="col-md-3">
@@ -900,63 +902,109 @@
             </div>
         </div>
     </div>
-    
-    <!-- Tableau des résultats -->
+ 
+    <!-- ============================================================ -->
+    <!-- TABLEAU DES RÉSULTATS DÉTAILLÉS -->
+    <!-- ============================================================ -->
     <div class="evolution-card">
-        <h4 class="mb-3">Analyse Détaillée par Poste</h4>
+        <h4 class="mb-3">
+            {% if type_analyse == 'mensuel' %}
+                Analyse Mensuelle — {{ mois_nom }} {{ annee_selectionnee }}
+            {% else %}
+                Analyse Annuelle — Projection au 31/12/{{ annee_selectionnee }}
+            {% endif %}
+        </h4>
         <div class="table-responsive">
             <table class="table table-evolution">
                 <thead>
                     <tr>
                         <th rowspan="2">Poste</th>
-                        <th colspan="4" class="text-center">Estimations</th>
-                        <th colspan="2" class="text-center">Évolution</th>
-                        <th colspan="3" class="text-center">Objectifs</th>
+                        {% if type_analyse == 'mensuel' %}
+                        <th rowspan="2" class="text-center">Projection<br>fin {{ mois_nom }}</th>
+                        {% else %}
+                        <th rowspan="2" class="text-center">Projection<br>31/12/{{ annee_selectionnee }}</th>
+                        {% endif %}
+                        <th colspan="3" class="text-center" style="background: #fef2f2; color: #991b1b;">
+                            vs {{ annee_n1 }}
+                        </th>
+                        <th colspan="3" class="text-center" style="background: #eff6ff; color: #1e3a5f;">
+                            vs {{ annee_n2 }}
+                        </th>
+                        <th colspan="2" class="text-center">Objectifs {{ annee_selectionnee }}</th>
                     </tr>
                     <tr>
-                        <th>Mensuelle</th>
-                        <th>Trimestrielle</th>
-                        <th>Semestrielle</th>
-                        <th>Annuelle</th>
-                        <th>vs N-1</th>
-                        <th>vs N-2</th>
-                        <th>Objectif</th>
+                        <th style="background: #fef2f2;">
+                            {% if type_analyse == 'mensuel' %}
+                            Rdt {{ mois_nom }} {{ annee_n1 }}
+                            {% else %}
+                            Rdt {{ annee_n1 }}
+                            {% endif %}
+                        </th>
+                        <th style="background: #fef2f2;">Écart</th>
+                        <th style="background: #fef2f2;">Taux</th>
+                        <th style="background: #eff6ff;">
+                            {% if type_analyse == 'mensuel' %}
+                            Rdt {{ mois_nom }} {{ annee_n2 }}
+                            {% else %}
+                            Rdt {{ annee_n2 }}
+                            {% endif %}
+                        </th>
+                        <th style="background: #eff6ff;">Écart</th>
+                        <th style="background: #eff6ff;">Taux</th>
                         <th>Réalisé</th>
                         <th>Taux</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for resultat in resultats %}
-                    <tr>
+                    <tr{% if resultat.evolution.en_baisse_n1 %} style="background: #fff5f5;"{% endif %}>
                         <td><strong>{{ resultat.poste.nom }}</strong></td>
-                        <td>{{ resultat.estimations.mensuelle|floatformat:0|format_milliers }}</td>
-                        <td>{{ resultat.estimations.trimestrielle|floatformat:0|format_milliers }}</td>
-                        <td>{{ resultat.estimations.semestrielle|floatformat:0|format_milliers }}</td>
-                        <td>{{ resultat.estimations.annuelle|floatformat:0|format_milliers }}</td>
+ 
+                        {# Montant projeté #}
+                        <td style="text-align: right; font-weight: 600;">
+                            {{ resultat.evolution.montant_n_n1|floatformat:0|format_milliers }}
+                        </td>
+ 
+                        {# --- vs N-1 --- #}
+                        <td style="text-align: right;">
+                            {{ resultat.evolution.montant_ref_n1|floatformat:0|format_milliers }}
+                        </td>
+                        <td style="text-align: right; font-weight: 600; color: {% if resultat.evolution.en_baisse_n1 %}#dc2626{% else %}#16a34a{% endif %};">
+                            {% if resultat.evolution.ecart_n1 > 0 %}+{% endif %}{{ resultat.evolution.ecart_n1|floatformat:0|format_milliers }}
+                        </td>
                         <td>
                             <span class="badge {% if resultat.evolution.en_baisse_n1 %}bg-danger{% else %}bg-success{% endif %}">
-                                {% if resultat.evolution.taux_n1 %}
-                                    {{ resultat.evolution.taux_n1|floatformat:2 }}%
+                                {% if resultat.evolution.taux_n1 != None %}
+                                    {% if resultat.evolution.taux_n1 > 0 %}+{% endif %}{{ resultat.evolution.taux_n1|floatformat:2 }}%
                                 {% else %}
                                     N/A
                                 {% endif %}
                             </span>
+                        </td>
+ 
+                        {# --- vs N-2 --- #}
+                        <td style="text-align: right;">
+                            {{ resultat.evolution.montant_ref_n2|floatformat:0|format_milliers }}
+                        </td>
+                        <td style="text-align: right; font-weight: 600; color: {% if resultat.evolution.en_baisse_n2 %}#dc2626{% else %}#16a34a{% endif %};">
+                            {% if resultat.evolution.ecart_n2 > 0 %}+{% endif %}{{ resultat.evolution.ecart_n2|floatformat:0|format_milliers }}
                         </td>
                         <td>
                             <span class="badge {% if resultat.evolution.en_baisse_n2 %}bg-danger{% else %}bg-success{% endif %}">
-                                {% if resultat.evolution.taux_n2 %}
-                                    {{ resultat.evolution.taux_n2|floatformat:2 }}%
+                                {% if resultat.evolution.taux_n2 != None %}
+                                    {% if resultat.evolution.taux_n2 > 0 %}+{% endif %}{{ resultat.evolution.taux_n2|floatformat:2 }}%
                                 {% else %}
                                     N/A
                                 {% endif %}
                             </span>
                         </td>
-                        <td>{{ resultat.objectifs.objectif_annuel|floatformat:0|default:"-"|format_milliers }}</td>
-                        <td>{{ resultat.objectifs.realise|floatformat:0|format_milliers }}</td>
+ 
+                        {# --- Objectifs --- #}
+                        <td style="text-align: right;">{{ resultat.objectifs.realise|floatformat:0|format_milliers }}</td>
                         <td>
                             {% if resultat.objectifs.taux_realisation %}
                                 <div class="progress" style="height: 20px;">
-                                    <div class="progress-bar" role="progressbar" 
+                                    <div class="progress-bar" role="progressbar"
                                          style="width: {{ resultat.objectifs.taux_realisation }}%">
                                         {{ resultat.objectifs.taux_realisation|floatformat:1 }}%
                                     </div>
@@ -966,45 +1014,101 @@
                             {% endif %}
                         </td>
                     </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 2rem; color: #6b7280;">
+                            Aucun poste trouvé pour cette sélection.
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-    
-    <!-- Postes en baisse -->
+ 
+    <!-- ============================================================ -->
+    <!-- POSTES EN RISQUE DE BAISSE MENSUELLE -->
+    <!-- ============================================================ -->
     {% if postes_baisse_mensuelle %}
-    <div class="evolution-card">
-        <h4 class="text-danger mb-3">
+    <div class="evolution-card" style="border-left: 4px solid #dc2626;">
+        <h4 style="color: #dc2626; margin-bottom: 1rem;">
             <i class="fas fa-exclamation-triangle me-2"></i>
-            Postes en Baisse Mensuelle
+            Postes en Risque de Baisse Mensuelle — {{ mois_nom }} {{ annee_selectionnee }}
         </h4>
-        <ul>
-            {% for item in postes_baisse_mensuelle %}
-            <li>
-                <strong>{{ item.poste.nom }}</strong> : 
-                {{ item.evolution.taux_n1|floatformat:2 }}% par rapport à N-1
-            </li>
-            {% endfor %}
-        </ul>
+        <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 1rem;">
+            Ces postes affichent une projection de recettes en baisse pour le mois de {{ mois_nom }} {{ annee_selectionnee }} par rapport au même mois de {{ annee_n1 }}.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-evolution">
+                <thead>
+                    <tr>
+                        <th>Poste</th>
+                        <th class="text-center">Projection {{ mois_nom }} {{ annee_selectionnee }}</th>
+                        <th class="text-center">{{ mois_nom }} {{ annee_n1 }}</th>
+                        <th class="text-center">Écart</th>
+                        <th class="text-center">Taux d'Évolution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in postes_baisse_mensuelle %}
+                    <tr>
+                        <td><strong>{{ item.poste.nom }}</strong></td>
+                        <td style="text-align: right;">{{ item.evolution.montant_n_n1|floatformat:0|format_milliers }} FCFA</td>
+                        <td style="text-align: right;">{{ item.evolution.montant_ref_n1|floatformat:0|format_milliers }} FCFA</td>
+                        <td style="text-align: right; color: #dc2626; font-weight: 600;">
+                            {{ item.evolution.ecart_n1|floatformat:0|format_milliers }} FCFA
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="badge bg-danger">{{ item.evolution.taux_n1|floatformat:2 }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     {% endif %}
-    
+ 
+    <!-- ============================================================ -->
+    <!-- POSTES EN RISQUE DE BAISSE ANNUELLE -->
+    <!-- ============================================================ -->
     {% if postes_baisse_annuelle %}
-    <div class="evolution-card">
-        <h4 class="text-warning mb-3">
-            <i class="fas fa-chart-down me-2"></i>
-            Risque de Baisse Annuelle
+    <div class="evolution-card" style="border-left: 4px solid #d97706;">
+        <h4 style="color: #d97706; margin-bottom: 1rem;">
+            <i class="fas fa-chart-line me-2" style="transform: rotate(180deg);"></i>
+            Postes en Risque de Baisse Annuelle — Projection 31/12/{{ annee_selectionnee }}
         </h4>
-        <ul>
-            {% for item in postes_baisse_annuelle %}
-            <li>
-                <strong>{{ item.poste.nom }}</strong> : 
-                Estimation {{ item.risque_annuel.recettes_estimees|floatformat:0|format_milliers }} FCFA
-                ({{ item.risque_annuel.taux_evolution|floatformat:2 }}% vs N-1)
-            </li>
-            {% endfor %}
-        </ul>
+        <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 1rem;">
+            Ces postes affichent une projection annuelle (au 31/12/{{ annee_selectionnee }}) inférieure au rendement consolidé de {{ annee_n1 }}.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-evolution">
+                <thead>
+                    <tr>
+                        <th>Poste</th>
+                        <th class="text-center">Projection 31/12/{{ annee_selectionnee }}</th>
+                        <th class="text-center">Total {{ annee_n1 }}</th>
+                        <th class="text-center">Écart</th>
+                        <th class="text-center">Taux d'Évolution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in postes_baisse_annuelle %}
+                    <tr>
+                        <td><strong>{{ item.poste.nom }}</strong></td>
+                        <td style="text-align: right;">{{ item.evolution.montant_n_n1|floatformat:0|format_milliers }} FCFA</td>
+                        <td style="text-align: right;">{{ item.evolution.montant_ref_n1|floatformat:0|format_milliers }} FCFA</td>
+                        <td style="text-align: right; color: #d97706; font-weight: 600;">
+                            {{ item.evolution.ecart_n1|floatformat:0|format_milliers }} FCFA
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="badge bg-danger">{{ item.evolution.taux_n1|floatformat:2 }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     {% endif %}
 </div>

@@ -1,0 +1,582 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .delete-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .delete-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        text-align: center;
+    }
+    
+    .delete-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .delete-header .icon-warning {
+        font-size: 2.5rem;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.1); }
+    }
+    
+    .delete-body {
+        padding: 2rem;
+    }
+    
+    .warning-box {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-left: 4px solid #ffc107;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .warning-box h5 {
+        color: #856404;
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .warning-box p {
+        color: #856404;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    
+    .danger-box {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-left: 4px solid #dc3545;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .danger-box h5 {
+        color: #721c24;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .danger-box ul {
+        color: #721c24;
+        margin: 0;
+        padding-left: 1.25rem;
+    }
+    
+    .info-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-section h5 {
+        color: #495057;
+        margin: 0 0 1rem 0;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .info-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .info-value.highlight {
+        color: #667eea;
+        font-size: 1.25rem;
+    }
+    
+    .recette-warning {
+        background: #e7f3ff;
+        border: 1px solid #b8daff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .recette-warning h5 {
+        color: #004085;
+        margin: 0 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .recette-warning p {
+        color: #004085;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    
+    .confirmation-section {
+        background: #fff;
+        border: 2px solid #dc3545;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .confirmation-section h5 {
+        color: #dc3545;
+        margin: 0 0 1rem 0;
+    }
+    
+    .confirm-checkbox {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .confirm-checkbox input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-top: 2px;
+        cursor: pointer;
+    }
+    
+    .confirm-checkbox label {
+        font-size: 0.95rem;
+        color: #495057;
+        cursor: pointer;
+    }
+    
+    .confirm-input {
+        margin-top: 1rem;
+    }
+    
+    .confirm-input label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .confirm-input input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #ced4da;
+        border-radius: 8px;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-align: center;
+    }
+    
+    .confirm-input input:focus {
+        border-color: #dc3545;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+    }
+    
+    .confirm-input input.valid {
+        border-color: #28a745;
+        background: #d4edda;
+    }
+    
+    .confirm-input .hint {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+        text-align: center;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: space-between;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.875rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border: none;
+        min-width: 150px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-delete {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+    }
+    
+    .btn-delete:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    }
+    
+    .btn-delete:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+    
+    /* Détails des périodes */
+    .periodes-summary {
+        margin-top: 1rem;
+    }
+    
+    .periodes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+    
+    .periode-badge {
+        background: #e9ecef;
+        padding: 0.5rem;
+        border-radius: 6px;
+        text-align: center;
+        font-size: 0.85rem;
+    }
+    
+    .periode-badge .time {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .periode-badge .count {
+        color: #667eea;
+        font-weight: 700;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .delete-container {
+            margin: 1rem auto;
+            padding: 0 0.5rem;
+        }
+        
+        .delete-header {
+            padding: 1.25rem 1rem;
+        }
+        
+        .delete-header h2 {
+            font-size: 1.25rem;
+            flex-direction: column;
+        }
+        
+        .delete-body {
+            padding: 1.25rem;
+        }
+        
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+            flex-direction: column-reverse;
+        }
+        
+        .btn {
+            width: 100%;
+        }
+        
+        .periodes-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .periodes-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-container">
+    <div class="delete-card">
+        <!-- En-tête -->
+        <div class="delete-header">
+            <h2>
+                <i class="fas fa-exclamation-triangle icon-warning"></i>
+                <span>Confirmation de suppression</span>
+            </h2>
+        </div>
+        
+        <div class="delete-body">
+            <!-- Messages Django -->
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+            
+            <!-- Avertissement principal -->
+            <div class="danger-box">
+                <h5><i class="fas fa-skull-crossbones me-2"></i> Action irréversible</h5>
+                <ul>
+                    <li>L'inventaire sera définitivement supprimé</li>
+                    <li>Toutes les données de périodes ({{ details_count }} enregistrements) seront perdues</li>
+                    <li>Cette action ne peut pas être annulée</li>
+                </ul>
+            </div>
+            
+            <!-- Informations sur l'inventaire -->
+            <div class="info-section">
+                <h5>
+                    <i class="fas fa-clipboard-list"></i>
+                    Inventaire à supprimer
+                </h5>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Poste</span>
+                        <span class="info-value">{{ inventaire.poste.nom }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Code</span>
+                        <span class="info-value">{{ inventaire.poste.code }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Date</span>
+                        <span class="info-value highlight">{{ inventaire.date|date:"d/m/Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Jour</span>
+                        <span class="info-value">{{ inventaire.date|date:"l" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Total véhicules</span>
+                        <span class="info-value highlight">{{ inventaire.total_vehicules }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Périodes saisies</span>
+                        <span class="info-value">{{ inventaire.nombre_periodes_saisies }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Agent de saisie</span>
+                        <span class="info-value">{{ inventaire.agent_saisie|default:"N/A" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Créé le</span>
+                        <span class="info-value">{{ inventaire.date_creation|date:"d/m/Y H:i" }}</span>
+                    </div>
+                </div>
+                
+                <!-- Détail des périodes -->
+                {% if details_periodes %}
+                <div class="periodes-summary">
+                    <strong>Détail par période :</strong>
+                    <div class="periodes-grid">
+                        {% for detail in details_periodes %}
+                        <div class="periode-badge">
+                            <div class="time">{{ detail.periode }}</div>
+                            <div class="count">{{ detail.nombre_vehicules }} véh.</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Avertissement recette associée -->
+            {% if has_recette %}
+            <div class="recette-warning">
+                <h5>
+                    <i class="fas fa-link"></i>
+                    Recette associée détectée
+                </h5>
+                <p>
+                    Une recette est liée à cet inventaire pour la même date. 
+                    Elle ne sera <strong>pas supprimée</strong>, mais ses indicateurs 
+                    (recette potentielle, taux de déperdition) seront réinitialisés.
+                </p>
+                {% if recette %}
+                <p class="mt-2">
+                    <strong>Montant déclaré :</strong> {{ recette.montant_declare|floatformat:0|default:"N/A" }} FCFA
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Info libération date -->
+            <div class="warning-box">
+                <h5>
+                    <i class="fas fa-calendar-check"></i>
+                    Libération de la date
+                </h5>
+                <p>
+                    Après suppression, la date du <strong>{{ inventaire.date|date:"d/m/Y" }}</strong> 
+                    sera à nouveau disponible pour saisir un nouvel inventaire pour le poste 
+                    <strong>{{ inventaire.poste.nom }}</strong>.
+                </p>
+            </div>
+            
+            <!-- Formulaire de confirmation -->
+            <form method="post" id="deleteForm">
+                {% csrf_token %}
+                
+                <div class="confirmation-section">
+                    <h5><i class="fas fa-check-double me-2"></i> Confirmation requise</h5>
+                    
+                    <div class="confirm-checkbox">
+                        <input type="checkbox" id="confirm_checkbox" name="confirm_checkbox" required>
+                        <label for="confirm_checkbox">
+                            Je comprends que cette action est <strong>irréversible</strong> et que 
+                            toutes les données de l'inventaire du {{ inventaire.date|date:"d/m/Y" }} 
+                            seront définitivement perdues.
+                        </label>
+                    </div>
+                    
+                    <div class="confirm-input">
+                        <label for="confirm_delete">
+                            Tapez <strong>CONFIRMER</strong> pour valider la suppression :
+                        </label>
+                        <input type="text" 
+                               id="confirm_delete" 
+                               name="confirm_delete" 
+                               placeholder="CONFIRMER"
+                               autocomplete="off">
+                        <p class="hint">En majuscules, sans espaces</p>
+                    </div>
+                </div>
+                
+                <!-- Boutons d'action -->
+                <div class="action-buttons">
+                    <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" class="btn btn-cancel">
+                        <i class="fas fa-arrow-left"></i>
+                        Annuler
+                    </a>
+                    <button type="submit" class="btn btn-delete" id="deleteBtn" disabled>
+                        <i class="fas fa-trash-alt"></i>
+                        Supprimer définitivement
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('confirm_checkbox');
+    const confirmInput = document.getElementById('confirm_delete');
+    const deleteBtn = document.getElementById('deleteBtn');
+    
+    function checkConfirmation() {
+        const checkboxOk = checkbox.checked;
+        const inputOk = confirmInput.value.toUpperCase().trim() === 'CONFIRMER';
+        
+        // Activer/désactiver le bouton
+        deleteBtn.disabled = !(checkboxOk && inputOk);
+        
+        // Feedback visuel sur l'input
+        if (confirmInput.value.length > 0) {
+            if (inputOk) {
+                confirmInput.classList.add('valid');
+                confirmInput.classList.remove('invalid');
+            } else {
+                confirmInput.classList.remove('valid');
+                confirmInput.classList.add('invalid');
+            }
+        } else {
+            confirmInput.classList.remove('valid', 'invalid');
+        }
+    }
+    
+    checkbox.addEventListener('change', checkConfirmation);
+    confirmInput.addEventListener('input', checkConfirmation);
+    
+    // Confirmation finale
+    document.getElementById('deleteForm').addEventListener('submit', function(e) {
+        if (!checkbox.checked || confirmInput.value.toUpperCase().trim() !== 'CONFIRMER') {
+            e.preventDefault();
+            alert('Veuillez cocher la case et taper CONFIRMER pour valider.');
+            return false;
+        }
+        
+        // Dernière confirmation
+        if (!confirm('⚠️ DERNIÈRE CONFIRMATION\n\nÊtes-vous absolument sûr de vouloir supprimer cet inventaire ?\n\nCette action est IRRÉVERSIBLE.')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Désactiver le bouton pour éviter double soumission
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Suppression...';
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

@@ -1,88 +1,224 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
 
-{% block title %}Modifier inventaire - {{ inventaire.date }}{% endblock %}
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    .periode-input {
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .periode-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .table-info {
+        background-color: #e8f4f8 !important;
+    }
+    
+    #total-vehicules {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .periode-row:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .periode-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .info-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+    }
+    
+    .info-badge-primary {
+        background: #e7f1ff;
+        color: #0056b3;
+    }
+    
+    .info-badge-success {
+        background: #d4edda;
+        color: #155724;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3><i class="fas fa-edit"></i> Modifier l'inventaire du {{ inventaire.date|date:"d/m/Y" }}</h3>
-                    <p class="mb-0">Poste : {{ inventaire.poste.nom }}</p>
+        <div class="col-lg-10 offset-lg-1">
+            <div class="card shadow">
+                <div class="card-header text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-1">
+                                <i class="fas fa-edit me-2"></i>
+                                Modifier l'inventaire
+                            </h3>
+                            <p class="mb-0 opacity-75">
+                                <i class="fas fa-building me-1"></i> {{ inventaire.poste.nom }}
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-calendar me-1"></i> {{ inventaire.date|date:"d/m/Y" }}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="badge bg-light text-dark">ID: {{ inventaire.pk }}</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="card-body">
-                    {% if not inventaire.peut_etre_modifie_par %}
-                        <div class="alert alert-warning">
-                            <i class="fas fa-lock"></i> Cet inventaire n'est plus modifiable par les agents.
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
+                        {% endfor %}
                     {% endif %}
                     
-                    <form method="post" class="needs-validation" novalidate>
+                    <!-- Informations actuelles -->
+                    <div class="mb-4 p-3 bg-light rounded">
+                        <h6 class="text-muted mb-2">État actuel</h6>
+                        <span class="info-badge info-badge-primary">
+                            <i class="fas fa-car me-1"></i>
+                            {{ inventaire.total_vehicules }} véhicules
+                        </span>
+                        <span class="info-badge info-badge-success">
+                            <i class="fas fa-clock me-1"></i>
+                            {{ inventaire.nombre_periodes_saisies }} périodes
+                        </span>
+                        {% if inventaire.agent_saisie %}
+                        <span class="info-badge info-badge-primary">
+                            <i class="fas fa-user me-1"></i>
+                            {{ inventaire.agent_saisie }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <form method="post" id="modifierInventaireForm">
                         {% csrf_token %}
                         
-                        <!-- Informations générales -->
-                        <div class="row mb-3">
+                        <!-- Informations générales (lecture seule) -->
+                        <div class="row mb-4">
                             <div class="col-md-6">
-                                <label class="form-label">Poste</label>
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-building me-1"></i> Poste
+                                </label>
                                 <input type="text" class="form-control" value="{{ inventaire.poste.nom }}" readonly>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Date</label>
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-calendar me-1"></i> Date
+                                </label>
                                 <input type="text" class="form-control" value="{{ inventaire.date|date:'d/m/Y' }}" readonly>
                             </div>
                         </div>
                         
                         <!-- Périodes horaires -->
-                        <h5 class="mb-3">Saisie par période horaire</h5>
+                        <h5 class="mb-3 border-bottom pb-2">
+                            <i class="fas fa-clock me-2"></i>
+                            Saisie par période horaire
+                        </h5>
+                        
                         <div class="table-responsive">
                             <table class="table table-bordered">
-                                <thead>
+                                <thead class="table-dark">
                                     <tr>
-                                        <th>Période</th>
-                                        <th>Nombre de véhicules</th>
+                                        <th style="width: 40%;">Période</th>
+                                        <th style="width: 60%;">Nombre de véhicules</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for periode, label in periodes_choices %}
-                                    <tr>
-                                        <td>{{ label }}</td>
+                                    {% for periode_code, periode_label in periodes_choices %}
+                                    <tr class="periode-row">
+                                        <td class="align-middle periode-label">
+                                            {{ periode_label }}
+                                        </td>
                                         <td>
+                                            <!-- NOM DU CHAMP: periode_CODE (ex: periode_08h-09h) -->
                                             <input type="number" 
-                                                   name="periode_{{ periode }}" 
+                                                   name="periode_{{ periode_code }}"
+                                                   id="input_{{ periode_code }}"
                                                    class="form-control periode-input"
-                                                   min="0" max="1000"
-                                                   value="{{ periodes_data|default_if_none:''|get_item:periode|default:'0' }}"
-                                                   data-periode="{{ periode }}">
+                                                   min="0" 
+                                                   max="5000"
+                                                   value="0"
+                                                   data-periode="{{ periode_code }}"
+                                                   placeholder="0">
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                                 <tfoot>
                                     <tr class="table-info">
-                                        <th>Total</th>
-                                        <th><span id="total-vehicules">0</span> véhicules</th>
+                                        <th class="align-middle">
+                                            <i class="fas fa-calculator me-2"></i>
+                                            TOTAL
+                                        </th>
+                                        <th class="align-middle text-center">
+                                            <span id="total-vehicules">0</span> véhicules
+                                        </th>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
                         
                         <!-- Observations -->
-                        <div class="mb-3">
-                            {{ form.observations.label_tag }}
-                            {{ form.observations }}
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-comment me-1"></i> Observations
+                            </label>
+                            <textarea name="observations" 
+                                      class="form-control" 
+                                      rows="3"
+                                      placeholder="Notes ou observations particulières...">{{ inventaire.observations }}</textarea>
                         </div>
                         
                         <!-- Boutons -->
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
                             <a href="{% url 'inventaire:inventaire_detail' inventaire.pk %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Annuler
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Annuler
                             </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Enregistrer les modifications
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                <i class="fas fa-save me-2"></i>
+                                Enregistrer les modifications
                             </button>
+                            {% if user.is_admin or user.is_superuser %}
+                            <a href="{% url 'inventaire:supprimer_inventaire' inventaire.pk %}" 
+                            class="btn btn-danger"
+                            onclick="return confirm('Êtes-vous sûr de vouloir supprimer cet inventaire ?');">
+                                <i class="fas fa-trash-alt me-2"></i>
+                                Supprimer
+                            </a>
+                            {% endif %}
                         </div>
                     </form>
                 </div>
@@ -91,24 +227,135 @@
     </div>
 </div>
 
+<!-- Données JSON pour initialisation -->
+<script id="periodes-data-json" type="application/json">
+{{ periodes_data_json|safe|default:"{}" }}
+</script>
+
 <script>
-// Calcul automatique du total
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== INITIALISATION MODIFICATION INVENTAIRE ===');
+    
+    // ================================================
+    // 1. CHARGER LES DONNÉES EXISTANTES
+    // ================================================
+    let periodesData = {};
+    
+    // Méthode 1: Via JSON
+    try {
+        const jsonElement = document.getElementById('periodes-data-json');
+        if (jsonElement && jsonElement.textContent.trim()) {
+            periodesData = JSON.parse(jsonElement.textContent);
+            console.log('Données JSON chargées:', periodesData);
+        }
+    } catch(e) {
+        console.error('Erreur parsing JSON:', e);
+    }
+    
+    // Méthode 2: Fallback avec données Django inline
+    {% for periode_code, nombre in periodes_data.items %}
+    if (!periodesData['{{ periode_code }}']) {
+        periodesData['{{ periode_code }}'] = {{ nombre }};
+    }
+    {% endfor %}
+    
+    console.log('Données finales:', periodesData);
+    
+    // ================================================
+    // 2. INITIALISER LES INPUTS AVEC LES VALEURS
+    // ================================================
+    for (const [periode, nombre] of Object.entries(periodesData)) {
+        // Trouver l'input par différentes méthodes
+        let input = document.querySelector(`input[name="periode_${periode}"]`);
+        
+        if (!input) {
+            // Essayer avec ID
+            input = document.getElementById(`input_${periode}`);
+        }
+        
+        if (!input) {
+            // Essayer avec data-periode
+            input = document.querySelector(`input[data-periode="${periode}"]`);
+        }
+        
+        if (input) {
+            input.value = nombre;
+            console.log(`✓ Initialisé: ${periode} = ${nombre}`);
+        } else {
+            console.warn(`✗ Input non trouvé pour période: ${periode}`);
+        }
+    }
+    
+    // ================================================
+    // 3. CALCUL AUTOMATIQUE DU TOTAL
+    // ================================================
     const inputs = document.querySelectorAll('.periode-input');
+    const totalDisplay = document.getElementById('total-vehicules');
     
     function updateTotal() {
         let total = 0;
-        inputs.forEach(input => {
-            total += parseInt(input.value) || 0;
+        inputs.forEach(function(input) {
+            const val = parseInt(input.value) || 0;
+            total += val;
         });
-        document.getElementById('total-vehicules').textContent = total;
+        totalDisplay.textContent = total;
+        
+        // Couleur selon le total
+        if (total > 0) {
+            totalDisplay.style.color = '#28a745';
+        } else {
+            totalDisplay.style.color = '#dc3545';
+        }
     }
     
-    inputs.forEach(input => {
+    // Attacher les événements
+    inputs.forEach(function(input) {
         input.addEventListener('input', updateTotal);
+        input.addEventListener('change', updateTotal);
     });
     
+    // Calcul initial
     updateTotal();
+    
+    // ================================================
+    // 4. VALIDATION AVANT SOUMISSION
+    // ================================================
+    const form = document.getElementById('modifierInventaireForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    form.addEventListener('submit', function(e) {
+        // Collecter toutes les données
+        console.log('=== SOUMISSION DU FORMULAIRE ===');
+        
+        let hasData = false;
+        let totalSubmit = 0;
+        
+        inputs.forEach(function(input) {
+            const val = parseInt(input.value) || 0;
+            if (val > 0) {
+                hasData = true;
+                totalSubmit += val;
+            }
+            console.log(`${input.name} = ${input.value}`);
+        });
+        
+        console.log(`Total à soumettre: ${totalSubmit} véhicules`);
+        
+        if (!hasData) {
+            if (!confirm('Attention: Aucune période n\'a de véhicules (total = 0).\n\nVoulez-vous vraiment enregistrer un inventaire vide?')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+        
+        // Désactiver le bouton pour éviter double soumission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Enregistrement...';
+        
+        return true;
+    });
+    
+    console.log('=== INITIALISATION TERMINÉE ===');
 });
 </script>
 {% endblock %}

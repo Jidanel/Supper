@@ -1,0 +1,99 @@
+{# templates/inventaire/transporteurs/rapprochement_confirmation.html #}
+{# Confirmation d'une fusion de plaques (rapprochement) #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Confirmer la fusion" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau et l'impression restent inchangés) ===================== */
+@media screen {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+  .tr { width: 100%; }
+  .tr-scroll { -webkit-overflow-scrolling: touch; }
+}
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media screen and (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media screen and (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; word-break: break-word; }
+
+  /* Tableau : défilement horizontal dans son conteneur, jamais sur la page */
+  .tr-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+  .tr-table { width: max-content; min-width: 100%; font-size: .85rem; }
+  .tr-table th, .tr-table td { padding: .5rem .55rem; }
+  .tr-table td.num, .tr-table td b { white-space: nowrap; }
+  .tr-table td:last-child { min-width: 150px; }                         /* colonne « Postes » : retour à la ligne autorisé */
+
+  /* Boutons : pleine largeur, empilés, zones tactiles 44px */
+  .tr form .tr-btn-ghost, .tr form .tr-btn-danger { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; margin: 0 0 10px 0 !important; text-align: center; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media screen and (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+  .tr-table { font-size: .8rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media screen and (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3" style="max-width:820px">
+  <h1>{% trans "Fusionner ces plaques ?" %}</h1>
+  <p class="tr-sub">{% trans "Agence" %} : <b>{{ agence.nom }}</b></p>
+  <div class="tr-panel"><div class="tr-body"><div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th></th><th>{% trans "Plaque" %}</th><th class="num">{% trans "Passages" %}</th><th>{% trans "Postes" %}</th></tr></thead>
+    {% for s in sources %}<tr><td>{% trans "Remplacée" %}</td><td><b>{{ s.plaque }}</b></td><td class="num">{{ s.passages }}</td><td>{% for nom, n in s.postes %}{{ nom }}{% if n > 1 %} ×{{ n }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}
+    <tr><td>{% trans "Conservée" %}</td><td><b>{{ cible.plaque }}</b></td><td class="num">{{ cible.passages }}</td><td>{% for nom, n in cible.postes %}{{ nom }}{% if n > 1 %} ×{{ n }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</td></tr>
+    <tfoot><tr><td colspan="2">{% trans "Après la fusion" %} : {{ cible.plaque }} ({% trans "1 seul véhicule, type" %} {{ cible.type_libelle }})</td><td class="num">{{ passages_total }}</td><td>{{ postes_total }} {% trans "poste(s) distinct(s)" %}</td></tr></tfoot>
+  </table></div>
+  <p class="text-muted small mt-3 mb-0">{% trans "La fusion s'applique à toutes les dates et à tous les postes, y compris dans les fiches déjà enregistrées. Elle est inscrite au journal d'audit." %}</p></div></div>
+  <form method="post" action="{% url 'inventaire:transporteurs_rapprochement_fusionner' %}">{% csrf_token %}
+    <input type="hidden" name="agence" value="{{ agence.id }}"><input type="hidden" name="cible" value="{{ cible.norm }}">
+    {% for x in sources_norm %}<input type="hidden" name="sources" value="{{ x }}">{% endfor %}
+    <input type="hidden" name="retour" value="{{ retour }}"><input type="hidden" name="confirmer" value="1">
+    <a class="tr-btn-ghost text-decoration-none" href="{{ retour }}">{% trans "Annuler" %}</a>
+    <button type="submit" class="tr-btn-danger ms-2">{% trans "Fusionner" %}</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+})();
+</script>
+{% endblock %}

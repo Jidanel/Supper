@@ -1,0 +1,17 @@
+{# templates/inventaire/transporteurs/_ligne_vehicule.html #}
+{% load i18n %}
+{# Une ligne véhicule. Variables : i (n° du bloc), j (n° de la ligne), plaque, vtype, types #}
+<div class="tr-ligne d-flex flex-wrap align-items-center gap-2 mb-2" data-j="{{ j }}">
+  {# Plaque d'immatriculation (texte libre, normalisée côté serveur) #}
+  <input type="text" class="form-control" style="max-width:200px" maxlength="30"
+         name="ag-{{ i }}-v-{{ j }}-plaque" value="{{ plaque }}" placeholder="{% trans 'Plaque (ex. LT 123 AB)' %}"
+         autocomplete="off" aria-label="{% trans 'Plaque' %}">
+  {# Nombre de places : boutons radio, un nom unique par ligne #}
+  <div class="tr-seg">
+    {% for code, lib in types %}
+    <label><input type="radio" name="ag-{{ i }}-v-{{ j }}-type" value="{{ code }}" {% if vtype == code %}checked{% endif %}><span>{{ lib }}</span></label>
+    {% endfor %}
+  </div>
+  {# Bouton « − » : supprime cette ligne #}
+  <button type="button" class="btn btn-outline-danger btn-sm js-retirer-vehicule" title="{% trans 'Retirer ce véhicule' %}">−</button>
+</div>

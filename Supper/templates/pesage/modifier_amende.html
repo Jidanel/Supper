@@ -1,0 +1,686 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       STYLES GLOBAUX
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin: 0 auto;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+    }
+
+    .col-12, .col-md-6, .col-md-4 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+    }
+
+    @media (min-width: 768px) {
+        .col-md-6 { width: 50%; }
+        .col-md-4 { width: 33.333%; }
+    }
+
+    /* ============================================
+       EN-TÊTE - ALERTE ADMIN
+       ============================================ */
+    .admin-warning-banner {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+    }
+
+    .admin-warning-banner i {
+        font-size: 1.5rem;
+        margin-right: 0.75rem;
+    }
+
+    .admin-warning-banner h5 {
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .admin-warning-banner p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.9rem;
+    }
+
+    /* ============================================
+       ALERTE AMENDE PAYÉE
+       ============================================ */
+    .alert-amende-payee {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+        border: 2px solid #ffc107;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .alert-amende-payee h6 {
+        color: #856404;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+    }
+
+    .alert-amende-payee ul {
+        margin: 0;
+        padding-left: 1.5rem;
+        color: #856404;
+    }
+
+    .alert-amende-payee li {
+        margin-bottom: 0.5rem;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE
+       ============================================ */
+    .card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        padding: 1rem 1.25rem;
+        border-bottom: none;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .card-footer {
+        background: #f8f9fa;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    /* ============================================
+       INFOS AMENDE ACTUELLE
+       ============================================ */
+    .info-box {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-box-title {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+
+    .info-value {
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .info-value.text-success { color: #28a745 !important; }
+    .info-value.text-warning { color: #ffc107 !important; }
+    .info-value.text-danger { color: #dc3545 !important; }
+
+    /* ============================================
+       FORMULAIRE
+       ============================================ */
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-size: 0.9rem;
+    }
+
+    .form-label .required {
+        color: #dc3545;
+        margin-left: 0.25rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+        outline: none;
+    }
+
+    .form-control:disabled {
+        background: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .form-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-check-input {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .form-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.35);
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+    }
+
+    .btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.35);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+
+    .btn-outline-secondary {
+        background: white;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    /* ============================================
+       BADGES
+       ============================================ */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+
+    .badge-success { background: #28a745; color: white; }
+    .badge-warning { background: #ffc107; color: #212529; }
+    .badge-danger { background: #dc3545; color: white; }
+    .badge-secondary { background: #6c757d; color: white; }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .btn-group {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+        }
+
+        .form-control {
+            font-size: 16px !important; /* Évite zoom iOS */
+        }
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .text-center { text-align: center !important; }
+    .text-muted { color: #6c757d !important; }
+    .fw-bold { font-weight: 700 !important; }
+    .d-flex { display: flex !important; }
+    .align-items-center { align-items: center !important; }
+    .justify-content-between { justify-content: space-between !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- BANNIÈRE D'AVERTISSEMENT ADMIN -->
+    <div class="admin-warning-banner d-flex align-items-center">
+        <i class="fas fa-shield-alt"></i>
+        <div>
+            <h5>🔒 Zone Administrateur - Modification d'Amende</h5>
+            <p>
+                Vous êtes sur le point de modifier l'amende <strong>{{ amende.numero_ticket }}</strong>.
+                Cette action sera enregistrée dans le journal d'audit.
+            </p>
+        </div>
+    </div>
+
+    <!-- ALERTE SI AMENDE DÉJÀ PAYÉE -->
+    {% if etait_payee %}
+    <div class="alert-amende-payee">
+        <h6>
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ⚠️ ATTENTION: Cette amende a déjà été validée (payée)
+        </h6>
+        <ul>
+            <li><strong>Statut actuel:</strong> {{ ancien_statut|upper }}</li>
+            <li><strong>Montant validé:</strong> {{ ancien_montant|floatformat:0 }} FCFA</li>
+            <li><strong>Date de paiement:</strong> {{ amende.date_paiement|date:"d/m/Y H:i" }}</li>
+        </ul>
+        <hr style="border-color: #ffc107;">
+        <p class="mb-0">
+            <strong>⚡ COMPORTEMENT LORS DE LA MODIFICATION:</strong>
+        </p>
+        <ul>
+            <li>Le statut sera <strong>remis à "Non payé"</strong></li>
+            <li>Le montant de <strong>{{ ancien_montant|floatformat:0 }} FCFA sera retiré des recettes</strong></li>
+            <li>La <strong>date de paiement originale sera conservée</strong></li>
+            <li>Le régisseur devra <strong>revalider le paiement</strong></li>
+            <li>La recette sera alors comptabilisée à la <strong>date du {{ amende.date_paiement|date:"d/m/Y" }}</strong></li>
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- INFORMATIONS ACTUELLES DE L'AMENDE -->
+    <div class="info-box">
+        <div class="info-box-title">
+            <i class="fas fa-info-circle me-2"></i>
+            Informations actuelles de l'amende
+        </div>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">N° Ticket</span>
+                <span class="info-value">{{ amende.numero_ticket }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Station</span>
+                <span class="info-value">{{ station.nom }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Immatriculation</span>
+                <span class="info-value">{{ amende.immatriculation }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Montant</span>
+                <span class="info-value text-success">{{ amende.montant_amende|floatformat:0 }} FCFA</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Statut</span>
+                <span class="info-value {% if amende.statut == 'paye' %}text-success{% else %}text-warning{% endif %}">
+                    {{ amende.get_statut_display }}
+                </span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Date émission</span>
+                <span class="info-value">{{ amende.date_heure_emission|date:"d/m/Y H:i" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Saisi par</span>
+                <span class="info-value">{{ amende.saisi_par.nom_complet|default:"-" }}</span>
+            </div>
+            {% if amende.date_derniere_modification %}
+            <div class="info-item">
+                <span class="info-label">Dernière modification</span>
+                <span class="info-value text-danger">
+                    {{ amende.date_derniere_modification|date:"d/m/Y H:i" }}
+                    par {{ amende.modifie_par.nom_complet|default:"-" }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- FORMULAIRE DE MODIFICATION -->
+    <div class="card">
+        <div class="card-header">
+            <h5>
+                <i class="fas fa-edit"></i>
+                Modifier l'amende
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post" id="form-modifier-amende">
+                {% csrf_token %}
+
+                <div class="row">
+                    <!-- Colonne gauche -->
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">
+                                N° Ticket <span class="required">*</span>
+                            </label>
+                            <input type="text"
+                                   name="numero_ticket"
+                                   class="form-control"
+                                   value="{{ form.numero_ticket.value|default:amende.numero_ticket }}"
+                                   required>
+                            {% if form.numero_ticket.errors %}
+                            <div class="text-danger">{{ form.numero_ticket.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                Immatriculation <span class="required">*</span>
+                            </label>
+                            <input type="text"
+                                   name="immatriculation"
+                                   class="form-control"
+                                   value="{{ form.immatriculation.value|default:amende.immatriculation }}"
+                                   required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                Transporteur <span class="required">*</span>
+                            </label>
+                            <input type="text"
+                                   name="transporteur"
+                                   class="form-control"
+                                   value="{{ form.transporteur.value|default:amende.transporteur }}"
+                                   required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Opérateur</label>
+                            <input type="text"
+                                   name="operateur"
+                                   class="form-control"
+                                   value="{{ form.operateur.value|default:amende.operateur }}">
+                        </div>
+                    </div>
+
+                    <!-- Colonne droite -->
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Provenance</label>
+                            <input type="text"
+                                   name="provenance"
+                                   class="form-control"
+                                   value="{{ form.provenance.value|default:amende.provenance }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Destination</label>
+                            <input type="text"
+                                   name="destination"
+                                   class="form-control"
+                                   value="{{ form.destination.value|default:amende.destination }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Produit transporté</label>
+                            <input type="text"
+                                   name="produit_transporte"
+                                   class="form-control"
+                                   value="{{ form.produit_transporte.value|default:amende.produit_transporte }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                Montant de l'amende (FCFA) <span class="required">*</span>
+                            </label>
+                            <input type="number"
+                                   name="montant_amende"
+                                   class="form-control"
+                                   value="{{ form.montant_amende.value|default:amende.montant_amende }}"
+                                   min="0"
+                                   step="1"
+                                   required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Type d'infraction -->
+                <div class="form-group mt-3">
+                    <label class="form-label">Type d'infraction <span class="required">*</span></label>
+                    <div class="d-flex" style="gap: 2rem; flex-wrap: wrap;">
+                        <div class="form-check">
+                            <input type="checkbox"
+                                   name="est_surcharge"
+                                   id="est_surcharge"
+                                   class="form-check-input"
+                                   {% if amende.est_surcharge %}checked{% endif %}>
+                            <label class="form-check-label" for="est_surcharge">
+                                Surcharge
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox"
+                                   name="est_hors_gabarit"
+                                   id="est_hors_gabarit"
+                                   class="form-check-input"
+                                   {% if amende.est_hors_gabarit %}checked{% endif %}>
+                            <label class="form-check-label" for="est_hors_gabarit">
+                                Hors Gabarit
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox"
+                                   name="est_delit_fuite"
+                                   id="est_delit_fuite"
+                                   class="form-check-input"
+                                   {% if amende.est_delit_fuite %}checked{% endif %}>
+                            <label class="form-check-label" for="est_delit_fuite">
+                                Délit de Fuite
+                            </label>
+                        </div>
+                    </div>
+                    <small class="form-text">Au moins un type doit être sélectionné</small>
+                </div>
+
+                <!-- Observations -->
+                <div class="form-group">
+                    <label class="form-label">Observations</label>
+                    <textarea name="observations"
+                              class="form-control"
+                              rows="3">{{ form.observations.value|default:amende.observations }}</textarea>
+                </div>
+            </form>
+        </div>
+        <div class="card-footer">
+            <div class="btn-group justify-content-between" style="width: 100%;">
+                <a href="{% url 'inventaire:detail_amende' amende.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Annuler
+                </a>
+                <button type="submit" form="form-modifier-amende" class="btn {% if etait_payee %}btn-warning{% else %}btn-primary{% endif %}">
+                    <i class="fas fa-save me-2"></i>
+                    {% if etait_payee %}
+                    Modifier et réinitialiser le paiement
+                    {% else %}
+                    Enregistrer les modifications
+                    {% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('form-modifier-amende');
+    const etaitPayee = {{ etait_payee|yesno:"true,false" }};
+
+    form.addEventListener('submit', function(e) {
+        // Vérifier qu'au moins un type d'infraction est sélectionné
+        const surcharge = document.getElementById('est_surcharge').checked;
+        const horsGabarit = document.getElementById('est_hors_gabarit').checked;
+        const delitFuite = document.getElementById('est_delit_fuite').checked;
+
+        if (!surcharge && !horsGabarit && !delitFuite) {
+            e.preventDefault();
+            alert('❌ Veuillez sélectionner au moins un type d\'infraction (Surcharge, Hors Gabarit ou Délit de Fuite).');
+            return;
+        }
+
+        // Confirmation si amende était payée
+        if (etaitPayee) {
+            if (!confirm(
+                '⚠️ ATTENTION ⚠️\n\n' +
+                'Cette amende a déjà été validée (payée).\n\n' +
+                'En confirmant cette modification:\n' +
+                '• Le statut sera remis à "Non payé"\n' +
+                '• Le montant sera retiré des recettes\n' +
+                '• Le régisseur devra revalider le paiement\n\n' +
+                'Voulez-vous vraiment continuer?'
+            )) {
+                e.preventDefault();
+            }
+        } else {
+            if (!confirm('Confirmez-vous la modification de cette amende?')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

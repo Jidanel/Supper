@@ -1,0 +1,916 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}Confirmer Historique ACCT Pesage{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       VARIABLES CSS
+       ============================================ */
+    :root {
+        --primary-color: #3b82f6;
+        --primary-dark: #2563eb;
+        --success-color: #10b981;
+        --success-dark: #059669;
+        --warning-color: #f59e0b;
+        --warning-light: #fde68a;
+        --danger-color: #dc3545;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-500: #64748b;
+        --gray-700: #374151;
+        --gray-800: #1e293b;
+        --gray-900: #111827;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
+    .page-header-confirm {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .page-header-confirm h2 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    .page-header-confirm p {
+        margin: 0;
+        color: var(--gray-500);
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       CARTE DE CONFIRMATION
+       ============================================ */
+    .confirmation-card {
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: 100%;
+        background: white;
+        margin-bottom: 1.5rem;
+    }
+
+    .confirmation-card .card-header {
+        background: linear-gradient(135deg, var(--warning-color) 0%, #d97706 100%);
+        color: var(--gray-800);
+        padding: 1rem 1.25rem;
+    }
+
+    .confirmation-card .card-header h5 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .confirmation-card .card-body {
+        padding: 1.5rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       LIGNES DE RÉSUMÉ
+       ============================================ */
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--gray-200);
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .summary-row:last-child {
+        border-bottom: none;
+    }
+
+    .summary-label {
+        font-weight: 500;
+        color: var(--gray-500);
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        flex-shrink: 0;
+    }
+
+    .summary-label i {
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .summary-value {
+        font-weight: 600;
+        color: var(--gray-800);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        text-align: right;
+    }
+
+    /* ============================================
+       GRILLE MONTANTS
+       ============================================ */
+    .montants-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+        width: 100%;
+    }
+
+    .montant-box {
+        background: var(--gray-50);
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        border: 1px solid var(--gray-200);
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .montant-box.primary {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        border: none;
+    }
+
+    .montant-box.success {
+        background: linear-gradient(135deg, var(--success-color) 0%, var(--success-dark) 100%);
+        color: white;
+        border: none;
+    }
+
+    .montant-box .label {
+        font-size: 0.8rem;
+        opacity: 0.9;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .montant-box .value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        font-family: 'Roboto Mono', monospace;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        margin: 0.25rem 0;
+    }
+
+    .montant-box .percent {
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        opacity: 0.85;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       SECTION IMAGES
+       ============================================ */
+    .images-summary {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border: 2px solid #22c55e;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin: 1.5rem 0;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .images-summary h6 {
+        color: #166534;
+        margin: 0 0 1rem 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .images-badges-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .image-badge {
+        display: inline-flex;
+        align-items: center;
+        background: white;
+        border: 1px solid #22c55e;
+        border-radius: 6px;
+        padding: 0.5rem 0.875rem;
+    }
+
+    .image-badge i {
+        color: #22c55e;
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .image-badge .page-label {
+        font-weight: 600;
+        color: #166534;
+        white-space: nowrap;
+    }
+
+    .image-badge .size {
+        color: var(--gray-500);
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       SECTION OBSERVATIONS
+       ============================================ */
+    .observations-section {
+        margin-top: 1rem;
+        width: 100%;
+    }
+
+    .observations-section .summary-label {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .observations-section p {
+        margin: 0;
+        padding: 0.75rem 1rem;
+        background: var(--gray-100);
+        border-radius: 8px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.5;
+    }
+
+    /* ============================================
+       BOÎTE D'AVERTISSEMENT
+       ============================================ */
+    .warning-box {
+        background: linear-gradient(135deg, #fef3c7 0%, var(--warning-light) 100%);
+        border-left: 4px solid var(--warning-color);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin: 1.5rem 0;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .warning-box i {
+        color: #b45309;
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .warning-box strong {
+        color: #92400e;
+    }
+
+    .warning-box p,
+    .warning-box span {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.5;
+        margin: 0;
+        color: var(--gray-700);
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION
+       ============================================ */
+    .actions-row {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid var(--gray-200);
+        width: 100%;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 1rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        min-height: 48px;
+        border: 1px solid transparent;
+    }
+
+    .btn-lg {
+        padding: 0.875rem 1.75rem;
+        font-size: 1rem;
+        min-height: 52px;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid var(--gray-300);
+        color: var(--gray-700);
+    }
+
+    .btn-outline-secondary:hover {
+        background: var(--gray-100);
+        color: var(--gray-800);
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    .btn-outline-primary:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, var(--success-color), var(--success-dark));
+        color: white;
+        border: none;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn i {
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       GRILLE ROW/COL
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -8px;
+        margin-right: -8px;
+        width: calc(100% + 16px);
+    }
+
+    .row > [class*="col-"] {
+        padding-left: 8px;
+        padding-right: 8px;
+        margin-bottom: 0.5rem;
+    }
+
+    .col-md-6 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       RESPONSIVE - TABLETTE (768px+)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .montants-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .actions-row {
+            flex-direction: row;
+        }
+
+        .actions-row .btn {
+            width: auto;
+            flex: 0 0 auto;
+        }
+
+        .confirmation-card .card-body {
+            padding: 2rem;
+        }
+
+        .montant-box .value {
+            font-size: 1.4rem;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (max 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction critique du défilement */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        /* En-tête mobile */
+        .page-header-confirm h2 {
+            font-size: 1.25rem;
+        }
+
+        .page-header-confirm p {
+            font-size: 0.85rem;
+        }
+
+        /* Carte mobile */
+        .confirmation-card .card-header {
+            padding: 0.875rem 1rem;
+        }
+
+        .confirmation-card .card-header h5 {
+            font-size: 1rem;
+        }
+
+        .confirmation-card .card-body {
+            padding: 1rem;
+        }
+
+        /* Lignes de résumé mobile */
+        .summary-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+        }
+
+        .summary-value {
+            text-align: left;
+            width: 100%;
+        }
+
+        /* Grille montants mobile */
+        .montants-grid {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+
+        .montant-box {
+            padding: 0.875rem;
+        }
+
+        .montant-box .label {
+            font-size: 0.75rem;
+        }
+
+        .montant-box .value {
+            font-size: 1.15rem;
+        }
+
+        .montant-box .percent {
+            font-size: 0.75rem;
+        }
+
+        /* Section images mobile */
+        .images-summary {
+            padding: 1rem;
+        }
+
+        .images-summary h6 {
+            font-size: 0.9rem;
+        }
+
+        .image-badge {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .image-badge .size {
+            font-size: 0.75rem;
+        }
+
+        /* Warning box mobile */
+        .warning-box {
+            padding: 0.875rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Actions mobile */
+        .actions-row {
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+        }
+
+        .actions-row .btn {
+            width: 100%;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.95rem;
+            min-height: 48px;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - PETIT MOBILE (max 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        .page-header-confirm h2 {
+            font-size: 1.15rem;
+        }
+
+        .confirmation-card .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .summary-label,
+        .summary-value {
+            font-size: 0.85rem;
+        }
+
+        .montant-box .value {
+            font-size: 1.1rem;
+        }
+
+        .images-summary {
+            padding: 0.875rem;
+        }
+
+        .warning-box {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - TRÈS PETIT MOBILE (max 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
+        .page-header-confirm h2 {
+            font-size: 1.05rem;
+        }
+
+        .confirmation-card .card-body {
+            padding: 0.75rem;
+        }
+
+        .montants-grid {
+            gap: 0.5rem;
+        }
+
+        .montant-box {
+            padding: 0.75rem;
+        }
+
+        .montant-box .value {
+            font-size: 1rem;
+        }
+
+        .actions-row .btn {
+            padding: 0.625rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .montants-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .summary-row {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .summary-value {
+            text-align: right;
+        }
+
+        .actions-row {
+            flex-direction: row;
+        }
+
+        .actions-row .btn {
+            width: auto;
+            flex: 1;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="email"],
+        input[type="password"],
+        input[type="date"],
+        input[type="tel"],
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    a:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+
+        .confirmation-card {
+            box-shadow: none !important;
+            border: 1px solid #000 !important;
+        }
+
+        .montant-box.primary,
+        .montant-box.success {
+            background: #f8f9fa !important;
+            color: #000 !important;
+            border: 1px solid #000 !important;
+        }
+
+        .warning-box {
+            background: #fff3cd !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .actions-row {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="page-header-confirm">
+        <div>
+            <h2>
+                <i class="fas fa-check-circle text-warning me-2"></i>
+                Confirmer l'historique ACCT
+            </h2>
+            <p>Vérifiez les informations avant de valider</p>
+        </div>
+    </div>
+    
+    <!-- Carte de confirmation -->
+    <div class="card confirmation-card">
+        <div class="card-header bg-warning text-dark">
+            <h5>
+                <i class="fas fa-clipboard-check me-2"></i>
+                Récapitulatif de l'historique
+            </h5>
+        </div>
+        <div class="card-body">
+            
+            <!-- Informations générales -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="summary-row">
+                        <span class="summary-label">
+                            <i class="fas fa-building me-2"></i>Station
+                        </span>
+                        <span class="summary-value">{{ station.nom }}</span>
+                    </div>
+                    {% if station.region %}
+                    <div class="summary-row">
+                        <span class="summary-label">
+                            <i class="fas fa-map-marker-alt me-2"></i>Région
+                        </span>
+                        <span class="summary-value">{{ station.region.nom }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <div class="summary-row">
+                        <span class="summary-label">
+                            <i class="fas fa-calendar me-2"></i>Période
+                        </span>
+                        <span class="summary-value">{{ mois_display }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Montants -->
+            <div class="montants-grid">
+                <div class="montant-box primary">
+                    <div class="label">Montant global versé</div>
+                    <div class="value">{{ montant_global_display }} FCFA</div>
+                    <div class="percent">Total perception</div>
+                </div>
+                <div class="montant-box success">
+                    <div class="label">Montant réel station</div>
+                    <div class="value">{{ montant_reel_display }} FCFA</div>
+                    <div class="percent">{{ pourcentage_station|floatformat:1 }}% du global</div>
+                </div>
+                <div class="montant-box">
+                    <div class="label">Part autres stations</div>
+                    <div class="value">{{ ecart_display }} FCFA</div>
+                    <div class="percent">Écart</div>
+                </div>
+            </div>
+            
+            <!-- Images jointes -->
+            {% if files_info %}
+            <div class="images-summary">
+                <h6>
+                    <i class="fas fa-images me-2"></i>
+                    Documents joints ({{ nombre_pages }} page{{ nombre_pages|pluralize }})
+                </h6>
+                <div class="images-badges-container">
+                    {% for file in files_info %}
+                    <span class="image-badge">
+                        <i class="fas fa-file-image"></i>
+                        <span class="page-label">Page {{ file.page }}</span>
+                        <span class="size">({{ file.size_display }})</span>
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Observations -->
+            {% if observations %}
+            <div class="observations-section">
+                <span class="summary-label">
+                    <i class="fas fa-comment me-2"></i>Observations
+                </span>
+                <p>{{ observations }}</p>
+            </div>
+            {% endif %}
+            
+            <!-- Avertissement -->
+            <div class="warning-box">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Attention :</strong> Après validation, cet historique ne pourra être supprimé que par un administrateur.
+                Veuillez vérifier attentivement les informations ci-dessus.
+            </div>
+            
+            <!-- Boutons d'action -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="actions-row">
+                    <button type="submit" name="action" value="annuler" class="btn btn-outline-secondary btn-lg">
+                        <i class="fas fa-times"></i>
+                        Annuler
+                    </button>
+                    <button type="submit" name="action" value="modifier" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-edit"></i>
+                        Modifier
+                    </button>
+                    <button type="submit" name="action" value="confirmer" class="btn btn-success btn-lg">
+                        <i class="fas fa-check"></i>
+                        Confirmer et enregistrer
+                    </button>
+                </div>
+            </form>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+});
+</script>
+{% endblock %}

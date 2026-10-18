@@ -14,7 +14,7 @@ class AmendeEmiseForm(forms.ModelForm):
     Formulaire pour la saisie des amendes de pesage.
     Inclut tous les champs nécessaires avec validation personnalisée.
     """
-    
+
     # Champs BooleanField pour les types d'infraction
     est_surcharge = forms.BooleanField(
         required=False,
@@ -23,15 +23,23 @@ class AmendeEmiseForm(forms.ModelForm):
             'class': 'form-check-input',
         })
     )
-    
+
     est_hors_gabarit = forms.BooleanField(
         required=False,
         label=_("Hors Gabarit"),
         widget=forms.CheckboxInput(attrs={
             'class': 'form-check-input',
         })
+
     )
-    
+
+    est_delit_fuite = forms.BooleanField(
+        required=False,
+        label=_("Délit de Fuite"),
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input',
+        })
+    )
     class Meta:
         model = AmendeEmise
         fields = [
@@ -44,6 +52,7 @@ class AmendeEmiseForm(forms.ModelForm):
             'produit_transporte',
             'est_surcharge',
             'est_hors_gabarit',
+            'est_delit_fuite',
             'montant_amende',
             'observations',
         ]
@@ -89,31 +98,32 @@ class AmendeEmiseForm(forms.ModelForm):
                 'placeholder': _('Remarques ou observations...'),
             }),
         }
-    
+
     def clean_immatriculation(self):
         """Convertit l'immatriculation en majuscules."""
         value = self.cleaned_data.get('immatriculation', '')
         return value.upper().strip() if value else value
-    
+
     def clean_numero_ticket(self):
         """Convertit le numéro de ticket en majuscules."""
         value = self.cleaned_data.get('numero_ticket', '')
         return value.upper().strip() if value else value
-    
+
     def clean(self):
         """Validation globale du formulaire."""
         cleaned_data = super().clean()
-        
+
         est_surcharge = cleaned_data.get('est_surcharge', False)
         est_hors_gabarit = cleaned_data.get('est_hors_gabarit', False)
-        
+        est_delit_fuite = cleaned_data.get('est_delit_fuite', False)
+
         # Au moins un type d'infraction doit être sélectionné
-        if not est_surcharge and not est_hors_gabarit:
+        if not est_surcharge and not est_hors_gabarit and not est_delit_fuite:
             raise ValidationError(
                 _("Vous devez sélectionner au moins un type d'infraction "
-                  "(Surcharge ou Hors Gabarit)")
+                  "(Surcharge, Hors Gabarit ou Délit de Fuite)")
             )
-        
+
         return cleaned_data
 
 
@@ -122,7 +132,12 @@ class PeseesJournalieresForm(forms.ModelForm):
     Formulaire pour la saisie des pesées journalières.
     Correspond au modèle PeseesJournalieres.
     """
-    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si c'est une modification (instance existe), rendre le champ date non obligatoire
+        if self.instance and self.instance.pk:
+            self.fields['date'].required = False
+
     class Meta:
         model = PeseesJournalieres
         fields = [
@@ -148,7 +163,7 @@ class PeseesJournalieresForm(forms.ModelForm):
                 'placeholder': _('Remarques ou observations...'),
             }),
         }
-    
+
     def clean_nombre_pesees(self):
         """Valide que le nombre de pesées est positif."""
         value = self.cleaned_data.get('nombre_pesees', 0)
@@ -158,25 +173,36 @@ class PeseesJournalieresForm(forms.ModelForm):
             raise ValidationError(_("Le nombre de pesées semble trop élevé (max 10000)."))
         return value
 
+    def save(self, commit=True):
+        # Si c'est une modification et que la date n'a pas été fournie,
+        # conserver la date existante
+        if self.instance.pk and not self.cleaned_data.get('date'):
+            self.instance.date = self.instance.date
+        return super().save(commit)
+
 
 class FiltreAmendesForm(forms.Form):
     """
     Formulaire pour filtrer la liste des amendes.
     """
-    
+
     TYPE_INFRACTION_CHOICES = [
         ('', _('Tous')),
         ('S', _('Surcharge')),
         ('HG', _('Hors Gabarit')),
+        ('DF', _('Délit de Fuite')),
         ('S+HG', _('Surcharge + Hors Gabarit')),
+        ('HG+DF', _('Hors Gabarit + Délit de Fuite')),
+        ('S+DF', _('Surcharge + Délit de Fuite')),
+        ('S+HG+DF', _('S + HG + DF')),
     ]
-    
+
     STATUT_CHOICES = [
         ('', _('Tous')),
         ('non_paye', _('Non payé')),
         ('paye', _('Payé')),
     ]
-    
+
     date_debut = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={
@@ -185,7 +211,7 @@ class FiltreAmendesForm(forms.Form):
         }),
         label=_("Date début")
     )
-    
+
     date_fin = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={
@@ -194,7 +220,7 @@ class FiltreAmendesForm(forms.Form):
         }),
         label=_("Date fin")
     )
-    
+
     type_infraction = forms.ChoiceField(
         required=False,
         choices=TYPE_INFRACTION_CHOICES,
@@ -203,7 +229,7 @@ class FiltreAmendesForm(forms.Form):
         }),
         label=_("Type d'infraction")
     )
-    
+
     statut = forms.ChoiceField(
         required=False,
         choices=STATUT_CHOICES,
@@ -212,7 +238,7 @@ class FiltreAmendesForm(forms.Form):
         }),
         label=_("Statut")
     )
-    
+
     query = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
@@ -227,7 +253,7 @@ class RechercheAmendeForm(forms.Form):
     """
     Formulaire de recherche rapide d'amendes.
     """
-    
+
     query = forms.CharField(
         required=False,
         max_length=100,
@@ -243,7 +269,7 @@ class ValidationPaiementForm(forms.Form):
     """
     Formulaire pour la validation d'un paiement.
     """
-    
+
     confirmer = forms.BooleanField(
         required=True,
         label=_("Je confirme la validation du paiement"),
@@ -257,14 +283,14 @@ class FiltreStatistiquesForm(forms.Form):
     """
     Formulaire pour filtrer les statistiques de pesage.
     """
-    
+
     PERIODE_CHOICES = [
         ('jour', _('Par jour')),
         ('semaine', _('Par semaine')),
         ('mois', _('Par mois')),
         ('annee', _('Par année')),
     ]
-    
+
     date_debut = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={
@@ -273,7 +299,7 @@ class FiltreStatistiquesForm(forms.Form):
         }),
         label=_("Date début")
     )
-    
+
     date_fin = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={
@@ -282,7 +308,7 @@ class FiltreStatistiquesForm(forms.Form):
         }),
         label=_("Date fin")
     )
-    
+
     periode = forms.ChoiceField(
         required=False,
         choices=PERIODE_CHOICES,
@@ -298,7 +324,7 @@ class QuittancementPesageForm(forms.Form):
     """
     Formulaire pour le quittancement journalier du pesage.
     """
-    
+
     date_quittancement = forms.DateField(
         required=True,
         widget=forms.DateInput(attrs={
@@ -307,7 +333,7 @@ class QuittancementPesageForm(forms.Form):
         }),
         label=_("Date")
     )
-    
+
     montant_encaisse = forms.DecimalField(
         required=True,
         min_value=0,
@@ -320,7 +346,7 @@ class QuittancementPesageForm(forms.Form):
         }),
         label=_("Montant encaissé (FCFA)")
     )
-    
+
     numero_quittance = forms.CharField(
         required=False,
         max_length=50,
@@ -330,7 +356,7 @@ class QuittancementPesageForm(forms.Form):
         }),
         label=_("N° quittance")
     )
-    
+
     piece_jointe = forms.FileField(
         required=False,
         widget=forms.FileInput(attrs={
@@ -339,7 +365,7 @@ class QuittancementPesageForm(forms.Form):
         }),
         label=_("Pièce justificative")
     )
-    
+
     observations = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={
@@ -348,4 +374,20 @@ class QuittancementPesageForm(forms.Form):
             'placeholder': _('Remarques ou observations...'),
         }),
         label=_("Observations")
+    )
+
+class ImportAmendesForm(forms.Form):
+    """
+    Formulaire pour l'import en masse des amendes depuis un fichier Excel.
+    Permission requise: peut_saisir_amende
+    """
+
+    fichier_excel = forms.FileField(
+        required=True,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': '.xlsx,.xls',
+        }),
+        label=_("Fichier Excel (.xlsx)"),
+        help_text=_("Sélectionnez un fichier Excel conforme au modèle")
     )

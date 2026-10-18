@@ -6,7 +6,7 @@
 {% block extra_css %}
 <style>
     /* ============================================
-       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       RÉINITIALISATION ET BASE
        ============================================ */
     * {
         box-sizing: border-box;
@@ -20,9 +20,6 @@
         -webkit-text-size-adjust: 100%;
     }
 
-    /* ============================================
-       CONTENEUR PRINCIPAL
-       ============================================ */
     .container-fluid {
         width: 100%;
         max-width: 100%;
@@ -41,7 +38,7 @@
         width: calc(100% + 30px);
     }
 
-    .col-md-6, .col-md-3 {
+    .col-md-6, .col-md-3, .col-md-4, .col-md-2, .col-12 {
         padding-left: 15px;
         padding-right: 15px;
         position: relative;
@@ -49,48 +46,43 @@
     }
 
     /* ============================================
-       TYPOGRAPHIE RESPONSIVE
+       TYPOGRAPHIE
        ============================================ */
     h2 {
         font-size: 1.75rem;
         margin-bottom: 1.5rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        line-height: 1.4;
+        color: #1e293b;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
 
-    h3 {
-        font-size: 1.5rem;
-        margin-bottom: 0.75rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+    h2 i {
+        color: #667eea;
     }
 
     h5 {
-        font-size: 1.125rem;
+        font-size: 1.1rem;
         margin-bottom: 0.5rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        color: #1e293b;
     }
 
     /* ============================================
-       CARTES RESPONSIVES
+       CARTES
        ============================================ */
     .card {
         width: 100%;
-        border: 1px solid #dee2e6;
+        border: 1px solid #e5e7eb;
         border-radius: 12px;
         margin-bottom: 1.5rem;
         overflow: hidden;
         background: #fff;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
     }
 
     .card-header {
         padding: 1rem 1.25rem;
-        border-bottom: 1px solid #dee2e6;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        border-bottom: 1px solid #e5e7eb;
     }
 
     .card-header h5 {
@@ -98,78 +90,47 @@
         font-size: 1rem;
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         gap: 0.5rem;
+        color: white;
     }
 
     .card-header.bg-primary {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     }
 
     .card-header.bg-success {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-        color: white;
+    }
+
+    .card-header.bg-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
     }
 
     .card-body {
         padding: 1.25rem;
-        width: 100%;
-    }
-
-    .border-primary {
-        border-color: #3b82f6 !important;
     }
 
     /* ============================================
-       SÉRIE STOCK CARD
+       STOCK ACTUEL
        ============================================ */
-    .serie-stock-card {
-        border-left: 4px solid #3b82f6;
-        margin-bottom: 1rem;
-        padding: 1rem;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        width: 100%;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+    .stock-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e40af;
+    }
+
+    .stock-tickets {
+        font-size: 1rem;
+        color: #64748b;
     }
 
     /* ============================================
-       COULEUR BADGE
-       ============================================ */
-    .couleur-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        white-space: nowrap;
-    }
-
-    /* ============================================
-       SECTIONS DE COULEUR
+       SÉRIES PAR COULEUR
        ============================================ */
     .couleur-section-wrapper {
         max-height: 300px;
         overflow-y: auto;
-        width: 100%;
         -webkit-overflow-scrolling: touch;
-    }
-
-    .couleur-section-wrapper::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .couleur-section-wrapper::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-    }
-
-    .couleur-section-wrapper::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 3px;
     }
 
     .couleur-item {
@@ -184,53 +145,142 @@
         padding-bottom: 0;
     }
 
-    .couleur-item .d-flex {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .couleur-item .text-muted {
-        font-size: 0.875rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-
-    .couleur-item .small {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-    }
-
-    .couleur-item .badge {
+    .couleur-badge {
         display: inline-block;
-        padding: 0.25rem 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+
+    .serie-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
         font-size: 0.75rem;
         font-weight: 600;
-        border-radius: 0.375rem;
-        white-space: nowrap;
-        margin-bottom: 0.25rem;
-    }
-
-    .badge.bg-secondary {
-        background-color: #6b7280 !important;
+        border-radius: 4px;
+        background: #6b7280;
         color: white;
+        margin: 0.125rem;
     }
 
     /* ============================================
-       FORMULAIRES RESPONSIVES
+       FORMULAIRE - TYPE DE STOCK
+       ============================================ */
+    .type-stock-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .type-stock-option {
+        flex: 1;
+        min-width: 200px;
+        padding: 1.25rem;
+        background: #f8fafc;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .type-stock-option:hover {
+        border-color: #667eea;
+        background: #f0f4ff;
+    }
+
+    .type-stock-option.selected {
+        border-color: #667eea;
+        background: #eff6ff;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    }
+
+    .type-stock-option input[type="radio"] {
+        margin-right: 0.75rem;
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    .type-stock-option label {
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .type-stock-option i {
+        margin-right: 0.5rem;
+        font-size: 1.25rem;
+    }
+
+    /* ============================================
+       FORMSET - SÉRIES
+       ============================================ */
+    .formset-container {
+        width: 100%;
+    }
+
+    .formset-row {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+
+    .formset-row:hover {
+        border-color: #667eea;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    }
+
+    .formset-row.to-delete {
+        opacity: 0.5;
+        background: #fee2e2;
+        border-color: #fca5a5;
+    }
+
+    .formset-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .formset-header h6 {
+        margin: 0;
+        font-size: 1rem;
+        color: #667eea;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .formset-row .row {
+        margin-left: -10px;
+        margin-right: -10px;
+    }
+
+    .formset-row .row > div {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    /* ============================================
+       CHAMPS DE FORMULAIRE
        ============================================ */
     .form-label {
-        color: #334155;
-        font-weight: 500;
-        margin-bottom: 0.5rem;
         display: block;
-        font-size: 0.95rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.9rem;
     }
 
     .form-control,
@@ -241,19 +291,16 @@
         border-radius: 8px;
         font-size: 1rem;
         transition: all 0.3s ease;
-        max-width: 100%;
-        box-sizing: border-box;
-        display: block;
     }
 
     .form-control:focus,
     .form-select:focus {
         outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
-    .form-calculated {
+    .form-control.form-calculated {
         background-color: #f3f4f6;
         font-weight: 600;
         color: #1f2937;
@@ -263,124 +310,97 @@
         font-size: 0.8rem;
         color: #64748b;
         margin-top: 0.25rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-
-    .form-check {
-        padding: 1rem;
-        background: #f8fafc;
-        border-radius: 8px;
-        border: 2px solid #e5e7eb;
-        margin-bottom: 0.75rem;
-        transition: all 0.3s ease;
-    }
-
-    .form-check:hover {
-        border-color: #3b82f6;
-        background: #eff6ff;
-    }
-
-    .form-check-input {
-        margin-right: 0.75rem;
-        width: 1.25rem;
-        height: 1.25rem;
-    }
-
-    .form-check-label {
-        font-size: 0.95rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .mb-3 {
-        margin-bottom: 1rem !important;
-    }
-
-    .mb-4 {
-        margin-bottom: 1.5rem !important;
-    }
-
-    .mt-4 {
-        margin-top: 1.5rem !important;
-    }
-
-    .mt-2 {
-        margin-top: 0.5rem !important;
-    }
-
-    .me-2 {
-        margin-right: 0.5rem !important;
-    }
-
-    .me-1 {
-        margin-right: 0.25rem !important;
-    }
-
-    .fw-bold {
-        font-weight: 700 !important;
     }
 
     /* ============================================
-       BOUTONS RESPONSIVES
+       MONTANT TOTAL
+       ============================================ */
+    .montant-total-card {
+        border: 3px solid #10b981;
+        background: linear-gradient(to bottom, #ecfdf5, white);
+    }
+
+    .montant-total-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #10b981;
+    }
+
+    .tickets-total-display {
+        font-size: 1.25rem;
+        color: #059669;
+    }
+
+    /* ============================================
+       BOUTONS
        ============================================ */
     .btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-weight: 500;
-        text-align: center;
-        white-space: nowrap;
-        vertical-align: middle;
-        user-select: none;
-        border: 1px solid transparent;
+        gap: 0.5rem;
         padding: 0.75rem 1.5rem;
         font-size: 1rem;
-        line-height: 1.5;
+        font-weight: 600;
         border-radius: 8px;
+        border: none;
+        cursor: pointer;
         transition: all 0.3s ease;
         text-decoration: none;
-        cursor: pointer;
-        gap: 0.5rem;
     }
 
     .btn-lg {
         padding: 1rem 2rem;
-        font-size: 1.125rem;
-        border-radius: 10px;
+        font-size: 1.1rem;
     }
 
     .btn-success {
-        color: #fff;
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border-color: transparent;
+        color: white;
     }
 
     .btn-success:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+        color: white;
     }
 
     .btn-secondary {
-        color: #fff;
-        background-color: #6c757d;
-        border-color: #6c757d;
+        background: #6b7280;
+        color: white;
     }
 
     .btn-secondary:hover {
-        background-color: #5a6268;
-        border-color: #545b62;
+        background: #4b5563;
+        color: white;
     }
 
-    .text-center {
-        text-align: center !important;
+    .btn-add-serie {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.75rem 1.5rem;
+    }
+
+    .btn-add-serie:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+
+    .btn-remove-serie {
+        background: #ef4444;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-remove-serie:hover {
+        background: #dc2626;
+        color: white;
     }
 
     /* ============================================
-       TABLEAU HISTORIQUE RESPONSIVE
+       HISTORIQUE
        ============================================ */
     .table-responsive-wrapper {
         width: 100%;
@@ -390,20 +410,6 @@
         border: 1px solid #e5e7eb;
     }
 
-    .table-responsive-wrapper::-webkit-scrollbar {
-        height: 6px;
-    }
-
-    .table-responsive-wrapper::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-    }
-
-    .table-responsive-wrapper::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 3px;
-    }
-
     .table {
         width: 100%;
         min-width: 500px;
@@ -411,12 +417,11 @@
         margin-bottom: 0;
     }
 
-    .table-sm th,
-    .table-sm td {
+    .table th,
+    .table td {
         padding: 0.75rem;
         vertical-align: middle;
         border-bottom: 1px solid #f1f5f9;
-        white-space: nowrap;
     }
 
     .table thead {
@@ -429,57 +434,52 @@
         color: #64748b;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        border-bottom: 2px solid #e5e7eb;
-    }
-
-    .table tbody tr:last-child td {
-        border-bottom: none;
     }
 
     .table .badge {
-        font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        border-radius: 4px;
     }
 
     .badge.bg-primary {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        background: #667eea !important;
     }
 
     .badge.bg-success {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        background: #10b981 !important;
     }
 
     /* ============================================
-       STOCK INFO
+       DATALIST COULEURS
        ============================================ */
-    .stock-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #1e40af;
-        word-break: break-word;
-    }
-
-    .stock-tickets {
-        font-size: 1rem;
-        color: #64748b;
+    datalist {
+        display: none;
     }
 
     /* ============================================
-       MEDIA QUERIES - DESKTOP (≥ 1024px)
+       RESPONSIVE - PC (≥ 768px)
        ============================================ */
-    @media (min-width: 1024px) {
+    @media (min-width: 768px) {
         .col-md-6 {
             flex: 0 0 50%;
             max-width: 50%;
         }
-
+        .col-md-4 {
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+        }
         .col-md-3 {
             flex: 0 0 25%;
             max-width: 25%;
         }
+        .col-md-2 {
+            flex: 0 0 16.666%;
+            max-width: 16.666%;
+        }
 
-        .btn-lg {
-            padding: 1rem 2.5rem;
+        .formset-row .row > div {
+            margin-bottom: 0;
         }
 
         .buttons-container {
@@ -495,498 +495,104 @@
     }
 
     /* ============================================
-       MEDIA QUERIES - TABLETTE (768px à 1023px)
-       ============================================ */
-    @media (min-width: 768px) and (max-width: 1023px) {
-        .col-md-6 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-
-        .col-md-3 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-
-        h2 {
-            font-size: 1.5rem;
-        }
-
-        .stock-value {
-            font-size: 1.25rem;
-        }
-    }
-
-    /* ============================================
-       MEDIA QUERIES - MOBILE (≤ 767px)
+       RESPONSIVE - MOBILE (≤ 767px)
        ============================================ */
     @media (max-width: 767px) {
-        /* CORRECTION DU DÉFILEMENT HORIZONTAL */
         html, body {
             overflow-x: hidden !important;
-            width: 100% !important;
-            max-width: 100vw !important;
-            position: relative !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        .main-content {
-            overflow-x: hidden !important;
-            width: 100% !important;
-            max-width: 100vw !important;
-        }
-
-        .content-wrapper {
-            min-width: 100% !important;
-            width: 100% !important;
-            max-width: 100vw !important;
-            padding: 1rem !important;
-            overflow-x: hidden !important;
-            box-sizing: border-box !important;
         }
 
         .container-fluid {
             padding-left: 12px !important;
             padding-right: 12px !important;
-            width: 100% !important;
-            max-width: 100vw !important;
-            overflow-x: hidden !important;
         }
 
-        .row {
-            margin-left: -10px;
-            margin-right: -10px;
-            width: calc(100% + 20px);
-        }
-
-        .col-md-6, .col-md-3 {
-            flex: 0 0 100%;
-            max-width: 100%;
-            padding-left: 10px;
-            padding-right: 10px;
-            margin-bottom: 1rem;
-        }
-
-        /* Typographie mobile */
         h2 {
             font-size: 1.35rem;
-            margin-bottom: 1rem;
-        }
-
-        h3 {
-            font-size: 1.25rem;
-        }
-
-        h5 {
-            font-size: 1rem;
-        }
-
-        /* Cartes mobile */
-        .card {
-            border-radius: 10px;
-            margin-bottom: 1rem;
         }
 
         .card-header {
             padding: 0.875rem 1rem;
         }
 
-        .card-header h5 {
-            font-size: 0.95rem;
-        }
-
         .card-body {
             padding: 1rem;
         }
 
-        /* Stock value mobile */
         .stock-value {
-            font-size: 1.25rem;
+            font-size: 1.5rem;
         }
 
-        .stock-tickets {
-            font-size: 0.9rem;
-        }
-
-        /* Couleur section mobile */
-        .couleur-section-wrapper {
-            max-height: 250px;
-        }
-
-        .couleur-badge {
-            font-size: 0.75rem;
-            padding: 0.2rem 0.5rem;
-        }
-
-        .couleur-item .text-muted {
-            font-size: 0.8rem;
-            width: 100%;
-            text-align: left;
-            margin-top: 0.25rem;
-        }
-
-        .couleur-item .d-flex {
+        .type-stock-options {
             flex-direction: column;
-            align-items: flex-start;
         }
 
-        /* Formulaires mobile */
+        .type-stock-option {
+            min-width: 100%;
+        }
+
+        .formset-row {
+            padding: 1rem;
+        }
+
+        .formset-row .row > div {
+            margin-bottom: 0.75rem;
+        }
+
+        .formset-row .row > div:last-child {
+            margin-bottom: 0;
+        }
+
+        .btn-remove-serie {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
         .form-control,
         .form-select {
-            padding: 0.625rem;
-            font-size: 16px !important; /* Empêche le zoom iOS */
+            font-size: 16px !important;
         }
 
-        .form-label {
-            font-size: 0.9rem;
-        }
-
-        .form-check {
-            padding: 0.875rem;
-        }
-
-        .form-check-label {
-            font-size: 0.9rem;
-        }
-
-        /* Type stock en colonne sur mobile */
-        .type-stock-row .col-md-6 {
-            margin-bottom: 0.5rem;
-        }
-
-        /* Boutons mobile */
-        .btn {
-            padding: 0.625rem 1rem;
-            font-size: 0.95rem;
-        }
-
-        .btn-lg {
-            padding: 0.75rem 1.25rem;
-            font-size: 1rem;
-            width: 100%;
+        .montant-total-display {
+            font-size: 1.5rem;
         }
 
         .buttons-container {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
-            width: 100%;
         }
 
         .buttons-container .btn {
             width: 100%;
-        }
-
-        /* Tableau mobile */
-        .table-responsive-wrapper {
-            margin-left: -1rem;
-            margin-right: -1rem;
-            width: calc(100% + 2rem);
-            border-radius: 0;
-            border-left: none;
-            border-right: none;
         }
 
         .table {
             min-width: 450px;
             font-size: 0.85rem;
         }
-
-        .table-sm th,
-        .table-sm td {
-            padding: 0.5rem;
-        }
-
-        .table thead th {
-            font-size: 0.7rem;
-        }
     }
 
-    /* ============================================
-       PETITS MOBILES (≤ 576px)
-       ============================================ */
     @media (max-width: 576px) {
-        .content-wrapper {
-            padding: 0.75rem !important;
-        }
-
         .container-fluid {
             padding-left: 10px !important;
             padding-right: 10px !important;
-        }
-
-        .row {
-            margin-left: -8px;
-            margin-right: -8px;
-            width: calc(100% + 16px);
-        }
-
-        .col-md-6, .col-md-3 {
-            padding-left: 8px;
-            padding-right: 8px;
         }
 
         h2 {
             font-size: 1.25rem;
         }
 
-        h3 {
-            font-size: 1.1rem;
+        .stock-value {
+            font-size: 1.25rem;
         }
 
-        .card-header {
-            padding: 0.75rem;
-        }
-
-        .card-header h5 {
-            font-size: 0.9rem;
-        }
-
-        .card-body {
+        .formset-row {
             padding: 0.875rem;
         }
 
-        .stock-value {
-            font-size: 1.1rem;
-        }
-
-        .stock-tickets {
-            font-size: 0.85rem;
-        }
-
-        .form-control,
-        .form-select {
-            padding: 0.5rem;
-        }
-
-        .form-label {
-            font-size: 0.85rem;
-        }
-
-        .form-check {
-            padding: 0.75rem;
-        }
-
-        .form-check-label {
-            font-size: 0.85rem;
-        }
-
-        .couleur-section-wrapper {
-            max-height: 200px;
-        }
-
-        .couleur-badge {
-            font-size: 0.7rem;
-        }
-
-        .couleur-item .badge {
-            font-size: 0.65rem;
-            padding: 0.2rem 0.4rem;
-        }
-
-        .btn {
-            padding: 0.5rem 0.875rem;
-            font-size: 0.9rem;
-        }
-
-        .btn-lg {
-            padding: 0.625rem 1rem;
-            font-size: 0.95rem;
-        }
-
-        .table {
-            min-width: 400px;
-            font-size: 0.8rem;
-        }
-
-        .table-sm th,
-        .table-sm td {
-            padding: 0.4rem;
-        }
-
-        .table thead th {
-            font-size: 0.65rem;
-        }
-
-        .table-responsive-wrapper {
-            margin-left: -0.875rem;
-            margin-right: -0.875rem;
-            width: calc(100% + 1.75rem);
-        }
-    }
-
-    /* ============================================
-       TRÈS PETITS ÉCRANS (≤ 375px)
-       ============================================ */
-    @media (max-width: 375px) {
-        .content-wrapper {
-            padding: 0.5rem !important;
-        }
-
-        .container-fluid {
-            padding-left: 8px !important;
-            padding-right: 8px !important;
-        }
-
-        h2 {
-            font-size: 1.15rem;
-        }
-
-        h3 {
-            font-size: 1rem;
-        }
-
-        .card-header h5 {
-            font-size: 0.85rem;
-        }
-
-        .stock-value {
-            font-size: 1rem;
-        }
-
-        .form-label {
-            font-size: 0.8rem;
-        }
-
-        .form-check-label {
-            font-size: 0.8rem;
-        }
-
-        .btn {
-            font-size: 0.85rem;
-            padding: 0.5rem 0.75rem;
-        }
-
-        .couleur-badge {
-            font-size: 0.65rem;
-            padding: 0.15rem 0.4rem;
-        }
-
-        .table {
-            min-width: 350px;
-            font-size: 0.75rem;
-        }
-
-        .table-sm th,
-        .table-sm td {
-            padding: 0.35rem;
-        }
-    }
-
-    /* ============================================
-       ORIENTATION PAYSAGE SUR MOBILE
-       ============================================ */
-    @media (max-width: 896px) and (orientation: landscape) {
-        .col-md-6 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-
-        .col-md-3 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-
-        .buttons-container {
-            flex-direction: row;
-            flex-wrap: wrap;
-        }
-
-        .buttons-container .btn {
-            flex: 1 1 45%;
-            max-width: 48%;
-        }
-
-        .type-stock-row .col-md-6 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-
-        .couleur-section-wrapper {
-            max-height: 180px;
-        }
-    }
-
-    /* ============================================
-       CORRECTION DU ZOOM SUR iOS
-       ============================================ */
-    @media (max-width: 768px) {
-        input[type="text"],
-        input[type="number"],
-        input[type="date"],
-        input[type="email"],
-        input[type="password"],
-        select,
-        textarea,
-        button {
-            font-size: 16px !important;
-        }
-    }
-
-    /* ============================================
-       ACCESSIBILITÉ
-       ============================================ */
-    .form-control:focus,
-    .form-select:focus,
-    .btn:focus,
-    .form-check-input:focus {
-        outline: 2px solid #3b82f6;
-        outline-offset: 2px;
-    }
-
-    /* ============================================
-       HAUTEURS MINIMALES POUR TACTILE
-       ============================================ */
-    .form-control,
-    .form-select,
-    .btn {
-        min-height: 44px;
-    }
-
-    .form-check {
-        min-height: 44px;
-    }
-
-    /* ============================================
-       SCROLLBAR PERSONNALISÉE
-       ============================================ */
-    @media (max-width: 767px) {
-        ::-webkit-scrollbar {
-            width: 4px;
-            height: 4px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 2px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 2px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-    }
-
-    /* ============================================
-       ANIMATION
-       ============================================ */
-    .card {
-        animation: fadeIn 0.3s ease-out;
-    }
-
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
+        .montant-total-display {
+            font-size: 1.35rem;
         }
     }
 </style>
@@ -994,14 +600,14 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h2><i class="fas fa-plus-circle me-2"></i>Charger le stock - {{ poste.nom }}</h2>
+    <h2><i class="fas fa-plus-circle"></i> Charger le stock - {{ poste.nom }}</h2>
     
-    <div class="row mt-4">
-        <!-- Stock actuel (ancien système) -->
-        <div class="col-md-6">
-            <div class="card border-primary">
-                <div class="card-header bg-primary text-white">
-                    <h5><i class="fas fa-box me-2"></i>Stock actuel (valeur globale)</h5>
+    <div class="row">
+        <!-- Stock actuel -->
+        <div class="col-12 col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header bg-primary">
+                    <h5><i class="fas fa-box me-2"></i>Stock actuel</h5>
                 </div>
                 <div class="card-body">
                     <div class="stock-value">{{ stock.valeur_monetaire|floatformat:0|format_milliers }} FCFA</div>
@@ -1011,33 +617,33 @@
         </div>
         
         <!-- Séries en stock par couleur -->
-        <div class="col-md-6">
+        <div class="col-12 col-md-6 mb-3">
             <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-palette me-2"></i>Séries en stock par couleur</h5>
+                <div class="card-header bg-info">
+                    <h5><i class="fas fa-palette me-2"></i>Séries en stock</h5>
                 </div>
                 <div class="card-body">
                     <div class="couleur-section-wrapper">
                         {% if series_par_couleur %}
                             {% for couleur_code, data in series_par_couleur.items %}
                             <div class="couleur-item">
-                                <div class="d-flex">
-                                    <span class="couleur-badge" style="background: #e0e7ff; color: #3730a3;">
-                                        {{ data.couleur.libelle_affichage }}
-                                    </span>
-                                    <span class="text-muted">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="couleur-badge">{{ data.couleur.libelle_affichage }}</span>
+                                    <span class="text-muted small">
                                         {{ data.total_tickets }} tickets = {{ data.valeur_totale|floatformat:0|format_milliers }} FCFA
                                     </span>
                                 </div>
-                                <div class="small text-muted mt-2">
+                                <div>
                                     {% for serie in data.series %}
-                                        <span class="badge bg-secondary">#{{ serie.numero_premier }}-{{ serie.numero_dernier }}</span>
+                                        <span class="serie-badge">#{{ serie.numero_premier }}-{{ serie.numero_dernier }}</span>
                                     {% endfor %}
                                 </div>
                             </div>
                             {% endfor %}
                         {% else %}
-                            <p class="text-muted mb-0">Aucune série en stock</p>
+                            <p class="text-muted mb-0 text-center">
+                                <i class="fas fa-info-circle me-2"></i>Aucune série en stock
+                            </p>
                         {% endif %}
                     </div>
                 </div>
@@ -1045,10 +651,10 @@
         </div>
     </div>
     
-    <!-- Formulaire de chargement -->
-    <div class="card mt-4">
-        <div class="card-header bg-success text-white">
-            <h5><i class="fas fa-truck-loading me-2"></i>Charger une nouvelle série</h5>
+    <!-- Formulaire de chargement multiple -->
+    <div class="card">
+        <div class="card-header bg-success">
+            <h5><i class="fas fa-truck-loading me-2"></i>Charger de nouvelles séries</h5>
         </div>
         <div class="card-body">
             <form method="post" id="formChargement">
@@ -1056,68 +662,132 @@
                 
                 <!-- Type de stock -->
                 <div class="mb-4">
-                    <label class="form-label fw-bold">{{ form.type_stock.label }} *</label>
-                    <div class="row type-stock-row">
-                        {% for radio in form.type_stock %}
-                        <div class="col-md-6">
-                            <div class="form-check form-check-lg">
-                                {{ radio.tag }}
-                                <label class="form-check-label" for="{{ radio.id_for_label }}">
-                                    {% if 'regularisation' in radio.choice_label %}
-                                    <i class="fas fa-sync-alt me-2 text-primary"></i>
-                                    {% else %}
-                                    <i class="fas fa-print me-2 text-success"></i>
-                                    {% endif %}
-                                    <strong>{{ radio.choice_label }}</strong>
-                                </label>
-                            </div>
+                    <label class="form-label">Type de chargement *</label>
+                    <div class="type-stock-options">
+                        <div class="type-stock-option selected" onclick="selectTypeStock(this, 'imprimerie_nationale')">
+                            <label>
+                                <input type="radio" name="type_stock" value="imprimerie_nationale" checked>
+                                <i class="fas fa-print text-success"></i>
+                                <strong>Imprimerie Nationale</strong>
+                            </label>
                         </div>
-                        {% endfor %}
+                        <div class="type-stock-option" onclick="selectTypeStock(this, 'regularisation')">
+                            <label>
+                                <input type="radio" name="type_stock" value="regularisation">
+                                <i class="fas fa-sync-alt text-primary"></i>
+                                <strong>Régularisation</strong>
+                            </label>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="row">
-                    <!-- Couleur -->
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.couleur_saisie.label }} *</label>
-                        {{ form.couleur_saisie }}
-                        <small class="form-text text-muted">{{ form.couleur_saisie.help_text }}</small>
+                <!-- Séries de tickets -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="text-dark mb-0">
+                            <i class="fas fa-ticket-alt me-2"></i>Séries de tickets à charger
+                        </h5>
                     </div>
-                    
-                    <!-- Numéro premier -->
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">{{ form.numero_premier.label }} *</label>
-                        {{ form.numero_premier }}
-                    </div>
-                    
-                    <!-- Numéro dernier -->
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">{{ form.numero_dernier.label }} *</label>
-                        {{ form.numero_dernier }}
+                    <div class="card-body">
+                        {{ formset.management_form }}
+                        
+                        <div id="formset-container" class="formset-container">
+                            {% for form_serie in formset %}
+                            <div class="formset-row" data-formset-index="{{ forloop.counter0 }}">
+                                <div class="formset-header">
+                                    <h6><i class="fas fa-layer-group"></i> Série #{{ forloop.counter }}</h6>
+                                    {% if not forloop.first %}
+                                    <button type="button" class="btn btn-remove-serie" onclick="removeFormset(this)">
+                                        <i class="fas fa-minus me-1"></i>Supprimer
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="row">
+                                    <!-- Couleur -->
+                                    <div class="col-12 col-md-3 mb-3 mb-md-0">
+                                        <label class="form-label">Couleur *</label>
+                                        <input type="text" 
+                                               name="series-{{ forloop.counter0 }}-couleur_saisie" 
+                                               class="form-control couleur-input"
+                                               placeholder="Ex: Jaune, Vert..."
+                                               list="couleurs-existantes"
+                                               autocomplete="off"
+                                               required>
+                                        <small class="form-text">Sera normalisée automatiquement</small>
+                                    </div>
+                                    
+                                    <!-- Premier numéro -->
+                                    <div class="col-6 col-md-2 mb-3 mb-md-0">
+                                        <label class="form-label">Premier n° *</label>
+                                        <input type="number" 
+                                               name="series-{{ forloop.counter0 }}-numero_premier" 
+                                               class="form-control numero-input"
+                                               min="1"
+                                               placeholder="1"
+                                               required>
+                                    </div>
+                                    
+                                    <!-- Dernier numéro -->
+                                    <div class="col-6 col-md-2 mb-3 mb-md-0">
+                                        <label class="form-label">Dernier n° *</label>
+                                        <input type="number" 
+                                               name="series-{{ forloop.counter0 }}-numero_dernier" 
+                                               class="form-control numero-input"
+                                               min="1"
+                                               placeholder="5000"
+                                               required>
+                                    </div>
+                                    
+                                    <!-- Nombre (calculé) -->
+                                    <div class="col-6 col-md-2 mb-3 mb-md-0">
+                                        <label class="form-label">Nombre</label>
+                                        <input type="text" 
+                                               class="form-control form-calculated nombre-calc" 
+                                               readonly
+                                               placeholder="-">
+                                    </div>
+                                    
+                                    <!-- Montant (calculé) -->
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Montant</label>
+                                        <input type="text" 
+                                               class="form-control form-calculated montant-calc" 
+                                               readonly
+                                               placeholder="-">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-add-serie" onclick="addFormset()">
+                                <i class="fas fa-plus me-2"></i>Ajouter une autre série
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="row">
-                    <!-- Nombre calculé -->
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.nombre_tickets_calcule.label }}</label>
-                        <input type="text" class="form-control form-calculated" id="nombre_calcule" readonly>
-                    </div>
-                    
-                    <!-- Montant calculé -->
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.montant_calcule.label }}</label>
-                        <input type="text" class="form-control form-calculated" id="montant_calcule" readonly>
+                <!-- Montant total calculé -->
+                <div class="card mb-4 montant-total-card">
+                    <div class="card-body text-center">
+                        <label class="form-label">Montant total à charger</label>
+                        <div class="montant-total-display" id="montantTotalDisplay">0 FCFA</div>
+                        <div class="tickets-total-display" id="ticketsTotalDisplay">0 tickets</div>
                     </div>
                 </div>
                 
                 <!-- Commentaire -->
-                <div class="mb-3">
-                    <label class="form-label">{{ form.commentaire.label }}</label>
-                    {{ form.commentaire }}
+                <div class="mb-4">
+                    <label class="form-label">Commentaire (optionnel)</label>
+                    <textarea name="commentaire" 
+                              class="form-control" 
+                              rows="2"
+                              placeholder="Observations éventuelles...">{{ form.commentaire.value|default:"" }}</textarea>
                 </div>
                 
-                <div class="text-center mt-4 buttons-container">
+                <div class="text-center buttons-container">
                     <button type="submit" class="btn btn-success btn-lg">
                         <i class="fas fa-check me-2"></i>Valider le chargement
                     </button>
@@ -1131,19 +801,20 @@
     
     <!-- Historique récent -->
     {% if historique_recent %}
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5><i class="fas fa-history me-2"></i>Historique récent</h5>
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="text-dark mb-0"><i class="fas fa-history me-2"></i>Historique récent des chargements</h5>
         </div>
         <div class="card-body">
             <div class="table-responsive-wrapper">
-                <table class="table table-sm">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Date</th>
                             <th>Type</th>
                             <th>Montant</th>
-                            <th>Commentaire</th>
+                            <th>Tickets</th>
+                            <th>Par</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1152,11 +823,12 @@
                             <td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td>
                             <td>
                                 <span class="badge bg-{% if h.type_stock == 'regularisation' %}primary{% else %}success{% endif %}">
-                                    {{ h.get_type_stock_display }}
+                                    {{ h.get_type_stock_display|default:"Chargement" }}
                                 </span>
                             </td>
-                            <td>{{ h.montant|floatformat:0|format_milliers }} FCFA</td>
-                            <td><small>{{ h.commentaire|truncatewords:10 }}</small></td>
+                            <td><strong>{{ h.montant|floatformat:0|format_milliers }} FCFA</strong></td>
+                            <td>{{ h.nombre_tickets|format_milliers }}</td>
+                            <td>{{ h.effectue_par.nom_complet|default:h.effectue_par.username }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -1167,17 +839,43 @@
     {% endif %}
 </div>
 
+<!-- Datalist pour autocomplétion des couleurs -->
+<datalist id="couleurs-existantes">
+    {% for couleur in couleurs_existantes %}
+    <option value="{{ couleur.libelle_affichage }}">
+    {% endfor %}
+</datalist>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Calcul automatique du nombre de tickets et montant
-    const numPremier = document.getElementById('{{ form.numero_premier.id_for_label }}');
-    const numDernier = document.getElementById('{{ form.numero_dernier.id_for_label }}');
-    const nombreCalc = document.getElementById('nombre_calcule');
-    const montantCalc = document.getElementById('montant_calcule');
+    let formsetIndex = {{ formset.total_form_count }};
     
-    function calculer() {
-        const premier = parseInt(numPremier.value) || 0;
-        const dernier = parseInt(numDernier.value) || 0;
+    // ===================================================================
+    // SÉLECTION DU TYPE DE STOCK
+    // ===================================================================
+    window.selectTypeStock = function(element, value) {
+        // Désélectionner tous
+        document.querySelectorAll('.type-stock-option').forEach(opt => {
+            opt.classList.remove('selected');
+            opt.querySelector('input').checked = false;
+        });
+        
+        // Sélectionner celui-ci
+        element.classList.add('selected');
+        element.querySelector('input').checked = true;
+    };
+    
+    // ===================================================================
+    // CALCUL AUTOMATIQUE PAR SÉRIE
+    // ===================================================================
+    function calculerMontantSerie(row) {
+        const premierInput = row.querySelector('[name*="numero_premier"]');
+        const dernierInput = row.querySelector('[name*="numero_dernier"]');
+        const nombreCalc = row.querySelector('.nombre-calc');
+        const montantCalc = row.querySelector('.montant-calc');
+        
+        const premier = parseInt(premierInput.value) || 0;
+        const dernier = parseInt(dernierInput.value) || 0;
         
         if (premier > 0 && dernier >= premier) {
             const nombre = dernier - premier + 1;
@@ -1185,55 +883,176 @@ document.addEventListener('DOMContentLoaded', function() {
             
             nombreCalc.value = nombre.toLocaleString('fr-FR') + ' tickets';
             montantCalc.value = montant.toLocaleString('fr-FR') + ' FCFA';
+            
+            return { nombre: nombre, montant: montant };
         } else {
-            nombreCalc.value = '';
-            montantCalc.value = '';
+            nombreCalc.value = '-';
+            montantCalc.value = '-';
+            return { nombre: 0, montant: 0 };
         }
     }
     
-    if (numPremier && numDernier) {
-        numPremier.addEventListener('input', calculer);
-        numDernier.addEventListener('input', calculer);
+    // ===================================================================
+    // CALCUL DU TOTAL
+    // ===================================================================
+    function calculerTotal() {
+        let totalMontant = 0;
+        let totalTickets = 0;
         
-        // Calcul initial si valeurs présentes
-        calculer();
+        document.querySelectorAll('.formset-row:not(.to-delete)').forEach(row => {
+            const result = calculerMontantSerie(row);
+            totalMontant += result.montant;
+            totalTickets += result.nombre;
+        });
+        
+        document.getElementById('montantTotalDisplay').textContent = 
+            totalMontant.toLocaleString('fr-FR') + ' FCFA';
+        document.getElementById('ticketsTotalDisplay').textContent = 
+            totalTickets.toLocaleString('fr-FR') + ' tickets';
     }
     
-    // Correction du défilement horizontal sur mobile
+    // ===================================================================
+    // AJOUTER UNE SÉRIE
+    // ===================================================================
+    window.addFormset = function() {
+        const container = document.getElementById('formset-container');
+        const totalForms = document.getElementById('id_series-TOTAL_FORMS');
+        
+        const firstRow = document.querySelector('.formset-row');
+        const newRow = firstRow.cloneNode(true);
+        
+        // Mettre à jour les noms et IDs
+        newRow.querySelectorAll('input').forEach(input => {
+            const name = input.name.replace(/series-\d+/, `series-${formsetIndex}`);
+            const id = input.id ? input.id.replace(/id_series-\d+/, `id_series-${formsetIndex}`) : '';
+            
+            input.name = name;
+            if (id) input.id = id;
+            input.value = '';
+        });
+        
+        // Mettre à jour le numéro de série
+        const header = newRow.querySelector('h6');
+        header.innerHTML = `<i class="fas fa-layer-group"></i> Série #${formsetIndex + 1}`;
+        
+        // Ajouter le bouton supprimer s'il n'existe pas
+        const formsetHeader = newRow.querySelector('.formset-header');
+        if (!newRow.querySelector('.btn-remove-serie')) {
+            const btnRemove = document.createElement('button');
+            btnRemove.type = 'button';
+            btnRemove.className = 'btn btn-remove-serie';
+            btnRemove.innerHTML = '<i class="fas fa-minus me-1"></i>Supprimer';
+            btnRemove.onclick = function() { removeFormset(this); };
+            formsetHeader.appendChild(btnRemove);
+        }
+        
+        // Réinitialiser les champs calculés
+        newRow.querySelector('.nombre-calc').value = '-';
+        newRow.querySelector('.montant-calc').value = '-';
+        
+        // Supprimer la classe to-delete si présente
+        newRow.classList.remove('to-delete');
+        
+        container.appendChild(newRow);
+        
+        // Ajouter les écouteurs
+        newRow.querySelectorAll('.numero-input').forEach(input => {
+            input.addEventListener('input', calculerTotal);
+        });
+        
+        formsetIndex++;
+        totalForms.value = formsetIndex;
+        
+        // Focus sur le premier champ de la nouvelle ligne
+        newRow.querySelector('.couleur-input').focus();
+    };
+    
+    // ===================================================================
+    // SUPPRIMER UNE SÉRIE
+    // ===================================================================
+    window.removeFormset = function(btn) {
+        const row = btn.closest('.formset-row');
+        
+        // Si c'est la seule ligne, ne pas supprimer
+        const visibleRows = document.querySelectorAll('.formset-row:not(.to-delete)');
+        if (visibleRows.length <= 1) {
+            alert('Vous devez avoir au moins une série.');
+            return;
+        }
+        
+        // Marquer comme supprimé ou supprimer directement
+        const deleteInput = row.querySelector('[name*="DELETE"]');
+        if (deleteInput) {
+            deleteInput.checked = true;
+            row.classList.add('to-delete');
+        } else {
+            row.remove();
+        }
+        
+        calculerTotal();
+    };
+    
+    // ===================================================================
+    // INITIALISATION
+    // ===================================================================
+    
+    // Ajouter les écouteurs sur tous les champs numériques
+    document.querySelectorAll('.numero-input').forEach(input => {
+        input.addEventListener('input', calculerTotal);
+    });
+    
+    // Calcul initial
+    calculerTotal();
+    
+    // ===================================================================
+    // VALIDATION AVANT SOUMISSION
+    // ===================================================================
+    document.getElementById('formChargement').addEventListener('submit', function(e) {
+        const visibleRows = document.querySelectorAll('.formset-row:not(.to-delete)');
+        let hasValidSerie = false;
+        let errors = [];
+        
+        visibleRows.forEach((row, index) => {
+            const couleur = row.querySelector('.couleur-input').value.trim();
+            const premier = parseInt(row.querySelector('[name*="numero_premier"]').value) || 0;
+            const dernier = parseInt(row.querySelector('[name*="numero_dernier"]').value) || 0;
+            
+            if (couleur && premier > 0 && dernier > 0) {
+                if (premier > dernier) {
+                    errors.push(`Série ${index + 1}: Le premier numéro doit être ≤ au dernier`);
+                } else {
+                    hasValidSerie = true;
+                }
+            } else if (couleur || premier > 0 || dernier > 0) {
+                errors.push(`Série ${index + 1}: Veuillez remplir tous les champs`);
+            }
+        });
+        
+        if (!hasValidSerie) {
+            e.preventDefault();
+            alert('Vous devez saisir au moins une série de tickets complète.');
+            return false;
+        }
+        
+        if (errors.length > 0) {
+            e.preventDefault();
+            alert('Erreurs de saisie:\n' + errors.join('\n'));
+            return false;
+        }
+    });
+    
+    // ===================================================================
+    // CORRECTION MOBILE
+    // ===================================================================
     function fixMobileScrolling() {
         if (window.innerWidth <= 768) {
             document.documentElement.style.overflowX = 'hidden';
             document.body.style.overflowX = 'hidden';
-            document.body.style.maxWidth = '100vw';
-            document.body.style.width = '100%';
-        } else {
-            document.documentElement.style.overflowX = '';
-            document.body.style.overflowX = '';
-            document.body.style.maxWidth = '';
-            document.body.style.width = '';
         }
     }
     
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
-    window.addEventListener('orientationchange', fixMobileScrolling);
-    
-    // Correction pour éviter le zoom automatique sur iOS
-    document.addEventListener('touchstart', function() {}, { passive: true });
-    
-    // Focus amélioré pour mobile
-    document.querySelectorAll('input, select, textarea').forEach(input => {
-        input.addEventListener('focus', function() {
-            if (window.innerWidth < 768) {
-                setTimeout(() => {
-                    this.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center' 
-                    });
-                }, 100);
-            }
-        });
-    });
 });
 </script>
 {% endblock %}

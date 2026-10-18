@@ -25,6 +25,7 @@ from datetime import date
 
 from accounts.models import *
 from inventaire.models import *
+from common.permissions import is_chef_poste
 import logging
 
 logger = logging.getLogger('supper')
@@ -120,6 +121,136 @@ from common.decorators import (
 )
 """
 
+def _calculer_taux_deperdition_chef_poste(user, today=None):
+    """
+    Calcule les statistiques de taux de déperdition pour un chef de poste.
+    
+    Args:
+        user: L'utilisateur chef de poste
+        today: Date de référence (par défaut: aujourd'hui)
+    
+    Returns:
+        dict: Statistiques avec taux semaine, mois, à date et couleurs associées
+        None: Si l'utilisateur n'a pas de poste d'affectation
+    
+    Codes couleur selon cahier des charges:
+        - Rouge (danger): TD < -30% (mauvais)
+        - Vert (success): -5% >= TD >= -30% (bon)
+        - Bleu/Gris (secondary): TD > -5% (impertinent)
+    """
+    from inventaire.models import RecetteJournaliere
+    from common.utils import log_user_action
+    
+    if not user.poste_affectation:
+        logger.warning(f"Chef de poste {user.matricule} sans poste d'affectation")
+        return None
+    
+    if today is None:
+        today = date.today()
+    
+    poste = user.poste_affectation
+    
+    # Calculer les bornes des périodes
+    # Semaine en cours (lundi au dimanche)
+    debut_semaine = today - timedelta(days=today.weekday())
+    fin_semaine = debut_semaine + timedelta(days=6)
+    
+    # Mois en cours
+    debut_mois = today.replace(day=1)
+    
+    # Année en cours (à date)
+    debut_annee = today.replace(month=1, day=1)
+    
+    def _calculer_taux_moyen_periode(date_debut, date_fin, label_periode):
+        """Calcule le taux moyen de déperdition pour une période donnée."""
+        recettes = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__gte=date_debut,
+            date__lte=date_fin,
+            taux_deperdition__isnull=False
+        ).exclude(taux_deperdition=Decimal('0'))
+        
+        if not recettes.exists():
+            return {
+                'taux': None,
+                'couleur': 'secondary',
+                'statut': 'Aucune donnée',
+                'nb_jours': 0,
+                'nb_jours_impertinents': 0
+            }
+        
+        # Calculer la moyenne
+        stats = recettes.aggregate(
+            taux_moyen=Avg('taux_deperdition'),
+            nb_jours=Count('id')
+        )
+        
+        taux_moyen = stats['taux_moyen']
+        nb_jours = stats['nb_jours']
+        
+        # Compter les jours impertinents (TD > -5%)
+        nb_jours_impertinents = recettes.filter(
+            taux_deperdition__gt=Decimal('-5')
+        ).count()
+        
+        # Déterminer couleur et statut
+        if taux_moyen is None:
+            couleur = 'secondary'
+            statut = 'Non calculé'
+        elif taux_moyen > Decimal('-5'):
+            couleur = 'info'  # Bleu pour impertinent selon demande
+            statut = 'Impertinent'
+        elif Decimal('-30') <= taux_moyen <= Decimal('-5'):
+            couleur = 'success'  # Vert pour bon
+            statut = 'Bon'
+        else:  # taux_moyen < -30
+            couleur = 'danger'  # Rouge pour mauvais
+            statut = 'Mauvais'
+        
+        return {
+            'taux': round(float(taux_moyen), 2) if taux_moyen else None,
+            'couleur': couleur,
+            'statut': statut,
+            'nb_jours': nb_jours,
+            'nb_jours_impertinents': nb_jours_impertinents
+        }
+    
+    # Calculer les statistiques pour chaque période
+    stats_semaine = _calculer_taux_moyen_periode(debut_semaine, today, 'semaine')
+    stats_mois = _calculer_taux_moyen_periode(debut_mois, today, 'mois')
+    stats_annee = _calculer_taux_moyen_periode(debut_annee, today, 'année')
+    
+    # Log de la consultation (action utilisateur)
+    try:
+        log_user_action(
+            user=user,
+            action='consultation_taux_deperdition',
+            details=f"Consultation du bandeau taux de déperdition pour le poste {poste.nom}",
+            niveau='INFO'
+        )
+    except Exception as e:
+        logger.error(f"Erreur lors du log de consultation taux: {str(e)}")
+    
+    return {
+        'poste_nom': poste.nom,
+        'poste_code': poste.code if hasattr(poste, 'code') else poste.id,
+        'date_reference': today,
+        'semaine': {
+            **stats_semaine,
+            'debut': debut_semaine,
+            'fin': min(fin_semaine, today)
+        },
+        'mois': {
+            **stats_mois,
+            'debut': debut_mois,
+            'fin': today
+        },
+        'annee': {
+            **stats_annee,
+            'debut': debut_annee,
+            'fin': today
+        }
+    }
 
 @login_required
 def index_dashboard(request):
@@ -281,6 +412,152 @@ def index_dashboard(request):
         }
         logger.debug(f"[DASHBOARD] Stats recettes péage chargées pour {user.username}")
     
+    # ===================================================================
+    # SECTION 6bis: STATISTIQUES TAUX DÉPERDITION - CHEF DE POSTE
+    # Bandeau permanent affiché uniquement pour les chefs de poste
+    # ===================================================================
+    stats_taux_chef_poste = None
+    
+    if is_chef_poste(user) and user.poste_affectation:
+        try:
+            stats_taux_chef_poste = _calculer_taux_deperdition_chef_poste(user, today)
+            
+            if stats_taux_chef_poste:
+                logger.info(
+                    f"Statistiques taux déperdition calculées pour {user.username} "
+                    f"(poste: {user.poste_affectation.nom}) - "
+                    f"Semaine: {stats_taux_chef_poste['semaine']['taux']}%, "
+                    f"Mois: {stats_taux_chef_poste['mois']['taux']}%, "
+                    f"Année: {stats_taux_chef_poste['annee']['taux']}%"
+                )
+        except Exception as e:
+            logger.error(f"Erreur calcul taux déperdition chef poste: {str(e)}")
+            stats_taux_chef_poste = None
+    # ================================================================
+    # 6ter. RISQUE DE BAISSE - CHEF DE POSTE PÉAGE
+    # Calcule les projections mensuelles et annuelles vs N-1 et N-2
+    # ================================================================
+    risque_baisse_poste = None
+ 
+    if (is_chef_poste(user) and user.poste_affectation 
+            and user.poste_affectation.type == 'peage'):
+        try:
+            from decimal import Decimal as _Decimal
+            import calendar as _cal
+ 
+            _poste = user.poste_affectation
+            _annee = today.year
+            _mois = today.month
+            _dernier_jour_mois = _cal.monthrange(_annee, _mois)[1]
+ 
+            MOIS_FR = [
+                '', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+            ]
+ 
+            # --- Risque mensuel ---
+            _recettes_mois = RecetteJournaliere.objects.filter(
+                poste=_poste, date__year=_annee, date__month=_mois, date__lte=today
+            ).aggregate(total=Sum('montant_declare'))['total'] or _Decimal('0')
+ 
+            _jours_ecoules_mois = today.day
+            if (_jours_ecoules_mois > 0 and _recettes_mois > 0
+                    and _jours_ecoules_mois < _dernier_jour_mois):
+                _proj_mois = (_recettes_mois / _jours_ecoules_mois) * _dernier_jour_mois
+            else:
+                _proj_mois = _recettes_mois
+ 
+            _total_mois_n1 = RecetteJournaliere.objects.filter(
+                poste=_poste, date__year=_annee - 1, date__month=_mois
+            ).aggregate(total=Sum('montant_declare'))['total'] or _Decimal('0')
+ 
+            _total_mois_n2 = RecetteJournaliere.objects.filter(
+                poste=_poste, date__year=_annee - 2, date__month=_mois
+            ).aggregate(total=Sum('montant_declare'))['total'] or _Decimal('0')
+ 
+            _ecart_mois_n1 = _proj_mois - _total_mois_n1
+            _ecart_mois_n2 = _proj_mois - _total_mois_n2
+            _taux_mois_n1 = float((_ecart_mois_n1 / _total_mois_n1) * 100) if _total_mois_n1 > 0 else None
+            _taux_mois_n2 = float((_ecart_mois_n2 / _total_mois_n2) * 100) if _total_mois_n2 > 0 else None
+ 
+            # --- Risque annuel (projection 31/12) ---
+            _debut_annee = today.replace(month=1, day=1)
+            _recettes_annee = RecetteJournaliere.objects.filter(
+                poste=_poste, date__gte=_debut_annee, date__lte=today
+            ).aggregate(total=Sum('montant_declare'))['total'] or _Decimal('0')
+ 
+            _jours_annee = (today - _debut_annee).days + 1
+            if _jours_annee > 0 and _recettes_annee > 0:
+                _proj_31dec = (_recettes_annee / _jours_annee) * _Decimal('365')
+            else:
+                _proj_31dec = _Decimal('0')
+ 
+            _total_annuel_n1 = RecetteJournaliere.objects.filter(
+                poste=_poste, date__year=_annee - 1
+            ).aggregate(total=Sum('montant_declare'))['total'] or _Decimal('0')
+ 
+            _total_annuel_n2 = RecetteJournaliere.objects.filter(
+                poste=_poste, date__year=_annee - 2
+            ).aggregate(total=Sum('montant_declare'))['total'] or _Decimal('0')
+ 
+            _ecart_ann_n1 = _proj_31dec - _total_annuel_n1
+            _ecart_ann_n2 = _proj_31dec - _total_annuel_n2
+            _taux_ann_n1 = float((_ecart_ann_n1 / _total_annuel_n1) * 100) if _total_annuel_n1 > 0 else None
+            _taux_ann_n2 = float((_ecart_ann_n2 / _total_annuel_n2) * 100) if _total_annuel_n2 > 0 else None
+ 
+            def _couleur(ecart, taux):
+                if taux is None:
+                    return 'secondary'
+                return 'danger' if ecart < 0 else 'success'
+ 
+            risque_baisse_poste = {
+                'mois_nom': MOIS_FR[_mois],
+                'annee': _annee,
+                'annee_n1': _annee - 1,
+                'annee_n2': _annee - 2,
+                'mensuel_n1': {
+                    'projection': float(_proj_mois),
+                    'reference': float(_total_mois_n1),
+                    'ecart': float(_ecart_mois_n1),
+                    'taux': _taux_mois_n1,
+                    'en_baisse': _ecart_mois_n1 < 0,
+                    'couleur': _couleur(_ecart_mois_n1, _taux_mois_n1),
+                },
+                'mensuel_n2': {
+                    'projection': float(_proj_mois),
+                    'reference': float(_total_mois_n2),
+                    'ecart': float(_ecart_mois_n2),
+                    'taux': _taux_mois_n2,
+                    'en_baisse': _ecart_mois_n2 < 0,
+                    'couleur': _couleur(_ecart_mois_n2, _taux_mois_n2),
+                },
+                'annuel_n1': {
+                    'projection': float(_proj_31dec),
+                    'reference': float(_total_annuel_n1),
+                    'ecart': float(_ecart_ann_n1),
+                    'taux': _taux_ann_n1,
+                    'en_baisse': _ecart_ann_n1 < 0,
+                    'couleur': _couleur(_ecart_ann_n1, _taux_ann_n1),
+                },
+                'annuel_n2': {
+                    'projection': float(_proj_31dec),
+                    'reference': float(_total_annuel_n2),
+                    'ecart': float(_ecart_ann_n2),
+                    'taux': _taux_ann_n2,
+                    'en_baisse': _ecart_ann_n2 < 0,
+                    'couleur': _couleur(_ecart_ann_n2, _taux_ann_n2),
+                },
+            }
+ 
+            logger.info(
+                f"[DASHBOARD] Risque baisse calculé pour {_poste.nom} - "
+                f"Mensuel N-1: {_taux_mois_n1}%, Annuel N-1: {_taux_ann_n1}%"
+            )
+ 
+        except Exception as e:
+            logger.error(f"[DASHBOARD] Erreur calcul risque baisse: {e}")
+            risque_baisse_poste = None
+ 
     # ================================================================
     # 7. OBJECTIFS ANNUELS - Permission: peut_voir_objectifs_peage
     # ================================================================
@@ -856,6 +1133,8 @@ def index_dashboard(request):
     context = {
         # Informations utilisateur
         'user_stats': user_stats,
+        'stats_taux_chef_poste': stats_taux_chef_poste,
+        'risque_baisse_poste': risque_baisse_poste,
         
         # Statistiques conditionnées par permissions
         'stats_globales': stats_globales,

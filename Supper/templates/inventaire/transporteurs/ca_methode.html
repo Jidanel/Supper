@@ -1,0 +1,62 @@
+{# templates/inventaire/transporteurs/ca_methode.html #}
+{# NOTE : comment le chiffre d'affaires des transporteurs est déterminé #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Méthode de calcul du CA" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+  .tr .note h3 { font-size:1.02rem; margin:1.1rem 0 .4rem; color:#0f172a; }
+  .tr .note p, .tr .note li { font-size:.92rem; line-height:1.55; }
+  .tr .formule { background:#f1f5f9; border-left:4px solid #2563eb; padding:.6rem .9rem; border-radius:6px; font-weight:600; margin:.5rem 0; }
+  .tr .ex { background:#fff7ed; border-left:4px solid #f59e0b; padding:.6rem .9rem; border-radius:6px; margin:.5rem 0; font-size:.9rem; }
+</style>{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2 no-print">
+    <div><h1>{% trans "Comment le chiffre d'affaires est déterminé" %}</h1>
+      <p class="tr-sub">{% trans "Note méthodologique — paramètres en vigueur affichés ci-dessous." %}</p></div>
+    <div class="d-flex gap-2">
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca' %}">← {% trans "Retour au tableau" %}</a>
+      <button type="button" class="tr-btn" onclick="window.print()">🖨 {% trans "Imprimer" %}</button></div>
+  </div>
+
+  <div class="tr-panel"><div class="tr-body note">
+
+    <h3>1. {% trans "Principe" %}</h3>
+    <p>{% trans "SUPPER ne connaît pas les billets vendus par les agences. Le chiffre d'affaires est donc une ESTIMATION : on déduit, pour chaque véhicule, le voyage qu'il effectue à partir des postes de péage où les agents d'inventaire l'ont vu, puis on le valorise au tarif par passager du maillage des postes." %}</p>
+
+    <h3>2. {% trans "Un véhicule, une semaine, un voyage" %}</h3>
+    <p>{% trans "Un véhicule est identifié par sa plaque et son agence. Ses passages sont regroupés par semaine (lundi → dimanche). Dans une même semaine, tous les postes où il est vu appartiennent à UN SEUL voyage (aller-retour)." %}</p>
+    <ul>
+      <li><b>{% trans "Vu à un seul poste" %}</b> : {% trans "on suppose que le véhicule a pu rejoindre l'un des postes voisins de celui où il a été vu. On cite ces postes voisins avec leur tarif et on retient le plus éloigné en tarif. Exemple : vu uniquement à Batoufam, il a pu rejoindre Maka (1 500) ou Biamo (3 000) ; on retient Biamo, soit 3 000." %}</li>
+      <li><b>{% trans "Vu à plusieurs postes" %}</b> : {% trans "on prend le chemin le moins cher entre les deux postes les plus éloignés, en additionnant les tarifs des postes voisins traversés d'après le maillage. Le chemin n'utilise d'abord que les régions des deux postes ; une région supplémentaire n'est ajoutée que si aucun chemin n'existe sans elle." %}
+        <div class="ex">{% trans "Exemples" %} : Okoa-Maria + Boumnyebel = 1 500 ; Okoa-Maria + Boumnyebel + Sikoum = 1 500 + 2 000 = 3 500 ;
+          Okoa-Maria + New Bonako = Okoa-Maria → Boumnyebel → Sikoum → New Bonako = 1 500 + 2 000 + 3 000 = 6 500 ({% trans "la région Littoral est ajoutée car Centre et Sud-Ouest ne sont pas voisines" %}).</div></li>
+    </ul>
+    <p>{% trans "Si le véhicule est observé sur plusieurs semaines de la période, on retient la semaine où son trajet est le plus long : chaque observation ne montre qu'une partie de sa ligne, la plus complète est la meilleure approximation." %}</p>
+
+    <h3>3. {% trans "Calcul du chiffre d'affaires d'une semaine" %}</h3>
+    <div class="formule">{% trans "CA semaine" %} = {% trans "tarif du trajet" %} × {% trans "places" %} × 2 ({% trans "aller-retour" %}) × {% trans "nombre de tours par semaine" %}</div>
+    <ul>
+      <li><b>{% trans "Places" %}</b> : {% trans "borne inférieure de la fourchette de la fiche" %} — Coaster {{ p.places_coaster }}, {% trans "grand bus ordinaire" %} {{ p.places_bus_ordinaire }}, {% trans "grand bus climatisé" %} {{ p.places_bus_clim }}, Hiace {{ p.places_hiace }}. {% trans "Le bus est supposé plein (estimation théorique)." %}</li>
+      <li><b>{% trans "Aller-retour" %}</b> : {% trans "une agence de transport qui quitte un poste pour un autre fait nécessairement le retour : le tarif est donc compté deux fois." %}</li>
+      <li><b>{% trans "Tours par semaine" %}</b> : {% blocktrans with s=p.seuil_regions l=p.tours_longs c=p.tours_courts %}si le trajet traverse plus de {{ s }} régions (ex. axe Extrême-Nord – Nord – Est – Centre – Littoral) : {{ l }} aller-retour par semaine (hypothèse minimale) ; sinon {{ c }} aller-retour par semaine.{% endblocktrans %}</li>
+      <li><b>{% trans "Bus climatisé" %}</b> : {% trans "on ajoute 2/3 du tarif normal : le CA est multiplié par" %} (1 + {{ p.majoration_clim }}).</li>
+    </ul>
+    <div class="ex">{% trans "Exemple" %} : Coaster {% trans "vu à Okoa-Maria et Boumnyebel" %} — 1 500 × {{ p.places_coaster }} × 2 × {{ p.tours_courts }} {% trans "par semaine (trajet de 1 région, donc tours courts)" %}.</div>
+
+    <h3>4. {% trans "Extrapolation à la période" %}</h3>
+    <div class="formule">{% trans "CA période" %} = {% trans "CA semaine" %} × ({% trans "nombre de jours de la période" %} ÷ 7)</div>
+    <p>{% trans "Mensuel : jours du mois ÷ 7 (ex. 31 jours = 4,43 semaines). Semestriel : 181 ou 184 jours. Annuel : 365 ou 366 jours. Le véhicule est supposé tenir le même rythme pendant toute la période." %}</p>
+
+    <h3>5. {% trans "Limites à connaître" %}</h3>
+    <ul>
+      <li>{% trans "C'est une estimation à pleine capacité, pas un encaissement réel." %}</li>
+      <li>{% trans "Un véhicule vu une seule fois dans la période est quand même extrapolé à toute la période." %}</li>
+      <li>{% trans "Une plaque mal saisie compte comme un véhicule de plus : utilisez le rapprochement des plaques avant de calculer." %}</li>
+      <li>{% trans "Les passages à un poste non relié au maillage sont ignorés." %}</li>
+      <li>{% trans "Le tarif d'une liaison provient du document « Maillage des postes voisins » ; en cas de tarifs différents, le plus faible a été retenu." %}</li>
+    </ul>
+  </div></div>
+</div>
+{% endblock %}

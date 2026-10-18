@@ -1,0 +1,230 @@
+{# templates/inventaire/transporteurs/agences.html #}
+{# Gestion des agences : ajout, import Excel, suppression (avec fenêtre de confirmation) #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Agences de transport" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau et l'impression restent inchangés) ===================== */
+@media screen {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+  .tr { width: 100%; }
+  .tr-scroll { -webkit-overflow-scrolling: touch; }
+}
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media screen and (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media screen and (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; }
+
+  /* Ajout / import / recherche : champ au-dessus, bouton pleine largeur dessous */
+  .tr-body.d-flex, .tr-body > .d-flex, .tr > form.d-flex { flex-direction: column; align-items: stretch; }
+  .tr .tr-body .tr-btn, .tr > form.d-flex .tr-btn-ghost { width: 100%; display: block; text-align: center; }
+  .tr .form-control { width: 100%; max-width: 100%; }
+
+  /* Champs : anti-zoom iOS et 44px de haut (les cases à cocher sont exclues) */
+  .tr input:not([type=checkbox]), .tr select { font-size: 16px !important; min-height: 44px; }
+  .tr .tr-btn, .tr .tr-btn-ghost, .tr .tr-btn-danger { min-height: 44px; }
+
+  /* En-tête de liste : compteur + bouton « Supprimer la sélection » en pleine largeur */
+  .tr-head { font-size: .95rem; word-break: break-word; }
+  .tr-head .tr-btn-danger { width: 100%; }
+
+  /* Tableau : défilement horizontal dans son conteneur, jamais sur la page */
+  .tr-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+  .tr-table { min-width: 460px; font-size: .88rem; }
+  .tr-table th, .tr-table td { padding: .5rem .55rem; }
+  .tr-table td.num { white-space: nowrap; }
+
+  /* Cases à cocher plus grandes, icône « modifier » en zone tactile 44px */
+  .chk, #toutCocher { width: 22px; height: 22px; }
+  .tr-table td a.js-renommer { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media screen and (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+  .tr-table { font-size: .82rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media screen and (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+  .tr-table { min-width: 420px; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+}
+
+/* ---------- Fenêtres modales (déplacées dans <body> par le script : règles indépendantes de .tr) ---------- */
+#modalSuppr *, #modalSuppr *::before, #modalSuppr *::after,
+#modalRenommer *, #modalRenommer *::before, #modalRenommer *::after { box-sizing: border-box; }
+#modalSuppr .modal-content, #modalRenommer .modal-content { max-width: 100%; }
+#supprTexte { word-break: break-word; }
+@media screen and (max-width: 767px) {
+  #modalSuppr .modal-dialog, #modalRenommer .modal-dialog { margin: .75rem; max-width: calc(100% - 1.5rem); }
+  #modalSuppr .modal-title, #modalRenommer .modal-title { font-size: 1.05rem; line-height: 1.3; }
+  #modalSuppr .btn-close, #modalRenommer .btn-close { min-width: 44px; min-height: 44px; }
+  #modalSuppr .modal-body, #modalRenommer .modal-body { max-height: 65vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #modalRenommer input { font-size: 16px !important; min-height: 44px; }                       /* anti-zoom iOS */
+  /* Boutons : pleine largeur, action principale en haut, « Annuler » dessous */
+  #modalSuppr .modal-footer, #modalRenommer .modal-footer { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  #modalSuppr .modal-footer .btn, #modalRenommer .modal-footer .btn { width: 100%; min-height: 44px; margin: 0; }
+}
+@media screen and (max-width: 576px) {
+  #modalSuppr .modal-dialog, #modalRenommer .modal-dialog { margin: .5rem; max-width: calc(100% - 1rem); }
+  #modalSuppr .modal-header, #modalSuppr .modal-body, #modalSuppr .modal-footer,
+  #modalRenommer .modal-header, #modalRenommer .modal-body, #modalRenommer .modal-footer { padding-left: .85rem; padding-right: .85rem; }
+}
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  #modalSuppr .modal-body, #modalRenommer .modal-body { max-height: 45vh; overflow-y: auto; }
+  #modalSuppr .modal-footer, #modalRenommer .modal-footer { flex-direction: row-reverse; justify-content: flex-start; }
+  #modalSuppr .modal-footer .btn, #modalRenommer .modal-footer .btn { width: auto; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3" style="max-width:980px">
+  <h1>{% trans "Agences de transport" %}</h1>
+  <p class="tr-sub">{% trans "Les noms sont enregistrés en MAJUSCULES, sans espaces superflus. « Général voyage » et « Général  Voyages » sont la même agence." %}</p>
+
+  <div class="row g-3">
+    {# Ajout d'une agence #}
+    <div class="col-md-6"><form method="post" class="tr-panel h-100">{% csrf_token %}
+      <div class="tr-head">{% trans "Ajouter une agence" %}</div>
+      <div class="tr-body d-flex gap-2">
+        <input class="form-control" name="nom" maxlength="150" required placeholder="{% trans "Nom de l'agence" %}">
+        <button class="tr-btn" type="submit">{% trans "Ajouter" %}</button>
+      </div></form></div>
+    {# Import Excel (admin) #}
+    {% if est_admin %}<div class="col-md-6"><form method="post" action="{% url 'inventaire:transporteurs_agences_importer' %}" enctype="multipart/form-data" class="tr-panel h-100">{% csrf_token %}
+      <div class="tr-head">{% trans "Importer depuis Excel" %}</div>
+      <div class="tr-body">
+        <div class="d-flex gap-2"><input class="form-control" type="file" name="fichier" accept=".xlsx" required>
+          <button class="tr-btn" type="submit">{% trans "Importer" %}</button></div>
+        <div class="text-muted small mt-2">{% trans "Fichier .xlsx : un nom par ligne dans la 1re colonne. Les agences déjà existantes sont ignorées." %}</div>
+      </div></form></div>{% endif %}
+  </div>
+
+  {# Recherche #}
+  <form method="get" class="d-flex gap-2 mb-3"><input class="form-control" name="q" value="{{ q }}" placeholder="{% trans 'Rechercher une agence' %}">
+    <button class="tr-btn-ghost" type="submit">{% trans "Rechercher" %}</button></form>
+
+  {# Liste + cases à cocher pour la suppression multiple #}
+  <form method="post" action="{% url 'inventaire:transporteurs_agences_supprimer' %}" id="formSuppr">{% csrf_token %}
+    <input type="hidden" name="confirmer" value="1">
+    <div class="tr-panel">
+      <div class="tr-head"><span>{{ agences|length }} {% trans "agence(s)" %}</span>
+        {% if est_admin %}<button type="button" class="tr-btn-danger" id="btnSuppr" disabled>{% trans "Supprimer la sélection" %}</button>{% endif %}</div>
+      <div class="tr-scroll"><table class="tr-table">
+        <thead><tr>{% if est_admin %}<th style="width:36px"><input type="checkbox" id="toutCocher" aria-label="{% trans 'Tout sélectionner' %}"></th>{% endif %}
+          <th>{% trans "Agence" %}</th><th class="num">{% trans "Véhicules enregistrés" %}</th>{% if est_admin %}<th style="width:40px"></th>{% endif %}</tr></thead>
+        <tbody>{% for a in agences %}<tr>
+          {% if est_admin %}<td><input type="checkbox" class="chk" name="ids" value="{{ a.id }}" data-nom="{{ a.nom }}"></td>{% endif %}
+          <td>{{ a.nom }}</td><td class="num">{{ a.n_vehicules }}</td>
+          {% if est_admin %}<td><a href="#" class="js-renommer" title="{% trans 'Modifier le nom' %}" data-url="{% url 'inventaire:transporteurs_agences_modifier' a.id %}" data-nom="{{ a.nom }}"><i class="fas fa-edit"></i></a></td>{% endif %}</tr>
+        {% empty %}<tr><td colspan="4" class="text-center text-muted py-4">{% trans "Aucune agence." %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </form>
+</div>
+
+{# Fenêtre de confirmation de suppression (Bootstrap 5) #}
+{# - style="z-index:2000" : reste au-dessus de la barre de menu fixe #}
+{# - modal-dialog-centered : centrée verticalement, titre jamais masqué #}
+{# - classes Bootstrap (btn ...) car la fenêtre est hors de la zone .tr #}
+<div class="modal fade" id="modalSuppr" tabindex="-1" aria-hidden="true" style="z-index:2000">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">{% trans "Confirmer la suppression" %}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body"><p id="supprTexte" class="fw-semibold"></p><ul id="supprListe" class="small" style="max-height:200px;overflow:auto"></ul>
+      <p class="text-muted small mb-0">{% trans "L'historique des fiches est conservé (le nom de l'agence reste affiché)." %}</p></div>
+    <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+      <button type="button" class="btn btn-danger" id="btnConfirmerSuppr">{% trans "Supprimer définitivement" %}</button></div>
+  </div></div>
+</div>
+{# Fenêtre de modification du nom (administrateur) : si le nom existe déjà, le serveur propose la fusion #}
+{% if est_admin %}
+<div class="modal fade" id="modalRenommer" tabindex="-1" aria-hidden="true" style="z-index:2000">
+  <div class="modal-dialog modal-dialog-centered"><form method="post" id="formRenommer" class="modal-content">
+    {% csrf_token %}
+    <div class="modal-header"><h5 class="modal-title">{% trans "Modifier le nom de l'agence" %}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <input class="form-control" name="nom" id="renommerNom" maxlength="150" required>
+      <p class="text-muted small mt-2 mb-0">{% trans "Si ce nom correspond à une autre agence, vous pourrez fusionner les deux (les véhicules seront regroupés)." %}</p>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+      <button type="submit" class="btn btn-primary">{% trans "Enregistrer" %}</button></div>
+  </form></div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+})();
+</script>
+<script>
+(function () {
+  var chks = document.querySelectorAll('.chk'), btn = document.getElementById('btnSuppr');
+  if (!btn) return;                                                  // non-admin : pas de suppression
+  function maj() { btn.disabled = !document.querySelectorAll('.chk:checked').length; }
+  document.getElementById('toutCocher').addEventListener('change', function () {
+    chks.forEach(function (c) { c.checked = document.getElementById('toutCocher').checked; }); maj(); });
+  chks.forEach(function (c) { c.addEventListener('change', maj); });
+  btn.addEventListener('click', function () {                        // ouvre la fenêtre de confirmation
+    var coches = document.querySelectorAll('.chk:checked');
+    document.getElementById('supprTexte').textContent = coches.length + " {% trans 'agence(s) seront supprimées :' %}";
+    document.getElementById('supprListe').innerHTML = '';
+    coches.forEach(function (c) { var li = document.createElement('li'); li.textContent = c.dataset.nom; document.getElementById('supprListe').appendChild(li); });
+    var modalEl = document.getElementById('modalSuppr');
+    if (modalEl.parentNode !== document.body) document.body.appendChild(modalEl);   // rattache la fenêtre au <body>
+    new bootstrap.Modal(modalEl).show();
+  });
+  document.getElementById('btnConfirmerSuppr').addEventListener('click', function () {
+    document.getElementById('formSuppr').submit(); });               // envoi seulement après confirmation
+})();
+</script>
+<script>
+(function () {                                                       // modification du nom d'une agence
+  var modalEl = document.getElementById('modalRenommer');
+  if (!modalEl) return;                                              // non-admin
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.js-renommer');
+    if (!b) return;
+    e.preventDefault();
+    document.getElementById('formRenommer').action = b.dataset.url;  // URL de CETTE agence
+    document.getElementById('renommerNom').value = b.dataset.nom;
+    if (modalEl.parentNode !== document.body) document.body.appendChild(modalEl);
+    new bootstrap.Modal(modalEl).show();
+  });
+})();
+</script>
+{% endblock %}

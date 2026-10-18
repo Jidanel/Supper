@@ -1,0 +1,507 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Confirmation - Transfert Multiple{% endblock %}
+
+{% block extra_css %}
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 15px;
+    }
+
+    h2 {
+        font-size: 1.75rem;
+        color: #1e293b;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    h2 i {
+        color: #f59e0b;
+    }
+
+    .confirmation-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .confirmation-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .confirmation-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .confirmation-header p {
+        margin: 0.5rem 0 0;
+        opacity: 0.9;
+    }
+
+    .confirmation-body {
+        padding: 1.5rem;
+    }
+
+    /* Postes */
+    .postes-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .poste-box {
+        flex: 1;
+        min-width: 180px;
+        max-width: 250px;
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .poste-box.origine {
+        background: #fef2f2;
+        border: 2px solid #fca5a5;
+    }
+
+    .poste-box.destination {
+        background: #f0fdf4;
+        border: 2px solid #86efac;
+    }
+
+    .poste-box .icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .poste-box.origine .icon { color: #ef4444; }
+    .poste-box.destination .icon { color: #10b981; }
+
+    .poste-box .name {
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .arrow-icon {
+        font-size: 1.5rem;
+        color: #667eea;
+    }
+
+    /* Tableau */
+    .series-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 1.5rem;
+    }
+
+    .series-table {
+        width: 100%;
+        min-width: 450px;
+        border-collapse: collapse;
+    }
+
+    .series-table th,
+    .series-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .series-table th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #64748b;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+    }
+
+    .series-table tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .series-table .couleur-cell {
+        font-weight: 600;
+        color: #667eea;
+    }
+
+    .series-table .montant-cell {
+        font-weight: 600;
+        color: #10b981;
+        text-align: right;
+    }
+
+    /* Total */
+    .total-summary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+    }
+
+    .total-row:not(:last-child) {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .total-row .label {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    .total-row .value {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .total-row.grand-total .value {
+        font-size: 1.75rem;
+    }
+
+    /* Évolution stock */
+    .stock-evolution {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stock-evolution h5 {
+        margin: 0 0 1rem;
+        color: #64748b;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+    }
+
+    .stock-evolution-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+    }
+
+    .stock-evolution-row.origine {
+        background: #fef2f2;
+    }
+
+    .stock-evolution-row.destination {
+        background: #f0fdf4;
+    }
+
+    .stock-evolution-row .poste {
+        font-weight: 600;
+    }
+
+    .stock-evolution-row .values {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .stock-evolution-row .before {
+        color: #64748b;
+    }
+
+    .stock-evolution-row .after {
+        font-weight: 700;
+    }
+
+    .stock-evolution-row.origine .after {
+        color: #dc2626;
+    }
+
+    .stock-evolution-row.destination .after {
+        color: #059669;
+    }
+
+    /* Avertissement */
+    .warning-box {
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .warning-box i {
+        font-size: 2rem;
+        color: #f59e0b;
+        flex-shrink: 0;
+    }
+
+    .warning-box p {
+        margin: 0;
+        color: #92400e;
+    }
+
+    /* Commentaire */
+    .commentaire-section {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+
+    .commentaire-section h5 {
+        margin: 0 0 0.5rem;
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+
+    .commentaire-section p {
+        margin: 0;
+        color: #1e293b;
+    }
+
+    /* Boutons */
+    .buttons-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(16, 185, 129, 0.4);
+        color: white;
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(239, 68, 68, 0.4);
+        color: white;
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        h2 {
+            font-size: 1.4rem;
+        }
+
+        .confirmation-header h3 {
+            font-size: 1.25rem;
+        }
+
+        .confirmation-body {
+            padding: 1rem;
+        }
+
+        .postes-container {
+            flex-direction: column;
+        }
+
+        .poste-box {
+            max-width: 100%;
+        }
+
+        .arrow-icon {
+            transform: rotate(90deg);
+        }
+
+        .buttons-container {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+        }
+
+        .total-row.grand-total .value {
+            font-size: 1.5rem;
+        }
+
+        .stock-evolution-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2><i class="fas fa-exclamation-triangle"></i> Confirmation du Transfert</h2>
+    
+    <div class="confirmation-card">
+        <div class="confirmation-header">
+            <h3><i class="fas fa-clipboard-check me-2"></i>Vérifiez les informations</h3>
+            <p>{{ series|length }} série(s) à transférer</p>
+        </div>
+        
+        <div class="confirmation-body">
+            <!-- Postes -->
+            <div class="postes-container">
+                <div class="poste-box origine">
+                    <div class="icon"><i class="fas fa-arrow-circle-left"></i></div>
+                    <div class="name">{{ poste_origine.nom }}</div>
+                    <small class="text-muted">Émetteur</small>
+                </div>
+                
+                <i class="fas fa-arrow-right arrow-icon"></i>
+                
+                <div class="poste-box destination">
+                    <div class="icon"><i class="fas fa-arrow-circle-right"></i></div>
+                    <div class="name">{{ poste_destination.nom }}</div>
+                    <small class="text-muted">Destinataire</small>
+                </div>
+            </div>
+            
+            <!-- Avertissement -->
+            <div class="warning-box">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>
+                    Cette opération transférera <strong>{{ series|length }} série(s)</strong> 
+                    de tickets du poste <strong>{{ poste_origine.nom }}</strong> vers 
+                    <strong>{{ poste_destination.nom }}</strong>. Cette action est irréversible sans annulation manuelle.
+                </p>
+            </div>
+            
+            <!-- Tableau des séries -->
+            <div class="series-table-wrapper">
+                <table class="series-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Couleur</th>
+                            <th>Plage</th>
+                            <th>Tickets</th>
+                            <th class="text-end">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for serie in series %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td class="couleur-cell">{{ serie.couleur.libelle_affichage }}</td>
+                            <td>#{{ serie.numero_premier|format_milliers }} - {{ serie.numero_dernier|format_milliers }}</td>
+                            <td>{{ serie.nombre_tickets|format_milliers }}</td>
+                            <td class="montant-cell">{{ serie.montant|floatformat:0|format_milliers }} FCFA</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Résumé total -->
+            <div class="total-summary">
+                <div class="total-row">
+                    <span class="label">Nombre de séries</span>
+                    <span class="value">{{ series|length }}</span>
+                </div>
+                <div class="total-row">
+                    <span class="label">Total tickets</span>
+                    <span class="value">{{ nombre_tickets_total|format_milliers }}</span>
+                </div>
+                <div class="total-row grand-total">
+                    <span class="label">Montant total</span>
+                    <span class="value">{{ montant_total|floatformat:0|format_milliers }} FCFA</span>
+                </div>
+            </div>
+            
+            <!-- Évolution des stocks -->
+            <div class="stock-evolution">
+                <h5><i class="fas fa-chart-line me-2"></i>Évolution des stocks</h5>
+                
+                <div class="stock-evolution-row origine">
+                    <span class="poste">
+                        <i class="fas fa-arrow-down text-danger me-1"></i>
+                        {{ poste_origine.nom }}
+                    </span>
+                    <div class="values">
+                        <span class="before">{{ stock_origine_avant|floatformat:0|format_milliers }} FCFA</span>
+                        <i class="fas fa-arrow-right"></i>
+                        <span class="after">{{ stock_origine_apres|floatformat:0|format_milliers }} FCFA</span>
+                    </div>
+                </div>
+                
+                <div class="stock-evolution-row destination">
+                    <span class="poste">
+                        <i class="fas fa-arrow-up text-success me-1"></i>
+                        {{ poste_destination.nom }}
+                    </span>
+                    <div class="values">
+                        <span class="before">{{ stock_destination_avant|floatformat:0|format_milliers }} FCFA</span>
+                        <i class="fas fa-arrow-right"></i>
+                        <span class="after">{{ stock_destination_apres|floatformat:0|format_milliers }} FCFA</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Commentaire -->
+            {% if commentaire %}
+            <div class="commentaire-section">
+                <h5><i class="fas fa-comment me-2"></i>Commentaire</h5>
+                <p>{{ commentaire }}</p>
+            </div>
+            {% endif %}
+            
+            <!-- Boutons -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="buttons-container">
+                    <button type="submit" name="action" value="confirmer" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Confirmer le transfert
+                    </button>
+                    <button type="submit" name="action" value="annuler" class="btn btn-danger">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

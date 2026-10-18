@@ -1,5 +1,5 @@
-{% extends 'admin/base_site.html' %}
-{% load i18n %}
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
 
 {% block title %}{{ title }} - SUPPER{% endblock %}
 
@@ -10,6 +10,8 @@
        ============================================ */
     * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
 
     html, body {
@@ -20,9 +22,12 @@
         -webkit-text-size-adjust: 100%;
     }
 
-    /* ============================================
-       CONTENEUR PRINCIPAL
-       ============================================ */
+    .historique-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
     .container-fluid {
         width: 100%;
         max-width: 100%;
@@ -33,24 +38,19 @@
         overflow-x: hidden;
     }
 
-    .py-4 {
-        padding-top: 1.5rem !important;
-        padding-bottom: 1.5rem !important;
-    }
-
     .row {
+        margin-left: -15px;
+        margin-right: -15px;
         display: flex;
         flex-wrap: wrap;
-        margin-left: -10px;
-        margin-right: -10px;
-        width: calc(100% + 20px);
+        width: calc(100% + 30px);
     }
 
-    .col-12, .col-auto, .col-md-4 {
-        padding-left: 10px;
-        padding-right: 10px;
+    .col-md-4, .col-md-12, .col-12, .col-auto {
+        padding-left: 15px;
+        padding-right: 15px;
+        position: relative;
         width: 100%;
-        max-width: 100%;
     }
 
     .col-auto {
@@ -58,31 +58,66 @@
         width: auto;
     }
 
-    .g-2 {
+    /* ============================================
+       CARTES RESPONSIVES
+       ============================================ */
+    .card {
+        width: 100%;
+        margin-bottom: 1rem;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        background: white;
+        border: none;
+    }
+
+    .card-header {
+        padding: 1rem 1.25rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-header h4, .card-header h5 {
+        font-size: 1.1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
         gap: 0.5rem;
     }
 
-    .align-items-center {
-        align-items: center !important;
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+    }
+
+    .card-body.p-0 {
+        padding: 0;
+    }
+
+    .card-body.py-2 {
+        padding: 0.5rem 1.25rem;
+    }
+
+    .card-footer {
+        padding: 1rem 1.25rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e5e7eb;
     }
 
     /* ============================================
        EN-TÊTE STATION - GRADIENT
        ============================================ */
-    .bg-gradient-info {
-        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-    }
-
     .card-station {
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        width: 100%;
+        border: none;
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
     }
 
     .card-station .card-body {
         padding: 1.25rem;
-        width: 100%;
     }
 
     .station-info {
@@ -105,6 +140,7 @@
         width: 56px;
         height: 56px;
         border-radius: 50%;
+        background: rgba(255,255,255,0.25);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -114,22 +150,21 @@
 
     .station-icon i {
         font-size: 1.5rem;
+        color: white;
     }
 
     .station-text h4 {
         margin: 0 0 0.25rem 0;
         font-size: 1.25rem;
         font-weight: 700;
+        color: white;
         word-wrap: break-word;
-        overflow-wrap: break-word;
     }
 
     .station-text p {
         margin: 0;
         font-size: 0.9rem;
-        opacity: 0.8;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        color: rgba(255,255,255,0.85);
     }
 
     /* ============================================
@@ -157,8 +192,7 @@
         align-items: center;
         flex-wrap: wrap;
         gap: 0.5rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        color: #1f2937;
     }
 
     .page-header h2 i {
@@ -168,47 +202,43 @@
 
     .page-header p {
         margin: 0.25rem 0 0 0;
-        color: #64748b;
+        color: #6b7280;
         font-size: 0.9rem;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
     }
 
     /* ============================================
-       CARTES
+       FORMULAIRES RESPONSIVES
        ============================================ */
-    .card {
+    .form-select {
         width: 100%;
-        border-radius: 12px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        overflow: hidden;
-        margin-bottom: 1rem;
+        max-width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        min-height: 44px;
     }
 
-    .card-body {
-        padding: 1.25rem;
-        width: 100%;
+    .form-select:focus {
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.15);
+        outline: none;
     }
 
-    .card-body.p-0 {
-        padding: 0;
+    .form-select-sm {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
     }
 
-    .card-body.py-2 {
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #374151;
     }
 
-    .card-footer {
-        padding: 0.875rem 1.25rem;
-        background: white;
-        border-top: 1px solid #e2e8f0;
-    }
-
-    /* ============================================
-       FORMULAIRE DE FILTRE
-       ============================================ */
     .filter-form {
         display: flex;
         flex-wrap: wrap;
@@ -217,41 +247,8 @@
         width: 100%;
     }
 
-    .filter-form .form-label {
-        margin: 0;
-        font-weight: 600;
-        font-size: 0.9rem;
-        white-space: nowrap;
-    }
-
-    .form-select {
-        width: 100%;
-        padding: 0.5rem 2rem 0.5rem 0.75rem;
-        font-size: 0.9rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background-color: white;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 0.5rem center;
-        background-size: 14px 10px;
-        appearance: none;
-        transition: all 0.3s ease;
-    }
-
-    .form-select:focus {
-        outline: none;
-        border-color: #17a2b8;
-        box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.15);
-    }
-
-    .form-select-sm {
-        padding: 0.375rem 1.75rem 0.375rem 0.625rem;
-        font-size: 0.85rem;
-    }
-
     /* ============================================
-       BOUTONS
+       BOUTONS RESPONSIVES
        ============================================ */
     .btn {
         display: inline-flex;
@@ -259,68 +256,83 @@
         justify-content: center;
         gap: 0.5rem;
         padding: 0.625rem 1rem;
-        font-size: 0.9rem;
-        font-weight: 500;
         border-radius: 8px;
+        font-weight: 600;
         transition: all 0.3s ease;
+        white-space: nowrap;
         text-decoration: none;
         cursor: pointer;
-        white-space: nowrap;
-        border: 1px solid transparent;
+        box-sizing: border-box;
+        border: none;
         min-height: 44px;
+        font-size: 0.9rem;
     }
 
     .btn-info {
         background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
         color: white;
-        border: none;
     }
 
     .btn-info:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
-    }
-
-    .btn-info.text-white {
-        color: white !important;
+        color: white;
     }
 
     .btn-primary {
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
-        border: none;
     }
 
     .btn-primary:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-
-    .btn-outline-secondary {
-        background: white;
-        color: #64748b;
-        border: 1px solid #cbd5e1;
-    }
-
-    .btn-outline-secondary:hover {
-        background: #f1f5f9;
-        color: #334155;
+        color: white;
     }
 
     .btn-light {
         background: white;
-        color: #334155;
-        border: 1px solid #e2e8f0;
+        color: #374151;
+        border: 1px solid #e5e7eb;
     }
 
     .btn-light:hover {
-        background: #f1f5f9;
+        background: #f3f4f6;
+        color: #1f2937;
+    }
+
+    .btn-outline-warning {
+        background: white;
+        color: #f59e0b;
+        border: 2px solid #f59e0b;
+    }
+
+    .btn-outline-warning:hover {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .btn-outline-danger {
+        background: white;
+        color: #dc3545;
+        border: 2px solid #dc3545;
+    }
+
+    .btn-outline-danger:hover {
+        background: #fef2f2;
+        color: #b91c1c;
     }
 
     .btn-sm {
         padding: 0.375rem 0.75rem;
         font-size: 0.8rem;
         min-height: 36px;
+    }
+
+    .btn-group-actions {
+        display: flex;
+        gap: 0.375rem;
+        justify-content: center;
     }
 
     /* ============================================
@@ -347,13 +359,9 @@
         border-radius: 4px;
     }
 
-    .table-container::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-    }
-
     .table {
         width: 100%;
-        min-width: 550px;
+        min-width: 700px;
         border-collapse: collapse;
         margin: 0;
         font-size: 0.9rem;
@@ -361,10 +369,6 @@
 
     .table thead {
         background: #f8fafc;
-    }
-
-    .table-light {
-        background: #f8fafc !important;
     }
 
     .table th {
@@ -415,6 +419,11 @@
         color: white;
     }
 
+    .badge.bg-secondary {
+        background-color: #64748b !important;
+        color: white;
+    }
+
     .badge.fs-6 {
         font-size: 1rem !important;
     }
@@ -422,18 +431,13 @@
     /* ============================================
        PAGINATION
        ============================================ */
-    .pagination-container {
-        display: flex;
-        justify-content: center;
-        width: 100%;
-    }
-
     .pagination {
         display: flex;
         list-style: none;
         padding: 0;
         margin: 0;
         gap: 0.25rem;
+        justify-content: center;
     }
 
     .page-item .page-link {
@@ -462,10 +466,6 @@
         cursor: not-allowed;
     }
 
-    .justify-content-center {
-        justify-content: center !important;
-    }
-
     /* ============================================
        ÉTAT VIDE
        ============================================ */
@@ -479,6 +479,7 @@
         font-size: 3.5rem;
         color: #94a3b8;
         margin-bottom: 1rem;
+        display: block;
     }
 
     .empty-state p {
@@ -487,49 +488,82 @@
     }
 
     /* ============================================
-       TEXTE ET ALIGNEMENT
+       UTILITAIRES
        ============================================ */
     .text-center { text-align: center !important; }
     .text-info { color: #17a2b8 !important; }
     .text-success { color: #10b981 !important; }
-    .text-muted { color: #64748b !important; }
+    .text-danger { color: #dc3545 !important; }
+    .text-muted { color: #6b7280 !important; }
     .text-white { color: white !important; }
-    .text-primary { color: #3b82f6 !important; }
 
     .fw-bold { font-weight: 700 !important; }
-    .opacity-75 { opacity: 0.75 !important; }
-
-    .me-1 { margin-right: 0.25rem !important; }
-    .me-2 { margin-right: 0.5rem !important; }
-    .me-3 { margin-right: 1rem !important; }
-    .ms-2 { margin-left: 0.5rem !important; }
     .mb-0 { margin-bottom: 0 !important; }
     .mb-3 { margin-bottom: 1rem !important; }
     .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
     .mt-4 { margin-top: 1.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
     .py-3 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
-    .py-5 { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
 
     .d-flex { display: flex !important; }
     .justify-content-between { justify-content: space-between !important; }
+    .justify-content-center { justify-content: center !important; }
+    .align-items-center { align-items: center !important; }
+    .flex-wrap { flex-wrap: wrap !important; }
+    .gap-2 { gap: 0.5rem !important; }
 
     .shadow { box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important; }
     .shadow-sm { box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
     .border-0 { border: none !important; }
     .bg-white { background-color: white !important; }
     .bg-light { background-color: #f8fafc !important; }
-    .bg-opacity-25 { background-opacity: 0.25; }
-    .rounded-circle { border-radius: 50% !important; }
-    .p-3 { padding: 1rem !important; }
 
     /* ============================================
-       MEDIA QUERIES - MOBILE (≤ 768px)
+       VERSION PC (≥ 768px)
        ============================================ */
-    @media (max-width: 768px) {
+    @media (min-width: 768px) {
+        .col-md-4 { flex: 0 0 33.333333%; max-width: 33.333333%; }
+        .col-md-12 { flex: 0 0 100%; max-width: 100%; }
+
+        .page-header {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .page-header .btn {
+            width: auto;
+        }
+
+        .filter-form {
+            flex-direction: row;
+        }
+
+        .filter-form .col-md-4 {
+            flex: 0 0 auto;
+            width: auto;
+            max-width: 250px;
+        }
+
+        .btn-group-actions {
+            flex-direction: row;
+        }
+    }
+
+    /* ============================================
+       CORRECTIONS MOBILE SPÉCIFIQUES (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION PRINCIPALE : DÉBORDEMENT */
         body, html {
             overflow-x: hidden !important;
             width: 100% !important;
             max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         .main-content {
@@ -543,11 +577,34 @@
             width: 100% !important;
             max-width: 100vw !important;
             padding: 1rem !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        .historique-page {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
         }
 
         .container-fluid {
-            padding-left: 12px;
-            padding-right: 12px;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+            overflow-x: hidden !important;
+        }
+
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+        }
+
+        .col-md-4, .col-md-12, .col-12, .col-auto {
+            padding-left: 10px;
+            padding-right: 10px;
+            flex: 0 0 100%;
+            max-width: 100%;
         }
 
         .py-4 {
@@ -555,19 +612,33 @@
             padding-bottom: 1rem !important;
         }
 
-        .row {
-            margin-left: -8px;
-            margin-right: -8px;
-            width: calc(100% + 16px);
+        /* Cartes */
+        .card {
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
         }
 
-        .col-12, .col-auto, .col-md-4 {
-            padding-left: 8px;
-            padding-right: 8px;
-            flex: 0 0 100%;
-            max-width: 100%;
+        .card-header {
+            padding: 0.875rem 1rem;
         }
 
+        .card-header h4, .card-header h5 {
+            font-size: 1rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .card-body.py-2 {
+            padding: 0.75rem 1rem;
+        }
+
+        .card-footer {
+            padding: 0.75rem 1rem;
+        }
+
+        /* Station info */
         .station-info {
             flex-direction: column;
             align-items: flex-start;
@@ -600,6 +671,7 @@
             margin-top: 0.5rem;
         }
 
+        /* Page header */
         .page-header {
             flex-direction: column;
             align-items: flex-start;
@@ -617,18 +689,7 @@
             width: 100%;
         }
 
-        .card-body {
-            padding: 1rem;
-        }
-
-        .card-body.py-2 {
-            padding: 0.75rem 1rem;
-        }
-
-        .card-footer {
-            padding: 0.75rem 1rem;
-        }
-
+        /* Filter form */
         .filter-form {
             flex-direction: column;
             align-items: stretch;
@@ -645,15 +706,16 @@
             font-size: 16px !important;
         }
 
+        /* Table */
         .table-container {
-            margin-left: -12px;
-            margin-right: -12px;
-            width: calc(100% + 24px);
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
             border-radius: 0;
         }
 
         .table {
-            min-width: 500px;
+            min-width: 650px;
             font-size: 0.85rem;
         }
 
@@ -671,6 +733,7 @@
             font-size: 0.9rem !important;
         }
 
+        /* Boutons */
         .btn {
             padding: 0.5rem 0.875rem;
             font-size: 0.85rem;
@@ -681,6 +744,16 @@
             font-size: 0.8rem;
         }
 
+        .btn-group-actions {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .btn-group-actions .btn {
+            width: 100%;
+        }
+
+        /* Pagination */
         .page-item .page-link {
             min-width: 36px;
             height: 36px;
@@ -688,6 +761,7 @@
             font-size: 0.85rem;
         }
 
+        /* Empty state */
         .empty-state {
             padding: 2rem 1rem;
         }
@@ -702,19 +776,31 @@
        ============================================ */
     @media (max-width: 576px) {
         .container-fluid {
-            padding-left: 10px;
-            padding-right: 10px;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
         }
 
         .row {
-            margin-left: -6px;
-            margin-right: -6px;
-            width: calc(100% + 12px);
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
         }
 
-        .col-12, .col-auto, .col-md-4 {
-            padding-left: 6px;
-            padding-right: 6px;
+        .col-md-4, .col-md-12, .col-12, .col-auto {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .card {
+            border-radius: 8px;
+        }
+
+        .card-header {
+            padding: 0.75rem;
+        }
+
+        .card-header h4, .card-header h5 {
+            font-size: 0.95rem;
         }
 
         .card-body {
@@ -739,13 +825,13 @@
         }
 
         .table-container {
-            margin-left: -10px;
-            margin-right: -10px;
-            width: calc(100% + 20px);
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
         }
 
         .table {
-            min-width: 450px;
+            min-width: 600px;
             font-size: 0.8rem;
         }
 
@@ -787,6 +873,22 @@
        TRÈS PETITS ÉCRANS (< 375px)
        ============================================ */
     @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-md-4, .col-md-12, .col-12, .col-auto {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
         .page-header h2 {
             font-size: 1.05rem;
         }
@@ -796,7 +898,7 @@
         }
 
         .table {
-            min-width: 400px;
+            min-width: 550px;
             font-size: 0.75rem;
         }
 
@@ -866,15 +968,23 @@
             width: 100%;
             border-radius: 8px;
         }
+
+        .btn-group-actions {
+            flex-direction: row;
+        }
+
+        .btn-group-actions .btn {
+            width: auto;
+        }
     }
 
     /* ============================================
-       CORRECTION ZOOM iOS
+       CORRECTION POUR EMPÊCHER LE ZOOM SUR iOS
        ============================================ */
-    @media (max-width: 768px) {
-        input[type="date"],
-        input[type="number"],
+    @media (max-width: 480px) {
         input[type="text"],
+        input[type="number"],
+        input[type="date"],
         textarea,
         select,
         button {
@@ -883,7 +993,7 @@
     }
 
     /* ============================================
-       ACCESSIBILITÉ
+       AMÉLIORATION DE L'ACCESSIBILITÉ
        ============================================ */
     .form-select:focus,
     .btn:focus,
@@ -893,7 +1003,7 @@
     }
 
     /* ============================================
-       SCROLLBAR GLOBALE
+       SCROLLBAR PERSONNALISÉE
        ============================================ */
     ::-webkit-scrollbar {
         width: 8px;
@@ -918,12 +1028,7 @@
        IMPRESSION
        ============================================ */
     @media print {
-        .container-fluid {
-            padding: 0 !important;
-        }
-
-        .btn,
-        .filter-form {
+        .btn, .filter-form {
             display: none !important;
         }
 
@@ -946,196 +1051,218 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    
-    {% if station %}
-    <!-- EN-TÊTE STATION -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card card-station bg-gradient-info text-white shadow">
-                <div class="card-body py-3">
-                    <div class="station-info">
-                        <div class="station-info-left">
-                            <div class="station-icon bg-white bg-opacity-25">
-                                <i class="fas fa-weight fa-2x"></i>
+<div class="historique-page">
+    <div class="container-fluid py-4">
+
+        {% if station %}
+        <!-- EN-TÊTE STATION -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card card-station shadow">
+                    <div class="card-body py-3">
+                        <div class="station-info">
+                            <div class="station-info-left">
+                                <div class="station-icon">
+                                    <i class="fas fa-weight"></i>
+                                </div>
+                                <div class="station-text">
+                                    <h4 class="fw-bold">{{ station.nom }}</h4>
+                                    <p><i class="fas fa-map-marker-alt me-1"></i>{{ station.get_region_display }} - {{ station.code }}</p>
+                                </div>
                             </div>
-                            <div class="station-text">
-                                <h4 class="fw-bold">{{ station.nom }}</h4>
-                                <p>
-                                    <i class="fas fa-map-marker-alt me-1"></i>
-                                    {{ station.get_region_display }} - {{ station.code }}
-                                </p>
-                            </div>
+                            {% if is_admin %}
+                            <a href="{% url 'inventaire:selectionner_station' %}?action=historique_pesees" class="btn btn-light btn-sm">
+                                <i class="fas fa-exchange-alt me-1"></i>{% trans "Changer de station" %}
+                            </a>
+                            {% endif %}
                         </div>
-                        {% if is_admin %}
-                        <a href="{% url 'inventaire:selectionner_station' %}?action=historique_pesees" 
-                           class="btn btn-light btn-sm">
-                            <i class="fas fa-exchange-alt me-1"></i>
-                            {% trans "Changer de station" %}
-                        </a>
-                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-    {% endif %}
-    
-    <!-- Titre -->
-    <div class="page-header">
-        <div class="page-header-left">
-            <h2>
-                <i class="fas fa-history text-info me-2"></i>
-                {{ title }}
-            </h2>
-            {% if stats.total_pesees %}
-            <p class="text-muted mb-0">
-                <strong>{{ stats.total_pesees|default:0 }}</strong> {% trans "pesées sur" %}
-                <strong>{{ stats.count_jours|default:0 }}</strong> {% trans "jours" %}
-            </p>
-            {% endif %}
-        </div>
-        <a href="{% url 'inventaire:saisir_pesees' %}" class="btn btn-info text-white">
-            <i class="fas fa-plus me-1"></i>
-            {% trans "Saisir les pesées" %}
-        </a>
-    </div>
-    
-    <!-- Filtre admin par station -->
-    {% if is_admin and stations_accessibles %}
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body py-2">
-            <form method="get" class="filter-form row g-2 align-items-center">
-                <div class="col-auto">
-                    <label class="form-label mb-0 fw-bold">{% trans "Filtrer par station" %}:</label>
-                </div>
-                <div class="col-md-4">
-                    <select name="station_filter" class="form-select form-select-sm">
-                        <option value="">{% trans "Toutes les stations" %}</option>
-                        {% for st in stations_accessibles %}
-                        <option value="{{ st.id }}" {% if station_filter == st.id|stringformat:"i" %}selected{% endif %}>
-                            {{ st.nom }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-sm btn-primary">
-                        <i class="fas fa-filter me-1"></i>{% trans "Filtrer" %}
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    {% endif %}
-    
-    <!-- Liste -->
-    <div class="card shadow-sm border-0">
-        <div class="card-body p-0">
-            {% if pesees %}
-            <div class="table-container">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>{% trans "Date" %}</th>
-                            <th class="text-center">{% trans "Nombre de pesées" %}</th>
-                            <th>{% trans "Saisi par" %}</th>
-                            {% if is_admin and not station %}
-                            <th>{% trans "Station" %}</th>
-                            {% endif %}
-                            <th>{% trans "Observations" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for pesee in pesees %}
-                        <tr>
-                            <td>
-                                <strong>{{ pesee.date|date:"d/m/Y" }}</strong>
-                                <br>
-                                <small class="text-muted">{{ pesee.date|date:"l" }}</small>
-                            </td>
-                            <td class="text-center">
-                                <span class="badge bg-info fs-6">{{ pesee.nombre_pesees }}</span>
-                            </td>
-                            <td>
-                                {{ pesee.saisi_par.nom_complet|default:"-" }}
-                            </td>
-                            {% if is_admin and not station %}
-                            <td>
-                                <small>{{ pesee.station.nom }}</small>
-                            </td>
-                            {% endif %}
-                            <td>
-                                <small class="text-muted">{{ pesee.observations|default:"-"|truncatewords:10 }}</small>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Pagination -->
-            {% if pesees.has_other_pages %}
-            <div class="card-footer bg-white">
-                <nav aria-label="Pagination">
-                    <ul class="pagination justify-content-center mb-0">
-                        {% if pesees.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ pesees.previous_page_number }}{% if station_filter %}&station_filter={{ station_filter }}{% endif %}">&laquo;</a>
-                        </li>
-                        {% endif %}
-                        
-                        <li class="page-item disabled">
-                            <span class="page-link">{{ pesees.number }} / {{ pesees.paginator.num_pages }}</span>
-                        </li>
-                        
-                        {% if pesees.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ pesees.next_page_number }}{% if station_filter %}&station_filter={{ station_filter }}{% endif %}">&raquo;</a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            </div>
-            {% endif %}
-            
-            {% else %}
-            <div class="empty-state">
-                <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-                <p class="text-muted">{% trans "Aucune pesée enregistrée" %}</p>
-                <a href="{% url 'inventaire:saisir_pesees' %}" class="btn btn-info text-white">
-                    <i class="fas fa-plus me-1"></i>
-                    {% trans "Saisir les pesées du jour" %}
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    
-</div>
-{% endblock %}
+        {% endif %}
 
-{% block extra_js %}
+        <!-- Titre -->
+        <div class="page-header">
+            <div class="page-header-left">
+                <h2><i class="fas fa-history me-2"></i>{{ title }}</h2>
+                {% if stats.total_pesees %}
+                <p class="text-muted mb-0">
+                    <strong>{{ stats.total_pesees|default:0 }}</strong> {% trans "pesées sur" %}
+                    <strong>{{ stats.count_jours|default:0 }}</strong> {% trans "jours" %}
+                </p>
+                {% endif %}
+            </div>
+            <a href="{% url 'inventaire:saisir_pesees' %}" class="btn btn-info">
+                <i class="fas fa-plus me-1"></i>{% trans "Saisir les pesées" %}
+            </a>
+        </div>
+
+        <!-- Filtre admin par station -->
+        {% if is_admin and stations_accessibles %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body py-2">
+                <form method="get" class="filter-form row gap-2 align-items-center">
+                    <div class="col-auto">
+                        <label class="form-label mb-0 fw-bold">{% trans "Filtrer par station" %}:</label>
+                    </div>
+                    <div class="col-md-4">
+                        <select name="station_filter" class="form-select form-select-sm">
+                            <option value="">{% trans "Toutes les stations" %}</option>
+                            {% for st in stations_accessibles %}
+                            <option value="{{ st.id }}" {% if station_filter == st.id|stringformat:"i" %}selected{% endif %}>{{ st.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fas fa-filter me-1"></i>{% trans "Filtrer" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Liste -->
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                {% if pesees %}
+                <div class="table-container">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th class="text-center">{% trans "Nombre de pesées" %}</th>
+                                <th>{% trans "Saisi par" %}</th>
+                                {% if is_admin and not station %}<th>{% trans "Station" %}</th>{% endif %}
+                                <th>{% trans "Observations" %}</th>
+                                {% if is_admin %}
+                                <th>{% trans "Dernière modification" %}</th>
+                                <th class="text-center">{% trans "Actions" %}</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pesee in pesees %}
+                            <tr>
+                                <td>
+                                    {% if pesee.date %}
+                                    <strong>{{ pesee.date|date:"d/m/Y" }}</strong><br>
+                                    <small class="text-muted">{{ pesee.date|date:"l" }}</small>
+                                    {% else %}
+                                    <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>{% trans "Date non définie" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info fs-6">{{ pesee.nombre_pesees }}</span>
+                                </td>
+                                <td>{{ pesee.saisi_par.nom_complet|default:"-" }}</td>
+                                {% if is_admin and not station %}
+                                <td><small>{{ pesee.station.nom }}</small></td>
+                                {% endif %}
+                                <td><small class="text-muted">{{ pesee.observations|default:"-"|truncatewords:10 }}</small></td>
+                                {% if is_admin %}
+                                <td>
+                                    {% if pesee.date_derniere_modification %}
+                                    <small>
+                                        {{ pesee.date_derniere_modification|date:"d/m/Y H:i" }}<br>
+                                        <span class="badge bg-secondary">{{ pesee.modifie_par.nom_complet|default:"-" }}</span>
+                                        {% if pesee.ancien_nombre_pesees %}<br><span class="text-muted" style="font-size: 0.75rem;">Ancien: {{ pesee.ancien_nombre_pesees }}</span>{% endif %}
+                                    </small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group-actions">
+                                        <a href="{% url 'inventaire:modifier_pesees' pesee.pk %}" class="btn btn-sm btn-outline-warning" title="{% trans 'Modifier' %}">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'inventaire:confirmer_suppression_pesees' pesee.pk %}" class="btn btn-sm btn-outline-danger" title="{% trans 'Supprimer' %}">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if pesees.has_other_pages %}
+                <div class="card-footer bg-white">
+                    <nav aria-label="Pagination">
+                        <ul class="pagination mb-0">
+                            {% if pesees.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pesees.previous_page_number }}{% if station_filter %}&station_filter={{ station_filter }}{% endif %}">&laquo;</a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item disabled">
+                                <span class="page-link">{{ pesees.number }} / {{ pesees.paginator.num_pages }}</span>
+                            </li>
+                            {% if pesees.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pesees.next_page_number }}{% if station_filter %}&station_filter={{ station_filter }}{% endif %}">&raquo;</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-list"></i>
+                    <p class="text-muted">{% trans "Aucune pesée enregistrée" %}</p>
+                    <a href="{% url 'inventaire:saisir_pesees' %}" class="btn btn-info">
+                        <i class="fas fa-plus me-1"></i>{% trans "Saisir les pesées du jour" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- JAVASCRIPT -->
+<!-- ================================================================= -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Correction pour le défilement sur mobile
-    function adjustForMobile() {
-        if (window.innerWidth < 768) {
+    // ===================================================================
+    // CORRECTION DU DÉFILEMENT HORIZONTAL SUR MOBILE
+    // ===================================================================
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
             document.body.style.overflowX = 'hidden';
-            document.body.style.maxWidth = '100vw';
+
+            document.querySelectorAll('.historique-page, .container-fluid').forEach(el => {
+                el.style.overflowX = 'hidden';
+                el.style.maxWidth = '100vw';
+            });
         } else {
+            document.documentElement.style.overflowX = '';
             document.body.style.overflowX = '';
-            document.body.style.maxWidth = '';
         }
     }
 
-    adjustForMobile();
-    window.addEventListener('resize', adjustForMobile);
-    window.addEventListener('orientationchange', adjustForMobile);
-    
-    // Gestion tactile passive
-    document.addEventListener('touchstart', function() {}, { passive: true });
-    document.addEventListener('touchmove', function() {}, { passive: true });
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+
+    // ===================================================================
+    // LOG CONSOLE (DEBUG)
+    // ===================================================================
+    console.log('[SUPPER DEBUG] Historique pesées chargé');
 });
+
+// Correction pour empêcher le zoom automatique sur iOS
+document.addEventListener('touchstart', function() {}, {passive: true});
 </script>
 {% endblock %}

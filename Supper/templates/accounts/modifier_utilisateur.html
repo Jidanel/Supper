@@ -5,6 +5,70 @@
 
 {% block content %}
 <style>
+    /* ============================================
+       RÉINITIALISATION GLOBALE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .main-content {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
+    }
+
+    .content-wrapper {
+        min-width: 100%;
+        width: 100%;
+        max-width: 100vw;
+        padding: 1rem;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin: 0 auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -12px;
+        margin-right: -12px;
+        width: calc(100% + 24px);
+    }
+
+    .col-xl-10, .col-lg-11, .col-md-6, .col-md-3, .col-auto {
+        padding-left: 12px;
+        padding-right: 12px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
     .page-header {
         background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%) !important;
         color: white !important;
@@ -12,14 +76,106 @@
         padding: 1.5rem 2rem !important;
         margin-bottom: 1.5rem !important;
         box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3) !important;
+        width: 100%;
+        overflow: hidden;
     }
+
+    .page-header h2 {
+        color: white;
+        font-size: 1.5rem;
+        margin-bottom: 0.25rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .page-header p {
+        opacity: 0.85;
+        color: white;
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       CARTE UTILISATEUR
+       ============================================ */
+    .user-info-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%) !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        padding: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .user-info-card .user-avatar {
+        width: 80px !important;
+        height: 80px !important;
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: white !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        flex-shrink: 0;
+    }
+
+    .user-info-card .info-label {
+        font-size: 0.75rem !important;
+        color: #64748B !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    .user-info-card .info-value {
+        font-weight: 600 !important;
+        color: #334155 !important;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       BADGES UTILISATEUR
+       ============================================ */
+    .user-badge {
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 8px !important;
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+        white-space: nowrap;
+    }
+
+    .user-badge.active {
+        background: rgba(16, 185, 129, 0.2) !important;
+        color: #059669 !important;
+    }
+
+    .user-badge.inactive {
+        background: rgba(239, 68, 68, 0.2) !important;
+        color: #DC2626 !important;
+    }
+
+    /* ============================================
+       CONTENEUR DE FORMULAIRE
+       ============================================ */
     .form-container {
         background: white !important;
         border-radius: 12px !important;
         padding: 2rem !important;
         box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08) !important;
         border: 1px solid #E2E8F0 !important;
+        width: 100%;
+        overflow: hidden;
     }
+
+    /* ============================================
+       TITRES DE SECTION
+       ============================================ */
     .section-title {
         color: #8B5CF6 !important;
         border-bottom: 2px solid #E2E8F0 !important;
@@ -27,54 +183,810 @@
         margin-bottom: 1.5rem !important;
         font-weight: 600 !important;
         font-size: 1.1rem !important;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    .form-label { font-weight: 600 !important; color: #334155 !important; margin-bottom: 0.5rem !important; }
+
+    /* ============================================
+       FORMULAIRES
+       ============================================ */
+    .form-label {
+        font-weight: 600 !important;
+        color: #334155 !important;
+        margin-bottom: 0.5rem !important;
+        display: block;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
     .form-control, .form-select {
         border: 2px solid #E2E8F0 !important;
         border-radius: 8px !important;
         padding: 0.75rem 1rem !important;
         transition: all 0.3s ease !important;
+        width: 100%;
+        max-width: 100%;
+        font-size: 16px !important; /* Prévient le zoom iOS */
     }
+
     .form-control:focus, .form-select:focus {
         border-color: #8B5CF6 !important;
         box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+        outline: none;
     }
-    .form-control:disabled, .form-control[readonly] { background-color: #F1F5F9 !important; color: #64748B !important; }
+
+    .form-control:disabled, .form-control[readonly] {
+        background-color: #F1F5F9 !important;
+        color: #64748B !important;
+    }
+
+    .required {
+        color: #EF4444 !important;
+    }
+
+    .help-text {
+        font-size: 0.875rem !important;
+        color: #64748B !important;
+        margin-top: 0.25rem !important;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .is-invalid {
+        border-color: #EF4444 !important;
+    }
+
+    .invalid-feedback {
+        color: #EF4444;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+
+    /* ============================================
+       STATISTIQUES POSTES
+       ============================================ */
+    .postes-stats {
+        display: flex !important;
+        gap: 1rem !important;
+        margin-bottom: 0.5rem !important;
+        flex-wrap: wrap;
+    }
+
+    .postes-stats .stat-item {
+        font-size: 0.8rem !important;
+        padding: 0.25rem 0.75rem !important;
+        border-radius: 6px !important;
+        background: #F1F5F9 !important;
+        white-space: nowrap;
+    }
+
+    .postes-stats .stat-item.peage {
+        border-left: 3px solid #3B82F6 !important;
+    }
+
+    .postes-stats .stat-item.pesage {
+        border-left: 3px solid #8B5CF6 !important;
+    }
+
+    /* ============================================
+       ALERTES DE FILTRAGE
+       ============================================ */
+    .filter-alert {
+        border-radius: 8px !important;
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+        display: none;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .filter-alert-pesage {
+        background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%) !important;
+        border: 1px solid #8B5CF6 !important;
+        border-left: 4px solid #8B5CF6 !important;
+    }
+
+    .filter-alert-peage {
+        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+        border: 1px solid #3B82F6 !important;
+        border-left: 4px solid #3B82F6 !important;
+    }
+
+    .filter-alert-multi {
+        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%) !important;
+        border: 1px solid #F59E0B !important;
+        border-left: 4px solid #F59E0B !important;
+    }
+
+    /* ============================================
+       ACCORDÉON PERMISSIONS
+       ============================================ */
+    .accordion {
+        width: 100%;
+    }
+
+    .accordion-item {
+        border: 1px solid #E2E8F0;
+        margin-bottom: 0.5rem;
+        border-radius: 8px !important;
+        overflow: hidden;
+    }
+
+    .accordion-button {
+        padding: 1rem;
+        font-weight: 600;
+        background: #F8FAFC;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%) !important;
+        color: #6D28D9 !important;
+    }
+
+    .accordion-body {
+        padding: 1rem;
+    }
+
+    .perm-count-badge {
+        background: #8B5CF6 !important;
+        color: white !important;
+        font-size: 0.7rem !important;
+        padding: 0.2rem 0.5rem !important;
+        border-radius: 10px !important;
+        margin-left: 0.5rem !important;
+    }
+
+    .form-check {
+        margin-bottom: 0.5rem;
+    }
+
+    .form-check-input:checked {
+        background-color: #8B5CF6 !important;
+        border-color: #8B5CF6 !important;
+    }
+
+    .form-check-label {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       CONTRÔLES PERMISSIONS
+       ============================================ */
+    .permissions-controls {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+
+    .permissions-controls .btn {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        white-space: nowrap;
+        border: none;
+        cursor: pointer;
+    }
+
     .btn-primary-gradient {
         background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
-        border: none !important; color: white !important;
-        padding: 0.75rem 2rem !important; border-radius: 8px !important; font-weight: 600 !important;
+        border: none !important;
+        color: white !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
     }
+
     .btn-primary-gradient:hover {
         background: linear-gradient(135deg, #7C3AED, #6D28D9) !important;
         transform: translateY(-2px) !important;
         box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4) !important;
     }
-    .btn-secondary { background: #64748B !important; border: none !important; padding: 0.75rem 2rem !important; border-radius: 8px !important; font-weight: 600 !important; color: white !important; }
-    .required { color: #EF4444 !important; }
-    .help-text { font-size: 0.875rem !important; color: #64748B !important; margin-top: 0.25rem !important; }
-    .user-badge { display: inline-flex !important; align-items: center !important; padding: 0.5rem 1rem !important; border-radius: 8px !important; font-size: 0.875rem !important; font-weight: 600 !important; }
-    .user-badge.active { background: rgba(16, 185, 129, 0.2) !important; color: #059669 !important; }
-    .user-badge.inactive { background: rgba(239, 68, 68, 0.2) !important; color: #DC2626 !important; }
-    .user-info-card { background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%) !important; border: 1px solid #E2E8F0 !important; border-radius: 12px !important; padding: 1.5rem !important; margin-bottom: 1.5rem !important; }
-    .user-info-card .user-avatar { width: 80px !important; height: 80px !important; border-radius: 50% !important; background: linear-gradient(135deg, #8B5CF6, #7C3AED) !important; display: flex !important; align-items: center !important; justify-content: center !important; color: white !important; font-size: 2rem !important; font-weight: 700 !important; }
-    .user-info-card .info-label { font-size: 0.75rem !important; color: #64748B !important; text-transform: uppercase !important; letter-spacing: 0.5px !important; }
-    .user-info-card .info-value { font-weight: 600 !important; color: #334155 !important; }
-    .filter-alert { border-radius: 8px !important; padding: 1rem !important; margin-bottom: 1rem !important; display: none; }
-    .filter-alert-pesage { background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%) !important; border: 1px solid #8B5CF6 !important; border-left: 4px solid #8B5CF6 !important; }
-    .filter-alert-peage { background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%) !important; border: 1px solid #3B82F6 !important; border-left: 4px solid #3B82F6 !important; }
-    .filter-alert-multi { background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%) !important; border: 1px solid #F59E0B !important; border-left: 4px solid #F59E0B !important; }
-    .postes-stats { display: flex !important; gap: 1rem !important; margin-bottom: 0.5rem !important; }
-    .postes-stats .stat-item { font-size: 0.8rem !important; padding: 0.25rem 0.75rem !important; border-radius: 6px !important; background: #F1F5F9 !important; }
-    .postes-stats .stat-item.peage { border-left: 3px solid #3B82F6 !important; }
-    .postes-stats .stat-item.pesage { border-left: 3px solid #8B5CF6 !important; }
-    .form-check-input:checked { background-color: #8B5CF6 !important; border-color: #8B5CF6 !important; }
-    .accordion-button:not(.collapsed) { background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%) !important; color: #6D28D9 !important; }
-    .perm-count-badge { background: #8B5CF6 !important; color: white !important; font-size: 0.7rem !important; padding: 0.2rem 0.5rem !important; border-radius: 10px !important; margin-left: 0.5rem !important; }
-    .permissions-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .permissions-controls .btn { font-size: 0.8rem; padding: 0.4rem 0.8rem; }
-    .alert-custom { border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.9rem; }
-    .alert-custom.warning { background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; }
+
+    .btn-secondary {
+        background: #64748B !important;
+        border: none !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        color: white !important;
+    }
+
+    .btn-light {
+        background: white;
+        color: #334155;
+        border: 1px solid #E2E8F0;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid #64748B;
+        color: #64748B;
+    }
+
+    /* ============================================
+       ALERTES
+       ============================================ */
+    .alert {
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .alert-custom {
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .alert-custom.warning {
+        background: #FEF3C7;
+        border: 1px solid #F59E0B;
+        color: #92400E;
+    }
+
+    /* ============================================
+       UTILITAIRES FLEXBOX
+       ============================================ */
+    .d-flex {
+        display: flex !important;
+    }
+
+    .flex-wrap {
+        flex-wrap: wrap !important;
+    }
+
+    .justify-content-between {
+        justify-content: space-between !important;
+    }
+
+    .justify-content-center {
+        justify-content: center !important;
+    }
+
+    .justify-content-end {
+        justify-content: flex-end !important;
+    }
+
+    .align-items-center {
+        align-items: center !important;
+    }
+
+    .gap-2 {
+        gap: 0.5rem !important;
+    }
+
+    .gap-3 {
+        gap: 1rem !important;
+    }
+
+    .g-3 {
+        gap: 1rem;
+    }
+
+    .mb-1 { margin-bottom: 0.25rem !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .me-3 { margin-right: 1rem !important; }
+    .ms-2 { margin-left: 0.5rem !important; }
+    .ms-3 { margin-left: 1rem !important; }
+    .mt-4 { margin-top: 1.5rem !important; }
+    .pt-3 { padding-top: 1rem !important; }
+
+    .border-top {
+        border-top: 1px solid #E2E8F0 !important;
+    }
+
+    .text-muted {
+        color: #64748B !important;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTE (≤ 1024px)
+       ============================================ */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            margin-bottom: 1rem;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Correction critique du défilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .col-xl-10, .col-lg-11, .col-md-6, .col-md-3, .col-auto {
+            padding-left: 8px;
+            padding-right: 8px;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* En-tête de page */
+        .page-header {
+            padding: 1.25rem 1rem !important;
+            border-radius: 10px !important;
+        }
+
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .page-header p {
+            font-size: 0.9rem;
+        }
+
+        .page-header .d-flex {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .page-header .d-flex > div:first-child {
+            width: 100%;
+        }
+
+        .page-header .d-flex .d-flex.gap-2 {
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .page-header .user-badge {
+            flex: 1;
+            justify-content: center;
+        }
+
+        .page-header .btn-light {
+            flex: 1;
+            justify-content: center;
+        }
+
+        /* Carte utilisateur */
+        .user-info-card {
+            padding: 1rem !important;
+        }
+
+        .user-info-card .row {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .user-info-card .col-auto {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .user-info-card .user-avatar {
+            width: 70px !important;
+            height: 70px !important;
+            font-size: 1.75rem !important;
+        }
+
+        .user-info-card .col .row {
+            flex-direction: column;
+        }
+
+        .user-info-card .col .row .col-md-3 {
+            text-align: center;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        .user-info-card .col .row .col-md-3:last-child {
+            border-bottom: none;
+        }
+
+        /* Formulaire */
+        .form-container {
+            padding: 1.25rem !important;
+            border-radius: 10px !important;
+        }
+
+        .section-title {
+            font-size: 1rem !important;
+        }
+
+        .form-control, .form-select {
+            padding: 0.625rem 0.875rem !important;
+        }
+
+        .help-text {
+            font-size: 0.8rem !important;
+        }
+
+        /* Permissions */
+        .permissions-controls {
+            flex-direction: column;
+        }
+
+        .permissions-controls .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .accordion-button {
+            padding: 0.875rem;
+            font-size: 0.95rem;
+        }
+
+        .accordion-body {
+            padding: 0.875rem;
+        }
+
+        .accordion-body .row .col-md-6 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .form-check-label {
+            font-size: 0.9rem;
+        }
+
+        /* Boutons d'action */
+        .d-flex.justify-content-end.gap-3 {
+            flex-direction: column;
+            gap: 0.75rem !important;
+        }
+
+        .d-flex.justify-content-end.gap-3 .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Mot de passe */
+        .col-md-6 .d-flex.gap-2 {
+            flex-direction: column;
+        }
+
+        .col-md-6 .d-flex.gap-2 .btn {
+            width: 100%;
+        }
+
+        /* Postes stats */
+        .postes-stats {
+            justify-content: center;
+        }
+
+        /* Filter alerts */
+        .filter-alert .d-flex {
+            flex-direction: column;
+            text-align: center;
+            gap: 0.5rem;
+        }
+
+        .filter-alert i {
+            margin: 0 auto 0.5rem auto !important;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .row {
+            margin-left: -6px;
+            margin-right: -6px;
+            width: calc(100% + 12px);
+        }
+
+        .col-xl-10, .col-lg-11, .col-md-6, .col-md-3, .col-auto {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .page-header {
+            padding: 1rem 0.875rem !important;
+        }
+
+        .page-header h2 {
+            font-size: 1.15rem;
+        }
+
+        .user-info-card {
+            padding: 0.875rem !important;
+        }
+
+        .user-info-card .user-avatar {
+            width: 60px !important;
+            height: 60px !important;
+            font-size: 1.5rem !important;
+        }
+
+        .form-container {
+            padding: 1rem !important;
+        }
+
+        .section-title {
+            font-size: 0.95rem !important;
+        }
+
+        .form-label {
+            font-size: 0.9rem;
+        }
+
+        .form-control, .form-select {
+            padding: 0.5rem 0.75rem !important;
+        }
+
+        .btn {
+            padding: 0.625rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary-gradient, .btn-secondary {
+            padding: 0.625rem 1.25rem !important;
+        }
+
+        .postes-stats .stat-item {
+            font-size: 0.75rem !important;
+            padding: 0.2rem 0.5rem !important;
+        }
+
+        .perm-count-badge {
+            font-size: 0.65rem !important;
+        }
+
+        .accordion-button {
+            font-size: 0.9rem;
+        }
+
+        .form-check-label {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (< 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .page-header h2 {
+            font-size: 1.1rem;
+        }
+
+        .page-header p {
+            font-size: 0.85rem;
+        }
+
+        .user-badge {
+            font-size: 0.8rem !important;
+            padding: 0.4rem 0.75rem !important;
+        }
+
+        .user-info-card .user-avatar {
+            width: 55px !important;
+            height: 55px !important;
+            font-size: 1.35rem !important;
+        }
+
+        .user-info-card .info-label {
+            font-size: 0.7rem !important;
+        }
+
+        .user-info-card .info-value {
+            font-size: 0.9rem;
+        }
+
+        .section-title {
+            font-size: 0.9rem !important;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+        }
+
+        .help-text {
+            font-size: 0.75rem !important;
+        }
+
+        .permissions-controls .btn {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.6rem;
+        }
+
+        .accordion-button {
+            font-size: 0.85rem;
+            padding: 0.75rem;
+        }
+
+        .form-check-label {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .page-header .d-flex {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .page-header .d-flex > div:first-child {
+            flex: 1;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .user-info-card .row {
+            flex-direction: row;
+            text-align: left;
+        }
+
+        .user-info-card .col-auto {
+            margin-bottom: 0;
+        }
+
+        .user-info-card .col .row {
+            flex-direction: row;
+        }
+
+        .user-info-card .col .row .col-md-3 {
+            border-bottom: none;
+            text-align: left;
+        }
+
+        .d-flex.justify-content-end.gap-3 {
+            flex-direction: row;
+        }
+
+        .d-flex.justify-content-end.gap-3 .btn {
+            width: auto;
+        }
+
+        .accordion-body .row .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="password"],
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .form-select:focus,
+    .btn:focus,
+    .accordion-button:focus,
+    .form-check-input:focus {
+        outline: 2px solid #8B5CF6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       ANIMATION
+       ============================================ */
+    .form-container,
+    .user-info-card {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -126,11 +1038,11 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="form-container">
                 <form method="post" enctype="multipart/form-data" id="form-modifier-utilisateur" novalidate>
                     {% csrf_token %}
-                    
+
                     {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
                     {% if form.non_field_errors %}{% for error in form.non_field_errors %}<div class="alert alert-danger alert-dismissible fade show"><i class="fas fa-exclamation-triangle me-2"></i>{{ error }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
 
@@ -138,10 +1050,15 @@
                     <h5 class="section-title"><i class="fas fa-id-card me-2"></i>Identification</h5>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="form-label">Matricule</label>
-                            <input type="text" class="form-control" value="{{ user_edit.username }}" readonly disabled>
-                            <div class="help-text"><i class="fas fa-lock me-1"></i>Le matricule ne peut pas être modifié</div>
-                        </div>
+                        <label for="id_username" class="form-label">Matricule <span class="required">*</span></label>
+                        <input type="text" name="username" id="id_username"
+                            class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                            value="{{ user_edit.username }}"
+                            style="text-transform: uppercase;"
+                            required>
+                        <div class="help-text"><i class="fas fa-info-circle me-1"></i>Identifiant unique de l'agent</div>
+                        {% if form.username.errors %}<div class="invalid-feedback">{{ form.username.errors.0 }}</div>{% endif %}
+                    </div>
                         <div class="col-md-6">
                             <label for="id_nom_complet" class="form-label">Nom Complet <span class="required">*</span></label>
                             <input type="text" name="nom_complet" id="id_nom_complet" class="form-control {% if form.nom_complet.errors %}is-invalid{% endif %}" value="{{ user_edit.nom_complet }}" required>
@@ -203,7 +1120,7 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <!-- Alertes de filtrage -->
                     <div id="filter-alert-pesage" class="filter-alert filter-alert-pesage">
                         <div class="d-flex align-items-center">
@@ -249,8 +1166,8 @@
                         <i class="fas fa-shield-alt me-2"></i>Permissions Granulaires
                         <span id="permissions-count" class="badge bg-info ms-2">{{ count_permissions_actives }}/{{ total_permissions }}</span>
                     </h5>
-                    
-                    
+
+
                     <!-- Contrôles des permissions -->
                     <div class="permissions-controls">
                         <button type="button" class="btn btn-outline-success btn-sm" onclick="cocherToutesPermissions()">
@@ -263,7 +1180,7 @@
                             <i class="fas fa-undo me-1"></i>Réinitialiser aux permissions du rôle
                         </button>
                     </div>
-                    
+
                     <!-- Accordéon des permissions par catégorie -->
                     <div class="accordion" id="accordionPermissions">
                         {% for cat_id, cat in permissions_categories.items %}
@@ -280,9 +1197,9 @@
                                         {% for perm in cat.permissions %}
                                         <div class="col-md-6">
                                             <div class="form-check mb-2">
-                                                <input type="checkbox" 
-                                                       class="form-check-input perm-checkbox" 
-                                                       name="{{ perm.name }}" 
+                                                <input type="checkbox"
+                                                       class="form-check-input perm-checkbox"
+                                                       name="{{ perm.name }}"
                                                        id="id_{{ perm.name }}"
                                                        data-category="{{ cat_id }}"
                                                        {% if perm.checked %}checked{% endif %}>
@@ -351,7 +1268,7 @@ function appliquerPermissionsHabilitation(habilitation) {
             checkbox.checked = false;
         }
     });
-    
+
     // Puis cocher les permissions de l'habilitation
     const permissions = PERMISSIONS_PAR_HABILITATION[habilitation];
     if (permissions) {
@@ -362,7 +1279,7 @@ function appliquerPermissionsHabilitation(habilitation) {
             }
         });
     }
-    
+
     mettreAJourCompteurs();
 }
 
@@ -394,12 +1311,12 @@ function decocherToutesPermissions() {
 function reinitialiserPermissionsDefaut() {
     const select = document.getElementById('id_habilitation');
     const habilitation = select ? select.value : '';
-    
+
     if (!habilitation) {
         alert('Veuillez d\'abord sélectionner un rôle.');
         return;
     }
-    
+
     if (confirm('Voulez-vous réinitialiser les permissions aux valeurs par défaut du rôle "' + select.options[select.selectedIndex].text + '" ?')) {
         appliquerPermissionsHabilitation(habilitation);
     }
@@ -410,7 +1327,7 @@ function reinitialiserPermissionsDefaut() {
  */
 function mettreAJourCompteurs() {
     let totalActives = 0;
-    
+
     // Compteur par catégorie
     Object.keys(CATEGORIES).forEach(catId => {
         let countCat = 0;
@@ -418,19 +1335,19 @@ function mettreAJourCompteurs() {
             const checkbox = document.getElementById('id_' + perm);
             if (checkbox && checkbox.checked) countCat++;
         });
-        
+
         const badge = document.getElementById('count-' + catId);
         if (badge) {
             badge.textContent = countCat + '/' + CATEGORIES[catId].permissions.length;
         }
         totalActives += countCat;
     });
-    
+
     // Compteur total
     const totalBadge = document.getElementById('permissions-count');
     if (totalBadge) {
         totalBadge.textContent = totalActives + '/{{ total_permissions }}';
-        
+
         // Couleur selon le pourcentage
         totalBadge.className = 'badge ms-2 ';
         if (totalActives === 0) {
@@ -461,16 +1378,16 @@ function filterPostes() {
     const alertPesage = document.getElementById('filter-alert-pesage');
     const alertPeage = document.getElementById('filter-alert-peage');
     const alertMulti = document.getElementById('filter-alert-multi');
-    
+
     // Cacher toutes les alertes
     alertPesage.style.display = 'none';
     alertPeage.style.display = 'none';
     alertMulti.style.display = 'none';
-    
+
     // Réafficher tous les optgroups
     optgroupPeage.style.display = '';
     optgroupPesage.style.display = '';
-    
+
     if (ROLES_PESAGE.includes(hab)) {
         optgroupPeage.style.display = 'none';
         alertPesage.style.display = 'block';
@@ -489,15 +1406,15 @@ function filterPostes() {
 
 document.addEventListener('DOMContentLoaded', function() {
     const habSelect = document.getElementById('id_habilitation');
-    
+
     if (habSelect) {
         // Gérer le changement d'habilitation
         habSelect.addEventListener('change', function() {
             const nouvelleHabilitation = this.value;
-            
+
             // Filtrer les postes
             filterPostes();
-            
+
             // Si l'habilitation a changé, demander confirmation avant de réinitialiser
             if (nouvelleHabilitation && nouvelleHabilitation !== HABILITATION_INITIALE) {
                 const nomRole = this.options[this.selectedIndex].text;
@@ -507,18 +1424,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Ajouter l'écouteur sur tous les checkboxes de permissions
     document.querySelectorAll('.perm-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', mettreAJourCompteurs);
     });
-    
+
     // Initialiser les compteurs
     mettreAJourCompteurs();
-    
+
     // Initialiser le filtrage des postes
     filterPostes();
-    
+
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.body.style.overflowX = 'hidden';
+            document.documentElement.style.overflowX = 'hidden';
+        }
+    }
+
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+
+    // Gestion des événements tactiles
+    document.addEventListener('touchstart', function() {}, { passive: true });
+
     console.log('SUPPER Permissions Manager (modification) initialisé');
     console.log('Habilitation initiale:', HABILITATION_INITIALE);
 });

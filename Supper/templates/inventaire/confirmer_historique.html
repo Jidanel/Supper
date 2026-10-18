@@ -1,0 +1,473 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; width: 100% !important; position: relative !important; }
+
+    .confirmation-page { width: 100%; max-width: 100%; overflow-x: hidden; position: relative; }
+    .container-fluid { width: 100%; max-width: 100%; padding-left: 15px; padding-right: 15px; margin: 0 auto; overflow-x: hidden; }
+    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+    .row { display: flex; flex-wrap: wrap; margin-left: -15px; margin-right: -15px; width: calc(100% + 30px); }
+    .justify-content-center { justify-content: center !important; }
+    .col-12, .col-md-8, .col-lg-7, .col-xl-6 { padding-left: 15px; padding-right: 15px; width: 100%; max-width: 100%; }
+
+    .breadcrumb { display: flex; flex-wrap: wrap; padding: 0.75rem 1rem; margin-bottom: 1rem; list-style: none; background-color: #f8f9fa; border-radius: 8px; }
+    .breadcrumb-item { display: flex; align-items: center; }
+    .breadcrumb-item + .breadcrumb-item::before { content: "/"; padding: 0 0.5rem; color: #6c757d; }
+    .breadcrumb-item a { color: #8b5cf6; text-decoration: none; }
+    .breadcrumb-item a:hover { text-decoration: underline; }
+    .breadcrumb-item.active { color: #6c757d; }
+
+    .confirmation-card {
+        background: white;
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .confirmation-card .card-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        padding: 1.5rem;
+        border: none;
+        text-align: center;
+    }
+
+    .confirmation-card .card-header h4 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+
+    .confirmation-card .card-header p {
+        margin: 0.75rem 0 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+
+    .confirmation-card .card-body { padding: 2rem; }
+
+    .icon-container {
+        width: 70px;
+        height: 70px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+    }
+
+    .icon-container i { font-size: 1.75rem; color: white; }
+
+    .summary-section {
+        background: #f9fafb;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .summary-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6b7280;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .summary-row:last-child { border-bottom: none; }
+
+    .summary-label {
+        font-weight: 500;
+        color: #6b7280;
+        font-size: 0.9rem;
+        flex: 0 0 40%;
+    }
+
+    .summary-value {
+        font-weight: 600;
+        color: #374151;
+        text-align: right;
+        flex: 1;
+        word-break: break-word;
+    }
+
+    .summary-value.highlight {
+        color: #059669;
+        font-size: 1.1rem;
+    }
+
+    .summary-value.amount {
+        font-family: 'Courier New', monospace;
+        font-size: 1.05rem;
+    }
+
+    .poste-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4338ca;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .mois-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .image-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    .image-indicator.has-image { background: #d1fae5; color: #065f46; }
+    .image-indicator.no-image { background: #f3f4f6; color: #6b7280; }
+
+    .observations-box {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+        color: #92400e;
+    }
+
+    .observations-box .label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .alert-confirmation {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #f59e0b;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        color: #92400e;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+
+    .alert-confirmation i { margin-right: 0.5rem; }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.875rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        cursor: pointer;
+        border: 2px solid transparent;
+        min-height: 48px;
+        white-space: nowrap;
+    }
+
+    .btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4); color: white; }
+
+    .btn-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
+    .btn-warning:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4); color: white; }
+
+    .btn-outline-danger { background: transparent; border-color: #ef4444; color: #ef4444; }
+    .btn-outline-danger:hover { background: #ef4444; color: white; }
+
+    .btn-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+
+    .btn-actions-row { display: flex; gap: 0.75rem; }
+    .btn-actions-row .btn { flex: 1; }
+
+    .text-muted { color: #6b7280 !important; }
+    .text-success { color: #059669 !important; }
+    .fw-bold { font-weight: 600 !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+
+    @media (min-width: 1024px) {
+        .container-fluid { max-width: 1400px; }
+        .col-lg-7 { flex: 0 0 58.333333%; max-width: 58.333333%; }
+        .col-xl-6 { flex: 0 0 50%; max-width: 50%; }
+        .confirmation-card .card-body { padding: 2.5rem; }
+        .btn-actions { flex-direction: row; }
+        .btn-actions-row { flex: 2; }
+        .btn-actions > .btn-outline-danger { flex: 1; }
+    }
+
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .container-fluid { max-width: 95%; }
+        .col-md-8 { flex: 0 0 75%; max-width: 75%; margin: 0 auto; }
+    }
+
+    @media (max-width: 767px) {
+        html, body { overflow-x: hidden !important; width: 100% !important; max-width: 100vw !important; margin: 0 !important; padding: 0 !important; }
+        .main-content { overflow-x: hidden !important; width: 100% !important; max-width: 100vw !important; }
+        .content-wrapper { min-width: 100% !important; width: 100% !important; max-width: 100vw !important; padding: 0.75rem !important; overflow-x: hidden !important; }
+        .container-fluid { padding-left: 10px; padding-right: 10px; width: 100% !important; max-width: 100vw !important; }
+        .py-4 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+        .row { margin-left: -10px; margin-right: -10px; width: calc(100% + 20px); }
+        .col-12, .col-md-8, .col-lg-7, .col-xl-6 { padding-left: 10px; padding-right: 10px; flex: 0 0 100%; max-width: 100%; }
+        
+        .breadcrumb { padding: 0.625rem 0.875rem; font-size: 0.85rem; }
+        
+        .confirmation-card { border-radius: 12px; }
+        .confirmation-card .card-header { padding: 1.25rem; }
+        .confirmation-card .card-header h4 { font-size: 1.15rem; }
+        .confirmation-card .card-header p { font-size: 0.85rem; }
+        .confirmation-card .card-body { padding: 1.25rem; }
+        
+        .icon-container { width: 56px; height: 56px; }
+        .icon-container i { font-size: 1.5rem; }
+        
+        .summary-section { padding: 1rem; }
+        .summary-title { font-size: 0.8rem; }
+        .summary-row { flex-direction: column; gap: 0.25rem; padding: 0.625rem 0; }
+        .summary-label { flex: none; font-size: 0.85rem; }
+        .summary-value { text-align: left; font-size: 0.95rem; }
+        .summary-value.amount { font-size: 1rem; }
+        
+        .poste-badge, .mois-badge, .image-indicator { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
+        
+        .observations-box { padding: 0.875rem; font-size: 0.85rem; }
+        
+        .alert-confirmation { padding: 0.875rem; font-size: 0.85rem; }
+        
+        .btn { padding: 0.875rem 1rem; font-size: 0.95rem; }
+        .btn-actions { flex-direction: column; }
+        .btn-actions-row { flex-direction: column; }
+        .btn-actions-row .btn { width: 100%; }
+    }
+
+    @media (max-width: 576px) {
+        .content-wrapper { padding: 0.5rem !important; }
+        .container-fluid { padding-left: 8px; padding-right: 8px; }
+        .row { margin-left: -8px; margin-right: -8px; width: calc(100% + 16px); }
+        .col-12 { padding-left: 8px; padding-right: 8px; }
+        
+        .confirmation-card .card-header { padding: 1rem; }
+        .confirmation-card .card-header h4 { font-size: 1.05rem; }
+        .confirmation-card .card-body { padding: 1rem; }
+        
+        .summary-section { padding: 0.875rem; }
+        .btn { padding: 0.75rem; font-size: 0.9rem; }
+    }
+
+    @media (max-width: 375px) {
+        .confirmation-card .card-header h4 { font-size: 1rem; }
+        .icon-container { width: 48px; height: 48px; }
+        .icon-container i { font-size: 1.25rem; }
+        .summary-value.highlight { font-size: 1rem; }
+    }
+
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-lg-7, .col-xl-6 { flex: 0 0 65%; max-width: 65%; margin: 0 auto; }
+        .summary-row { flex-direction: row; }
+        .summary-value { text-align: right; }
+        .btn-actions { flex-direction: row; }
+        .btn-actions-row { flex-direction: row; flex: 2; }
+    }
+
+    @media (max-width: 768px) {
+        input, select, textarea, button { font-size: 16px !important; }
+    }
+
+    .btn:focus { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+
+    @media print {
+        .btn, .breadcrumb, .btn-actions { display: none !important; }
+        .confirmation-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+        .confirmation-card .card-header { background: #f3f4f6 !important; color: #1f2937 !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="confirmation-page">
+    <div class="container-fluid py-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-8 col-lg-7 col-xl-6">
+                
+                <!-- Breadcrumb -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'common:dashboard' %}"><i class="fas fa-home me-1"></i> {% trans "Accueil" %}</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'inventaire:liste_historiques' %}">{% trans "Historiques" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{% trans "Confirmation" %}</li>
+                    </ol>
+                </nav>
+                
+                <!-- Carte de confirmation -->
+                <div class="confirmation-card">
+                    <div class="card-header">
+                        <div class="icon-container">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h4>
+                            <i class="fas fa-clipboard-check"></i>
+                            {{ title }}
+                        </h4>
+                        <p>{% trans "Veuillez vérifier les informations avant de confirmer" %}</p>
+                    </div>
+                    
+                    <div class="card-body">
+                        <!-- Alerte de confirmation -->
+                        <div class="alert-confirmation">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>{% trans "Attention" %} :</strong> 
+                            {% trans "Une fois confirmé, cet historique ne pourra être modifié que par un administrateur." %}
+                        </div>
+                        
+                        <!-- Résumé des données -->
+                        <div class="summary-section">
+                            <div class="summary-title">
+                                <i class="fas fa-file-alt"></i>
+                                {% trans "Récapitulatif" %}
+                            </div>
+                            
+                            <div class="summary-row">
+                                <div class="summary-label">{% trans "Poste" %}</div>
+                                <div class="summary-value">
+                                    <span class="poste-badge">
+                                        <i class="fas fa-road"></i>
+                                        {{ poste.nom }} ({{ poste.code }})
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="summary-row">
+                                <div class="summary-label">{% trans "Mois concerné" %}</div>
+                                <div class="summary-value">
+                                    <span class="mois-badge">
+                                        <i class="fas fa-calendar"></i>
+                                        {{ mois_display }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="summary-row">
+                                <div class="summary-label">{% trans "Montant global" %}</div>
+                                <div class="summary-value amount">{{ montant_global_display }} FCFA</div>
+                            </div>
+                            
+                            <div class="summary-row">
+                                <div class="summary-label">{% trans "Montant réel (CSP)" %}</div>
+                                <div class="summary-value amount highlight">{{ montant_reel_display }} FCFA</div>
+                            </div>
+                            
+                            <div class="summary-row">
+                                <div class="summary-label">{% trans "Image jointe" %}</div>
+                                <div class="summary-value">
+                                    {% if has_image %}
+                                    <span class="image-indicator has-image"><i class="fas fa-check"></i>{% trans "Oui" %}</span>
+                                    {% else %}
+                                    <span class="image-indicator no-image"><i class="fas fa-times"></i>{% trans "Non" %}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Observations -->
+                        {% if observations %}
+                        <div class="observations-box">
+                            <span class="label"><i class="fas fa-comment-alt me-1"></i>{% trans "Observations" %} :</span>
+                            {{ observations }}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Formulaire avec boutons -->
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <div class="btn-actions">
+                                <div class="btn-actions-row">
+                                    <button type="submit" name="action" value="confirmer" class="btn btn-success">
+                                        <i class="fas fa-check"></i>{% trans "Confirmer" %}
+                                    </button>
+                                    <button type="submit" name="action" value="modifier" class="btn btn-warning">
+                                        <i class="fas fa-edit"></i>{% trans "Modifier" %}
+                                    </button>
+                                </div>
+                                <button type="submit" name="action" value="annuler" class="btn btn-outline-danger">
+                                    <i class="fas fa-times"></i>{% trans "Annuler" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+        }
+    }
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    document.addEventListener('touchstart', function() {}, {passive: true});
+});
+</script>
+{% endblock %}

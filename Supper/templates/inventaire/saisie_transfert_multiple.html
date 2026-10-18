@@ -1,0 +1,1303 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}Transfert Multiple - {{ poste_origine.nom }} → {{ poste_destination.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       TYPOGRAPHIE RESPONSIVE
+       ============================================ */
+    h2 {
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+        color: #1e293b;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        text-align: center;
+    }
+
+    h2 i {
+        color: #667eea;
+    }
+
+    /* ============================================
+       EN-TÊTE DES POSTES RESPONSIVE
+       ============================================ */
+    .postes-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .poste-box {
+        flex: 1;
+        min-width: 180px;
+        max-width: 280px;
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+        box-sizing: border-box;
+    }
+
+    .poste-box.origine {
+        background: #fef2f2;
+        border: 2px solid #fca5a5;
+    }
+
+    .poste-box.destination {
+        background: #f0fdf4;
+        border: 2px solid #86efac;
+    }
+
+    .poste-box .icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .poste-box.origine .icon {
+        color: #ef4444;
+    }
+
+    .poste-box.destination .icon {
+        color: #10b981;
+    }
+
+    .poste-box .name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #1e293b;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .poste-box .stock {
+        font-size: 0.9rem;
+        color: #64748b;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .arrow-icon {
+        font-size: 2rem;
+        color: #667eea;
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       CARTES RESPONSIVES
+       ============================================ */
+    .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        background: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: white;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+
+    .card-header.bg-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ============================================
+       STOCK DISPONIBLE - CONTENEUR SCROLLABLE
+       ============================================ */
+    .stock-disponible {
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+
+    .couleur-groupe {
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .couleur-titre {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 8px 8px 0 0;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .couleur-contenu {
+        background: #f8fafc;
+        border: 2px solid #e5e7eb;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 0.75rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .serie-disponible {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .serie-disponible:hover {
+        border-color: #667eea;
+        background: #f0f4ff;
+        transform: translateX(3px);
+    }
+
+    .serie-disponible.selected {
+        border-color: #10b981;
+        background: #ecfdf5;
+    }
+
+    .serie-disponible .numeros {
+        font-weight: 600;
+        color: #1e293b;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        font-size: 0.9rem;
+    }
+
+    .serie-disponible .badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .badge.tickets {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+
+    .badge.montant {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    /* ============================================
+       FORMSET - SÉRIES SÉLECTIONNÉES
+       ============================================ */
+    .formset-container {
+        width: 100%;
+    }
+
+    .formset-row {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .formset-row:hover {
+        border-color: #667eea;
+    }
+
+    .formset-row.to-delete {
+        opacity: 0.5;
+        background: #fee2e2;
+        border-color: #fca5a5;
+    }
+
+    .formset-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .formset-header h6 {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #667eea;
+    }
+
+    /* ============================================
+       GRILLE RESPONSIVE
+       ============================================ */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0 -10px;
+        width: calc(100% + 20px);
+    }
+
+    .row > div {
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    .col-12 { 
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    .col-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    /* ============================================
+       CHAMPS DE FORMULAIRE
+       ============================================ */
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.85rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.625rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s;
+        box-sizing: border-box;
+        max-width: 100%;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-control.form-calculated {
+        background-color: #f3f4f6;
+        font-weight: 600;
+    }
+
+    /* ============================================
+       MONTANT TOTAL
+       ============================================ */
+    .montant-total-card {
+        border: 3px solid #667eea;
+        background: linear-gradient(to bottom, #eef2ff, white);
+    }
+
+    .montant-total-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .tickets-total-display {
+        font-size: 1.25rem;
+        color: #4f46e5;
+    }
+
+    /* ============================================
+       BOUTONS RESPONSIVES
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+
+    .btn-lg {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        color: white;
+    }
+
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-danger:hover {
+        background: #dc2626;
+        color: white;
+    }
+
+    .btn-add {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .buttons-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 1.5rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       LAYOUT 2 COLONNES
+       ============================================ */
+    .two-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       ALERTES
+       ============================================ */
+    .alert {
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+    }
+
+    .alert-warning {
+        background-color: #fef3c7;
+        border: 1px solid #f59e0b;
+        color: #92400e;
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTE (≥ 768px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .col-md-3 { 
+            flex: 0 0 25%; 
+            max-width: 25%; 
+        }
+        
+        .col-md-2 { 
+            flex: 0 0 16.666%; 
+            max-width: 16.666%; 
+        }
+        
+        .col-md-6 { 
+            flex: 0 0 50%; 
+            max-width: 50%; 
+        }
+
+        .buttons-container {
+            flex-direction: row;
+        }
+
+        .btn {
+            width: auto;
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - TABLETTE LARGE (≤ 991px)
+       ============================================ */
+    @media (max-width: 991px) {
+        .two-columns {
+            grid-template-columns: 1fr;
+        }
+
+        .postes-header {
+            flex-direction: column;
+        }
+
+        .poste-box {
+            max-width: 100%;
+            min-width: 100%;
+        }
+
+        .arrow-icon {
+            transform: rotate(90deg);
+        }
+    }
+
+    /* ============================================
+       MEDIA QUERIES - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION CRITIQUE : Empêcher le défilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 1rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        h2 {
+            font-size: 1.35rem;
+        }
+
+        .postes-header {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .poste-box {
+            max-width: 100%;
+            min-width: 100%;
+            padding: 0.875rem;
+        }
+
+        .poste-box .icon {
+            font-size: 1.5rem;
+        }
+
+        .poste-box .name {
+            font-size: 1rem;
+        }
+
+        .arrow-icon {
+            font-size: 1.5rem;
+            transform: rotate(90deg);
+        }
+
+        .card-header {
+            padding: 0.875rem 1rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .stock-disponible {
+            max-height: 300px;
+        }
+
+        .couleur-titre {
+            font-size: 0.9rem;
+            padding: 0.625rem 0.875rem;
+        }
+
+        .couleur-contenu {
+            padding: 0.5rem;
+        }
+
+        .serie-disponible {
+            padding: 0.625rem;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .serie-disponible .numeros {
+            font-size: 0.85rem;
+        }
+
+        .serie-disponible .badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+
+        .formset-row {
+            padding: 0.875rem;
+        }
+
+        .formset-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .row {
+            margin: 0 -8px;
+            width: calc(100% + 16px);
+        }
+
+        .row > div {
+            padding: 0 8px;
+            margin-bottom: 0.75rem;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .col-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .form-control {
+            font-size: 16px !important; /* Empêche le zoom iOS */
+            padding: 0.5rem;
+        }
+
+        .montant-total-display {
+            font-size: 1.5rem;
+        }
+
+        .tickets-total-display {
+            font-size: 1rem;
+        }
+
+        .buttons-container {
+            flex-direction: column;
+        }
+
+        .buttons-container .btn {
+            width: 100%;
+        }
+
+        .btn-lg {
+            padding: 0.875rem 1.5rem;
+            font-size: 1rem;
+        }
+
+        .btn-add {
+            width: 100%;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        .row {
+            margin: 0 -6px;
+            width: calc(100% + 12px);
+        }
+
+        .row > div {
+            padding: 0 6px;
+        }
+
+        .poste-box {
+            padding: 0.75rem;
+        }
+
+        .formset-row {
+            padding: 0.75rem;
+        }
+
+        .formset-header h6 {
+            font-size: 0.9rem;
+        }
+
+        .form-label {
+            font-size: 0.8rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        h2 {
+            font-size: 1.15rem;
+        }
+
+        .poste-box .name {
+            font-size: 0.9rem;
+        }
+
+        .poste-box .stock {
+            font-size: 0.8rem;
+        }
+
+        .couleur-titre {
+            font-size: 0.85rem;
+        }
+
+        .serie-disponible .numeros {
+            font-size: 0.8rem;
+        }
+
+        .montant-total-display {
+            font-size: 1.25rem;
+        }
+
+        .btn {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .postes-header {
+            flex-direction: row;
+        }
+
+        .poste-box {
+            max-width: 200px;
+            min-width: 150px;
+        }
+
+        .arrow-icon {
+            transform: none;
+        }
+
+        .row > div {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .buttons-container {
+            flex-direction: row;
+        }
+
+        .buttons-container .btn {
+            width: auto;
+            flex: 1;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .btn:focus,
+    .serie-disponible:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE MOBILE
+       ============================================ */
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    }
+
+    /* Scrollbar pour stock disponible */
+    .stock-disponible::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .stock-disponible::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 3px;
+    }
+
+    .stock-disponible::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+    .stock-disponible::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2><i class="fas fa-exchange-alt"></i> Transfert Multiple de Séries</h2>
+    
+    <!-- En-tête des postes -->
+    <div class="postes-header">
+        <div class="poste-box origine">
+            <div class="icon"><i class="fas fa-building"></i></div>
+            <div class="name">{{ poste_origine.nom }}</div>
+            <div class="stock">
+                Stock: {{ stock_origine.valeur_monetaire|floatformat:0|format_milliers }} FCFA
+            </div>
+        </div>
+        
+        <i class="fas fa-arrow-right arrow-icon"></i>
+        
+        <div class="poste-box destination">
+            <div class="icon"><i class="fas fa-building"></i></div>
+            <div class="name">{{ poste_destination.nom }}</div>
+        </div>
+    </div>
+    
+    <div class="two-columns">
+        <!-- Colonne gauche: Stock disponible -->
+        <div>
+            <div class="card">
+                <div class="card-header bg-success">
+                    <h5><i class="fas fa-boxes me-2"></i>Stock Disponible</h5>
+                </div>
+                <div class="card-body stock-disponible">
+                    {% if series_par_couleur %}
+                        {% for couleur_code, groupe in series_par_couleur.items %}
+                        <div class="couleur-groupe" data-couleur-id="{{ groupe.couleur.id }}">
+                            <div class="couleur-titre">
+                                <span>{{ groupe.couleur.libelle_affichage }}</span>
+                                <span>{{ groupe.total_tickets }} tickets</span>
+                            </div>
+                            <div class="couleur-contenu">
+                                {% for serie in groupe.series %}
+                                <div class="serie-disponible" 
+                                     data-serie-id="{{ serie.id }}"
+                                     data-couleur-id="{{ groupe.couleur.id }}"
+                                     data-couleur-nom="{{ groupe.couleur.libelle_affichage }}"
+                                     data-premier="{{ serie.numero_premier }}"
+                                     data-dernier="{{ serie.numero_dernier }}"
+                                     data-tickets="{{ serie.nombre_tickets }}"
+                                     data-montant="{{ serie.valeur_monetaire }}"
+                                     onclick="ajouterSerie(this)"
+                                     tabindex="0"
+                                     role="button"
+                                     aria-label="Sélectionner série {{ serie.numero_premier }} à {{ serie.numero_dernier }}">
+                                    <span class="numeros">
+                                        <i class="fas fa-hashtag text-primary me-1"></i>
+                                        {{ serie.numero_premier|format_milliers }} → {{ serie.numero_dernier|format_milliers }}
+                                    </span>
+                                    <div>
+                                        <span class="badge tickets">{{ serie.nombre_tickets }} tickets</span>
+                                        <span class="badge montant">{{ serie.valeur_monetaire|floatformat:0|format_milliers }} F</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Aucune série en stock
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Colonne droite: Formulaire -->
+        <div>
+            <form method="post" id="formTransfertMultiple">
+                {% csrf_token %}
+                
+                <!-- Séries sélectionnées -->
+                <div class="card">
+                    <div class="card-header bg-primary">
+                        <h5><i class="fas fa-check-double me-2"></i>Séries à Transférer</h5>
+                    </div>
+                    <div class="card-body">
+                        {{ formset.management_form }}
+                        
+                        <div id="formset-container" class="formset-container">
+                            {% for form in formset %}
+                            <div class="formset-row" data-index="{{ forloop.counter0 }}">
+                                <div class="formset-header">
+                                    <h6><i class="fas fa-ticket-alt me-1"></i>Série #<span class="serie-num">{{ forloop.counter }}</span></h6>
+                                    {% if not forloop.first %}
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="supprimerLigne(this)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="row">
+                                    <!-- Couleur (display) -->
+                                    <div class="col-12 col-md-3 mb-2">
+                                        <label class="form-label">Couleur</label>
+                                        <input type="hidden" name="series-{{ forloop.counter0 }}-couleur_id" class="couleur-id">
+                                        <input type="text" class="form-control couleur-display" readonly placeholder="Cliquez sur une série">
+                                    </div>
+                                    
+                                    <!-- Premier n° -->
+                                    <div class="col-6 col-md-2 mb-2">
+                                        <label class="form-label">Premier n°</label>
+                                        <input type="number" name="series-{{ forloop.counter0 }}-numero_premier" 
+                                               class="form-control numero-premier" min="1" placeholder="1">
+                                    </div>
+                                    
+                                    <!-- Dernier n° -->
+                                    <div class="col-6 col-md-2 mb-2">
+                                        <label class="form-label">Dernier n°</label>
+                                        <input type="number" name="series-{{ forloop.counter0 }}-numero_dernier" 
+                                               class="form-control numero-dernier" min="1" placeholder="5000">
+                                    </div>
+                                    
+                                    <!-- Tickets (calculé) -->
+                                    <div class="col-6 col-md-2 mb-2">
+                                        <label class="form-label">Tickets</label>
+                                        <input type="text" class="form-control form-calculated tickets-calc" readonly placeholder="-">
+                                    </div>
+                                    
+                                    <!-- Montant (calculé) -->
+                                    <div class="col-6 col-md-3 mb-2">
+                                        <label class="form-label">Montant</label>
+                                        <input type="text" class="form-control form-calculated montant-calc" readonly placeholder="-">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-add" onclick="ajouterLigne()">
+                                <i class="fas fa-plus me-2"></i>Ajouter une ligne
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Montant total -->
+                <div class="card montant-total-card">
+                    <div class="card-body text-center">
+                        <label class="form-label">Montant Total à Transférer</label>
+                        <div class="montant-total-display" id="montantTotalDisplay">0 FCFA</div>
+                        <div class="tickets-total-display" id="ticketsTotalDisplay">0 tickets</div>
+                    </div>
+                </div>
+                
+                <!-- Commentaire -->
+                <div class="card">
+                    <div class="card-body">
+                        <label class="form-label">Commentaire (optionnel)</label>
+                        <textarea name="commentaire" class="form-control" rows="2" 
+                                  placeholder="Observations sur ce transfert..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- Boutons -->
+                <div class="buttons-container">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-check me-2"></i>Valider et Continuer
+                    </button>
+                    <a href="{% url 'inventaire:selection_postes_transfert_tickets' %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let formsetIndex = {{ formset.total_form_count }};
+    
+    // ===================================================================
+    // AJOUTER UNE SÉRIE DEPUIS LE STOCK
+    // ===================================================================
+    window.ajouterSerie = function(element) {
+        const couleurId = element.dataset.couleurId;
+        const couleurNom = element.dataset.couleurNom;
+        const premier = element.dataset.premier;
+        const dernier = element.dataset.dernier;
+        
+        // Trouver une ligne vide ou en créer une
+        let ligneVide = null;
+        document.querySelectorAll('.formset-row:not(.to-delete)').forEach(row => {
+            const couleurInput = row.querySelector('.couleur-id');
+            if (!couleurInput.value && !ligneVide) {
+                ligneVide = row;
+            }
+        });
+        
+        if (!ligneVide) {
+            // Créer une nouvelle ligne
+            ajouterLigne();
+            ligneVide = document.querySelector('.formset-row:last-child');
+        }
+        
+        // Remplir la ligne
+        ligneVide.querySelector('.couleur-id').value = couleurId;
+        ligneVide.querySelector('.couleur-display').value = couleurNom;
+        ligneVide.querySelector('.numero-premier').value = premier;
+        ligneVide.querySelector('.numero-dernier').value = dernier;
+        
+        // Marquer comme sélectionné
+        element.classList.add('selected');
+        
+        // Recalculer
+        calculerLigne(ligneVide);
+        calculerTotal();
+    };
+    
+    // ===================================================================
+    // AJOUTER UNE LIGNE VIDE
+    // ===================================================================
+    window.ajouterLigne = function() {
+        const container = document.getElementById('formset-container');
+        const totalForms = document.getElementById('id_series-TOTAL_FORMS');
+        
+        const newRow = document.createElement('div');
+        newRow.className = 'formset-row';
+        newRow.dataset.index = formsetIndex;
+        
+        newRow.innerHTML = `
+            <div class="formset-header">
+                <h6><i class="fas fa-ticket-alt me-1"></i>Série #<span class="serie-num">${formsetIndex + 1}</span></h6>
+                <button type="button" class="btn btn-danger btn-sm" onclick="supprimerLigne(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="row">
+                <div class="col-12 col-md-3 mb-2">
+                    <label class="form-label">Couleur</label>
+                    <input type="hidden" name="series-${formsetIndex}-couleur_id" class="couleur-id">
+                    <input type="text" class="form-control couleur-display" readonly placeholder="Cliquez sur une série">
+                </div>
+                
+                <div class="col-6 col-md-2 mb-2">
+                    <label class="form-label">Premier n°</label>
+                    <input type="number" name="series-${formsetIndex}-numero_premier" 
+                           class="form-control numero-premier" min="1" placeholder="1">
+                </div>
+                
+                <div class="col-6 col-md-2 mb-2">
+                    <label class="form-label">Dernier n°</label>
+                    <input type="number" name="series-${formsetIndex}-numero_dernier" 
+                           class="form-control numero-dernier" min="1" placeholder="5000">
+                </div>
+                
+                <div class="col-6 col-md-2 mb-2">
+                    <label class="form-label">Tickets</label>
+                    <input type="text" class="form-control form-calculated tickets-calc" readonly placeholder="-">
+                </div>
+                
+                <div class="col-6 col-md-3 mb-2">
+                    <label class="form-label">Montant</label>
+                    <input type="text" class="form-control form-calculated montant-calc" readonly placeholder="-">
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(newRow);
+        
+        // Ajouter les écouteurs
+        newRow.querySelectorAll('.numero-premier, .numero-dernier').forEach(input => {
+            input.addEventListener('input', function() {
+                calculerLigne(newRow);
+                calculerTotal();
+            });
+        });
+        
+        formsetIndex++;
+        totalForms.value = formsetIndex;
+    };
+    
+    // ===================================================================
+    // SUPPRIMER UNE LIGNE
+    // ===================================================================
+    window.supprimerLigne = function(btn) {
+        const row = btn.closest('.formset-row');
+        const visibleRows = document.querySelectorAll('.formset-row:not(.to-delete)');
+        
+        if (visibleRows.length <= 1) {
+            alert('Vous devez garder au moins une ligne.');
+            return;
+        }
+        
+        row.remove();
+        calculerTotal();
+        renumeroteSeriesNumeros();
+    };
+    
+    // ===================================================================
+    // RENUMEROTER LES NUMÉROS DE SÉRIE
+    // ===================================================================
+    function renumeroteSeriesNumeros() {
+        document.querySelectorAll('.formset-row:not(.to-delete)').forEach((row, idx) => {
+            const numSpan = row.querySelector('.serie-num');
+            if (numSpan) {
+                numSpan.textContent = idx + 1;
+            }
+        });
+    }
+    
+    // ===================================================================
+    // CALCULER UNE LIGNE
+    // ===================================================================
+    function calculerLigne(row) {
+        const premier = parseInt(row.querySelector('.numero-premier').value) || 0;
+        const dernier = parseInt(row.querySelector('.numero-dernier').value) || 0;
+        const ticketsCalc = row.querySelector('.tickets-calc');
+        const montantCalc = row.querySelector('.montant-calc');
+        
+        if (premier > 0 && dernier >= premier) {
+            const tickets = dernier - premier + 1;
+            const montant = tickets * 500;
+            
+            ticketsCalc.value = tickets.toLocaleString('fr-FR');
+            montantCalc.value = montant.toLocaleString('fr-FR') + ' F';
+        } else {
+            ticketsCalc.value = '-';
+            montantCalc.value = '-';
+        }
+    }
+    
+    // ===================================================================
+    // CALCULER LE TOTAL
+    // ===================================================================
+    function calculerTotal() {
+        let totalTickets = 0;
+        let totalMontant = 0;
+        
+        document.querySelectorAll('.formset-row:not(.to-delete)').forEach(row => {
+            const premier = parseInt(row.querySelector('.numero-premier').value) || 0;
+            const dernier = parseInt(row.querySelector('.numero-dernier').value) || 0;
+            
+            if (premier > 0 && dernier >= premier) {
+                const tickets = dernier - premier + 1;
+                totalTickets += tickets;
+                totalMontant += tickets * 500;
+            }
+        });
+        
+        document.getElementById('montantTotalDisplay').textContent = 
+            totalMontant.toLocaleString('fr-FR') + ' FCFA';
+        document.getElementById('ticketsTotalDisplay').textContent = 
+            totalTickets.toLocaleString('fr-FR') + ' tickets';
+    }
+    
+    // ===================================================================
+    // INITIALISATION
+    // ===================================================================
+    document.querySelectorAll('.numero-premier, .numero-dernier').forEach(input => {
+        input.addEventListener('input', function() {
+            const row = this.closest('.formset-row');
+            calculerLigne(row);
+            calculerTotal();
+        });
+    });
+    
+    // Support clavier pour les séries disponibles
+    document.querySelectorAll('.serie-disponible').forEach(serie => {
+        serie.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                ajouterSerie(this);
+            }
+        });
+    });
+    
+    // ===================================================================
+    // VALIDATION
+    // ===================================================================
+    document.getElementById('formTransfertMultiple').addEventListener('submit', function(e) {
+        const rows = document.querySelectorAll('.formset-row:not(.to-delete)');
+        let hasValidSerie = false;
+        let errors = [];
+        
+        rows.forEach((row, idx) => {
+            const couleurId = row.querySelector('.couleur-id').value;
+            const premier = parseInt(row.querySelector('.numero-premier').value) || 0;
+            const dernier = parseInt(row.querySelector('.numero-dernier').value) || 0;
+            
+            if (couleurId && premier > 0 && dernier > 0) {
+                if (premier > dernier) {
+                    errors.push(`Série ${idx + 1}: Premier n° doit être ≤ dernier n°`);
+                } else {
+                    hasValidSerie = true;
+                }
+            } else if (couleurId || premier > 0 || dernier > 0) {
+                errors.push(`Série ${idx + 1}: Veuillez compléter tous les champs`);
+            }
+        });
+        
+        if (!hasValidSerie) {
+            e.preventDefault();
+            alert('Veuillez sélectionner au moins une série à transférer.');
+            return false;
+        }
+        
+        if (errors.length > 0) {
+            e.preventDefault();
+            alert('Erreurs:\n' + errors.join('\n'));
+            return false;
+        }
+    });
+    
+    // ===================================================================
+    // CORRECTION DÉFILEMENT HORIZONTAL MOBILE
+    // ===================================================================
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 767) {
+            document.body.style.overflowX = 'hidden';
+            document.documentElement.style.overflowX = 'hidden';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+});
+</script>
+{% endblock %}

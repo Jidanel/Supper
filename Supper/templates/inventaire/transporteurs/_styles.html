@@ -1,0 +1,66 @@
+{# templates/inventaire/transporteurs/_styles.html #}
+{# Styles communs du module transporteurs (inclus dans le bloc extra_css de chaque page) #}
+<style>
+/* ===== Jetons de design : mêmes couleurs que la page des statistiques prolifiques ===== */
+.tr { --ink:#0F172A; --muted:#64748B; --line:#E2E8F0; --blue:#2563EB; --blue-soft:#EFF6FF;
+      --amber:#F59E0B; --amber-soft:#FEF3C7; --red:#DC2626; --green:#16A34A;
+      color:var(--ink); font-variant-numeric:tabular-nums; }          /* chiffres alignés */
+.tr h1 { font-size:1.5rem; font-weight:700; margin:0 0 .25rem; }       /* titre de page */
+.tr .tr-sub { color:var(--muted); margin:0 0 1.25rem; }               /* sous-titre */
+.tr-panel { background:#fff; border:1px solid var(--line); border-radius:10px; margin-bottom:1.25rem; }
+.tr-head { padding:.8rem 1.1rem; border-bottom:1px solid var(--line); font-weight:600;
+           display:flex; justify-content:space-between; align-items:center; gap:.75rem; flex-wrap:wrap; }
+.tr-body { padding:1.1rem; }
+.tr-grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); align-items:end; }
+.tr label.tr-lbl { display:block; font-weight:600; font-size:.88rem; margin-bottom:.35rem; }
+.tr .tr-btn { background:var(--blue); color:#fff; border:0; border-radius:8px; padding:.55rem 1.2rem; font-weight:600; }
+.tr .tr-btn:hover { background:#1D4ED8; color:#fff; }
+.tr .tr-btn-ghost { background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:.55rem 1.1rem; }
+.tr .tr-btn-danger { background:var(--red); color:#fff; border:0; border-radius:8px; padding:.55rem 1.1rem; }
+/* ===== Tableaux ===== */
+.tr-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+.tr-table th { text-align:left; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em;
+               color:var(--muted); padding:.55rem .7rem; border-bottom:1px solid var(--line); white-space:nowrap; }
+.tr-table td { padding:.55rem .7rem; border-bottom:1px solid var(--line); }
+.tr-table .num { text-align:right; }                                   /* colonnes numériques à droite */
+.tr-table tfoot td { font-weight:700; background:#F8FAFC; }            /* ligne TOTAL */
+.tr-scroll { overflow-x:auto; }                                        /* défilement horizontal mobile */
+.tr-bar { height:6px; background:var(--blue-soft); border-radius:3px; min-width:60px; }
+.tr-bar > i { display:block; height:100%; background:var(--blue); border-radius:3px; }
+/* ===== Onglets (couleurs explicites : le thème SUPPER rend les liens Bootstrap blancs) ===== */
+.tr-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1rem; }
+.tr-tabs a { color:#0F172A !important; background:#fff; border:1px solid #CBD5E1; border-radius:8px; padding:.5rem 1.1rem; text-decoration:none; font-weight:600; }
+.tr-tabs a:hover { border-color:#2563EB; color:#2563EB !important; }
+.tr-tabs a.actif { background:#2563EB; border-color:#2563EB; color:#fff !important; }
+/* ===== Boutons radio « pilules » (types de véhicules) ===== */
+.tr-seg { display:flex; flex-wrap:wrap; gap:.35rem; }
+.tr-seg label { position:relative; margin:0; cursor:pointer; }
+.tr-seg input { position:absolute; opacity:0; inset:0; cursor:pointer; }
+.tr-seg span { display:block; padding:.4rem .75rem; border:1px solid var(--line); border-radius:999px; font-size:.83rem; background:#fff; }
+.tr-seg input:checked + span { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:600; }
+.tr-seg input:focus-visible + span { outline:2px solid var(--amber); }
+/* ===== Étiquettes de totaux ===== */
+.tr-chips { display:flex; flex-wrap:wrap; gap:.5rem; }
+.tr-chip { background:var(--blue-soft); border-radius:8px; padding:.45rem .8rem; font-size:.85rem; }
+.tr-chip b { font-size:1.1rem; margin-left:.35rem; }
+.tr-chip.total { background:var(--amber-soft); }
+.tr-erreurs { background:#FEF2F2; border:1px solid #FECACA; color:#991B1B; border-radius:8px; padding:.7rem 1rem; margin-bottom:1rem; }
+.tr-avert { background:var(--amber-soft); border-radius:8px; padding:.6rem 1rem; margin-bottom:1rem; font-size:.88rem; }
+@media (max-width:576px) { .tr-body { padding:.8rem; } .tr-table { font-size:.82rem; } }   /* petits écrans */
+/* ===== Impression (A4 paysage, en-tête de rapport, tableaux lisibles sur plusieurs pages) ===== */
+.tr-print-only { display:none; }                                       /* l'en-tête de rapport n'existe qu'à l'impression */
+@page { size:A4 landscape; margin:12mm; }                              /* page A4 en paysage */
+@media print {
+  .tr .no-print, .main-footer { display:none !important; }             /* boutons, filtres, onglets, pied de page */
+  .tr-print-only { display:block !important; }
+  .tr { font-size:11px; }
+  .tr-panel { border:1px solid #999; break-inside:auto; margin-bottom:10px; }
+  .tr-table thead { display:table-header-group; }                      /* l'en-tête du tableau se répète à chaque page */
+  .tr-table tr { break-inside:avoid; }                                 /* une ligne n'est jamais coupée */
+  .tr-table th, .tr-table td { padding:3px 6px; border-bottom:1px solid #bbb; }
+  .tr-chip { border:1px solid #999; background:#fff !important; }
+  .tr-rapport-entete { border-bottom:2px solid #000; margin-bottom:10px; padding-bottom:6px; }
+  .tr-rapport-entete h2 { font-size:16px; margin:0; }
+  .tr-rapport-entete p { margin:2px 0 0; font-size:11px; }
+}
+</style>

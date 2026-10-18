@@ -480,11 +480,11 @@
         .year-selector {
             padding: 1.5rem;
         }
-        
+
         .stats-summary {
             grid-template-columns: repeat(4, 1fr);
         }
-        
+
         .objectifs-container {
             padding: 2rem;
         }
@@ -997,7 +997,7 @@
             </span>
             {% endif %}
         </h2>
-        
+
         <!-- Sélecteur d'année -->
         <div class="year-selector">
             <div class="row align-items-center">
@@ -1014,7 +1014,7 @@
                 <div class="col-12 col-md-6">
                     <div class="year-buttons">
                         {% for year in annees_disponibles %}
-                        <a href="?annee={{ year }}" 
+                        <a href="?annee={{ year }}"
                            class="year-btn {% if year == annee %}active{% endif %}">
                             {{ year }}
                         </a>
@@ -1023,7 +1023,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Statistiques globales -->
         <div class="stats-summary">
             <div class="stat-card">
@@ -1052,14 +1052,14 @@
             </div>
             {% endif %}
         </div>
-        
+
         <!-- Formulaire des objectifs -->
         <div class="objectifs-container">
             {% if can_edit %}
             <form method="POST" id="objectifsForm">
                 {% csrf_token %}
             {% endif %}
-            
+
                 <div class="table-wrapper">
                     <table class="table-objectifs">
                         <thead>
@@ -1088,12 +1088,12 @@
                                 </td>
                                 <td>
                                     {% if can_edit %}
-                                    <input type="number" 
+                                    <input type="number"
                                            name="objectif_{{ item.poste.id }}"
                                            class="input-objectif"
                                            value="{{ item.montant_objectif|floatformat:0 }}"
                                            min="0"
-                                           step="500000"
+                                           step="500"
                                            placeholder="0">
                                     {% else %}
                                     <span class="objectif-readonly">
@@ -1149,7 +1149,7 @@
                                 </td>
                                 <td>
                                     <div class="progress">
-                                        <div class="progress-bar bg-primary" 
+                                        <div class="progress-bar bg-primary"
                                              style="width: {% if taux_global > 100 %}100{% else %}{{ taux_global|floatformat:0 }}{% endif %}%">
                                             {{ taux_global|floatformat:1 }}%
                                         </div>
@@ -1160,7 +1160,7 @@
                         {% endif %}
                     </table>
                 </div>
-                
+
                 <div class="footer-actions">
                     <div class="footer-info">
                         <i class="fas fa-info-circle me-1"></i>
@@ -1181,7 +1181,7 @@
                         {% endif %}
                     </div>
                 </div>
-            
+
             {% if can_edit %}
             </form>
             {% endif %}
@@ -1250,18 +1250,18 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', function(e) {
             const inputs = document.querySelectorAll('.input-objectif');
             let hasValue = false;
-            
+
             inputs.forEach(input => {
                 if (parseInt(input.value) > 0) hasValue = true;
             });
-            
+
             if (!hasValue) {
                 if (!confirm('Aucun objectif n\'a été défini. Voulez-vous continuer ?')) {
                     e.preventDefault();
                     return;
                 }
             }
-            
+
             if (!confirm('Confirmer l\'enregistrement des objectifs pour {{ annee }} ?')) {
                 e.preventDefault();
             }
@@ -1273,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.innerWidth <= 768) {
             document.documentElement.style.overflowX = 'hidden';
             document.body.style.overflowX = 'hidden';
-            
+
             document.querySelectorAll('.objectifs-page, .container-fluid').forEach(el => {
                 el.style.overflowX = 'hidden';
                 el.style.maxWidth = '100vw';
@@ -1283,7 +1283,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflowX = '';
         }
     }
-    
+
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
     window.addEventListener('orientationchange', fixMobileScrolling);

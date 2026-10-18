@@ -1,0 +1,179 @@
+{# templates/inventaire/transporteurs/rapprochement.html #}
+{# Rapprochement des plaques d'une agence : suggestions + liste complète + cases à cocher (administrateur) #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Rapprochement des plaques" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau et l'impression restent inchangés) ===================== */
+@media screen {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+  .tr { width: 100%; }
+  .tr-scroll { -webkit-overflow-scrolling: touch; }
+}
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media screen and (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+  .tr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media screen and (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; }
+  .tr h2.h5 { font-size: 1.05rem; word-break: break-word; }
+
+  /* Filtre : une colonne, liste et bouton en pleine largeur */
+  .tr-grid { grid-template-columns: 1fr; }
+  .tr-grid .form-select, .tr-grid .form-control { width: 100%; max-width: 100%; }
+  .tr-grid .tr-btn { display: block; width: 100%; }
+  .tr select { font-size: 16px !important; }                                /* anti-zoom iOS */
+  .tr input:not([type=checkbox]):not([type=radio]), .tr select, .tr .tr-btn { min-height: 44px; }
+
+  /* Puces de résumé : 2 colonnes (uniquement les conteneurs, pas les puces à l'intérieur des tableaux) */
+  .tr > .tr-chips { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tr > .tr-chips > .tr-chip { width: 100%; min-width: 0; word-break: break-word; }
+
+  /* En-têtes de panneaux : titre + bouton sur plusieurs lignes, bouton en pleine largeur */
+  .tr-head { font-size: .95rem; word-break: break-word; }
+  .tr-head .tr-btn { width: 100%; min-height: 44px; white-space: normal; text-align: center; line-height: 1.3; }
+
+  /* Tableaux : largeur du contenu, défilement horizontal dans leur conteneur, jamais sur la page */
+  .tr-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+  .tr-table { width: max-content; min-width: 100%; font-size: .85rem; }
+  .tr-table th, .tr-table td { padding: .5rem .55rem; }
+  .tr-table td.num, .tr-table td b { white-space: nowrap; }
+
+  /* Tableau « Similitudes par agence » : colonne des plaques à rapprocher sur plusieurs lignes */
+  .tr-table td:nth-child(5):not(:last-child) { white-space: normal; min-width: 200px; max-width: 320px; }
+  /* Tableau « fusion manuelle » : colonne « Liste des postes » sur plusieurs lignes */
+  .tr-table td:nth-child(7) { white-space: normal; min-width: 170px; max-width: 260px; }
+
+  /* Cartes de suggestions (_cartes_suggestions.html) : plaque incomplète alignée à gauche, postes sur plusieurs lignes */
+  .tr-cartes .tr-table td:nth-child(1) { text-align: center; }
+  .tr-cartes .tr-table td:nth-child(2) { text-align: left; min-width: 140px; max-width: 240px; }
+  .tr-cartes .tr-table td:nth-child(5) { white-space: normal; min-width: 170px; max-width: 260px; }
+  .tr-cartes .tr-table td .small { white-space: normal; }
+
+  /* Cases à cocher et boutons radio : grande zone tactile */
+  .tr-table input[type=checkbox], .tr-table input[type=radio] { width: 24px; height: 24px; }
+  .tr-table td:nth-child(1), .tr-table td:nth-child(2) { text-align: center; }
+  /* Lien « Examiner » : zone tactile 44px */
+  .tr-table td.no-print a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media screen and (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+  .tr-table { font-size: .8rem; }
+  .tr-chip { font-size: .85rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media screen and (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+  .tr > .tr-chips { grid-template-columns: 1fr; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+  .tr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tr > .tr-chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <h1>{% trans "Rapprochement des plaques" %}</h1>
+  <p class="tr-sub">{% trans "Repérez les plaques incomplètes (ex. LT 123) qui correspondent à une plaque complète (ex. LT 123 ER) et fusionnez-les en un seul véhicule." %}</p>
+
+  <form method="get" class="tr-panel"><div class="tr-body tr-grid">
+    <div><label class="tr-lbl">{% trans "Agence" %}</label>
+      <select name="agence" class="form-select" onchange="this.form.submit()">
+        <option value="">{% trans "— Choisir une agence —" %}</option>
+        <option value="toutes" {% if toutes_actif %}selected{% endif %}>{% trans "★ Toutes les agences (tableau des similitudes)" %}</option>
+        {% for a in agences %}<option value="{{ a.id }}" {% if agence and agence.id == a.id %}selected{% endif %}>{{ a.nom }} ({{ a.n }})</option>{% endfor %}
+      </select></div>
+    <div><button class="tr-btn" type="submit">{% trans "Analyser" %}</button></div>
+  </div></form>
+
+  {% if toutes_actif %}
+  {# ===== MODE « TOUTES LES AGENCES » : tableau des similitudes ===== #}
+  <div class="tr-chips mb-3">
+    <div class="tr-chip">{% trans "Agences analysées" %}<b>{{ resume|length }}</b></div>
+    <div class="tr-chip total">{% trans "Rapprochements suggérés" %}<b>{{ total_groupes }}</b></div>
+    <div class="tr-chip">{% trans "Agences concernées" %}<b>{{ agences_concernees }}</b></div>
+  </div>
+  <div class="tr-panel"><div class="tr-head">{% trans "Similitudes par agence" %}</div><div class="tr-scroll"><table class="tr-table">
+    <thead><tr><th>{% trans "Agence" %}</th><th class="num">{% trans "Plaques" %}</th><th class="num">{% trans "Passages" %}</th><th class="num">{% trans "Rapprochements" %}</th><th>{% trans "Plaques à rapprocher" %}</th><th class="no-print"></th></tr></thead>
+    <tbody>{% for r in resume %}<tr>
+      <td><b>{{ r.agence.nom }}</b></td><td class="num">{{ r.nb_plaques }}</td><td class="num">{{ r.passages }}</td>
+      <td class="num">{% if r.groupes %}<b>{{ r.groupes|length }}</b>{% else %}0{% endif %}</td>
+      <td>{% for g in r.groupes %}{% for q in g.candidats %}<span class="tr-chip" style="display:inline-block;margin:2px">{{ q.plaque }} → <b style="font-size:inherit">{{ g.cible.plaque }}</b></span>{% endfor %}{% empty %}<span class="text-muted">—</span>{% endfor %}</td>
+      <td class="no-print"><a href="?agence={{ r.agence.id }}">{% trans "Examiner" %}</a></td></tr>{% endfor %}</tbody>
+  </table></div></div>
+
+  {# Détail avec cases à cocher, uniquement pour les agences qui ont des rapprochements #}
+  {% for r in resume %}{% if r.groupes %}
+  <h2 class="h5 mt-4" id="ag{{ r.agence.id }}">{{ r.agence.nom }}</h2>
+  {% include "inventaire/transporteurs/_cartes_suggestions.html" with groupes=r.groupes agence=r.agence %}
+  {% endif %}{% endfor %}
+  {% endif %}
+
+  {% if agence %}
+  <div class="tr-chips mb-3">
+    <div class="tr-chip">{% trans "Plaques" %}<b>{{ plaques|length }}</b></div>
+    <div class="tr-chip">{% trans "Passages" %}<b>{{ n_passages }}</b></div>
+    <div class="tr-chip total">{% trans "Rapprochements suggérés" %}<b>{{ groupes|length }}</b></div>
+  </div>
+
+  {# ===== 1. Suggestions ===== #}
+  {% if groupes %}{% include "inventaire/transporteurs/_cartes_suggestions.html" %}{% else %}<div class="tr-avert">{% trans "Aucun rapprochement évident pour cette agence." %}</div>{% endif %}
+
+  {# ===== 2. Toutes les plaques + fusion manuelle ===== #}
+  <form method="post" action="{% url 'inventaire:transporteurs_rapprochement_fusionner' %}" class="tr-panel">{% csrf_token %}
+    <input type="hidden" name="agence" value="{{ agence.id }}"><input type="hidden" name="retour" value="{{ retour }}">
+    <div class="tr-head"><span>{% trans "Toutes les plaques de l'agence" %} — {% trans "fusion manuelle" %}</span>
+      <button type="submit" class="tr-btn">{% trans "Fusionner : cocher « à fusionner » puis choisir la cible" %}</button></div>
+    <div class="tr-scroll"><table class="tr-table">
+      <thead><tr><th>{% trans "À fusionner" %}</th><th>{% trans "Cible" %}</th><th>{% trans "Plaque" %}</th><th>{% trans "Type" %}</th><th class="num">{% trans "Passages" %}</th><th class="num">{% trans "Postes" %}</th><th>{% trans "Liste des postes" %}</th><th>{% trans "Dernier passage" %}</th></tr></thead>
+      <tbody>{% for p in plaques %}<tr>
+        <td><input type="checkbox" name="sources" value="{{ p.norm }}"></td>
+        <td><input type="radio" name="cible" value="{{ p.norm }}"></td>
+        <td><b>{{ p.plaque }}</b></td><td>{{ p.type_libelle }}</td><td class="num">{{ p.passages }}</td><td class="num">{{ p.n_postes }}</td>
+        <td>{% for nom, n in p.postes %}{{ nom }}{% if n > 1 %} ×{{ n }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+        <td>{{ p.dernier|date:"d/m/Y" }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+})();
+</script>
+{% endblock %}

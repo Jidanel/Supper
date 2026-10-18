@@ -1,0 +1,52 @@
+{# templates/inventaire/transporteurs/maillage.html #}
+{# Écran des liaisons : liste des postes, nombre de voisins, diagnostic des zones coupées #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Maillage des postes" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2">
+    <div><h1>{% trans "Maillage des postes" %}</h1>
+      <p class="tr-sub">{{ postes|length }} {% trans "postes" %} · {{ nb_liaisons }} {% trans "liaisons" %} — {% trans "choisissez un poste pour saisir ses postes voisins et les tarifs." %}</p></div>
+    <div class="d-flex gap-2 align-self-start">
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca_parametres' %}">⚙ {% trans "Paramètres" %}</a>
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca' %}">← {% trans "Chiffre d'affaires" %}</a></div>
+  </div>
+
+  {# Diagnostic : régions dont les postes ne sont pas tous reliés entre eux #}
+  {% if zones_coupees or sans_voisin %}
+  <div class="tr-panel"><div class="tr-head">{% trans "Diagnostic : liaisons manquantes probables" %}</div><div class="tr-body">
+    {% for region, groupes in zones_coupees %}
+      <p class="mb-2"><b>{{ region }}</b> — {% trans "postes sans liaison entre eux dans la région" %} :</p>
+      <ul class="mb-3">{% for g in groupes %}<li>{{ g|join:", " }}</li>{% endfor %}</ul>
+    {% endfor %}
+    {% if sans_voisin %}<p class="mb-0"><b>{% trans "Sans aucun voisin" %} :</b> {% for p in sans_voisin %}{{ p.nom }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    <p class="tr-sub mt-2 mb-0">{% trans "Si deux groupes d'une même région sont en réalité voisins, ajoutez la liaison manquante : cela évite de passer par une autre région." %}</p>
+  </div></div>
+  {% endif %}
+
+  <div class="tr-panel"><div class="tr-head">{% trans "Postes" %}
+      <input type="search" id="filtre" class="form-control form-control-sm" style="max-width:240px" placeholder="{% trans 'Filtrer…' %}"></div>
+    <div class="tr-scroll"><table class="tr-table" id="tablePostes">
+      <thead><tr><th>{% trans "Région" %}</th><th>{% trans "Poste" %}</th><th class="num">{% trans "Voisins" %}</th><th></th></tr></thead>
+      <tbody>{% for p in postes %}<tr>
+        <td>{{ p.region }}</td><td><b>{{ p.nom }}</b></td>
+        <td class="num">{% if p.nb_voisins %}{{ p.nb_voisins }}{% else %}<span style="color:#b45309">0</span>{% endif %}</td>
+        <td><a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_maillage_poste' p.id %}">✏ {% trans "Voisins et tarifs" %}</a></td></tr>{% endfor %}</tbody></table></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  // Filtre instantané sur région / nom de poste
+  var champ = document.getElementById('filtre');
+  champ.addEventListener('input', function () {
+    var q = champ.value.toLowerCase();
+    document.querySelectorAll('#tablePostes tbody tr').forEach(function (tr) {
+      tr.style.display = tr.textContent.toLowerCase().indexOf(q) === -1 ? 'none' : '';
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -5,46 +5,945 @@
 
 {% block extra_css %}
 <style>
-    .pv-header {
-        text-align: center;
-        font-size: 0.85rem;
+    /* ============================================
+       RÉINITIALISATION GLOBALE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin: 0 auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION
+       ============================================ */
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+
+    .action-buttons .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        min-height: 44px;
+        border: 1px solid transparent;
+    }
+
+    .btn-outline-secondary {
+        color: #6c757d;
+        border-color: #6c757d;
+        background: transparent;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        color: white;
+        border-color: transparent;
+    }
+
+    .btn-danger:hover {
+        background: linear-gradient(135deg, #c82333, #bd2130);
+        transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        border-color: transparent;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE
+       ============================================ */
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+        width: 100%;
+        margin-bottom: 1.5rem;
+    }
+
+    .card-body {
+        padding: 2rem;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* ============================================
+       EN-TÊTE BILINGUE PV
+       ============================================ */
+    .pv-header-row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+        width: 100%;
+    }
+
+    .pv-header-col {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .pv-header-col.left {
+        text-align: left;
+    }
+
+    .pv-header-col.center {
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pv-header-col.right {
+        text-align: right;
+    }
+
+    .pv-header {
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+
     .pv-header h6 {
         margin-bottom: 0.2rem;
+        font-weight: 600;
+        font-size: 0.85rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    .table-pv th, .table-pv td {
+
+    .pv-header p {
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .pv-logo {
+        max-height: 100px;
+        width: auto;
+    }
+
+    .pv-logo-placeholder {
+        color: #6c757d;
+        font-size: 1rem;
+    }
+
+    /* ============================================
+       TITRE PRINCIPAL
+       ============================================ */
+    .pv-title {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .pv-title h3 {
+        font-weight: 700;
+        font-size: 1.5rem;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .pv-title h5 {
+        font-size: 1.1rem;
+        color: #475569;
+        font-weight: 500;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       TEXTE INTRODUCTIF
+       ============================================ */
+    .intro-text {
+        font-size: 0.95rem;
+        line-height: 1.7;
+        text-align: justify;
+        margin-bottom: 1.5rem;
+        color: #334155;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+
+    .intro-text p {
+        margin-bottom: 1rem;
+    }
+
+    .intro-text strong {
+        color: #1e293b;
+    }
+
+    /* ============================================
+       CONTENEUR TABLEAU - AVEC DÉFILEMENT INTERNE
+       ============================================ */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 1.5rem;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       TABLEAUX PV
+       ============================================ */
+    .table-pv {
+        width: 100%;
+        min-width: 800px;
+        border-collapse: collapse;
+        margin: 0;
+    }
+
+    .table-pv th,
+    .table-pv td {
         vertical-align: middle;
         text-align: center;
         font-size: 0.85rem;
-        padding: 0.5rem;
+        padding: 0.625rem 0.5rem;
+        border: 1px solid #dee2e6;
     }
-    .table-pv th {
+
+    .table-pv thead th {
         background-color: #4a5568;
         color: white;
+        font-weight: 600;
+        white-space: nowrap;
     }
-    .table-detail th {
+
+    .table-pv tbody td {
+        background: white;
+    }
+
+    .table-pv tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    /* ============================================
+       TABLEAU DÉTAIL
+       ============================================ */
+    .table-detail {
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
+        margin: 0;
+    }
+
+    .table-detail th,
+    .table-detail td {
+        vertical-align: middle;
+        text-align: center;
+        font-size: 0.8rem;
+        padding: 0.5rem 0.375rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .table-detail thead th {
         background-color: #c0392b;
         color: white;
+        font-weight: 600;
+        white-space: nowrap;
     }
-    .table-detail tr:last-child {
+
+    .table-detail tbody tr:last-child {
         background-color: #e2e8f0;
         font-weight: bold;
     }
-    .intro-text {
-        font-size: 0.95rem;
-        line-height: 1.6;
-        text-align: justify;
+
+    .table-detail tbody tr:last-child td {
+        background-color: #e2e8f0;
     }
+
+    /* ============================================
+       CELLULES SPÉCIALES
+       ============================================ */
+    .text-danger {
+        color: #dc3545 !important;
+    }
+
+    .text-warning {
+        color: #f59e0b !important;
+    }
+
+    .text-start {
+        text-align: left !important;
+    }
+
+    /* ============================================
+       ZONE DE SIGNATURES
+       ============================================ */
     .signature-zone {
         margin-top: 2rem;
+        width: 100%;
     }
+
+    .signature-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 2rem;
+        width: 100%;
+    }
+
     .signature-box {
+        flex: 1;
+        min-width: 200px;
+        max-width: 45%;
         text-align: center;
         padding: 1rem;
     }
+
+    .signature-box p {
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .signature-line {
+        height: 80px;
+    }
+
+    .signature-name {
+        border-top: 1px solid #334155;
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .signature-name strong {
+        color: #1e293b;
+    }
+
+    /* ============================================
+       SÉPARATEUR
+       ============================================ */
+    .section-separator {
+        margin: 3rem 0;
+        border: none;
+        border-top: 2px solid #e2e8f0;
+    }
+
+    /* ============================================
+       TITRE SECONDAIRE (PAGE 2)
+       ============================================ */
+    .secondary-title {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .secondary-title h4 {
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: #1e293b;
+        margin-bottom: 0.375rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .secondary-title h6 {
+        font-size: 0.95rem;
+        color: #475569;
+        font-weight: 500;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       VERSION PC (≥ 992px)
+       ============================================ */
+    @media (min-width: 992px) {
+        .pv-header-col {
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+        }
+
+        .signature-box {
+            max-width: 40%;
+        }
+    }
+
+    /* ============================================
+       TABLETTE (768px - 991px)
+       ============================================ */
+    @media (min-width: 768px) and (max-width: 991px) {
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .pv-header-col {
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+        }
+
+        .pv-header h6 {
+            font-size: 0.8rem;
+        }
+
+        .pv-header p {
+            font-size: 0.75rem;
+        }
+
+        .pv-title h3 {
+            font-size: 1.35rem;
+        }
+
+        .pv-title h5 {
+            font-size: 1rem;
+        }
+    }
+
+    /* ============================================
+       MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* CORRECTION CRITIQUE : Empêche le défilement horizontal */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        /* Boutons d'action */
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .action-buttons .btn {
+            width: 100%;
+            justify-content: center;
+            font-size: 0.875rem;
+            padding: 0.625rem 0.875rem;
+        }
+
+        /* Carte */
+        .card {
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* En-tête bilingue */
+        .pv-header-row {
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pv-header-col {
+            flex: 0 0 100%;
+            max-width: 100%;
+            min-width: 100%;
+        }
+
+        .pv-header-col.left,
+        .pv-header-col.right {
+            text-align: center;
+        }
+
+        .pv-header-col.center {
+            order: -1;
+            margin-bottom: 0.5rem;
+        }
+
+        .pv-header {
+            font-size: 0.8rem;
+        }
+
+        .pv-header h6 {
+            font-size: 0.8rem;
+            margin-bottom: 0.125rem;
+        }
+
+        .pv-header p {
+            font-size: 0.75rem;
+        }
+
+        .pv-logo {
+            max-height: 70px;
+        }
+
+        /* Titre */
+        .pv-title {
+            margin-bottom: 1.5rem;
+        }
+
+        .pv-title h3 {
+            font-size: 1.15rem;
+            line-height: 1.4;
+        }
+
+        .pv-title h5 {
+            font-size: 0.9rem;
+        }
+
+        /* Texte introductif */
+        .intro-text {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            text-align: left;
+        }
+
+        .intro-text p {
+            margin-bottom: 0.75rem;
+        }
+
+        /* Tableaux */
+        .table-responsive {
+            margin-left: -0.5rem;
+            margin-right: -0.5rem;
+            width: calc(100% + 1rem);
+            border-radius: 6px;
+            margin-bottom: 1.25rem;
+        }
+
+        .table-pv {
+            min-width: 700px;
+        }
+
+        .table-pv th,
+        .table-pv td {
+            font-size: 0.75rem;
+            padding: 0.5rem 0.375rem;
+        }
+
+        .table-detail {
+            min-width: 800px;
+        }
+
+        .table-detail th,
+        .table-detail td {
+            font-size: 0.7rem;
+            padding: 0.375rem 0.25rem;
+        }
+
+        /* Signatures */
+        .signature-zone {
+            margin-top: 1.5rem;
+        }
+
+        .signature-row {
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .signature-box {
+            max-width: 100%;
+            min-width: 100%;
+            padding: 0.75rem;
+        }
+
+        .signature-line {
+            height: 60px;
+        }
+
+        .signature-name {
+            padding-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        /* Séparateur */
+        .section-separator {
+            margin: 2rem 0;
+        }
+
+        /* Titre secondaire */
+        .secondary-title h4 {
+            font-size: 1.05rem;
+        }
+
+        .secondary-title h6 {
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+    }
+
+    /* ============================================
+       PETITS MOBILES (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .card-body {
+            padding: 0.875rem;
+        }
+
+        .pv-header h6 {
+            font-size: 0.75rem;
+        }
+
+        .pv-header p {
+            font-size: 0.7rem;
+        }
+
+        .pv-logo {
+            max-height: 60px;
+        }
+
+        .pv-title h3 {
+            font-size: 1.05rem;
+        }
+
+        .pv-title h5 {
+            font-size: 0.85rem;
+        }
+
+        .intro-text {
+            font-size: 0.8rem;
+        }
+
+        .table-responsive {
+            margin-left: -0.625rem;
+            margin-right: -0.625rem;
+            width: calc(100% + 1.25rem);
+        }
+
+        .table-pv {
+            min-width: 650px;
+        }
+
+        .table-pv th,
+        .table-pv td {
+            font-size: 0.7rem;
+            padding: 0.375rem 0.25rem;
+        }
+
+        .table-detail {
+            min-width: 750px;
+        }
+
+        .table-detail th,
+        .table-detail td {
+            font-size: 0.65rem;
+            padding: 0.3rem 0.2rem;
+        }
+
+        .signature-line {
+            height: 50px;
+        }
+
+        .signature-name {
+            font-size: 0.85rem;
+        }
+
+        .secondary-title h4 {
+            font-size: 0.95rem;
+        }
+
+        .secondary-title h6 {
+            font-size: 0.8rem;
+        }
+
+        .action-buttons .btn {
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+        }
+    }
+
+    /* ============================================
+       TRÈS PETITS ÉCRANS (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .container-fluid {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .card-body {
+            padding: 0.75rem;
+        }
+
+        .pv-header h6 {
+            font-size: 0.7rem;
+        }
+
+        .pv-title h3 {
+            font-size: 0.95rem;
+        }
+
+        .pv-title h5 {
+            font-size: 0.8rem;
+        }
+
+        .intro-text {
+            font-size: 0.75rem;
+        }
+
+        .table-pv {
+            min-width: 600px;
+        }
+
+        .table-detail {
+            min-width: 700px;
+        }
+
+        .secondary-title h4 {
+            font-size: 0.9rem;
+        }
+
+        .secondary-title h6 {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .pv-header-row {
+            flex-direction: row;
+        }
+
+        .pv-header-col {
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+            min-width: auto;
+        }
+
+        .pv-header-col.left {
+            text-align: left;
+        }
+
+        .pv-header-col.right {
+            text-align: right;
+        }
+
+        .pv-header-col.center {
+            order: 0;
+        }
+
+        .signature-row {
+            flex-direction: row;
+        }
+
+        .signature-box {
+            flex: 1;
+            max-width: 45%;
+            min-width: auto;
+        }
+
+        .action-buttons {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons .btn {
+            width: auto;
+            flex: 1;
+            min-width: 120px;
+        }
+    }
+
+    /* ============================================
+       CORRECTION ZOOM iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        button {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
     @media print {
-        .no-print { display: none !important; }
-        .card { border: none !important; box-shadow: none !important; }
+        .no-print {
+            display: none !important;
+        }
+
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .card-body {
+            padding: 0 !important;
+        }
+
+        .table-responsive {
+            overflow: visible !important;
+            border: none !important;
+        }
+
+        .table-pv,
+        .table-detail {
+            min-width: 100% !important;
+        }
+
+        .pv-header-row {
+            flex-direction: row !important;
+        }
+
+        .pv-header-col {
+            flex: 0 0 33.333% !important;
+            max-width: 33.333% !important;
+        }
+
+        .pv-header-col.left {
+            text-align: left !important;
+        }
+
+        .pv-header-col.right {
+            text-align: right !important;
+        }
+
+        .signature-row {
+            flex-direction: row !important;
+        }
+
+        .signature-box {
+            max-width: 40% !important;
+        }
+
+        body {
+            font-size: 12pt;
+        }
+
+        .pv-title h3 {
+            font-size: 14pt;
+        }
+
+        .intro-text {
+            font-size: 11pt;
+        }
     }
 </style>
 {% endblock %}
@@ -52,66 +951,68 @@
 {% block content %}
 <div class="container-fluid py-4">
     <!-- Boutons d'action -->
-    <div class="row mb-3 no-print">
-        <div class="col-12 d-flex gap-2">
-            <a href="{% url 'inventaire:selection_pv_confrontation' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Retour
-            </a>
-            <a href="{% url 'inventaire:generer_pv_confrontation_pdf' station.pk date_debut date_fin %}" 
-               class="btn btn-danger" target="_blank">
-                <i class="fas fa-file-pdf me-1"></i> Télécharger PDF
-            </a>
-            <button onclick="window.print()" class="btn btn-secondary">
-                <i class="fas fa-print me-1"></i> Imprimer
-            </button>
-        </div>
+    <div class="action-buttons no-print">
+        <a href="{% url 'inventaire:selection_pv_confrontation' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Retour
+        </a>
+        <a href="{% url 'inventaire:generer_pv_confrontation_pdf' station.pk date_debut date_fin %}" 
+           class="btn btn-danger" target="_blank">
+            <i class="fas fa-file-pdf me-1"></i> Télécharger PDF
+        </a>
+        <button onclick="window.print()" class="btn btn-secondary">
+            <i class="fas fa-print me-1"></i> Imprimer
+        </button>
     </div>
 
     <div class="card shadow">
         <div class="card-body">
             <!-- EN-TÊTE BILINGUE -->
-            <div class="row mb-4">
-                <div class="col-4 pv-header text-start">
-                    <h6><strong>{{ config.republique_fr }}</strong></h6>
-                    <p class="mb-0">{{ config.devise_fr }}</p>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>{{ config.ministere_fr }}</strong></h6>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>{{ config.direction_fr }}</strong></h6>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>{{ config.programme_fr }}</strong></h6>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>RÉGIE DE RECETTE DU PESAGE DE {{ station.nom|upper }}</strong></h6>
+            <div class="pv-header-row">
+                <div class="pv-header-col left">
+                    <div class="pv-header">
+                        <h6><strong>{{ config.republique_fr }}</strong></h6>
+                        <p>{{ config.devise_fr }}</p>
+                        <p>*****</p>
+                        <h6><strong>{{ config.ministere_fr }}</strong></h6>
+                        <p>*****</p>
+                        <h6><strong>{{ config.direction_fr }}</strong></h6>
+                        <p>*****</p>
+                        <h6><strong>{{ config.programme_fr }}</strong></h6>
+                        <p>*****</p>
+                        <h6><strong>RÉGIE DE RECETTE DU PESAGE DE {{ station.nom|upper }}</strong></h6>
+                    </div>
                 </div>
-                <div class="col-4 text-center">
+                <div class="pv-header-col center">
                     {% if config.logo %}
-                    <img src="{{ config.logo.url }}" alt="Logo" style="max-height: 100px;">
+                    <img src="{{ config.logo.url }}" alt="Logo" class="pv-logo">
                     {% else %}
-                    <span class="text-muted">DGI</span>
+                    <span class="pv-logo-placeholder">DGI</span>
                     {% endif %}
                 </div>
-                <div class="col-4 pv-header text-end">
-                    <h6><strong>{{ config.republique_en }}</strong></h6>
-                    <p class="mb-0">{{ config.devise_en }}</p>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>{{ config.ministere_en }}</strong></h6>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>{{ config.direction_en }}</strong></h6>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>{{ config.programme_en }}</strong></h6>
-                    <p class="mb-0">*****</p>
-                    <h6><strong>{{ station.nom|upper }} WEIGH STATION</strong></h6>
+                <div class="pv-header-col right">
+                    <div class="pv-header">
+                        <h6><strong>{{ config.republique_en }}</strong></h6>
+                        <p>{{ config.devise_en }}</p>
+                        <p>*****</p>
+                        <h6><strong>{{ config.ministere_en }}</strong></h6>
+                        <p>*****</p>
+                        <h6><strong>{{ config.direction_en }}</strong></h6>
+                        <p>*****</p>
+                        <h6><strong>{{ config.programme_en }}</strong></h6>
+                        <p>*****</p>
+                        <h6><strong>{{ station.nom|upper }} WEIGH STATION</strong></h6>
+                    </div>
                 </div>
             </div>
 
             <!-- TITRE -->
-            <div class="text-center mb-4">
-                <h3 class="fw-bold">PROCÈS VERBAL MENSUEL DE CONFRONTATION</h3>
+            <div class="pv-title">
+                <h3>PROCÈS VERBAL MENSUEL DE CONFRONTATION</h3>
                 <h5>Période du {{ date_debut_obj|date:"d/m/Y" }} au {{ date_fin_obj|date:"d/m/Y" }}</h5>
             </div>
 
             <!-- TEXTE INTRODUCTIF -->
-            <div class="intro-text mb-4">
+            <div class="intro-text">
                 <p>
                     L'an {{ donnees.annee_texte }} et le {{ date_du_jour|date:"d/m/Y" }},
                 </p>
@@ -133,7 +1034,7 @@
             </div>
 
             <!-- TABLEAU RÉCAPITULATIF -->
-            <div class="table-responsive mb-4">
+            <div class="table-responsive">
                 <table class="table table-bordered table-pv">
                     <thead>
                         <tr>
@@ -179,35 +1080,36 @@
             </p>
 
             <!-- SIGNATURES -->
-            <div class="row signature-zone mt-5">
-                <div class="col-5 signature-box">
-                    <p><strong>Le Régisseur des Recettes</strong></p>
-                    <div style="height: 80px;"></div>
-                    <p class="border-top pt-2">
-                        <strong>{{ regisseur.nom_complet|default:"_______________________" }}</strong>
-                    </p>
-                </div>
-                <div class="col-2"></div>
-                <div class="col-5 signature-box">
-                    <p><strong>Le Chef de Station</strong></p>
-                    <div style="height: 80px;"></div>
-                    <p class="border-top pt-2">
-                        <strong>{{ chef_station.nom_complet|default:"_______________________" }}</strong>
-                    </p>
+            <div class="signature-zone">
+                <div class="signature-row">
+                    <div class="signature-box">
+                        <p><strong>Le Régisseur des Recettes</strong></p>
+                        <div class="signature-line"></div>
+                        <p class="signature-name">
+                            <strong>{{ regisseur.nom_complet|default:"_______________________" }}</strong>
+                        </p>
+                    </div>
+                    <div class="signature-box">
+                        <p><strong>Le Chef de Station</strong></p>
+                        <div class="signature-line"></div>
+                        <p class="signature-name">
+                            <strong>{{ chef_station.nom_complet|default:"_______________________" }}</strong>
+                        </p>
+                    </div>
                 </div>
             </div>
 
             <!-- SÉPARATEUR POUR PAGE 2 -->
-            <hr class="my-5">
+            <hr class="section-separator">
 
             <!-- DÉTAIL PAR SEMAINE -->
-            <div class="text-center mb-4">
-                <h4 class="fw-bold">FICHE DE SUIVI DES AMENDES</h4>
+            <div class="secondary-title">
+                <h4>FICHE DE SUIVI DES AMENDES</h4>
                 <h6>STATION DE PESAGE DE {{ station.nom|upper }} - 
                     PÉRIODE DU {{ date_debut_obj|date:"d/m/Y" }} AU {{ date_fin_obj|date:"d/m/Y" }}</h6>
             </div>
 
-            <div class="table-responsive mb-4">
+            <div class="table-responsive">
                 <table class="table table-bordered table-detail">
                     <thead>
                         <tr>
@@ -262,25 +1164,47 @@
             </div>
 
             <!-- SIGNATURES PAGE 2 -->
-            <div class="row signature-zone mt-4">
-                <div class="col-5 signature-box">
-                    <p><strong>Le Régisseur des Recettes</strong></p>
-                    <div style="height: 60px;"></div>
-                    <p class="border-top pt-2">
-                        <strong>{{ regisseur.nom_complet|default:"_______________________" }}</strong>
-                    </p>
-                </div>
-                <div class="col-2"></div>
-                <div class="col-5 signature-box">
-                    <p><strong>Le Chef de Station</strong></p>
-                    <div style="height: 60px;"></div>
-                    <p class="border-top pt-2">
-                        <strong>{{ chef_station.nom_complet|default:"_______________________" }}</strong>
-                    </p>
+            <div class="signature-zone">
+                <div class="signature-row">
+                    <div class="signature-box">
+                        <p><strong>Le Régisseur des Recettes</strong></p>
+                        <div class="signature-line" style="height: 60px;"></div>
+                        <p class="signature-name">
+                            <strong>{{ regisseur.nom_complet|default:"_______________________" }}</strong>
+                        </p>
+                    </div>
+                    <div class="signature-box">
+                        <p><strong>Le Chef de Station</strong></p>
+                        <div class="signature-line" style="height: 60px;"></div>
+                        <p class="signature-name">
+                            <strong>{{ chef_station.nom_complet|default:"_______________________" }}</strong>
+                        </p>
+                    </div>
                 </div>
             </div>
 
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 767) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    
+    // Amélioration tactile
+    document.addEventListener('touchstart', function() {}, { passive: true });
+});
+</script>
 {% endblock %}

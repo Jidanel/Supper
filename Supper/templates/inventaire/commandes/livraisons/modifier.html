@@ -1,0 +1,386 @@
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #1a5f2a;
+        --primary-light: #2d8a3e;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --bg-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .modifier-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--warning-color), #e0a800);
+        color: #333;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+    }
+
+    .page-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.6rem;
+        font-weight: 600;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        margin-bottom: 25px;
+    }
+
+    .form-card-header {
+        background: var(--bg-light);
+        padding: 18px 25px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .form-card-header i {
+        font-size: 1.2rem;
+        color: var(--warning-color);
+    }
+
+    .form-card-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .form-card-body {
+        padding: 25px;
+    }
+
+    /* Info livraison */
+    .livraison-info {
+        background: var(--bg-light);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+
+    .livraison-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+
+    .livraison-info-item {
+        text-align: center;
+    }
+
+    .livraison-info-item .value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--success-color);
+    }
+
+    .livraison-info-item .label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    /* Liste des recharges */
+    .recharges-section h3 {
+        font-size: 1rem;
+        margin: 0 0 15px 0;
+        color: #333;
+    }
+
+    .recharges-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .recharge-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 15px;
+        background: var(--bg-light);
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+
+    .recharge-item .info {
+        display: flex;
+        gap: 20px;
+    }
+
+    .recharge-item .serie {
+        font-weight: 500;
+    }
+
+    .recharge-item .montant {
+        color: var(--success-color);
+        font-weight: 600;
+    }
+
+    .recharge-item .date {
+        color: var(--text-muted);
+    }
+
+    /* Formulaire */
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+        border-color: var(--warning-color);
+        box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.15);
+        outline: none;
+    }
+
+    .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 6px 0 0 0;
+    }
+
+    .errorlist li {
+        color: var(--danger-color);
+        font-size: 0.85rem;
+    }
+
+    /* Boutons */
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 25px;
+        background: var(--bg-light);
+        border-top: 1px solid var(--border-color);
+        gap: 15px;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: #333;
+    }
+
+    .btn-warning:hover {
+        background: #e0a800;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #666;
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+        background: var(--bg-light);
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        .modifier-container {
+            padding: 15px;
+        }
+
+        .page-header {
+            padding: 20px;
+        }
+
+        .page-header h1 {
+            font-size: 1.3rem;
+        }
+
+        .livraison-info-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .recharge-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .recharge-item .info {
+            flex-direction: column;
+            gap: 5px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="modifier-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <h1><i class="fas fa-edit"></i> Modifier la Livraison</h1>
+        <p>Commande N°{{ livraison.commande.numero_commande }} - {{ livraison.poste.nom }}</p>
+    </div>
+
+    <!-- Informations actuelles -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="fas fa-info-circle"></i>
+            <h2>Informations de la Livraison</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="livraison-info">
+                <div class="livraison-info-grid">
+                    <div class="livraison-info-item">
+                        <div class="value">{{ livraison.date_livraison|date:"d/m/Y" }}</div>
+                        <div class="label">Date</div>
+                    </div>
+                    <div class="livraison-info-item">
+                        <div class="value">{{ livraison.montant_livre|format_milliers }}</div>
+                        <div class="label">FCFA</div>
+                    </div>
+                    <div class="livraison-info-item">
+                        <div class="value">{{ livraison.nombre_carnets_livres|format_milliers }}</div>
+                        <div class="label">Carnets</div>
+                    </div>
+                    <div class="livraison-info-item">
+                        <div class="value">{{ livraison.historiques_associes.count }}</div>
+                        <div class="label">Recharges</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="recharges-section">
+                <h3><i class="fas fa-boxes"></i> Recharges Associées</h3>
+                <div class="recharges-list">
+                    {% for recharge in livraison.historiques_associes.all %}
+                    <div class="recharge-item">
+                        <div class="info">
+                            <span class="serie">{{ recharge.numero_serie }}</span>
+                            <span class="montant">{{ recharge.montant|format_milliers }} FCFA</span>
+                            <span class="date">{{ recharge.date_operation|date:"d/m/Y" }}</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Aucune recharge associée
+                    </p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire -->
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="fas fa-edit"></i>
+                <h2>Modifications</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="form-group">
+                    <label for="id_date_livraison">
+                        <i class="fas fa-calendar-alt"></i> Date de livraison
+                    </label>
+                    {{ form.date_livraison }}
+                    {% if form.date_livraison.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.date_livraison.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_observations">
+                        <i class="fas fa-comment-alt"></i> Observations
+                    </label>
+                    {{ form.observations }}
+                    {% if form.observations.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.observations.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'inventaire:liste_livraisons' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Annuler
+                </a>
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,756 @@
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #1a5f2a;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --bg-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    * { box-sizing: border-box; }
+
+    .livraison-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--success-color), #1e7e34);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+    }
+
+    .page-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.6rem;
+        font-weight: 600;
+    }
+
+    .page-header p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .etapes-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .etape-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .etape-badge.active {
+        background: white;
+        color: var(--success-color);
+    }
+
+    .etape-badge.inactive {
+        background: rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.8);
+    }
+
+    .etape-number {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .etape-badge.active .etape-number {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .etape-separator {
+        width: 40px;
+        height: 2px;
+        background: rgba(255,255,255,0.3);
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+
+    .form-card-header {
+        background: var(--bg-light);
+        padding: 18px 25px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .form-card-header i {
+        font-size: 1.2rem;
+        color: var(--success-color);
+    }
+
+    .form-card-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .form-card-body {
+        padding: 25px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    .form-group label i {
+        margin-right: 6px;
+        color: var(--success-color);
+    }
+
+    .form-select,
+    .form-control {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background-color: white;
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+        border-color: var(--success-color);
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+        outline: none;
+    }
+
+    .help-text {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: 6px;
+    }
+
+    /* Info commande */
+    .commande-info {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-top: 15px;
+    }
+
+    .commande-info h4 {
+        margin: 0 0 10px 0;
+        color: #155724;
+        font-size: 0.95rem;
+    }
+
+    .commande-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px;
+    }
+
+    .commande-info-item {
+        text-align: center;
+        padding: 8px;
+        background: white;
+        border-radius: 6px;
+    }
+
+    .commande-info-item .value {
+        font-weight: 600;
+        color: var(--success-color);
+        font-size: 1.1rem;
+    }
+
+    .commande-info-item .label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    /* Liste des postes avec checkboxes */
+    .postes-selection {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+    }
+
+    .postes-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        background: var(--bg-light);
+        border-bottom: 1px solid var(--border-color);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .postes-header .selection-count {
+        font-weight: 600;
+        color: var(--success-color);
+    }
+
+    .postes-header .btn-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        background: white;
+        color: #333;
+        transition: all 0.2s;
+    }
+
+    .btn-sm:hover {
+        background: var(--bg-light);
+    }
+
+    .poste-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        border-bottom: 1px solid #f3f4f6;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .poste-item:hover {
+        background: #f0fdf4;
+    }
+
+    .poste-item:last-child {
+        border-bottom: none;
+    }
+
+    .poste-item.disabled {
+        background: #f9fafb;
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .poste-item input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+        accent-color: var(--success-color);
+        cursor: pointer;
+    }
+
+    .poste-item.disabled input[type="checkbox"] {
+        cursor: not-allowed;
+    }
+
+    .poste-info {
+        flex: 1;
+    }
+
+    .poste-name {
+        font-weight: 500;
+        color: #333;
+    }
+
+    .poste-region {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .poste-stats {
+        text-align: right;
+        min-width: 150px;
+    }
+
+    .poste-carnets {
+        font-weight: 600;
+        color: var(--success-color);
+    }
+
+    .poste-progress {
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        margin-top: 4px;
+        overflow: hidden;
+    }
+
+    .poste-progress-bar {
+        height: 100%;
+        background: var(--success-color);
+        border-radius: 3px;
+    }
+
+    .badge-complet {
+        background: #d4edda;
+        color: #155724;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* Grille formulaire */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    /* Boutons */
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 25px;
+        background: var(--bg-light);
+        border-top: 1px solid var(--border-color);
+        gap: 15px;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #218838;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background: var(--info-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #138496;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #666;
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+        background: var(--bg-light);
+        color: #333;
+        text-decoration: none;
+    }
+
+    /* Alertes */
+    .alert-info {
+        background: #e7f3ff;
+        border: 1px solid #b8daff;
+        color: #004085;
+        padding: 15px 20px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alert-warning {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+        padding: 15px 20px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        .livraison-container {
+            padding: 15px;
+        }
+
+        .page-header {
+            padding: 20px;
+        }
+
+        .page-header h1 {
+            font-size: 1.3rem;
+        }
+
+        .etapes-indicator {
+            flex-wrap: wrap;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .commande-info-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .postes-header {
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .poste-item {
+            flex-wrap: wrap;
+        }
+
+        .poste-stats {
+            width: 100%;
+            text-align: left;
+            margin-top: 8px;
+            padding-left: 32px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .form-card-body {
+            padding: 15px;
+        }
+
+        .form-card-header {
+            padding: 15px;
+        }
+
+        .form-select,
+        .form-control {
+            font-size: 16px !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="livraison-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <h1><i class="fas fa-truck"></i> Nouvelle Livraison</h1>
+        <p>Associez des recharges de l'imprimerie nationale à une commande</p>
+        
+        <div class="etapes-indicator">
+            <div class="etape-badge active">
+                <span class="etape-number">1</span>
+                <span>Sélection</span>
+            </div>
+            <div class="etape-separator"></div>
+            <div class="etape-badge inactive">
+                <span class="etape-number">2</span>
+                <span>Recharges</span>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="form-livraison-etape1">
+        {% csrf_token %}
+        
+        <!-- SECTION 1: Sélection de la commande -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="fas fa-file-invoice"></i>
+                <h2>1. Sélection de la Commande</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="form-group">
+                    <label for="commande">
+                        <i class="fas fa-file-invoice"></i> Commande
+                    </label>
+                    <select name="commande" id="commande" class="form-select" required>
+                        <option value="">--- Sélectionnez une commande ---</option>
+                        {% for cmd in commandes %}
+                        <option value="{{ cmd.id }}" {% if commande_selectionnee and cmd.id == commande_selectionnee.id %}selected{% endif %}>
+                            {{ cmd.numero_commande }}{% if cmd.numero_commande == 1 %}ère{% else %}ème{% endif %} Commande {{ cmd.exercice }} - {{ cmd.get_periode_display_complet }} ({{ cmd.get_statut_display }})
+                        </option>
+                        {% empty %}
+                        <option value="" disabled>-- Aucune commande disponible --</option>
+                        {% endfor %}
+                    </select>
+                    <p class="help-text">Sélectionnez une commande puis cliquez sur "Charger les postes"</p>
+                </div>
+
+                {% if not commande_selectionnee %}
+                <button type="submit" name="action" value="charger_postes" class="btn btn-primary">
+                    <i class="fas fa-sync"></i> Charger les postes de cette commande
+                </button>
+                {% endif %}
+
+                {% if commande_selectionnee %}
+                <div class="commande-info">
+                    <h4>
+                        <i class="fas fa-info-circle"></i> 
+                        {{ commande_selectionnee.numero_commande }}{% if commande_selectionnee.numero_commande == 1 %}ère{% else %}ème{% endif %} Commande {{ commande_selectionnee.exercice }}
+                    </h4>
+                    <div class="commande-info-grid">
+                        <div class="commande-info-item">
+                            <div class="value">{{ commande_selectionnee.nombre_postes }}</div>
+                            <div class="label">Postes</div>
+                        </div>
+                        <div class="commande-info-item">
+                            <div class="value">{{ commande_selectionnee.montant_total|floatformat:0|format_milliers }}</div>
+                            <div class="label">FCFA</div>
+                        </div>
+                        <div class="commande-info-item">
+                            <div class="value">{{ commande_selectionnee.nombre_carnets_total }}</div>
+                            <div class="label">Carnets</div>
+                        </div>
+                        <div class="commande-info-item">
+                            <div class="value">{{ commande_selectionnee.get_taux_livraison|floatformat:1 }}%</div>
+                            <div class="label">Livré</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if commande_selectionnee %}
+        <!-- SECTION 2: Sélection des postes (MULTI-SELECT) -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="fas fa-map-marker-alt"></i>
+                <h2>2. Sélection des Postes à Livrer</h2>
+            </div>
+            <div class="form-card-body">
+                {% if postes_disponibles %}
+                <p class="help-text" style="margin-bottom: 15px;">
+                    <i class="fas fa-info-circle"></i>
+                    Cochez un ou plusieurs postes pour lesquels vous souhaitez enregistrer une livraison.
+                    Les postes déjà complètement livrés sont grisés.
+                </p>
+                
+                <div class="postes-selection">
+                    <div class="postes-header">
+                        <span class="selection-count">
+                            <span id="compteurPostes">0</span> poste(s) sélectionné(s)
+                        </span>
+                        <div class="btn-group">
+                            <button type="button" class="btn-sm" onclick="selectionnerTous()">
+                                <i class="fas fa-check-double"></i> Tous
+                            </button>
+                            <button type="button" class="btn-sm" onclick="deselectionnerTous()">
+                                <i class="fas fa-times"></i> Aucun
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {% for p in postes_disponibles %}
+                    <div class="poste-item {% if p.est_complet %}disabled{% endif %}">
+                        <input type="checkbox" 
+                               name="postes" 
+                               value="{{ p.id }}" 
+                               id="poste_{{ p.id }}"
+                               class="poste-checkbox"
+                               {% if p.est_complet %}disabled{% endif %}
+                               {% if p.id in postes_coches %}checked{% endif %}
+                               onchange="updateCompteur()">
+                        <div class="poste-info">
+                            <div class="poste-name">{{ p.nom }}</div>
+                            <div class="poste-region">{{ p.region }}</div>
+                        </div>
+                        <div class="poste-stats">
+                            {% if p.est_complet %}
+                            <span class="badge-complet">✓ Complet</span>
+                            {% else %}
+                            <div class="poste-carnets">
+                                {{ p.carnets_livres }}/{{ p.carnets_commandes }} carnets
+                                <small>(reste {{ p.carnets_restants }})</small>
+                            </div>
+                            <div class="poste-progress">
+                                <div class="poste-progress-bar" style="width: {{ p.taux_livraison }}%;"></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Tous les postes de cette commande ont déjà été complètement livrés.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- SECTION 3: Date et exercice -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="fas fa-calendar-alt"></i>
+                <h2>3. Date et Exercice</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date_livraison">
+                            <i class="fas fa-calendar-alt"></i> Date de livraison
+                        </label>
+                        <input type="date" 
+                               name="date_livraison" 
+                               id="date_livraison" 
+                               class="form-control" 
+                               value="{{ date_livraison }}"
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="exercice_recharges">
+                            <i class="fas fa-calendar"></i> Exercice des recharges
+                        </label>
+                        <select name="exercice_recharges" id="exercice_recharges" class="form-select" required>
+                            {% for ex_val, ex_label in exercices %}
+                            <option value="{{ ex_val }}" {% if exercice_recharges == ex_val|stringformat:"s" %}selected{% endif %}>
+                                {{ ex_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <p class="help-text">Année des recharges à sélectionner</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="observations">
+                        <i class="fas fa-comment"></i> Observations (optionnel)
+                    </label>
+                    <textarea name="observations" 
+                              id="observations" 
+                              class="form-control" 
+                              rows="2"
+                              placeholder="Observations éventuelles...">{{ observations }}</textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'inventaire:liste_livraisons' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour à la liste
+                </a>
+                
+                {% if postes_disponibles %}
+                <button type="submit" class="btn btn-success" id="btnSuivant">
+                    Sélectionner les recharges <i class="fas fa-arrow-right"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <!-- Message si aucune commande sélectionnée -->
+        <div class="form-card">
+            <div class="form-card-body">
+                <div class="alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Sélectionnez une commande ci-dessus et cliquez sur "Charger les postes" pour continuer.</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <a href="{% url 'inventaire:liste_livraisons' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour à la liste
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<script>
+function updateCompteur() {
+    const checkboxes = document.querySelectorAll('.poste-checkbox:checked:not(:disabled)');
+    document.getElementById('compteurPostes').textContent = checkboxes.length;
+    
+    // Désactiver le bouton si aucun poste sélectionné
+    const btnSuivant = document.getElementById('btnSuivant');
+    if (btnSuivant) {
+        btnSuivant.disabled = checkboxes.length === 0;
+    }
+}
+
+function selectionnerTous() {
+    const checkboxes = document.querySelectorAll('.poste-checkbox:not(:disabled)');
+    checkboxes.forEach(cb => cb.checked = true);
+    updateCompteur();
+}
+
+function deselectionnerTous() {
+    const checkboxes = document.querySelectorAll('.poste-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    updateCompteur();
+}
+
+// Initialiser au chargement
+document.addEventListener('DOMContentLoaded', updateCompteur);
+</script>
+{% endblock %}

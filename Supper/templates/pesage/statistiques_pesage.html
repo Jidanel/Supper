@@ -562,7 +562,7 @@
     .text-danger { color: #EF4444 !important; }
     .text-warning { color: #F59E0B !important; }
     .text-muted { color: #64748B !important; }
-    
+
     .me-1 { margin-right: 0.25rem !important; }
     .me-2 { margin-right: 0.5rem !important; }
     .mb-0 { margin-bottom: 0 !important; }
@@ -981,7 +981,7 @@
 {% block content %}
 <div class="stats-page">
     <div class="stats-container">
-        
+
         <!-- EN-TÊTE -->
         <div class="stats-header">
             <div class="stats-header-content">
@@ -1004,11 +1004,11 @@
                 </a>
             </div>
         </div>
-        
+
         <!-- FILTRES -->
         <div class="filter-card">
             <form method="get" class="filter-form">
-                
+
                 <!-- Filtre Période -->
                 <div class="filter-group">
                     <label class="filter-label">
@@ -1023,7 +1023,7 @@
                         <option value="tout" {% if periode == 'tout' %}selected{% endif %}>{% trans "Tout" %}</option>
                     </select>
                 </div>
-                
+
                 <!-- Filtre Station (admin uniquement) -->
                 {% if is_admin and stations_accessibles.count > 1 %}
                 <div class="filter-group">
@@ -1038,7 +1038,7 @@
                     </select>
                 </div>
                 {% endif %}
-                
+
                 <!-- Bouton Filtrer -->
                 <div>
                     <button type="submit" class="btn-filter">
@@ -1047,10 +1047,10 @@
                 </div>
             </form>
         </div>
-        
+
         <!-- CARTES STATISTIQUES PRINCIPALES -->
         <div class="stats-grid">
-            
+
             <!-- Émissions -->
             <div class="stat-card amber">
                 <div class="stat-card-header">
@@ -1064,7 +1064,7 @@
                     {% trans "dont" %} <strong style="color: #F59E0B;">{{ stats.hors_gabarit }}</strong> {% trans "hors gabarit" %}
                 </div>
             </div>
-            
+
             <!-- Montant Émis -->
             <div class="stat-card blue">
                 <div class="stat-card-header">
@@ -1076,7 +1076,7 @@
                 <div class="stat-card-value">{{ stats.montant_emis|floatformat:0|intcomma }}</div>
                 <div class="stat-card-detail">FCFA</div>
             </div>
-            
+
             <!-- Montant Recouvré -->
             <div class="stat-card green">
                 <div class="stat-card-header">
@@ -1088,7 +1088,7 @@
                 <div class="stat-card-value green">{{ stats.montant_recouvre|floatformat:0|intcomma }}</div>
                 <div class="stat-card-detail">FCFA</div>
             </div>
-            
+
             <!-- Reste à Recouvrer -->
             <div class="stat-card red">
                 <div class="stat-card-header">
@@ -1100,7 +1100,7 @@
                 <div class="stat-card-value red">{{ stats.reste_a_recouvrer|floatformat:0|intcomma }}</div>
                 <div class="stat-card-detail">FCFA</div>
             </div>
-            
+
             <!-- Taux de Recouvrement -->
             <div class="stat-card {% if stats.taux_recouvrement >= 80 %}green{% elif stats.taux_recouvrement >= 50 %}amber{% else %}red{% endif %}">
                 <div class="stat-card-header">
@@ -1120,7 +1120,7 @@
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Nombre de Pesées -->
             <div class="stat-card purple">
                 <div class="stat-card-header">
@@ -1133,22 +1133,22 @@
                 <div class="stat-card-detail">{% trans "véhicules pesés" %}</div>
             </div>
         </div>
-        
+
         <!-- BARRE DE PROGRESSION RECOUVREMENT -->
         <div class="progress-section">
             <h3 class="progress-title">
                 <i class="fas fa-chart-pie"></i>
                 {% trans "Progression du Recouvrement" %}
             </h3>
-            
+
             <div class="progress-bar-container">
-                <div class="progress-bar-fill {% if stats.taux_recouvrement >= 80 %}high{% elif stats.taux_recouvrement >= 50 %}medium{% else %}low{% endif %}" 
+                <div class="progress-bar-fill {% if stats.taux_recouvrement >= 80 %}high{% elif stats.taux_recouvrement >= 50 %}medium{% else %}low{% endif %}"
                      style="width: {{ stats.taux_recouvrement }}%;"></div>
                 <div class="progress-bar-text {% if stats.taux_recouvrement > 50 %}light{% else %}dark{% endif %}">
                     {{ stats.taux_recouvrement }}% {% trans "recouvré" %}
                 </div>
             </div>
-            
+
             <div class="progress-legend">
                 <span>
                     <i class="fas fa-check-circle text-success me-1"></i>
@@ -1160,36 +1160,46 @@
                 </span>
             </div>
         </div>
-        
+
         <!-- INDICATEURS SUPPLÉMENTAIRES -->
         <div class="indicators-grid">
-            
-            <!-- Répartition Gabarit/Hors Gabarit -->
+
+            <!-- Répartition Gabarit/Hors Gabarit/Délit de Fuite -->
             <div class="indicator-card">
                 <h3 class="indicator-title">
                     <i class="fas fa-truck amber"></i>
                     {% trans "Répartition des Infractions" %}
                 </h3>
-                
+
                 {% if stats.emissions > 0 %}
                 <div>
                     <div class="indicator-bar-container">
                         <div class="indicator-bar-header">
-                            <span style="color: #64748B;">{% trans "Gabarit" %}</span>
-                            <span style="font-weight: 600;">{{ stats.emissions|add:stats.hors_gabarit|mul:-1|add:stats.emissions|default:0 }}</span>
+                            <span style="color: #64748B;">{% trans "Surcharge" %}</span>
+                            <span style="font-weight: 600;">{{ stats.surcharges|default:0 }}</span>
                         </div>
                         <div class="indicator-bar">
-                            <div class="indicator-bar-fill blue" style="width: {% widthratio stats.emissions|add:stats.hors_gabarit|mul:-1|add:stats.emissions stats.emissions 100 %}%;"></div>
+                            <div class="indicator-bar-fill blue" style="width: {% if stats.emissions > 0 %}{% widthratio stats.surcharges stats.emissions 100 %}{% else %}0{% endif %}%;"></div>
                         </div>
                     </div>
-                    
+
                     <div class="indicator-bar-container">
                         <div class="indicator-bar-header">
                             <span style="color: #64748B;">{% trans "Hors Gabarit" %}</span>
                             <span style="font-weight: 600; color: #F59E0B;">{{ stats.hors_gabarit }}</span>
                         </div>
                         <div class="indicator-bar">
-                            <div class="indicator-bar-fill amber" style="width: {% widthratio stats.hors_gabarit stats.emissions 100 %}%;"></div>
+                            <div class="indicator-bar-fill amber" style="width: {% if stats.emissions > 0 %}{% widthratio stats.hors_gabarit stats.emissions 100 %}{% else %}0{% endif %}%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="indicator-bar-container">
+                        <div class="indicator-bar-header">
+                            <span style="color: #64748B;">{% trans "Délit de Fuite" %}</span>
+                            <span style="font-weight: 600; color: #1E293B;">{{ stats.delit_fuite|default:0 }}</span>
+                        </div>
+                        <div class="indicator-bar">
+                            <div class="indicator-bar-fill" style="background: linear-gradient(90deg, #1E293B, #475569); width: {% if stats.emissions > 0 %}{% widthratio stats.delit_fuite stats.emissions 100 %}{% else %}0{% endif %}%;"></div>
                         </div>
                     </div>
                 </div>
@@ -1200,26 +1210,29 @@
                 </div>
                 {% endif %}
             </div>
-            
             <!-- Moyennes -->
-            <div class="indicator-card">
-                <h3 class="indicator-title">
-                    <i class="fas fa-calculator purple"></i>
-                    {% trans "Moyennes" %}
-                </h3>
-                
-                <div class="indicator-item">
-                    <span class="indicator-item-label">{% trans "Amende moyenne" %}</span>
-                    <span class="indicator-item-value">
+            <div class="indicator-item">
+                    <span class="indicator-item-label">{% trans "Taux infraction HG" %}</span>
+                    <span class="indicator-item-value amber">
                         {% if stats.emissions > 0 %}
-                            {% widthratio stats.montant_emis 1 stats.emissions as avg_amende %}
-                            {{ avg_amende|floatformat:0|intcomma }} FCFA
+                            {% widthratio stats.hors_gabarit stats.emissions 100 %}%
                         {% else %}
-                            0 FCFA
+                            0%
                         {% endif %}
                     </span>
                 </div>
-                
+
+                <div class="indicator-item">
+                    <span class="indicator-item-label">{% trans "Taux délit de fuite" %}</span>
+                    <span class="indicator-item-value" style="color: #1E293B;">
+                        {% if stats.emissions > 0 %}
+                            {% widthratio stats.delit_fuite stats.emissions 100 %}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </span>
+                </div>
+
                 <div class="indicator-item">
                     <span class="indicator-item-label">{% trans "Pesées par jour (moy.)" %}</span>
                     <span class="indicator-item-value">
@@ -1230,7 +1243,7 @@
                         {% endif %}
                     </span>
                 </div>
-                
+
                 <div class="indicator-item">
                     <span class="indicator-item-label">{% trans "Taux infraction HG" %}</span>
                     <span class="indicator-item-value amber">
@@ -1243,7 +1256,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- ACTIONS -->
         <div class="actions-section">
             <h3 class="actions-title">{% trans "Actions rapides" %}</h3>
@@ -1251,27 +1264,27 @@
                 <a href="{% url 'inventaire:liste_amendes' %}" class="action-btn blue">
                     <i class="fas fa-list"></i> {% trans "Voir les Amendes" %}
                 </a>
-                
+
                 <a href="{% url 'inventaire:recettes_pesage' %}" class="action-btn green">
                     <i class="fas fa-coins"></i> {% trans "Recettes Pesage" %}
                 </a>
-                
+
                 <a href="{% url 'inventaire:recherche_historique_vehicule' %}" class="action-btn purple">
                     <i class="fas fa-search"></i> {% trans "Historique Véhicule" %}
                 </a>
-                
+
                 {% if is_admin %}
                 <a href="{% url 'inventaire:classement_stations_pesage_rendement' %}" class="action-btn amber">
                     <i class="fas fa-trophy"></i> {% trans "Classement Stations" %}
                 </a>
                 {% endif %}
-                
+
                 <a href="{% url 'common:dashboard' %}" class="action-btn outline">
                     <i class="fas fa-home"></i> {% trans "Dashboard" %}
                 </a>
             </div>
         </div>
-        
+
     </div>
 </div>
 {% endblock %}
@@ -1285,7 +1298,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflowX = 'hidden';
             document.body.style.maxWidth = '100vw';
             document.body.style.width = '100%';
-            
+
             // Correction spécifique pour cette page
             const statsPage = document.querySelector('.stats-page');
             if (statsPage) {
@@ -1298,11 +1311,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.width = '';
         }
     }
-    
+
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
     window.addEventListener('orientationchange', fixMobileScrolling);
-    
+
     // Animation de la barre de progression
     const progressBars = document.querySelectorAll('.progress-bar-fill');
     progressBars.forEach(bar => {
@@ -1312,10 +1325,10 @@ document.addEventListener('DOMContentLoaded', function() {
             bar.style.width = width;
         }, 100);
     });
-    
+
     // Amélioration tactile pour mobile
     document.addEventListener('touchstart', function() {}, {passive: true});
-    
+
     // Ajustement dynamique pour les petits écrans
     function adjustForSmallScreen() {
         if (window.innerWidth < 768) {
@@ -1328,7 +1341,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflowX = '';
         }
     }
-    
+
     window.addEventListener('load', adjustForSmallScreen);
     window.addEventListener('resize', adjustForSmallScreen);
 });

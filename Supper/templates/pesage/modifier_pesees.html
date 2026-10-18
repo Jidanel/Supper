@@ -1,0 +1,572 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       STYLES GLOBAUX
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin: 0 auto;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -10px;
+        margin-right: -10px;
+    }
+
+    .col-12, .col-md-6, .col-md-8 {
+        padding-left: 10px;
+        padding-right: 10px;
+        width: 100%;
+    }
+
+    @media (min-width: 768px) {
+        .col-md-6 { width: 50%; }
+        .col-md-8 { width: 66.666%; }
+    }
+
+    /* ============================================
+       EN-TÊTE - ALERTE ADMIN
+       ============================================ */
+    .admin-warning-banner {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);
+    }
+
+    .admin-warning-banner i {
+        font-size: 1.5rem;
+        margin-right: 0.75rem;
+    }
+
+    .admin-warning-banner h5 {
+        margin: 0 0 0.5rem 0;
+        font-weight: 700;
+    }
+
+    .admin-warning-banner p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.9rem;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE
+       ============================================ */
+    .card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+        padding: 1rem 1.25rem;
+        border-bottom: none;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .card-footer {
+        background: #f8f9fa;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    /* ============================================
+       INFOS PESÉE ACTUELLE
+       ============================================ */
+    .info-box {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-box-title {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+
+    .info-value {
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .info-value.text-info { color: #17a2b8 !important; }
+    .info-value.text-danger { color: #dc3545 !important; }
+
+    /* ============================================
+       FORMULAIRE
+       ============================================ */
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-size: 0.9rem;
+    }
+
+    .form-label .required {
+        color: #dc3545;
+        margin-left: 0.25rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.15);
+        outline: none;
+    }
+
+    .form-control:disabled {
+        background: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .form-control-lg {
+        padding: 1rem 1.25rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .form-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    /* ============================================
+       COMPARAISON VALEURS
+       ============================================ */
+    .comparison-box {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+        padding: 1rem;
+        background: #e9ecef;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+
+    .comparison-item {
+        text-align: center;
+    }
+
+    .comparison-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+
+    .comparison-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+
+    .comparison-value.old {
+        color: #6c757d;
+        text-decoration: line-through;
+    }
+
+    .comparison-value.new {
+        color: #17a2b8;
+    }
+
+    .comparison-arrow {
+        font-size: 1.5rem;
+        color: #6c757d;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .btn-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+    }
+
+    .btn-info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(23, 162, 184, 0.35);
+    }
+
+    .btn-outline-secondary {
+        background: white;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    /* ============================================
+       BADGE GRANDE TAILLE
+       ============================================ */
+    .badge-lg {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.75rem 1.5rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        border-radius: 8px;
+        background: #17a2b8;
+        color: white;
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .btn-group {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+        }
+
+        .form-control {
+            font-size: 16px !important;
+        }
+
+        .comparison-box {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .comparison-arrow {
+            transform: rotate(90deg);
+        }
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mt-3 { margin-top: 1rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .text-center { text-align: center !important; }
+    .text-muted { color: #6c757d !important; }
+    .fw-bold { font-weight: 700 !important; }
+    .d-flex { display: flex !important; }
+    .align-items-center { align-items: center !important; }
+    .justify-content-between { justify-content: space-between !important; }
+    .justify-content-center { justify-content: center !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- BANNIÈRE ADMIN -->
+    <div class="admin-warning-banner d-flex align-items-center">
+        <i class="fas fa-weight"></i>
+        <div>
+            <h5>🔒 Zone Administrateur - Modification des Pesées</h5>
+            <p>
+                Modification des pesées du <strong>{{ pesee.date|date:"d/m/Y" }}</strong>
+                pour la station <strong>{{ station.nom }}</strong>.
+            </p>
+        </div>
+    </div>
+    
+    <!-- INFORMATIONS ACTUELLES -->
+    <div class="info-box">
+        <div class="info-box-title">
+            <i class="fas fa-info-circle me-2"></i>
+            Informations actuelles
+        </div>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Station</span>
+                <span class="info-value">{{ station.nom }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Date</span>
+                <span class="info-value">{{ pesee.date|date:"d/m/Y" }} ({{ pesee.date|date:"l" }})</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Nombre de pesées actuel</span>
+                <span class="info-value text-info" style="font-size: 1.25rem;">{{ pesee.nombre_pesees }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Saisi par</span>
+                <span class="info-value">{{ pesee.saisi_par.nom_complet|default:"-" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Date de saisie</span>
+                <span class="info-value">{{ pesee.date_saisie|date:"d/m/Y H:i" }}</span>
+            </div>
+            {% if pesee.date_derniere_modification %}
+            <div class="info-item">
+                <span class="info-label">Dernière modification</span>
+                <span class="info-value text-danger">
+                    {{ pesee.date_derniere_modification|date:"d/m/Y H:i" }}
+                    par {{ pesee.modifie_par.nom_complet|default:"-" }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- FORMULAIRE DE MODIFICATION -->
+    <div class="card">
+        <div class="card-header">
+            <h5>
+                <i class="fas fa-edit"></i>
+                Modifier le nombre de pesées
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post" id="form-modifier-pesees">
+                {% csrf_token %}
+                
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                        <div class="form-group text-center">
+                            <label class="form-label">
+                                Nouveau nombre de pesées <span class="required">*</span>
+                            </label>
+                            <input type="number" 
+                                   name="nombre_pesees" 
+                                   id="nombre_pesees"
+                                   class="form-control form-control-lg" 
+                                   value="{{ form.nombre_pesees.value|default:pesee.nombre_pesees }}"
+                                   min="0"
+                                   max="10000"
+                                   required>
+                            <small class="form-text">Entrez le nombre corrigé de pesées (0 - 10 000)</small>
+                            {% if form.nombre_pesees.errors %}
+                            <div class="text-danger mt-2">{{ form.nombre_pesees.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Comparaison en temps réel -->
+                        <div class="comparison-box" id="comparison-box" style="display: none;">
+                            <div class="comparison-item">
+                                <div class="comparison-label">Ancienne valeur</div>
+                                <div class="comparison-value old">{{ ancien_nombre }}</div>
+                            </div>
+                            <div class="comparison-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                            </div>
+                            <div class="comparison-item">
+                                <div class="comparison-label">Nouvelle valeur</div>
+                                <div class="comparison-value new" id="new-value">{{ ancien_nombre }}</div>
+                            </div>
+                            <div class="comparison-item">
+                                <div class="comparison-label">Différence</div>
+                                <div class="comparison-value" id="difference-value">0</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <label class="form-label">Observations (optionnel)</label>
+                            <textarea name="observations" 
+                                      class="form-control" 
+                                      rows="3"
+                                      placeholder="Raison de la modification...">{{ form.observations.value|default:pesee.observations }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="card-footer">
+            <div class="btn-group justify-content-between" style="width: 100%;">
+                <a href="{% url 'inventaire:historique_pesees' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Annuler
+                </a>
+                <button type="submit" form="form-modifier-pesees" class="btn btn-info">
+                    <i class="fas fa-save me-2"></i>
+                    Enregistrer la modification
+                </button>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('form-modifier-pesees');
+    const input = document.getElementById('nombre_pesees');
+    const comparisonBox = document.getElementById('comparison-box');
+    const newValueEl = document.getElementById('new-value');
+    const differenceEl = document.getElementById('difference-value');
+    const ancienNombre = {{ ancien_nombre }};
+    
+    // Mise à jour en temps réel de la comparaison
+    input.addEventListener('input', function() {
+        const newValue = parseInt(this.value) || 0;
+        const difference = newValue - ancienNombre;
+        
+        if (newValue !== ancienNombre) {
+            comparisonBox.style.display = 'flex';
+            newValueEl.textContent = newValue;
+            
+            if (difference > 0) {
+                differenceEl.textContent = '+' + difference;
+                differenceEl.style.color = '#28a745';
+            } else if (difference < 0) {
+                differenceEl.textContent = difference;
+                differenceEl.style.color = '#dc3545';
+            } else {
+                differenceEl.textContent = '0';
+                differenceEl.style.color = '#6c757d';
+            }
+        } else {
+            comparisonBox.style.display = 'none';
+        }
+    });
+    
+    // Confirmation avant soumission
+    form.addEventListener('submit', function(e) {
+        const newValue = parseInt(input.value) || 0;
+        const difference = newValue - ancienNombre;
+        
+        if (newValue === ancienNombre) {
+            e.preventDefault();
+            alert('ℹ️ Le nombre de pesées n\'a pas été modifié.');
+            return;
+        }
+        
+        let message = 'Confirmez-vous la modification du nombre de pesées?\n\n';
+        message += 'Ancienne valeur: ' + ancienNombre + '\n';
+        message += 'Nouvelle valeur: ' + newValue + '\n';
+        message += 'Différence: ' + (difference > 0 ? '+' : '') + difference;
+        
+        if (!confirm(message)) {
+            e.preventDefault();
+        }
+    });
+    
+    // Déclencher l'événement initial
+    input.dispatchEvent(new Event('input'));
+});
+</script>
+{% endblock %}

@@ -1,0 +1,928 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{% trans "Liste des Commandes de Tickets" %} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION GLOBALE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        width: 100% !important;
+    }
+
+    /* ============================================
+       CONTENEURS PRINCIPAUX
+       ============================================ */
+    .commandes-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin: 0 auto;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #1a5f2a 0%, #2d8a3e 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(26, 95, 42, 0.3);
+    }
+
+    .page-header-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: white;
+    }
+
+    .page-header p {
+        margin: 0.5rem 0 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+
+    .header-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       STATISTIQUES - GRID RESPONSIVE
+       ============================================ */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #1a5f2a, #2d8a3e);
+        color: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    /* ============================================
+       SECTION FILTRES
+       ============================================ */
+    .filter-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+    }
+
+    .filter-section h5 {
+        font-size: 1.1rem;
+        margin: 0 0 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #1a5f2a;
+    }
+
+    .filter-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .filter-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #374151;
+    }
+
+    .filter-group .form-select,
+    .filter-group .form-control,
+    .filter-group select,
+    .filter-group input {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+    }
+
+    .filter-group .form-select:focus,
+    .filter-group .form-control:focus,
+    .filter-group select:focus,
+    .filter-group input:focus {
+        outline: 2px solid #1a5f2a;
+        border-color: #1a5f2a;
+        box-shadow: 0 0 0 3px rgba(26, 95, 42, 0.1);
+    }
+
+    .filter-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       CONTENEUR TABLEAU
+       ============================================ */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-container::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    /* ============================================
+       TABLEAU PRINCIPAL
+       ============================================ */
+    .commande-table {
+        background: white;
+        border-radius: 12px;
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
+    }
+
+    .commande-table thead {
+        background: linear-gradient(135deg, #1a5f2a, #2d8a3e);
+        color: white;
+    }
+
+    .commande-table th {
+        padding: 1rem;
+        font-weight: 600;
+        border: none;
+        white-space: nowrap;
+        font-size: 0.9rem;
+        text-align: left;
+    }
+
+    .commande-table td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 0.9rem;
+    }
+
+    .commande-table tbody tr:hover {
+        background: rgba(26, 95, 42, 0.03);
+    }
+
+    .commande-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .text-right {
+        text-align: right;
+    }
+
+    .montant-cell {
+        font-weight: 600;
+        color: #1a5f2a;
+        white-space: nowrap;
+    }
+
+    /* ============================================
+       BADGES DE STATUT
+       ============================================ */
+    .badge {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 20px;
+        white-space: nowrap;
+    }
+
+    .badge-brouillon {
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .badge-validee {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .badge-en_cours {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .badge-completee {
+        background: #cce5ff;
+        color: #004085;
+    }
+
+    .badge-annulee {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    /* ============================================
+       BARRE DE PROGRESSION
+       ============================================ */
+    .progress-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 120px;
+    }
+
+    .progress-bar-bg {
+        flex: 1;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: #1a5f2a;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .progress-bar-fill.complete {
+        background: #28a745;
+    }
+
+    .progress-text {
+        font-size: 0.85rem;
+        font-weight: 600;
+        min-width: 45px;
+        color: #6c757d;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        min-height: 44px;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #1a5f2a, #2d8a3e);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(26, 95, 42, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-light {
+        background: white;
+        color: #1a5f2a;
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-light:hover {
+        background: #f8f9fa;
+        color: #1a5f2a;
+        text-decoration: none;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid #6b7280;
+        color: #6b7280;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6b7280;
+        color: white;
+        text-decoration: none;
+    }
+
+    /* ============================================
+       BOUTONS D'ACTION DANS LE TABLEAU
+       ============================================ */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-action {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border-radius: 8px;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-view {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .btn-edit {
+        background: #ffc107;
+        color: #333;
+    }
+
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-action:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ============================================
+       PAGINATION
+       ============================================ */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        list-style: none;
+        padding: 0;
+        margin: 1.5rem 0 0;
+    }
+
+    .page-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0.875rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        color: #374151;
+        text-decoration: none;
+        font-size: 0.875rem;
+        background: white;
+        min-height: 40px;
+    }
+
+    .page-item.active .page-link {
+        background: #1a5f2a;
+        color: white;
+        border-color: #1a5f2a;
+    }
+
+    .page-link:hover {
+        background: #f3f4f6;
+        text-decoration: none;
+    }
+
+    /* ============================================
+       ÉTAT VIDE
+       ============================================ */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        color: #6b7280;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: #1a5f2a;
+        opacity: 0.4;
+    }
+
+    .empty-state h4 {
+        margin: 0 0 0.5rem;
+        font-size: 1.25rem;
+        color: #374151;
+    }
+
+    .empty-state p {
+        margin: 0 0 1.5rem;
+    }
+
+    /* ============================================
+       UTILITAIRES
+       ============================================ */
+    .text-muted {
+        color: #6b7280 !important;
+    }
+
+    .fw-bold {
+        font-weight: 600 !important;
+    }
+
+    .mb-0 {
+        margin-bottom: 0 !important;
+    }
+
+    .me-1 {
+        margin-right: 0.25rem !important;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem !important;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem !important;
+    }
+
+    .mt-3 {
+        margin-top: 1rem !important;
+    }
+
+    /* ============================================
+       RESPONSIVE - TABLETTE (768px à 1023px)
+       ============================================ */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .filter-group {
+            flex: 0 0 calc(50% - 0.5rem);
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .page-header {
+            flex-direction: column;
+            padding: 1rem 1.25rem;
+            border-radius: 10px;
+        }
+
+        .page-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .header-buttons {
+            width: 100%;
+        }
+
+        .header-buttons .btn {
+            flex: 1;
+            font-size: 0.85rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+        }
+
+        .filter-section {
+            padding: 1rem;
+        }
+
+        .filter-row {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .filter-group {
+            min-width: 100%;
+        }
+
+        .filter-group .form-select,
+        .filter-group .form-control,
+        .filter-group select,
+        .filter-group input {
+            font-size: 16px !important;
+        }
+
+        .filter-buttons {
+            width: 100%;
+        }
+
+        .filter-buttons .btn {
+            flex: 1;
+        }
+
+        .table-container {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+            border-radius: 0;
+        }
+
+        .commande-table {
+            min-width: 750px;
+            border-radius: 0;
+        }
+
+        .commande-table th,
+        .commande-table td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn-action {
+            width: 100%;
+            height: auto;
+            padding: 0.5rem;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - PETIT MOBILE (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .page-header h2 {
+            font-size: 1.15rem;
+        }
+
+        .header-buttons {
+            flex-direction: column;
+        }
+
+        .header-buttons .btn {
+            width: 100%;
+        }
+
+        .stats-grid {
+            gap: 0.5rem;
+        }
+
+        .stat-card {
+            padding: 1rem;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+        }
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .btn,
+        .filter-section,
+        .header-buttons,
+        .pagination,
+        .action-buttons {
+            display: none !important;
+        }
+
+        .page-header {
+            background: #1a5f2a !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .table-container {
+            overflow: visible !important;
+            box-shadow: none !important;
+        }
+
+        .commande-table {
+            min-width: 100% !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="commandes-page">
+    <div class="container-fluid py-4">
+        <!-- En-tête de la page -->
+        <div class="page-header">
+            <div class="page-header-content">
+                <h2 class="mb-0">
+                    <i class="fas fa-clipboard-list me-2"></i>
+                    {% trans "Liste des Commandes de Tickets" %}
+                </h2>
+                <p class="mt-2">
+                    {% trans "Gestion des commandes de tickets pour les postes de péage" %}
+                </p>
+            </div>
+            <div class="header-buttons">
+                <a href="{% url 'inventaire:simulateur_commandes_etape1' %}" class="btn btn-light">
+                    <i class="fas fa-plus me-1"></i>
+                    {% trans "Nouvelle Commande" %}
+                </a>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_commandes|default:0 }}</div>
+                <div class="stat-label">{% trans "Commandes" %}</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                <div class="stat-value">{{ stats.total_montant|floatformat:0|default:"0"|format_milliers }} FCFA</div>
+                <div class="stat-label">{% trans "Montant Total" %}</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                <div class="stat-value">{{ stats.total_carnets|format_milliers|default:"0" }}</div>
+                <div class="stat-label">{% trans "Carnets Commandés" %}</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #11998e, #38ef7d);">
+                <div class="stat-value">{{ stats.taux_livraison_moyen|floatformat:0|default:"0" }}%</div>
+                <div class="stat-label">{% trans "Taux Livraison Moyen" %}</div>
+            </div>
+        </div>
+
+        <!-- Section Filtres -->
+        <div class="filter-section">
+            <h5>
+                <i class="fas fa-filter me-2"></i>
+                {% trans "Filtres" %}
+            </h5>
+            
+            <form method="get" id="filterForm">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>{% trans "Exercice" %}</label>
+                        {{ form.exercice }}
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>{% trans "N° Commande" %}</label>
+                        {{ form.numero_commande }}
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>{% trans "Statut" %}</label>
+                        {{ form.statut }}
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>{% trans "Période" %}</label>
+                        {{ form.type_periode }}
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>&nbsp;</label>
+                        <div class="filter-buttons">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>
+                                {% trans "Filtrer" %}
+                            </button>
+                            <a href="{% url 'inventaire:liste_commandes' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-redo me-1"></i>
+                                {% trans "Reset" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tableau des commandes -->
+        {% if commandes %}
+        <div class="table-container">
+            <table class="commande-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "N°" %}</th>
+                        <th>{% trans "Exercice" %}</th>
+                        <th>{% trans "Période" %}</th>
+                        <th class="text-center">{% trans "Postes" %}</th>
+                        <th class="text-right">{% trans "Montant Total" %}</th>
+                        <th class="text-center">{% trans "Carnets" %}</th>
+                        <th>{% trans "Statut" %}</th>
+                        <th>{% trans "Livraison" %}</th>
+                        <th>{% trans "Date" %}</th>
+                        <th>{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for commande in commandes %}
+                    <tr>
+                        <td>
+                            <strong>{{ commande.numero_commande }}</strong>
+                        </td>
+                        <td>{{ commande.exercice }}</td>
+                        <td>{{ commande.get_periode_display_complet }}</td>
+                        <td class="text-center">{{ commande.nombre_postes }}</td>
+                        <td class="text-right montant-cell">
+                            {{ commande.montant_total|floatformat:0|format_milliers }} FCFA
+                        </td>
+                        <td class="text-center">{{ commande.nombre_carnets_total|format_milliers }}</td>
+                        <td>
+                            <span class="badge badge-{{ commande.statut }}">
+                                {{ commande.get_statut_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="progress-container">
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill {% if commande.taux_livraison >= 100 %}complete{% endif %}" 
+                                         style="width: {{ commande.taux_livraison|default:0 }}%"></div>
+                                </div>
+                                <span class="progress-text">{{ commande.taux_livraison|default:0 }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            {{ commande.date_creation|date:"d/m/Y" }}<br>
+                            <small class="text-muted">{{ commande.date_creation|date:"H:i" }}</small>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{% url 'inventaire:detail_commande' commande.id %}" 
+                                   class="btn-action btn-view" 
+                                   title="{% trans 'Voir détails' %}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if peut_administrer %}
+                                <a href="{% url 'inventaire:modifier_commande' commande.id %}" 
+                                   class="btn-action btn-edit" 
+                                   title="{% trans 'Modifier' %}">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="post" 
+                                      action="{% url 'inventaire:supprimer_commande' commande.id %}" 
+                                      style="display: inline;"
+                                      onsubmit="return confirm('{% trans "Êtes-vous sûr de vouloir supprimer cette commande ?" %}');">
+                                    {% csrf_token %}
+                                    <button type="submit" 
+                                            class="btn-action btn-delete" 
+                                            title="{% trans 'Supprimer' %}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if commandes.has_other_pages %}
+        <nav aria-label="{% trans 'Pagination' %}">
+            <ul class="pagination">
+                {% if commandes.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {% trans "Début" %}
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ commandes.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        {{ commandes.number }} / {{ commandes.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if commandes.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ commandes.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ commandes.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        {% trans "Fin" %}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <!-- État vide -->
+        <div class="empty-state">
+            <i class="fas fa-inbox empty-state-icon"></i>
+            <h4>{% trans "Aucune commande trouvée" %}</h4>
+            <p>{% trans "Créez votre première commande en utilisant le simulateur." %}</p>
+            <a href="{% url 'inventaire:simulateur_commandes_etape1' %}" class="btn btn-primary mt-3">
+                <i class="fas fa-plus me-2"></i>
+                {% trans "Créer une commande" %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

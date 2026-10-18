@@ -1,0 +1,65 @@
+{# templates/inventaire/transporteurs/ca_parametres.html #}
+{# Paramètres du calcul du CA + maillage (liaisons) + lien postes du maillage ↔ postes SUPPER #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Paramètres du CA transporteurs" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2">
+    <div><h1>{% trans "Paramètres du chiffre d'affaires" %}</h1>
+      <p class="tr-sub">{% trans "Réservé aux administrateurs ayant accès à l'inventaire." %}</p></div>
+    <a class="tr-btn-ghost text-decoration-none align-self-start" href="{% url 'inventaire:transporteurs_ca' %}">← {% trans "Retour au tableau" %}</a>
+  </div>
+
+  {# ---- 1. Paramètres de la méthode ---- #}
+  <div class="tr-panel"><div class="tr-head">1. {% trans "Paramètres de la méthode" %}</div>
+    <form method="post" action="{% url 'inventaire:transporteurs_ca_parametres_enregistrer' %}">{% csrf_token %}
+    <div class="tr-body tr-grid">
+      <div><label class="tr-lbl">{% trans "Aller-retour / semaine : trajet long" %}</label><input type="number" min="1" max="14" name="tours_longs" value="{{ p.tours_longs }}" class="form-control"></div>
+      <div><label class="tr-lbl">{% trans "Aller-retour / semaine : trajet court" %}</label><input type="number" min="1" max="14" name="tours_courts" value="{{ p.tours_courts }}" class="form-control"></div>
+      <div><label class="tr-lbl">{% trans "Trajet long = plus de ... régions" %}</label><input type="number" min="1" max="10" name="seuil_regions" value="{{ p.seuil_regions }}" class="form-control"></div>
+      <div><label class="tr-lbl">{% trans "Majoration bus climatisé (0,6667 = 2/3)" %}</label><input name="majoration_clim" value="{{ p.majoration_clim }}" class="form-control"></div>
+      <div><label class="tr-lbl">{% trans "Places Coaster" %}</label><input type="number" min="1" name="places_coaster" value="{{ p.places_coaster }}" class="form-control"></div>
+      <div><label class="tr-lbl">{% trans "Places grand bus ordinaire" %}</label><input type="number" min="1" name="places_bus_ordinaire" value="{{ p.places_bus_ordinaire }}" class="form-control"></div>
+      <div><label class="tr-lbl">{% trans "Places grand bus climatisé" %}</label><input type="number" min="1" name="places_bus_clim" value="{{ p.places_bus_clim }}" class="form-control"></div>
+      <div><label class="tr-lbl">{% trans "Places Hiace" %}</label><input type="number" min="1" name="places_hiace" value="{{ p.places_hiace }}" class="form-control"></div>
+      <div class="d-flex align-items-end"><label class="form-check"><input type="checkbox" class="form-check-input" name="routage_regions" {% if p.routage_regions %}checked{% endif %}>
+        <span class="form-check-label">{% trans "Chemin limité aux régions des deux postes (une région en plus seulement si nécessaire)" %}</span></label></div>
+      <div><button class="tr-btn" type="submit">{% trans "Enregistrer" %}</button></div>
+    </div></form></div>
+
+  {# ---- 2. Chargement du maillage ---- #}
+  <div class="tr-panel"><div class="tr-head">2. {% trans "Maillage des postes" %}
+      <span class="text-muted">{{ postes_maillage|length }} {% trans "postes" %} · {{ liaisons|length }} {% trans "liaisons" %}</span></div>
+    <div class="tr-body">
+      <p class="tr-sub">{% trans "Le maillage du document est préchargé. Saisissez les postes voisins et les tarifs de chaque poste sur l'écran des liaisons : le système en déduit le maillage." %}</p>
+      <a class="tr-btn text-decoration-none" href="{% url 'inventaire:transporteurs_maillage' %}">🕸 {% trans "Écran des liaisons" %}</a>
+      <form method="post" class="d-inline ms-2" action="{% url 'inventaire:transporteurs_ca_maillage_charger' %}"
+            onsubmit="return confirm('{% trans "Rétablir les tarifs du document ? Les tarifs modifiés sur les liaisons du document seront écrasés (les liaisons ajoutées sont conservées)." %}');">{% csrf_token %}
+        <button class="tr-btn-ghost" type="submit">{% trans "Rétablir les tarifs du document" %}</button></form></div></div>
+
+  {# ---- 3. Lien postes du maillage ↔ postes SUPPER ---- #}
+  {% if postes_maillage %}
+  <div class="tr-panel"><div class="tr-head">3. {% trans "Lien avec les postes SUPPER" %}
+      <span class="text-muted">{{ nb_non_relies }} {% trans "non relié(s)" %}</span></div>
+    <div class="tr-body">
+      <p class="tr-sub">{% trans "Chaque poste du maillage doit correspondre à UN poste de péage de SUPPER, sinon les véhicules vus à ce poste sont ignorés. Le rapprochement automatique compare les noms (sans accents, avec ou sans la partie entre parenthèses)." %}</p>
+      {% if sans_voisin %}<p class="tr-sub">{% trans "Sans aucune liaison dans le document (CA toujours nul, sans lien à faire) :" %} <b>{% for x in sans_voisin %}{{ x.nom }}{% if not forloop.last %}, {% endif %}{% endfor %}</b></p>{% endif %}
+      {% if supper_sans_maillage %}<p class="tr-sub">{% trans "Postes de péage SUPPER qu'aucun poste du maillage ne représente :" %} <b>{% for x in supper_sans_maillage %}{{ x.nom }}{% if not forloop.last %}, {% endif %}{% endfor %}</b></p>{% endif %}</div>
+    <form method="post" action="{% url 'inventaire:transporteurs_ca_maillage_relier' %}">{% csrf_token %}
+    <div class="tr-scroll"><table class="tr-table">
+      <thead><tr><th>{% trans "Poste du maillage" %}</th><th>{% trans "Région" %}</th><th>{% trans "Poste SUPPER correspondant" %}</th></tr></thead>
+      <tbody>{% for pm in postes_maillage %}<tr {% if not pm.poste_id %}style="background:#fff7ed"{% endif %}>
+        <td><b>{{ pm.nom }}</b></td><td>{{ pm.region }}</td>
+        <td><select name="lien_{{ pm.id }}" class="form-select form-select-sm">
+          <option value="">— {% trans "non relié" %} —</option>
+          {% for ps in postes_supper %}<option value="{{ ps.id }}" {% if pm.poste_id == ps.id %}selected{% endif %}>{{ ps.nom }}</option>{% endfor %}
+        </select></td></tr>{% endfor %}</tbody></table></div>
+    <div class="tr-body"><button class="tr-btn" type="submit">{% trans "Enregistrer les liens" %}</button>
+      <span class="tr-sub">{% trans "Les lignes en orange ne sont pas reliées : leurs passages sont ignorés dans le calcul." %}</span></div>
+    </form></div>
+
+  {% endif %}
+</div>
+{% endblock %}

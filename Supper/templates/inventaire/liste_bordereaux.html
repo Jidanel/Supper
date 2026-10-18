@@ -76,6 +76,17 @@
         padding-top: 1rem !important;
     }
 
+    .btn-annuler {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 2px solid #ef4444;
+}
+
+.btn-annuler:hover {
+    background: #b91c1c;
+    color: white;
+}
+
     .row {
         display: flex;
         flex-wrap: wrap;
@@ -1147,7 +1158,7 @@
             </div>
         </div>
         <div class="col-12 col-md-4 text-end">
-            <a href="{% url 'inventaire:selection_transfert_stock' %}" 
+            <a href="{% url 'inventaire:selection_postes_transfert_tickets' %}" 
                class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
                 Nouveau Transfert
@@ -1294,6 +1305,14 @@
                             <i class="fas fa-file-pdf"></i>
                             <span>Bordereau de Réception</span>
                         </a>
+                         {% if user.habilitation in 'admin_principal,coord_psrr,serv_info' %}
+                        <a href="{% url 'inventaire:annuler_transfert' numero_bordereau=bordereau.numero_bordereau %}" 
+                        class="btn-bordereau btn-annuler"
+                        title="Annuler ce transfert">
+                            <i class="fas fa-undo-alt"></i>
+                            <span>Annuler</span>
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -1,0 +1,659 @@
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #1a5f2a;
+        --primary-light: #2d8a3e;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --bg-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .tableau-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--info-color), #138496);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+    }
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .header-info h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.6rem;
+        font-weight: 600;
+    }
+
+    .header-meta {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+    }
+
+    .meta-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+        font-size: 0.95rem;
+    }
+
+    .btn-light {
+        background: white;
+        color: var(--info-color);
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .btn:hover {
+        text-decoration: none;
+        transform: translateY(-1px);
+    }
+
+    /* Progression globale */
+    .progress-section {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 25px;
+    }
+
+    .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .progress-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .progress-stats {
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+    }
+
+    .progress-stat {
+        text-align: center;
+    }
+
+    .progress-stat .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .progress-stat .label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .progress-bar-large {
+        height: 30px;
+        background: #e9ecef;
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--info-color), var(--success-color));
+        border-radius: 15px;
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 0.9rem;
+        min-width: 50px;
+    }
+
+    /* Tableau de suivi */
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .table-header {
+        background: var(--bg-light);
+        padding: 18px 25px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .table-suivi {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+    }
+
+    .table-suivi th {
+        background: var(--info-color);
+        color: white;
+        padding: 14px 12px;
+        text-align: left;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .table-suivi td {
+        padding: 14px 12px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    .table-suivi tr:hover {
+        background: rgba(23, 162, 184, 0.03);
+    }
+
+    .table-suivi .text-center {
+        text-align: center;
+    }
+
+    .table-suivi .text-right {
+        text-align: right;
+    }
+
+    .poste-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .poste-nom {
+        font-weight: 500;
+    }
+
+    .poste-code {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .montant {
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .montant.commande {
+        color: var(--primary-color);
+    }
+
+    .montant.livre {
+        color: var(--success-color);
+    }
+
+    .montant.restant {
+        color: var(--warning-color);
+    }
+
+    /* Barre de progression poste */
+    .poste-progress {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .progress-mini {
+        flex: 1;
+        height: 10px;
+        background: #e9ecef;
+        border-radius: 5px;
+        overflow: hidden;
+        min-width: 100px;
+    }
+
+    .progress-mini-fill {
+        height: 100%;
+        border-radius: 5px;
+        transition: width 0.3s;
+    }
+
+    .progress-mini-fill.low {
+        background: var(--danger-color);
+    }
+
+    .progress-mini-fill.medium {
+        background: var(--warning-color);
+    }
+
+    .progress-mini-fill.high {
+        background: var(--info-color);
+    }
+
+    .progress-mini-fill.complete {
+        background: var(--success-color);
+    }
+
+    .progress-text {
+        min-width: 50px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    /* Badges statut */
+    .badge-statut {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .badge-complet {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .badge-en-cours {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .badge-non-commence {
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    /* Dernières livraisons */
+    .dernieres-livraisons {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .dernieres-livraisons strong {
+        color: #333;
+    }
+
+    /* Actions */
+    .action-btn {
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .action-btn:hover {
+        background: #218838;
+        color: white;
+        text-decoration: none;
+    }
+
+    .action-btn.disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    /* Totaux */
+    .table-suivi tfoot {
+        background: var(--bg-light);
+        font-weight: 600;
+    }
+
+    .table-suivi tfoot td {
+        padding: 15px 12px;
+        border-top: 2px solid var(--info-color);
+    }
+
+    /* Message vide */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 1023px) {
+        .progress-stats {
+            flex-wrap: wrap;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .tableau-container {
+            padding: 15px;
+        }
+
+        .page-header {
+            padding: 20px;
+        }
+
+        .header-content {
+            flex-direction: column;
+        }
+
+        .header-info h1 {
+            font-size: 1.3rem;
+        }
+
+        .header-actions {
+            width: 100%;
+        }
+
+        .header-actions .btn {
+            flex: 1;
+            justify-content: center;
+        }
+
+        .progress-header {
+            flex-direction: column;
+            gap: 15px;
+            align-items: stretch;
+        }
+
+        .progress-stats {
+            justify-content: space-around;
+        }
+
+        .table-suivi {
+            font-size: 0.8rem;
+        }
+
+        .table-suivi th,
+        .table-suivi td {
+            padding: 10px 8px;
+        }
+    }
+
+    /* Print */
+    @media print {
+        .tableau-container {
+            max-width: none;
+            padding: 0;
+        }
+
+        .page-header {
+            background: none !important;
+            color: black !important;
+            border: 2px solid black;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .page-header * {
+            color: black !important;
+        }
+
+        .header-actions,
+        .action-btn {
+            display: none !important;
+        }
+
+        .table-suivi th {
+            background: #eee !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .progress-bar-fill {
+            background: #28a745 !important;
+            -webkit-print-color-adjust: exact;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tableau-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-info">
+                <h1><i class="fas fa-chart-bar"></i> Suivi des Livraisons</h1>
+                <div class="header-meta">
+                    <span class="meta-badge">
+                        <i class="fas fa-file-invoice"></i> Commande N°{{ commande.numero_commande }}
+                    </span>
+                    <span class="meta-badge">
+                        <i class="fas fa-calendar"></i> Exercice {{ commande.exercice }}
+                    </span>
+                    <span class="meta-badge">
+                        <i class="fas fa-clock"></i> {{ commande.get_periode_display_complet }}
+                    </span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="{% url 'inventaire:detail_commande' commande.id %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour commande
+                </a>
+                <a href="{% url 'inventaire:creer_livraison_etape1' %}?commande={{ commande.id }}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> Nouvelle livraison
+                </a>
+                <button onclick="window.print()" class="btn btn-light">
+                    <i class="fas fa-print"></i> Imprimer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progression globale -->
+    <div class="progress-section">
+        <div class="progress-header">
+            <h2><i class="fas fa-tasks"></i> Progression Globale</h2>
+            <div class="progress-stats">
+                <div class="progress-stat">
+                    <div class="value">{{ details_suivi|length }}</div>
+                    <div class="label">Postes</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="value">{{ postes_complets }}</div>
+                    <div class="label">Complets</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="value">{{ total_carnets_livres|format_milliers }}</div>
+                    <div class="label">Carnets livrés</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="value">{{ total_carnets_commande|format_milliers }}</div>
+                    <div class="label">Carnets commandés</div>
+                </div>
+            </div>
+        </div>
+        <div class="progress-bar-large">
+            <div class="progress-bar-fill" style="width: {% if taux_global > 0 %}{{ taux_global }}{% else %}0{% endif %}%">
+                {{ taux_global }}%
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau de suivi -->
+    <div class="table-card">
+        <div class="table-header">
+            <h2><i class="fas fa-list-alt"></i> Détails par Poste</h2>
+        </div>
+        
+        {% if details_suivi %}
+        <div class="table-responsive">
+            <table class="table-suivi">
+                <thead>
+                    <tr>
+                        <th>Poste</th>
+                        <th>Région</th>
+                        <th class="text-right">Commandé</th>
+                        <th class="text-right">Livré</th>
+                        <th class="text-right">Restant</th>
+                        <th>Progression</th>
+                        <th>Statut</th>
+                        <th>Dernière livraison</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail in details_suivi %}
+                    <tr>
+                        <td>
+                            <div class="poste-info">
+                                <span class="poste-nom">{{ detail.poste.nom }}</span>
+                                <span class="poste-code">{{ detail.poste.code|default:"" }}</span>
+                            </div>
+                        </td>
+                        <td>{{ detail.poste.region.nom|default:"N/A" }}</td>
+                        <td class="text-right">
+                            <div class="montant commande">{{ detail.montant_commande|floatformat:0|format_milliers }}</div>
+                            <small>{{ detail.nombre_carnets }} carnets</small>
+                        </td>
+                        <td class="text-right">
+                            <div class="montant livre">{{ detail.montant_livre|floatformat:0|format_milliers }}</div>
+                            <small>{{ detail.carnets_livres }} carnets</small>
+                        </td>
+                        <td class="text-right">
+                            <div class="montant restant">{{ detail.montant_restant|floatformat:0|format_milliers }}</div>
+                            <small>{{ detail.carnets_restants }} carnets</small>
+                        </td>
+                        <td>
+                            <div class="poste-progress">
+                                <div class="progress-mini">
+                                    <div class="progress-mini-fill {% if detail.taux >= 100 %}complete{% elif detail.taux >= 75 %}high{% elif detail.taux >= 25 %}medium{% else %}low{% endif %}" 
+                                         style="width: {{ detail.taux }}%"></div>
+                                </div>
+                                <span class="progress-text">{{ detail.taux }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if detail.est_complet %}
+                            <span class="badge-statut badge-complet">
+                                <i class="fas fa-check-circle"></i> Complet
+                            </span>
+                            {% elif detail.carnets_livres > 0 %}
+                            <span class="badge-statut badge-en-cours">
+                                <i class="fas fa-spinner"></i> En cours
+                            </span>
+                            {% else %}
+                            <span class="badge-statut badge-non-commence">
+                                <i class="fas fa-clock"></i> Non commencé
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="dernieres-livraisons">
+                            {% if detail.derniere_livraison %}
+                            <strong>{{ detail.derniere_livraison.date_livraison|date:"d/m/Y" }}</strong>
+                            <br>{{ detail.derniere_livraison.nombre_carnets_livres }} carnets
+                            {% else %}
+                            <span style="color: #999;">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not detail.est_complet %}
+                            <a href="{% url 'inventaire:creer_livraison_etape1' %}?commande={{ commande.id }}" 
+                               class="action-btn">
+                                <i class="fas fa-plus"></i> Livrer
+                            </a>
+                            {% else %}
+                            <span class="action-btn disabled">
+                                <i class="fas fa-check"></i> Terminé
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><strong>TOTAUX</strong></td>
+                        <td class="text-right montant commande">{{ total_montant_commande|floatformat:0|format_milliers }}</td>
+                        <td class="text-right montant livre">{{ total_montant_livre|floatformat:0|format_milliers }}</td>
+                        <td class="text-right montant restant">{{ total_montant_restant|floatformat:0|format_milliers }}</td>
+                        <td colspan="4"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <p>Aucun poste trouvé pour cette commande</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

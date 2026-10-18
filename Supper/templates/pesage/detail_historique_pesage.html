@@ -1,0 +1,871 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       VARIABLES CSS
+       ============================================ */
+    :root {
+        --primary-color: #3b82f6;
+        --primary-dark: #2563eb;
+        --success-color: #198754;
+        --success-light: #20c997;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-500: #6b7280;
+        --gray-600: #6c757d;
+        --gray-700: #374151;
+        --gray-800: #212529;
+        --gray-900: #111827;
+    }
+
+    /* ============================================
+       CONTENEUR PRINCIPAL
+       ============================================ */
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE DE PAGE
+       ============================================ */
+    .page-header-detail {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .page-header-detail h4 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+    }
+
+    .page-header-detail p {
+        margin: 0;
+        color: var(--gray-600);
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .page-header-detail > div:first-child {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .page-header-detail .d-flex.gap-2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE
+       ============================================ */
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header-success {
+        background: linear-gradient(135deg, var(--success-color) 0%, var(--success-light) 100%);
+        color: white;
+        padding: 1rem 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .card-header-success h5 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .card-header-success .badge {
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--gray-800);
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+        width: 100%;
+    }
+
+    /* ============================================
+       SECTIONS D'INFORMATION
+       ============================================ */
+    .info-section {
+        background-color: var(--gray-50);
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .info-section .section-title {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--success-color);
+        font-weight: 600;
+        margin-bottom: 0.875rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--success-color);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 0.6rem 0;
+        gap: 0.75rem;
+    }
+
+    .info-row:not(:last-child) {
+        border-bottom: 1px dashed var(--gray-200);
+    }
+
+    .info-row .label {
+        color: var(--gray-600);
+        font-size: 0.9rem;
+        flex-shrink: 0;
+        max-width: 45%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .info-row .value {
+        font-weight: 600;
+        color: var(--gray-800);
+        text-align: right;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .info-row .value.large {
+        font-size: 1.15rem;
+    }
+
+    .info-row .value small {
+        display: block;
+        font-weight: 400;
+        color: var(--gray-600);
+        font-size: 0.8rem;
+        margin-top: 0.15rem;
+    }
+
+    /* ============================================
+       BOÎTE ÉCART
+       ============================================ */
+    .ecart-box {
+        text-align: center;
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin: 1.25rem 0;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .ecart-box.positive {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border: 2px solid #28a745;
+    }
+
+    .ecart-box.negative {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border: 2px solid var(--danger-color);
+    }
+
+    .ecart-box .ecart-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--gray-600);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .ecart-box .ecart-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+
+    .ecart-box.positive .ecart-value {
+        color: #155724;
+    }
+
+    .ecart-box.negative .ecart-value {
+        color: #721c24;
+    }
+
+    .ecart-box small {
+        display: block;
+        color: var(--gray-600);
+        margin-top: 0.25rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* ============================================
+       CONTENEUR IMAGE
+       ============================================ */
+    .image-container {
+        text-align: center;
+        padding: 1rem;
+        background-color: var(--gray-50);
+        border-radius: 8px;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .image-container img {
+        max-width: 100%;
+        max-height: 400px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        height: auto;
+    }
+
+    .image-container .mt-2 {
+        margin-top: 0.75rem;
+    }
+
+    /* ============================================
+       BOÎTE OBSERVATIONS
+       ============================================ */
+    .observations-box {
+        background-color: #fff3cd;
+        border-left: 4px solid var(--warning-color);
+        padding: 1rem;
+        border-radius: 0 8px 8px 0;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .observations-box p {
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: pre-line;
+        line-height: 1.5;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        min-height: 44px;
+        white-space: nowrap;
+        border: 1px solid transparent;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid var(--gray-300);
+        color: var(--gray-700);
+    }
+
+    .btn-outline-secondary:hover {
+        background: var(--gray-100);
+        color: var(--gray-800);
+    }
+
+    .btn-outline-danger {
+        background: transparent;
+        border: 1px solid var(--danger-color);
+        color: var(--danger-color);
+    }
+
+    .btn-outline-danger:hover {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    .btn-outline-primary:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-sm {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.85rem;
+        min-height: 36px;
+    }
+
+    .btn i {
+        flex-shrink: 0;
+    }
+
+    /* ============================================
+       RESPONSIVE - TABLETTE (768px - 1023px)
+       ============================================ */
+    @media (min-width: 768px) {
+        .card-body {
+            padding: 1.75rem;
+        }
+
+        .info-section {
+            padding: 1.5rem;
+        }
+
+        .ecart-box .ecart-value {
+            font-size: 2rem;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (max 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        /* Correction critique du défilement */
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        /* En-tête mobile */
+        .page-header-detail {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .page-header-detail h4 {
+            font-size: 1.15rem;
+        }
+
+        .page-header-detail p {
+            font-size: 0.85rem;
+        }
+
+        .page-header-detail .d-flex.gap-2 {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .page-header-detail .d-flex.gap-2 .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Carte mobile */
+        .card-header-success {
+            padding: 0.875rem 1rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .card-header-success h5 {
+            font-size: 1rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* Sections mobile */
+        .info-section {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-section .section-title {
+            font-size: 0.8rem;
+        }
+
+        .info-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+        }
+
+        .info-row .label {
+            max-width: 100%;
+            font-size: 0.85rem;
+        }
+
+        .info-row .value {
+            text-align: left;
+            width: 100%;
+            font-size: 0.95rem;
+        }
+
+        .info-row .value.large {
+            font-size: 1.1rem;
+        }
+
+        /* Écart mobile */
+        .ecart-box {
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .ecart-box .ecart-label {
+            font-size: 0.75rem;
+        }
+
+        .ecart-box .ecart-value {
+            font-size: 1.5rem;
+        }
+
+        /* Image mobile */
+        .image-container {
+            padding: 0.75rem;
+        }
+
+        .image-container img {
+            max-height: 300px;
+        }
+
+        /* Observations mobile */
+        .observations-box {
+            padding: 0.875rem;
+        }
+
+        /* Boutons mobile */
+        .btn {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - PETIT MOBILE (max 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        .page-header-detail h4 {
+            font-size: 1.1rem;
+        }
+
+        .card-header-success h5 {
+            font-size: 0.95rem;
+        }
+
+        .info-section {
+            padding: 0.875rem;
+        }
+
+        .info-section .section-title {
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        .info-row .label {
+            font-size: 0.8rem;
+        }
+
+        .info-row .value {
+            font-size: 0.9rem;
+        }
+
+        .info-row .value.large {
+            font-size: 1rem;
+        }
+
+        .ecart-box .ecart-value {
+            font-size: 1.35rem;
+        }
+
+        .image-container img {
+            max-height: 250px;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - TRÈS PETIT MOBILE (max 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
+        .page-header-detail h4 {
+            font-size: 1rem;
+        }
+
+        .card-body {
+            padding: 0.75rem;
+        }
+
+        .info-section {
+            padding: 0.75rem;
+        }
+
+        .ecart-box .ecart-value {
+            font-size: 1.25rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .info-row {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .info-row .label {
+            max-width: 45%;
+        }
+
+        .info-row .value {
+            text-align: right;
+        }
+
+        .page-header-detail .d-flex.gap-2 {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .page-header-detail .d-flex.gap-2 .btn {
+            width: auto;
+            flex: 1;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .btn:focus,
+    a:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+
+        .card {
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
+        }
+
+        .ecart-box {
+            border: 2px solid #000 !important;
+        }
+
+        .info-section {
+            background: #f8f9fa !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="detail-container">
+
+        <!-- En-tête -->
+        <div class="page-header-detail no-print">
+            <div>
+                <h4>
+                    <i class="fas fa-file-invoice-dollar text-success me-2"></i>
+                    {{ title }}
+                </h4>
+                <p>
+                    {{ historique.station.nom }} - {{ historique.get_mois_display }}
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'inventaire:liste_historiques_pesage' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> {% trans "Retour" %}
+                </a>
+                {% if peut_supprimer %}
+                <a href="{% url 'inventaire:supprimer_historique_pesage' historique.pk %}" class="btn btn-outline-danger">
+                    <i class="fas fa-trash me-1"></i> {% trans "Supprimer" %}
+                </a>
+                {% endif %}
+                <button onclick="window.print()" class="btn btn-outline-primary">
+                    <i class="fas fa-print me-1"></i> {% trans "Imprimer" %}
+                </button>
+            </div>
+        </div>
+
+        <!-- Carte principale -->
+        <div class="card shadow-sm">
+            <div class="card-header card-header-success">
+                <h5>
+                    <i class="fas fa-receipt me-2"></i>
+                    {{ historique.numero_historique }}
+                </h5>
+                <span class="badge">
+                    {{ historique.get_mois_display }}
+                </span>
+            </div>
+            <div class="card-body">
+
+                <!-- Section Station -->
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-building me-1"></i> {% trans "Station de pesage" %}
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{% trans "Nom" %}</span>
+                        <span class="value">{{ historique.station.nom }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{% trans "Code" %}</span>
+                        <span class="value">{{ historique.station.code }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{% trans "Région" %}</span>
+                        <span class="value">{{ historique.station.region.nom|default:"N/A" }}</span>
+                    </div>
+                </div>
+
+                <!-- Section Montants -->
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-coins me-1"></i> {% trans "Montants" %}
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{% trans "Montant global (déclaré/attendu)" %}</span>
+                        <span class="value large">{{ historique.montant_global|floatformat:0 }} FCFA</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{% trans "Montant réel (perçu)" %}</span>
+                        <span class="value large">{{ historique.montant_reel|floatformat:0 }} FCFA</span>
+                    </div>
+                </div>
+
+                <!-- Écart -->
+                <div class="ecart-box {% if ecart_positif %}positive{% else %}negative{% endif %}">
+                    <div class="ecart-label">{% trans "Écart (Réel - Global)" %}</div>
+                    <div class="ecart-value">
+                        {% if ecart_positif %}+{% endif %}{{ ecart|floatformat:0 }} FCFA
+                    </div>
+                    <small>
+                        {% if ecart_positif %}
+                        {% trans "Excédent de recettes" %}
+                        {% else %}
+                        {% trans "Déficit de recettes" %}
+                        {% endif %}
+                    </small>
+                </div>
+
+                <!-- Image -->
+                {% if historique.image_historique %}
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-image me-1"></i> {% trans "Document justificatif" %}
+                    </div>
+                    <div class="image-container">
+                        <a href="{{ historique.image_historique.url }}" target="_blank">
+                            <img src="{{ historique.image_historique.url }}" alt="{% trans 'Image historique' %}">
+                        </a>
+                        <div class="mt-2">
+                            <a href="{{ historique.image_historique.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-external-link-alt me-1"></i> {% trans "Voir en plein écran" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Observations -->
+                {% if historique.observations %}
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-comment me-1"></i> {% trans "Observations" %}
+                    </div>
+                    <div class="observations-box">
+                        <p>{{ historique.observations }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Section Traçabilité -->
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-user-clock me-1"></i> {% trans "Traçabilité" %}
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{% trans "Saisi par" %}</span>
+                        <span class="value">
+                            {% if historique.saisi_par %}
+                            {{ historique.saisi_par.nom_complet|default:historique.saisi_par.username }}
+                            <small>{{ historique.saisi_par.habilitation|default:"-" }}</small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{% trans "Date de saisie" %}</span>
+                        <span class="value">{{ historique.date_saisie|date:"d/m/Y à H:i:s" }}</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        } else {
+            document.documentElement.style.overflowX = '';
+            document.body.style.overflowX = '';
+            document.body.style.maxWidth = '';
+            document.body.style.width = '';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    
+    // Correction pour éviter le zoom automatique sur iOS
+    document.addEventListener('touchstart', function() {}, {passive: true});
+});
+</script>
+{% endblock %}

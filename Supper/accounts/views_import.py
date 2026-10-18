@@ -96,7 +96,7 @@ HABILITATIONS_IMPORT_MAPPING = {
     'SERVICE INFO': 'serv_info',
     'SERVICE INFORMATIQUE': 'serv_info',
     'INFORMATIQUE': 'serv_info',
-    
+
     # Services centraux
     'SERV_EMISSION': 'serv_emission',
     'SERVICE EMISSION': 'serv_emission',
@@ -110,13 +110,13 @@ HABILITATIONS_IMPORT_MAPPING = {
     'SERV_ORDRE': 'serv_ordre',
     'SERVICE ORDRE': 'serv_ordre',
     'ORDRE': 'serv_ordre',
-    
+
     # CISOP
     'CISOP_PEAGE': 'cisop_peage',
     'CISOP PEAGE': 'cisop_peage',
     'CISOP_PESAGE': 'cisop_pesage',
     'CISOP PESAGE': 'cisop_pesage',
-    
+
     # Chefs de poste
     'CHEF_PEAGE': 'chef_peage',
     'CHEF PEAGE': 'chef_peage',
@@ -125,13 +125,13 @@ HABILITATIONS_IMPORT_MAPPING = {
     'CHEF STATION PESAGE': 'chef_station_pesage',
     'CHEF DE STATION PESAGE': 'chef_station_pesage',
     'CHEF PESAGE': 'chef_station_pesage',
-    
+
     # Opérationnels pesage
     'REGISSEUR_PESAGE': 'regisseur_pesage',
     'REGISSEUR PESAGE': 'regisseur_pesage',
     'CHEF_EQUIPE_PESAGE': 'chef_equipe_pesage',
     'CHEF EQUIPE PESAGE': 'chef_equipe_pesage',
-    
+
     # Autres
     'AGENT_INVENTAIRE': 'agent_inventaire',
     'AGENT INVENTAIRE': 'agent_inventaire',
@@ -158,19 +158,19 @@ HABILITATIONS_IMPORT_MAPPING = {
 def import_postes_excel(request):
     """
     Vue pour importer des postes depuis un fichier Excel
-    
+
     Permissions requises:
     - peut_creer_poste_masse : Permission principale pour import en masse
     - peut_gerer_postes : Permission générale de gestion des postes
     - peut_ajouter_poste : Permission d'ajout de poste
     """
-    
+
     user_desc = get_user_description(request.user)
-    
+
     if request.method == 'POST':
         fichier = request.FILES.get('fichier_excel')
         action_doublon = request.POST.get('action_doublon', 'sauter')
-        
+
         if not fichier:
             messages.error(request, "Veuillez sélectionner un fichier Excel")
             log_user_action(
@@ -180,7 +180,7 @@ def import_postes_excel(request):
                 request
             )
             return redirect('accounts:import_postes')
-        
+
         if not fichier.name.endswith(('.xlsx', '.xls')):
             messages.error(request, "Le fichier doit être au format Excel (.xlsx ou .xls)")
             log_user_action(
@@ -190,7 +190,7 @@ def import_postes_excel(request):
                 request
             )
             return redirect('accounts:import_postes')
-        
+
         try:
             # Journaliser le début de l'import
             log_user_action(
@@ -202,13 +202,13 @@ def import_postes_excel(request):
                 taille=f"{fichier.size / 1024:.1f} Ko",
                 action_doublon=action_doublon
             )
-            
+
             # Lire le fichier Excel
             df = pd.read_excel(fichier)
-            
+
             # Traiter l'import
             resultats = traiter_import_postes(df, action_doublon, request.user)
-            
+
             # Journaliser les résultats
             if resultats['success']:
                 messages.success(
@@ -217,7 +217,7 @@ def import_postes_excel(request):
                     f"{resultats['nb_modifies']} modifiés, {resultats['nb_sautes']} sautés, "
                     f"{resultats['nb_erreurs']} erreurs"
                 )
-                
+
                 log_user_action(
                     request.user,
                     "IMPORT_POSTES_SUCCES",
@@ -229,7 +229,7 @@ def import_postes_excel(request):
                     nb_sautes=resultats['nb_sautes'],
                     nb_erreurs=resultats['nb_erreurs']
                 )
-                
+
                 logger.info(
                     f"📥 IMPORT POSTES RÉUSSI | {get_user_short_description(request.user)} | "
                     f"Créés: {resultats['nb_crees']}, Modifiés: {resultats['nb_modifies']}, "
@@ -237,26 +237,26 @@ def import_postes_excel(request):
                 )
             else:
                 messages.error(request, f"Erreur lors de l'import: {resultats['erreur']}")
-                
+
                 log_erreur_action(
                     request.user,
                     "IMPORT_POSTES",
                     resultats['erreur'],
                     request
                 )
-            
+
             context = {
                 'resultats': resultats,
                 'fichier_nom': fichier.name,
                 'user_desc': user_desc,
             }
             return render(request, 'accounts/import_postes_resultats.html', context)
-            
+
         except Exception as e:
             messages.error(request, f"Erreur lors de la lecture du fichier: {str(e)}")
             log_erreur_action(request.user, "IMPORT_POSTES", str(e), request)
             return redirect('accounts:import_postes')
-    
+
     # GET request - afficher le formulaire
     context = {
         'user_desc': user_desc,
@@ -266,22 +266,248 @@ def import_postes_excel(request):
     return render(request, 'accounts/import_postes_form.html', context)
 
 
+# def traiter_import_postes(df, action_doublon, user):
+#     """
+#     Traite l'import des postes depuis Excel avec validation complète
+
+#     Args:
+#         df: DataFrame pandas avec les données
+#         action_doublon: 'sauter' ou 'ecraser'
+#         user: Utilisateur effectuant l'import
+
+#     Returns:
+#         dict: Résultats de l'import
+#     """
+
+#     # Normaliser les noms de colonnes
+#     df.columns = df.columns.str.strip().str.lower()
+
+#     nb_crees = 0
+#     nb_modifies = 0
+#     nb_sautes = 0
+#     nb_erreurs = 0
+#     erreurs_detail = []
+#     postes_crees = []
+#     postes_modifies = []
+#     regions_non_trouvees = set()
+#     types_invalides = set()
+
+#     # Vérifier les colonnes requises
+#     colonnes_requises = ['nom', 'region', 'code', 'type']
+#     colonnes_manquantes = [col for col in colonnes_requises if col not in df.columns]
+
+#     if colonnes_manquantes:
+#         return {
+#             'success': False,
+#             'erreur': f"Colonnes manquantes dans le fichier: {', '.join(colonnes_manquantes)}. "
+#                       f"Colonnes attendues: {', '.join(colonnes_requises)}",
+#             'nb_crees': 0,
+#             'nb_modifies': 0,
+#             'nb_sautes': 0,
+#             'nb_erreurs': 0
+#         }
+
+#     # Colonnes optionnelles
+#     colonnes_optionnelles = ['departement', 'axe_routier', 'latitude', 'longitude', 'description']
+
+#     try:
+#         with transaction.atomic():
+#             for index, row in df.iterrows():
+#                 ligne_num = index + 2  # +2 car Excel commence à 1 et il y a l'en-tête
+
+#                 try:
+#                     # Extraire et nettoyer les données obligatoires
+#                     nom_poste = str(row['nom']).strip() if pd.notna(row['nom']) else ''
+#                     code_poste = str(row['code']).strip().upper() if pd.notna(row['code']) else ''
+#                     nom_region = str(row['region']).strip().upper() if pd.notna(row['region']) else ''
+#                     type_poste_raw = str(row['type']).strip() if pd.notna(row['type']) else ''
+
+#                     # Vérifier données non vides
+#                     if not nom_poste or nom_poste.lower() == 'nan':
+#                         continue  # Ligne vide, ignorer silencieusement
+
+#                     if not code_poste or code_poste.lower() == 'nan':
+#                         erreurs_detail.append({
+#                             'ligne': ligne_num,
+#                             'erreur': f"Code manquant pour le poste '{nom_poste}'",
+#                             'type': 'code_manquant'
+#                         })
+#                         nb_erreurs += 1
+#                         continue
+
+#                     if not nom_region or nom_region.lower() == 'nan':
+#                         erreurs_detail.append({
+#                             'ligne': ligne_num,
+#                             'erreur': f"Région manquante pour le poste '{nom_poste}'",
+#                             'type': 'region_manquante'
+#                         })
+#                         nb_erreurs += 1
+#                         continue
+
+#                     if not type_poste_raw or type_poste_raw.lower() == 'nan':
+#                         erreurs_detail.append({
+#                             'ligne': ligne_num,
+#                             'erreur': f"Type manquant pour le poste '{nom_poste}'",
+#                             'type': 'type_manquant'
+#                         })
+#                         nb_erreurs += 1
+#                         continue
+
+#                     # Normaliser le type de poste
+#                     type_poste = TYPES_POSTES_MAPPING.get(type_poste_raw.upper())
+
+#                     if not type_poste:
+#                         types_invalides.add(type_poste_raw)
+#                         erreurs_detail.append({
+#                             'ligne': ligne_num,
+#                             'erreur': f"Type '{type_poste_raw}' invalide pour '{nom_poste}'. "
+#                                       f"Types acceptés: peage, pesage",
+#                             'type': 'type_invalide'
+#                         })
+#                         nb_erreurs += 1
+#                         continue
+
+#                     # Normaliser la région
+#                     region_normalisee = REGIONS_MAPPING.get(nom_region)
+
+#                     if not region_normalisee:
+#                         # Essayer une correspondance partielle
+#                         region_normalisee = _trouver_region_proche(nom_region)
+
+#                     if not region_normalisee:
+#                         regions_non_trouvees.add(nom_region)
+#                         erreurs_detail.append({
+#                             'ligne': ligne_num,
+#                             'erreur': f"Région '{nom_region}' introuvable pour '{nom_poste}'",
+#                             'type': 'region_invalide'
+#                         })
+#                         nb_erreurs += 1
+#                         continue
+
+#                     # Extraire les données optionnelles
+#                     departement = ''
+#                     axe_routier = ''
+#                     latitude = None
+#                     longitude = None
+#                     description = ''
+
+#                     if 'departement' in df.columns and pd.notna(row.get('departement')):
+#                         departement = str(row['departement']).strip()
+
+#                     if 'axe_routier' in df.columns and pd.notna(row.get('axe_routier')):
+#                         axe_routier = str(row['axe_routier']).strip()
+
+#                     if 'latitude' in df.columns and pd.notna(row.get('latitude')):
+#                         try:
+#                             latitude = float(row['latitude'])
+#                         except (ValueError, TypeError):
+#                             pass
+
+#                     if 'longitude' in df.columns and pd.notna(row.get('longitude')):
+#                         try:
+#                             longitude = float(row['longitude'])
+#                         except (ValueError, TypeError):
+#                             pass
+
+#                     if 'description' in df.columns and pd.notna(row.get('description')):
+#                         description = str(row['description']).strip()
+
+#                     # Vérifier si le poste existe déjà
+#                     poste_existant = Poste.objects.filter(code=code_poste).first()
+
+#                     if poste_existant:
+#                         if action_doublon == 'ecraser':
+#                             # Mise à jour du poste existant
+#                             poste_existant.nom = nom_poste
+#                             poste_existant.region = region_normalisee
+#                             poste_existant.type = type_poste
+
+#                             if departement:
+#                                 poste_existant.departement = departement
+#                             if axe_routier:
+#                                 poste_existant.axe_routier = axe_routier
+#                             if latitude is not None:
+#                                 poste_existant.latitude = latitude
+#                             if longitude is not None:
+#                                 poste_existant.longitude = longitude
+#                             if description:
+#                                 poste_existant.description = description
+
+#                             poste_existant.save()
+#                             postes_modifies.append({
+#                                 'code': code_poste,
+#                                 'nom': nom_poste,
+#                                 'type': type_poste
+#                             })
+#                             nb_modifies += 1
+#                         else:
+#                             # Sauter
+#                             nb_sautes += 1
+#                     else:
+#                         # Créer nouveau poste
+#                         nouveau_poste = Poste.objects.create(
+#                             code=code_poste,
+#                             nom=nom_poste,
+#                             region=region_normalisee,
+#                             type=type_poste,
+#                             departement=departement,
+#                             axe_routier=axe_routier,
+#                             latitude=latitude,
+#                             longitude=longitude,
+#                             description=description,
+#                             is_active=True,
+#                             nouveau=True  # Marquer comme nouveau pour suivi
+#                         )
+#                         postes_crees.append({
+#                             'code': code_poste,
+#                             'nom': nom_poste,
+#                             'type': type_poste,
+#                             'region': region_normalisee
+#                         })
+#                         nb_crees += 1
+
+#                 except Exception as e:
+#                     erreurs_detail.append({
+#                         'ligne': ligne_num,
+#                         'erreur': str(e),
+#                         'type': 'exception'
+#                     })
+#                     nb_erreurs += 1
+
+#         return {
+#             'success': True,
+#             'nb_crees': nb_crees,
+#             'nb_modifies': nb_modifies,
+#             'nb_sautes': nb_sautes,
+#             'nb_erreurs': nb_erreurs,
+#             'erreurs_detail': erreurs_detail[:50],  # Limiter à 50 erreurs
+#             'postes_crees': postes_crees[:20],  # Limiter à 20 pour affichage
+#             'postes_modifies': postes_modifies[:20],
+#             'regions_non_trouvees': list(regions_non_trouvees),
+#             'types_invalides': list(types_invalides),
+#             'total_lignes': len(df)
+#         }
+
+#     except Exception as e:
+#         return {
+#             'success': False,
+#             'erreur': str(e),
+#             'nb_crees': 0,
+#             'nb_modifies': 0,
+#             'nb_sautes': 0,
+#             'nb_erreurs': 0
+#         }
+
 def traiter_import_postes(df, action_doublon, user):
     """
     Traite l'import des postes depuis Excel avec validation complète
-    
-    Args:
-        df: DataFrame pandas avec les données
-        action_doublon: 'sauter' ou 'ecraser'
-        user: Utilisateur effectuant l'import
-    
-    Returns:
-        dict: Résultats de l'import
+    VERSION CORRIGÉE - Gère correctement les objets Region
     """
-    
+    from accounts.models import Region, Departement  # Import des modèles
+
     # Normaliser les noms de colonnes
     df.columns = df.columns.str.strip().str.lower()
-    
+
     nb_crees = 0
     nb_modifies = 0
     nb_sautes = 0
@@ -291,11 +517,11 @@ def traiter_import_postes(df, action_doublon, user):
     postes_modifies = []
     regions_non_trouvees = set()
     types_invalides = set()
-    
+
     # Vérifier les colonnes requises
     colonnes_requises = ['nom', 'region', 'code', 'type']
     colonnes_manquantes = [col for col in colonnes_requises if col not in df.columns]
-    
+
     if colonnes_manquantes:
         return {
             'success': False,
@@ -306,26 +532,23 @@ def traiter_import_postes(df, action_doublon, user):
             'nb_sautes': 0,
             'nb_erreurs': 0
         }
-    
-    # Colonnes optionnelles
-    colonnes_optionnelles = ['departement', 'axe_routier', 'latitude', 'longitude', 'description']
-    
+
     try:
         with transaction.atomic():
             for index, row in df.iterrows():
-                ligne_num = index + 2  # +2 car Excel commence à 1 et il y a l'en-tête
-                
+                ligne_num = index + 2
+
                 try:
                     # Extraire et nettoyer les données obligatoires
                     nom_poste = str(row['nom']).strip() if pd.notna(row['nom']) else ''
                     code_poste = str(row['code']).strip().upper() if pd.notna(row['code']) else ''
                     nom_region = str(row['region']).strip().upper() if pd.notna(row['region']) else ''
                     type_poste_raw = str(row['type']).strip() if pd.notna(row['type']) else ''
-                    
+
                     # Vérifier données non vides
                     if not nom_poste or nom_poste.lower() == 'nan':
-                        continue  # Ligne vide, ignorer silencieusement
-                    
+                        continue
+
                     if not code_poste or code_poste.lower() == 'nan':
                         erreurs_detail.append({
                             'ligne': ligne_num,
@@ -334,7 +557,7 @@ def traiter_import_postes(df, action_doublon, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
                     if not nom_region or nom_region.lower() == 'nan':
                         erreurs_detail.append({
                             'ligne': ligne_num,
@@ -343,7 +566,7 @@ def traiter_import_postes(df, action_doublon, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
                     if not type_poste_raw or type_poste_raw.lower() == 'nan':
                         erreurs_detail.append({
                             'ligne': ligne_num,
@@ -352,10 +575,10 @@ def traiter_import_postes(df, action_doublon, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
                     # Normaliser le type de poste
                     type_poste = TYPES_POSTES_MAPPING.get(type_poste_raw.upper())
-                    
+
                     if not type_poste:
                         types_invalides.add(type_poste_raw)
                         erreurs_detail.append({
@@ -366,15 +589,14 @@ def traiter_import_postes(df, action_doublon, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
-                    # Normaliser la région
-                    region_normalisee = REGIONS_MAPPING.get(nom_region)
-                    
-                    if not region_normalisee:
-                        # Essayer une correspondance partielle
-                        region_normalisee = _trouver_region_proche(nom_region)
-                    
-                    if not region_normalisee:
+
+                    # Normaliser le nom de la région
+                    nom_region_normalise = REGIONS_MAPPING.get(nom_region)
+
+                    if not nom_region_normalise:
+                        nom_region_normalise = _trouver_region_proche(nom_region)
+
+                    if not nom_region_normalise:
                         regions_non_trouvees.add(nom_region)
                         erreurs_detail.append({
                             'ligne': ligne_num,
@@ -383,47 +605,65 @@ def traiter_import_postes(df, action_doublon, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
+                    # ✅ RÉCUPÉRER L'OBJET REGION DEPUIS LA BASE DE DONNÉES
+                    try:
+                        region_obj = Region.objects.get(nom=nom_region_normalise)
+                    except Region.DoesNotExist:
+                        # Si la région n'existe pas en base, essayer de la créer
+                        region_obj = Region.objects.create(nom=nom_region_normalise)
+                        logger.info(f"Région créée automatiquement: {nom_region_normalise}")
+
                     # Extraire les données optionnelles
                     departement = ''
                     axe_routier = ''
                     latitude = None
                     longitude = None
                     description = ''
-                    
+
                     if 'departement' in df.columns and pd.notna(row.get('departement')):
                         departement = str(row['departement']).strip()
-                    
+
                     if 'axe_routier' in df.columns and pd.notna(row.get('axe_routier')):
                         axe_routier = str(row['axe_routier']).strip()
-                    
+
                     if 'latitude' in df.columns and pd.notna(row.get('latitude')):
                         try:
                             latitude = float(row['latitude'])
                         except (ValueError, TypeError):
                             pass
-                    
+
                     if 'longitude' in df.columns and pd.notna(row.get('longitude')):
                         try:
                             longitude = float(row['longitude'])
                         except (ValueError, TypeError):
                             pass
-                    
+
                     if 'description' in df.columns and pd.notna(row.get('description')):
                         description = str(row['description']).strip()
-                    
+
+                    # Récupérer le département si spécifié
+                    departement_obj = None
+                    if departement:
+                        try:
+                            departement_obj = Departement.objects.filter(
+                                nom__icontains=departement,
+                                region=region_obj
+                            ).first()
+                        except:
+                            pass
+
                     # Vérifier si le poste existe déjà
                     poste_existant = Poste.objects.filter(code=code_poste).first()
-                    
+
                     if poste_existant:
                         if action_doublon == 'ecraser':
                             # Mise à jour du poste existant
                             poste_existant.nom = nom_poste
-                            poste_existant.region = region_normalisee
+                            poste_existant.region = region_obj  # ✅ Objet Region
+                            poste_existant.departement = departement_obj  # ✅ Objet ou None
                             poste_existant.type = type_poste
-                            
-                            if departement:
-                                poste_existant.departement = departement
+
                             if axe_routier:
                                 poste_existant.axe_routier = axe_routier
                             if latitude is not None:
@@ -432,7 +672,7 @@ def traiter_import_postes(df, action_doublon, user):
                                 poste_existant.longitude = longitude
                             if description:
                                 poste_existant.description = description
-                            
+
                             poste_existant.save()
                             postes_modifies.append({
                                 'code': code_poste,
@@ -441,31 +681,30 @@ def traiter_import_postes(df, action_doublon, user):
                             })
                             nb_modifies += 1
                         else:
-                            # Sauter
                             nb_sautes += 1
                     else:
                         # Créer nouveau poste
                         nouveau_poste = Poste.objects.create(
                             code=code_poste,
                             nom=nom_poste,
-                            region=region_normalisee,
+                            region=region_obj,  # ✅ Objet Region
+                            departement=departement_obj,  # ✅ Objet Departement ou None
                             type=type_poste,
-                            departement=departement,
                             axe_routier=axe_routier,
                             latitude=latitude,
                             longitude=longitude,
                             description=description,
                             is_active=True,
-                            nouveau=True  # Marquer comme nouveau pour suivi
+                            nouveau=True
                         )
                         postes_crees.append({
                             'code': code_poste,
                             'nom': nom_poste,
                             'type': type_poste,
-                            'region': region_normalisee
+                            'region': nom_region_normalise
                         })
                         nb_crees += 1
-                        
+
                 except Exception as e:
                     erreurs_detail.append({
                         'ligne': ligne_num,
@@ -473,21 +712,21 @@ def traiter_import_postes(df, action_doublon, user):
                         'type': 'exception'
                     })
                     nb_erreurs += 1
-        
+
         return {
             'success': True,
             'nb_crees': nb_crees,
             'nb_modifies': nb_modifies,
             'nb_sautes': nb_sautes,
             'nb_erreurs': nb_erreurs,
-            'erreurs_detail': erreurs_detail[:50],  # Limiter à 50 erreurs
-            'postes_crees': postes_crees[:20],  # Limiter à 20 pour affichage
+            'erreurs_detail': erreurs_detail[:50],
+            'postes_crees': postes_crees[:20],
             'postes_modifies': postes_modifies[:20],
             'regions_non_trouvees': list(regions_non_trouvees),
             'types_invalides': list(types_invalides),
             'total_lignes': len(df)
         }
-        
+
     except Exception as e:
         return {
             'success': False,
@@ -499,20 +738,21 @@ def traiter_import_postes(df, action_doublon, user):
         }
 
 
+
 def _trouver_region_proche(nom_region):
     """Essaie de trouver une correspondance proche pour la région"""
     nom_region = nom_region.upper().strip()
-    
+
     # Enlever les accents et caractères spéciaux pour comparaison
     nom_simplifie = nom_region.replace('-', ' ').replace('É', 'E').replace('Ê', 'E')
-    
+
     for key, value in REGIONS_MAPPING.items():
         key_simplifie = key.replace('-', ' ').replace('É', 'E').replace('Ê', 'E')
         if nom_simplifie == key_simplifie:
             return value
         if nom_simplifie in key_simplifie or key_simplifie in nom_simplifie:
             return value
-    
+
     return None
 
 
@@ -522,11 +762,11 @@ def telecharger_modele_postes_excel(request):
     """
     Génère et télécharge un modèle Excel pour l'import de postes
     """
-    
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Postes à importer"
-    
+
     # Styles
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF", size=11)
@@ -536,7 +776,7 @@ def telecharger_modele_postes_excel(request):
         top=Side(style='thin'),
         bottom=Side(style='thin')
     )
-    
+
     # En-têtes avec toutes les colonnes
     headers = [
         ('NOM', 40, 'Nom complet du poste'),
@@ -549,7 +789,7 @@ def telecharger_modele_postes_excel(request):
         ('LONGITUDE', 12, 'GPS (optionnel)'),
         ('DESCRIPTION', 40, 'Description (optionnel)'),
     ]
-    
+
     for col, (header, width, _) in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col)
         cell.value = header
@@ -558,7 +798,7 @@ def telecharger_modele_postes_excel(request):
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = border
         ws.column_dimensions[get_column_letter(col)].width = width
-    
+
     # Ligne de description
     ws.row_dimensions[2].height = 30
     for col, (_, _, desc) in enumerate(headers, 1):
@@ -566,7 +806,7 @@ def telecharger_modele_postes_excel(request):
         cell.value = desc
         cell.font = Font(italic=True, size=9, color="666666")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    
+
     # Exemples
     exemples = [
         ['Péage de Yaoundé-Nord', 'Centre', 'PG001', 'peage', 'Mfoundi', 'Yaoundé-Ngaoundéré', 3.866, 11.517, 'Entrée nord de Yaoundé'],
@@ -574,7 +814,7 @@ def telecharger_modele_postes_excel(request):
         ['Station de Pesage de Bafoussam', 'Ouest', 'PS001', 'pesage', 'Mifi', 'Bafoussam-Douala', 5.483, 10.417, 'Sortie ouest'],
         ['Station de Pesage de Ngaoundéré', 'Adamaoua', 'PS002', 'pesage', 'Vina', 'Ngaoundéré-Garoua', 7.317, 13.583, 'Gare routière'],
     ]
-    
+
     for row_num, exemple in enumerate(exemples, 3):
         for col, value in enumerate(exemple, 1):
             cell = ws.cell(row=row_num, column=col)
@@ -582,11 +822,11 @@ def telecharger_modele_postes_excel(request):
             cell.border = border
             if col == 4:  # Colonne type
                 cell.font = Font(bold=True, color="0066CC" if value == 'peage' else "CC6600")
-    
+
     # Feuille d'instructions
     ws_instructions = wb.create_sheet("Instructions")
     ws_instructions.column_dimensions['A'].width = 80
-    
+
     instructions = [
         ("INSTRUCTIONS POUR L'IMPORT DE POSTES", Font(bold=True, size=14, color="4472C4")),
         ("", None),
@@ -612,10 +852,10 @@ def telecharger_modele_postes_excel(request):
         ("🗺️ RÉGIONS VALIDES :", Font(bold=True, size=12)),
         ("", None),
     ]
-    
+
     for region in sorted(set(REGIONS_MAPPING.values())):
         instructions.append((f"  • {region}", None))
-    
+
     instructions.extend([
         ("", None),
         ("⚠️ IMPORTANT :", Font(bold=True, size=12, color="CC0000")),
@@ -631,23 +871,23 @@ def telecharger_modele_postes_excel(request):
         ("  • Utilisez PS pour les codes de pesage (PS001, PS002...)", None),
         ("  • Vérifiez l'orthographe des régions avant import", None),
     ])
-    
+
     for row_num, (text, font) in enumerate(instructions, 1):
         cell = ws_instructions.cell(row=row_num, column=1)
         cell.value = text
         if font:
             cell.font = font
-    
+
     # Feuille des régions
     ws_regions = wb.create_sheet("Régions")
     ws_regions.cell(row=1, column=1).value = "RÉGIONS DU CAMEROUN"
     ws_regions.cell(row=1, column=1).font = Font(bold=True, size=12)
-    
+
     for row_num, region in enumerate(sorted(set(REGIONS_MAPPING.values())), 2):
         ws_regions.cell(row=row_num, column=1).value = region
-    
+
     ws_regions.column_dimensions['A'].width = 25
-    
+
     # Journaliser le téléchargement
     log_user_action(
         request.user,
@@ -656,18 +896,18 @@ def telecharger_modele_postes_excel(request):
         request,
         type_modele="postes"
     )
-    
+
     # Sauvegarder
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
-    
+
     response = HttpResponse(
         buffer.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = 'attachment; filename=modele_import_postes.xlsx'
-    
+
     return response
 
 
@@ -680,27 +920,27 @@ def telecharger_modele_postes_excel(request):
 def import_utilisateurs_excel(request):
     """
     Vue pour importer des utilisateurs depuis un fichier Excel
-    
+
     Permissions requises:
     - peut_creer_utilisateur : Permission de création d'utilisateurs
     - peut_gerer_utilisateurs : Permission générale de gestion des utilisateurs
     """
-    
+
     user_desc = get_user_description(request.user)
-    
+
     if request.method == 'POST':
         fichier = request.FILES.get('fichier_excel')
         action_doublon = request.POST.get('action_doublon', 'sauter')
         mot_de_passe_defaut = request.POST.get('mot_de_passe_defaut', '0000')
-        
+
         if not fichier:
             messages.error(request, "Veuillez sélectionner un fichier Excel")
             return redirect('accounts:import_utilisateurs')
-        
+
         if not fichier.name.endswith(('.xlsx', '.xls')):
             messages.error(request, "Le fichier doit être au format Excel (.xlsx ou .xls)")
             return redirect('accounts:import_utilisateurs')
-        
+
         try:
             # Journaliser le début de l'import
             log_user_action(
@@ -711,15 +951,15 @@ def import_utilisateurs_excel(request):
                 fichier=fichier.name,
                 taille=f"{fichier.size / 1024:.1f} Ko"
             )
-            
+
             # Lire le fichier Excel
             df = pd.read_excel(fichier)
-            
+
             # Traiter l'import
             resultats = traiter_import_utilisateurs(
                 df, action_doublon, mot_de_passe_defaut, request.user
             )
-            
+
             if resultats['success']:
                 messages.success(
                     request,
@@ -727,7 +967,7 @@ def import_utilisateurs_excel(request):
                     f"{resultats['nb_modifies']} modifiés, {resultats['nb_sautes']} sautés, "
                     f"{resultats['nb_erreurs']} erreurs"
                 )
-                
+
                 log_user_action(
                     request.user,
                     "IMPORT_UTILISATEURS_SUCCES",
@@ -739,7 +979,7 @@ def import_utilisateurs_excel(request):
                     nb_sautes=resultats['nb_sautes'],
                     nb_erreurs=resultats['nb_erreurs']
                 )
-                
+
                 logger.info(
                     f"👥 IMPORT UTILISATEURS RÉUSSI | {get_user_short_description(request.user)} | "
                     f"Créés: {resultats['nb_crees']}, Modifiés: {resultats['nb_modifies']}"
@@ -747,19 +987,19 @@ def import_utilisateurs_excel(request):
             else:
                 messages.error(request, f"Erreur lors de l'import: {resultats['erreur']}")
                 log_erreur_action(request.user, "IMPORT_UTILISATEURS", resultats['erreur'], request)
-            
+
             context = {
                 'resultats': resultats,
                 'fichier_nom': fichier.name,
                 'user_desc': user_desc,
             }
             return render(request, 'accounts/import_utilisateurs_resultats.html', context)
-            
+
         except Exception as e:
             messages.error(request, f"Erreur lors de la lecture du fichier: {str(e)}")
             log_erreur_action(request.user, "IMPORT_UTILISATEURS", str(e), request)
             return redirect('accounts:import_utilisateurs')
-    
+
     # GET request - afficher le formulaire
     context = {
         'user_desc': user_desc,
@@ -772,10 +1012,10 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
     """
     Traite l'import des utilisateurs depuis Excel avec validation complète
     """
-    
+
     # Normaliser les noms de colonnes
     df.columns = df.columns.str.strip().str.lower()
-    
+
     nb_crees = 0
     nb_modifies = 0
     nb_sautes = 0
@@ -784,11 +1024,11 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
     utilisateurs_crees = []
     utilisateurs_modifies = []
     habilitations_non_trouvees = set()
-    
+
     # Vérifier les colonnes requises
     colonnes_requises = ['matricule', 'nom_complet', 'telephone', 'habilitation']
     colonnes_manquantes = [col for col in colonnes_requises if col not in df.columns]
-    
+
     if colonnes_manquantes:
         return {
             'success': False,
@@ -799,27 +1039,27 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
             'nb_sautes': 0,
             'nb_erreurs': 0
         }
-    
+
     try:
         with transaction.atomic():
             for index, row in df.iterrows():
                 ligne_num = index + 2
-                
+
                 try:
                     # Extraire et nettoyer les données
                     matricule = str(row['matricule']).strip().upper() if pd.notna(row['matricule']) else ''
                     nom_complet = str(row['nom_complet']).strip() if pd.notna(row['nom_complet']) else ''
                     telephone = str(row['telephone']).strip() if pd.notna(row['telephone']) else ''
                     habilitation_raw = str(row['habilitation']).strip().upper() if pd.notna(row['habilitation']) else ''
-                    
+
                     # Données optionnelles
                     email = str(row.get('email', '')).strip() if pd.notna(row.get('email')) else ''
                     code_poste = str(row.get('code_poste', '')).strip().upper() if pd.notna(row.get('code_poste')) else ''
-                    
+
                     # Vérifications
                     if not matricule or matricule.lower() == 'nan':
                         continue
-                    
+
                     if not nom_complet or nom_complet.lower() == 'nan':
                         erreurs_detail.append({
                             'ligne': ligne_num,
@@ -828,7 +1068,7 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
                     if not telephone or telephone.lower() == 'nan':
                         erreurs_detail.append({
                             'ligne': ligne_num,
@@ -837,7 +1077,7 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
                     if not habilitation_raw or habilitation_raw.lower() == 'nan':
                         erreurs_detail.append({
                             'ligne': ligne_num,
@@ -846,10 +1086,10 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
                     # Normaliser l'habilitation
                     habilitation = HABILITATIONS_IMPORT_MAPPING.get(habilitation_raw)
-                    
+
                     if not habilitation:
                         habilitations_non_trouvees.add(habilitation_raw)
                         erreurs_detail.append({
@@ -859,10 +1099,10 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
                         })
                         nb_erreurs += 1
                         continue
-                    
+
                     # Nettoyer le téléphone
                     telephone = _nettoyer_telephone(telephone)
-                    
+
                     # Chercher le poste si spécifié
                     poste_affectation = None
                     if code_poste:
@@ -874,22 +1114,22 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
                                 'type': 'poste_invalide'
                             })
                             # Continuer quand même sans poste
-                    
+
                     # Vérifier si l'utilisateur existe
                     utilisateur_existant = UtilisateurSUPPER.objects.filter(username=matricule).first()
-                    
+
                     if utilisateur_existant:
                         if action_doublon == 'ecraser':
                             # Mise à jour
                             utilisateur_existant.nom_complet = nom_complet
                             utilisateur_existant.telephone = telephone
                             utilisateur_existant.habilitation = habilitation
-                            
+
                             if email:
                                 utilisateur_existant.email = email
                             if poste_affectation:
                                 utilisateur_existant.poste_affectation = poste_affectation
-                            
+
                             utilisateur_existant.save()
                             utilisateurs_modifies.append({
                                 'matricule': matricule,
@@ -919,7 +1159,7 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
                             'poste': poste_affectation.nom if poste_affectation else 'Aucun'
                         })
                         nb_crees += 1
-                        
+
                 except Exception as e:
                     erreurs_detail.append({
                         'ligne': ligne_num,
@@ -927,7 +1167,7 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
                         'type': 'exception'
                     })
                     nb_erreurs += 1
-        
+
         return {
             'success': True,
             'nb_crees': nb_crees,
@@ -941,7 +1181,7 @@ def traiter_import_utilisateurs(df, action_doublon, mot_de_passe_defaut, user):
             'total_lignes': len(df),
             'mot_de_passe_defaut': mot_de_passe_defaut
         }
-        
+
     except Exception as e:
         return {
             'success': False,
@@ -957,15 +1197,15 @@ def _nettoyer_telephone(telephone):
     """Nettoie et formate un numéro de téléphone camerounais"""
     # Enlever tout sauf les chiffres et le +
     telephone = ''.join(c for c in str(telephone) if c.isdigit() or c == '+')
-    
+
     # Si commence par 237, ajouter le +
     if telephone.startswith('237') and not telephone.startswith('+'):
         telephone = '+' + telephone
-    
+
     # Si 9 chiffres sans indicatif, ajouter +237
     if len(telephone) == 9 and telephone[0] in '6789':
         telephone = '+237' + telephone
-    
+
     return telephone
 
 
@@ -975,11 +1215,11 @@ def telecharger_modele_utilisateurs_excel(request):
     """
     Génère et télécharge un modèle Excel pour l'import d'utilisateurs
     """
-    
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Utilisateurs à importer"
-    
+
     # Styles
     header_fill = PatternFill(start_color="2E7D32", end_color="2E7D32", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF", size=11)
@@ -989,7 +1229,7 @@ def telecharger_modele_utilisateurs_excel(request):
         top=Side(style='thin'),
         bottom=Side(style='thin')
     )
-    
+
     # En-têtes
     headers = [
         ('MATRICULE', 15, 'Matricule unique'),
@@ -999,7 +1239,7 @@ def telecharger_modele_utilisateurs_excel(request):
         ('EMAIL', 30, 'Email (optionnel)'),
         ('CODE_POSTE', 15, 'Code poste (optionnel)'),
     ]
-    
+
     for col, (header, width, _) in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col)
         cell.value = header
@@ -1008,14 +1248,14 @@ def telecharger_modele_utilisateurs_excel(request):
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = border
         ws.column_dimensions[get_column_letter(col)].width = width
-    
+
     # Descriptions
     for col, (_, _, desc) in enumerate(headers, 1):
         cell = ws.cell(row=2, column=col)
         cell.value = desc
         cell.font = Font(italic=True, size=9, color="666666")
         cell.alignment = Alignment(horizontal="center")
-    
+
     # Exemples
     exemples = [
         ['ABC123456', 'MBARGA Achille Jean', '+237699123456', 'CHEF_PEAGE', 'achille.mbarga@email.cm', 'PG001'],
@@ -1023,27 +1263,27 @@ def telecharger_modele_utilisateurs_excel(request):
         ['GHI345678', 'FOTSO Jean Pierre', '+237655987654', 'CHEF_STATION_PESAGE', 'jp.fotso@email.cm', 'PS001'],
         ['JKL901234', 'KAMGA Paul André', '+237688112233', 'CISOP_PEAGE', '', ''],
     ]
-    
+
     for row_num, exemple in enumerate(exemples, 3):
         for col, value in enumerate(exemple, 1):
             cell = ws.cell(row=row_num, column=col)
             cell.value = value
             cell.border = border
-    
+
     # Feuille des habilitations
     ws_hab = wb.create_sheet("Habilitations")
     ws_hab.column_dimensions['A'].width = 30
     ws_hab.column_dimensions['B'].width = 40
     ws_hab.column_dimensions['C'].width = 50
-    
+
     ws_hab.cell(row=1, column=1).value = "CODE"
     ws_hab.cell(row=1, column=2).value = "LIBELLÉ"
     ws_hab.cell(row=1, column=3).value = "DESCRIPTION"
-    
+
     for col in range(1, 4):
         ws_hab.cell(row=1, column=col).font = header_font
         ws_hab.cell(row=1, column=col).fill = header_fill
-    
+
     habilitations_info = [
         ('admin_principal', 'Administrateur Principal', 'Accès complet au système'),
         ('coord_psrr', 'Coordonnateur PSRR', 'Coordination générale'),
@@ -1062,16 +1302,16 @@ def telecharger_modele_utilisateurs_excel(request):
         ('caissier', 'Caissier', 'Encaissement'),
         ('focal_regional', 'Point Focal Régional', 'Coordination régionale'),
     ]
-    
+
     for row_num, (code, libelle, desc) in enumerate(habilitations_info, 2):
         ws_hab.cell(row=row_num, column=1).value = code
         ws_hab.cell(row=row_num, column=2).value = libelle
         ws_hab.cell(row=row_num, column=3).value = desc
-    
+
     # Feuille instructions
     ws_instructions = wb.create_sheet("Instructions")
     ws_instructions.column_dimensions['A'].width = 80
-    
+
     instructions = [
         ("INSTRUCTIONS POUR L'IMPORT D'UTILISATEURS", Font(bold=True, size=14, color="2E7D32")),
         ("", None),
@@ -1094,13 +1334,13 @@ def telecharger_modele_utilisateurs_excel(request):
         ("  • Les matricules doivent être UNIQUES", None),
         ("  • Vérifiez les codes d'habilitation dans la feuille 'Habilitations'", None),
     ]
-    
+
     for row_num, (text, font) in enumerate(instructions, 1):
         cell = ws_instructions.cell(row=row_num, column=1)
         cell.value = text
         if font:
             cell.font = font
-    
+
     # Journaliser
     log_user_action(
         request.user,
@@ -1109,18 +1349,18 @@ def telecharger_modele_utilisateurs_excel(request):
         request,
         type_modele="utilisateurs"
     )
-    
+
     # Sauvegarder
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
-    
+
     response = HttpResponse(
         buffer.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = 'attachment; filename=modele_import_utilisateurs.xlsx'
-    
+
     return response
 
 
@@ -1134,15 +1374,15 @@ def export_postes_excel(request):
     """
     Exporte la liste des postes au format Excel
     """
-    
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Postes SUPPER"
-    
+
     # Styles
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF")
-    
+
     # En-têtes
     headers = ['Code', 'Nom', 'Type', 'Région', 'Département', 'Axe Routier', 'Actif', 'Date Création']
     for col, header in enumerate(headers, 1):
@@ -1150,10 +1390,10 @@ def export_postes_excel(request):
         cell.value = header
         cell.font = header_font
         cell.fill = header_fill
-    
+
     # Données
     postes = Poste.objects.all().order_by('region', 'type', 'nom')
-    
+
     for row_num, poste in enumerate(postes, 2):
         ws.cell(row=row_num, column=1).value = poste.code
         ws.cell(row=row_num, column=2).value = poste.nom
@@ -1163,12 +1403,12 @@ def export_postes_excel(request):
         ws.cell(row=row_num, column=6).value = getattr(poste, 'axe_routier', '') or ''
         ws.cell(row=row_num, column=7).value = 'Oui' if poste.is_active else 'Non'
         ws.cell(row=row_num, column=8).value = poste.date_creation.strftime('%d/%m/%Y')
-    
+
     # Ajuster largeurs
     widths = [15, 40, 12, 18, 20, 30, 8, 15]
     for col, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
-    
+
     # Journaliser
     log_user_action(
         request.user,
@@ -1178,19 +1418,19 @@ def export_postes_excel(request):
         nb_postes=postes.count(),
         format="Excel"
     )
-    
+
     # Sauvegarder
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
-    
+
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     response = HttpResponse(
         buffer.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = f'attachment; filename=export_postes_{timestamp}.xlsx'
-    
+
     return response
 
 
@@ -1200,27 +1440,27 @@ def export_utilisateurs_excel(request):
     """
     Exporte la liste des utilisateurs au format Excel
     """
-    
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Utilisateurs SUPPER"
-    
+
     # Styles
     header_fill = PatternFill(start_color="2E7D32", end_color="2E7D32", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF")
-    
+
     # En-têtes
-    headers = ['Matricule', 'Nom Complet', 'Téléphone', 'Email', 'Habilitation', 
+    headers = ['Matricule', 'Nom Complet', 'Téléphone', 'Email', 'Habilitation',
                'Poste Affectation', 'Actif', 'Dernière Connexion']
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col)
         cell.value = header
         cell.font = header_font
         cell.fill = header_fill
-    
+
     # Données
     utilisateurs = UtilisateurSUPPER.objects.all().select_related('poste_affectation').order_by('nom_complet')
-    
+
     for row_num, user in enumerate(utilisateurs, 2):
         ws.cell(row=row_num, column=1).value = user.username
         ws.cell(row=row_num, column=2).value = user.nom_complet
@@ -1230,12 +1470,12 @@ def export_utilisateurs_excel(request):
         ws.cell(row=row_num, column=6).value = user.poste_affectation.nom if user.poste_affectation else ''
         ws.cell(row=row_num, column=7).value = 'Oui' if user.is_active else 'Non'
         ws.cell(row=row_num, column=8).value = user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'Jamais'
-    
+
     # Ajuster largeurs
     widths = [15, 35, 18, 30, 25, 30, 8, 18]
     for col, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
-    
+
     # Journaliser
     log_user_action(
         request.user,
@@ -1245,19 +1485,19 @@ def export_utilisateurs_excel(request):
         nb_utilisateurs=utilisateurs.count(),
         format="Excel"
     )
-    
+
     # Sauvegarder
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
-    
+
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     response = HttpResponse(
         buffer.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = f'attachment; filename=export_utilisateurs_{timestamp}.xlsx'
-    
+
     return response
 
 
@@ -1272,46 +1512,46 @@ def valider_fichier_import_ajax(request):
     API AJAX pour valider un fichier avant import complet
     Retourne un aperçu des données et erreurs potentielles
     """
-    
+
     fichier = request.FILES.get('fichier')
     type_import = request.POST.get('type', 'postes')
-    
+
     if not fichier:
         return JsonResponse({'success': False, 'erreur': 'Aucun fichier fourni'})
-    
+
     try:
         df = pd.read_excel(fichier)
         df.columns = df.columns.str.strip().str.lower()
-        
+
         if type_import == 'postes':
             colonnes_requises = ['nom', 'region', 'code', 'type']
         else:
             colonnes_requises = ['matricule', 'nom_complet', 'telephone', 'habilitation']
-        
+
         colonnes_manquantes = [col for col in colonnes_requises if col not in df.columns]
-        
+
         if colonnes_manquantes:
             return JsonResponse({
                 'success': False,
                 'erreur': f"Colonnes manquantes: {', '.join(colonnes_manquantes)}"
             })
-        
+
         # Aperçu des premières lignes
         apercu = df.head(5).fillna('').to_dict('records')
-        
+
         # Statistiques
         stats = {
             'total_lignes': len(df),
             'colonnes_presentes': list(df.columns),
             'colonnes_manquantes': colonnes_manquantes,
         }
-        
+
         return JsonResponse({
             'success': True,
             'apercu': apercu,
             'stats': stats
         })
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,

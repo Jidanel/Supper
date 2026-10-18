@@ -651,6 +651,7 @@ class UserUpdateForm(forms.ModelForm):
         model = UtilisateurSUPPER
         fields = [
             # Informations de base
+            'username', 
             'nom_complet', 
             'telephone', 
             'email', 
@@ -753,6 +754,11 @@ class UserUpdateForm(forms.ModelForm):
         ]
         
         widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: 1052105M',
+                'style': 'text-transform: uppercase;'
+            }),
             'nom_complet': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Nom et prénom(s) complets'
@@ -858,6 +864,7 @@ class UserUpdateForm(forms.ModelForm):
         }
         
         labels = {
+            'username': _("Matricule"),
             'nom_complet': _("Nom complet"),
             'telephone': _("Téléphone"),
             'email': _("Email (optionnel)"),
@@ -966,6 +973,22 @@ class UserUpdateForm(forms.ModelForm):
                     _("Format invalide. Utilisez le format: +237XXXXXXXXX ou XXXXXXXXX")
                 )
         return telephone
+    def clean_username(self):
+        """Validation du matricule avec vérification d'unicité"""
+        username = self.cleaned_data.get('username')
+        if username:
+            # Normaliser en majuscules
+            username = username.upper().strip()
+            
+            # Vérifier l'unicité (exclure l'instance actuelle)
+            qs = UtilisateurSUPPER.objects.filter(username=username)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise ValidationError(
+                    _("Ce matricule est déjà utilisé par un autre utilisateur.")
+                )
+        return username
     
     def clean(self):
         """Validation croisée habilitation <-> type de poste"""

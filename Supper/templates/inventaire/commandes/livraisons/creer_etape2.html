@@ -1,0 +1,653 @@
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #1a5f2a;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --bg-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    * { box-sizing: border-box; }
+
+    .livraison-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--success-color), #1e7e34);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+    }
+
+    .page-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.6rem;
+        font-weight: 600;
+    }
+
+    .page-header p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .etapes-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .etape-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .etape-badge.active {
+        background: white;
+        color: var(--success-color);
+    }
+
+    .etape-badge.completed {
+        background: rgba(255,255,255,0.3);
+        color: white;
+    }
+
+    .etape-badge.inactive {
+        background: rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.8);
+    }
+
+    .etape-number {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .etape-badge.active .etape-number {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .etape-separator {
+        width: 40px;
+        height: 2px;
+        background: rgba(255,255,255,0.5);
+    }
+
+    /* Récapitulatif */
+    .recap-section {
+        background: white;
+        border-radius: 12px;
+        padding: 20px 25px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+        border-left: 4px solid var(--success-color);
+    }
+
+    .recap-section h3 {
+        margin: 0 0 15px 0;
+        font-size: 1.1rem;
+        color: var(--success-color);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .recap-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+
+    .recap-item {
+        padding: 10px 15px;
+        background: var(--bg-light);
+        border-radius: 8px;
+    }
+
+    .recap-item .label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+    }
+
+    .recap-item .value {
+        font-weight: 600;
+        color: #333;
+    }
+
+    /* Card poste avec recharges */
+    .poste-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+
+    .poste-card-header {
+        background: linear-gradient(135deg, var(--info-color), #138496);
+        color: white;
+        padding: 18px 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .poste-card-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .poste-card-header .poste-stats {
+        display: flex;
+        gap: 15px;
+        font-size: 0.9rem;
+    }
+
+    .poste-card-header .stat-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 4px 10px;
+        border-radius: 15px;
+    }
+
+    .poste-card-body {
+        padding: 20px 25px;
+    }
+
+    /* Sélection recharges */
+    .recharges-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .recharges-count {
+        font-weight: 600;
+        color: var(--success-color);
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        background: white;
+        color: #333;
+        transition: all 0.2s;
+    }
+
+    .btn-sm:hover {
+        background: var(--bg-light);
+    }
+
+    /* Tableau des recharges */
+    .recharges-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .recharges-table thead {
+        background: var(--bg-light);
+    }
+
+    .recharges-table th {
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .recharges-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+    }
+
+    .recharges-table tbody tr:hover {
+        background: #f0fdf4;
+    }
+
+    .recharges-table input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        accent-color: var(--success-color);
+        cursor: pointer;
+    }
+
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+
+    .montant-cell {
+        font-weight: 600;
+        color: var(--success-color);
+    }
+
+    /* Alerte pas de recharges */
+    .alert-warning {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+        padding: 15px 20px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alert-info {
+        background: #e7f3ff;
+        border: 1px solid #b8daff;
+        color: #004085;
+        padding: 15px 20px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Footer résumé */
+    .summary-footer {
+        background: var(--bg-light);
+        padding: 15px 25px;
+        border-top: 2px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .summary-total {
+        font-size: 1.1rem;
+    }
+
+    .summary-total .label {
+        color: var(--text-muted);
+    }
+
+    .summary-total .value {
+        font-weight: 700;
+        color: var(--success-color);
+    }
+
+    /* Boutons */
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 20px 25px;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        gap: 15px;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #218838;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #666;
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+        background: var(--bg-light);
+        color: #333;
+        text-decoration: none;
+    }
+
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        .livraison-container {
+            padding: 15px;
+        }
+
+        .page-header {
+            padding: 20px;
+        }
+
+        .page-header h1 {
+            font-size: 1.3rem;
+        }
+
+        .etapes-indicator {
+            flex-wrap: wrap;
+        }
+
+        .recap-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .poste-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .poste-card-header .poste-stats {
+            flex-wrap: wrap;
+        }
+
+        .poste-card-body {
+            padding: 15px;
+            overflow-x: auto;
+        }
+
+        .recharges-table {
+            min-width: 500px;
+        }
+
+        .recharges-actions {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="livraison-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <h1><i class="fas fa-truck"></i> Nouvelle Livraison</h1>
+        <p>Sélectionnez les recharges imprimerie nationale pour chaque poste</p>
+        
+        <div class="etapes-indicator">
+            <div class="etape-badge completed">
+                <span class="etape-number"><i class="fas fa-check"></i></span>
+                <span>Sélection</span>
+            </div>
+            <div class="etape-separator"></div>
+            <div class="etape-badge active">
+                <span class="etape-number">2</span>
+                <span>Recharges</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Récapitulatif -->
+    <div class="recap-section">
+        <h3><i class="fas fa-clipboard-list"></i> Récapitulatif</h3>
+        <div class="recap-grid">
+            <div class="recap-item">
+                <div class="label">Commande</div>
+                <div class="value">N°{{ commande.numero_commande }} - {{ commande.exercice }}</div>
+            </div>
+            <div class="recap-item">
+                <div class="label">Date livraison</div>
+                <div class="value">{{ date_livraison|date:"d/m/Y" }}</div>
+            </div>
+            <div class="recap-item">
+                <div class="label">Exercice recharges</div>
+                <div class="value">{{ exercice }}</div>
+            </div>
+            <div class="recap-item">
+                <div class="label">Postes à livrer</div>
+                <div class="value">{{ nb_postes }} poste(s)</div>
+            </div>
+        </div>
+        {% if observations %}
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+            <div class="label">Observations</div>
+            <div class="value">{{ observations }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="post" id="form-livraison-etape2">
+        {% csrf_token %}
+        
+        {% for poste_data in postes_data %}
+        <!-- Card par poste -->
+        <div class="poste-card">
+            <div class="poste-card-header">
+                <h3>
+                    <i class="fas fa-map-marker-alt"></i>
+                    {{ poste_data.poste.nom }}
+                    <small style="font-weight: normal; opacity: 0.8;">
+                        ({{ poste_data.poste.region.nom|default:"N/A" }})
+                    </small>
+                </h3>
+                <div class="poste-stats">
+                    <span class="stat-badge">
+                        <i class="fas fa-box"></i>
+                        {{ poste_data.carnets_deja_livres }}/{{ poste_data.carnets_commandes }} carnets
+                    </span>
+                    <span class="stat-badge">
+                        <i class="fas fa-tasks"></i>
+                        {{ poste_data.taux_livraison }}% livré
+                    </span>
+                    <span class="stat-badge">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Reste {{ poste_data.carnets_restants }} carnets
+                    </span>
+                </div>
+            </div>
+            
+            <div class="poste-card-body">
+                {% if poste_data.has_recharges %}
+                <div class="recharges-actions">
+                    <span class="recharges-count" id="count_{{ poste_data.poste.id }}">
+                        0 recharge(s) sélectionnée(s)
+                    </span>
+                    <div class="btn-group">
+                        <button type="button" class="btn-sm" onclick="selectionnerToutPoste({{ poste_data.poste.id }})">
+                            <i class="fas fa-check-double"></i> Tout
+                        </button>
+                        <button type="button" class="btn-sm" onclick="deselectionnerToutPoste({{ poste_data.poste.id }})">
+                            <i class="fas fa-times"></i> Aucun
+                        </button>
+                    </div>
+                </div>
+                
+                <table class="recharges-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;"></th>
+                            <th>Date</th>
+                            <th class="text-right">Montant</th>
+                            <th class="text-center">Tickets</th>
+                            <th class="text-center">Carnets</th>
+                            <th>Commentaire</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in poste_data.recharges %}
+                        <tr>
+                            <td class="text-center">
+                                <input type="checkbox" 
+                                       name="recharges_{{ poste_data.poste.id }}" 
+                                       value="{{ r.id }}"
+                                       class="recharge-checkbox"
+                                       data-poste="{{ poste_data.poste.id }}"
+                                       data-carnets="{{ r.nombre_carnets }}"
+                                       data-montant="{{ r.montant }}"
+                                       onchange="updatePosteCount({{ poste_data.poste.id }})">
+                            </td>
+                            <td>{{ r.date|date:"d/m/Y" }}</td>
+                            <td class="text-right montant-cell">{{ r.montant|floatformat:0|format_milliers }} FCFA</td>
+                            <td class="text-center">{{ r.nombre_tickets|format_milliers }}</td>
+                            <td class="text-center">{{ r.nombre_carnets }}</td>
+                            <td>{{ r.commentaire|default:"-"|truncatechars:30 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div class="summary-footer">
+                    <div class="summary-total">
+                        <span class="label">Sélection pour ce poste:</span>
+                        <span class="value" id="total_{{ poste_data.poste.id }}">0 carnets (0 FCFA)</span>
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Aucune recharge imprimerie nationale disponible pour ce poste en {{ exercice }}.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Alerte globale -->
+        <div class="alert-info" style="margin-bottom: 20px;">
+            <i class="fas fa-info-circle"></i>
+            <span>
+                Cochez les recharges à associer pour chaque poste. Les postes sans recharges sélectionnées seront ignorés.
+            </span>
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions">
+            <a href="{% url 'inventaire:creer_livraison_etape1' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+            <button type="submit" class="btn btn-success" id="btnValider">
+                <i class="fas fa-check"></i> Valider et créer les livraisons
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Formater en milliers
+function formatMilliers(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+// Mettre à jour le compteur et total pour un poste
+function updatePosteCount(posteId) {
+    const checkboxes = document.querySelectorAll(`input[name="recharges_${posteId}"]:checked`);
+    const countSpan = document.getElementById(`count_${posteId}`);
+    const totalSpan = document.getElementById(`total_${posteId}`);
+    
+    let totalCarnets = 0;
+    let totalMontant = 0;
+    
+    checkboxes.forEach(cb => {
+        totalCarnets += parseInt(cb.dataset.carnets) || 0;
+        totalMontant += parseFloat(cb.dataset.montant) || 0;
+    });
+    
+    countSpan.textContent = `${checkboxes.length} recharge(s) sélectionnée(s)`;
+    totalSpan.textContent = `${totalCarnets} carnets (${formatMilliers(Math.round(totalMontant))} FCFA)`;
+    
+    // Mettre à jour le bouton valider
+    updateBtnValider();
+}
+
+// Sélectionner toutes les recharges d'un poste
+function selectionnerToutPoste(posteId) {
+    const checkboxes = document.querySelectorAll(`input[name="recharges_${posteId}"]`);
+    checkboxes.forEach(cb => cb.checked = true);
+    updatePosteCount(posteId);
+}
+
+// Désélectionner toutes les recharges d'un poste
+function deselectionnerToutPoste(posteId) {
+    const checkboxes = document.querySelectorAll(`input[name="recharges_${posteId}"]`);
+    checkboxes.forEach(cb => cb.checked = false);
+    updatePosteCount(posteId);
+}
+
+// Activer/désactiver le bouton Valider
+function updateBtnValider() {
+    const allChecked = document.querySelectorAll('.recharge-checkbox:checked');
+    const btnValider = document.getElementById('btnValider');
+    btnValider.disabled = allChecked.length === 0;
+}
+
+// Initialiser au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    // Mettre à jour tous les compteurs
+    const posteIds = new Set();
+    document.querySelectorAll('.recharge-checkbox').forEach(cb => {
+        posteIds.add(cb.dataset.poste);
+    });
+    posteIds.forEach(posteId => updatePosteCount(posteId));
+    
+    updateBtnValider();
+});
+</script>
+{% endblock %}

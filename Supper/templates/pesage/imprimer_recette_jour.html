@@ -956,7 +956,7 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    
+
     <!-- Boutons d'action (non imprimables) -->
     <div class="no-print mb-4">
         <div class="d-flex justify-content-between align-items-center">
@@ -971,14 +971,14 @@
             </div>
         </div>
     </div>
-    
+
     <!-- En-tête d'impression -->
     <div class="print-header text-center mb-4">
         <h4 class="text-uppercase">République du Cameroun</h4>
         <p class="text-muted mb-1">Programme de Sécurisation des Recettes Routières</p>
         <h5>PSRR - SUPPER</h5>
     </div>
-    
+
     <!-- Informations générales -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-success text-white">
@@ -1007,7 +1007,7 @@
                 </div>
                 <div class="col-md-4">
                     <p class="mb-1"><strong>Nombre de paiements :</strong> {{ count }}</p>
-                    <p class="mb-0"><strong>Total recouvré :</strong> 
+                    <p class="mb-0"><strong>Total recouvré :</strong>
                         <span class="text-success fw-bold">{{ total|intcomma }} FCFA</span>
                     </p>
                 </div>
@@ -1018,7 +1018,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Résumé par type d'infraction -->
     {% if stats_types %}
     <div class="card shadow-sm mb-4">
@@ -1075,7 +1075,7 @@
         </div>
     </div>
     {% endif %}
-    
+
     <!-- Liste détaillée des paiements -->
     <div class="card shadow-sm">
         <div class="card-header bg-white">
@@ -1116,16 +1116,25 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if p.est_surcharge and p.est_hors_gabarit %}
+                                {% if p.est_surcharge and p.est_hors_gabarit and p.est_delit_fuite %}
+                                    <span class="badge bg-danger">S+HG+DF</span>
+                                {% elif p.est_surcharge and p.est_hors_gabarit %}
                                     <span class="badge bg-danger">S+HG</span>
+                                {% elif p.est_hors_gabarit and p.est_delit_fuite %}
+                                    <span class="badge bg-danger">HG+DF</span>
+                                {% elif p.est_surcharge and p.est_delit_fuite %}
+                                    <span class="badge bg-danger">S+DF</span>
                                 {% elif p.est_hors_gabarit %}
                                     <span class="badge bg-danger">HG</span>
                                 {% elif p.est_surcharge %}
                                     <span class="badge bg-warning text-dark">S</span>
+                                {% elif p.est_delit_fuite %}
+                                    <span class="badge bg-dark">DF</span>
                                 {% else %}
                                     <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
+
                             <td class="text-end">
                                 <strong>{{ p.montant_amende|intcomma }} F</strong>
                             </td>
@@ -1159,7 +1168,7 @@
             {% endif %}
         </div>
     </div>
-    
+
     <!-- Signatures (pour impression) -->
     <div class="signature-section">
         <div class="row mt-5">
@@ -1179,7 +1188,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Pied de page -->
     <div class="footer-info">
         <p class="mb-0">
@@ -1187,7 +1196,7 @@
         </p>
         <p class="mb-0">{% now "d/m/Y H:i:s" %}</p>
     </div>
-    
+
 </div>
 {% endblock %}
 
@@ -1206,11 +1215,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.width = '';
         }
     }
-    
+
     fixMobileScrolling();
     window.addEventListener('resize', fixMobileScrolling);
     window.addEventListener('orientationchange', fixMobileScrolling);
-    
+
     // Auto-print si paramètre print=1
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('print') === '1') {
@@ -1218,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.print();
         }, 500);
     }
-    
+
     // Amélioration tactile pour mobile
     document.addEventListener('touchstart', function() {}, {passive: true});
 });

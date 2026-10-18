@@ -1,0 +1,786 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0EA5E9;
+        --secondary-color: #38BDF8;
+        --primary-dark: #0284C7;
+        --primary-light: #E0F2FE;
+        --success-color: #22C55E;
+        --warning-color: #F97316;
+        --danger-color: #EF4444;
+        --acct-color: #8B5CF6;
+        --acct-light: #EDE9FE;
+    }
+
+    .csp-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .header-section {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+    }
+
+    .header-section h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.8rem;
+    }
+
+    .header-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-top: 15px;
+    }
+
+    .header-meta-item {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 8px 15px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+
+    .header-meta-item strong {
+        margin-right: 5px;
+    }
+
+    .actions-bar {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+        background: #F3F4F6;
+        color: #374151;
+        border: 1px solid #D1D5DB;
+    }
+
+    .btn-secondary:hover {
+        background: #E5E7EB;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #16A34A;
+    }
+
+    /* Statistiques globales */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        text-align: center;
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--primary-dark);
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.8rem;
+        color: #6B7280;
+        margin-top: 5px;
+    }
+
+    .stat-card.success .stat-value {
+        color: var(--success-color);
+    }
+
+    .stat-card.warning .stat-value {
+        color: var(--warning-color);
+    }
+
+    .stat-card.danger .stat-value {
+        color: var(--danger-color);
+    }
+
+    .stat-card.acct .stat-value {
+        color: var(--acct-color);
+    }
+
+    /* Tableau CSP */
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        margin-bottom: 25px;
+    }
+
+    .table-header {
+        background: #F8FAFC;
+        padding: 15px 20px;
+        border-bottom: 1px solid #E5E7EB;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #1F2937;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+    }
+
+    .csp-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    .csp-table th {
+        background: #F1F5F9;
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        border-bottom: 2px solid #E2E8F0;
+        white-space: nowrap;
+    }
+
+    .csp-table th.col-acct {
+        background: var(--acct-light);
+        color: var(--acct-color);
+    }
+
+    .csp-table th.text-right,
+    .csp-table td.text-right {
+        text-align: right;
+    }
+
+    .csp-table th.text-center,
+    .csp-table td.text-center {
+        text-align: center;
+    }
+
+    .csp-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #E5E7EB;
+        vertical-align: middle;
+    }
+
+    .csp-table tbody tr:hover {
+        background: #F8FAFC;
+    }
+
+    .csp-table td.col-acct {
+        background: rgba(139, 92, 246, 0.03);
+    }
+
+    /* Lignes de région */
+    .region-row {
+        background: var(--primary-light) !important;
+    }
+
+    .region-row td {
+        font-weight: 600;
+        color: var(--primary-dark);
+        border-bottom: 2px solid var(--primary-color) !important;
+    }
+
+    .region-row td:first-child {
+        padding-left: 20px;
+    }
+
+    /* Lignes de totaux */
+    .total-row {
+        background: #87CEEB !important;
+    }
+
+    .total-row td {
+        font-weight: 700;
+        color: black !important;
+        border-bottom: none !important;
+    }
+
+    /* Montants */
+    .montant {
+        font-family: 'Courier New', monospace;
+        font-weight: 500;
+    }
+
+    .montant-positif {
+        color: var(--success-color);
+    }
+
+    .montant-negatif {
+        color: var(--danger-color);
+    }
+
+    /* Badges jours */
+    .jours-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .jours-complet {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+
+    .jours-partiel {
+        background: #FEF3C7;
+        color: #92400E;
+    }
+
+    .jours-faible {
+        background: #FEE2E2;
+        color: #991B1B;
+    }
+
+    /* Poste indentation */
+    .poste-cell {
+        padding-left: 30px !important;
+    }
+
+    .poste-code {
+        font-size: 0.75rem;
+        color: #9CA3AF;
+        margin-left: 5px;
+    }
+
+    /* Date cell */
+    .date-cell {
+        font-size: 0.85rem;
+        color: #6B7280;
+    }
+
+    /* ============================================
+       IMPRESSION - CORRECTIONS POUR TOTAL GÉNÉRAL
+       ============================================ */
+    @media print {
+        @page {
+            size: A4 landscape;
+            margin: 5mm;
+        }
+
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
+
+        body {
+            font-size: 7pt !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .actions-bar, .btn, .legend-container {
+            display: none !important;
+        }
+
+        .csp-container {
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        .header-section {
+            background: #0EA5E9 !important;
+            padding: 8px 12px !important;
+            margin-bottom: 8px !important;
+            border-radius: 0 !important;
+            page-break-inside: avoid !important;
+        }
+
+        .header-section h1 {
+            font-size: 11pt !important;
+            margin: 0 !important;
+        }
+
+        .header-meta {
+            gap: 8px !important;
+            margin-top: 5px !important;
+        }
+
+        .header-meta-item {
+            padding: 3px 6px !important;
+            font-size: 7pt !important;
+        }
+
+        .stats-grid {
+            display: none !important; /* Masquer les stats pour gagner de la place */
+        }
+
+        .table-container {
+            box-shadow: none !important;
+            border: 1px solid #ccc !important;
+            border-radius: 0 !important;
+            margin-bottom: 0 !important;
+            page-break-inside: auto !important;
+        }
+
+        .table-header {
+            padding: 5px 8px !important;
+            background: #f0f0f0 !important;
+        }
+
+        .table-header h2 {
+            font-size: 9pt !important;
+        }
+
+        .table-wrapper {
+            overflow: visible !important;
+        }
+
+        .csp-table {
+            font-size: 6.5pt !important;
+            width: 100% !important;
+            table-layout: fixed !important;
+        }
+
+        .csp-table th {
+            padding: 4px 5px !important;
+            font-size: 6pt !important;
+            background: #e5e7eb !important;
+        }
+
+        .csp-table th.col-acct {
+            background: #EDE9FE !important;
+        }
+
+        .csp-table td {
+            padding: 3px 5px !important;
+            font-size: 6.5pt !important;
+        }
+
+        .csp-table thead {
+            display: table-header-group !important;
+        }
+
+        .csp-table tbody {
+            display: table-row-group !important;
+        }
+
+        /* IMPORTANT: Empêcher la coupure du tableau */
+        .csp-table tr {
+            page-break-inside: avoid !important;
+        }
+
+        /* FORCER LE TOTAL GÉNÉRAL À RESTER VISIBLE */
+        .total-row {
+            background: #87CEEB !important;
+            page-break-inside: avoid !important;
+            page-break-before: auto !important;
+        }
+
+        .total-row td {
+            color: black !important;
+            font-weight: bold !important;
+            padding: 6px 5px !important;
+            font-size: 7pt !important;
+        }
+
+        /* Sous-totaux */
+        .subtotal-row {
+            page-break-inside: avoid !important;
+            background: #F1F5F9 !important;
+        }
+
+        .region-row {
+            background: #E0F2FE !important;
+            page-break-inside: avoid !important;
+        }
+
+        .region-row td {
+            padding: 4px 5px !important;
+        }
+
+        .jours-badge {
+            padding: 1px 4px !important;
+            font-size: 5.5pt !important;
+            border-radius: 3px !important;
+        }
+
+        .jours-complet {
+            background: #D1FAE5 !important;
+        }
+
+        .jours-partiel {
+            background: #FEF3C7 !important;
+        }
+
+        .jours-faible {
+            background: #FEE2E2 !important;
+        }
+
+        .poste-cell {
+            padding-left: 15px !important;
+        }
+
+        .poste-code {
+            font-size: 5.5pt !important;
+        }
+
+        .montant-positif {
+            color: #059669 !important;
+        }
+
+        .montant-negatif {
+            color: #DC2626 !important;
+        }
+
+        /* Largeurs de colonnes optimisées pour impression */
+        .csp-table th:nth-child(1),
+        .csp-table td:nth-child(1) {
+            width: 18% !important;
+        }
+
+        .csp-table th:nth-child(2),
+        .csp-table td:nth-child(2),
+        .csp-table th:nth-child(3),
+        .csp-table td:nth-child(3),
+        .csp-table th:nth-child(5),
+        .csp-table td:nth-child(5),
+        .csp-table th:nth-child(6),
+        .csp-table td:nth-child(6),
+        .csp-table th:nth-child(7),
+        .csp-table td:nth-child(7),
+        .csp-table th:nth-child(8),
+        .csp-table td:nth-child(8) {
+            width: 10% !important;
+        }
+
+        .csp-table th:nth-child(4),
+        .csp-table td:nth-child(4) {
+            width: 6% !important;
+        }
+
+        .csp-table th:nth-child(9),
+        .csp-table td:nth-child(9) {
+            width: 8% !important;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .header-meta {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .csp-table {
+            font-size: 0.75rem;
+        }
+
+        .csp-table th,
+        .csp-table td {
+            padding: 8px 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="csp-container">
+
+    <!-- En-tête -->
+    <div class="header-section">
+        <h1><i class="fas fa-file-contract"></i> Contrôle Sur Pièces - Péage</h1>
+        <div class="header-meta">
+            <div class="header-meta-item">
+                <strong><i class="fas fa-calendar"></i> Période :</strong>
+                {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}
+            </div>
+            <div class="header-meta-item">
+                <strong><i class="fas fa-clock"></i> Durée :</strong>
+                {{ nombre_jours_periode }} jour{{ nombre_jours_periode|pluralize }}
+            </div>
+            <div class="header-meta-item">
+                <strong><i class="fas fa-map-marker-alt"></i> Postes :</strong>
+                {{ totaux.nombre_postes }} poste{{ totaux.nombre_postes|pluralize }}
+            </div>
+            {% if poste_filtre %}
+            <div class="header-meta-item">
+                <strong><i class="fas fa-filter"></i> Filtre :</strong>
+                Poste spécifique
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Barre d'actions -->
+    <div class="actions-bar">
+        <a href="{% url 'inventaire:selection_csp_peage' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Nouvelle période
+        </a>
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="fas fa-print"></i> Imprimer
+        </button>
+        <!--<a href="?{{ request.GET.urlencode }}&export=excel" class="btn btn-success">-->
+        <!--    <i class="fas fa-file-excel"></i> Exporter Excel-->
+        <!--</a>-->
+    </div>
+
+    <!-- Statistiques globales -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ totaux.stock_debut|floatformat:0|default:"0"|format_milliers }} FCFA</div>
+            <div class="stat-label">Stock début total</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ totaux.ventes_declarees|floatformat:0|default:"0"|format_milliers }} FCFA</div>
+            <div class="stat-label">Ventes déclarées</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ totaux.montant_quittance|floatformat:0|default:"0"|format_milliers }} FCFA</div>
+            <div class="stat-label">Montant quittancé</div>
+        </div>
+        <div class="stat-card {% if totaux.ecart >= 0 %}success{% else %}danger{% endif %}">
+            <div class="stat-value">
+                {% if totaux.ecart >= 0 %}+{% endif %}{{ totaux.ecart|floatformat:0|default:"0"|format_milliers }} FCFA
+            </div>
+            <div class="stat-label">Écart 1 (Quittancé - Ventes)</div>
+        </div>
+        <div class="stat-card acct">
+            <div class="stat-value">{{ totaux.montant_historique|floatformat:0|default:"0"|format_milliers }} FCFA</div>
+            <div class="stat-label">Montant ACCT</div>
+        </div>
+        <div class="stat-card {% if totaux.ecart_historique >= 0 %}success{% else %}danger{% endif %}">
+            <div class="stat-value">
+                {% if totaux.ecart_historique >= 0 %}+{% endif %}{{ totaux.ecart_historique|floatformat:0|default:"0"|format_milliers }} FCFA
+            </div>
+            <div class="stat-label">Écart 2 (ACCT - Quittancé)</div>
+        </div>
+    </div>
+
+    <!-- Tableau CSP par région -->
+    <div class="table-container">
+        <div class="table-header">
+            <h2><i class="fas fa-table"></i> Détails par région et par poste</h2>
+        </div>
+        <div class="table-wrapper">
+            <table class="csp-table">
+                <thead>
+                    <tr>
+                        <th>Région / Poste</th>
+                        <th class="text-right">Stock début</th>
+                        <th class="text-right">Ventes déclarées</th>
+                        <th class="text-center">Nbre jours</th>
+                        <th class="text-right">Montant quittancé</th>
+                        <th class="text-right">Écart 1</th>
+                        <th class="text-right col-acct">Mnt ACCT</th>
+                        <th class="text-right col-acct">Écart 2</th>
+                        <th class="text-center col-acct">Dern. quitt.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for region_nom, region_data in resultats_par_region.items %}
+                    <!-- Ligne de région -->
+                    <tr class="region-row">
+                        <td colspan="9">
+                            <i class="fas fa-map-marker-alt"></i> {{ region_nom }}
+                            <span style="font-weight: normal; margin-left: 10px;">
+                                ({{ region_data.totaux.nombre_postes }} poste{{ region_data.totaux.nombre_postes|pluralize }})
+                            </span>
+                        </td>
+                    </tr>
+
+                    <!-- Lignes des postes de cette région -->
+                    {% for poste in region_data.postes %}
+                    <tr>
+                        <td class="poste-cell">
+                            {{ poste.poste_nom }}
+                            <span class="poste-code">({{ poste.poste_code }})</span>
+                        </td>
+                        <td class="text-right montant">
+                            {{ poste.stock_debut|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant">
+                            {{ poste.ventes_declarees|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-center">
+                            <span class="jours-badge {% if poste.jours_declares == nombre_jours_periode %}jours-complet{% elif poste.jours_declares > 0 %}jours-partiel{% else %}jours-faible{% endif %}">
+                                {{ poste.jours_declares_str }}
+                            </span>
+                        </td>
+                        <td class="text-right montant">
+                            {{ poste.montant_quittance|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant {% if poste.ecart >= 0 %}montant-positif{% else %}montant-negatif{% endif %}">
+                            {% if poste.ecart >= 0 %}+{% endif %}{{ poste.ecart|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant col-acct">
+                            {{ poste.montant_historique|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant col-acct {% if poste.ecart_historique >= 0 %}montant-positif{% else %}montant-negatif{% endif %}">
+                            {% if poste.ecart_historique >= 0 %}+{% endif %}{{ poste.ecart_historique|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-center col-acct date-cell">
+                            {% if poste.date_derniere_quittance %}
+                            {{ poste.date_derniere_quittance|date:"d/m/Y" }}
+                            {% else %}
+                            <span style="color: #9CA3AF;">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Sous-total de la région -->
+                    <tr class="subtotal-row" style="background: #F1F5F9;">
+                        <td style="padding-left: 30px; font-weight: 600; font-style: italic;">
+                            Sous-total {{ region_nom }}
+                        </td>
+                        <td class="text-right montant" style="font-weight: 600;">
+                            {{ region_data.totaux.stock_debut|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant" style="font-weight: 600;">
+                            {{ region_data.totaux.ventes_declarees|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-center">-</td>
+                        <td class="text-right montant" style="font-weight: 600;">
+                            {{ region_data.totaux.montant_quittance|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant {% if region_data.totaux.ecart >= 0 %}montant-positif{% else %}montant-negatif{% endif %}" style="font-weight: 600;">
+                            {% if region_data.totaux.ecart >= 0 %}+{% endif %}{{ region_data.totaux.ecart|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant col-acct" style="font-weight: 600;">
+                            {{ region_data.totaux.montant_historique|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant col-acct {% if region_data.totaux.ecart_historique >= 0 %}montant-positif{% else %}montant-negatif{% endif %}" style="font-weight: 600;">
+                            {% if region_data.totaux.ecart_historique >= 0 %}+{% endif %}{{ region_data.totaux.ecart_historique|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-center col-acct">-</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 40px; color: #6B7280;">
+                            <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                            Aucune donnée disponible pour cette période.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <!-- TFOOT séparé pour le TOTAL GÉNÉRAL - garantit l'affichage à l'impression -->
+                {% if resultats_par_region %}
+                <tfoot>
+                    <tr class="total-row">
+                        <td>
+                            <strong><i class="fas fa-calculator"></i> TOTAL GÉNÉRAL</strong>
+                        </td>
+                        <td class="text-right montant">
+                            {{ totaux.stock_debut|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant">
+                            {{ totaux.ventes_declarees|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-center">-</td>
+                        <td class="text-right montant">
+                            {{ totaux.montant_quittance|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant">
+                            {% if totaux.ecart >= 0 %}+{% endif %}{{ totaux.ecart|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant">
+                            {{ totaux.montant_historique|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-right montant">
+                            {% if totaux.ecart_historique >= 0 %}+{% endif %}{{ totaux.ecart_historique|floatformat:0|default:"0"|format_milliers }}
+                        </td>
+                        <td class="text-center">-</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Légende -->
+    <div class="table-container legend-container" style="padding: 20px;">
+        <h3 style="margin-top: 0; color: #374151;"><i class="fas fa-info-circle"></i> Légende</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+            <div>
+                <strong>Stock début :</strong> Valeur du stock de tickets au début de la période
+            </div>
+            <div>
+                <strong>Ventes déclarées :</strong> Total des recettes journalières déclarées
+            </div>
+            <div>
+                <strong>Nbre jours :</strong> Jours avec données / Total jours période
+            </div>
+            <div>
+                <strong>Montant quittancé :</strong> Total des quittancements (journaliers + décades)
+            </div>
+            <div>
+                <strong>Écart 1 :</strong> Montant quittancé - Ventes déclarées
+            </div>
+            <div style="background: var(--acct-light); padding: 10px; border-radius: 6px;">
+                <strong style="color: var(--acct-color);">Mnt ACCT :</strong> Montant réel des historiques de quittances (ACCT)
+            </div>
+            <div style="background: var(--acct-light); padding: 10px; border-radius: 6px;">
+                <strong style="color: var(--acct-color);">Écart 2 :</strong> Montant ACCT - Montant quittancé
+            </div>
+            <div style="background: var(--acct-light); padding: 10px; border-radius: 6px;">
+                <strong style="color: var(--acct-color);">Dern. quitt. :</strong> Date de la dernière quittance du dernier mois de la période
+            </div>
+        </div>
+        <div style="margin-top: 15px;">
+            <span class="jours-badge jours-complet">Complet</span>
+            <span class="jours-badge jours-partiel" style="margin-left: 10px;">Partiel</span>
+            <span class="jours-badge jours-faible" style="margin-left: 10px;">Aucun</span>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

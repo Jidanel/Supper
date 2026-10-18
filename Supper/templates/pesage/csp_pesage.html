@@ -1,0 +1,788 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n  inventaire_extras %}
+
+{% block title %}CSP Pesage - {{ mois_nom }} {{ annee }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #3b82f6;
+        --primary-dark: #2563eb;
+        --success-color: #10b981;
+        --success-dark: #059669;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --info-color: #06b6d4;
+        --purple-color: #8b5cf6;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-500: #6b7280;
+        --gray-700: #374151;
+        --gray-900: #111827;
+    }
+
+    /* ===== PAGE HEADER ===== */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--gray-200);
+    }
+
+    .page-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+    }
+
+    .page-header .subtitle {
+        margin: 0.25rem 0 0;
+        color: var(--gray-500);
+        font-size: 0.9rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    /* ===== STATISTIQUES PRINCIPALES ===== */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-card.primary { background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); }
+    .stat-card.success { background: linear-gradient(135deg, var(--success-color), var(--success-dark)); }
+    .stat-card.warning { background: linear-gradient(135deg, var(--warning-color), #d97706); }
+    .stat-card.danger { background: linear-gradient(135deg, var(--danger-color), #dc2626); }
+    .stat-card.info { background: linear-gradient(135deg, var(--info-color), #0891b2); }
+    .stat-card.purple { background: linear-gradient(135deg, var(--purple-color), #7c3aed); }
+
+    .stat-card .stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.7rem;
+        opacity: 0.9;
+        margin-top: 0.25rem;
+    }
+
+    /* ===== TABLEAU CSP ===== */
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .csp-table {
+        margin-bottom: 0;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .csp-table thead th {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        font-weight: 600;
+        padding: 0.5rem 0.35rem;
+        border: none;
+        vertical-align: middle;
+        text-align: center;
+        font-size: 0.65rem;
+    }
+
+    .csp-table tbody td {
+        padding: 0.4rem 0.3rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--gray-100);
+        text-align: center;
+        font-size: 0.7rem;
+    }
+
+    .csp-table tbody tr:hover {
+        background-color: var(--gray-50);
+    }
+
+    /* Colonnes fixes */
+    .col-region {
+        text-align: left !important;
+        font-weight: 600;
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .col-station {
+        text-align: left !important;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Ligne de total par région */
+    .region-total-row {
+        background: var(--gray-100) !important;
+        font-weight: 600;
+    }
+
+    .region-total-row td {
+        border-top: 2px solid var(--gray-300);
+    }
+
+    /* Ligne de total global */
+    .grand-total-row {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%) !important;
+        color: white !important;
+        font-weight: 700;
+    }
+
+    .grand-total-row td {
+        border-top: 3px solid var(--primary-dark);
+    }
+
+    /* Colonnes montants */
+    .col-montant {
+        text-align: right !important;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 0.65rem;
+    }
+
+    .col-ecart-positif {
+        color: var(--success-dark);
+        font-weight: 600;
+    }
+
+    .col-ecart-negatif {
+        color: var(--danger-color);
+        font-weight: 600;
+    }
+
+    .col-historique {
+        background-color: rgba(139, 92, 246, 0.05);
+    }
+
+    .col-historique-valeur {
+        color: var(--purple-color);
+        font-weight: 600;
+    }
+
+    .col-no-historique {
+        color: var(--gray-400);
+        font-style: italic;
+    }
+
+    .col-date {
+        font-size: 0.6rem;
+    }
+
+    /* ===== LÉGENDE ===== */
+    .legend-card {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        font-size: 0.75rem;
+    }
+
+    .legend-card h6 {
+        margin: 0 0 0.5rem;
+        font-size: 0.8rem;
+        color: var(--gray-700);
+    }
+
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 1rem;
+        font-size: 0.7rem;
+    }
+
+    .legend-color {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        margin-right: 0.35rem;
+    }
+
+    .legend-color.purple { background: var(--purple-color); }
+    .legend-color.success { background: var(--success-color); }
+    .legend-color.danger { background: var(--danger-color); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 991px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .stats-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 767px) {
+        .stats-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* ========================================== */
+    /* ===== STYLES D'IMPRESSION OPTIMISÉS ===== */
+    /* ========================================== */
+    @media print {
+        /* Configuration de la page A4 paysage */
+        @page {
+            size: A4 landscape;
+            margin: 8mm 5mm 8mm 5mm;
+        }
+
+        /* Reset des marges */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-size: 8pt !important;
+            line-height: 1.2 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
+
+        /* Masquer les éléments non imprimables */
+        .no-print,
+        #header,
+        #branding,
+        #user-tools,
+        nav,
+        .breadcrumbs,
+        .messagelist,
+        footer,
+        .header-actions,
+        .legend-card,
+        #nav-sidebar,
+        .sidebar,
+        .stats-row {
+            display: none !important;
+        }
+
+        /* Container pleine largeur */
+        .container-fluid,
+        .content,
+        #content,
+        #content-main,
+        main {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* En-tête d'impression */
+        .page-header {
+            display: block !important;
+            border-bottom: 2px solid #333 !important;
+            padding-bottom: 3mm !important;
+            margin-bottom: 3mm !important;
+        }
+
+        .page-header h2 {
+            font-size: 14pt !important;
+            text-align: center !important;
+            margin-bottom: 2mm !important;
+        }
+
+        .page-header .subtitle {
+            font-size: 10pt !important;
+            text-align: center !important;
+            color: #333 !important;
+        }
+
+        /* Table card sans ombre */
+        .table-card {
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+        }
+
+        .table-responsive {
+            overflow: visible !important;
+        }
+
+        /* ===== TABLEAU OPTIMISÉ POUR IMPRESSION ===== */
+        .csp-table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            font-size: 6.5pt !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto !important;
+        }
+
+        .csp-table thead {
+            display: table-header-group !important;
+        }
+
+        .csp-table tbody tr {
+            page-break-inside: avoid !important;
+        }
+
+        .csp-table thead th {
+            background: #2563eb !important;
+            color: white !important;
+            font-size: 6pt !important;
+            font-weight: 700 !important;
+            padding: 2mm 1mm !important;
+            border: 0.5pt solid #1e40af !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            line-height: 1.1 !important;
+        }
+
+        .csp-table tbody td {
+            font-size: 6pt !important;
+            padding: 1.5mm 1mm !important;
+            border: 0.5pt solid #ddd !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+            white-space: nowrap !important;
+        }
+
+        /* Largeurs des colonnes pour A4 paysage (total ~277mm) */
+        .csp-table th:nth-child(1),
+        .csp-table td:nth-child(1) { width: 28mm !important; } /* Région */
+
+        .csp-table th:nth-child(2),
+        .csp-table td:nth-child(2) { width: 32mm !important; } /* Station */
+
+        .csp-table th:nth-child(3),
+        .csp-table td:nth-child(3) { width: 16mm !important; } /* Pesées */
+
+        .csp-table th:nth-child(4),
+        .csp-table td:nth-child(4) { width: 14mm !important; } /* Infractions */
+
+        .csp-table th:nth-child(5),
+        .csp-table td:nth-child(5) { width: 22mm !important; } /* Amendes A */
+
+        .csp-table th:nth-child(6),
+        .csp-table td:nth-child(6) { width: 22mm !important; } /* Amendes B */
+
+        .csp-table th:nth-child(7),
+        .csp-table td:nth-child(7) { width: 20mm !important; } /* RAR */
+
+        .csp-table th:nth-child(8),
+        .csp-table td:nth-child(8) { width: 22mm !important; } /* Quittancé */
+
+        .csp-table th:nth-child(9),
+        .csp-table td:nth-child(9) { width: 20mm !important; } /* ECART1 */
+
+        .csp-table th:nth-child(10),
+        .csp-table td:nth-child(10) { width: 22mm !important; } /* Historique */
+
+        .csp-table th:nth-child(11),
+        .csp-table td:nth-child(11) { width: 20mm !important; } /* ECART2 */
+
+        .csp-table th:nth-child(12),
+        .csp-table td:nth-child(12) { width: 18mm !important; } /* Date */
+
+        /* Colonnes texte alignées à gauche */
+        .csp-table td:nth-child(1),
+        .csp-table td:nth-child(2) {
+            text-align: left !important;
+            padding-left: 1.5mm !important;
+        }
+
+        /* Colonnes montants alignées à droite */
+        .csp-table td:nth-child(5),
+        .csp-table td:nth-child(6),
+        .csp-table td:nth-child(7),
+        .csp-table td:nth-child(8),
+        .csp-table td:nth-child(9),
+        .csp-table td:nth-child(10),
+        .csp-table td:nth-child(11) {
+            text-align: right !important;
+            padding-right: 1.5mm !important;
+            font-family: 'Courier New', monospace !important;
+        }
+
+        /* Ligne de total par région */
+        .region-total-row {
+            background: #e5e7eb !important;
+            font-weight: 700 !important;
+        }
+
+        .region-total-row td {
+            border-top: 1pt solid #9ca3af !important;
+            font-size: 6pt !important;
+        }
+
+        /* Ligne de total global */
+        .grand-total-row {
+            background: #1e40af !important;
+            color: white !important;
+            font-weight: 700 !important;
+        }
+
+        .grand-total-row td {
+            border-top: 1.5pt solid #1e3a8a !important;
+            font-size: 6.5pt !important;
+            color: white !important;
+        }
+
+        /* Couleurs des écarts */
+        .col-ecart-positif {
+            color: #059669 !important;
+        }
+
+        .col-ecart-negatif {
+            color: #dc2626 !important;
+        }
+
+        /* Colonne historique */
+        .col-historique {
+            background-color: rgba(139, 92, 246, 0.08) !important;
+        }
+
+        .col-historique-valeur {
+            color: #7c3aed !important;
+            font-weight: 600 !important;
+        }
+
+        /* Masquer les infos complémentaires */
+        .row:last-child {
+            display: none !important;
+        }
+
+        /* Pied de page d'impression */
+        .print-footer {
+            display: block !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 7pt;
+            color: #666;
+            padding: 2mm 0;
+            border-top: 0.5pt solid #ccc;
+        }
+    }
+
+    /* Masquer le pied de page en mode écran */
+    .print-footer {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- ===== HEADER ===== -->
+    <div class="page-header">
+        <div>
+            <h2>
+                <i class="fas fa-balance-scale text-primary me-2 no-print"></i>
+                {% trans "Contrôle Sur Pièces - Pesage" %}
+            </h2>
+            <p class="subtitle">
+                <strong>{{ mois_nom }} {{ annee }}</strong>
+                ({{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }})
+                - {{ nombre_jours_periode }} jour{{ nombre_jours_periode|pluralize }}
+            </p>
+        </div>
+        <div class="header-actions no-print">
+            <a href="{% url 'inventaire:selection_csp_pesage' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-calendar-alt me-1"></i> {% trans "Nouvelle période" %}
+            </a>
+            <button onclick="window.print()" class="btn btn-primary btn-sm">
+                <i class="fas fa-print me-1"></i> {% trans "Imprimer" %}
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== STATISTIQUES PRINCIPALES ===== -->
+    <div class="stats-row no-print">
+        <div class="stat-card primary">
+            <div class="stat-value">{{ totaux.nombre_stations }}</div>
+            <div class="stat-label">{% trans "Stations" %}</div>
+        </div>
+        <div class="stat-card info">
+            <div class="stat-value">{{ totaux.total_pesees|format_milliers }}</div>
+            <div class="stat-label">{% trans "Pesées" %}</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-value">{{ totaux.total_amendes_emises|format_milliers }}</div>
+            <div class="stat-label">{% trans "Amendes (A)" %}</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-value">{{ totaux.total_amendes_recouvrees|format_milliers }}</div>
+            <div class="stat-label">{% trans "Recouvrées (B)" %}</div>
+        </div>
+        <div class="stat-card danger">
+            <div class="stat-value">{{ totaux.total_rar|format_milliers }}</div>
+            <div class="stat-label">{% trans "RAR" %}</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-value">{{ totaux.total_historique|format_milliers }}</div>
+            <div class="stat-label">{% trans "Historique ACCT" %}</div>
+        </div>
+    </div>
+
+    <!-- ===== LÉGENDE ===== -->
+    <div class="legend-card no-print">
+        <h6><i class="fas fa-info-circle me-1"></i> {% trans "Légende" %}</h6>
+        <div>
+            <span class="legend-item">
+                <span class="legend-color purple"></span>
+                {% trans "Historique ACCT = montant réel versé" %}
+            </span>
+            <span class="legend-item">
+                <span class="legend-color success"></span>
+                {% trans "Écart positif" %}
+            </span>
+            <span class="legend-item">
+                <span class="legend-color danger"></span>
+                {% trans "Écart négatif" %}
+            </span>
+        </div>
+    </div>
+
+    <!-- ===== TABLEAU CSP ===== -->
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="table csp-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Région" %}</th>
+                        <th>{% trans "Station" %}</th>
+                        <th>{% trans "Nbre Pesées" %}</th>
+                        <th>{% trans "Nbre Infrac." %}</th>
+                        <th>{% trans "Amendes (A)" %}</th>
+                        <th>{% trans "Recouv. (B)" %}</th>
+                        <th>{% trans "RAR (A-B)" %}</th>
+                        <th>{% trans "Quittancé" %}</th>
+                        <th>{% trans "ECART1" %}</th>
+                        <th>{% trans "Hist. ACCT" %}</th>
+                        <th>{% trans "ECART2" %}</th>
+                        <th>{% trans "Dern. Quitt." %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for region_nom, region_data in resultats_par_region.items %}
+                        {% for donnees in region_data.stations %}
+                        <tr>
+                            <td class="col-region">
+                                {% if forloop.first %}{{ region_nom }}{% endif %}
+                            </td>
+                            <td class="col-station">{{ donnees.station_nom }}</td>
+                            <td>{{ donnees.nbre_pesees|format_milliers }}</td>
+                            <td>{{ donnees.nbre_infractions }}</td>
+                            <td class="col-montant">{{ donnees.total_amendes_emises|format_milliers }}</td>
+                            <td class="col-montant">{{ donnees.amendes_recouvrees|format_milliers }}</td>
+                            <td class="col-montant {% if donnees.rar_mois > 0 %}col-ecart-negatif{% endif %}">
+                                {{ donnees.rar_mois|format_milliers }}
+                            </td>
+                            <td class="col-montant">{{ donnees.montant_quittance|format_milliers }}</td>
+                            <td class="col-montant {% if donnees.ecart1 >= 0 %}col-ecart-positif{% else %}col-ecart-negatif{% endif %}">
+                                {{ donnees.ecart1|format_milliers }}
+                            </td>
+                            <td class="col-montant col-historique {% if donnees.has_historique %}col-historique-valeur{% else %}col-no-historique{% endif %}">
+                                {% if donnees.has_historique %}
+                                    {{ donnees.historique_acct|format_milliers }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="col-montant col-historique {% if donnees.ecart2 >= 0 %}col-ecart-positif{% else %}col-ecart-negatif{% endif %}">
+                                {% if donnees.has_historique %}
+                                    {{ donnees.ecart2|format_milliers }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="col-date">
+                                {% if donnees.date_derniere_quittance %}
+                                    {{ donnees.date_derniere_quittance|date:"d/m/y" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        <!-- Total par région -->
+                        <tr class="region-total-row">
+                            <td class="col-region" colspan="2">
+                                <strong>Total {{ region_nom }}</strong>
+                            </td>
+                            <td><strong>{{ region_data.totaux.nbre_pesees|format_milliers }}</strong></td>
+                            <td><strong>{{ region_data.totaux.nbre_infractions }}</strong></td>
+                            <td class="col-montant"><strong>{{ region_data.totaux.total_amendes_emises|format_milliers }}</strong></td>
+                            <td class="col-montant"><strong>{{ region_data.totaux.amendes_recouvrees|format_milliers }}</strong></td>
+                            <td class="col-montant"><strong>{{ region_data.totaux.rar_mois|format_milliers }}</strong></td>
+                            <td class="col-montant"><strong>{{ region_data.totaux.montant_quittance|format_milliers }}</strong></td>
+                            <td class="col-montant {% if region_data.totaux.ecart1 >= 0 %}col-ecart-positif{% else %}col-ecart-negatif{% endif %}">
+                                <strong>{{ region_data.totaux.ecart1|format_milliers }}</strong>
+                            </td>
+                            <td class="col-montant col-historique col-historique-valeur">
+                                <strong>{{ region_data.totaux.historique_acct|format_milliers }}</strong>
+                            </td>
+                            <td class="col-montant col-historique {% if region_data.totaux.ecart2 >= 0 %}col-ecart-positif{% else %}col-ecart-negatif{% endif %}">
+                                <strong>{{ region_data.totaux.ecart2|format_milliers }}</strong>
+                            </td>
+                            <td class="col-date">
+                                <small>{{ region_data.totaux.stations_avec_historique }}/{{ region_data.totaux.nombre_stations }}</small>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="12" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                {% trans "Aucune donnée disponible pour cette période." %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+
+                    {% if resultats %}
+                    <!-- ===== TOTAL GÉNÉRAL ===== -->
+                    <tr class="grand-total-row">
+                        <td class="col-region" colspan="2">
+                            <strong>{% trans "TOTAL GÉNÉRAL" %}</strong>
+                        </td>
+                        <td><strong>{{ totaux.total_pesees|format_milliers }}</strong></td>
+                        <td><strong>{{ totaux.total_infractions }}</strong></td>
+                        <td class="col-montant"><strong>{{ totaux.total_amendes_emises|format_milliers }}</strong></td>
+                        <td class="col-montant"><strong>{{ totaux.total_amendes_recouvrees|format_milliers }}</strong></td>
+                        <td class="col-montant"><strong>{{ totaux.total_rar|format_milliers }}</strong></td>
+                        <td class="col-montant"><strong>{{ totaux.total_quittance|format_milliers }}</strong></td>
+                        <td class="col-montant"><strong>{{ totaux.total_ecart1|format_milliers }}</strong></td>
+                        <td class="col-montant"><strong>{{ totaux.total_historique|format_milliers }}</strong></td>
+                        <td class="col-montant"><strong>{{ totaux.total_ecart2|format_milliers }}</strong></td>
+                        <td class="col-date">
+                            <small>{{ totaux.stations_avec_historique }}/{{ totaux.nombre_stations }}</small>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===== INFORMATIONS COMPLÉMENTAIRES ===== -->
+    {% if resultats %}
+    <div class="row no-print">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light py-2">
+                    <h6 class="mb-0 small">
+                        <i class="fas fa-chart-bar me-1"></i>
+                        {% trans "Résumé des écarts" %}
+                    </h6>
+                </div>
+                <div class="card-body py-2">
+                    <table class="table table-sm mb-0 small">
+                        <tr>
+                            <td>{% trans "ECART1 (Quittancé - Recouvré)" %}</td>
+                            <td class="text-end {% if totaux.total_ecart1 >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <strong>{{ totaux.total_ecart1|format_milliers }} FCFA</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>{% trans "ECART2 (ACCT - Quittancé)" %}</td>
+                            <td class="text-end {% if totaux.total_ecart2 >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <strong>{{ totaux.total_ecart2|format_milliers }} FCFA</strong>
+                            </td>
+                        </tr>
+                        <tr class="table-light">
+                            <td>{% trans "Stations avec historique" %}</td>
+                            <td class="text-end">
+                                <strong>{{ totaux.stations_avec_historique }} / {{ totaux.nombre_stations }}</strong>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light py-2">
+                    <h6 class="mb-0 small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        {% trans "Définitions" %}
+                    </h6>
+                </div>
+                <div class="card-body py-2">
+                    <ul class="list-unstyled mb-0 small" style="font-size: 0.75rem;">
+                        <li><strong>A</strong> = Amendes émises | <strong>B</strong> = Amendes recouvrées</li>
+                        <li><strong>RAR</strong> = Reste À Recouvrer (A - B)</li>
+                        <li><strong>ECART1</strong> = Quittancé - Recouvré</li>
+                        <li><strong>Hist. ACCT</strong> = Montant réel versé à la perception</li>
+                        <li><strong>ECART2</strong> = Historique ACCT - Quittancé</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pied de page pour impression -->
+    <div class="print-footer">
+        SUPPER - Contrôle Sur Pièce Pesage | {{ mois_nom }} {{ annee }} | Imprimé le {% now "d/m/Y à H:i" %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation des cartes statistiques (écran uniquement)
+    const statCards = document.querySelectorAll('.stat-card');
+    statCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.4s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 80);
+    });
+});
+</script>
+{% endblock %}

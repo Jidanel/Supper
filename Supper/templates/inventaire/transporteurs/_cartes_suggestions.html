@@ -1,0 +1,23 @@
+{# templates/inventaire/transporteurs/_cartes_suggestions.html #}
+{# Cartes de suggestions de fusion. Variables : groupes, agence (objet AgenceTransport), retour #}
+{# Le CSS responsive de ces cartes (classe tr-cartes) est dans rapprochement.html, qui inclut ce fichier #}
+{% load i18n %}
+{% for g in groupes %}
+  <form method="post" action="{% url 'inventaire:transporteurs_rapprochement_fusionner' %}" class="tr-panel tr-cartes">{% csrf_token %}
+    <input type="hidden" name="agence" value="{{ agence.id }}"><input type="hidden" name="cible" value="{{ g.cible.norm }}"><input type="hidden" name="retour" value="{{ retour }}">
+    <div class="tr-head"><span>{% trans "Plaque complète" %} : <b>{{ g.cible.plaque }}</b> · {{ g.cible.passages }} {% trans "passage(s)" %} · {{ g.cible.n_postes }} {% trans "poste(s)" %}</span>
+      <button type="submit" class="tr-btn">{% trans "Fusionner la sélection" %}</button></div>
+    <div class="tr-body">
+      <p class="small text-muted mb-2">{% trans "Postes de la plaque complète" %} : {% for nom, n in g.cible.postes %}{{ nom }}{% if n > 1 %} ×{{ n }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+      <div class="tr-scroll"><table class="tr-table">
+        <thead><tr><th></th><th>{% trans "Plaque incomplète" %}</th><th>{% trans "Type" %}</th><th class="num">{% trans "Passages" %}</th><th>{% trans "Postes où elle est passée" %}</th></tr></thead>
+        <tbody>{% for q in g.candidats %}<tr>
+          <td><input type="checkbox" name="sources" value="{{ q.norm }}" {% if not q.autres %}checked{% endif %}></td>
+          <td><b>{{ q.plaque }}</b>{% if q.autres %}<div class="small text-danger">{% trans "Aussi compatible avec" %} : {{ q.autres|join:", " }}</div>{% endif %}</td>
+          <td>{{ q.type_libelle }}</td><td class="num">{{ q.passages }}</td>
+          <td>{% for nom, n in q.postes %}{{ nom }}{% if n > 1 %} ×{{ n }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </form>
+{% endfor %}

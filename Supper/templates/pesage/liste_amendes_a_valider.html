@@ -1007,7 +1007,7 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    
+
     {% if station %}
     <!-- EN-TÊTE STATION -->
     <div class="row mb-4">
@@ -1028,7 +1028,7 @@
                             </div>
                         </div>
                         {% if is_admin %}
-                        <a href="{% url 'inventaire:selectionner_station' %}?action=amendes_a_valider" 
+                        <a href="{% url 'inventaire:selectionner_station' %}?action=amendes_a_valider"
                            class="btn btn-dark btn-sm">
                             <i class="fas fa-exchange-alt me-1"></i>
                             {% trans "Changer de station" %}
@@ -1040,7 +1040,7 @@
         </div>
     </div>
     {% endif %}
-    
+
     <!-- Titre et résumé -->
     <div class="page-header">
         <div>
@@ -1049,7 +1049,7 @@
                 {{ title }}
             </h2>
             <p class="text-muted">
-                {{ count_total|format_milliers }} {% trans "amende(s) en attente" %} - 
+                {{ count_total|format_milliers }} {% trans "amende(s) en attente" %} -
                 <strong class="text-success">{{ total_a_recouvrer|floatformat:0|format_milliers }} FCFA</strong>
                 {% trans "à recouvrer" %}
             </p>
@@ -1059,7 +1059,7 @@
             {% trans "Toutes les amendes" %}
         </a>
     </div>
-    
+
     <!-- Légende des indicateurs -->
     <div class="legend-box">
         <i class="fas fa-info-circle text-info"></i>
@@ -1071,13 +1071,13 @@
             = {% trans "Ce véhicule a des amendes non payées dans d'autres stations. Cliquez pour voir les détails." %}
         </span>
     </div>
-    
+
     {% if amendes %}
-    
+
     <!-- Formulaire de validation en masse -->
     <form method="post" action="{% url 'inventaire:valider_paiements_masse' %}" id="form-validation-masse">
         {% csrf_token %}
-        
+
         <!-- Barre d'actions -->
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-body py-2">
@@ -1097,7 +1097,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Liste des amendes -->
         <div class="card shadow-sm border-0">
             <div class="card-body p-0">
@@ -1115,6 +1115,9 @@
                                 {% if is_admin and not station %}
                                 <th>{% trans "Station" %}</th>
                                 {% endif %}
+                                {% if is_admin %}
+                                <th>{% trans "Modifié" %}</th>
+                                {% endif %}
                                 <th class="text-center">{% trans "Actions" %}</th>
                             </tr>
                         </thead>
@@ -1122,14 +1125,14 @@
                             {% for item in amendes_enrichies %}
                             <tr class="{% if item.has_autres_stations %}table-warning-light{% endif %}">
                                 <td>
-                                    <input type="checkbox" 
-                                           name="amendes" 
-                                           value="{{ item.amende.pk }}" 
+                                    <input type="checkbox"
+                                           name="amendes"
+                                           value="{{ item.amende.pk }}"
                                            class="form-check-input amende-checkbox"
                                            data-montant="{{ item.amende.montant_amende }}">
                                 </td>
                                 <td>
-                                    <a href="{% url 'inventaire:detail_amende' item.amende.pk %}" 
+                                    <a href="{% url 'inventaire:detail_amende' item.amende.pk %}"
                                        class="fw-bold text-decoration-none">
                                         {{ item.amende.numero_ticket }}
                                     </a>
@@ -1138,10 +1141,10 @@
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="badge bg-secondary">{{ item.amende.immatriculation }}</span>
-                                        
+
                                         {% if item.has_autres_stations %}
                                         <!-- INDICATEUR: Lien vers page de consultation -->
-                                        <a href="{% url 'inventaire:consulter_amendes_anterieures' item.amende.pk %}" 
+                                        <a href="{% url 'inventaire:consulter_amendes_anterieures' item.amende.pk %}"
                                            class="btn btn-warning btn-sm py-0 px-1"
                                            title="{% trans 'Ce véhicule a des amendes non payées ailleurs - Cliquez pour voir les détails' %}">
                                             <i class="fas fa-exclamation-triangle"></i>
@@ -1152,15 +1155,23 @@
                                 </td>
                                 <td>{{ item.amende.transporteur|default:"-" }}</td>
                                 <td>
-                                    {% if item.amende.est_surcharge and item.amende.est_hors_gabarit %}
-                                    <span class="badge bg-danger">S+HG</span>
-                                    {% elif item.amende.est_hors_gabarit %}
-                                    <span class="badge bg-danger">HG</span>
-                                    {% elif item.amende.est_surcharge %}
-                                    <span class="badge bg-warning text-dark">S</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">-</span>
-                                    {% endif %}
+                                    {% if item.amende.est_surcharge and item.amende.est_hors_gabarit and item.amende.est_delit_fuite %}
+                                <span class="badge bg-danger">S+HG+DF</span>
+                                {% elif item.amende.est_surcharge and item.amende.est_hors_gabarit %}
+                                <span class="badge bg-danger">S+HG</span>
+                                {% elif item.amende.est_hors_gabarit and item.amende.est_delit_fuite %}
+                                <span class="badge bg-danger">HG+DF</span>
+                                {% elif item.amende.est_surcharge and item.amende.est_delit_fuite %}
+                                <span class="badge bg-danger">S+DF</span>
+                                {% elif item.amende.est_hors_gabarit %}
+                                <span class="badge bg-danger">HG</span>
+                                {% elif item.amende.est_surcharge %}
+                                <span class="badge bg-warning text-dark">S</span>
+                                {% elif item.amende.est_delit_fuite %}
+                                <span class="badge bg-dark">DF</span>
+                                {% else %}
+                                <span class="badge bg-secondary">-</span>
+                                {% endif %}
                                 </td>
                                 <td class="text-end fw-bold text-success">
                                     {{ item.amende.montant_amende|floatformat:0|format_milliers }} FCFA
@@ -1170,19 +1181,43 @@
                                     <small>{{ item.amende.station.nom }}</small>
                                 </td>
                                 {% endif %}
+                                {% if is_admin %}
+                                    <td>
+                                        {% if item.amende.date_derniere_modification %}
+                                        <small>
+                                            {{ item.amende.date_derniere_modification|date:"d/m/Y" }}
+                                            <br>
+                                            <span class="badge bg-secondary" style="font-size: 0.65rem;">
+                                                {{ item.amende.modifie_par.nom_complet|truncatechars:15 }}
+                                            </span>
+                                        </small>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+
+                                    </td>
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
                                         {% if item.has_autres_stations %}
                                         <!-- Bouton vers page détails -->
-                                        <a href="{% url 'inventaire:consulter_amendes_anterieures' item.amende.pk %}" 
+                                        <a href="{% url 'inventaire:consulter_amendes_anterieures' item.amende.pk %}"
                                            class="btn btn-sm btn-outline-warning"
                                            title="{% trans 'Voir les détails avant validation' %}">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         {% endif %}
-                                        
+                                            {% if is_admin %}
+                                        <a href="{% url 'inventaire:modifier_amende' item.amende.pk %}"
+                                        class="btn btn-sm btn-outline-warning"
+                                        title="{% trans 'Modifier' %}">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+
+                                        {% endif %}
+                                        {% endif %}
+
                                         <!-- Bouton valider directement -->
-                                      
+
                                     </div>
                                 </td>
                             </tr>
@@ -1204,7 +1239,7 @@
             </div>
         </div>
     </form>
-    
+
     <!-- Pagination -->
     {% if amendes.has_other_pages %}
     <div class="pagination-container">
@@ -1215,11 +1250,11 @@
                     <a class="page-link" href="?page={{ amendes.previous_page_number }}">&laquo;</a>
                 </li>
                 {% endif %}
-                
+
                 <li class="page-item disabled">
                     <span class="page-link">{{ amendes.number }} / {{ amendes.paginator.num_pages }}</span>
                 </li>
-                
+
                 {% if amendes.has_next %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ amendes.next_page_number }}">&raquo;</a>
@@ -1229,9 +1264,9 @@
         </nav>
     </div>
     {% endif %}
-    
+
     {% else %}
-    
+
     <!-- Aucune amende -->
     <div class="card shadow-sm border-0">
         <div class="card-body">
@@ -1246,9 +1281,9 @@
             </div>
         </div>
     </div>
-    
+
     {% endif %}
-    
+
 </div>
 {% endblock %}
 
@@ -1263,26 +1298,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedCount = document.getElementById('selected-count');
     const totalSelection = document.getElementById('total-selection');
     const btnValiderMasse = document.getElementById('btn-valider-masse');
-    
+
     function updateSelection() {
         let count = 0;
         let total = 0;
-        
+
         checkboxes.forEach(cb => {
             if (cb.checked) {
                 count++;
                 total += parseFloat(cb.dataset.montant) || 0;
             }
         });
-        
+
         selectedCount.textContent = count;
         totalSelection.textContent = new Intl.NumberFormat('fr-FR').format(total) + ' FCFA';
         btnValiderMasse.disabled = count === 0;
-        
+
         selectAll.checked = count === checkboxes.length && count > 0;
         selectAll.indeterminate = count > 0 && count < checkboxes.length;
     }
-    
+
     if (selectAll) {
         selectAll.addEventListener('change', function() {
             checkboxes.forEach(cb => {
@@ -1291,23 +1326,23 @@ document.addEventListener('DOMContentLoaded', function() {
             updateSelection();
         });
     }
-    
+
     checkboxes.forEach(cb => {
         cb.addEventListener('change', updateSelection);
     });
-    
+
     // Confirmation validation en masse
     const formValidation = document.getElementById('form-validation-masse');
     if (formValidation) {
         formValidation.addEventListener('submit', function(e) {
             const count = document.querySelectorAll('.amende-checkbox:checked').length;
-            
+
             if (count === 0) {
                 e.preventDefault();
                 alert("{% trans 'Veuillez sélectionner au moins une amende.' %}");
                 return;
             }
-            
+
             if (!confirm(`{% trans "Confirmer la validation de" %} ${count} {% trans "paiement(s) ?" %}`)) {
                 e.preventDefault();
             }
@@ -1328,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', function() {
     adjustForMobile();
     window.addEventListener('resize', adjustForMobile);
     window.addEventListener('orientationchange', adjustForMobile);
-    
+
     // Gestion tactile passive
     document.addEventListener('touchstart', function() {}, { passive: true });
     document.addEventListener('touchmove', function() {}, { passive: true });

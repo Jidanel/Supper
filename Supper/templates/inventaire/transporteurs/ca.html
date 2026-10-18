@@ -1,0 +1,129 @@
+{# templates/inventaire/transporteurs/ca.html #}
+{# Chiffre d'affaires estimé des transporteurs : par agence, puis par véhicule #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Chiffre d'affaires des transporteurs" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+  .tr details.tr-ag { border-top:1px solid #e5e7eb; }
+  .tr details.tr-ag > summary { cursor:pointer; padding:.55rem .9rem; display:flex; justify-content:space-between; gap:1rem; list-style:none; }
+  .tr details.tr-ag > summary::-webkit-details-marker { display:none; }
+  .tr details.tr-ag > summary:hover { background:#f8fafc; }
+  .tr details.tr-ag > summary .sm { color:#6b7280; font-size:.82rem; }
+  .tr .tr-trajet { font-size:.8rem; color:#475569; }
+</style>{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2 no-print">
+    <div><h1>{% trans "Chiffre d'affaires estimé des transporteurs" %}</h1>
+      <p class="tr-sub">{% trans "Estimation par agence et par véhicule, d'après les postes où chaque véhicule a été vu." %}</p></div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca_methode' %}">📘 {% trans "Méthode de calcul" %}</a>
+      {% if est_admin %}<a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_maillage' %}">🕸 {% trans "Maillage" %}</a>
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca_parametres' %}">⚙ {% trans "Paramètres et maillage" %}</a>{% endif %}
+      {% if calcule and agences_ca %}
+        <a class="tr-btn-ghost text-decoration-none" href="{{ retour }}&export=csv">⬇ CSV</a>
+        <button type="button" class="tr-btn" onclick="window.print()">🖨 {% trans "Imprimer" %}</button>{% endif %}
+    </div>
+  </div>
+
+  {% if maillage_vide %}
+  <div class="tr-avert">{% trans "Le maillage des postes n'est pas encore chargé." %}
+    {% if est_admin %}<a href="{% url 'inventaire:transporteurs_ca_parametres' %}">{% trans "Le charger maintenant" %}</a>{% else %}{% trans "Demandez à un administrateur de le charger." %}{% endif %}</div>
+  {% endif %}
+
+  {# En-tête d'impression #}
+  {% if calcule and not maillage_vide %}
+  <div class="tr-print-only tr-rapport-entete">
+    <h2>SUPPER — {% trans "Chiffre d'affaires estimé des transporteurs de personnes" %}</h2>
+    <p><b>{% trans "Période" %} :</b> {{ libelle_periode }} ({{ debut|date:"d/m/Y" }} → {{ fin|date:"d/m/Y" }}) ·
+      <b>{% trans "Agence" %} :</b> {% if agence %}{{ agence.nom }}{% else %}{% trans "Toutes" %}{% endif %}</p>
+    <p>{% trans "Édité le" %} {% now "d/m/Y H:i" %} {% trans "par" %} {{ user.nom_complet|default:user.username }} — {% trans "Estimation : voir la note de méthode." %}</p>
+  </div>
+  {% endif %}
+
+  <form method="get" class="tr-panel no-print"><div class="tr-body tr-grid">
+    <input type="hidden" name="go" value="1">
+    <div><label class="tr-lbl">{% trans "Période" %}</label>
+      <select name="periode" id="selPeriode" class="form-select">
+        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>{% trans "Mensuelle" %}</option>
+        <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>{% trans "Semestrielle" %}</option>
+        <option value="annee" {% if periode == 'annee' %}selected{% endif %}>{% trans "Annuelle" %}</option></select></div>
+    <div><label class="tr-lbl">{% trans "Année" %}</label>
+      <select name="annee" class="form-select">{% for a in annees %}<option value="{{ a }}" {% if a == annee %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+    <div id="blocMois"><label class="tr-lbl">{% trans "Mois" %}</label>
+      <select name="mois" class="form-select">{% for n, nom in mois_liste %}<option value="{{ n }}" {% if n == mois %}selected{% endif %}>{{ nom }}</option>{% endfor %}</select></div>
+    <div id="blocSemestre"><label class="tr-lbl">{% trans "Semestre" %}</label>
+      <select name="semestre" class="form-select">
+        <option value="1" {% if semestre == 1 %}selected{% endif %}>S1 (Jan–Juin)</option>
+        <option value="2" {% if semestre == 2 %}selected{% endif %}>S2 (Juil–Déc)</option></select></div>
+    <div><label class="tr-lbl">{% trans "Agence" %} ({% trans "facultatif" %})</label>
+      <select name="agence" class="form-select"><option value="">{% trans "Toutes les agences" %}</option>
+        {% for a in agences %}<option value="{{ a.id }}" {% if agence_id == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nom }}</option>{% endfor %}</select></div>
+    <div><button class="tr-btn" type="submit">{% trans "Calculer" %}</button></div>
+  </div></form>
+
+  {% if calcule and not maillage_vide %}
+  {# Synthèse #}
+  <div class="tr-panel"><div class="tr-head">{{ libelle_periode }} — {{ debut|date:"d/m/Y" }} → {{ fin|date:"d/m/Y" }}
+      <span class="text-muted">{{ infos.jours }} {% trans "jours" %} = {{ infos.semaines }} {% trans "semaines" %}</span></div>
+    <div class="tr-body tr-chips">
+      <div class="tr-chip total">{% trans "CA estimé de la période" %}<b>{{ total_ca|floatformat:"0g" }} FCFA</b></div>
+      <div class="tr-chip">{% trans "CA d'une semaine type" %}<b>{{ total_semaine|floatformat:"0g" }} FCFA</b></div>
+      <div class="tr-chip">{% trans "Agences" %}<b>{{ agences_ca|length }}</b></div>
+      <div class="tr-chip">{% trans "Véhicules" %}<b>{{ total_vehicules }}</b></div>
+    </div>
+    {% if infos.passages_ignores %}<div class="tr-avert" style="margin:0 .9rem .8rem">
+      {{ infos.passages_ignores }} {% trans "passage(s) à un poste non relié au maillage ont été ignorés" %}{% if postes_ignores %} ({{ postes_ignores|join:", " }}){% endif %}.
+      {% if est_admin %}<a href="{% url 'inventaire:transporteurs_ca_parametres' %}">{% trans "Relier les postes" %}</a>{% endif %}</div>{% endif %}
+  </div>
+
+  {# Classement des agences + détail des véhicules (repliable) #}
+  <div class="tr-panel"><div class="tr-head">{% trans "Chiffre d'affaires par agence" %}
+      <button type="button" class="tr-btn-ghost no-print" id="btnTout">{% trans "Tout déplier" %}</button></div>
+    {% for a in agences_ca %}
+    <details class="tr-ag"><summary>
+      <span><b>{{ a.agence }}</b> <span class="sm">· {{ a.vehicules }} {% trans "véhicule(s)" %}</span></span>
+      <span><b>{{ a.ca_periode|floatformat:"0g" }}</b> FCFA <span class="sm">({{ a.ca_semaine|floatformat:"0g" }} / {% trans "sem." %})</span></span></summary>
+      <div class="tr-scroll"><table class="tr-table">
+        <thead><tr><th>{% trans "Plaque" %}</th><th>{% trans "Type" %}</th><th class="num">{% trans "Places" %}</th><th>{% trans "Trajet de référence" %}</th>
+          <th class="num">{% trans "Tarif" %}</th><th class="num">{% trans "A/R par sem." %}</th><th class="num">{% trans "CA semaine" %}</th><th class="num">{% trans "CA période" %}</th></tr></thead>
+        <tbody>{% for v in a.detail %}<tr>
+          <td><b>{{ v.plaque }}</b><div class="tr-trajet">{{ v.passages }} {% trans "passage(s)" %} · {{ v.semaines_vues }} {% trans "sem. vue(s)" %}</div></td>
+          <td>{{ v.type_libelle }}</td><td class="num">{{ v.places }}</td>
+          <td class="tr-trajet">{{ v.trajet }}<br>{{ v.regions_txt }} ({{ v.nb_regions }})
+            {% if v.mode == 'seul' %}<br><i>{% trans "Vu uniquement à" %} {{ v.poste_vu }} : {% trans "il a pu rejoindre l'un de ses postes voisins" %} — {{ v.voisins_txt }}. {% trans "On retient le plus éloigné en tarif." %}</i>{% elif v.mode == 'sans_voisin' %}<br><i>{% trans "Aucun voisin renseigné : CA nul." %}</i>{% endif %}</td>
+          <td class="num">{{ v.tarif|floatformat:"0g" }}{% if v.clim %}<br><small>+ clim.</small>{% endif %}</td>
+          <td class="num">{{ v.tours }}</td>
+          <td class="num">{{ v.ca_semaine|floatformat:"0g" }}</td><td class="num"><b>{{ v.ca_periode|floatformat:"0g" }}</b></td></tr>{% endfor %}</tbody></table></div>
+    </details>
+    {% empty %}<div class="tr-body text-center text-muted">{% trans "Aucune donnée sur la période." %}</div>{% endfor %}
+    {% if agences_ca %}<div class="tr-body d-flex justify-content-between"><b>{% trans "Total" %}</b><b>{{ total_ca|floatformat:"0g" }} FCFA</b></div>{% endif %}
+  </div>
+  <p class="tr-sub">{% trans "Estimation théorique à pleine capacité (nombre de places = borne inférieure de la fiche). Voir la note de méthode." %}</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  // Affiche seulement le sélecteur utile selon la période (mois / semestre / année)
+  var sel = document.getElementById('selPeriode');
+  function maj() {
+    document.getElementById('blocMois').style.display = sel.value === 'mois' ? '' : 'none';
+    document.getElementById('blocSemestre').style.display = sel.value === 'semestre' ? '' : 'none';
+  }
+  sel.addEventListener('change', maj); maj();
+  // Déplier / replier toutes les agences ; tout déplier avant l'impression
+  var tous = document.querySelectorAll('details.tr-ag');
+  var btn = document.getElementById('btnTout');
+  if (btn) btn.addEventListener('click', function () {
+    var ouvrir = !Array.prototype.every.call(tous, function (d) { return d.open; });
+    tous.forEach(function (d) { d.open = ouvrir; });
+    btn.textContent = ouvrir ? '{% trans "Tout replier" %}' : '{% trans "Tout déplier" %}';
+  });
+  window.addEventListener('beforeprint', function () { tous.forEach(function (d) { d.open = true; }); });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,98 @@
+{# templates/inventaire/transporteurs/agence_fusion.html #}
+{# Confirmation d'une fusion d'agences (le nouveau nom correspond à une agence existante) #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Fusionner deux agences" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau et l'impression restent inchangés) ===================== */
+@media screen {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+  .tr { width: 100%; }
+}
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media screen and (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media screen and (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; }
+
+  /* Tableau de comparaison : chaque ligne devient un petit bloc (libellé, nom, nombre de véhicules) */
+  .tr-body .tr-table, .tr-body .tr-table tbody { display: block; width: 100%; }
+  .tr-body .tr-table tr { display: block; padding: .6rem 0; border-bottom: 1px solid var(--line); }
+  .tr-body .tr-table tr:last-child { border-bottom: 0; }
+  .tr-body .tr-table td { display: block; border: 0; padding: .15rem 0; word-break: break-word; }
+  .tr-body .tr-table td.num { text-align: left; color: var(--muted); }
+
+  /* Boutons : pleine largeur, empilés, zones tactiles 44px */
+  .tr form .tr-btn-ghost, .tr form .tr-btn-danger { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; margin: 0 0 10px 0 !important; text-align: center; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media screen and (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media screen and (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3" style="max-width:720px">
+  <h1>{% trans "Fusionner deux agences ?" %}</h1>
+  <p class="tr-sub">{% trans "Le nom saisi correspond à une agence qui existe déjà. Les deux seront regroupées en une seule." %}</p>
+  <div class="tr-panel"><div class="tr-body">
+    <table class="tr-table">
+      <tr><td>{% trans "Agence modifiée (sera supprimée)" %}</td><td><b>{{ agence.nom }}</b></td><td class="num">{{ n_source }} {% trans "véhicule(s)" %}</td></tr>
+      <tr><td>{% trans "Agence conservée" %}</td><td><b>{{ cible.nom }}</b></td><td class="num">{{ n_cible }} {% trans "véhicule(s)" %}</td></tr>
+      <tr><td colspan="2"><b>{% trans "Après la fusion" %} : {{ cible.nom }}</b></td><td class="num"><b>{{ n_total }} {% trans "véhicule(s)" %}</b></td></tr>
+    </table>
+    <p class="text-muted small mt-3 mb-0">{% trans "Toutes les fiches et statistiques passées seront mises à jour. Cette action ne peut pas être annulée ; elle est enregistrée dans le journal d'audit." %}</p>
+  </div></div>
+  <form method="post" action="{% url 'inventaire:transporteurs_agences_modifier' agence.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="nom" value="{{ nom }}">
+    <input type="hidden" name="fusion" value="1">
+    <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_agences' %}">{% trans "Annuler" %}</a>
+    <button type="submit" class="tr-btn-danger ms-2">{% trans "Fusionner" %}</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+})();
+</script>
+{% endblock %}

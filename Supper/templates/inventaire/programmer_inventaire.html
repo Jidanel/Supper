@@ -1020,29 +1020,40 @@
                     {% if postes_risque_baisse %}
                         <div class="alert alert-warning mb-3">
                             <i class="fas fa-arrow-down me-2"></i>
-                            <strong>{{ postes_risque_baisse|length }}</strong> poste(s) avec risque de baisse annuelle détecté
-                            <small>Comparaison avec la même période de l'année N-1</small>
+                            <strong>{{ postes_risque_baisse|length }}</strong> poste(s) en risque de baisse annuelle
+                            <small class="d-block mt-1">
+                                Projection au 31/12/{{ mois.year }} inférieure au rendement annuel {{ mois.year|add:"-1" }}
+                            </small>
                         </div>
+
                         {% for item in postes_risque_baisse %}
                         <div class="poste-item {% if item.deja_programme %}disabled{% endif %}">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="postes" value="{{ item.poste.id }}" id="baisse_{{ item.poste.id }}"
-                                {% if not item.deja_programme %}checked{% endif %}
-                                {% if item.deja_programme %}disabled{% endif %}>
-                                <label class="form-check-label d-flex justify-content-between flex-wrap" for="baisse_{{ item.poste.id }}">
+                                <input class="form-check-input" type="checkbox"
+                                       name="postes" value="{{ item.poste.id }}"
+                                       id="baisse_{{ item.poste.id }}"
+                                       {% if not item.deja_programme %}checked{% endif %}
+                                       {% if item.deja_programme %}disabled{% endif %}>
+                                <label class="form-check-label d-flex justify-content-between flex-wrap"
+                                       for="baisse_{{ item.poste.id }}">
                                     <div>
                                         <strong>{{ item.poste.nom }}</strong> ({{ item.poste.code }})
                                         {% if item.deja_programme %}
                                         <span class="badge bg-secondary ms-2">Déjà programmé</span>
                                         {% endif %}
                                     </div>
-                                    <div>
+                                    <div class="text-end">
                                         <span class="indicator-badge indicator-danger">
                                             <i class="fas fa-arrow-down"></i> {{ item.pourcentage_baisse|floatformat:1 }}%
                                         </span>
-                                        <small class="text-muted ms-2 d-block mt-1">
-                                            N: {{ item.recettes_estimees|floatformat:0|format_milliers }} FCFA |
-                                            N-1: {{ item.recettes_n1|floatformat:0|format_milliers }} FCFA
+                                        <small class="text-muted d-block mt-1">
+                                            Écart : <strong style="color: #dc2626;">{{ item.ecart|floatformat:0|format_milliers }} FCFA</strong>
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            Projection 31/12 : {{ item.recettes_estimees|floatformat:0|format_milliers }} FCFA
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            Total {{ mois.year|add:"-1" }} : {{ item.recettes_n1|floatformat:0|format_milliers }} FCFA
                                         </small>
                                     </div>
                                 </label>
@@ -1052,7 +1063,8 @@
                     {% else %}
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle me-2"></i>
-                            Aucun poste en baisse annuelle détecté. Tous les postes sont stables ou en hausse.
+                            Aucun poste en risque de baisse annuelle.
+                            La projection au 31/12 de tous les postes est supérieure au rendement {{ mois.year|add:"-1" }}.
                         </div>
                     {% endif %}
 

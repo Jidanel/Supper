@@ -1,0 +1,1017 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION GLOBALE - CORRECTION DÉFILEMENT
+       ============================================ */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        width: 100% !important;
+        position: relative !important;
+    }
+
+    /* ============================================
+       CONTENEURS PRINCIPAUX
+       ============================================ */
+    .historique-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        position: relative;
+    }
+
+    .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-left: auto;
+        margin-right: auto;
+        overflow-x: hidden;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+
+    .justify-content-center {
+        justify-content: center !important;
+    }
+
+    .col-12,
+    .col-md-6,
+    .col-lg-8,
+    .col-xl-6 {
+        padding-left: 15px;
+        padding-right: 15px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================================
+       BREADCRUMB
+       ============================================ */
+    .breadcrumb {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        list-style: none;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .breadcrumb-item {
+        display: flex;
+        align-items: center;
+    }
+
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: "/";
+        padding: 0 0.5rem;
+        color: #6c757d;
+    }
+
+    .breadcrumb-item a {
+        color: #667eea;
+        text-decoration: none;
+    }
+
+    .breadcrumb-item a:hover {
+        text-decoration: underline;
+    }
+
+    .breadcrumb-item.active {
+        color: #6c757d;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE
+       ============================================ */
+    .form-card {
+        background: white;
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .form-card .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.25rem 1.5rem;
+        border: none;
+    }
+
+    .form-card .card-header h5 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-card .card-body {
+        padding: 2rem;
+    }
+
+    /* ============================================
+       BADGE POSTE
+       ============================================ */
+    .poste-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4338ca;
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .poste-badge i {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .poste-badge span {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* ============================================
+       ALERTES
+       ============================================ */
+    .alert {
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .alert-info-custom {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 1px solid #93c5fd;
+        color: #1e40af;
+    }
+
+    .alert-danger {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+
+    .alert i {
+        margin-right: 0.5rem;
+    }
+
+    /* ============================================
+       FORMULAIRES
+       ============================================ */
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .form-section:last-of-type {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .form-section-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6b7280;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.95rem;
+    }
+
+    .form-label .required {
+        color: #dc2626;
+        margin-left: 2px;
+    }
+
+    .form-control,
+    .form-select {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #374151;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #667eea;
+        outline: 0;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc2626;
+    }
+
+    .form-control::placeholder {
+        color: #9ca3af;
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    /* Input Group */
+    .input-group {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .input-group .form-control {
+        position: relative;
+        flex: 1 1 auto;
+        width: 1%;
+        min-width: 0;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .input-group-text {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        font-weight: 500;
+        line-height: 1.5;
+        color: #374151;
+        text-align: center;
+        white-space: nowrap;
+        background-color: #f3f4f6;
+        border: 2px solid #e5e7eb;
+        border-left: none;
+        border-radius: 0 10px 10px 0;
+    }
+
+    .invalid-feedback {
+        display: block;
+        width: 100%;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #dc2626;
+    }
+
+    .help-text {
+        display: block;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+
+    /* ============================================
+       PRÉVISUALISATION IMAGE
+       ============================================ */
+    .preview-container {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f9fafb;
+        border: 2px dashed #e5e7eb;
+        border-radius: 12px;
+        text-align: center;
+        display: none;
+    }
+
+    .preview-container.active {
+        display: block;
+    }
+
+    .preview-container img {
+        max-width: 100%;
+        max-height: 250px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .preview-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-bottom: 0.75rem;
+    }
+
+    /* ============================================
+       BOUTONS
+       ============================================ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        cursor: pointer;
+        border: 2px solid transparent;
+        min-height: 48px;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border-color: #d1d5db;
+        color: #6b7280;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #f3f4f6;
+        border-color: #9ca3af;
+        color: #374151;
+    }
+
+    .btn-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    /* ============================================
+       CLASSES UTILITAIRES
+       ============================================ */
+    .text-danger { color: #dc2626 !important; }
+    .text-success { color: #059669 !important; }
+    .text-muted { color: #6b7280 !important; }
+    .fw-bold { font-weight: 600 !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+
+    /* ============================================
+       RESPONSIVE - PC (≥ 1024px)
+       ============================================ */
+    @media (min-width: 1024px) {
+        .container-fluid {
+            max-width: 1400px;
+        }
+
+        .col-lg-8 {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+        }
+
+        .col-xl-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .form-card .card-body {
+            padding: 2.5rem;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - TABLETTE (768px à 1023px)
+       ============================================ */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .container-fluid {
+            max-width: 95%;
+        }
+
+        .col-lg-8,
+        .col-xl-6 {
+            flex: 0 0 85%;
+            max-width: 85%;
+            margin: 0 auto;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE (≤ 767px)
+       ============================================ */
+    @media (max-width: 767px) {
+        html, body {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .main-content {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .content-wrapper {
+            min-width: 100% !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding: 0.75rem !important;
+            overflow-x: hidden !important;
+        }
+
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
+        .row {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+        }
+
+        .col-12,
+        .col-md-6,
+        .col-lg-8,
+        .col-xl-6 {
+            padding-left: 10px;
+            padding-right: 10px;
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .breadcrumb {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.85rem;
+        }
+
+        .form-card {
+            border-radius: 12px;
+        }
+
+        .form-card .card-header {
+            padding: 1rem;
+        }
+
+        .form-card .card-header h5 {
+            font-size: 1.05rem;
+        }
+
+        .form-card .card-body {
+            padding: 1.25rem;
+        }
+
+        .poste-badge {
+            padding: 0.875rem 1rem;
+            font-size: 0.95rem;
+            border-radius: 10px;
+        }
+
+        .alert {
+            padding: 0.875rem 1rem;
+            font-size: 0.9rem;
+            border-radius: 10px;
+        }
+
+        .form-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+        }
+
+        .form-section-title {
+            font-size: 0.8rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            font-size: 0.9rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .form-control,
+        .form-select {
+            padding: 0.75rem;
+            font-size: 16px !important;
+            border-radius: 8px;
+        }
+
+        .input-group-text {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .help-text {
+            font-size: 0.8rem;
+        }
+
+        .preview-container {
+            padding: 0.875rem;
+        }
+
+        .preview-container img {
+            max-height: 200px;
+        }
+
+        .btn-actions {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .btn-actions .btn {
+            width: 100%;
+        }
+
+        .btn {
+            padding: 0.875rem 1rem;
+            font-size: 0.95rem;
+            min-height: 48px;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - PETIT MOBILE (≤ 576px)
+       ============================================ */
+    @media (max-width: 576px) {
+        .content-wrapper {
+            padding: 0.5rem !important;
+        }
+
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .row {
+            margin-left: -8px;
+            margin-right: -8px;
+            width: calc(100% + 16px);
+        }
+
+        .form-card .card-header {
+            padding: 0.875rem;
+        }
+
+        .form-card .card-header h5 {
+            font-size: 1rem;
+        }
+
+        .form-card .card-body {
+            padding: 1rem;
+        }
+
+        .poste-badge {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .form-control,
+        .form-select {
+            padding: 0.625rem 0.75rem;
+        }
+
+        .btn {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* ============================================
+       RESPONSIVE - TRÈS PETIT MOBILE (≤ 375px)
+       ============================================ */
+    @media (max-width: 375px) {
+        .form-card .card-header h5 {
+            font-size: 0.95rem;
+        }
+
+        .poste-badge {
+            flex-direction: column;
+            text-align: center;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* ============================================
+       ORIENTATION PAYSAGE SUR MOBILE
+       ============================================ */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-lg-8,
+        .col-xl-6 {
+            flex: 0 0 70%;
+            max-width: 70%;
+            margin: 0 auto;
+        }
+
+        .btn-actions {
+            flex-direction: row;
+        }
+
+        .btn-actions .btn {
+            width: auto;
+            flex: 1;
+        }
+    }
+
+    /* ============================================
+       CORRECTION DU ZOOM SUR iOS
+       ============================================ */
+    @media (max-width: 768px) {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="file"],
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* ============================================
+       SCROLLBAR PERSONNALISÉE
+       ============================================ */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    @media (max-width: 768px) {
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+    }
+
+    /* ============================================
+       ACCESSIBILITÉ
+       ============================================ */
+    .form-control:focus,
+    .form-select:focus,
+    .btn:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+    }
+
+    /* ============================================
+       IMPRESSION
+       ============================================ */
+    @media print {
+        .btn,
+        .breadcrumb {
+            display: none !important;
+        }
+
+        .form-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .form-card .card-header {
+            background: #f3f4f6 !important;
+            color: #1f2937 !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="historique-page">
+    <div class="container-fluid py-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-8 col-xl-6">
+                
+                <!-- Breadcrumb -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'common:dashboard' %}">
+                                <i class="fas fa-home me-1"></i> {% trans "Accueil" %}
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'inventaire:liste_historiques' %}">{% trans "Historiques" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{% trans "Saisir" %}</li>
+                    </ol>
+                </nav>
+                
+                <!-- Carte du formulaire -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <h5>
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            {{ title }}
+                        </h5>
+                    </div>
+                    
+                    <div class="card-body">
+                        {% if poste %}
+                        <div class="poste-badge">
+                            <i class="fas fa-road"></i>
+                            <span>{% trans "Poste" %} : <strong>{{ poste.nom }}</strong> ({{ poste.code }})</span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="alert alert-info-custom">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>{% trans "Note" %} :</strong> 
+                            {% trans "Un seul historique peut être saisi par poste et par mois." %}
+                        </div>
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger mb-4">
+                            {% for error in form.non_field_errors %}
+                            <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <form method="post" enctype="multipart/form-data" id="historique-form">
+                            {% csrf_token %}
+                            
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    {% trans "Période" %}
+                                </div>
+                                
+                                {% if acces_tous_postes %}
+                                <div class="form-group">
+                                    <label for="id_poste" class="form-label">
+                                        {% trans "Poste" %} <span class="required">*</span>
+                                    </label>
+                                    {{ form.poste }}
+                                    {% if form.poste.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.poste.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <input type="hidden" name="poste" value="{{ poste.id }}">
+                                {% endif %}
+                                
+                                <div class="form-group">
+                                    <label for="id_mois" class="form-label">
+                                        {% trans "Mois concerné" %} <span class="required">*</span>
+                                    </label>
+                                    {{ form.mois }}
+                                    <span class="help-text">{{ form.mois.help_text }}</span>
+                                    {% if form.mois.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.mois.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="fas fa-coins"></i>
+                                    {% trans "Montants" %}
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="id_montant_global" class="form-label">
+                                        {% trans "Montant global" %} <span class="required">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.montant_global }}
+                                        <span class="input-group-text">FCFA</span>
+                                    </div>
+                                    <span class="help-text">{{ form.montant_global.help_text }}</span>
+                                    {% if form.montant_global.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.montant_global.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="id_montant_reel" class="form-label">
+                                        {% trans "Montant réel" %} <span class="required">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.montant_reel }}
+                                        <span class="input-group-text">FCFA</span>
+                                    </div>
+                                    <span class="help-text">{{ form.montant_reel.help_text }}</span>
+                                    {% if form.montant_reel.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.montant_reel.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="fas fa-image"></i>
+                                    {% trans "Document" %}
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="id_image_historique" class="form-label">
+                                        {% trans "Image de l'historique" %}
+                                    </label>
+                                    {{ form.image_historique }}
+                                    <span class="help-text">{{ form.image_historique.help_text }}</span>
+                                    {% if form.image_historique.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.image_historique.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="preview-container" id="image-preview">
+                                        <p class="preview-label">{% trans "Aperçu" %} :</p>
+                                        <img id="preview-img" src="" alt="{% trans 'Aperçu' %}">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group mb-0">
+                                    <label for="id_observations" class="form-label">
+                                        {% trans "Observations" %}
+                                    </label>
+                                    {{ form.observations }}
+                                </div>
+                            </div>
+                            
+                            <div class="btn-actions">
+                                <a href="{% url 'inventaire:liste_historiques' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i>
+                                    {% trans "Annuler" %}
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-arrow-right"></i>
+                                    {% trans "Continuer" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const imageInput = document.getElementById('id_image_historique');
+    const previewContainer = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewContainer.classList.add('active');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewContainer.classList.remove('active');
+            }
+        });
+    }
+    
+    const montantInputs = document.querySelectorAll('#id_montant_global, #id_montant_reel');
+    montantInputs.forEach(function(input) {
+        input.addEventListener('blur', function() {
+            const value = parseFloat(this.value);
+            if (!isNaN(value)) {
+                this.value = Math.round(value);
+            }
+        });
+    });
+    
+    const form = document.getElementById('historique-form');
+    form.addEventListener('submit', function(e) {
+        const montantGlobal = parseFloat(document.getElementById('id_montant_global').value) || 0;
+        const montantReel = parseFloat(document.getElementById('id_montant_reel').value) || 0;
+        
+        if (montantReel > montantGlobal) {
+            e.preventDefault();
+            alert("Le montant réel ne peut pas dépasser le montant global.");
+            return false;
+        }
+    });
+    
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+            
+            document.querySelectorAll('.historique-page, .container-fluid').forEach(function(el) {
+                if (el) {
+                    el.style.overflowX = 'hidden';
+                    el.style.maxWidth = '100vw';
+                }
+            });
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    
+    document.addEventListener('touchstart', function() {}, {passive: true});
+    document.addEventListener('touchmove', function() {}, {passive: true});
+});
+</script>
+{% endblock %}

@@ -1,0 +1,535 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; width: 100% !important; }
+
+    .etape2-page { width: 100%; max-width: 100%; overflow-x: hidden; }
+    .container-fluid { width: 100%; max-width: 100%; padding: 0 15px; margin: 0 auto; }
+    .py-4 { padding: 1.5rem 0 !important; }
+
+    /* En-tête */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #1a5f2a 0%, #2d8a3e 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(26, 95, 42, 0.3);
+    }
+
+    .page-header h2 { font-size: 1.5rem; margin: 0; color: white; }
+    .page-header p { margin: 0.5rem 0 0; opacity: 0.9; font-size: 0.95rem; }
+
+    /* Indicateur d'étapes */
+    .steps-indicator {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .step { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; color: #6b7280; font-weight: 500; }
+    .step.active { color: #1a5f2a; font-weight: 600; }
+    .step.completed { color: #059669; }
+    .step-number { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; background: #e5e7eb; color: #6b7280; }
+    .step.active .step-number { background: linear-gradient(135deg, #1a5f2a, #2d8a3e); color: white; }
+    .step.completed .step-number { background: #059669; color: white; }
+    .step-connector { width: 60px; height: 2px; background: #e5e7eb; }
+    .step-connector.completed { background: #059669; }
+
+    /* Stats récapitulatif */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #1a5f2a, #2d8a3e);
+        color: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-card.pink { background: linear-gradient(135deg, #f093fb, #f5576c); }
+    .stat-card.blue { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+    .stat-card.teal { background: linear-gradient(135deg, #11998e, #38ef7d); }
+
+    .stat-value { font-size: 1.75rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .stat-label { font-size: 0.85rem; opacity: 0.9; }
+
+    /* Alerte existants */
+    .alert-existants {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    /* Tableau des postes */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        margin-bottom: 1.5rem;
+    }
+
+    .commande-table {
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
+    }
+
+    .commande-table thead {
+        background: linear-gradient(135deg, #1a5f2a, #2d8a3e);
+        color: white;
+    }
+
+    .commande-table th {
+        padding: 1rem;
+        font-weight: 600;
+        text-align: left;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+
+    .commande-table td {
+        padding: 0.875rem 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+
+    .commande-table tbody tr:hover { background: rgba(26, 95, 42, 0.03); }
+
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+
+    /* Badge existant */
+    .badge-existant {
+        background: #fff3cd;
+        color: #856404;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* QR Code */
+    .qr-container img {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+}
+
+    /* Champ modifiable CARNETS */
+    .carnets-input {
+        width: 90px;
+        padding: 0.5rem;
+        border: 2px solid #1a5f2a;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-align: center;
+        background: #f0fdf4;
+    }
+
+    .carnets-input:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(26, 95, 42, 0.2);
+    }
+
+    /* Valeurs calculées */
+    .valeur-calculee {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+
+    .valeur-calculee.tickets { color: #1a5f2a; font-weight: 500; }
+    .valeur-calculee.montant { color: #1a5f2a; font-weight: 600; }
+
+    /* Section confirmation */
+    .confirmation-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+    }
+
+    .confirmation-section h4 {
+        margin: 0 0 1rem;
+        color: #1a5f2a;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #f9fafb;
+        border-radius: 8px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        accent-color: #1a5f2a;
+    }
+
+    /* Boutons */
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        min-height: 48px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #1a5f2a, #2d8a3e);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(26, 95, 42, 0.4);
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    /* Info bulle modification */
+    .edit-info {
+        background: #e0f2fe;
+        border: 1px solid #0ea5e9;
+        color: #0369a1;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    .edit-info i { margin-right: 0.5rem; }
+
+    /* Responsive tablette */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* Responsive mobile */
+    @media (max-width: 767px) {
+        .container-fluid { padding: 0 10px; }
+        .page-header { flex-direction: column; padding: 1rem 1.25rem; }
+        .page-header h2 { font-size: 1.25rem; }
+        .steps-indicator { flex-direction: column; gap: 0.5rem; }
+        .step-connector { width: 2px; height: 20px; }
+        .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+        .stat-value { font-size: 1.25rem; }
+
+        .table-container {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: calc(100% + 20px);
+            border-radius: 0;
+        }
+
+        .commande-table { min-width: 800px; }
+
+        .form-actions { flex-direction: column; }
+        .form-actions .btn { width: 100%; }
+
+        .carnets-input { width: 70px; font-size: 16px !important; }
+    }
+
+    @media print {
+        .btn, .form-actions, .steps-indicator, .carnets-input { display: none !important; }
+        .page-header { background: #1a5f2a !important; -webkit-print-color-adjust: exact; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="etape2-page">
+    <div class="container-fluid py-4">
+        <div class="page-header">
+            <div>
+                <h2><i class="fas fa-calculator me-2"></i> {% trans "Simulateur de Commandes" %}</h2>
+                <p>{% trans "Étape 2 : Validation et ajustement des quantités" %}</p>
+            </div>
+        </div>
+
+        <div class="steps-indicator">
+            <div class="step completed">
+                <span class="step-number"><i class="fas fa-check"></i></span>
+                <span class="step-text">{% trans "Paramètres" %}</span>
+            </div>
+            <div class="step-connector completed"></div>
+            <div class="step active">
+                <span class="step-number">2</span>
+                <span class="step-text">{% trans "Validation" %}</span>
+            </div>
+        </div>
+
+        <!-- Info modification par carnets -->
+        <div class="edit-info">
+            <i class="fas fa-info-circle"></i>
+            <strong>{% trans "Modification des quantités" %}:</strong>
+            {% trans "Vous pouvez ajuster le nombre de carnets pour chaque poste. Les tickets (×100) et le montant (×50 000 FCFA) seront recalculés automatiquement." %}
+        </div>
+
+        <!-- Stats récapitulatif -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ nb_postes }}</div>
+                <div class="stat-label">{% trans "Postes" %}</div>
+            </div>
+            <div class="stat-card pink">
+                <div class="stat-value" id="totalMontant">{{ montant_total|floatformat:0|format_milliers }}</div>
+                <div class="stat-label">{% trans "FCFA Total" %}</div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-value" id="totalTickets">{{ nombre_tickets_total|format_milliers }}</div>
+                <div class="stat-label">{% trans "Tickets" %}</div>
+            </div>
+            <div class="stat-card teal">
+                <div class="stat-value" id="totalCarnets">{{ nombre_carnets_total|format_milliers }}</div>
+                <div class="stat-label">{% trans "Carnets" %}</div>
+            </div>
+        </div>
+
+        {% if has_postes_existants %}
+        <div class="alert-existants">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>
+                {% trans "Attention : Certains postes ont déjà une commande pour cet exercice. Cochez la case ci-dessous pour les remplacer." %}
+            </span>
+        </div>
+        {% endif %}
+
+        <form method="post" id="etape2Form">
+            {% csrf_token %}
+            <input type="hidden" name="postes_ids" value="{{ postes_ids }}">
+
+            <!-- Tableau des postes -->
+            <div class="table-container">
+                <table class="commande-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "N°" %}</th>
+                            <th>{% trans "Poste" %}</th>
+                            <th>{% trans "Région" %}</th>
+                            <th class="text-center">{% trans "Carnets" %}</th>
+                            <th class="text-center">{% trans "Tickets" %}</th>
+                            <th class="text-right">{% trans "Montant" %}</th>
+                            <th>{% trans "Couleur" %}</th>
+                            <th>{% trans "Code" %}</th>
+                            <th>{% trans "QR" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in details_postes %}
+                        <tr data-poste-id="{{ detail.poste.id }}">
+                            <td>{{ detail.numero_ordre }}</td>
+                            <td>
+                                <strong>{{ detail.poste.nom }}</strong>
+                                {% if detail.existe_deja %}
+                                <span class="badge-existant ms-2">{% trans "Existant" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ detail.region }}</td>
+                            <td class="text-center">
+                                <!-- CHAMP MODIFIABLE: CARNETS -->
+                                <input type="number" 
+                                       name="carnets_{{ detail.poste.id }}" 
+                                       class="carnets-input" 
+                                       value="{{ detail.nombre_carnets }}"
+                                       min="0"
+                                       max="9999"
+                                       data-original="{{ detail.nombre_carnets }}"
+                                       onchange="recalculerLigne(this)">
+                            </td>
+                            <td class="text-center">
+                                <span class="valeur-calculee tickets" id="tickets_{{ detail.poste.id }}">
+                                    {{ detail.nombre_tickets|format_milliers }}
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <span class="valeur-calculee montant" id="montant_{{ detail.poste.id }}">
+                                    {{ detail.montant|floatformat:0|format_milliers }} FCFA
+                                </span>
+                            </td>
+                            <td>{{ detail.couleur }}</td>
+                            <td><code>{{ detail.code_securisation }}</code></td>
+                            <td>
+                                {% if detail.qr_base64 %}
+                                <img src="{{ detail.qr_base64 }}" alt="QR" class="qr-code-img">
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f9fafb; font-weight: 600;">
+                            <td colspan="3" class="text-right">{% trans "TOTAUX" %}</td>
+                            <td class="text-center" id="footerCarnets">{{ nombre_carnets_total|format_milliers }}</td>
+                            <td class="text-center" id="footerTickets">{{ nombre_tickets_total|format_milliers }}</td>
+                            <td class="text-right" id="footerMontant">{{ montant_total|floatformat:0|format_milliers }} FCFA</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Section confirmation -->
+            <div class="confirmation-section">
+                <h4><i class="fas fa-clipboard-check"></i> {% trans "Confirmation" %}</h4>
+                <!-- ✅ CHECKBOX CONFIRMER (OBLIGATOIRE) -->
+                <div class="checkbox-group" style="margin-bottom: 1rem; background: #f0fdf4; border: 2px solid #1a5f2a;">
+                    <input type="checkbox" 
+                           name="confirmer" 
+                           id="id_confirmer" 
+                           value="1"
+                           required>
+                    <label for="id_confirmer" style="font-weight: 600; color: #1a5f2a;">
+                        <i class="fas fa-check-circle me-1"></i>
+                        {% trans "Je confirme la création de cette commande" %}
+                    </label>
+                </div>
+                {% if has_postes_existants %}
+                <div class="checkbox-group" style="margin-bottom: 1rem;">
+                    <input type="checkbox" name="ecraser_existants" id="ecraser_existants" value="1">
+                    <label for="ecraser_existants">
+                        {% trans "Écraser les postes existants avec les nouvelles valeurs" %}
+                    </label>
+                </div>
+                {% endif %}
+
+                <p class="text-muted mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {% trans "Titre de la commande" %}: <strong>{{ titre_commande }}</strong><br>
+                    {% trans "Période" %}: <strong>{{ periode_desc }}</strong>
+                </p>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'inventaire:simulateur_commandes_etape1' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i> {% trans "Retour" %}
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-check me-2"></i> {% trans "Valider et enregistrer" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Fonction de formatage avec séparateurs de milliers
+function formatMilliers(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+// Recalculer une ligne quand le nombre de carnets change
+function recalculerLigne(input) {
+    const posteId = input.name.replace('carnets_', '');
+    const carnets = parseInt(input.value) || 0;
+    
+    // Calculs
+    const tickets = carnets * 100;
+    const montant = carnets * 50000;
+    
+    // Mettre à jour l'affichage
+    document.getElementById('tickets_' + posteId).textContent = formatMilliers(tickets);
+    document.getElementById('montant_' + posteId).textContent = formatMilliers(montant) + ' FCFA';
+    
+    // Highlight si modifié
+    const original = parseInt(input.dataset.original) || 0;
+    if (carnets !== original) {
+        input.style.backgroundColor = '#fef3c7';
+        input.style.borderColor = '#f59e0b';
+    } else {
+        input.style.backgroundColor = '#f0fdf4';
+        input.style.borderColor = '#1a5f2a';
+    }
+    
+    // Recalculer les totaux
+    recalculerTotaux();
+}
+
+// Recalculer tous les totaux
+function recalculerTotaux() {
+    const inputs = document.querySelectorAll('.carnets-input');
+    let totalCarnets = 0;
+    let totalTickets = 0;
+    let totalMontant = 0;
+    
+    inputs.forEach(input => {
+        const carnets = parseInt(input.value) || 0;
+        totalCarnets += carnets;
+        totalTickets += carnets * 100;
+        totalMontant += carnets * 50000;
+    });
+    
+    // Mettre à jour les stats en haut
+    document.getElementById('totalCarnets').textContent = formatMilliers(totalCarnets);
+    document.getElementById('totalTickets').textContent = formatMilliers(totalTickets);
+    document.getElementById('totalMontant').textContent = formatMilliers(totalMontant);
+    
+    // Mettre à jour le footer du tableau
+    document.getElementById('footerCarnets').textContent = formatMilliers(totalCarnets);
+    document.getElementById('footerTickets').textContent = formatMilliers(totalTickets);
+    document.getElementById('footerMontant').textContent = formatMilliers(totalMontant) + ' FCFA';
+}
+</script>
+{% endblock %}

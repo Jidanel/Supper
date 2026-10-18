@@ -1,0 +1,719 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       RÉINITIALISATION COMPLÈTE POUR MOBILE
+       ============================================ */
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        position: relative;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ============================================
+       PAGE PRINCIPALE - RESPONSIVE
+       ============================================ */
+    .import-page {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: calc(100vh - 80px);
+        padding: 2rem;
+        margin: 0;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    .import-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    /* ============================================
+       EN-TÊTE
+       ============================================ */
+    .import-header {
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+        border-top: 5px solid #F59E0B;
+    }
+
+    .import-header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .import-header-text h1 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #0F172A;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .import-header-text h1 i {
+        color: #F59E0B;
+    }
+
+    .import-header-text p {
+        margin: 0.5rem 0 0 0;
+        color: #64748B;
+        font-size: 0.95rem;
+    }
+
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: white;
+        color: #7C3AED;
+        border: 2px solid #7C3AED;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s;
+        white-space: nowrap;
+        min-height: 44px;
+    }
+
+    .btn-back:hover {
+        background: #7C3AED;
+        color: white;
+        text-decoration: none;
+    }
+
+    /* ============================================
+       CARTE PRINCIPALE
+       ============================================ */
+    .card-import {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-import h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* ============================================
+       APERÇU MODÈLE EXCEL
+       ============================================ */
+    .excel-preview {
+        overflow-x: auto;
+        margin-bottom: 2rem;
+        border: 2px solid #E5E7EB;
+        border-radius: 12px;
+    }
+
+    .excel-preview table {
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    .excel-preview thead th {
+        background: linear-gradient(135deg, #10B981, #059669);
+        color: white;
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        font-weight: 700;
+        border: 1px solid #059669;
+        white-space: nowrap;
+    }
+
+    .excel-preview thead th .col-letter {
+        display: block;
+        font-size: 0.7rem;
+        opacity: 0.8;
+        margin-bottom: 0.25rem;
+    }
+
+    .excel-preview thead th .required {
+        color: #FCD34D;
+        font-weight: 900;
+    }
+
+    .excel-preview tbody td {
+        padding: 0.5rem;
+        border: 1px solid #E5E7EB;
+        text-align: center;
+        color: #374151;
+        font-size: 0.8rem;
+    }
+
+    .excel-preview tbody tr:nth-child(even) {
+        background: #F9FAFB;
+    }
+
+    .excel-preview tbody tr:hover {
+        background: #EFF6FF;
+    }
+
+    .nature-codes {
+        background: #FEF3C7;
+        border: 1px solid #FCD34D;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .nature-codes h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #92400E;
+        margin: 0 0 0.75rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .nature-codes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .nature-code-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .nature-code-item code {
+        background: #92400E;
+        color: white;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+
+    /* ============================================
+       FORMULAIRE D'IMPORT
+       ============================================ */
+    .form-import {
+        border: 2px dashed #CBD5E1;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s;
+        background: #F8FAFC;
+    }
+
+    .form-import:hover {
+        border-color: #8B5CF6;
+        background: #F5F3FF;
+    }
+
+    .form-import .form-control {
+        max-width: 500px;
+        margin: 1rem auto;
+    }
+
+    .btn-import {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.875rem 2rem;
+        background: linear-gradient(135deg, #F59E0B, #D97706);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        min-height: 48px;
+    }
+
+    .btn-import:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+    }
+
+    /* ============================================
+       RÉSULTATS D'IMPORT
+       ============================================ */
+    .resultats-section {
+        margin-top: 2rem;
+    }
+
+    .resultats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        border: 2px solid #E5E7EB;
+    }
+
+    .summary-card.success {
+        border-color: #10B981;
+        background: #ECFDF5;
+    }
+
+    .summary-card.error {
+        border-color: #EF4444;
+        background: #FEF2F2;
+    }
+
+    .summary-card .number {
+        font-size: 2rem;
+        font-weight: 800;
+    }
+
+    .summary-card.success .number {
+        color: #059669;
+    }
+
+    .summary-card.error .number {
+        color: #DC2626;
+    }
+
+    .summary-card .label {
+        font-size: 0.85rem;
+        color: #64748B;
+        margin-top: 0.25rem;
+    }
+
+    .resultats-table {
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid #E5E7EB;
+    }
+
+    .resultats-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    .resultats-table thead th {
+        background: #F1F5F9;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #E5E7EB;
+    }
+
+    .resultats-table tbody td {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .resultats-table tbody tr:hover {
+        background: #F8FAFC;
+    }
+
+    .badge-ok {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: #ECFDF5;
+        color: #059669;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .badge-erreur {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: #FEF2F2;
+        color: #DC2626;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .erreur-detail {
+        color: #DC2626;
+        font-size: 0.8rem;
+        font-style: italic;
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 1023px) {
+        .import-page {
+            padding: 1rem;
+        }
+        .card-import {
+            padding: 1.5rem;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .import-page {
+            padding: 0.75rem;
+        }
+        .import-header {
+            padding: 1rem;
+        }
+        .import-header-text h1 {
+            font-size: 1.25rem;
+        }
+        .import-header-content {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .btn-back {
+            text-align: center;
+            justify-content: center;
+        }
+        .card-import {
+            padding: 1rem;
+        }
+        .form-import {
+            padding: 1rem;
+        }
+        .nature-codes-grid {
+            grid-template-columns: 1fr;
+        }
+        .resultats-summary {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .import-page {
+            padding: 0.5rem;
+        }
+        .import-header-text h1 {
+            font-size: 1.1rem;
+        }
+        .resultats-summary {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 375px) {
+        .import-header-text h1 {
+            font-size: 1rem;
+        }
+    }
+
+    /* ============================================
+       PRINT STYLES
+       ============================================ */
+    @media print {
+        .import-page {
+            background: white;
+            padding: 0;
+        }
+        .btn-back, .form-import, .btn-import {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="import-page">
+    <div class="import-container">
+
+        <!-- EN-TÊTE -->
+        <div class="import-header">
+            <div class="import-header-content">
+                <div class="import-header-text">
+                    <h1>
+                        <i class="fas fa-file-import"></i>
+                        {% trans "Importer des amendes" %}
+                    </h1>
+                    <p>
+                        {% if station %}
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            {% trans "Station:" %} <strong>{{ station.nom }}</strong>
+                        {% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'inventaire:liste_amendes' %}" class="btn-back">
+                    <i class="fas fa-arrow-left"></i>
+                    {% trans "Retour" %}
+                </a>
+            </div>
+        </div>
+
+        <!-- APERÇU DU MODÈLE EXCEL -->
+        <div class="card-import">
+            <h3>
+                <i class="fas fa-table" style="color: #10B981;"></i>
+                {% trans "Format du fichier Excel attendu" %}
+            </h3>
+
+            <!-- Codes nature d'infraction -->
+            <div class="nature-codes">
+                <h4>
+                    <i class="fas fa-info-circle"></i>
+                    {% trans "Codes pour la colonne Nature de l'infraction (H)" %}
+                </h4>
+                <div class="nature-codes-grid">
+                    <div class="nature-code-item">
+                        <code>S</code> <span>= Surcharge</span>
+                    </div>
+                    <div class="nature-code-item">
+                        <code>HG</code> <span>= Hors Gabarit</span>
+                    </div>
+                    <div class="nature-code-item">
+                        <code>DF</code> <span>= Délit de Fuite</span>
+                    </div>
+                    <div class="nature-code-item">
+                        <code>S+HG</code> <span>= Surcharge + Hors Gabarit</span>
+                    </div>
+                    <div class="nature-code-item">
+                        <code>HG+DF</code> <span>= Hors Gabarit + Délit de Fuite</span>
+                    </div>
+                    <div class="nature-code-item">
+                        <code>S+DF</code> <span>= Surcharge + Délit de Fuite</span>
+                    </div>
+                    <div class="nature-code-item">
+                        <code>S+HG+DF</code> <span>= Les trois infractions</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aperçu tableau -->
+            <div class="excel-preview">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>
+                                <span class="col-letter">A</span>
+                                <span class="required">*</span>N° Ticket
+                            </th>
+                            <th>
+                                <span class="col-letter">B</span>
+                                <span class="required">*</span>Immatriculation
+                            </th>
+                            <th>
+                                <span class="col-letter">C</span>
+                                <span class="required">*</span>Transporteur
+                            </th>
+                            <th>
+                                <span class="col-letter">D</span>
+                                Opérateur
+                            </th>
+                            <th>
+                                <span class="col-letter">E</span>
+                                <span class="required">*</span>Provenance
+                            </th>
+                            <th>
+                                <span class="col-letter">F</span>
+                                <span class="required">*</span>Destination
+                            </th>
+                            <th>
+                                <span class="col-letter">G</span>
+                                <span class="required">*</span>Produit
+                            </th>
+                            <th>
+                                <span class="col-letter">H</span>
+                                <span class="required">*</span>Infraction
+                            </th>
+                            <th>
+                                <span class="col-letter">I</span>
+                                <span class="required">*</span>Montant
+                            </th>
+                            <th>
+                                <span class="col-letter">J</span>
+                                Observations
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>TK-2025-001</td>
+                            <td>CE 123 AB</td>
+                            <td>TRANS CAMEROUN</td>
+                            <td>Jean Dupont</td>
+                            <td>Douala</td>
+                            <td>Yaoundé</td>
+                            <td>Ciment</td>
+                            <td><strong>S</strong></td>
+                            <td>150 000</td>
+                            <td>RAS</td>
+                        </tr>
+                        <tr>
+                            <td>TK-2025-002</td>
+                            <td>LT 456 CD</td>
+                            <td>LOGISTIQUE SA</td>
+                            <td>0</td>
+                            <td>Kribi</td>
+                            <td>Bertoua</td>
+                            <td>Bois</td>
+                            <td><strong>HG+DF</strong></td>
+                            <td>250 000</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>TK-2025-003</td>
+                            <td>NW 789 EF</td>
+                            <td>FRET EXPRESS</td>
+                            <td>Pierre Martin</td>
+                            <td>Bamenda</td>
+                            <td>Douala</td>
+                            <td>Huile</td>
+                            <td><strong>DF</strong></td>
+                            <td>100 000</td>
+                            <td>Véhicule en fuite</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p style="color: #64748B; font-size: 0.85rem; margin-bottom: 0;">
+                <i class="fas fa-asterisk" style="color: #F59E0B; font-size: 0.7rem;"></i>
+                {% trans "Les champs marqués d'un astérisque (*) sont obligatoires. Si l'opérateur/chauffeur n'est pas renseigné, la valeur sera automatiquement mise à 0." %}
+            </p>
+        </div>
+
+        <!-- FORMULAIRE D'IMPORT -->
+        <div class="card-import">
+            <h3>
+                <i class="fas fa-upload" style="color: #F59E0B;"></i>
+                {% trans "Sélectionner le fichier" %}
+            </h3>
+
+            <form method="post" enctype="multipart/form-data" class="form-import">
+                {% csrf_token %}
+                <p style="color: #64748B; margin-bottom: 1rem;">
+                    <i class="fas fa-file-excel" style="font-size: 2rem; color: #10B981; display: block; margin-bottom: 0.5rem;"></i>
+                    {% trans "Glissez-déposez ou sélectionnez un fichier Excel (.xlsx)" %}
+                </p>
+                {{ form.fichier_excel }}
+                <div style="margin-top: 1.5rem;">
+                    <button type="submit" class="btn-import">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        {% trans "Importer les amendes" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- RÉSULTATS D'IMPORT -->
+        {% if resultats %}
+        <div class="card-import resultats-section">
+            <h3>
+                <i class="fas fa-clipboard-check" style="color: #3B82F6;"></i>
+                {% trans "Résultat de l'import" %}
+            </h3>
+
+            <!-- Résumé -->
+            <div class="resultats-summary">
+                <div class="summary-card success">
+                    <div class="number">{{ amendes_importees }}</div>
+                    <div class="label">{% trans "Importée(s)" %}</div>
+                </div>
+                <div class="summary-card error">
+                    <div class="number">{{ erreurs_import|length }}</div>
+                    <div class="label">{% trans "Erreur(s)" %}</div>
+                </div>
+            </div>
+
+            <!-- Tableau détaillé -->
+            <div class="resultats-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>{% trans "Ligne" %}</th>
+                            <th>{% trans "N° Ticket" %}</th>
+                            <th>{% trans "Immatriculation" %}</th>
+                            <th>{% trans "Infraction" %}</th>
+                            <th>{% trans "Statut" %}</th>
+                            <th>{% trans "Détail" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in resultats %}
+                        <tr>
+                            <td>{{ r.ligne }}</td>
+                            <td>{{ r.data.numero_ticket|default:"-" }}</td>
+                            <td>{{ r.data.immatriculation|default:"-" }}</td>
+                            <td>{{ r.data.nature|default:"-" }}</td>
+                            <td>
+                                {% if r.statut == 'ok' %}
+                                <span class="badge-ok">
+                                    <i class="fas fa-check-circle"></i> OK
+                                </span>
+                                {% else %}
+                                <span class="badge-erreur">
+                                    <i class="fas fa-times-circle"></i> Erreur
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.erreur %}
+                                <span class="erreur-detail">{{ r.erreur }}</span>
+                                {% else %}
+                                <span style="color: #059669; font-size: 0.8rem;">{% trans "Importée avec succès" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Correction du défilement horizontal sur mobile
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.body.style.overflowX = 'hidden';
+            document.body.style.maxWidth = '100vw';
+            document.body.style.width = '100%';
+        }
+    }
+    
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+});
+</script>
+{% endblock %}

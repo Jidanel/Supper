@@ -577,18 +577,23 @@ def calculer_donnees_defaillants_complet(date_debut, date_fin):
 
 def identifier_postes_risque_complet(donnees, postes_actifs, annee, mois, date_fin):
     """
-    Identifie les postes à risque de baisse - version améliorée.
-    
-    Args:
-        donnees: Dictionnaire des données à enrichir
-        postes_actifs: QuerySet des postes actifs
-        annee: Année en cours
-        mois: Mois en cours
-        date_fin: Date de fin de la période
+    Identifie les postes à risque de baisse - version corrigée.
+ 
+    RISQUE MENSUEL (N-1 et N-2) :
+      - Recettes du mois en cours projetées au dernier jour du mois
+      - Comparaison avec le même mois complet de N-1 et N-2
+      - Si écart < 0 => en risque
+ 
+    RISQUE ANNUEL (N-1 et N-2) :
+      - Recettes du 1er janvier à date projetées au 31 décembre
+      - Comparaison avec le total annuel consolidé de N-1 et N-2
+      - Si écart < 0 => en risque
     """
     logger.debug(f"[RAPPORT_DEFAILLANTS] Identification des postes à risque")
-    
-    # Postes à risque mensuel N-1
+ 
+    dernier_jour_mois = calendar.monthrange(annee, mois)[1]
+ 
+    # ========== RISQUE MENSUEL N-1 ==========
     for poste in postes_actifs:
         recettes_mois_actuel = RecetteJournaliere.objects.filter(
             poste=poste,
@@ -596,42 +601,43 @@ def identifier_postes_risque_complet(donnees, postes_actifs, annee, mois, date_f
             date__month=mois,
             date__lte=date_fin
         ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-        
+ 
+        # Projection au dernier jour du mois
+        jour_actuel = date_fin.day
+        if jour_actuel < dernier_jour_mois and jour_actuel > 0 and recettes_mois_actuel > 0:
+            recettes_projetees = (recettes_mois_actuel / jour_actuel) * dernier_jour_mois
+        else:
+            recettes_projetees = recettes_mois_actuel
+ 
+        # Comparaison avec même mois N-1 (complet)
         recettes_mois_n1 = RecetteJournaliere.objects.filter(
             poste=poste,
             date__year=annee - 1,
             date__month=mois
         ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-        
+ 
         if recettes_mois_n1 > 0:
-            # Projeter sur le mois complet si on n'est pas à la fin
-            dernier_jour = calendar.monthrange(annee, mois)[1]
-            jour_actuel = date_fin.day
-            
-            if jour_actuel < dernier_jour:
-                # Projection simple
-                recettes_projetees = (recettes_mois_actuel / jour_actuel) * dernier_jour
-            else:
-                recettes_projetees = recettes_mois_actuel
-            
-            taux = float(((recettes_projetees - recettes_mois_n1) / recettes_mois_n1) * 100)
-            
-            if taux < -5:  # Baisse de plus de 5%
+            ecart = recettes_projetees - recettes_mois_n1
+            taux = float((ecart / recettes_mois_n1) * 100)
+ 
+            if ecart < 0:
                 donnees['postes_risque_mensuel_n1'].append({
                     'poste': poste,
                     'taux': taux,
-                    'recettes_actuelles': recettes_mois_actuel,
-                    'recettes_n1': recettes_mois_n1
+                    'recettes_projetees': float(recettes_projetees),
+                    'recettes_actuelles': float(recettes_mois_actuel),
+                    'recettes_n1': float(recettes_mois_n1),
+                    'ecart': float(ecart),
                 })
-    
-    # Trier par taux de baisse
+ 
     donnees['postes_risque_mensuel_n1'].sort(key=lambda x: x['taux'])
-    
+ 
     logger.debug(
-        f"[RAPPORT_DEFAILLANTS] Postes à risque N-1: {len(donnees['postes_risque_mensuel_n1'])}"
+        f"[RAPPORT_DEFAILLANTS] Postes à risque mensuel N-1: "
+        f"{len(donnees['postes_risque_mensuel_n1'])}"
     )
-    
-    # Même chose pour N-2
+ 
+    # ========== RISQUE MENSUEL N-2 ==========
     for poste in postes_actifs:
         recettes_mois_actuel = RecetteJournaliere.objects.filter(
             poste=poste,
@@ -639,37 +645,100 @@ def identifier_postes_risque_complet(donnees, postes_actifs, annee, mois, date_f
             date__month=mois,
             date__lte=date_fin
         ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-        
+ 
+        jour_actuel = date_fin.day
+        if jour_actuel < dernier_jour_mois and jour_actuel > 0 and recettes_mois_actuel > 0:
+            recettes_projetees = (recettes_mois_actuel / jour_actuel) * dernier_jour_mois
+        else:
+            recettes_projetees = recettes_mois_actuel
+ 
+        # Comparaison avec même mois N-2 (complet)
         recettes_mois_n2 = RecetteJournaliere.objects.filter(
             poste=poste,
             date__year=annee - 2,
             date__month=mois
         ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
-        
+ 
         if recettes_mois_n2 > 0:
-            dernier_jour = calendar.monthrange(annee, mois)[1]
-            jour_actuel = date_fin.day
-            
-            if jour_actuel < dernier_jour:
-                recettes_projetees = (recettes_mois_actuel / jour_actuel) * dernier_jour
-            else:
-                recettes_projetees = recettes_mois_actuel
-            
-            taux = float(((recettes_projetees - recettes_mois_n2) / recettes_mois_n2) * 100)
-            
-            if taux < -5:
+            ecart = recettes_projetees - recettes_mois_n2
+            taux = float((ecart / recettes_mois_n2) * 100)
+ 
+            if ecart < 0:
                 donnees['postes_risque_mensuel_n2'].append({
                     'poste': poste,
                     'taux': taux,
-                    'recettes_actuelles': recettes_mois_actuel,
-                    'recettes_n2': recettes_mois_n2
+                    'recettes_projetees': float(recettes_projetees),
+                    'recettes_actuelles': float(recettes_mois_actuel),
+                    'recettes_n2': float(recettes_mois_n2),
+                    'ecart': float(ecart),
                 })
-    
+ 
     donnees['postes_risque_mensuel_n2'].sort(key=lambda x: x['taux'])
-    
+ 
     logger.debug(
-        f"[RAPPORT_DEFAILLANTS] Postes à risque N-2: {len(donnees['postes_risque_mensuel_n2'])}"
+        f"[RAPPORT_DEFAILLANTS] Postes à risque mensuel N-2: "
+        f"{len(donnees['postes_risque_mensuel_n2'])}"
     )
+ 
+    # ========== RISQUE ANNUEL (projection au 31 décembre) ==========
+    debut_annee = date(annee, 1, 1)
+    jours_ecoules = (date_fin - debut_annee).days + 1
+ 
+    for poste in postes_actifs:
+        # Recettes cumulées du 1er janvier à date_fin
+        recettes_annee = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__gte=debut_annee,
+            date__lte=date_fin
+        ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+ 
+        # Projection au 31 décembre
+        if jours_ecoules > 0 and recettes_annee > 0:
+            moyenne_jour = recettes_annee / jours_ecoules
+            estimation_31dec = moyenne_jour * Decimal('365')
+        else:
+            estimation_31dec = Decimal('0')
+ 
+        # Recettes consolidées N-1 (année complète)
+        total_n1 = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__year=annee - 1
+        ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+ 
+        # Recettes consolidées N-2 (année complète)
+        total_n2 = RecetteJournaliere.objects.filter(
+            poste=poste,
+            date__year=annee - 2
+        ).aggregate(Sum('montant_declare'))['montant_declare__sum'] or Decimal('0')
+ 
+        # Écart N-1
+        ecart_n1 = estimation_31dec - total_n1
+        taux_n1 = float((ecart_n1 / total_n1) * 100) if total_n1 > 0 else None
+ 
+        # Écart N-2
+        ecart_n2 = estimation_31dec - total_n2
+        taux_n2 = float((ecart_n2 / total_n2) * 100) if total_n2 > 0 else None
+ 
+        if ecart_n1 < 0 and taux_n1 is not None:
+            donnees['postes_risque_annuel'].append({
+                'poste': poste,
+                'realise': float(recettes_annee),
+                'estimation_31dec': float(estimation_31dec),
+                'total_n1': float(total_n1),
+                'total_n2': float(total_n2),
+                'ecart_n1': float(ecart_n1),
+                'ecart_n2': float(ecart_n2),
+                'taux_n1': taux_n1,
+                'taux_n2': taux_n2,
+            })
+ 
+    donnees['postes_risque_annuel'].sort(key=lambda x: x['taux_n1'])
+ 
+    logger.debug(
+        f"[RAPPORT_DEFAILLANTS] Postes à risque annuel: "
+        f"{len(donnees['postes_risque_annuel'])}"
+    )
+ 
 
 
 def formater_dates_consecutives(dates):

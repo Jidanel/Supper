@@ -1,0 +1,207 @@
+{# templates/inventaire/transporteurs/saisie.html #}
+{# ÉTAPE 2 : agences + plaques + nombre de places, avec boutons + et − #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Saisie des transporteurs" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau reste inchangé) ===================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+.tr { width: 100%; }
+.tr img, .tr table { max-width: 100%; }
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; }
+  .tr-avert, .tr-erreurs { font-size: .9rem; word-break: break-word; }
+
+  /* Blocs agence : pleine largeur, espacement réduit */
+  .tr-bloc { width: 100%; max-width: 100%; padding: 10px !important; margin-left: 0; margin-right: 0; }
+  .tr-bloc select, .tr-bloc .form-select { width: 100%; max-width: 100%; }
+  .tr-lignes { width: 100%; }
+
+  /* Lignes véhicule : plaque + type + bouton passent à la ligne au lieu de déborder */
+  .tr-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+  .tr-ligne { padding-bottom: 10px; border-bottom: 1px dashed var(--line); }
+  .tr-ligne input[type=text] { order: 1; flex: 1 1 0; min-width: 0; width: auto; max-width: none !important; }   /* annule le max-width:200px en ligne */
+  .tr-ligne .js-retirer-vehicule { order: 2; flex: 0 0 auto; }                                                   /* « − » à droite de la plaque */
+  .tr-ligne .tr-seg { order: 3; flex: 1 1 100%; gap: 6px; }
+  .tr-ligne .tr-seg span { min-height: 44px; display: flex; align-items: center; padding: .4rem .9rem; }
+
+  /* Anti-zoom iOS */
+  .tr input, .tr select, .tr textarea { font-size: 16px !important; }
+
+  /* Zones tactiles ≥ 44px */
+  .tr input[type=text], .tr select, .tr .btn, .tr-btn, .tr-btn-ghost,
+  .js-ajouter-vehicule, .js-retirer-vehicule, .js-retirer-agence { min-height: 44px; }
+  .js-ajouter-vehicule, .js-retirer-vehicule, .js-retirer-agence { min-width: 44px; }
+
+  /* Boutons d'action sous le formulaire : pleine largeur, empilés */
+  #formTransporteurs > .d-flex { flex-direction: column; align-items: stretch; }
+  #formTransporteurs > .d-flex .btn,
+  #formTransporteurs > .d-flex .tr-btn-ghost { width: 100%; text-align: center; display: block; padding-top: 10px; padding-bottom: 10px; }
+  #formTransporteurs > .tr-btn { width: 100%; display: block; }
+  #formTransporteurs > .tr-btn-ghost { display: block; width: 100%; text-align: center; margin: 10px 0 0 0 !important; padding-top: 10px; padding-bottom: 10px; }
+
+  /* Totaux en direct : puces sur 2 colonnes */
+  .tr-chips { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tr-chip { width: 100%; min-width: 0; }
+  .tr-chip.total { grid-column: 1 / -1; }
+  .tr-panel .tr-head { font-size: 1rem; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+  .tr-bloc { padding: 8px !important; }
+  .tr-ligne .tr-seg span { font-size: .85rem; padding: .4rem .75rem; }
+  .tr-chip { font-size: .85rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+  .tr-ligne { gap: 6px; }
+  .tr-chips { grid-template-columns: 1fr; }
+  .tr-chip.total { grid-column: auto; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+  .tr-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tr-chip.total { grid-column: auto; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3" style="max-width:980px">
+  <h1>{% trans "Fiche des transporteurs de personnes" %}</h1>
+  <p class="tr-sub">{{ poste.nom }} — {{ date|date:"d/m/Y" }}
+    {% if existante %}· <b class="text-warning">{% trans "Modification d'une fiche validée (administrateur)" %}</b>{% endif %}</p>
+
+  {% if non_programme %}
+  <div class="tr-avert">{% trans "Ce poste n'est pas programmé pour l'inventaire à cette date. Vous pouvez saisir en tant qu'administrateur." %}</div>
+  {% endif %}
+  {% if erreurs %}<div class="tr-erreurs"><ul class="mb-0">{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+  <form method="post" id="formTransporteurs" novalidate>
+    {% csrf_token %}
+    <div id="blocs">
+      {# Un bloc par agence (rendu serveur : données conservées après une erreur) #}
+      {% for b in blocs %}{% include "inventaire/transporteurs/_bloc_agence.html" with i=b.index agence_id=b.agence_id vehicules=b.vehicules agences=agences types=types %}{% endfor %}
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      {# « + Agence » : ajoute un nouveau bloc #}
+      <button type="button" class="btn btn-outline-primary" id="btnAjouterAgence">+ {% trans "Ajouter une agence" %}</button>
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_agences' %}" target="_blank" rel="noopener">{% trans "Agence absente de la liste ?" %}</a>
+    </div>
+
+    {# Totaux en direct avant validation #}
+    <div class="tr-panel"><div class="tr-head">{% trans "Totaux en direct" %}</div>
+      <div class="tr-body tr-chips" id="totauxDirect">
+        {% for code, lib in types %}<div class="tr-chip" data-type="{{ code }}">{{ lib }}<b>0</b></div>{% endfor %}
+        <div class="tr-chip total" id="totalGeneral">{% trans "Total" %}<b>0</b></div>
+      </div>
+    </div>
+
+    {# « apercu » ouvre la fenêtre de confirmation ; rien n'est enregistré à ce stade #}
+    <button type="submit" name="action" value="apercu" class="tr-btn">{% trans "Vérifier et confirmer" %} →</button>
+    <a class="tr-btn-ghost text-decoration-none ms-2" href="{% url 'inventaire:transporteurs_choix_date' %}">{% trans "Changer la date" %}</a>
+  </form>
+</div>
+
+{# ===== Modèles HTML cachés, clonés par le JavaScript (placeholders __I__ et __J__) ===== #}
+<template id="tplBloc">{% include "inventaire/transporteurs/_bloc_agence.html" with i="__I__" agence_id="" vehicules="" agences=agences types=types %}</template>
+<template id="tplLigne">{% include "inventaire/transporteurs/_ligne_vehicule.html" with i="__I__" j="__J__" plaque="" vtype="" types=types %}</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+})();
+</script>
+<script>
+(function () {
+  var blocs = document.getElementById('blocs');                       // conteneur des agences
+  var prochainBloc = {{ prochain_bloc }};                              // indice du prochain bloc créé
+
+  function ajouterLigne(bloc) {                                        // « + » véhicule
+    var lignes = bloc.querySelectorAll('.tr-ligne');                   // lignes existantes
+    var j = 0;
+    lignes.forEach(function (l) { j = Math.max(j, parseInt(l.dataset.j, 10) + 1); });   // plus grand j + 1
+    var html = document.getElementById('tplLigne').innerHTML
+        .replace(/__I__/g, bloc.dataset.i).replace(/__J__/g, j);       // remplace les placeholders
+    bloc.querySelector('.tr-lignes').insertAdjacentHTML('beforeend', html);
+    majTotaux();
+  }
+  function ajouterBloc() {                                             // « + » agence
+    var html = document.getElementById('tplBloc').innerHTML.replace(/__I__/g, prochainBloc++);
+    blocs.insertAdjacentHTML('beforeend', html);
+    ajouterLigne(blocs.lastElementChild);                              // 1re ligne véhicule d'office
+  }
+  function majTotaux() {                                               // totaux en direct
+    var compte = {}, total = 0;
+    document.querySelectorAll('.tr-ligne').forEach(function (l) {
+      var plaque = l.querySelector('input[type=text]').value.trim();
+      var radio = l.querySelector('input[type=radio]:checked');
+      if (plaque && radio) { compte[radio.value] = (compte[radio.value] || 0) + 1; total++; }
+    });
+    document.querySelectorAll('#totauxDirect .tr-chip[data-type]').forEach(function (c) {
+      c.querySelector('b').textContent = compte[c.dataset.type] || 0;
+    });
+    document.querySelector('#totalGeneral b').textContent = total;
+  }
+
+  document.getElementById('btnAjouterAgence').addEventListener('click', ajouterBloc);
+  blocs.addEventListener('click', function (e) {                       // délégation : boutons +/−
+    var bloc = e.target.closest('.tr-bloc');
+    if (e.target.classList.contains('js-ajouter-vehicule')) ajouterLigne(bloc);
+    if (e.target.classList.contains('js-retirer-vehicule')) {
+      var ligne = e.target.closest('.tr-ligne');
+      if (bloc.querySelectorAll('.tr-ligne').length > 1) ligne.remove();   // garde au moins une ligne
+      else { ligne.querySelector('input[type=text]').value = ''; ligne.querySelectorAll('input[type=radio]').forEach(function (r) { r.checked = false; }); }
+      majTotaux();
+    }
+    if (e.target.classList.contains('js-retirer-agence')) {
+      if (document.querySelectorAll('.tr-bloc').length > 1) bloc.remove();
+      else alert("{% trans 'Il doit rester au moins une agence.' %}");
+      majTotaux();
+    }
+  });
+  blocs.addEventListener('input', majTotaux);                          // recalcul à chaque frappe/clic
+  blocs.addEventListener('change', majTotaux);
+  document.getElementById('formTransporteurs').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault();   // Entrée ne valide pas par erreur
+  });
+  majTotaux();                                                         // calcul initial
+})();
+</script>
+{% endblock %}

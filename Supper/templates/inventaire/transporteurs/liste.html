@@ -1,0 +1,152 @@
+{# templates/inventaire/transporteurs/liste.html #}
+{# Liste des fiches transporteurs : par poste et par jour, avec l'œil pour le détail #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Inventaires des transporteurs" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau reste inchangé) ===================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+.tr { width: 100%; }
+.tr-scroll { -webkit-overflow-scrolling: touch; }                       /* défilement fluide du tableau */
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+  .tr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }       /* filtres sur 2 colonnes */
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; }
+
+  /* En-tête : le bouton « Nouvelle fiche » passe en pleine largeur */
+  .tr > .d-flex { flex-direction: column; align-items: stretch; }
+  .tr > .d-flex > div { width: 100%; }
+  .tr > .d-flex .tr-btn { display: block; width: 100%; text-align: center; min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+
+  /* Filtres : champs en pleine largeur, bouton pleine largeur */
+  .tr-grid { grid-template-columns: 1fr; }
+  .tr-grid .form-select, .tr-grid .form-control { width: 100%; max-width: 100%; }
+  .tr-grid .tr-btn { display: block; width: 100%; }
+  .tr input, .tr select { font-size: 16px !important; }                /* anti-zoom iOS */
+  .tr input, .tr select, .tr .tr-btn { min-height: 44px; }
+
+  /* Tableau : défilement horizontal dans son conteneur, jamais sur la page */
+  .tr-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+  .tr-table { min-width: 720px; font-size: .85rem; }
+  .tr-table th, .tr-table td { white-space: nowrap; padding: .5rem .55rem; }
+
+  /* Icônes œil / modifier / corbeille : zones tactiles ≥ 44px */
+  .tr-table td.no-print a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+
+  /* Pagination : tactile et sur plusieurs lignes si besoin */
+  .pagination { flex-wrap: wrap; justify-content: center; }
+  .pagination .page-link { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+  .tr-table { font-size: .8rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+  .tr-table { min-width: 680px; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+  .tr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2">
+    <div><h1>{% trans "Inventaires des transporteurs" %}</h1>
+      <p class="tr-sub">{% trans "Agences, véhicules et types passés, par poste et par jour." %}</p></div>
+    <div class="no-print"><a class="tr-btn text-decoration-none" href="{% url 'inventaire:transporteurs_choix_date' %}">+ {% trans "Nouvelle fiche" %}</a></div>
+  </div>
+
+  {# Filtres #}
+  <form method="get" class="tr-panel no-print"><div class="tr-body tr-grid">
+    {% if choix_poste %}<div><label class="tr-lbl">{% trans "Poste" %}</label>
+      <select name="poste" class="form-select"><option value="">{% trans "Tous les postes" %}</option>
+        {% for p in postes %}<option value="{{ p.id }}" {% if poste_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+      </select></div>{% endif %}
+    <div><label class="tr-lbl">{% trans "Du" %}</label><input type="date" name="date_debut" value="{{ debut }}" class="form-control"></div>
+    <div><label class="tr-lbl">{% trans "Au" %}</label><input type="date" name="date_fin" value="{{ fin }}" class="form-control"></div>
+    <div><button class="tr-btn" type="submit">{% trans "Filtrer" %}</button></div>
+  </div></form>
+
+  <div class="tr-panel"><div class="tr-scroll"><table class="tr-table">
+    <thead><tr>
+      <th>{% trans "Date" %}</th><th>{% trans "Poste" %}</th>
+      <th class="num">{% trans "Agences" %}</th><th class="num">{% trans "Véhicules" %}</th>
+      {% for code, lib in types %}<th class="num">{{ lib }}</th>{% endfor %}
+      <th>{% trans "Saisi par" %}</th><th class="no-print"></th>
+    </tr></thead>
+    <tbody>
+    {% for f in page %}
+      <tr>
+        <td>{{ f.date|date:"d/m/Y" }}</td><td>{{ f.poste.nom }}</td>
+        <td class="num">{{ f.n_agences }}</td><td class="num"><b>{{ f.n_vehicules }}</b></td>
+        <td class="num">{{ f.n_coaster }}</td><td class="num">{{ f.n_bus_ordinaire }}</td>
+        <td class="num">{{ f.n_bus_clim }}</td><td class="num">{{ f.n_hiace }}</td>
+        <td>{{ f.saisi_par }}</td>
+        <td class="no-print text-nowrap">
+          {# Œil : voir le détail #}
+          <a href="{% url 'inventaire:transporteurs_detail' f.pk %}" title="{% trans 'Voir le détail' %}"><i class="fas fa-eye"></i></a>
+          {% if est_admin %}<a class="ms-2" href="{% url 'inventaire:transporteurs_saisie' f.poste_id f.date|date:'Y-m-d' %}" title="{% trans 'Modifier' %}"><i class="fas fa-edit"></i></a>
+          {# Corbeille : suppression (admin) avec fenêtre de confirmation #}
+          <a href="#" class="ms-2 text-danger js-suppr-fiche" title="{% trans 'Supprimer' %}"
+             data-url="{% url 'inventaire:transporteurs_supprimer' f.pk %}"
+             data-label="{{ f.poste.nom }} — {{ f.date|date:'d/m/Y' }} ({{ f.n_vehicules }} {% trans 'véhicule(s)' %})"><i class="fas fa-trash"></i></a>{% endif %}
+        </td>
+      </tr>
+    {% empty %}<tr><td colspan="10" class="text-center text-muted py-4">{% trans "Aucune fiche sur cette période." %}</td></tr>{% endfor %}
+    </tbody>
+  </table></div></div>
+
+  {% if page.has_other_pages %}
+  <nav class="no-print"><ul class="pagination">
+    {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?{{ qs }}&page={{ page.previous_page_number }}">‹</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+    {% if page.has_next %}<li class="page-item"><a class="page-link" href="?{{ qs }}&page={{ page.next_page_number }}">›</a></li>{% endif %}
+  </ul></nav>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+})();
+</script>
+{% if est_admin %}{% include "inventaire/transporteurs/_modal_suppression.html" %}{% endif %}
+{% endblock %}

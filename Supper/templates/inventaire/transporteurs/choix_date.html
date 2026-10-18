@@ -1,0 +1,103 @@
+{# templates/inventaire/transporteurs/choix_date.html #}
+{# ÉTAPE 1 de la saisie : choisir la date (et le poste pour un administrateur) #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Transporteurs - Choix de la date" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+/* ===================== RESPONSIVE (CSS uniquement, le bureau reste inchangé) ===================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+.tr { width: 100%; }
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media (max-width: 1024px) {
+  .tr { padding-left: 14px; padding-right: 14px; }
+  .tr h1 { font-size: 1.5rem; }
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media (max-width: 767px) {
+  .tr { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .tr h1 { font-size: 1.3rem; line-height: 1.3; word-break: break-word; }
+  .tr-sub { font-size: .9rem; line-height: 1.4; }
+
+  /* Champs : pleine largeur, 16px (anti-zoom iOS), 44px de haut */
+  .tr .form-select, .tr .form-control { width: 100%; max-width: 100%; }
+  .tr input, .tr select { font-size: 16px !important; }
+  .tr input, .tr select, .tr .tr-btn { min-height: 44px; }
+
+  /* Bouton « Continuer » en pleine largeur */
+  .tr .tr-btn { display: block; width: 100%; text-align: center; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media (max-width: 576px) {
+  .tr h1 { font-size: 1.15rem; }
+  .tr-sub { font-size: .85rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media (max-width: 375px) {
+  .tr { padding: 10px 6px !important; }
+  .tr h1 { font-size: 1.05rem; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .tr { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .tr h1 { font-size: 1.1rem; margin-bottom: 4px; }
+  .tr-sub { margin-bottom: .6rem; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3" style="max-width:720px">
+  <h1>{% trans "Fiche des transporteurs de personnes" %}</h1>
+  <p class="tr-sub">{% trans "Étape 1 sur 2 : choisissez la date. Vous choisirez ensuite les agences et leurs véhicules." %}</p>
+  <form method="post" class="tr-panel">
+    {% csrf_token %}
+    <div class="tr-body">
+      {% if choix_poste %}
+      {# Administrateur : choix libre du poste #}
+      <div class="mb-3">
+        <label class="tr-lbl" for="poste">{% trans "Poste de péage" %}</label>
+        <select class="form-select" id="poste" name="poste" required>
+          <option value="">{% trans "— Choisir —" %}</option>
+          {% for p in postes %}<option value="{{ p.id }}">{{ p.nom }}</option>{% endfor %}
+        </select>
+      </div>
+      {% else %}
+      {# Agent : son poste est imposé #}
+      <p class="mb-3"><b>{% trans "Poste" %} :</b> {{ poste_unique.nom }}</p>
+      {% endif %}
+      <div class="mb-3">
+        <label class="tr-lbl" for="date">{% trans "Date" %}</label>
+        <input type="date" class="form-control" id="date" name="date" value="{{ aujourd_hui }}" max="{{ aujourd_hui }}" required>
+      </div>
+      <button class="tr-btn" type="submit">{% trans "Continuer" %} →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+  var tr = document.querySelector('.tr');
+  if (!tr) return;
+  function recadrer() {
+    var mobile = window.innerWidth <= 767;
+    for (var el = tr.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+      if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+      else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+    }
+  }
+  recadrer();
+  window.addEventListener('resize', recadrer);
+})();
+</script>
+{% endblock %}

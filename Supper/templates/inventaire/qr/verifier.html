@@ -1,0 +1,49 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 40px auto;">
+
+    {% if valide %}
+        <div style="background:#d4edda; padding:20px; border-radius:10px;">
+            <h2 style="color:#155724;">
+                ✔ Ticket authentique (PSRR)
+            </h2>
+
+            <hr>
+
+            <p><strong>Code :</strong> {{ detail.code_securisation }}</p>
+
+            <h4>Commande</h4>
+            <p>
+                N° {{ commande.numero_commande }} <br>
+                Exercice : {{ commande.exercice }} <br>
+                Période : {{ commande.get_periode_display_complet }}
+            </p>
+
+            <h4>Poste</h4>
+            <p>
+                {{ poste.nom }} <br>
+                Région : {{ poste.region.nom }}
+            </p>
+
+            <h4>Détails</h4>
+            <p>
+                Montant : {{ detail.montant_commande|floatformat:0 }} FCFA <br>
+                Tickets : {{ detail.nombre_tickets }} <br>
+                Carnets : {{ detail.nombre_carnets }}
+            </p>
+
+        </div>
+
+    {% else %}
+        <div style="background:#f8d7da; padding:20px; border-radius:10px;">
+            <h2 style="color:#721c24;">
+                ❌ Ticket invalide
+            </h2>
+
+            <p>{{ message }}</p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

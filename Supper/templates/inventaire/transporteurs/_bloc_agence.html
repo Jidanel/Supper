@@ -1,0 +1,24 @@
+{# templates/inventaire/transporteurs/_bloc_agence.html #}
+{% load i18n %}
+{# Un bloc = une agence + ses véhicules. Variables : i, agence_id, vehicules, agences, types #}
+<div class="tr-panel tr-bloc" data-i="{{ i }}">
+  <div class="tr-head">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span>{% trans "Agence" %}</span>
+      {# Liste déroulante des agences (ordre alphabétique) #}
+      <select class="form-select" style="min-width:260px" name="ag-{{ i }}-agence">
+        <option value="">{% trans "— Choisir l'agence —" %}</option>
+        {% for a in agences %}<option value="{{ a.id }}" {% if agence_id == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nom }}</option>{% endfor %}
+      </select>
+    </div>
+    {# « − » côté agence : retire tout le bloc #}
+    <button type="button" class="btn btn-outline-danger btn-sm js-retirer-agence" title="{% trans 'Retirer cette agence' %}">− {% trans "Agence" %}</button>
+  </div>
+  <div class="tr-body">
+    <div class="tr-lignes">
+      {% for v in vehicules %}{% include "inventaire/transporteurs/_ligne_vehicule.html" with i=i j=v.index plaque=v.plaque vtype=v.type types=types %}{% endfor %}
+    </div>
+    {# « + » : ajoute un véhicule à cette agence #}
+    <button type="button" class="btn btn-outline-primary btn-sm js-ajouter-vehicule">+ {% trans "Véhicule" %}</button>
+  </div>
+</div>

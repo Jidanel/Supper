@@ -1,0 +1,698 @@
+{
+ "postes": [
+  {
+   "nom": "Bekasichi",
+   "region": "Adamaoua"
+  },
+  {
+   "nom": "Bindiba-Lokoti",
+   "region": "Adamaoua"
+  },
+  {
+   "nom": "Borongo",
+   "region": "Adamaoua"
+  },
+  {
+   "nom": "Gboutou",
+   "region": "Adamaoua"
+  },
+  {
+   "nom": "Ngatt",
+   "region": "Adamaoua"
+  },
+  {
+   "nom": "Tchabbal",
+   "region": "Adamaoua"
+  },
+  {
+   "nom": "Wourou-Sangue",
+   "region": "Adamaoua"
+  },
+  {
+   "nom": "Biamo (Bafia)",
+   "region": "Centre"
+  },
+  {
+   "nom": "Boumnyebel",
+   "region": "Centre"
+  },
+  {
+   "nom": "Ekoko I (Nsimalen)",
+   "region": "Centre"
+  },
+  {
+   "nom": "Etog-Nang",
+   "region": "Centre"
+  },
+  {
+   "nom": "Makai",
+   "region": "Centre"
+  },
+  {
+   "nom": "Mayabat",
+   "region": "Centre"
+  },
+  {
+   "nom": "Mbelalen-Awae",
+   "region": "Centre"
+  },
+  {
+   "nom": "Nio-Baboute (Mbandjock)",
+   "region": "Centre"
+  },
+  {
+   "nom": "Nkolemomodo",
+   "region": "Centre"
+  },
+  {
+   "nom": "Nkometou III",
+   "region": "Centre"
+  },
+  {
+   "nom": "Okoa-Maria (Mbankomo)",
+   "region": "Centre"
+  },
+  {
+   "nom": "Gazawa",
+   "region": "Extrême-Nord"
+  },
+  {
+   "nom": "Kousseri",
+   "region": "Extrême-Nord"
+  },
+  {
+   "nom": "Magada",
+   "region": "Extrême-Nord"
+  },
+  {
+   "nom": "Meme",
+   "region": "Extrême-Nord"
+  },
+  {
+   "nom": "Ouro Dabang (Yagoua)",
+   "region": "Extrême-Nord"
+  },
+  {
+   "nom": "Waza",
+   "region": "Extrême-Nord"
+  },
+  {
+   "nom": "Bouam",
+   "region": "Est"
+  },
+  {
+   "nom": "Djaglassi",
+   "region": "Est"
+  },
+  {
+   "nom": "Garoua Boulai",
+   "region": "Est"
+  },
+  {
+   "nom": "Mandjou",
+   "region": "Est"
+  },
+  {
+   "nom": "Mbama",
+   "region": "Est"
+  },
+  {
+   "nom": "Ndokayo",
+   "region": "Est"
+  },
+  {
+   "nom": "Ngamboula",
+   "region": "Est"
+  },
+  {
+   "nom": "Lala Village (Manjo)",
+   "region": "Littoral"
+  },
+  {
+   "nom": "Muyuka Mbanga",
+   "region": "Littoral"
+  },
+  {
+   "nom": "Sikoum (Edéa)",
+   "region": "Littoral"
+  },
+  {
+   "nom": "Djabi",
+   "region": "Nord"
+  },
+  {
+   "nom": "Djefatou",
+   "region": "Nord"
+  },
+  {
+   "nom": "Mbem (Home)",
+   "region": "Nord"
+  },
+  {
+   "nom": "Ngoumi",
+   "region": "Nord"
+  },
+  {
+   "nom": "Ouro Magadji (Mayo Oulo)",
+   "region": "Nord"
+  },
+  {
+   "nom": "Santa (Matazem)",
+   "region": "Nord-Ouest"
+  },
+  {
+   "nom": "Baleveng",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Bamena",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Bandja",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Batoufam",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Fongwang",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Maka",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Mangoum",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Manki",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Zemezong",
+   "region": "Ouest"
+  },
+  {
+   "nom": "Abiete (Mengong)",
+   "region": "Sud"
+  },
+  {
+   "nom": "Akie-Emanmvam",
+   "region": "Sud"
+  },
+  {
+   "nom": "Akoulouzock",
+   "region": "Sud"
+  },
+  {
+   "nom": "Biyeyem",
+   "region": "Sud"
+  },
+  {
+   "nom": "Grand-Zambi",
+   "region": "Sud"
+  },
+  {
+   "nom": "Kribi",
+   "region": "Sud"
+  },
+  {
+   "nom": "Kribi Lolabe",
+   "region": "Sud"
+  },
+  {
+   "nom": "Lele",
+   "region": "Sud"
+  },
+  {
+   "nom": "Mekotto",
+   "region": "Sud"
+  },
+  {
+   "nom": "Nloup",
+   "region": "Sud"
+  },
+  {
+   "nom": "Nkolotoutou",
+   "region": "Sud"
+  },
+  {
+   "nom": "Tho II (Nkoumekeke)",
+   "region": "Sud"
+  },
+  {
+   "nom": "Green Valley",
+   "region": "Sud-Ouest"
+  },
+  {
+   "nom": "New Bonako",
+   "region": "Sud-Ouest"
+  }
+ ],
+ "liaisons": [
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Akie-Emanmvam",
+   "tarif": 2500
+  },
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Akoulouzock",
+   "tarif": 2000
+  },
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Biyeyem",
+   "tarif": 1000
+  },
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Ekoko I (Nsimalen)",
+   "tarif": 2000
+  },
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Lele",
+   "tarif": 6000
+  },
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Nkolotoutou",
+   "tarif": 2000
+  },
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Nloup",
+   "tarif": 2500
+  },
+  {
+   "a": "Abiete (Mengong)",
+   "b": "Tho II (Nkoumekeke)",
+   "tarif": 2500
+  },
+  {
+   "a": "Akie-Emanmvam",
+   "b": "Grand-Zambi",
+   "tarif": 3000
+  },
+  {
+   "a": "Akie-Emanmvam",
+   "b": "Kribi",
+   "tarif": 2500
+  },
+  {
+   "a": "Akie-Emanmvam",
+   "b": "Kribi Lolabe",
+   "tarif": 9000
+  },
+  {
+   "a": "Akie-Emanmvam",
+   "b": "Sikoum (Edéa)",
+   "tarif": 5000
+  },
+  {
+   "a": "Akoulouzock",
+   "b": "Biyeyem",
+   "tarif": 2000
+  },
+  {
+   "a": "Akoulouzock",
+   "b": "Tho II (Nkoumekeke)",
+   "tarif": 700
+  },
+  {
+   "a": "Baleveng",
+   "b": "Fongwang",
+   "tarif": 1500
+  },
+  {
+   "a": "Baleveng",
+   "b": "Zemezong",
+   "tarif": 500
+  },
+  {
+   "a": "Bamena",
+   "b": "Biamo (Bafia)",
+   "tarif": 3000
+  },
+  {
+   "a": "Bamena",
+   "b": "Lala Village (Manjo)",
+   "tarif": 3000
+  },
+  {
+   "a": "Bandja",
+   "b": "Lala Village (Manjo)",
+   "tarif": 3500
+  },
+  {
+   "a": "Batoufam",
+   "b": "Biamo (Bafia)",
+   "tarif": 3000
+  },
+  {
+   "a": "Batoufam",
+   "b": "Maka",
+   "tarif": 1500
+  },
+  {
+   "a": "Bekasichi",
+   "b": "Bindiba-Lokoti",
+   "tarif": 3500
+  },
+  {
+   "a": "Bekasichi",
+   "b": "Gboutou",
+   "tarif": 3000
+  },
+  {
+   "a": "Biamo (Bafia)",
+   "b": "Nio-Baboute (Mbandjock)",
+   "tarif": 2000
+  },
+  {
+   "a": "Biamo (Bafia)",
+   "b": "Nkometou III",
+   "tarif": 1000
+  },
+  {
+   "a": "Bindiba-Lokoti",
+   "b": "Borongo",
+   "tarif": 3000
+  },
+  {
+   "a": "Bindiba-Lokoti",
+   "b": "Garoua Boulai",
+   "tarif": 1500
+  },
+  {
+   "a": "Bindiba-Lokoti",
+   "b": "Gboutou",
+   "tarif": 1500
+  },
+  {
+   "a": "Bindiba-Lokoti",
+   "b": "Tchabbal",
+   "tarif": 3000
+  },
+  {
+   "a": "Bindiba-Lokoti",
+   "b": "Wourou-Sangue",
+   "tarif": 2500
+  },
+  {
+   "a": "Biyeyem",
+   "b": "Tho II (Nkoumekeke)",
+   "tarif": 2000
+  },
+  {
+   "a": "Borongo",
+   "b": "Gboutou",
+   "tarif": 2500
+  },
+  {
+   "a": "Borongo",
+   "b": "Tchabbal",
+   "tarif": 500
+  },
+  {
+   "a": "Borongo",
+   "b": "Wourou-Sangue",
+   "tarif": 1500
+  },
+  {
+   "a": "Bouam",
+   "b": "Etog-Nang",
+   "tarif": 1500
+  },
+  {
+   "a": "Bouam",
+   "b": "Mandjou",
+   "tarif": 2000
+  },
+  {
+   "a": "Boumnyebel",
+   "b": "Makai",
+   "tarif": 500
+  },
+  {
+   "a": "Boumnyebel",
+   "b": "Mayabat",
+   "tarif": 1000
+  },
+  {
+   "a": "Boumnyebel",
+   "b": "Okoa-Maria (Mbankomo)",
+   "tarif": 1500
+  },
+  {
+   "a": "Boumnyebel",
+   "b": "Sikoum (Edéa)",
+   "tarif": 2000
+  },
+  {
+   "a": "Djabi",
+   "b": "Djefatou",
+   "tarif": 3000
+  },
+  {
+   "a": "Djabi",
+   "b": "Magada",
+   "tarif": 5000
+  },
+  {
+   "a": "Djabi",
+   "b": "Ouro Magadji (Mayo Oulo)",
+   "tarif": 1500
+  },
+  {
+   "a": "Djaglassi",
+   "b": "Mandjou",
+   "tarif": 3000
+  },
+  {
+   "a": "Djaglassi",
+   "b": "Mbama",
+   "tarif": 3000
+  },
+  {
+   "a": "Djefatou",
+   "b": "Tchabbal",
+   "tarif": 5000
+  },
+  {
+   "a": "Ekoko I (Nsimalen)",
+   "b": "Kribi",
+   "tarif": 5000
+  },
+  {
+   "a": "Ekoko I (Nsimalen)",
+   "b": "Nloup",
+   "tarif": 2000
+  },
+  {
+   "a": "Ekoko I (Nsimalen)",
+   "b": "Okoa-Maria (Mbankomo)",
+   "tarif": 1000
+  },
+  {
+   "a": "Ekoko I (Nsimalen)",
+   "b": "Tho II (Nkoumekeke)",
+   "tarif": 3000
+  },
+  {
+   "a": "Etog-Nang",
+   "b": "Nio-Baboute (Mbandjock)",
+   "tarif": 1000
+  },
+  {
+   "a": "Garoua Boulai",
+   "b": "Mbama",
+   "tarif": 7000
+  },
+  {
+   "a": "Garoua Boulai",
+   "b": "Ndokayo",
+   "tarif": 3000
+  },
+  {
+   "a": "Gazawa",
+   "b": "Magada",
+   "tarif": 4000
+  },
+  {
+   "a": "Gazawa",
+   "b": "Meme",
+   "tarif": 3000
+  },
+  {
+   "a": "Gboutou",
+   "b": "Tchabbal",
+   "tarif": 2500
+  },
+  {
+   "a": "Gboutou",
+   "b": "Wourou-Sangue",
+   "tarif": 2000
+  },
+  {
+   "a": "Grand-Zambi",
+   "b": "Kribi",
+   "tarif": 5000
+  },
+  {
+   "a": "Grand-Zambi",
+   "b": "Kribi Lolabe",
+   "tarif": 6000
+  },
+  {
+   "a": "Green Valley",
+   "b": "New Bonako",
+   "tarif": 3000
+  },
+  {
+   "a": "Kousseri",
+   "b": "Waza",
+   "tarif": 10000
+  },
+  {
+   "a": "Kribi",
+   "b": "Kribi Lolabe",
+   "tarif": 6000
+  },
+  {
+   "a": "Kribi",
+   "b": "Sikoum (Edéa)",
+   "tarif": 3000
+  },
+  {
+   "a": "Lala Village (Manjo)",
+   "b": "Muyuka Mbanga",
+   "tarif": 1000
+  },
+  {
+   "a": "Lele",
+   "b": "Mekotto",
+   "tarif": 2500
+  },
+  {
+   "a": "Lele",
+   "b": "Nkolotoutou",
+   "tarif": 10000
+  },
+  {
+   "a": "Lele",
+   "b": "Nloup",
+   "tarif": 4000
+  },
+  {
+   "a": "Magada",
+   "b": "Ouro Dabang (Yagoua)",
+   "tarif": 6000
+  },
+  {
+   "a": "Maka",
+   "b": "Mangoum",
+   "tarif": 2000
+  },
+  {
+   "a": "Makai",
+   "b": "Sikoum (Edéa)",
+   "tarif": 3000
+  },
+  {
+   "a": "Mandjou",
+   "b": "Ndokayo",
+   "tarif": 3000
+  },
+  {
+   "a": "Mandjou",
+   "b": "Ngamboula",
+   "tarif": 1000
+  },
+  {
+   "a": "Mangoum",
+   "b": "Manki",
+   "tarif": 3000
+  },
+  {
+   "a": "Mbama",
+   "b": "Mbelalen-Awae",
+   "tarif": 2000
+  },
+  {
+   "a": "Mbelalen-Awae",
+   "b": "Nkometou III",
+   "tarif": 2000
+  },
+  {
+   "a": "Mbem (Home)",
+   "b": "Ngoumi",
+   "tarif": 2500
+  },
+  {
+   "a": "Mekotto",
+   "b": "Nkolotoutou",
+   "tarif": 2000
+  },
+  {
+   "a": "Mekotto",
+   "b": "Nloup",
+   "tarif": 2500
+  },
+  {
+   "a": "Meme",
+   "b": "Waza",
+   "tarif": 5000
+  },
+  {
+   "a": "Muyuka Mbanga",
+   "b": "New Bonako",
+   "tarif": 3000
+  },
+  {
+   "a": "Muyuka Mbanga",
+   "b": "Sikoum (Edéa)",
+   "tarif": 3000
+  },
+  {
+   "a": "New Bonako",
+   "b": "Sikoum (Edéa)",
+   "tarif": 3000
+  },
+  {
+   "a": "Ngatt",
+   "b": "Nio-Baboute (Mbandjock)",
+   "tarif": 6000
+  },
+  {
+   "a": "Ngatt",
+   "b": "Tchabbal",
+   "tarif": 5000
+  },
+  {
+   "a": "Nio-Baboute (Mbandjock)",
+   "b": "Nkometou III",
+   "tarif": 2000
+  },
+  {
+   "a": "Nkolemomodo",
+   "b": "Okoa-Maria (Mbankomo)",
+   "tarif": 500
+  },
+  {
+   "a": "Nkolotoutou",
+   "b": "Nloup",
+   "tarif": 800
+  },
+  {
+   "a": "Tchabbal",
+   "b": "Wourou-Sangue",
+   "tarif": 1500
+  }
+ ]
+}

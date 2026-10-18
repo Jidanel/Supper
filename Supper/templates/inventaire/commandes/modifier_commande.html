@@ -1,0 +1,402 @@
+{% extends "admin/base_site.html" %}
+{% load static inventaire_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #1a5f2a;
+        --primary-light: #2d8a3e;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --bg-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .modifier-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--warning-color), #e0a800);
+        color: #333;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: var(--card-shadow);
+    }
+
+    .page-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.6rem;
+        font-weight: 600;
+    }
+
+    .page-header p {
+        margin: 0;
+        opacity: 0.8;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .form-card-header {
+        background: var(--bg-light);
+        padding: 18px 25px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .form-card-header i {
+        font-size: 1.2rem;
+        color: var(--primary-color);
+    }
+
+    .form-card-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .form-card-body {
+        padding: 25px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 0;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    .form-group .form-select,
+    .form-group .form-control,
+    .form-group select,
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group .form-select:focus,
+    .form-group .form-control:focus,
+    .form-group select:focus,
+    .form-group input:focus,
+    .form-group textarea:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(26, 95, 42, 0.15);
+        outline: none;
+    }
+
+    .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .form-group .help-text {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: 6px;
+    }
+
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 6px 0 0 0;
+    }
+
+    .errorlist li {
+        color: var(--danger-color);
+        font-size: 0.85rem;
+    }
+
+    /* Info de la commande */
+    .commande-info {
+        background: var(--bg-light);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+    }
+
+    .commande-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+
+    .commande-info-item {
+        text-align: center;
+    }
+
+    .commande-info-item .value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .commande-info-item .label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    /* Section description */
+    .description-section {
+        margin-top: 20px;
+    }
+
+    /* Boutons */
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 25px;
+        background: var(--bg-light);
+        border-top: 1px solid var(--border-color);
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--primary-light);
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: #333;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #666;
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+        background: var(--bg-light);
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    /* Alerte */
+    .alert-warning {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .alert-warning i {
+        font-size: 1.2rem;
+        margin-top: 2px;
+    }
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        .modifier-container {
+            padding: 15px;
+        }
+
+        .page-header {
+            padding: 20px;
+        }
+
+        .page-header h1 {
+            font-size: 1.3rem;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .commande-info-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="modifier-container">
+    <!-- En-tête -->
+    <div class="page-header">
+        <h1><i class="fas fa-edit"></i> Modifier la Commande n°{{ commande.numero_commande }}</h1>
+        <p>Exercice {{ commande.exercice }} - {{ commande.get_periode_display_complet }}</p>
+    </div>
+
+    <!-- Informations actuelles -->
+    <div class="form-card" style="margin-bottom: 25px;">
+        <div class="form-card-header">
+            <i class="fas fa-info-circle"></i>
+            <h2>Informations Actuelles</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="commande-info">
+                <div class="commande-info-grid">
+                    <div class="commande-info-item">
+                        <div class="value">{{ commande.nombre_postes }}</div>
+                        <div class="label">Postes</div>
+                    </div>
+                    <div class="commande-info-item">
+                        <div class="value">{{ commande.montant_total|format_milliers }}</div>
+                        <div class="label">FCFA</div>
+                    </div>
+                    <div class="commande-info-item">
+                        <div class="value">{{ commande.nombre_carnets_total|format_milliers }}</div>
+                        <div class="label">Carnets</div>
+                    </div>
+                    <div class="commande-info-item">
+                        <div class="value">{{ commande.get_taux_livraison }}%</div>
+                        <div class="label">Livré</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if commande.get_taux_livraison > 0 %}
+            <div class="alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>Attention:</strong> Des livraisons sont associées à cette commande. 
+                    Seuls le statut et la description peuvent être modifiés.
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Formulaire -->
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="fas fa-cog"></i>
+                <h2>Paramètres Modifiables</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="id_statut">
+                            <i class="fas fa-tag"></i> Statut
+                        </label>
+                        {{ form.statut }}
+                        {% if form.statut.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.statut.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        <p class="help-text">Modifiez le statut de la commande</p>
+                    </div>
+
+                    {% if not commande.get_taux_livraison > 0 %}
+                    <div class="form-group">
+                        <label for="id_numero_commande">
+                            <i class="fas fa-hashtag"></i> Numéro de commande
+                        </label>
+                        {{ form.numero_commande }}
+                        {% if form.numero_commande.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.numero_commande.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="description-section">
+                    <div class="form-group">
+                        <label for="id_description">
+                            <i class="fas fa-comment-alt"></i> Description / Observations
+                        </label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.description.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'inventaire:detail_commande' commande.id %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Annuler
+                </a>
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-save"></i> Enregistrer les modifications
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

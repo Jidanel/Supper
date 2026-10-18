@@ -1,0 +1,510 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+{% load inventaire_extras %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; width: 100% !important; position: relative !important; }
+
+    .detail-page { width: 100%; max-width: 100%; overflow-x: hidden; position: relative; }
+    .container-fluid { width: 100%; max-width: 100%; padding-left: 15px; padding-right: 15px; margin: 0 auto; overflow-x: hidden; }
+    .py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+    .row { display: flex; flex-wrap: wrap; margin-left: -15px; margin-right: -15px; width: calc(100% + 30px); }
+    .justify-content-center { justify-content: center !important; }
+    .col-12, .col-md-10, .col-lg-8, .col-xl-7 { padding-left: 15px; padding-right: 15px; width: 100%; max-width: 100%; }
+
+    .breadcrumb { display: flex; flex-wrap: wrap; padding: 0.75rem 1rem; margin-bottom: 1rem; list-style: none; background-color: #f8f9fa; border-radius: 8px; }
+    .breadcrumb-item { display: flex; align-items: center; }
+    .breadcrumb-item + .breadcrumb-item::before { content: "/"; padding: 0 0.5rem; color: #6c757d; }
+    .breadcrumb-item a { color: #8b5cf6; text-decoration: none; }
+    .breadcrumb-item a:hover { text-decoration: underline; }
+    .breadcrumb-item.active { color: #6c757d; }
+
+    .detail-card {
+        background: white;
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .detail-card .card-header {
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+        color: white;
+        padding: 1.5rem;
+        border: none;
+    }
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .header-info h4 {
+        margin: 0 0 0.5rem;
+        font-weight: 600;
+        font-size: 1.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .header-info .numero {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    .header-badge {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .detail-card .card-body { padding: 2rem; }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-item {
+        background: #f9fafb;
+        border-radius: 12px;
+        padding: 1.25rem;
+    }
+
+    .info-item.full-width { grid-column: 1 / -1; }
+
+    .info-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-value {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .info-value.amount {
+        font-family: 'Courier New', monospace;
+        font-size: 1.25rem;
+        color: #059669;
+    }
+
+    .info-value.large {
+        font-size: 1.4rem;
+    }
+
+    .poste-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4338ca;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .mois-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .ecart-card {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #f59e0b;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .ecart-card .ecart-label {
+        font-size: 0.85rem;
+        color: #92400e;
+        margin-bottom: 0.5rem;
+    }
+
+    .ecart-card .ecart-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        font-family: 'Courier New', monospace;
+    }
+
+    .ecart-card .ecart-value.positive { color: #059669; }
+    .ecart-card .ecart-value.negative { color: #dc2626; }
+
+    .image-section {
+        background: #f9fafb;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .image-section h6 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 1rem;
+    }
+
+    .image-section img {
+        max-width: 100%;
+        max-height: 400px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .image-section .no-image {
+        color: #9ca3af;
+        font-style: italic;
+    }
+
+    .observations-section {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .observations-section h6 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #92400e;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .observations-section p {
+        margin: 0;
+        color: #92400e;
+        font-size: 0.95rem;
+    }
+
+    .meta-section {
+        background: #f3f4f6;
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .meta-item i { color: #9ca3af; }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        cursor: pointer;
+        border: 2px solid transparent;
+        min-height: 44px;
+    }
+
+    .btn-outline-secondary { background: transparent; border-color: #d1d5db; color: #6b7280; }
+    .btn-outline-secondary:hover { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
+
+    .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; }
+    .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4); color: white; }
+
+    .btn-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .text-muted { color: #6b7280 !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .me-1 { margin-right: 0.25rem !important; }
+
+    @media (min-width: 1024px) {
+        .container-fluid { max-width: 1400px; }
+        .col-lg-8 { flex: 0 0 66.666667%; max-width: 66.666667%; }
+        .col-xl-7 { flex: 0 0 58.333333%; max-width: 58.333333%; }
+        .detail-card .card-body { padding: 2.5rem; }
+    }
+
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .container-fluid { max-width: 95%; }
+        .col-md-10 { flex: 0 0 85%; max-width: 85%; margin: 0 auto; }
+    }
+
+    @media (max-width: 767px) {
+        html, body { overflow-x: hidden !important; width: 100% !important; max-width: 100vw !important; margin: 0 !important; padding: 0 !important; }
+        .main-content { overflow-x: hidden !important; width: 100% !important; max-width: 100vw !important; }
+        .content-wrapper { min-width: 100% !important; width: 100% !important; max-width: 100vw !important; padding: 0.75rem !important; overflow-x: hidden !important; }
+        .container-fluid { padding-left: 10px; padding-right: 10px; width: 100% !important; max-width: 100vw !important; }
+        .py-4 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+        .row { margin-left: -10px; margin-right: -10px; width: calc(100% + 20px); }
+        .col-12, .col-md-10, .col-lg-8, .col-xl-7 { padding-left: 10px; padding-right: 10px; flex: 0 0 100%; max-width: 100%; }
+        
+        .breadcrumb { padding: 0.625rem 0.875rem; font-size: 0.85rem; }
+        
+        .detail-card { border-radius: 12px; }
+        .detail-card .card-header { padding: 1.25rem; }
+        
+        .header-content { flex-direction: column; }
+        .header-info h4 { font-size: 1.15rem; }
+        .header-badge { font-size: 0.85rem; }
+        
+        .detail-card .card-body { padding: 1.25rem; }
+        
+        .info-grid { grid-template-columns: 1fr; gap: 1rem; }
+        .info-item { padding: 1rem; }
+        .info-label { font-size: 0.75rem; }
+        .info-value { font-size: 1rem; }
+        .info-value.amount { font-size: 1.1rem; }
+        .info-value.large { font-size: 1.2rem; }
+        
+        .poste-badge, .mois-badge { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
+        
+        .ecart-card { padding: 1rem; }
+        .ecart-card .ecart-value { font-size: 1.25rem; }
+        
+        .image-section { padding: 1rem; }
+        .image-section img { max-height: 250px; }
+        
+        .observations-section { padding: 1rem; }
+        
+        .meta-section { flex-direction: column; gap: 0.75rem; padding: 0.875rem; }
+        
+        .btn { padding: 0.75rem 1rem; font-size: 0.9rem; }
+        .btn-actions { flex-direction: column; }
+        .btn-actions .btn { width: 100%; }
+    }
+
+    @media (max-width: 576px) {
+        .content-wrapper { padding: 0.5rem !important; }
+        .container-fluid { padding-left: 8px; padding-right: 8px; }
+        .row { margin-left: -8px; margin-right: -8px; width: calc(100% + 16px); }
+        .col-12 { padding-left: 8px; padding-right: 8px; }
+        
+        .detail-card .card-header { padding: 1rem; }
+        .header-info h4 { font-size: 1.05rem; }
+        .detail-card .card-body { padding: 1rem; }
+        
+        .info-item { padding: 0.875rem; }
+        .btn { padding: 0.625rem 0.875rem; font-size: 0.85rem; }
+    }
+
+    @media (max-width: 375px) {
+        .header-info h4 { font-size: 1rem; }
+        .info-value.large { font-size: 1.1rem; }
+    }
+
+    @media (max-width: 896px) and (orientation: landscape) {
+        .col-lg-8, .col-xl-7 { flex: 0 0 70%; max-width: 70%; margin: 0 auto; }
+        .info-grid { grid-template-columns: repeat(2, 1fr); }
+        .btn-actions { flex-direction: row; }
+        .btn-actions .btn { width: auto; }
+    }
+
+    @media (max-width: 768px) { input, select, textarea, button { font-size: 16px !important; } }
+
+    .btn:focus { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+
+    @media print {
+        .btn, .breadcrumb, .btn-actions { display: none !important; }
+        .detail-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+        .detail-card .card-header { background: #f3f4f6 !important; color: #1f2937 !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-page">
+    <div class="container-fluid py-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-10 col-lg-8 col-xl-7">
+                
+                <!-- Breadcrumb -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'common:dashboard' %}"><i class="fas fa-home me-1"></i> {% trans "Accueil" %}</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'inventaire:liste_historiques' %}">{% trans "Historiques" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{{ historique.numero_historique }}</li>
+                    </ol>
+                </nav>
+                
+                <!-- Carte de détail -->
+                <div class="detail-card">
+                    <div class="card-header">
+                        <div class="header-content">
+                            <div class="header-info">
+                                <h4><i class="fas fa-file-invoice-dollar"></i>{% trans "Détail de l'historique" %}</h4>
+                                <div class="numero"><i class="fas fa-hashtag me-1"></i>{{ historique.numero_historique }}</div>
+                            </div>
+                            <div class="header-badge">
+                                <i class="fas fa-calendar-alt"></i>
+                                {{ historique.get_mois_display }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <!-- Informations principales -->
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="info-label"><i class="fas fa-road"></i>{% trans "Poste" %}</div>
+                                <div class="info-value">
+                                    <span class="poste-badge">{{ historique.poste.nom }} ({{ historique.poste.code }})</span>
+                                </div>
+                            </div>
+                            
+                            <div class="info-item">
+                                <div class="info-label"><i class="fas fa-calendar"></i>{% trans "Mois" %}</div>
+                                <div class="info-value">
+                                    <span class="mois-badge">{{ historique.get_mois_display }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="info-item">
+                                <div class="info-label"><i class="fas fa-coins"></i>{% trans "Montant global" %}</div>
+                                <div class="info-value amount large">{{ historique.montant_global|floatformat:0|format_milliers }} FCFA</div>
+                            </div>
+                            
+                            <div class="info-item">
+                                <div class="info-label"><i class="fas fa-check-circle"></i>{% trans "Montant réel (CSP)" %}</div>
+                                <div class="info-value amount large">{{ historique.montant_reel|floatformat:0|format_milliers }} FCFA</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Écart -->
+                        <div class="ecart-card">
+                            <div class="ecart-label"><i class="fas fa-balance-scale me-1"></i>{% trans "Écart (Global - Réel)" %}</div>
+                            {% with ecart=historique.montant_global|subtract:historique.montant_reel %}
+                            <div class="ecart-value {% if ecart >= 0 %}positive{% else %}negative{% endif %}">
+                                {% if ecart >= 0 %}+{% endif %}{{ ecart|floatformat:0|format_milliers }} FCFA
+                            </div>
+                            {% endwith %}
+                        </div>
+                        
+                        <!-- Image -->
+                        <div class="image-section">
+                            <h6><i class="fas fa-image me-1"></i>{% trans "Image de l'historique" %}</h6>
+                            {% if historique.image_historique %}
+                            <a href="{{ historique.image_historique.url }}" target="_blank">
+                                <img src="{{ historique.image_historique.url }}" alt="{% trans 'Historique' %} {{ historique.numero_historique }}">
+                            </a>
+                            {% else %}
+                            <p class="no-image"><i class="fas fa-image me-1"></i>{% trans "Aucune image jointe" %}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Observations -->
+                        {% if historique.observations %}
+                        <div class="observations-section">
+                            <h6><i class="fas fa-comment-alt"></i>{% trans "Observations" %}</h6>
+                            <p>{{ historique.observations }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Métadonnées -->
+                        <div class="meta-section">
+                            <div class="meta-item">
+                                <i class="fas fa-user"></i>
+                                <span><strong>{% trans "Saisi par" %} :</strong> {{ historique.saisi_par.nom_complet|default:"-" }}</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-clock"></i>
+                                <span><strong>{% trans "Date de saisie" %} :</strong> {{ historique.date_saisie|date:"d/m/Y à H:i" }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Boutons d'action -->
+                        <div class="btn-actions">
+                            <a href="{% url 'inventaire:liste_historiques' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i>{% trans "Retour à la liste" %}
+                            </a>
+                            {% if peut_supprimer %}
+                            <a href="{% url 'inventaire:supprimer_historique' historique.pk %}" class="btn btn-danger">
+                                <i class="fas fa-trash"></i>{% trans "Supprimer" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function fixMobileScrolling() {
+        if (window.innerWidth <= 768) {
+            document.documentElement.style.overflowX = 'hidden';
+            document.body.style.overflowX = 'hidden';
+        }
+    }
+    fixMobileScrolling();
+    window.addEventListener('resize', fixMobileScrolling);
+    window.addEventListener('orientationchange', fixMobileScrolling);
+    document.addEventListener('touchstart', function() {}, {passive: true});
+});
+</script>
+{% endblock %}

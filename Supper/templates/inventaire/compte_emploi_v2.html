@@ -416,11 +416,11 @@
         .summary-cards {
             grid-template-columns: 1fr 1fr;
         }
-        
+
         .table-details {
             font-size: 0.8rem;
         }
-        
+
         .table-details th,
         .table-details td {
             padding: 8px;
@@ -431,12 +431,12 @@
         .actions-bar {
             display: none;
         }
-        
+
         .accordion-content {
             max-height: none !important;
             padding: 15px !important;
         }
-        
+
         .header-section {
             background: #333 !important;
             -webkit-print-color-adjust: exact;
@@ -447,7 +447,7 @@
 
 {% block content %}
 <div class="compte-emploi-container">
-    
+
     <!-- Actions -->
     <div class="actions-bar">
         <a href="{% url 'inventaire:selection_compte_emploi' %}" class="btn-action btn-secondary-custom">
@@ -472,15 +472,15 @@
     </div>
 
     <!-- Note Event Sourcing -->
-    <div class="note-es {% if not coherence_ok %}warning{% endif %}">
+    <!--<div class="note-es {% if not coherence_ok %}warning{% endif %}">
         <i class="fas fa-{% if coherence_ok %}check-circle{% else %}exclamation-triangle{% endif %}"></i>
-        <strong>Données calculées via Event Sourcing</strong> | 
-        Stock début: {{ donnees.stock_debut.stocks|floatformat:0|intcomma }} FCFA | 
+        <strong>Données calculées via Event Sourcing</strong> |
+        Stock début: {{ donnees.stock_debut.stocks|floatformat:0|intcomma }} FCFA |
         Stock fin calculé: {{ donnees.stock_final_calcule|floatformat:0|intcomma }} FCFA
         {% if not coherence_ok %}
         <br><span style="color: #B45309;">⚠️ Écart détecté avec le stock final du tableau</span>
         {% endif %}
-    </div>
+    </div>-->
 
     <!-- Résumé rapide -->
     <div class="summary-cards">
@@ -531,7 +531,7 @@
                         <td>{{ donnees.stock_debut.ventes|floatformat:0|intcomma }} FCFA</td>
                         <td>{{ donnees.stock_debut.stock_final|floatformat:0|intcomma }} FCFA</td>
                     </tr>
-                    
+
                     <!-- Approvisionnements Imprimerie -->
                     <tr class="row-entree">
                         <td>Approv. (Imprimerie Nationale)</td>
@@ -539,7 +539,7 @@
                         <td>{{ donnees.approv_imprimerie.ventes|floatformat:0|intcomma }} FCFA</td>
                         <td>{{ donnees.approv_imprimerie.stock_final|floatformat:0|intcomma }} FCFA</td>
                     </tr>
-                    
+
                     <!-- Transferts reçus -->
                     <tr class="row-entree">
                         <td>(+) Réapprov. reçu (Transferts)</td>
@@ -547,7 +547,7 @@
                         <td>{{ donnees.reapprov_recu.ventes|floatformat:0|intcomma }} FCFA</td>
                         <td>{{ donnees.reapprov_recu.stock_final|floatformat:0|intcomma }} FCFA</td>
                     </tr>
-                    
+
                     <!-- Transferts cédés -->
                     <tr class="row-sortie">
                         <td>(-) Réapprov. cédé (Transferts)</td>
@@ -555,7 +555,7 @@
                         <td>/</td>
                         <td>{{ donnees.reapprov_cede.stock_final|floatformat:0|intcomma }} FCFA</td>
                     </tr>
-                    
+
                     <!-- Total -->
                     <tr class="row-total">
                         <td><strong>TOTAL</strong></td>
@@ -809,11 +809,11 @@
                         SEMAINE DU {{ semaine_key }}
                     </span>
                     <span>
-                        {{ semaine_data.total_tickets|intcomma }} tickets | 
+                        {{ semaine_data.total_tickets|intcomma }} tickets |
                         {{ semaine_data.total_valeur|floatformat:0|intcomma }} FCFA
                     </span>
                 </div>
-                
+
                 {% if semaine_data.series_vendues %}
                 <div class="semaine-detail">
                     <table class="table-details">
@@ -863,7 +863,7 @@
                 {% endif %}
             </div>
             {% endfor %}
-            
+
             <!-- Total général des ventes -->
             <div class="row-total" style="background: #FEE2E2; padding: 12px 15px; border-radius: 6px;">
                 <strong>TOTAL GÉNÉRAL DES VENTES :</strong>
@@ -877,7 +877,7 @@
 
     <!-- ================================================================ -->
     <!-- VÉRIFICATION DE COHÉRENCE -->
-    <!-- ================================================================ -->
+    <!-- ================================================================
     <div class="main-card">
         <div class="card-header-custom" style="background: {% if coherence_ok %}#10B981{% else %}#EF4444{% endif %}; color: white;">
             <i class="fas fa-{% if coherence_ok %}check-circle{% else %}exclamation-triangle{% endif %}"></i>
@@ -909,16 +909,16 @@
                 </tr>
             </table>
         </div>
-    </div>
+    </div>-->
 
     <!-- ================================================================ -->
     <!-- SIGNATURE DU CHEF DE POSTE -->
     <!-- ================================================================ -->
     <div class="signature-section">
-        
+
         <div>Date __________________</div>
         <br><br>
-        
+
         <div class="signature-box">
             <div class="title">Le Chef de Poste</div>
             <div class="name">
@@ -941,7 +941,7 @@
 function toggleAccordion(header) {
     const content = header.nextElementSibling;
     const icon = header.querySelector('.accordion-icon');
-    
+
     if (content.classList.contains('show')) {
         content.classList.remove('show');
         header.classList.add('collapsed');

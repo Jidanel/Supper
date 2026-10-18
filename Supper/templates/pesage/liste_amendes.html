@@ -1031,7 +1031,7 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    
+
     {% if station %}
     <!-- EN-TÊTE STATION (si station spécifique) -->
     <div class="row mb-4">
@@ -1052,7 +1052,7 @@
                             </div>
                         </div>
                         {% if is_admin %}
-                        <a href="{% url 'inventaire:selectionner_station' %}?action=liste_amendes" 
+                        <a href="{% url 'inventaire:selectionner_station' %}?action=liste_amendes"
                            class="btn btn-light btn-sm">
                             <i class="fas fa-exchange-alt me-1"></i>
                             {% trans "Changer de station" %}
@@ -1064,7 +1064,7 @@
         </div>
     </div>
     {% endif %}
-    
+
     <!-- Titre et actions -->
     <div class="page-header">
         <h2>
@@ -1079,7 +1079,7 @@
             {% trans "Nouvelle amende" %}
         </a>
     </div>
-    
+
     <!-- Statistiques rapides -->
     <div class="stats-grid">
         <div class="stat-card h-100">
@@ -1103,7 +1103,7 @@
             <small>{% trans "FCFA à recouvrer" %}</small>
         </div>
     </div>
-    
+
     <!-- Filtres -->
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-body">
@@ -1112,12 +1112,12 @@
                 <div class="filter-group" style="flex: 2;">
                     <div class="input-group">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" name="q" class="form-control" 
+                        <input type="text" name="q" class="form-control"
                                placeholder="{% trans 'Rechercher...' %}"
                                value="{{ query }}">
                     </div>
                 </div>
-                
+
                 <!-- Statut -->
                 <div class="filter-group">
                     <select name="statut" class="form-select">
@@ -1130,7 +1130,7 @@
                         </option>
                     </select>
                 </div>
-                
+
                 <!-- Type infraction -->
                 <div class="filter-group">
                     <select name="type_infraction" class="form-select">
@@ -1141,12 +1141,24 @@
                         <option value="HG" {% if type_infraction == 'HG' %}selected{% endif %}>
                             {% trans "Hors Gabarit" %}
                         </option>
+                        <option value="DF" {% if type_infraction == 'DF' %}selected{% endif %}>
+                            {% trans "Délit de Fuite" %}
+                        </option>
                         <option value="S+HG" {% if type_infraction == 'S+HG' %}selected{% endif %}>
                             {% trans "S+HG" %}
                         </option>
+                        <option value="HG+DF" {% if type_infraction == 'HG+DF' %}selected{% endif %}>
+                            {% trans "HG+DF" %}
+                        </option>
+                        <option value="S+DF" {% if type_infraction == 'S+DF' %}selected{% endif %}>
+                            {% trans "S+DF" %}
+                        </option>
+                        <option value="S+HG+DF" {% if type_infraction == 'S+HG+DF' %}selected{% endif %}>
+                            {% trans "S+HG+DF" %}
+                        </option>
                     </select>
                 </div>
-                
+
                 <!-- Station (admin seulement) -->
                 {% if is_admin and stations_accessibles %}
                 <div class="filter-group">
@@ -1160,7 +1172,7 @@
                     </select>
                 </div>
                 {% endif %}
-                
+
                 <div class="filter-group" style="flex: 0 0 auto;">
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="fas fa-filter me-1"></i>
@@ -1170,7 +1182,7 @@
             </form>
         </div>
     </div>
-    
+
     <!-- Liste des amendes -->
     <div class="card shadow-sm border-0">
         <div class="card-body p-0">
@@ -1188,6 +1200,9 @@
                             {% if is_admin and not station %}
                             <th>{% trans "Station" %}</th>
                             {% endif %}
+                            {% if is_admin %}
+                            <th>{% trans "Dernière modification" %}</th>
+                            {% endif %}
                             <th class="text-center">{% trans "Actions" %}</th>
                         </tr>
                     </thead>
@@ -1203,13 +1218,21 @@
                             <td>
                                 <span class="badge bg-secondary">{{ amende.immatriculation }}</span>
                             </td>
-                            <td>
-                                {% if amende.est_surcharge and amende.est_hors_gabarit %}
+                             <td>
+                                {% if amende.est_surcharge and amende.est_hors_gabarit and amende.est_delit_fuite %}
+                                <span class="badge bg-danger">S+HG+DF</span>
+                                {% elif amende.est_surcharge and amende.est_hors_gabarit %}
                                 <span class="badge bg-danger">S+HG</span>
+                                {% elif amende.est_hors_gabarit and amende.est_delit_fuite %}
+                                <span class="badge bg-danger">HG+DF</span>
+                                {% elif amende.est_surcharge and amende.est_delit_fuite %}
+                                <span class="badge bg-danger">S+DF</span>
                                 {% elif amende.est_hors_gabarit %}
                                 <span class="badge bg-danger">HG</span>
                                 {% elif amende.est_surcharge %}
                                 <span class="badge bg-warning text-dark">S</span>
+                                {% elif amende.est_delit_fuite %}
+                                <span class="badge bg-dark">DF</span>
                                 {% else %}
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
@@ -1233,19 +1256,39 @@
                                 <small>{{ amende.station.nom }}</small>
                             </td>
                             {% endif %}
+                            {% if is_admin %}
+                                <td>
+                                    {% if amende.date_derniere_modification %}
+                                    <small class="text-muted">
+                                        {{ amende.date_derniere_modification|date:"d/m/Y H:i" }}
+                                        <br>
+                                        <span class="badge bg-secondary">{{ amende.modifie_par.nom_complet|default:"-" }}</span>
+                                    </small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
                             <td class="text-center">
-                                <a href="{% url 'inventaire:detail_amende' amende.pk %}" 
+                                <a href="{% url 'inventaire:detail_amende' amende.pk %}"
                                    class="btn btn-sm btn-outline-primary"
                                    title="{% trans 'Voir détails' %}">
                                     <i class="fas fa-eye"></i>
                                 </a>
+                                {% if is_admin %}
+                                <a href="{% url 'inventaire:modifier_amende' amende.pk %}"
+                                class="btn btn-sm btn-outline-warning"
+                                title="{% trans 'Modifier (Admin)' %}">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            
+
             <!-- Pagination -->
             {% if amendes.has_other_pages %}
             <div class="card-footer bg-white">
@@ -1259,13 +1302,13 @@
                                 </a>
                             </li>
                             {% endif %}
-                            
+
                             <li class="page-item disabled">
                                 <span class="page-link">
                                     {{ amendes.number }} / {{ amendes.paginator.num_pages }}
                                 </span>
                             </li>
-                            
+
                             {% if amendes.has_next %}
                             <li class="page-item">
                                 <a class="page-link" href="?page={{ amendes.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}">
@@ -1278,7 +1321,7 @@
                 </nav>
             </div>
             {% endif %}
-            
+
             {% else %}
             <div class="empty-state">
                 <i class="fas fa-inbox"></i>
@@ -1291,7 +1334,7 @@
             {% endif %}
         </div>
     </div>
-    
+
 </div>
 {% endblock %}
 
@@ -1312,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', function() {
     adjustForMobile();
     window.addEventListener('resize', adjustForMobile);
     window.addEventListener('orientationchange', adjustForMobile);
-    
+
     // Gestion tactile passive
     document.addEventListener('touchstart', function() {}, { passive: true });
     document.addEventListener('touchmove', function() {}, { passive: true });
