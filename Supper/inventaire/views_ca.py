@@ -20,7 +20,7 @@ from decimal import Decimal, InvalidOperation                # lecture de la maj
 from django.contrib import messages                          # messages à l'utilisateur
 from django.contrib.auth.decorators import login_required    # exige une connexion
 from django.db import transaction                            # enregistrement tout-ou-rien
-from django.db.models import Q                               # liaisons d'un poste (A ou B)
+from django.db.models import Count, Q                        # agrégats SQL ; liaisons d'un poste (A ou B)
 from django.shortcuts import get_object_or_404               # 404 si poste inconnu
 from django.http import HttpResponse                         # réponse CSV
 from django.shortcuts import render, redirect                # raccourcis Django
@@ -86,13 +86,15 @@ def _libelle_periode(periode, annee, mois, semestre):
 # 1. TABLEAU DU CHIFFRE D'AFFAIRES
 # ===================================================================
 
-@login_required
-def transporteurs_ca(request):
-    """CA estimé par agence, puis détail par véhicule. ?export=csv télécharge le détail."""
+def _construire_ca(request):
+    """
+    Prépare TOUT ce qu'il faut pour afficher ou imprimer le chiffre d'affaires :
+    période, filtre agence, calcul par véhicule, totaux par agence et postes traversés.
+    Utilisée par l'écran (transporteurs_ca) ET par l'impression (transporteurs_ca_impression),
+    afin que les deux affichent exactement les mêmes chiffres.
+    Retourne (ctx, vehicules) ; ctx['pret'] est faux si le calcul n'a pas été demandé.
+    """
     user = request.user
-    if not _peut_voir_ca(user):
-        return _refuser(request, user, "Chiffre d'affaires transporteurs")
-
     aujourdhui = timezone.localdate()
     periode = request.GET.get('periode', 'mois')
     if periode not in ('mois', 'semestre', 'annee'):
@@ -103,6 +105,9 @@ def transporteurs_ca(request):
     agence_id = request.GET.get('agence', '')
     debut, fin = _bornes_periode(periode, annee, mois, semestre)
 
+    # Paramètres de l'adresse à réutiliser pour l'impression (sans l'export)
+    params_url = request.GET.copy()
+    params_url.pop('export', None)
     ctx = {
         'periode': periode, 'annee': annee, 'mois': mois, 'semestre': semestre,
         'agence_id': agence_id, 'agences': AgenceTransport.objects.order_by('nom'),
@@ -110,11 +115,12 @@ def transporteurs_ca(request):
         'annees': range(aujourdhui.year - 3, aujourdhui.year + 1),            # 4 dernières années
         'debut': debut, 'fin': fin, 'libelle_periode': _libelle_periode(periode, annee, mois, semestre),
         'calcule': 'go' in request.GET, 'est_admin': _est_admin(user),
+        'querystring': params_url.urlencode(), 'pret': False,
     }
     services_ca.assurer_maillage()                               # précharge le maillage du document si les tables sont vides
     ctx['maillage_vide'] = not PosteMaillage.objects.exists()   # (sécurité) maillage toujours vide ?
     if not ctx['calcule'] or ctx['maillage_vide']:              # formulaire seul (ou maillage absent)
-        return render(request, 'inventaire/transporteurs/ca.html', ctx)
+        return ctx, []
 
     # --- Données : passages de la période, avec le poste converti en poste du maillage ---
     lien = dict(PosteMaillage.objects.exclude(poste=None).values_list('poste_id', 'id'))   # poste SUPPER -> maillage
@@ -146,6 +152,54 @@ def transporteurs_ca(request):
         # Véhicule vu à un seul poste : liste des postes voisins qu'il a pu rejoindre, avec leur tarif
         v['voisins_txt'] = ', '.join(f"{nom} ({tarif})" for nom, tarif in v['voisins'])
 
+    # --- Totaux « vus sur la route » par agence : véhicules distincts, postes, passages ---
+    vus = {r['agence_nom']: r for r in qs.values('agence_nom').annotate(
+        vehicules=Count('plaque_normalisee', distinct=True), postes=Count('inventaire__poste', distinct=True),
+        passages=Count('id'))}
+    # Postes de péage traversés par chaque agence, avec véhicules distincts, passages et jours de présence
+    postes_par_agence = {}
+    for r in qs.values('agence_nom', 'inventaire__poste__nom').annotate(
+            vehicules=Count('plaque_normalisee', distinct=True), passages=Count('id'),
+            jours=Count('inventaire__date', distinct=True)).order_by('-passages', 'inventaire__poste__nom'):
+        postes_par_agence.setdefault(r['agence_nom'], []).append(
+            {'poste': r['inventaire__poste__nom'], 'vehicules': r['vehicules'],
+             'passages': r['passages'], 'jours': r['jours']})
+    # Agences vues sur la route mais sans trajet calculable (postes hors maillage) : présentes avec un CA nul
+    deja = {a['agence'] for a in agences}
+    for nom, r in vus.items():
+        if nom not in deja:
+            agences.append({'agence': nom, 'vehicules': 0, 'ca_semaine': 0, 'ca_periode': 0, 'passages': r['passages']})
+    agences.sort(key=lambda a: (-a['ca_periode'], a['agence']))
+
+    vehicules_par_agence = {}                                    # détail regroupé par agence
+    for v in vehicules:
+        vehicules_par_agence.setdefault(v['agence'], []).append(v)
+    for a in agences:
+        a['detail'] = vehicules_par_agence.get(a['agence'], [])  # véhicules de l'agence
+        a['vus'] = vus.get(a['agence'], {}).get('vehicules', 0)  # véhicules distincts vus sur la route
+        a['n_postes'] = vus.get(a['agence'], {}).get('postes', 0)
+        a['postes'] = postes_par_agence.get(a['agence'], [])     # postes de péage traversés
+    ctx.update({
+        'pret': True, 'agences_ca': agences, 'infos': infos, 'params': params,
+        'total_ca': sum(a['ca_periode'] for a in agences),
+        'total_semaine': sum(a['ca_semaine'] for a in agences),
+        'total_vehicules': len(vehicules),
+        'total_vus': sum(a['vus'] for a in agences),
+        'retour': request.get_full_path(),
+    })
+    return ctx, vehicules
+
+
+@login_required
+def transporteurs_ca(request):
+    """CA estimé par agence, puis détail par véhicule. ?export=csv télécharge le détail."""
+    user = request.user
+    if not _peut_voir_ca(user):
+        return _refuser(request, user, "Chiffre d'affaires transporteurs")
+    ctx, vehicules = _construire_ca(request)
+    if not ctx['pret']:                                          # première visite : formulaire seul
+        return render(request, 'inventaire/transporteurs/ca.html', ctx)
+
     log_user_action(user, "Chiffre d'affaires transporteurs",
                     f"{ctx['libelle_periode']} | véhicules: {len(vehicules)}", request)
 
@@ -153,7 +207,7 @@ def transporteurs_ca(request):
     if request.GET.get('export') == 'csv':
         rep = HttpResponse(content_type='text/csv; charset=utf-8')
         rep.write('\ufeff')                                    # BOM unique : Excel lit bien les accents
-        rep['Content-Disposition'] = f'attachment; filename="ca_transporteurs_{debut}_{fin}.csv"'
+        rep['Content-Disposition'] = f'attachment; filename="ca_transporteurs_{ctx["debut"]}_{ctx["fin"]}.csv"'
         w = csv.writer(rep, delimiter=';')
         w.writerow([_("Agence"), _("Plaque"), _("Type"), _("Places retenues"), _("Passages"),
                     _("Semaines vues"), _("Trajet de référence"), _("Régions"), _("Tarif sens simple"),
@@ -164,20 +218,35 @@ def transporteurs_ca(request):
                         v['semaines_vues'], v['trajet'], v['regions_txt'], v['tarif'],
                         v['tours'], v['ca_semaine'], v['ca_periode'], v['voisins_txt']])
         return rep
-
-    vehicules_par_agence = {}                                    # détail regroupé par agence
-    for v in vehicules:
-        vehicules_par_agence.setdefault(v['agence'], []).append(v)
-    for a in agences:
-        a['detail'] = vehicules_par_agence.get(a['agence'], [])  # véhicules de l'agence
-    ctx.update({
-        'agences_ca': agences, 'infos': infos, 'params': params,
-        'total_ca': sum(a['ca_periode'] for a in agences),
-        'total_semaine': sum(a['ca_semaine'] for a in agences),
-        'total_vehicules': len(vehicules),
-        'retour': request.get_full_path(),
-    })
     return render(request, 'inventaire/transporteurs/ca.html', ctx)
+
+
+@login_required
+def transporteurs_ca_impression(request):
+    """
+    Page d'impression du CA. L'utilisateur choisit le contenu :
+      contenu=agences   : une ligne par agence (véhicules vus, CA semaine, CA période)
+      contenu=vehicules : par agence, la liste de ses véhicules avec leur CA
+      postes=1          : détaille, pour chaque agence, les postes de péage traversés
+                          (véhicules vus, passages, jours) et la détermination du CA global
+    Les chiffres viennent de _construire_ca, donc identiques à l'écran.
+    """
+    user = request.user
+    if not _peut_voir_ca(user):
+        return _refuser(request, user, "Impression CA transporteurs")
+    if 'go' not in request.GET:                                  # pas de calcul demandé : retour au tableau
+        return redirect('inventaire:transporteurs_ca')
+    ctx, vehicules = _construire_ca(request)
+    contenu = request.GET.get('contenu', 'agences')
+    if contenu not in ('agences', 'vehicules'):
+        contenu = 'agences'
+    # Sans choix préalable (première ouverture) le détail des postes est coché ; ensuite on suit le formulaire
+    detail_postes = request.GET.get('postes') == '1' if 'contenu' in request.GET else True
+    ctx.update({'contenu': contenu, 'detail_postes': detail_postes})
+    if ctx['pret']:
+        log_user_action(user, "Impression CA transporteurs",
+                        f"{ctx['libelle_periode']} | contenu: {contenu} | postes: {detail_postes}", request)
+    return render(request, 'inventaire/transporteurs/ca_impression.html', ctx)
 
 
 # ===================================================================

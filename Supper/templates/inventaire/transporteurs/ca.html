@@ -23,7 +23,7 @@
       <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca_parametres' %}">⚙ {% trans "Paramètres et maillage" %}</a>{% endif %}
       {% if calcule and agences_ca %}
         <a class="tr-btn-ghost text-decoration-none" href="{{ retour }}&export=csv">⬇ CSV</a>
-        <button type="button" class="tr-btn" onclick="window.print()">🖨 {% trans "Imprimer" %}</button>{% endif %}
+        <a class="tr-btn text-decoration-none" href="{% url 'inventaire:transporteurs_ca_impression' %}?{{ querystring }}">🖨 {% trans "Imprimer…" %}</a>{% endif %}
     </div>
   </div>
 

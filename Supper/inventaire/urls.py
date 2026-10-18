@@ -70,6 +70,7 @@ urlpatterns = [
     path('transporteurs/ca/maillage/', views_ca.transporteurs_maillage, name='transporteurs_maillage'),
     path('transporteurs/ca/maillage/poste/<int:pk>/', views_ca.transporteurs_maillage_poste, name='transporteurs_maillage_poste'),
     path('transporteurs/ca/maillage/poste/<int:pk>/enregistrer/', views_ca.transporteurs_maillage_poste_enregistrer, name='transporteurs_maillage_poste_enregistrer'),
+    path('transporteurs/ca/impression/', views_ca.transporteurs_ca_impression, name='transporteurs_ca_impression'),
     # ================================================================
     # PROGRAMMATION INVENTAIRES (NOUVELLES)
     # ================================================================

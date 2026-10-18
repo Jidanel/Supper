@@ -1,0 +1,120 @@
+{# templates/inventaire/transporteurs/ca_impression.html #}
+{# Impression du chiffre d'affaires : choix du contenu (agences / agences + véhicules) et du détail des postes #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Impression du chiffre d'affaires" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+  @page { size: A4; margin: 12mm; }                                  /* page d'impression A4 */
+  .tr .imp-ag { border:1px solid #cbd5e1; border-radius:8px; margin:0 0 .8rem; break-inside:avoid; page-break-inside:avoid; }
+  .tr .imp-ag > .imp-tete { background:#f1f5f9; padding:.5rem .8rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; border-radius:8px 8px 0 0; }
+  .tr .imp-ag .imp-corps { padding:.5rem .8rem; }
+  .tr .imp-calcul { font-size:.85rem; background:#fff7ed; border-left:4px solid #f59e0b; padding:.4rem .7rem; margin-top:.5rem; border-radius:4px; }
+  .tr .imp-sous { font-weight:600; font-size:.85rem; margin:.4rem 0 .2rem; color:#334155; }
+  .tr .imp-mini th, .tr .imp-mini td { padding:.25rem .5rem; font-size:.82rem; }
+  @media print {
+    .tr .imp-ag > .imp-tete { background:#eee !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .tr .imp-calcul { background:#fff !important; border:1px solid #999; }
+  }
+</style>{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+
+  {# ---------- Choix du contenu (non imprimé) ---------- #}
+  <div class="tr-panel no-print"><div class="tr-head">{% trans "Impression du chiffre d'affaires" %}
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca' %}?{{ querystring }}">← {% trans "Retour au tableau" %}</a></div>
+    <form method="get" class="tr-body" id="formImp">
+      {# On reprend la période et le filtre agence du tableau #}
+      <input type="hidden" name="go" value="1"><input type="hidden" name="periode" value="{{ periode }}">
+      <input type="hidden" name="annee" value="{{ annee }}"><input type="hidden" name="mois" value="{{ mois }}">
+      <input type="hidden" name="semestre" value="{{ semestre }}"><input type="hidden" name="agence" value="{{ agence_id }}">
+      <p class="tr-lbl mb-1">{% trans "Que voulez-vous imprimer ?" %}</p>
+      <div class="d-flex flex-column gap-2 mb-3">
+        <label class="form-check"><input class="form-check-input" type="radio" name="contenu" value="agences" {% if contenu == 'agences' %}checked{% endif %}>
+          <span class="form-check-label"><b>{% trans "Les agences avec leur chiffre d'affaires" %}</b> — {% trans "une ligne par agence (court)" %}</span></label>
+        <label class="form-check"><input class="form-check-input" type="radio" name="contenu" value="vehicules" {% if contenu == 'vehicules' %}checked{% endif %}>
+          <span class="form-check-label"><b>{% trans "Les agences avec leurs véhicules et leur chiffre d'affaires" %}</b> — {% trans "détaillé (volumineux)" %}</span></label>
+      </div>
+      <label class="form-check mb-3"><input class="form-check-input" type="checkbox" name="postes" value="1" {% if detail_postes %}checked{% endif %}>
+        <span class="form-check-label">{% trans "Détailler, pour chaque agence, les postes de péage traversés, le total de véhicules vus et la détermination du chiffre d'affaires global" %}</span></label>
+      <div class="d-flex gap-2"><button class="tr-btn-ghost" type="submit">{% trans "Actualiser l'aperçu" %}</button>
+        {% if pret %}<button class="tr-btn" type="button" onclick="window.print()">🖨 {% trans "Imprimer" %}</button>{% endif %}</div>
+    </form>
+  </div>
+
+  {% if pret %}
+  {# ---------- Le rapport (aperçu à l'écran = ce qui est imprimé) ---------- #}
+  <div class="tr-rapport-entete" style="display:block">
+    <h2>SUPPER — {% trans "Chiffre d'affaires estimé des transporteurs de personnes" %}</h2>
+    <p><b>{% trans "Période" %} :</b> {{ libelle_periode }} ({{ debut|date:"d/m/Y" }} → {{ fin|date:"d/m/Y" }}) ·
+      <b>{% trans "Agence" %} :</b> {% if agence %}{{ agence.nom }}{% else %}{% trans "Toutes" %}{% endif %} ·
+      <b>{% trans "Contenu" %} :</b> {% if contenu == 'agences' %}{% trans "agences et chiffres d'affaires" %}{% else %}{% trans "agences, véhicules et chiffres d'affaires" %}{% endif %}</p>
+    <p>{% trans "Édité le" %} {% now "d/m/Y H:i" %} {% trans "par" %} {{ user.nom_complet|default:user.username }} — {% trans "Estimation à pleine capacité : voir la note de méthode." %}</p>
+  </div>
+
+  <div class="tr-chips mb-3">
+    <div class="tr-chip total">{% trans "CA estimé de la période" %}<b>{{ total_ca|floatformat:"0g" }} FCFA</b></div>
+    <div class="tr-chip">{% trans "CA d'une semaine type" %}<b>{{ total_semaine|floatformat:"0g" }} FCFA</b></div>
+    <div class="tr-chip">{% trans "Agences" %}<b>{{ agences_ca|length }}</b></div>
+    <div class="tr-chip">{% trans "Véhicules vus" %}<b>{{ total_vus }}</b></div>
+  </div>
+
+  {# ===== Tableau des agences (toujours présent) ===== #}
+  {% if contenu == 'agences' %}
+  <div class="tr-panel"><div class="tr-head">{% trans "Chiffre d'affaires par agence" %}</div><div class="tr-scroll">
+    <table class="tr-table"><thead><tr><th>#</th><th>{% trans "Agence" %}</th><th class="num">{% trans "Véhicules vus" %}</th><th class="num">{% trans "Postes" %}</th>
+      <th class="num">{% trans "CA semaine type" %}</th><th class="num">{% trans "CA période (FCFA)" %}</th></tr></thead>
+    <tbody>{% for a in agences_ca %}<tr><td>{{ forloop.counter }}</td><td><b>{{ a.agence }}</b></td><td class="num">{{ a.vus }}</td><td class="num">{{ a.n_postes }}</td>
+      <td class="num">{{ a.ca_semaine|floatformat:"0g" }}</td><td class="num"><b>{{ a.ca_periode|floatformat:"0g" }}</b></td></tr>
+    {% empty %}<tr><td colspan="6" class="text-center text-muted py-3">{% trans "Aucune donnée sur la période." %}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td colspan="2"><b>{% trans "Total" %}</b></td><td class="num"><b>{{ total_vus }}</b></td><td></td><td class="num"><b>{{ total_semaine|floatformat:"0g" }}</b></td><td class="num"><b>{{ total_ca|floatformat:"0g" }}</b></td></tr></tfoot></table></div></div>
+  {% endif %}
+
+  {# ===== Détail par agence : véhicules et/ou postes traversés ===== #}
+  {% if contenu == 'vehicules' or detail_postes %}
+  <h3 style="font-size:1.05rem;margin:1rem 0 .5rem">{% if contenu == 'vehicules' %}{% trans "Détail par agence" %}{% else %}{% trans "Postes de péage traversés par agence" %}{% endif %}</h3>
+  {% for a in agences_ca %}
+  <div class="imp-ag">
+    <div class="imp-tete"><span><b>{{ forloop.counter }}. {{ a.agence }}</b></span>
+      <span>{{ a.vus }} {% trans "véhicule(s) vu(s)" %} · {{ a.n_postes }} {% trans "poste(s)" %} · <b>{{ a.ca_periode|floatformat:"0g" }} FCFA</b></span></div>
+    <div class="imp-corps">
+      {% if detail_postes %}
+      <div class="imp-sous">{% trans "Postes de péage par lesquels l'agence est passée" %}</div>
+      <table class="tr-table imp-mini"><thead><tr><th>{% trans "Poste" %}</th><th class="num">{% trans "Véhicules vus" %}</th><th class="num">{% trans "Passages" %}</th><th class="num">{% trans "Jours" %}</th></tr></thead>
+        <tbody>{% for p in a.postes %}<tr><td>{{ p.poste }}</td><td class="num">{{ p.vehicules }}</td><td class="num">{{ p.passages }}</td><td class="num">{{ p.jours }}</td></tr>
+        {% empty %}<tr><td colspan="4" class="text-muted">—</td></tr>{% endfor %}</tbody>
+        <tfoot><tr><td><b>{% trans "Total véhicules vus en route" %}</b></td><td class="num"><b>{{ a.vus }}</b></td><td class="num"><b>{{ a.passages }}</b></td><td></td></tr></tfoot></table>
+      <div class="imp-calcul"><b>{% trans "Chiffre d'affaires estimé sur la période" %}</b> :
+        {{ a.vehicules }} {% trans "véhicule(s) valorisé(s)" %} → {% trans "CA d'une semaine type" %} {{ a.ca_semaine|floatformat:"0g" }} FCFA
+        × ({{ infos.jours }} {% trans "jours" %} ÷ 7 = {{ infos.semaines }} {% trans "semaines" %}) ≈ <b>{{ a.ca_periode|floatformat:"0g" }} FCFA</b>
+        {% if a.vehicules != a.vus %}<br><small>{% trans "Les véhicules vus uniquement à des postes non reliés au maillage ne sont pas valorisés." %}</small>{% endif %}</div>
+      {% endif %}
+      {% if contenu == 'vehicules' %}
+      <div class="imp-sous">{% trans "Véhicules et chiffre d'affaires" %}</div>
+      <table class="tr-table imp-mini"><thead><tr><th>{% trans "Plaque" %}</th><th>{% trans "Type" %}</th><th class="num">{% trans "Places" %}</th><th>{% trans "Trajet de référence" %}</th>
+        <th class="num">{% trans "Tarif" %}</th><th class="num">{% trans "A/R sem." %}</th><th class="num">{% trans "CA semaine" %}</th><th class="num">{% trans "CA période" %}</th></tr></thead>
+        <tbody>{% for v in a.detail %}<tr><td><b>{{ v.plaque }}</b></td><td>{{ v.type_libelle }}</td><td class="num">{{ v.places }}</td><td>{{ v.trajet }}</td>
+          <td class="num">{{ v.tarif|floatformat:"0g" }}</td><td class="num">{{ v.tours }}</td><td class="num">{{ v.ca_semaine|floatformat:"0g" }}</td><td class="num"><b>{{ v.ca_periode|floatformat:"0g" }}</b></td></tr>
+        {% empty %}<tr><td colspan="8" class="text-muted">{% trans "Aucun véhicule valorisé." %}</td></tr>{% endfor %}</tbody></table>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if postes_ignores %}<p class="tr-sub">{% trans "Postes non reliés au maillage (passages ignorés dans le calcul)" %} : {{ postes_ignores|join:", " }}.</p>{% endif %}
+  {% elif calcule %}
+  <div class="tr-avert">{% trans "Le maillage des postes n'est pas chargé." %}</div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  // Les choix (contenu, détail des postes) actualisent l'aperçu tout de suite
+  var f = document.getElementById('formImp');
+  if (!f) return;
+  f.addEventListener('change', function () { f.submit(); });
+})();
+</script>
+{% endblock %}
