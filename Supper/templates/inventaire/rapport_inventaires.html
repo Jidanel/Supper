@@ -315,10 +315,96 @@
         }
     }
 </style>
+
+<style>
+/* ===================== RESPONSIVE MOBILE (CSS uniquement, le bureau et l'impression restent inchangés) ===================== */
+/* Toutes les règles sont limitées à l'écran (« screen ») : le @media print ci-dessus n'est jamais modifié */
+@media screen {
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body, .main-content, .content-wrapper { overflow-x: hidden; }
+    .rapport-page { width: 100%; }
+    .rapport-table .table-responsive { -webkit-overflow-scrolling: touch; }     /* défilement tactile fluide du tableau */
+}
+
+/* ---------- Tablette (≤ 1024px) ---------- */
+@media screen and (max-width: 1024px) {
+    .rapport-header { padding: 1.5rem; }
+    .stat-value { font-size: 1.6rem; }
+}
+
+/* ---------- Mobile (≤ 767px) ---------- */
+@media screen and (max-width: 767px) {
+    .rapport-page { padding: 12px 10px !important; max-width: 100% !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+    .main-content, .content-wrapper { margin-left: 0 !important; padding-left: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+
+    /* En-tête violet : titre au-dessus, nombre de postes dessous */
+    .rapport-header { padding: 1.1rem; border-radius: 10px; margin-bottom: 1.25rem; }
+    .rapport-header > .d-flex { flex-direction: column; align-items: flex-start !important; gap: .75rem; }
+    .rapport-header h2 { font-size: 1.25rem; line-height: 1.3; word-break: break-word; }
+    .rapport-header .text-end { text-align: left !important; }
+
+    /* Cartes de statistiques : 2 par ligne */
+    .rapport-page .row > .col-md-3, .rapport-page .row > .col-md-4 { flex: 0 0 50%; width: 50%; max-width: 50%; }
+    .stat-card { padding: 1rem; }
+    .stat-card:hover { transform: none; }
+    .stat-value { font-size: 1.4rem; }
+    .stat-label { font-size: .8rem; line-height: 1.3; }
+
+    /* Informations sur les calculs */
+    .info-section { padding: .85rem; }
+    .info-section ul { padding-left: 1.1rem; }
+    .info-section li { margin-bottom: .35rem; word-break: break-word; }
+
+    /* Tableau : largeur du contenu, défilement horizontal dans son conteneur, jamais sur la page */
+    .rapport-table { border-radius: 10px; }
+    .rapport-table .table-responsive { width: 100%; max-width: 100%; overflow-x: auto; }
+    .rapport-table table { width: max-content; min-width: 100%; }
+    .rapport-table th { padding: .7rem .5rem; font-size: .78rem; }
+    .rapport-table td { padding: .6rem .45rem; font-size: .8rem; white-space: nowrap; }
+    .rapport-table td.text-start.small { white-space: normal; min-width: 170px; max-width: 260px; }   /* colonne « Motif(s) » : retour à la ligne */
+    .row-total td { padding: .8rem .6rem !important; font-size: .82rem; }
+
+    /* Colonne « Poste » figée à gauche pendant le défilement horizontal (le contexte reste visible) */
+    .rapport-table thead tr:first-child th:nth-child(2) { position: sticky; left: 0; z-index: 3; background: #6B46C1; }
+    .rapport-table tbody tr:not(.row-total) td:nth-child(2) { position: sticky; left: 0; z-index: 2; background: #fff; box-shadow: 2px 0 4px rgba(0, 0, 0, .06); min-width: 110px; }
+    .rapport-table tbody tr:not(.row-total):hover td:nth-child(2) { background: #F8FAFC; }
+
+    /* Boutons du bas : pleine largeur, empilés, zones tactiles 44px */
+    .rapport-page > .d-flex.justify-content-between { flex-direction: column; align-items: stretch !important; gap: 10px; }
+    .btn-back, .btn-export { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; text-align: center; }
+
+    /* Message « aucune donnée » */
+    .no-data-alert { padding: 1.1rem; margin: 1.25rem 0; }
+    .no-data-alert h5 { font-size: 1.05rem; }
+}
+
+/* ---------- Petit mobile (≤ 576px) ---------- */
+@media screen and (max-width: 576px) {
+    .rapport-header h2 { font-size: 1.15rem; }
+    .stat-value { font-size: 1.25rem; }
+    .rapport-table th { font-size: .74rem; }
+    .rapport-table td { font-size: .78rem; }
+}
+
+/* ---------- Très petit écran (≤ 375px) ---------- */
+@media screen and (max-width: 375px) {
+    .rapport-page { padding: 10px 6px !important; }
+    .rapport-header h2 { font-size: 1.05rem; }
+    .rapport-page .row > .col-md-3, .rapport-page .row > .col-md-4 { flex: 0 0 100%; width: 100%; max-width: 100%; }
+}
+
+/* ---------- Paysage mobile ---------- */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    .rapport-page { padding-top: 8px !important; padding-bottom: 8px !important; }
+    .rapport-header { padding: .8rem 1rem; margin-bottom: .8rem; }
+    .rapport-header h2 { font-size: 1.05rem; margin-bottom: .2rem !important; }
+    .rapport-page .row > .col-md-3, .rapport-page .row > .col-md-4 { flex: 0 0 25%; width: 25%; max-width: 25%; }
+}
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 rapport-page">
     <!-- En-tête du rapport -->
     <div class="rapport-header">
         <div class="d-flex justify-content-between align-items-center">
@@ -811,6 +897,30 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+/* Mobile : supprime le retrait gauche (menu latéral) hérité des conteneurs parents de la page */
+(function () {
+    var page = document.querySelector('.rapport-page');
+    if (!page) return;
+    function recadrer() {
+        var mobile = window.innerWidth <= 767;
+        for (var el = page.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+            ['margin-left', 'padding-left'].forEach(function (p) { if (mobile) el.style.setProperty(p, '0', 'important'); else el.style.removeProperty(p); });
+            if (mobile) { el.style.setProperty('width', '100%', 'important'); el.style.setProperty('max-width', '100%', 'important'); el.style.setProperty('min-width', '0', 'important'); }
+            else { ['width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); }); }
+        }
+    }
+    recadrer();
+    window.addEventListener('resize', recadrer);
+    /* Avant impression : on rend les conteneurs à leur état d'origine, après impression on réapplique */
+    window.addEventListener('beforeprint', function () {
+        for (var el = page.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+            ['margin-left', 'padding-left', 'width', 'max-width', 'min-width'].forEach(function (p) { el.style.removeProperty(p); });
+        }
+    });
+    window.addEventListener('afterprint', recadrer);
+})();
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Activer les tooltips Bootstrap

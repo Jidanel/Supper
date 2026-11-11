@@ -1,0 +1,140 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Postes défaillants - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cl-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); background: #fff; }
+    .cl-head { background: linear-gradient(135deg, #991b1b, #ef4444); color: #fff; padding: 1.2rem; border-radius: 12px 12px 0 0; }
+    .kpi { border: 1px solid #e5e7eb; border-radius: 10px; padding: .6rem .9rem; background: #f9fafb; }
+    .kpi b { display: block; font-size: 1.5rem; line-height: 1.1; color: #991b1b; }
+    .kpi span { font-size: .78rem; color: #6b7280; text-transform: uppercase; letter-spacing: .03em; }
+    .mx { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .mx th { background: #1f2937; color: #fff; padding: .35rem .3rem; text-align: center; font-weight: 600; position: sticky; top: 0; }
+    .mx th.l, .mx td.l { text-align: left; }
+    .mx td { border-bottom: 1px solid #e5e7eb; padding: .25rem .3rem; text-align: center; vertical-align: top; }
+    .mx tr:nth-child(even) td.l, .mx tr:nth-child(even) td.t { background: #f9fafb; }
+    .mx .reg td { background: #fee2e2 !important; color: #7f1d1d; font-weight: 700; text-align: left; font-size: .8rem; }
+    .mx .c1 { background: #fef3c7; color: #92400e; font-weight: 700; }   /* < 25 % du mois */
+    .mx .c2 { background: #fdba74; color: #7c2d12; font-weight: 700; }   /* 25 à 75 % */
+    .mx .c3 { background: #ef4444; color: #fff; font-weight: 700; }      /* ≥ 75 % */
+    .mx .c0 { background: #ede9fe; color: #5b21b6; font-weight: 700; }   /* seulement ACCT manquant */
+    .mx .acct { display: inline-block; margin-left: 2px; padding: 0 3px; border-radius: 3px; background: #6d28d9; color: #fff; font-size: .62rem; font-weight: 700; vertical-align: middle; }
+    .mx .ok { color: #d1d5db; }
+    .mx .t { font-weight: 800; color: #991b1b; }
+    .mx small.d { display: block; font-weight: 400; font-size: .62rem; line-height: 1.15; color: inherit; opacity: .9; }
+    .legende span { display: inline-block; padding: 0 .5rem; margin-right: .3rem; border-radius: 4px; font-size: .75rem; }
+    .titre-impr { display: none; }
+    @media (max-width: 767px) { .mx { font-size: .72rem; } .cl-head { padding: .9rem; } }
+
+    /* ---------- IMPRESSION : paysage A4, 5 pages maximum ---------- */
+    @page { size: A4 landscape; margin: 8mm; }
+    @media print {
+        body { background: #fff !important; }
+        .container-fluid { padding: 0 !important; max-width: 100% !important; }
+        .cl-card { box-shadow: none; border-radius: 0; }
+        .cl-head, .no-print, .legende-ecran { display: none !important; }
+        .titre-impr { display: block; margin-bottom: 4px; }
+        .titre-impr h2 { font-size: 13pt; margin: 0; color: #991b1b; }
+        .titre-impr p { font-size: 8pt; margin: 0; color: #374151; }
+        .kpi-ligne { display: flex !important; gap: 6px; margin-bottom: 4px; }
+        .kpi { padding: 2px 8px; flex: 0 0 auto; } .kpi b { font-size: 11pt; } .kpi span { font-size: 6.5pt; }
+        .mx { font-size: 7.5pt; }
+        .mx th, .mx td { padding: 1px 3px; }
+        .mx th { position: static; }
+        .mx thead { display: table-header-group; }          /* En-tête répété à chaque page */
+        .mx tr { break-inside: avoid; page-break-inside: avoid; }
+        .mx small.d { font-size: 5.5pt; }
+        .mx, .mx th, .mx td, .kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+ <div class="cl-card">
+  <div class="cl-head">
+    <h4 class="mb-0"><i class="fas fa-triangle-exclamation me-2"></i>
+      {% if type_doc == 'compte_emploi' %}Postes de péage{% else %}Stations de pesage{% endif %} non à jour</h4>
+    <small>{% if type_doc == 'compte_emploi' %}Jours sans recette, jours sans quittance (journalière ou décade) et mois sans historique ACCT{% else %}Jours non couverts par une quittance (journalière ou décade) et mois sans historique ACCT{% endif %} entre la date de départ et la date d'arrivée choisies (jusqu'à aujourd'hui au plus).</small>
+  </div>
+  <div class="p-3">
+    <form method="get" class="row g-2 mb-3 no-print">
+      <input type="hidden" name="type" value="{{ type_doc }}">
+      <div class="col-6 col-md-2"><label class="form-label">Date de départ</label>
+        <input type="date" name="date_debut" value="{{ date_debut|date:'Y-m-d' }}" class="form-control" required></div>
+      <div class="col-6 col-md-2"><label class="form-label">Date d'arrivée</label>
+        <input type="date" name="date_fin" value="{{ date_fin|date:'Y-m-d' }}" class="form-control" required></div>
+      <div class="col-12 col-md-4"><label class="form-label d-block">Critères (un poste est listé s'il manque l'un d'eux)</label>
+        {% if type_doc == 'compte_emploi' %}
+        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="critere" value="recettes" id="crR" {% if 'recettes' in criteres %}checked{% endif %}><label class="form-check-label" for="crR">Sans recettes</label></div>
+        {% endif %}
+        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="critere" value="quittances" id="crQ" {% if 'quittances' in criteres %}checked{% endif %}><label class="form-check-label" for="crQ">Sans quittances</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="critere" value="acct" id="crA" {% if 'acct' in criteres %}checked{% endif %}><label class="form-check-label" for="crA">Sans historique ACCT</label></div>
+      </div>
+      <div class="col-12 col-md-2 d-flex align-items-end"><div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="detail" value="1" id="chkDetail" {% if avec_detail %}checked{% endif %}>
+        <label class="form-check-label" for="chkDetail">Afficher les dates</label></div></div>
+      <div class="col-6 col-md-2 d-flex align-items-end"><button name="afficher" value="1" class="btn btn-danger w-100">Afficher</button></div>
+      <div class="col-6 col-md-2 d-flex align-items-end"><button name="export" value="1" class="btn btn-outline-success w-100"><i class="fas fa-file-excel me-1"></i>Excel</button></div>
+    </form>
+
+    {% if afficher %}
+      <div class="titre-impr">
+        <h2>{% if type_doc == 'compte_emploi' %}Postes de péage{% else %}Stations de pesage{% endif %} non à jour</h2>
+        <p>Période du {{ date_debut|date:'d/m/Y' }} au {{ date_fin|date:'d/m/Y' }} —
+          critères : {% if 'recettes' in criteres %}sans recettes · {% endif %}{% if 'quittances' in criteres %}sans quittances · {% endif %}{% if 'acct' in criteres %}sans historique ACCT{% endif %}
+          — édité le {{ maintenant|date:'d/m/Y H:i' }}</p>
+      </div>
+      <div class="row g-2 mb-2 kpi-ligne">
+        <div class="col-6 col-md-3"><div class="kpi"><b>{{ resultat|length }}</b><span>{% if type_doc == 'compte_emploi' %}postes défaillants{% else %}stations défaillantes{% endif %}</span></div></div>
+        <div class="col-6 col-md-3"><div class="kpi"><b>{{ total_jours }}</b><span>jours en défaut au total</span></div></div>
+        <div class="col-6 col-md-3"><div class="kpi"><b>{{ nb_regions }}</b><span>région(s) concernée(s)</span></div></div>
+        <div class="col-6 col-md-3 no-print d-flex align-items-center justify-content-end">
+          <button type="button" class="btn btn-outline-dark" onclick="window.print()"><i class="fas fa-print me-1"></i>Imprimer</button></div>
+      </div>
+      <div class="legende legende-ecran mb-2">
+        <span class="c1" style="background:#fef3c7">&lt; 25 % du mois</span>
+        <span style="background:#fdba74">25 à 75 %</span>
+        <span style="background:#ef4444;color:#fff">≥ 75 %</span>
+        <span style="background:#ede9fe;color:#5b21b6"><b class="acct">ACCT</b> historique ACCT manquant (mois terminé)</span>
+        <small class="text-muted">Chaque case = nombre de jours en défaut dans le mois.</small>
+      </div>
+      <div class="table-responsive">
+        <table class="mx">
+          <thead><tr>
+            <th class="l">Poste</th>
+            {% for col in mois_cols %}<th>{{ col.libelle }}</th>{% endfor %}
+            <th>Total</th>
+          </tr></thead>
+          <tbody>
+          {% for r in resultat %}
+            {% ifchanged r.poste.region.nom %}
+              <tr class="reg"><td colspan="{{ mois_cols|length|add:2 }}">{{ r.poste.region.nom|default:"Sans région" }}</td></tr>
+            {% endifchanged %}
+            <tr>
+              <td class="l"><strong>{{ r.poste.nom }}</strong></td>
+              {% for x in r.cellules %}
+                {% if x %}
+                  <td class="c{{ x.niveau }}">{% if x.nb_jours %}{{ x.nb_jours }}{% endif %}{% if x.sans_acct %}<span class="acct">ACCT</span>{% endif %}
+                    {% if avec_detail %}
+                      {% if x.recettes_txt %}<small class="d">R : {{ x.recettes_txt }}</small>{% endif %}
+                      {% if x.quittances_txt %}<small class="d">Q : {{ x.quittances_txt }}</small>{% endif %}
+                    {% endif %}
+                  </td>
+                {% else %}<td class="ok">·</td>{% endif %}
+              {% endfor %}
+              <td class="t">{{ r.total_jours }}{% if r.total_sans_acct %}<span class="acct">+{{ r.total_sans_acct }} ACCT</span>{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="{{ mois_cols|length|add:2 }}" class="text-success py-3">Tous les postes sont à jour sur cette période.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if avec_detail %}<p class="small text-muted mt-2 mb-0">R = jours sans recette · Q = jours sans quittance.</p>{% endif %}
+    {% endif %}
+  </div>
+ </div>
+</div>
+{% endblock %}

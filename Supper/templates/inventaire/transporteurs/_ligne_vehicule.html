@@ -9,6 +9,7 @@
   {# Nombre de places : boutons radio, un nom unique par ligne #}
   <div class="tr-seg">
     {% for code, lib in types %}
+    {% if code == 'fourgon' %}<em class="tr-sep">{% trans "Colisage uniquement :" %}</em>{% endif %}   {# début des types de colisage #}
     <label><input type="radio" name="ag-{{ i }}-v-{{ j }}-type" value="{{ code }}" {% if vtype == code %}checked{% endif %}><span>{{ lib }}</span></label>
     {% endfor %}
   </div>

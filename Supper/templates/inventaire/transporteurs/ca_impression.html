@@ -5,7 +5,7 @@
 {% block title %}{% trans "Impression du chiffre d'affaires" %} - SUPPER{% endblock %}
 {% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
 <style>
-  @page { size: A4; margin: 12mm; }                                  /* page d'impression A4 */
+  @page { size: A4 landscape; margin: 8mm; }                         /* page d'impression A4 en PAYSAGE */
   .tr .imp-ag { border:1px solid #cbd5e1; border-radius:8px; margin:0 0 .8rem; break-inside:avoid; page-break-inside:avoid; }
   .tr .imp-ag > .imp-tete { background:#f1f5f9; padding:.5rem .8rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; border-radius:8px 8px 0 0; }
   .tr .imp-ag .imp-corps { padding:.5rem .8rem; }
@@ -13,6 +13,12 @@
   .tr .imp-sous { font-weight:600; font-size:.85rem; margin:.4rem 0 .2rem; color:#334155; }
   .tr .imp-mini th, .tr .imp-mini td { padding:.25rem .5rem; font-size:.82rem; }
   @media print {
+    html, body { width:100% !important; margin:0 !important; padding:0 !important; }   /* aucune marge parasite du thème */
+    .tr.container-fluid { padding:0 !important; max-width:100% !important; width:100% !important; margin:0 !important; }
+    .tr .tr-scroll { overflow:visible !important; }                   /* le tableau n'est plus coupé : il s'étale sur la largeur de la page */
+    .tr .tr-table { width:100% !important; table-layout:auto; font-size:9px; }   /* police réduite pour que toutes les colonnes tiennent */
+    .tr .tr-table th, .tr .tr-table td { white-space:normal !important; word-break:break-word; padding:2px 4px !important; }   /* retour à la ligne autorisé */
+    .tr .tr-chips { gap:4px; }
     .tr .imp-ag > .imp-tete { background:#eee !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     .tr .imp-calcul { background:#fff !important; border:1px solid #999; }
   }
@@ -27,7 +33,7 @@
       {# On reprend la période et le filtre agence du tableau #}
       <input type="hidden" name="go" value="1"><input type="hidden" name="periode" value="{{ periode }}">
       <input type="hidden" name="annee" value="{{ annee }}"><input type="hidden" name="mois" value="{{ mois }}">
-      <input type="hidden" name="semestre" value="{{ semestre }}"><input type="hidden" name="agence" value="{{ agence_id }}">
+      <input type="hidden" name="semestre" value="{{ semestre }}"><input type="hidden" name="trimestre" value="{{ trimestre }}"><input type="hidden" name="agence" value="{{ agence_id }}">
       <p class="tr-lbl mb-1">{% trans "Que voulez-vous imprimer ?" %}</p>
       <div class="d-flex flex-column gap-2 mb-3">
         <label class="form-check"><input class="form-check-input" type="radio" name="contenu" value="agences" {% if contenu == 'agences' %}checked{% endif %}>
@@ -55,6 +61,9 @@
   <div class="tr-chips mb-3">
     <div class="tr-chip total">{% trans "CA estimé de la période" %}<b>{{ total_ca|floatformat:"0g" }} FCFA</b></div>
     <div class="tr-chip">{% trans "CA d'une semaine type" %}<b>{{ total_semaine|floatformat:"0g" }} FCFA</b></div>
+    <div class="tr-chip">{% trans "CA colisage" %}<b>{{ total_ca_colisage|floatformat:"0g" }} FCFA</b></div>
+    <div class="tr-chip total">{% trans "CA total (passagers + colisage)" %}<b>{{ total_ca_global|floatformat:"0g" }} FCFA</b></div>
+    <div class="tr-chip">{% trans "CA annuel estimé HT (colisage compris)" %}<b>{{ total_ca_annuel_ht|floatformat:"0g" }} FCFA</b></div>
     <div class="tr-chip">{% trans "Agences" %}<b>{{ agences_ca|length }}</b></div>
     <div class="tr-chip">{% trans "Véhicules vus" %}<b>{{ total_vus }}</b></div>
   </div>
@@ -63,12 +72,30 @@
   {% if contenu == 'agences' %}
   <div class="tr-panel"><div class="tr-head">{% trans "Chiffre d'affaires par agence" %}</div><div class="tr-scroll">
     <table class="tr-table"><thead><tr><th>#</th><th>{% trans "Agence" %}</th><th class="num">{% trans "Véhicules vus" %}</th><th class="num">{% trans "Postes" %}</th>
-      <th class="num">{% trans "CA semaine type" %}</th><th class="num">{% trans "CA période (FCFA)" %}</th></tr></thead>
+      <th class="num">{% trans "CA semaine type" %}</th><th class="num">{% trans "CA passagers (FCFA)" %}</th><th class="num">{% trans "CA colisage (FCFA)" %}</th><th class="num">{% trans "CA total période (FCFA)" %}</th><th class="num">{% trans "CA annuel estimé (FCFA)" %}</th><th class="num">{% trans "CA annuel HT, colisage compris (FCFA)" %}</th><th>{% trans "Classe" %}</th>
+      <th>{% trans "NIU" %}</th><th>{% trans "Estimée" %}</th><th>{% trans "Catégorie actuelle / centre" %}</th><th>{% trans "Écart" %}</th></tr></thead>
     <tbody>{% for a in agences_ca %}<tr><td>{{ forloop.counter }}</td><td><b>{{ a.agence }}</b></td><td class="num">{{ a.vus }}</td><td class="num">{{ a.n_postes }}</td>
-      <td class="num">{{ a.ca_semaine|floatformat:"0g" }}</td><td class="num"><b>{{ a.ca_periode|floatformat:"0g" }}</b></td></tr>
-    {% empty %}<tr><td colspan="6" class="text-center text-muted py-3">{% trans "Aucune donnée sur la période." %}</td></tr>{% endfor %}</tbody>
-    <tfoot><tr><td colspan="2"><b>{% trans "Total" %}</b></td><td class="num"><b>{{ total_vus }}</b></td><td></td><td class="num"><b>{{ total_semaine|floatformat:"0g" }}</b></td><td class="num"><b>{{ total_ca|floatformat:"0g" }}</b></td></tr></tfoot></table></div></div>
+      <td class="num">{{ a.ca_semaine|floatformat:"0g" }}</td><td class="num">{{ a.ca_periode|floatformat:"0g" }}</td>
+      <td class="num">{{ a.ca_colisage_periode|floatformat:"0g" }}<br><small>{{ a.structure }} {{ a.taux_colisage|floatformat:"-2" }} %</small></td>
+      <td class="num"><b>{{ a.ca_total_periode|floatformat:"0g" }}</b></td>
+      <td class="num">{{ a.ca_annuel|floatformat:"0g" }}</td><td class="num"><b>{{ a.ca_annuel_total_ht|floatformat:"0g" }}</b></td><td><b>{{ a.classe.libelle }}</b></td>
+      <td>{% if a.fiscal.niu %}{{ a.fiscal.niu }}{% elif a.fiscal.sans_niu %}{% trans "aucun" %}{% else %}—{% endif %}{% if a.fiscal.a_verifier %} *{% endif %}</td>
+      <td>{{ a.structure }}</td>
+      <td>{{ a.fiscal.categorie|default:"—" }}{% if a.fiscal.centre %}<br><small>{{ a.fiscal.centre }}</small>{% endif %}</td>
+      <td>{{ a.fiscal.comparaison.libelle }}</td></tr>
+    {% empty %}<tr><td colspan="15" class="text-center text-muted py-3">{% trans "Aucune donnée sur la période." %}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td colspan="2"><b>{% trans "Total" %}</b></td><td class="num"><b>{{ total_vus }}</b></td><td></td><td class="num"><b>{{ total_semaine|floatformat:"0g" }}</b></td><td class="num">{{ total_ca|floatformat:"0g" }}</td><td class="num">{{ total_ca_colisage|floatformat:"0g" }}</td><td class="num"><b>{{ total_ca_global|floatformat:"0g" }}</b></td><td class="num">{{ total_ca_annuel|floatformat:"0g" }}</td><td class="num"><b>{{ total_ca_annuel_ht|floatformat:"0g" }}</b></td><td colspan="5"></td></tr></tfoot></table></div></div>
   {% endif %}
+
+  {# ===== Classement fiscal : répartition par classe + barème (toujours imprimé) ===== #}
+  <div class="tr-panel" style="break-inside:avoid"><div class="tr-head">{% trans "Classement des agences selon le CA annuel estimé" %}</div><div class="tr-scroll">
+    <table class="tr-table imp-mini"><thead><tr><th>{% trans "Classe" %}</th><th class="num">{% trans "Agences" %}</th><th class="num">{% trans "CA annuel estimé HT cumulé (FCFA)" %}</th></tr></thead>
+      <tbody>{% for c in recap_classes %}<tr><td><b>{{ c.libelle }}</b></td><td class="num">{{ c.agences }}</td><td class="num">{{ c.ca_annuel|floatformat:"0g" }}</td></tr>{% endfor %}</tbody></table></div>
+    <div class="tr-body"><div class="imp-sous">{% trans "Barème (CA annuel estimé HT, colisage compris, FCFA)" %}</div>
+      <table class="tr-table imp-mini"><thead><tr><th>{% trans "Classe" %}</th><th class="num">{% trans "À partir de" %}</th><th class="num">{% trans "Jusqu'à (exclu)" %}</th></tr></thead>
+        <tbody>{% for b in bareme %}<tr><td>{{ b.libelle }}</td><td class="num">{{ b.mini|floatformat:"0g" }}</td>
+          <td class="num">{% if b.maxi %}{{ b.maxi|floatformat:"0g" }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table>
+      <small>{% trans "CIME : à partir de 50 millions par an ; DGE : à partir de 3 milliards par an. CA annuel estimé = CA d'une semaine type × (jours de l'année ÷ 7)." %} {% if params.tarifs_ttc %}{% trans "Les tarifs étant TTC, le HT = CA annuel ÷" %} {{ diviseur_ht|floatformat:"4" }} ({% trans "TVA" %} {{ params.taux_tva }} % + {% trans "autres taxes" %} {{ params.autres_taxes }} %).{% else %}{% trans "Tarifs considérés hors taxes : aucune conversion." %}{% endif %}</small></div></div>
 
   {# ===== Détail par agence : véhicules et/ou postes traversés ===== #}
   {% if contenu == 'vehicules' or detail_postes %}
@@ -77,6 +104,9 @@
   <div class="imp-ag">
     <div class="imp-tete"><span><b>{{ forloop.counter }}. {{ a.agence }}</b></span>
       <span>{{ a.vus }} {% trans "véhicule(s) vu(s)" %} · {{ a.n_postes }} {% trans "poste(s)" %} · <b>{{ a.ca_periode|floatformat:"0g" }} FCFA</b></span></div>
+    <div class="imp-tete" style="border-radius:0"><span>{% trans "CA annuel estimé HT (colisage compris)" %} : <b>{{ a.ca_annuel_total_ht|floatformat:"0g" }} FCFA</b></span><span><b>{{ a.classe.libelle }}</b></span></div>
+    <div class="imp-tete" style="border-radius:0"><span>NIU : <b>{% if a.fiscal.niu %}{{ a.fiscal.niu }}{% elif a.fiscal.sans_niu %}{% trans "aucun" %}{% else %}—{% endif %}</b> · {% trans "Catégorie actuelle" %} : <b>{{ a.fiscal.categorie|default:"—" }}</b> · {% trans "Centre" %} : <b>{{ a.fiscal.centre|default:"—" }}</b></span>
+      <span>{% trans "Estimée" %} : <b>{{ a.structure }}</b> — {{ a.fiscal.comparaison.libelle }}</span></div>
     <div class="imp-corps">
       {% if detail_postes %}
       <div class="imp-sous">{% trans "Postes de péage par lesquels l'agence est passée" %}</div>
@@ -87,6 +117,10 @@
       <div class="imp-calcul"><b>{% trans "Chiffre d'affaires estimé sur la période" %}</b> :
         {{ a.vehicules }} {% trans "véhicule(s) valorisé(s)" %} → {% trans "CA d'une semaine type" %} {{ a.ca_semaine|floatformat:"0g" }} FCFA
         × ({{ infos.jours }} {% trans "jours" %} ÷ 7 = {{ infos.semaines }} {% trans "semaines" %}) ≈ <b>{{ a.ca_periode|floatformat:"0g" }} FCFA</b>
+        <br>{% trans "CA annuel estimé" %} = {{ a.ca_semaine|floatformat:"0g" }} × ({{ jours_annee }} {% trans "jours" %} ÷ 7) ≈ {{ a.ca_annuel|floatformat:"0g" }} FCFA{% if params.tarifs_ttc %} ; {% trans "HT" %} = ÷ {{ diviseur_ht|floatformat:"4" }} ≈ <b>{{ a.ca_annuel_ht|floatformat:"0g" }} FCFA</b>{% endif %}
+        <br>{% trans "Colisage" %}{% if a.a_colisage %} ({{ a.colisage.vehicules }} {% trans "véhicule(s) de colisage vu(s)" %}){% endif %} : {{ a.structure }} {{ a.taux_colisage|floatformat:"-2" }} % × {% trans "CA TTC des passagers" %} = <b>{{ a.ca_colisage_periode|floatformat:"0g" }} FCFA</b> ; {% trans "CA total période" %} = {{ a.ca_periode|floatformat:"0g" }} + {{ a.ca_colisage_periode|floatformat:"0g" }} = <b>{{ a.ca_total_periode|floatformat:"0g" }} FCFA</b>
+        <br>{% trans "CA annuel HT total" %} = {{ a.ca_annuel_ht|floatformat:"0g" }} ({% trans "passagers" %}) + {{ a.ca_colisage_annuel_ht|floatformat:"0g" }} ({% trans "colisage" %}) = <b>{{ a.ca_annuel_total_ht|floatformat:"0g" }} FCFA</b> → <b>{{ a.classe.libelle }}</b>{% if a.classe_change %} ({% trans "classe des passagers seuls" %} : {{ a.classe_passagers.libelle }}, {% trans "relevée par le colisage" %}){% endif %}
+        {% if a.structure_change %}<br><i>{% trans "Le colisage a fait passer l'agence de" %} {{ a.structure_passagers }} {% trans "à" %} {{ a.structure }} : {% trans "il est donc calculé au taux" %} {{ a.structure }} ({{ a.taux_colisage|floatformat:"-2" }} %).</i>{% endif %}
         {% if a.vehicules != a.vus %}<br><small>{% trans "Les véhicules vus uniquement à des postes non reliés au maillage ne sont pas valorisés." %}</small>{% endif %}</div>
       {% endif %}
       {% if contenu == 'vehicules' %}
@@ -102,6 +136,7 @@
   {% endfor %}
   {% endif %}
 
+  <p class="tr-sub">{% trans "NIU, catégorie et centre actuels : données saisies dans SUPPER (* = à vérifier). « Estimée » = structure déduite du chiffre d'affaires annuel HT, colisage compris." %}</p>
   {% if postes_ignores %}<p class="tr-sub">{% trans "Postes non reliés au maillage (passages ignorés dans le calcul)" %} : {{ postes_ignores|join:", " }}.</p>{% endif %}
   {% elif calcule %}
   <div class="tr-avert">{% trans "Le maillage des postes n'est pas chargé." %}</div>

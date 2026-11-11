@@ -19,7 +19,8 @@
       <p class="tr-sub">{% trans "Estimation par agence et par véhicule, d'après les postes où chaque véhicule a été vu." %}</p></div>
     <div class="d-flex gap-2 flex-wrap">
       <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca_methode' %}">📘 {% trans "Méthode de calcul" %}</a>
-      {% if est_admin %}<a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_maillage' %}">🕸 {% trans "Maillage" %}</a>
+      {% if est_admin %}<a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_fiscal' %}">🏛 {% trans "NIU et catégories" %}</a>
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_maillage' %}">🕸 {% trans "Maillage" %}</a>
       <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca_parametres' %}">⚙ {% trans "Paramètres et maillage" %}</a>{% endif %}
       {% if calcule and agences_ca %}
         <a class="tr-btn-ghost text-decoration-none" href="{{ retour }}&export=csv">⬇ CSV</a>
@@ -47,12 +48,19 @@
     <div><label class="tr-lbl">{% trans "Période" %}</label>
       <select name="periode" id="selPeriode" class="form-select">
         <option value="mois" {% if periode == 'mois' %}selected{% endif %}>{% trans "Mensuelle" %}</option>
+        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>{% trans "Trimestrielle" %}</option>
         <option value="semestre" {% if periode == 'semestre' %}selected{% endif %}>{% trans "Semestrielle" %}</option>
         <option value="annee" {% if periode == 'annee' %}selected{% endif %}>{% trans "Annuelle" %}</option></select></div>
     <div><label class="tr-lbl">{% trans "Année" %}</label>
       <select name="annee" class="form-select">{% for a in annees %}<option value="{{ a }}" {% if a == annee %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
     <div id="blocMois"><label class="tr-lbl">{% trans "Mois" %}</label>
       <select name="mois" class="form-select">{% for n, nom in mois_liste %}<option value="{{ n }}" {% if n == mois %}selected{% endif %}>{{ nom }}</option>{% endfor %}</select></div>
+    <div id="blocTrimestre"><label class="tr-lbl">{% trans "Trimestre" %}</label>
+      <select name="trimestre" class="form-select">
+        <option value="1" {% if trimestre == 1 %}selected{% endif %}>T1 (Jan–Mars)</option>
+        <option value="2" {% if trimestre == 2 %}selected{% endif %}>T2 (Avr–Juin)</option>
+        <option value="3" {% if trimestre == 3 %}selected{% endif %}>T3 (Juil–Sept)</option>
+        <option value="4" {% if trimestre == 4 %}selected{% endif %}>T4 (Oct–Déc)</option></select></div>
     <div id="blocSemestre"><label class="tr-lbl">{% trans "Semestre" %}</label>
       <select name="semestre" class="form-select">
         <option value="1" {% if semestre == 1 %}selected{% endif %}>S1 (Jan–Juin)</option>
@@ -70,6 +78,9 @@
     <div class="tr-body tr-chips">
       <div class="tr-chip total">{% trans "CA estimé de la période" %}<b>{{ total_ca|floatformat:"0g" }} FCFA</b></div>
       <div class="tr-chip">{% trans "CA d'une semaine type" %}<b>{{ total_semaine|floatformat:"0g" }} FCFA</b></div>
+      <div class="tr-chip">{% trans "CA colisage (période)" %}<b>{{ total_ca_colisage|floatformat:"0g" }} FCFA</b></div>
+      <div class="tr-chip total">{% trans "CA total (passagers + colisage)" %}<b>{{ total_ca_global|floatformat:"0g" }} FCFA</b></div>
+      <div class="tr-chip">{% trans "CA annuel estimé HT, colisage compris (toutes agences)" %}<b>{{ total_ca_annuel_ht|floatformat:"0g" }} FCFA</b></div>
       <div class="tr-chip">{% trans "Agences" %}<b>{{ agences_ca|length }}</b></div>
       <div class="tr-chip">{% trans "Véhicules" %}<b>{{ total_vehicules }}</b></div>
     </div>
@@ -83,8 +94,15 @@
       <button type="button" class="tr-btn-ghost no-print" id="btnTout">{% trans "Tout déplier" %}</button></div>
     {% for a in agences_ca %}
     <details class="tr-ag"><summary>
-      <span><b>{{ a.agence }}</b> <span class="sm">· {{ a.vehicules }} {% trans "véhicule(s)" %}</span></span>
-      <span><b>{{ a.ca_periode|floatformat:"0g" }}</b> FCFA <span class="sm">({{ a.ca_semaine|floatformat:"0g" }} / {% trans "sem." %})</span></span></summary>
+      <span><b>{{ a.agence }}</b> <span class="sm">· {{ a.vehicules }} {% trans "véhicule(s)" %}</span>
+        <span class="badge bg-primary">{{ a.classe.libelle }}</span>{% if a.classe_change %}<span class="sm">({% trans "passagers seuls" %} : {{ a.classe_passagers.libelle }})</span>{% endif %}
+        <span class="badge bg-warning text-dark">{% trans "Estimée" %} : {{ a.structure }}{% if a.structure_change %} ↑{% endif %} · {% trans "colisage" %} {{ a.taux_colisage|floatformat:"-2" }} %{% if a.a_colisage %} · {{ a.colisage.vehicules }} {% trans "véh." %}{% endif %}</span>
+        <br><span class="sm">NIU : <b>{% if a.fiscal.niu %}{{ a.fiscal.niu }}{% elif a.fiscal.sans_niu %}{% trans "aucun" %}{% else %}—{% endif %}</b>
+          · {% trans "Catégorie actuelle" %} : <b>{{ a.fiscal.categorie|default:"—" }}</b>
+          · {% trans "Centre" %} : <b>{{ a.fiscal.centre|default:"—" }}</b>{% if a.fiscal.a_verifier %} <span class="badge bg-warning text-dark">{% trans "à vérifier" %}</span>{% endif %}
+          <span class="badge bg-{{ a.fiscal.comparaison.css }}">{{ a.fiscal.comparaison.libelle }}</span></span></span>
+      <span><b>{{ a.ca_periode|floatformat:"0g" }}</b> FCFA <span class="sm">({{ a.ca_semaine|floatformat:"0g" }} / {% trans "sem." %}) · {% trans "annuel HT (colisage compris)" %} ≈ {{ a.ca_annuel_total_ht|floatformat:"0g" }}</span>
+        {% if a.ca_colisage_periode %}<br><span class="sm">+ {% trans "colisage" %} <b>{{ a.ca_colisage_periode|floatformat:"0g" }}</b> = {% trans "total" %} <b>{{ a.ca_total_periode|floatformat:"0g" }}</b> FCFA</span>{% endif %}</span></summary>
       <div class="tr-scroll"><table class="tr-table">
         <thead><tr><th>{% trans "Plaque" %}</th><th>{% trans "Type" %}</th><th class="num">{% trans "Places" %}</th><th>{% trans "Trajet de référence" %}</th>
           <th class="num">{% trans "Tarif" %}</th><th class="num">{% trans "A/R par sem." %}</th><th class="num">{% trans "CA semaine" %}</th><th class="num">{% trans "CA période" %}</th></tr></thead>
@@ -100,6 +118,21 @@
     {% empty %}<div class="tr-body text-center text-muted">{% trans "Aucune donnée sur la période." %}</div>{% endfor %}
     {% if agences_ca %}<div class="tr-body d-flex justify-content-between"><b>{% trans "Total" %}</b><b>{{ total_ca|floatformat:"0g" }} FCFA</b></div>{% endif %}
   </div>
+  {# Répartition des agences par classe (CA annuel estimé) #}
+  <div class="tr-panel"><div class="tr-head">{% trans "Classes des agences (CA annuel estimé HT, colisage compris)" %}</div><div class="tr-scroll">
+    <table class="tr-table"><thead><tr><th>{% trans "Classe" %}</th><th class="num">{% trans "Agences" %}</th><th class="num">{% trans "CA annuel estimé HT cumulé (FCFA)" %}</th></tr></thead>
+    <tbody>{% for c in recap_classes %}<tr><td><b>{{ c.libelle }}</b></td><td class="num">{{ c.agences }}</td><td class="num">{{ c.ca_annuel|floatformat:"0g" }}</td></tr>{% endfor %}</tbody></table></div></div>
+  {# Catégorie actuelle (saisie) comparée à la structure estimée par le CA #}
+  <div class="tr-panel"><div class="tr-head">{% trans "Catégorie actuelle comparée à la structure estimée" %}
+      {% if est_admin %}<a class="tr-btn-ghost text-decoration-none no-print" href="{% url 'inventaire:transporteurs_fiscal' %}">{% trans "Renseigner NIU / catégorie / centre" %}</a>{% endif %}</div>
+    <div class="tr-body tr-chips">
+      <div class="tr-chip">{% trans "Conformes" %}<b>{{ recap_fiscal.conforme }}</b></div>
+      <div class="tr-chip total">{% trans "Devraient être dans une structure supérieure" %}<b>{{ recap_fiscal.sous }}</b></div>
+      <div class="tr-chip">{% trans "Estimées dans une structure inférieure" %}<b>{{ recap_fiscal.sur }}</b></div>
+      <div class="tr-chip">{% trans "Centre hors DGE/CIME/CFLP" %}<b>{{ recap_fiscal.autre }}</b></div>
+      <div class="tr-chip">{% trans "Non renseignées" %}<b>{{ recap_fiscal.inconnu }}</b></div>
+    </div></div>
+  <p class="tr-sub">{% trans "Colisage = pourcentage du CA TTC des passagers de l'agence selon sa structure (DGE, CIME ou CFLP, déterminée par le CA annuel HT des passagers), appliqué à toute agence vue sur la période. Il est ajouté au CA annuel HT, et la classe finale est calculée sur ce total." %}</p>
   <p class="tr-sub">{% trans "Estimation théorique à pleine capacité (nombre de places = borne inférieure de la fiche). Voir la note de méthode." %}</p>
   {% endif %}
 </div>
@@ -108,10 +141,11 @@
 {% block extra_js %}
 <script>
 (function () {
-  // Affiche seulement le sélecteur utile selon la période (mois / semestre / année)
+  // Affiche seulement le sélecteur utile selon la période (mois / trimestre / semestre / année)
   var sel = document.getElementById('selPeriode');
   function maj() {
     document.getElementById('blocMois').style.display = sel.value === 'mois' ? '' : 'none';
+    document.getElementById('blocTrimestre').style.display = sel.value === 'trimestre' ? '' : 'none';
     document.getElementById('blocSemestre').style.display = sel.value === 'semestre' ? '' : 'none';
   }
   sel.addEventListener('change', maj); maj();

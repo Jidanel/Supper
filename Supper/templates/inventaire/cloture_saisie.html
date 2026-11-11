@@ -1,0 +1,68 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Éléments du mois - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cl-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+    .cl-head { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff; padding: 1.2rem; border-radius: 12px 12px 0 0; }
+    .serie-item { display: inline-block; margin: .2rem .5rem .2rem 0; padding: .25rem .6rem; border: 1px solid #cbd5e1; border-radius: 6px; }
+    @media (max-width: 767px) { .cl-head { padding: .9rem; } .serie-item { display: block; } }
+    @media print { .no-print { display: none !important; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+ <div class="cl-card">
+  <div class="cl-head">
+    <h4 class="mb-0">{{ poste.nom }} — {{ mois }}</h4>
+    <small>Éléments pré-remplis : vérifiez et corrigez si nécessaire avant de générer le document.</small>
+  </div>
+  <form method="post" class="p-3">
+    {% csrf_token %}
+    <div class="row g-3">
+    {% if type_doc == 'compte_emploi' %}
+      <div class="col-12 col-lg-6"><label class="form-label">Stock d'ouverture : séries (une par ligne : début-fin)</label>
+        <textarea name="series_ouverture" rows="3" class="form-control">{{ textes_series.series_ouverture }}</textarea></div>
+      <div class="col-12 col-lg-6"><label class="form-label">Approv. Imprimerie Nationale : séries</label>
+        <textarea name="series_approv" rows="3" class="form-control">{{ textes_series.series_approv }}</textarea></div>
+      <div class="col-12 col-lg-6"><label class="form-label">Réapprovisionnement reçu : séries</label>
+        <textarea name="series_recu" rows="2" class="form-control">{{ textes_series.series_recu }}</textarea></div>
+      <div class="col-12 col-lg-6"><label class="form-label">Réapprovisionnement cédé : séries</label>
+        <textarea name="series_cede" rows="2" class="form-control">{{ textes_series.series_cede }}</textarea></div>
+      <div class="col-12 col-md-6"><label class="form-label">Abonnements du mois (FCFA)</label>
+        <input name="abonnements" class="form-control" value="{{ valeurs.abonnements }}"></div>
+      <div class="col-12 col-md-6"><label class="form-label">Rendement N-1 (FCFA)</label>
+        <input name="rendement_n1" class="form-control" value="{{ valeurs.rendement_n1 }}"></div>
+      <div class="col-12">
+        <label class="form-label">Stock de fin : cochez les séries en votre possession</label><br>
+        {% for s in series_disponibles %}
+          <label class="serie-item">
+            <input type="checkbox" name="series" value="{{ s.0 }}-{{ s.1 }}"
+              {% if s in series_cochees %}checked{% endif %}> de N°{{ s.0 }} à N°{{ s.1 }}
+          </label>
+        {% empty %}<span class="text-muted">Aucune série en stock dans SUPPER.</span>{% endfor %}
+        <div class="form-text">Le stock vendu est calculé automatiquement : (ouverture + approv. + reçu) − cédé − stock de fin.</div>
+      </div>
+    {% else %}
+      <div class="col-12 col-md-4"><label class="form-label">Nombre de pesées</label>
+        <input name="nombre_pesees" class="form-control" value="{{ valeurs.nombre_pesees }}"></div>
+      <div class="col-12 col-md-4"><label class="form-label">Nombre d'infractions</label>
+        <input name="nombre_infractions" class="form-control" value="{{ valeurs.nombre_infractions }}"></div>
+      <div class="col-12 col-md-4"><label class="form-label">Émissions du mois (FCFA)</label>
+        <input name="emissions" class="form-control" value="{{ valeurs.emissions }}"></div>
+      <div class="col-12 col-md-6"><label class="form-label">RAR du mois précédent (FCFA)</label>
+        <input name="rar_precedent" class="form-control" value="{{ valeurs.rar_precedent }}"></div>
+      <div class="col-12 col-md-6"><label class="form-label">Rendement N-1 (FCFA)</label>
+        <input name="rendement_n1" class="form-control" value="{{ valeurs.rendement_n1 }}"></div>
+    {% endif %}
+    </div>
+    <div class="mt-4 d-flex gap-2 no-print">
+      <button class="btn btn-primary"><i class="fas fa-file-pdf me-1"></i>Générer le document</button>
+      <a class="btn btn-outline-secondary" href="{% url 'inventaire:cloture_selection' %}?type={{ type_doc }}&mois={{ mois }}">Annuler</a>
+    </div>
+  </form>
+ </div>
+</div>
+{% endblock %}

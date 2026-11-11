@@ -2,28 +2,28 @@
  * ===================================================================
  * SUPPER - Gestion automatique des permissions par habilitation
  * ===================================================================
- * 
+ *
  * Mapping basé sur le document officiel Habilitations.pdf
- * 
+ *
  * HABILITATIONS DÉFINIES (16 rôles):
- * - Services centraux (accès tous postes): admin_principal, coord_psrr, 
+ * - Services centraux (accès tous postes): admin_principal, coord_psrr,
  *   serv_info, serv_emission, chef_ag, serv_controle, serv_ordre
  * - CISOP: cisop_peage, cisop_pesage
  * - Péage (accès poste affecté): chef_peage, agent_inventaire
- * - Pesage (accès poste affecté): chef_station_pesage, regisseur_pesage, 
+ * - Pesage (accès poste affecté): chef_station_pesage, regisseur_pesage,
  *   chef_equipe_pesage
  * - Externe: imprimerie
- * 
+ *
  * TOTAL: 58 permissions granulaires
  * ===================================================================
  */
 
 const PERMISSIONS_PAR_HABILITATION = {
-    
+
     // ═══════════════════════════════════════════════════════════════
     // SERVICES CENTRAUX - Accès complet à tous les postes
     // ═══════════════════════════════════════════════════════════════
-    
+
     /**
      * ADMINISTRATEUR PRINCIPAL - Accès total système
      */
@@ -287,7 +287,7 @@ const PERMISSIONS_PAR_HABILITATION = {
         // Quittances Péage
         'peut_saisir_quittance_peage', 'peut_voir_liste_quittances_peage', 'peut_comptabiliser_quittances_peage',
         // Stock Péage
-        'peut_voir_liste_stocks_peage', 'peut_voir_stock_date_peage',
+        'peut_voir_stock_date_peage',
         'peut_voir_tracabilite_tickets', 'peut_voir_bordereaux_peage',
         'peut_voir_mon_stock_peage', 'peut_voir_historique_stock_peage',
         // Rapports
@@ -573,7 +573,7 @@ function checkAllPermissions() {
 function applyPermissionsForHabilitation(habilitation) {
     // D'abord, décocher toutes les permissions
     resetAllPermissions();
-    
+
     // Ensuite, cocher les permissions de l'habilitation
     const permissions = PERMISSIONS_PAR_HABILITATION[habilitation];
     if (permissions) {
@@ -584,7 +584,7 @@ function applyPermissionsForHabilitation(habilitation) {
             }
         });
     }
-    
+
     updatePermissionsIndicator();
 }
 
@@ -627,7 +627,7 @@ function updatePermissionsIndicator() {
         const count = countActivePermissions();
         const total = TOUTES_PERMISSIONS.length;
         indicator.textContent = `${count}/${total} permissions actives`;
-        
+
         // Couleur selon le pourcentage
         if (count === 0) {
             indicator.className = 'badge bg-secondary';
@@ -639,7 +639,7 @@ function updatePermissionsIndicator() {
             indicator.className = 'badge bg-success';
         }
     }
-    
+
     // Mettre à jour les compteurs par catégorie
     updateCategoryCounters();
 }
@@ -723,12 +723,12 @@ function uncheckAllInCategory(categoryId) {
 function handleHabilitationChange() {
     const select = document.getElementById('id_habilitation');
     if (!select) return;
-    
+
     const habilitation = select.value;
-    
+
     // Vérifier si des permissions sont déjà cochées
     const currentCount = countActivePermissions();
-    
+
     if (currentCount > 0 && habilitation) {
         // Demander confirmation avant d'écraser
         const habLabel = select.options[select.selectedIndex].text;
@@ -793,7 +793,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         // Pour la modification: ne pas appliquer automatiquement (garder les valeurs existantes)
     }
-    
+
     // Ajouter l'écouteur sur tous les checkboxes de permissions
     TOUTES_PERMISSIONS.forEach(perm => {
         const checkbox = document.getElementById('id_' + perm);
@@ -801,10 +801,10 @@ document.addEventListener('DOMContentLoaded', function() {
             checkbox.addEventListener('change', updatePermissionsIndicator);
         }
     });
-    
+
     // Mettre à jour l'indicateur initial
     updatePermissionsIndicator();
-    
+
     // Log pour debug
     console.log('SUPPER Permissions Manager chargé');
     console.log(`Total habilitations: ${Object.keys(PERMISSIONS_PAR_HABILITATION).length}`);

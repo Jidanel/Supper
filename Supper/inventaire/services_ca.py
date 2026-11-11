@@ -205,6 +205,144 @@ class Reseau:
 
 
 # ===================================================================
+# 2 bis. CLASSEMENT FISCAL DES AGENCES selon leur CA ANNUEL ESTIMÉ
+# (le montant annuel forfaitaire du barème n'est volontairement pas utilisé)
+# ===================================================================
+
+# Barème : (numéro, borne basse incluse, borne haute exclue), en FCFA de CA annuel HT
+CLASSES_FISCALES = [
+    (1, 0, 500_000), (2, 500_000, 1_000_000), (3, 1_000_000, 1_500_000),
+    (4, 1_500_000, 2_000_000), (5, 2_000_000, 2_500_000), (6, 2_500_000, 5_000_000),
+    (7, 5_000_000, 10_000_000), (8, 10_000_000, 20_000_000), (9, 20_000_000, 30_000_000),
+    (10, 30_000_000, 50_000_000),
+]
+SEUIL_CIME = 50_000_000          # à partir de 50 M FCFA HT par an : Centre des Impôts des Moyennes Entreprises
+SEUIL_DGE = 3_000_000_000        # à partir de 3 milliards FCFA HT par an : Direction des Grandes Entreprises
+
+
+def classe_fiscale(ca_annuel):
+    """
+    Classe d'une agence selon son CA annuel estimé.
+    Retourne {'code': 'C1'..'C10' | 'CIME' | 'DGE', 'libelle': 'Classe 6' | 'CIME' | 'DGE', 'ordre': 1..12}.
+    Une valeur située exactement sur une borne tombe dans la classe SUPÉRIEURE (bornes basses incluses) :
+    500 000 = classe 2, 1 000 000 = classe 3, 50 000 000 = CIME, 3 000 000 000 = DGE.
+    """
+    if ca_annuel >= SEUIL_DGE:
+        return {'code': 'DGE', 'libelle': 'DGE', 'ordre': 12}
+    if ca_annuel >= SEUIL_CIME:
+        return {'code': 'CIME', 'libelle': 'CIME', 'ordre': 11}
+    for numero, _bas, haut in CLASSES_FISCALES:
+        if ca_annuel < haut:
+            return {'code': f'C{numero}', 'libelle': f'Classe {numero}', 'ordre': numero}
+    return {'code': 'C10', 'libelle': 'Classe 10', 'ordre': 10}    # (inatteignable : filet de sécurité)
+
+
+def bareme():
+    """Barème sous forme de lignes affichables : [{'ordre', 'libelle', 'mini', 'maxi'}] (maxi None = sans limite)."""
+    lignes = [{'ordre': n, 'libelle': f'Classe {n}', 'mini': bas, 'maxi': haut} for n, bas, haut in CLASSES_FISCALES]
+    lignes.append({'ordre': 11, 'libelle': 'CIME', 'mini': SEUIL_CIME, 'maxi': SEUIL_DGE})
+    lignes.append({'ordre': 12, 'libelle': 'DGE', 'mini': SEUIL_DGE, 'maxi': None})
+    return lignes
+
+
+def facteur_taxes(params):
+    """1 + (TVA + autres taxes) ÷ 100 : coefficient qui passe un montant HT à son équivalent TTC."""
+    return Decimal(1) + (Decimal(params.get('taux_tva', 0)) + Decimal(params.get('autres_taxes', 0))) / 100
+
+
+def diviseur_ht(params):
+    """
+    Diviseur qui ramène un montant TTC au HT : 1 + (TVA + autres taxes) ÷ 100.
+    Vaut 1 (aucune conversion) si les tarifs du maillage sont déclarés hors taxes.
+    """
+    if not params.get('tarifs_ttc', False):
+        return Decimal(1)
+    taux = Decimal(params.get('taux_tva', 0)) + Decimal(params.get('autres_taxes', 0))
+    return Decimal(1) + taux / 100
+
+
+def ajouter_classement(agences, jours_annee, params):
+    """
+    Ajoute à chaque agence : CA annuel estimé (brut, tel que tarifé), CA annuel HT et classe.
+    CA annuel brut = CA d'une semaine type × (jours de l'année ÷ 7) : on prolonge le rythme
+    observé sur la période (mois, trimestre, semestre ou année) à une année entière.
+    La classe se détermine sur le CA annuel HT (CA brut ÷ diviseur_ht) ; ajouter_colisage la recalcule ensuite colisage compris.
+    """
+    div = diviseur_ht(params)
+    for a in agences:
+        a['ca_annuel'] = arrondi(Decimal(a['ca_semaine']) * jours_annee / 7)       # tel que tarifé (TTC si tarifs TTC)
+        a['ca_annuel_ht'] = arrondi(Decimal(a['ca_annuel']) / div)                  # hors taxes
+        a['classe'] = classe_fiscale(a['ca_annuel_ht'])
+
+
+RANG_STRUCTURE = {'CFLP': 1, 'CIME': 2, 'DGE': 3}          # la structure ne peut que monter grâce au colisage
+
+
+def structure_fiscale(classe):
+    """Structure de rattachement de l'agence : 'DGE', 'CIME' ou 'CFLP' (classes 1 à 10 = centre de fiscalité locale)."""
+    return {12: 'DGE', 11: 'CIME'}.get(classe['ordre'], 'CFLP')
+
+
+def ajouter_colisage(agences, jours_annee, params, colis_par_agence):
+    """
+    Chiffre d'affaires du COLISAGE (véhicules transportant uniquement courrier et colis).
+    Règle : colisage = taux × CA TTC des passagers de l'agence, avec le taux de sa structure fiscale
+    (DGE 30 %, CIME 20 %, CFLP 10 % par défaut, modifiables).
+    Toute agence dont au moins un véhicule (de personnes ou de colisage) a été vu sur la période est concernée.
+    Le colisage entre dans le CA annuel HT TOTAL (ca_annuel_total_ht), et la CLASSE FINALE se calcule sur ce total.
+    Calcul en boucle : on part de la structure des passagers seuls ; si le colisage fait franchir une borne (ex. 48 M HT
+    de passagers + 10 % de colisage > 50 M = CIME), l'agence change de structure et le colisage est RECALCULÉ au taux de la
+    nouvelle structure (20 % pour le CIME), jusqu'à stabilité. Les taux augmentent avec la structure : la boucle converge.
+    a['classe_passagers'] / a['structure_passagers'] gardent la situation des passagers seuls.
+    colis_par_agence : {nom d'agence: {'vehicules': n distincts, 'passages': n, 'par_type': {code: n}}}
+    """
+    taux_par_structure = {'DGE': Decimal(params.get('taux_colisage_dge', 30)),
+                          'CIME': Decimal(params.get('taux_colisage_cime', 20)),
+                          'CFLP': Decimal(params.get('taux_colisage_cflp', 10))}
+    # Base = CA TTC des passagers : les tarifs sont TTC si « tarifs_ttc », sinon on les majore des taxes
+    facteur_ttc = Decimal(1) if params.get('tarifs_ttc', False) else facteur_taxes(params)
+    for a in agences:
+        info = colis_par_agence.get(a['agence'])
+        a['colisage'] = info or {'vehicules': 0, 'passages': 0, 'par_type': {}}
+        a['a_colisage'] = bool(info)
+        a['classe_passagers'] = a['classe']                                    # classe sur les seuls passagers
+        a['structure_passagers'] = structure_fiscale(a['classe'])
+        structure = a['structure_passagers']
+        for _tour in range(4):                                                 # converge en 2 tours au plus (3 structures)
+            taux = taux_par_structure[structure]
+            ca_colisage_annuel = arrondi(Decimal(a['ca_annuel']) * facteur_ttc * taux / 100)          # TTC
+            ca_colisage_annuel_ht = arrondi(Decimal(ca_colisage_annuel) / facteur_taxes(params))     # HT
+            total_ht = a['ca_annuel_ht'] + ca_colisage_annuel_ht
+            classe = classe_fiscale(total_ht)
+            nouvelle = structure_fiscale(classe)
+            if RANG_STRUCTURE[nouvelle] <= RANG_STRUCTURE[structure]:          # stable (ou jamais de baisse) : on garde ce taux
+                break
+            structure = nouvelle                                               # sinon on recalcule au taux supérieur
+        a['structure'] = structure                                             # structure finale (DGE / CIME / CFLP)
+        a['taux_colisage'] = taux
+        a['classe'] = classe                                                   # classe finale, colisage compris
+        a['classe_change'] = classe['ordre'] != a['classe_passagers']['ordre'] # relevée grâce au colisage ?
+        a['structure_change'] = structure != a['structure_passagers']          # taux relevé grâce au colisage ?
+        a['ca_colisage_semaine'] = arrondi(Decimal(a['ca_semaine']) * facteur_ttc * taux / 100)
+        a['ca_colisage_periode'] = arrondi(Decimal(a['ca_periode']) * facteur_ttc * taux / 100)
+        a['ca_colisage_annuel'] = ca_colisage_annuel
+        a['ca_colisage_annuel_ht'] = ca_colisage_annuel_ht
+        a['ca_total_periode'] = a['ca_periode'] + a['ca_colisage_periode']      # passagers + colisage
+        a['ca_annuel_total_ht'] = total_ht                                      # passagers + colisage, HT
+
+
+def recapitulatif_classes(agences):
+    """Nombre d'agences et CA annuel HT total (colisage compris) cumulé par classe (classes vides omises), dans l'ordre du barème."""
+    par_ordre = {}
+    for a in agences:
+        c = par_ordre.setdefault(a['classe']['ordre'], {'libelle': a['classe']['libelle'],
+                                                        'ordre': a['classe']['ordre'], 'agences': 0, 'ca_annuel': 0})
+        c['agences'] += 1
+        c['ca_annuel'] += a.get('ca_annuel_total_ht', a['ca_annuel_ht'])    # total HT, colisage compris
+    return [par_ordre[k] for k in sorted(par_ordre)]
+
+
+# ===================================================================
 # 3. ESTIMATION D'UN VÉHICULE PUIS D'UNE PÉRIODE
 # ===================================================================
 
@@ -403,4 +541,7 @@ def parametres_en_dict():
     p = ParametresCA.charger()
     return {'tours_longs': p.tours_longs, 'tours_courts': p.tours_courts,
             'seuil_regions': p.seuil_regions, 'majoration_clim': p.majoration_clim,
+            'tarifs_ttc': p.tarifs_ttc, 'taux_tva': p.taux_tva, 'autres_taxes': p.autres_taxes,
+            'taux_colisage_dge': p.taux_colisage_dge, 'taux_colisage_cime': p.taux_colisage_cime,
+            'taux_colisage_cflp': p.taux_colisage_cflp,
             'places': p.places_par_type()}

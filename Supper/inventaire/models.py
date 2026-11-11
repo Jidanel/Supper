@@ -28,6 +28,8 @@ from inventaire.models_confirmation import *
 from inventaire.models_incident import *
 from inventaire.models_transporteurs import *
 from inventaire.models_ca import *
+from inventaire.models_cloture import *  # Clôture mensuelle (compte d'emploi / PV)
+from inventaire.models_permutation import *  # Permutations de séries de tickets
 logger = logging.getLogger('supper')
 
 class MoisChoices(models.TextChoices):

@@ -27,9 +27,12 @@ from . import views_rapports_defaillants_pesage
 from . import views_incident
 from . import views_historique_quittance
 from . import views_commandes
+from . import views_export_series  # Export des séries livrées par commande/poste
 from . import views_stats_prolifiques
 from . import views_transporteurs
+from . import views_fiscal                                   # situation fiscale des agences (NIU, catégorie, centre)
 from inventaire import views_ca
+from inventaire import views_cloture  # Vues de clôture mensuelle
 
 
 app_name = 'inventaire'
@@ -71,6 +74,10 @@ urlpatterns = [
     path('transporteurs/ca/maillage/poste/<int:pk>/', views_ca.transporteurs_maillage_poste, name='transporteurs_maillage_poste'),
     path('transporteurs/ca/maillage/poste/<int:pk>/enregistrer/', views_ca.transporteurs_maillage_poste_enregistrer, name='transporteurs_maillage_poste_enregistrer'),
     path('transporteurs/ca/impression/', views_ca.transporteurs_ca_impression, name='transporteurs_ca_impression'),
+    path('transporteurs/fiscal/', views_fiscal.transporteurs_fiscal, name='transporteurs_fiscal'),
+    path('transporteurs/fiscal/<int:pk>/modifier/', views_fiscal.transporteurs_fiscal_modifier, name='transporteurs_fiscal_modifier'),
+    path('transporteurs/fiscal/importer/', views_fiscal.transporteurs_fiscal_importer, name='transporteurs_fiscal_importer'),
+    path('transporteurs/fiscal/exporter/', views_fiscal.transporteurs_fiscal_exporter, name='transporteurs_fiscal_exporter'),
     # ================================================================
     # PROGRAMMATION INVENTAIRES (NOUVELLES)
     # ================================================================
@@ -532,6 +539,7 @@ event_sourcing_patterns = [
     path('livraisons/creer/', views_commandes.creer_livraison_etape1, name='creer_livraison_etape1'),
     path('livraisons/creer/recharges/', views_commandes.creer_livraison_etape2, name='creer_livraison_etape2'),
     path('livraisons/commande/<int:commande_id>/', views_commandes.tableau_livraisons_commande, name='tableau_livraisons_commande'),
+    path('livraisons/export-series/', views_export_series.export_series_livrees, name='export_series_livrees'),
     path('livraisons/<int:livraison_id>/modifier/', views_commandes.modifier_livraison, name='modifier_livraison'),
     path('livraisons/<int:livraison_id>/supprimer/', views_commandes.supprimer_livraison, name='supprimer_livraison'),
 
@@ -728,7 +736,11 @@ pesage_patterns = [
          name='calculer_objectifs_pesage'),
 
 
-
+    path('cloture/', views_cloture.cloture_selection, name='cloture_selection'),
+    path('cloture/masse/', views_cloture.cloture_masse, name='cloture_masse'),
+    path('cloture/defaillants/', views_cloture.cloture_defaillants, name='cloture_defaillants'),
+    path('cloture/<str:type_doc>/<int:poste_id>/<str:mois>/', views_cloture.cloture_saisie, name='cloture_saisie'),
+    path('cloture/pdf/<int:pk>/', views_cloture.cloture_pdf, name='cloture_pdf'),
     # ===================================================================
     # API ENDPOINTS
     # ===================================================================

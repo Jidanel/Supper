@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Téléchargement en masse - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cl-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+    .cl-head { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff; padding: 1.2rem; border-radius: 12px 12px 0 0; }
+    .liste-postes { max-height: 320px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: .5rem; }
+    @media (max-width: 767px) { .cl-head { padding: .9rem; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+ <div class="cl-card">
+  <div class="cl-head"><h4 class="mb-0">Téléchargement en masse —
+    {% if type_doc == 'compte_emploi' %}comptes d'emploi{% else %}PV de confrontation{% endif %}</h4></div>
+  <form method="post" class="p-3">
+    {% csrf_token %}
+    <input type="hidden" name="type" value="{{ type_doc }}">
+    <div class="row g-3">
+      <div class="col-6 col-md-3"><label class="form-label">Exercice</label>
+        <input type="number" name="exercice" value="{{ annee }}" class="form-control"></div>
+      <div class="col-6 col-md-3"><label class="form-label">Période</label>
+        <select name="periode" class="form-select">
+          <option value="annee">Année complète (12 mois)</option>
+          <option value="semestre1">1er semestre</option><option value="semestre2">2e semestre</option>
+          <option value="trimestre1">1er trimestre</option><option value="trimestre2">2e trimestre</option>
+          <option value="trimestre3">3e trimestre</option><option value="trimestre4">4e trimestre</option>
+          <option value="derniers6">6 derniers mois</option><option value="derniers12">12 derniers mois</option>
+          <option value="mois">Un seul mois</option>
+        </select></div>
+      <div class="col-6 col-md-3"><label class="form-label">Mois de fin (derniers N mois / un mois)</label>
+        <input type="month" name="mois_fin" class="form-control"></div>
+      <div class="col-6 col-md-3"><label class="form-label">Langue</label>
+        <select name="lang" class="form-select"><option value="fr">Français</option><option value="en">English</option></select></div>
+      <div class="col-12 col-md-3"><label class="form-label">Format</label>
+        <select name="format" class="form-select"><option value="zip">ZIP (un PDF par poste)</option>
+          <option value="pdf">PDF unique</option></select></div>
+      <div class="col-12">
+        <label class="form-label">Postes (maximum {{ max_postes }})</label>
+        <div class="liste-postes">
+          {% for p in postes %}
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="postes" value="{{ p.id }}" id="p{{ p.id }}">
+              <label class="form-check-label" for="p{{ p.id }}">{{ p.nom }}</label></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary mt-3"><i class="fas fa-download me-1"></i>Télécharger</button>
+  </form>
+ </div>
+</div>
+{% endblock %}

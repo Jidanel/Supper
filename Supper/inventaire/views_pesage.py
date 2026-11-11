@@ -2050,6 +2050,29 @@ def liste_quittancements_pesage(request):
     if mois:
         quittancements = quittancements.filter(mois=mois)
 
+    # Filtres avancés (2e ligne du formulaire) : dates, numéro, montant minimum
+    date_debut = (request.GET.get('date_debut') or '').strip()  # Date de quittancement >= date_debut
+    date_fin = (request.GET.get('date_fin') or '').strip()  # Date de quittancement <= date_fin
+    numero = (request.GET.get('numero') or '').strip()  # Numéro de quittance (recherche partielle)
+    montant_min = (request.GET.get('montant_min') or '').strip()  # Montant minimum en FCFA
+    if date_debut:
+        try:
+            quittancements = quittancements.filter(date_quittancement__gte=datetime.strptime(date_debut, '%Y-%m-%d').date())
+        except ValueError:
+            pass  # Date invalide : filtre ignoré
+    if date_fin:
+        try:
+            quittancements = quittancements.filter(date_quittancement__lte=datetime.strptime(date_fin, '%Y-%m-%d').date())
+        except ValueError:
+            pass  # Date invalide : filtre ignoré
+    if numero:
+        quittancements = quittancements.filter(numero_quittance__icontains=numero)
+    if montant_min:
+        try:
+            quittancements = quittancements.filter(montant_quittance__gte=Decimal(montant_min))
+        except Exception:
+            pass  # Montant invalide : filtre ignoré
+
     quittancements = quittancements.select_related('station', 'saisi_par').order_by('-date_quittancement', '-id')
 
     paginator = Paginator(quittancements, 25)

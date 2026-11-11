@@ -1232,18 +1232,6 @@
                     </select>
                 </div>
                 
-                <!-- Boutons -->
-                <div class="col-md-2 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn btn-danger flex-fill">
-                        <i class="fas fa-search"></i>
-                        {% trans "Filtrer" %}
-                    </button>
-                    <a href="{% url 'inventaire:liste_quittancements_pesage' %}" 
-                       class="btn btn-outline-secondary" 
-                       title="{% trans 'Réinitialiser' %}">
-                        <i class="fas fa-redo"></i>
-                    </a>
-                </div>
             </div>
             
             <!-- Ligne supplémentaire pour filtres avancés -->
@@ -1280,6 +1268,21 @@
                            class="form-control"
                            placeholder="0"
                            value="{{ request.GET.montant_min }}">
+                </div>
+            </div>
+
+            <!-- Boutons : placés après tous les champs pour qu'ils soient visibles avec l'ensemble du filtre -->
+            <div class="row g-3 mt-2">
+                <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-search"></i>
+                        {% trans "Filtrer" %}
+                    </button>
+                    <a href="{% url 'inventaire:liste_quittancements_pesage' %}"
+                       class="btn btn-outline-secondary"
+                       title="{% trans 'Réinitialiser' %}">
+                        <i class="fas fa-redo"></i>
+                    </a>
                 </div>
             </div>
         </form>

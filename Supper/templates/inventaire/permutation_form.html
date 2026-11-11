@@ -1,0 +1,142 @@
+{% extends "admin/base_site.html" %}
+{% comment %} Permutation de séries de tickets : choix poste/couleur, plages, motif, simulation puis confirmation. {% endcomment %}
+
+{% block title %}Permutation de séries - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pm-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); background: #fff; }
+    .pm-head { background: linear-gradient(135deg, #5b21b6, #8b5cf6); color: #fff; padding: 1.2rem; border-radius: 12px 12px 0 0; }
+    .pm-table { width: 100%; font-size: .85rem; border-collapse: collapse; }
+    .pm-table th { background: #f3f4f6; padding: .3rem .5rem; text-align: left; position: sticky; top: 0; }
+    .pm-table td { padding: .25rem .5rem; border-bottom: 1px solid #e5e7eb; }
+    .pm-scroll { max-height: 320px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .avant-apres { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .avant-apres > div { flex: 1 1 280px; border-radius: 10px; padding: .8rem 1rem; }
+    .bloc-a { background: #fef3c7; border: 1px solid #f59e0b; }
+    .bloc-b { background: #dcfce7; border: 1px solid #16a34a; }
+    .fleche { font-size: 1.4rem; color: #6d28d9; }
+    @media (max-width: 767px) { .pm-head { padding: .9rem; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+ <div class="pm-card mb-3">
+  <div class="pm-head">
+    <h4 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>Permutation de séries de tickets</h4>
+    <small>Le chef de poste a déclaré vendue une série alors qu'il en a vendu une autre : on échange leurs statuts
+      (vendu ⇄ en stock) sans toucher au montant de la recette. Les couleurs peuvent différer, la valeur doit être identique.</small>
+  </div>
+
+  {# Étape 1 : choix du poste seul : les séries apparaissent #}
+  <form method="get" class="p-3 border-bottom">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-8"><label class="form-label">Poste</label>
+        <select name="poste" class="form-select" required onchange="this.form.submit()">
+          <option value="">— Choisir —</option>
+          {% for p in postes %}<option value="{{ p.id }}" {% if poste and poste.id == p.id %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+        </select></div>
+      <div class="col-12 col-md-4 d-grid"><button class="btn btn-primary">Afficher les séries</button></div>
+    </div>
+  </form>
+
+  {% if poste %}
+  <div class="p-3">
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <h6>Séries <span class="badge bg-success">chargées</span> en stock ({{ poste.nom }}) <small class="text-muted">— Imprimerie Nationale d'abord</small></h6>
+        <div class="pm-scroll"><table class="pm-table">
+          <thead><tr><th>Couleur</th><th>Série</th><th>Tickets</th><th>Origine</th><th></th></tr></thead>
+          <tbody>
+          {% for s in series_stock %}
+            <tr><td>{{ s.couleur.libelle_affichage }}</td><td><strong>{{ s.numero_premier }}-{{ s.numero_dernier }}</strong></td>
+              <td>{{ s.nombre_tickets }}</td><td>{{ s.get_type_entree_display }}</td>
+              <td><button type="button" class="btn btn-sm btn-outline-success"
+                  onclick="remplir('tue','{{ s.couleur_id }}','{{ s.numero_premier }}-{{ s.numero_dernier }}')">À tuer</button></td></tr>
+          {% empty %}<tr><td colspan="5" class="text-muted">Aucune série en stock.</td></tr>{% endfor %}
+          </tbody></table></div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <h6>Séries <span class="badge bg-warning text-dark">vendues</span> dans SUPPER <small class="text-muted">— récentes d'abord</small></h6>
+        <div class="pm-scroll"><table class="pm-table">
+          <thead><tr><th>Couleur</th><th>Intervalle</th><th>Vendus</th><th>Dernière vente</th><th></th></tr></thead>
+          <tbody>
+          {% for s in series_vendues %}
+            <tr><td>{{ s.couleur.libelle_affichage }}</td><td><strong>{{ s.premier }}-{{ s.dernier }}</strong>
+                {% if s.inter_avant %}<div class="small text-muted">↑ avant : {{ s.inter_avant }}</div>{% endif %}
+                {% if s.inter_apres %}<div class="small text-muted">↓ après : {{ s.inter_apres }}</div>{% endif %}</td>
+              <td>{{ s.nb_vendus }}</td><td>{{ s.date|date:"d/m/Y" }}</td>
+              <td><button type="button" class="btn btn-sm btn-outline-warning"
+                  onclick="remplir('reveil','{{ s.couleur.id }}','{{ s.premier }}-{{ s.dernier }}')">À réveiller</button></td></tr>
+          {% empty %}<tr><td colspan="5" class="text-muted">Aucune série vendue.</td></tr>{% endfor %}
+          </tbody></table></div>
+        <div class="form-text">Vous pouvez réduire l'intervalle : indiquez seulement les numéros à réveiller.</div>
+      </div>
+    </div>
+
+    {# Étape 2 : plages et motif #}
+    <form method="post" class="mt-3">
+      {% csrf_token %}
+      <input type="hidden" name="poste" value="{{ poste.id }}">
+      <div class="row g-3">
+        <div class="col-12 col-md-6"><div class="bloc-a p-2">
+          <label class="form-label"><strong>À réveiller</strong> (vendu → en stock) : couleur et plage</label>
+          <div class="d-flex gap-2">
+            <select id="reveil_couleur" name="reveil_couleur" class="form-select" required>
+              <option value="">Couleur</option>
+              {% for c in couleurs %}<option value="{{ c.id }}" {% if reveil_couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}
+            </select>
+            <input id="reveil_plage" name="reveil_plage" class="form-control" value="{{ reveil_plage }}" placeholder="10-20" required>
+          </div></div></div>
+        <div class="col-12 col-md-6"><div class="bloc-b p-2">
+          <label class="form-label"><strong>À tuer</strong> (en stock → vendu) : couleur et plage</label>
+          <div class="d-flex gap-2">
+            <select id="tue_couleur" name="tue_couleur" class="form-select" required>
+              <option value="">Couleur</option>
+              {% for c in couleurs %}<option value="{{ c.id }}" {% if tue_couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}
+            </select>
+            <input id="tue_plage" name="tue_plage" class="form-control" value="{{ tue_plage }}" placeholder="30-40" required>
+          </div></div></div>
+        <div class="col-12 form-text">Les deux plages doivent avoir la <strong>même valeur monétaire</strong> (500 FCFA par ticket), même si les couleurs sont différentes.</div>
+        <div class="col-12"><label class="form-label">Motif (obligatoire, conservé dans l'historique)</label>
+          <textarea name="motif" rows="2" class="form-control" required>{{ motif }}</textarea></div>
+      </div>
+
+      {% if apercu %}
+      <div class="mt-3 p-3" style="background:#f5f3ff;border-radius:10px">
+        <h6 class="mb-2">Simulation — rien n'est encore modifié</h6>
+        <div class="table-responsive"><table class="pm-table">
+          <thead><tr><th>Réveillé (vendu → stock)</th><th></th><th>Tué (stock → vendu)</th><th>Tickets</th><th>Vente concernée</th></tr></thead>
+          <tbody>
+          {% for pr in apercu.paires %}
+            <tr><td>{{ pr.couleur_reveil.libelle_affichage }} <strong>{{ pr.a.0 }}-{{ pr.a.1 }}</strong></td><td class="fleche">⇄</td>
+              <td>{{ pr.couleur_tue.libelle_affichage }} <strong>{{ pr.b.0 }}-{{ pr.b.1 }}</strong></td><td>{{ pr.n }}</td>
+              <td>{{ pr.date|date:"d/m/Y" }}{% if pr.recette %} — recette {{ pr.recette.montant_declare|floatformat:0 }} FCFA{% endif %}</td></tr>
+          {% endfor %}
+          </tbody></table></div>
+        <p class="small mt-2 mb-2">{{ apercu.nombre }} tickets échangés ({{ apercu.montant }} FCFA des deux côtés) : le montant des recettes et la valeur du stock ne changent pas.
+          L'opération sera enregistrée dans les historiques comme <strong>permutation</strong> et pourra être annulée.</p>
+        <button name="action" value="confirmer" class="btn btn-success"><i class="fas fa-check me-1"></i>Confirmer la permutation</button>
+      </div>
+      {% endif %}
+
+      <div class="mt-3 d-flex gap-2 flex-wrap">
+        <button name="action" value="simuler" class="btn btn-primary"><i class="fas fa-eye me-1"></i>Simuler</button>
+        <a href="{% url 'inventaire:permutation_historique' %}" class="btn btn-outline-secondary">Historique des permutations</a>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <div class="p-3"><a href="{% url 'inventaire:permutation_historique' %}" class="btn btn-outline-secondary">Historique des permutations</a></div>
+  {% endif %}
+ </div>
+</div>
+<script>
+  // Remplit un champ de plage depuis une ligne du tableau (aide à la saisie)
+  function remplir(prefixe, couleur, plage) {
+    document.getElementById(prefixe + '_couleur').value = couleur;  // Couleur de la ligne choisie
+    document.getElementById(prefixe + '_plage').value = plage;  // Plage de la ligne choisie
+  }
+</script>
+{% endblock %}

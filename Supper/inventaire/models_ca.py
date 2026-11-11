@@ -87,6 +87,25 @@ class ParametresCA(models.Model):
         max_digits=6, decimal_places=4, default=Decimal('0.6667'),
         verbose_name=_("Majoration bus climatisé (fraction du tarif)"))
 
+    # --- Passage du TTC au HT pour le classement fiscal des agences ---
+    tarifs_ttc = models.BooleanField(                                # les tarifs du maillage incluent-ils les taxes ?
+        default=True, verbose_name=_("Les tarifs du maillage sont TTC"),
+        help_text=_("Si coché, le CA annuel est ramené au HT avant le classement."))
+    taux_tva = models.DecimalField(                                  # TVA camerounaise : 17,5 % + 10 % de centimes additionnels
+        max_digits=5, decimal_places=2, default=Decimal('19.25'),
+        verbose_name=_("TVA (%)"))
+    autres_taxes = models.DecimalField(                              # autre taxe incluse dans le tarif, en % du HT
+        max_digits=5, decimal_places=2, default=Decimal('0'),
+        verbose_name=_("Autres taxes incluses dans le tarif (%)"))
+
+    # --- Colisage : pourcentage du CA TTC des passagers, selon la structure fiscale de l'agence ---
+    taux_colisage_dge = models.DecimalField(                         # agence classée DGE
+        max_digits=5, decimal_places=2, default=Decimal('30'), verbose_name=_("Colisage : taux DGE (%)"))
+    taux_colisage_cime = models.DecimalField(                        # agence classée CIME
+        max_digits=5, decimal_places=2, default=Decimal('20'), verbose_name=_("Colisage : taux CIME (%)"))
+    taux_colisage_cflp = models.DecimalField(                        # agence relevant du centre de fiscalité locale (classes 1 à 10)
+        max_digits=5, decimal_places=2, default=Decimal('10'), verbose_name=_("Colisage : taux CFLP (%)"))
+
     # --- Nombre de places retenu par type (borne inférieure de la fourchette de la fiche) ---
     places_coaster = models.PositiveSmallIntegerField(default=29, verbose_name=_("Places Coaster"))
     places_bus_ordinaire = models.PositiveSmallIntegerField(default=75, verbose_name=_("Places grand bus ordinaire"))

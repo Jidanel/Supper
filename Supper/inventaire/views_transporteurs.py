@@ -389,13 +389,16 @@ def transporteurs_saisie(request, poste_id, date_str):
 # ===================================================================
 
 def _annoter_types(qs):
-    """Ajoute à un queryset .values() les compteurs de chacun des 4 types."""
+    """Ajoute à un queryset .values() les compteurs de chacun des 7 types (4 personnes + 3 colisage)."""
     return qs.annotate(
         total=Count('id'),
         coaster=Count('id', filter=Q(type_vehicule='coaster')),
         bus_ordinaire=Count('id', filter=Q(type_vehicule='bus_ordinaire')),
         bus_clim=Count('id', filter=Q(type_vehicule='bus_clim')),
         hiace=Count('id', filter=Q(type_vehicule='hiace')),
+        fourgon=Count('id', filter=Q(type_vehicule='fourgon')),                # colisage
+        camion_leger=Count('id', filter=Q(type_vehicule='camion_leger')),      # colisage
+        camion_lourd=Count('id', filter=Q(type_vehicule='camion_lourd')),      # colisage
     )
 
 
@@ -420,6 +423,9 @@ def transporteurs_liste(request):
         n_bus_ordinaire=Count('vehicules', filter=Q(vehicules__type_vehicule='bus_ordinaire')),
         n_bus_clim=Count('vehicules', filter=Q(vehicules__type_vehicule='bus_clim')),
         n_hiace=Count('vehicules', filter=Q(vehicules__type_vehicule='hiace')),
+        n_fourgon=Count('vehicules', filter=Q(vehicules__type_vehicule='fourgon')),              # colisage
+        n_camion_leger=Count('vehicules', filter=Q(vehicules__type_vehicule='camion_leger')),    # colisage
+        n_camion_lourd=Count('vehicules', filter=Q(vehicules__type_vehicule='camion_lourd')),    # colisage
     ).order_by('-date', 'poste__nom')
     page = Paginator(fiches.select_related('agent_saisie'), 30).get_page(request.GET.get('page'))
     for f in page:                                           # nom lisible de l'agent pour chaque ligne

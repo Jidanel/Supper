@@ -1,0 +1,76 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Clôture mensuelle - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Carte et tableau responsives (5 paliers) */
+    .cl-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+    .cl-head { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff; padding: 1.2rem; border-radius: 12px 12px 0 0; }
+    .badge-ok { background: #16a34a; } .badge-ko { background: #f59e0b; color: #fff; }
+    @media (max-width: 1199px) { .cl-table { font-size: .9rem; } }
+    @media (max-width: 991px)  { .cl-table { font-size: .85rem; } }
+    @media (max-width: 767px)  { .cl-table { font-size: .8rem; } .cl-head { padding: .9rem; } }
+    @media (max-width: 575px)  { .cl-table th:nth-child(3), .cl-table td:nth-child(3) { display: none; } }
+    @media print { .no-print { display: none !important; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="cl-card">
+    <div class="cl-head">
+      <h4 class="mb-0">
+        <i class="fas fa-file-signature me-2"></i>
+        {% if type_doc == 'compte_emploi' %}Compte d'emploi (péage){% else %}PV de confrontation (pesage){% endif %}
+      </h4>
+    </div>
+    <div class="p-3">
+      <form method="get" class="row g-2 mb-3 no-print">
+        <input type="hidden" name="type" value="{{ type_doc }}">
+        <div class="col-12 col-md-4">
+          <input type="month" name="mois" value="{{ mois }}" class="form-control">
+        </div>
+        <div class="col-12 col-md-3"><button class="btn btn-primary w-100">Afficher</button></div>
+        <div class="col-12 col-md-3">
+          <a class="btn btn-outline-danger w-100" href="{% url 'inventaire:cloture_defaillants' %}?type={{ type_doc }}">
+            <i class="fas fa-triangle-exclamation me-1"></i>Postes défaillants</a>
+        </div>
+        <div class="col-12 col-md-3">
+          <a class="btn btn-outline-secondary w-100" href="{% url 'inventaire:cloture_masse' %}?type={{ type_doc }}">
+            <i class="fas fa-download me-1"></i>Téléchargement en masse</a>
+        </div>
+      </form>
+      <p class="small text-muted mb-2"><span class="badge badge-ok">Complet</span> = tous les jours renseignés (recettes, quittances) et historique ACCT enregistré ;
+        <span class="badge badge-ko">En cours</span> sinon. Le document peut être tiré à tout moment.</p>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover cl-table">
+          <thead><tr><th>Poste</th><th>Statut</th><th>Détail</th><th>Document</th></tr></thead>
+          <tbody>
+          {% for l in lignes %}
+            <tr>
+              <td>{{ l.poste.nom }}</td>
+              <td>{% if l.statut.complet %}<span class="badge badge-ok">Complet</span>
+                  {% else %}<span class="badge badge-ko">En cours</span>{% endif %}</td>
+              <td>{% if not l.statut.complet %}
+                    {% if l.statut.recettes_manquantes %}<div><strong>Recettes manquantes ({{ l.statut.recettes_manquantes|length }} j) :</strong> {{ l.statut.recettes_txt }}</div>{% endif %}
+                    {% if l.statut.quittances_manquantes %}<div><strong>Jours sans quittance ({{ l.statut.quittances_manquantes|length }} j) :</strong> {{ l.statut.quittances_txt }}</div>{% endif %}
+                    {% if l.statut.acct_manquant %}<div><strong>Historique ACCT :</strong> non enregistré pour ce mois</div>{% endif %}
+                  {% endif %}</td>
+              <td>
+                <a class="btn btn-sm btn-primary" href="{% url 'inventaire:cloture_saisie' type_doc l.poste.id mois %}">
+                  {% if l.cloture %}Modifier / régénérer{% else %}Générer{% endif %}</a>
+                {% if l.cloture %}
+                  <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{% url 'inventaire:cloture_pdf' l.cloture.pk %}">PDF v{{ l.cloture.version }}</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}<tr><td colspan="4" class="text-center text-muted">Aucun poste accessible.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

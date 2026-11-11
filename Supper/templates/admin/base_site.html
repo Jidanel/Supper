@@ -1,5 +1,5 @@
-<!-- templates/admin/base_site.html - Version finale professionnelle V4.8 -->
-<!-- CORRECTION COMPLETE DES MENUS MOBILES - PARITÉ PC/MOBILE -->
+<!-- templates/admin/base_site.html - Version finale professionnelle V4.9 -->
+<!-- CORRECTION COMPLETE DES MENUS MOBILES - PARITÉ PC/MOBILE + MENU PC TENANT À 100% DE ZOOM -->
 {% load static i18n %}
 
 <!DOCTYPE html>
@@ -52,7 +52,7 @@
             top: 0;
             z-index: 1050;
             width: 100%;
-            min-width: 1200px;
+            min-width: 0;
         }
 
         .header-container {
@@ -64,7 +64,7 @@
             margin: 0;
             position: relative;
             gap: 1rem;
-            min-width: 1200px;
+            min-width: 0;
         }
 
         /* Logo section - PC - Fixe à gauche */
@@ -573,6 +573,60 @@
         }
 
         /* ============================================
+           PC À ÉCRAN MOYEN (1201px - 1500px)
+           Le menu complet tient à 100 % de zoom
+           ============================================ */
+        @media (min-width: 1201px) and (max-width: 1500px) {
+            .header-container {
+                padding: 0.6rem 1rem;
+                gap: 0.5rem;
+            }
+
+            .logo-section {
+                min-width: 0;
+                max-width: none;
+                gap: 0.5rem;
+            }
+
+            .logo-section h1 {
+                font-size: 1.3rem;
+            }
+
+            .logo-section .fs-2 {
+                font-size: 1.5rem !important;
+            }
+
+            .subtitle {
+                display: none;
+            }
+
+            .main-navigation .nav-links {
+                gap: 0.1rem;
+                padding: 0;
+            }
+
+            .nav-link {
+                padding: 0.5rem 0.55rem !important;
+                font-size: 0.78rem;
+            }
+
+            .nav-link i.me-1 {
+                margin-right: 0.3rem !important;
+            }
+
+            .user-section {
+                min-width: 0;
+                max-width: none;
+                gap: 0.5rem;
+            }
+
+            .user-name,
+            .user-role {
+                max-width: 130px;
+            }
+        }
+
+        /* ============================================
            CONTENU PRINCIPAL
            ============================================ */
         .main-content {
@@ -610,7 +664,7 @@
             padding: 2rem;
             opacity: 0;
             animation: fadeIn 0.5s ease forwards;
-            min-width: 1200px;
+            min-width: 0;
         }
 
         @keyframes fadeIn {
@@ -854,6 +908,7 @@
                                         <i class="fas fa-chart-bar me-2 text-primary"></i>{% trans "Statistiques transporteurs" %}
                                     </a>
                                     <a class="dropdown-item" href="{% url 'inventaire:transporteurs_ca' %}"><i class="fas fa-wallet me-2 text-purple"></i>{% trans "Chiffre d'affaires transporteurs" %}</a>
+                                    <a class="dropdown-item" href="{% url 'inventaire:transporteurs_fiscal' %}"><i class="fas fa-id-card me-2 text-purple"></i>{% trans "NIU et catégories des agences" %}</a>
                                     {% endif %}
                                 </div>
                             </div>
@@ -1210,6 +1265,9 @@
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:liste_livraisons' %}">
                                         <i class="fas fa-boxes-packing me-2 text-warning"></i>{% trans "Liste Livraisons" %}
                                     </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:export_series_livrees' %}">
+                                        <i class="fas fa-file-export me-2 text-success"></i>{% trans "Séries livrées par commande" %}
+                                    </a>
                                     {% endif %}
                                 </div>
                             </div>
@@ -1393,8 +1451,14 @@
                                     </a>
                                     {% endif %}
                                     {% if user.peut_voir_compte_emploi %}
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:selection_compte_emploi' %}">
-                                        <i class="fas fa-wallet me-2 text-success"></i>{% trans "Compte d'emploi" %}
+                                    <!--<a class="dropdown-item rounded" href="{% url 'inventaire:selection_compte_emploi' %}">-->
+                                    <!--    <i class="fas fa-wallet me-2 text-success"></i>{% trans "Compte d'emploi" %}-->
+                                    <!--</a>-->
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:cloture_selection' %}?type=compte_emploi">
+                                        <i class="fas fa-file-signature me-2 text-primary"></i>{% trans "Clôture péage (compte d'emploi)" %}
+                                    </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:cloture_defaillants' %}?type=compte_emploi">
+                                        <i class="fas fa-triangle-exclamation me-2 text-danger"></i>{% trans "Postes péage défaillants" %}
                                     </a>
                                     {% endif %}
                                 </div>
@@ -1404,8 +1468,14 @@
                                         <i class="fas fa-file-signature me-1"></i>{% trans "Documents" %}
                                     </h6>
                                     {% if user.peut_voir_pv_confrontation %}
-                                    <a class="dropdown-item rounded" href="{% url 'inventaire:selection_pv_confrontation' %}">
-                                        <i class="fas fa-balance-scale me-2 text-warning"></i>{% trans "PV Confrontation" %}
+                                    <!--<a class="dropdown-item rounded" href="{% url 'inventaire:selection_pv_confrontation' %}">-->
+                                    <!--    <i class="fas fa-balance-scale me-2 text-warning"></i>{% trans "PV Confrontation" %}-->
+                                    <!--</a>-->
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:cloture_selection' %}?type=pv_confrontation">
+                                        <i class="fas fa-file-signature me-2 text-primary"></i>{% trans "Clôture pesage (PV de confrontation)" %}
+                                    </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:cloture_defaillants' %}?type=pv_confrontation">
+                                        <i class="fas fa-triangle-exclamation me-2 text-danger"></i>{% trans "Stations pesage défaillantes" %}
                                     </a>
                                     {% endif %}
                                     {% if user.peut_authentifier_document %}
@@ -1594,6 +1664,7 @@
                         <i class="fas fa-chart-bar me-2 text-primary"></i>{% trans "Statistiques transporteurs" %}
                     </a>
                     <a class="dropdown-item" href="{% url 'inventaire:transporteurs_ca' %}"><i class="fas fa-wallet me-2 text-purple"></i>{% trans "Chiffre d'affaires transporteurs" %}</a>
+                    <a class="dropdown-item" href="{% url 'inventaire:transporteurs_fiscal' %}"><i class="fas fa-id-card me-2 text-purple"></i>{% trans "NIU et catégories des agences" %}</a>
                     {% endif %}
                 </div>
             </li>
@@ -1877,6 +1948,9 @@
                 <a class="dropdown-item" href="{% url 'inventaire:liste_livraisons' %}">
                     <i class="fas fa-boxes-packing me-2 text-warning"></i>{% trans "Liste Livraisons" %}
                 </a>
+                <a class="dropdown-item" href="{% url 'inventaire:export_series_livrees' %}">
+                    <i class="fas fa-file-export me-2 text-success"></i>{% trans "Séries livrées par commande" %}
+                </a>
                 {% endif %}
             </div>
         </li>
@@ -2031,15 +2105,27 @@
                     </a>
                     {% endif %}
                     {% if user.peut_voir_compte_emploi %}
-                    <a class="dropdown-item" href="{% url 'inventaire:selection_compte_emploi' %}">
-                        <i class="fas fa-wallet me-2 text-success"></i>{% trans "Compte d'emploi" %}
+                    <!--<a class="dropdown-item" href="{% url 'inventaire:selection_compte_emploi' %}">-->
+                    <!--    <i class="fas fa-wallet me-2 text-success"></i>{% trans "Compte d'emploi" %}-->
+                    <!--</a>-->
+                    <a class="dropdown-item" href="{% url 'inventaire:cloture_selection' %}?type=compte_emploi">
+                    <i class="fas fa-file-signature me-2 text-primary"></i>{% trans "Clôture péage (compte d'emploi)" %}
+                    </a>
+                    <a class="dropdown-item" href="{% url 'inventaire:cloture_defaillants' %}?type=compte_emploi">
+                        <i class="fas fa-triangle-exclamation me-2 text-danger"></i>{% trans "Postes péage défaillants" %}
                     </a>
                     {% endif %}
                     <!-- Documents -->
                     <h6 class="dropdown-header">{% trans "Documents" %}</h6>
                     {% if user.peut_voir_pv_confrontation %}
-                    <a class="dropdown-item" href="{% url 'inventaire:selection_pv_confrontation' %}">
-                        <i class="fas fa-balance-scale me-2 text-warning"></i>{% trans "PV Confrontation" %}
+                    <!--<a class="dropdown-item" href="{% url 'inventaire:selection_pv_confrontation' %}">-->
+                    <!--    <i class="fas fa-balance-scale me-2 text-warning"></i>{% trans "PV Confrontation" %}-->
+                    <!--</a>-->
+                    <a class="dropdown-item" href="{% url 'inventaire:cloture_selection' %}?type=pv_confrontation">
+                        <i class="fas fa-file-signature me-2 text-primary"></i>{% trans "Clôture pesage (PV de confrontation)" %}
+                    </a>
+                    <a class="dropdown-item" href="{% url 'inventaire:cloture_defaillants' %}?type=pv_confrontation">
+                        <i class="fas fa-triangle-exclamation me-2 text-danger"></i>{% trans "Stations pesage défaillantes" %}
                     </a>
                     {% endif %}
                     {% if user.peut_authentifier_document %}

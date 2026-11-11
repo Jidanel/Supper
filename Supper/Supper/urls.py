@@ -7,6 +7,7 @@ from django.views.generic import RedirectView
 from django.shortcuts import redirect
 from inventaire import views as inventaire_views
 from common.views import index_dashboard
+from inventaire.views_cloture import verifier_cloture
 
 # Configuration des pages d'erreur personnalisées
 handler404 = 'Supper.views.handler404'
@@ -28,8 +29,8 @@ except ImportError:
 def accueil_intelligent(request):
     """Redirection intelligente selon l'état de connexion"""
     if not request.user.is_authenticated:
-        return redirect('/accounts/login/')  
-    
+        return redirect('/accounts/login/')
+
     # Utilisateur connecté → Dashboard admin pour tous (temporaire)
     return redirect('/admin/')
 
@@ -37,7 +38,7 @@ def accueil_intelligent(request):
 #     """Redirection pour le Panel Avancé vers l'admin Django natif"""
 #     if not request.user.is_authenticated:
 #         return redirect('/accounts/login/')
-    
+
 #     # Vérifier les permissions admin
 #     if request.user.is_superuser or request.user.is_staff:
 #         return redirect('/django-admin/')
@@ -59,7 +60,7 @@ urlpatterns = [
     # PAGE D'ACCUEIL AVEC REDIRECTION INTELLIGENTE
     # ================================================================
     path('', index_dashboard, name='index'),
-    
+
     # ================================================================
     # ADMINISTRATION
     # ================================================================
@@ -67,33 +68,34 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('inventaire/', include('inventaire.urls')),
     path('common/', include('common.urls')),
-    
+    path('verifier/<str:jeton>/', verifier_cloture, name='verifier_cloture'),  # Vérification publique (QR)
+
     # Admin personnalisé SUPPER (principal)
     path('admin/', admin_site.urls if CUSTOM_ADMIN_AVAILABLE else admin.site.urls),
-    
+
     # Admin Django natif (panel avancé)
     path('django-admin/', admin.site.urls, name='django_admin'),
-    
+
     # # Redirection panel avancé avec vérification permissions
     # path('panel-avance/', panel_avance_redirect, name='panel_avance'),
-    
+
     # ================================================================
     # REDIRECTIONS POUR COMPATIBILITÉ
     # ================================================================
-    
+
     # Redirection dashboard vers accueil (routage intelligent)
     path('dashboard/', accueil_intelligent, name='dashboard'),
     path('tableau-de-bord/', accueil_intelligent, name='tableau_de_bord'),
-    
+
     # ================================================================
     # APPLICATIONS SUPPER - HARMONISÉES
     # ================================================================
-    
- 
+
+
     # ================================================================
     # API ET SERVICES - À DÉVELOPPER
     # ================================================================
-    
+
     # Status et monitoring (utilise les vues dans Supper.views)
     # path('status/', views.StatusView.as_view(), name='status'),  # À décommenter quand views.py sera corrigé
     # path('health/', views.health_check, name='health_check'),    # À décommenter quand views.py sera corrigé
@@ -106,12 +108,12 @@ urlpatterns = [
 if settings.DEBUG:
     # Fichiers média (uploads)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    
+
     # Fichiers statiques (CSS, JS, images)
     if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
         urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-        
-    
+
+
     # Debug Toolbar si installé
     try:
         import debug_toolbar

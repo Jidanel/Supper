@@ -67,6 +67,8 @@ from common.permissions import (
     is_service_central, log_acces_refuse
 )
 from common.utils import log_user_action
+# Détection des chargements dont les séries ont été supprimées (recharges fantômes)
+from inventaire.services_recharges import ids_recharges_fantomes
 
 logger = logging.getLogger('supper')
 
@@ -1441,6 +1443,10 @@ def creer_livraison_etape2(request):
                 poste=poste
             ).values_list('historiques_associes__id', flat=True)
             recharges_disponibles = recharges_query.exclude(id__in=livrees_ids)
+            # Exclure les chargements dont les séries ont été supprimées du stock
+            recharges_disponibles = recharges_disponibles.exclude(
+                id__in=ids_recharges_fantomes(recharges_disponibles)
+            )
 
             # Préparer les données des recharges
             recharges_list = []
@@ -1500,6 +1506,10 @@ def creer_livraison_etape2(request):
                     recharges_selectionnees = HistoriqueStock.objects.filter(
                         id__in=recharges_ids,
                         poste=poste
+                    )
+                    # Ignorer toute recharge dont les séries ont été supprimées
+                    recharges_selectionnees = recharges_selectionnees.exclude(
+                        id__in=ids_recharges_fantomes(recharges_selectionnees)
                     )
 
                     if not recharges_selectionnees.exists():
@@ -1875,6 +1885,8 @@ def api_recharges_poste(request, poste_id):
             poste=poste
         ).values_list('historiques_associes__id', flat=True)
         recharges = recharges.exclude(id__in=livrees_ids)
+        # Exclure les chargements dont les séries ont été supprimées du stock
+        recharges = recharges.exclude(id__in=ids_recharges_fantomes(recharges))
 
         data = []
         for r in recharges:

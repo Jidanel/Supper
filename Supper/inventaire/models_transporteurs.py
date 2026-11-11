@@ -24,8 +24,9 @@ logger = logging.getLogger('supper')                # même logger que le reste 
 # Noms exportés quand models.py fait « from inventaire.models_transporteurs import * »
 __all__ = [
     'AgenceTransport', 'InventaireTransporteur', 'DetailVehiculeTransporteur',
-    'TypeVehicule', 'normaliser_nom_agence', 'cle_unicite_agence',
+    'TypeVehicule', 'TYPES_COLISAGE', 'TYPES_PERSONNES', 'normaliser_nom_agence', 'cle_unicite_agence',
     'normaliser_plaque', 'afficher_plaque', 'poste_programme_pour_transporteurs',
+    'CategorieFiscale', 'normaliser_niu', 'niu_valide',
 ]
 
 
@@ -91,6 +92,34 @@ def poste_programme_pour_transporteurs(poste, date_saisie):
 
 
 # ===================================================================
+# SITUATION FISCALE RÉELLE D'UNE AGENCE (NIU, catégorie, centre des impôts)
+# ===================================================================
+
+class CategorieFiscale(models.TextChoices):
+    """Catégorie (structure) dans laquelle l'agence est ACTUELLEMENT gérée par l'administration fiscale."""
+    DGE = 'DGE', _('DGE - Direction des Grandes Entreprises')            # grandes entreprises
+    CIME = 'CIME', _('CIME - Centre des Impôts des Moyennes Entreprises')   # moyennes entreprises
+    CFLP = 'CFLP', _('CFLP - Centre des impôts de rattachement (petites entreprises)')   # petites entreprises
+    AUTRE = 'AUTRE', _('Autre centre (ex. CSIPLI)')                      # centre hors DGE/CIME/CFLP
+
+
+def normaliser_niu(niu):
+    """NIU pour le STOCKAGE : majuscules, sans espace, tiret, point ni barre oblique."""
+    return re.sub(r'[\s\-\./]+', '', str(niu or '')).upper()             # 'm 0424-167119 33w' -> 'M042416711933W'
+
+
+def niu_valide(niu):
+    """
+    Vrai si le NIU a la forme camerounaise habituelle :
+    une lettre M (personne morale) ou P (personne physique), 12 chiffres, puis une lettre
+    (ex. M042416711933W). Un NIU vide est « valide » (il est simplement non renseigné).
+    """
+    niu = normaliser_niu(niu)                                            # forme de comparaison
+    return niu == '' or re.fullmatch(r'[MP]\d{12}[A-Z]', niu) is not None
+
+
+
+# ===================================================================
 # TYPES DE VÉHICULES (les 4 cases de la fiche papier)
 # ===================================================================
 
@@ -100,6 +129,16 @@ class TypeVehicule(models.TextChoices):
     BUS_ORDINAIRE = 'bus_ordinaire', _('Grand bus ordinaire 75-80 places')   # colonne 2
     BUS_CLIM = 'bus_clim', _('Grand bus climatisé 55-65 places')         # colonne 3
     HIACE = 'hiace', _('Hiace 16-22 places')                             # colonne 4
+    # --- Véhicules de COLISAGE (courrier et colis uniquement, aucun passager) ---
+    FOURGON = 'fourgon', _('Colisage : fourgon')                         # fourgon fermé (Hiace fourgon, Master, Boxer...)
+    CAMION_LEGER = 'camion_leger', _('Colisage : camion léger')          # camion de 3,5 à 7 t
+    CAMION_LOURD = 'camion_lourd', _('Colisage : camion lourd')          # camion moyen/lourd, semi-remorque
+
+
+# Codes des véhicules de colisage : ils sont comptés mais NE participent PAS au calcul du CA (par place)
+TYPES_COLISAGE = ('fourgon', 'camion_leger', 'camion_lourd')
+# Codes des véhicules de personnes (les 4 colonnes d'origine de la fiche)
+TYPES_PERSONNES = ('coaster', 'bus_ordinaire', 'bus_clim', 'hiace')
 
 
 # ===================================================================
@@ -123,6 +162,30 @@ class AgenceTransport(models.Model):
     date_creation = models.DateTimeField(                                # quand
         default=timezone.now, verbose_name=_("Date de création"))
 
+    # --- Situation fiscale RÉELLE (renseignée à la main ou par import) ---
+    niu = models.CharField(                                              # Numéro d'Identifiant Unique
+        max_length=30, blank=True, default='', db_index=True,
+        verbose_name=_("NIU"))
+    sans_niu = models.BooleanField(                                      # confirmé : l'agence n'a pas de NIU connu
+        default=False, verbose_name=_("Sans NIU connu"))
+    categorie_actuelle = models.CharField(                               # DGE / CIME / CFLP / autre
+        max_length=10, blank=True, default='', choices=CategorieFiscale.choices,
+        verbose_name=_("Catégorie actuelle"))
+    centre_actuel = models.CharField(                                    # centre exact (ex. « CIME Bamenda »)
+        max_length=150, blank=True, default='', verbose_name=_("Centre actuel"))
+    regime = models.CharField(                                           # Réel, IGS...
+        max_length=60, blank=True, default='', verbose_name=_("Régime d'imposition"))
+    a_verifier = models.BooleanField(                                    # donnée recopiée d'un cahier : à contrôler
+        default=False, verbose_name=_("À vérifier"))
+    remarque_fiscale = models.CharField(                                 # précision libre (adresse, activité, doute de lecture)
+        max_length=300, blank=True, default='', verbose_name=_("Remarque"))
+    fiscal_modifie_par = models.ForeignKey(                              # dernier utilisateur ayant modifié la situation fiscale
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='agences_fiscal_modifiees',
+        verbose_name=_("Situation fiscale modifiée par"))
+    fiscal_modifie_le = models.DateTimeField(                            # et quand
+        null=True, blank=True, verbose_name=_("Situation fiscale modifiée le"))
+
     class Meta:
         verbose_name = _("Agence de transport")
         verbose_name_plural = _("Agences de transport")
@@ -135,7 +198,15 @@ class AgenceTransport(models.Model):
         """Normalise toujours le nom et recalcule la clé avant d'enregistrer."""
         self.nom = normaliser_nom_agence(self.nom)                       # nom propre
         self.cle_unicite = cle_unicite_agence(self.nom)                  # clé de comparaison
+        self.niu = normaliser_niu(self.niu)                              # NIU propre (majuscules, sans séparateur)
+        if self.niu:                                                     # un NIU renseigné annule « sans NIU »
+            self.sans_niu = False
         super().save(*args, **kwargs)                                    # enregistrement standard
+
+    @property
+    def situation_fiscale_renseignee(self):
+        """Vrai si au moins une information fiscale est connue (NIU, catégorie, centre) ou si « sans NIU » est confirmé."""
+        return bool(self.niu or self.categorie_actuelle or self.centre_actuel or self.sans_niu)
 
     @classmethod
     def trouver_par_nom(cls, nom):

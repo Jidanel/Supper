@@ -1,0 +1,38 @@
+{% comment %}Page PUBLIQUE de vérification (QR code) : aucune connexion requise, aucune donnée sensible.{% endcomment %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vérification de document - SUPPER</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f1f5f9; margin: 0; padding: 16px; }
+    .box { max-width: 520px; margin: 40px auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+    .ok { color: #166534; } .ko { color: #991b1b; } .warn { color: #92400e; }
+    dt { font-weight: 600; margin-top: .6rem; } dd { margin: 0; }
+  </style>
+</head>
+<body>
+<div class="box">
+  {% if not cloture %}
+    <h2 class="ko">Document introuvable</h2>
+    <p>Ce code ne correspond à aucun document émis par SUPPER.</p>
+  {% else %}
+    {% if cloture.statut == 'remplace' %}
+      <h2 class="warn">Version remplacée</h2>
+      <p>Ce document authentique a été remplacé par une version plus récente.</p>
+    {% else %}
+      <h2 class="ok">Document authentique</h2>
+    {% endif %}
+    <dl>
+      <dt>Type</dt><dd>{{ cloture.get_type_document_display }}</dd>
+      <dt>Poste</dt><dd>{{ cloture.poste.nom }}</dd>
+      <dt>Mois</dt><dd>{{ cloture.mois }}</dd>
+      <!--<dt>Version</dt><dd>{{ cloture.version }}</dd>-->
+      <dt>Titulaire</dt><dd>{{ cloture.signataire_nom|default:"—" }} ({{ cloture.signataire_fonction }})</dd>
+      <dt>Généré le</dt><dd>{{ cloture.date_generation|date:"d/m/Y H:i" }}</dd>
+    </dl>
+  {% endif %}
+</div>
+</body>
+</html>

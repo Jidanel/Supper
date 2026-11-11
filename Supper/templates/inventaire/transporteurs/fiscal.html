@@ -1,0 +1,96 @@
+{# templates/inventaire/transporteurs/fiscal.html #}
+{# Situation fiscale RÉELLE des agences : NIU, catégorie actuelle, centre actuel (saisie manuelle + import) #}
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block title %}{% trans "Situation fiscale des agences" %} - SUPPER{% endblock %}
+{% block extra_css %}{% include "inventaire/transporteurs/_styles.html" %}
+<style>
+  .tr .fi-in { min-width:130px; }                               /* champs de saisie lisibles */
+  .tr .fi-niu { min-width:170px; font-family:monospace; text-transform:uppercase; }
+  .tr .fi-note { min-width:150px; }
+  .tr td { vertical-align:middle; }
+  .tr tr.fi-verif td { background:#FFFBEB; }                    /* ligne à vérifier en jaune pâle */
+  .tr .fi-meta { font-size:.75rem; color:#64748B; }
+</style>{% endblock %}
+{% block content %}
+<div class="tr container-fluid py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2">
+    <div><h1>{% trans "Situation fiscale des agences" %}</h1>
+      <p class="tr-sub">{% trans "NIU, catégorie (DGE, CIME, CFLP...) et centre où chaque agence est actuellement suivie. Ces informations sont comparées à la structure estimée par le chiffre d'affaires." %}</p></div>
+    <div class="d-flex gap-2 flex-wrap align-items-start">
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_ca' %}">← {% trans "Chiffre d'affaires" %}</a>
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_agences' %}">{% trans "Annuaire des agences" %}</a>
+      <a class="tr-btn-ghost text-decoration-none" href="{% url 'inventaire:transporteurs_fiscal_exporter' %}">⬇ {% trans "Exporter (CSV)" %}</a>
+    </div>
+  </div>
+
+  <div class="tr-chips mb-3">
+    <div class="tr-chip">{% trans "Agences" %}<b>{{ compteurs.total }}</b></div>
+    <div class="tr-chip">{% trans "Renseignées" %}<b>{{ compteurs.renseignees }}</b></div>
+    <div class="tr-chip">{% trans "Sans NIU" %}<b>{{ compteurs.sans_niu }}</b></div>
+    <div class="tr-chip total">{% trans "À vérifier" %}<b>{{ compteurs.a_verifier }}</b></div>
+  </div>
+
+  {# Import d'un fichier #}
+  <details class="tr-panel"><summary class="tr-head" style="cursor:pointer">{% trans "Importer une liste (CSV ou Excel)" %}</summary>
+    <form method="post" action="{% url 'inventaire:transporteurs_fiscal_importer' %}" enctype="multipart/form-data" class="tr-body">
+      {% csrf_token %}
+      <p class="tr-sub">{% trans "Colonnes attendues sur la première ligne :" %} <code>agence ; niu ; categorie ; centre ; regime ; a_verifier ; sans_niu ; remarque</code>.
+        {% trans "Les agences sont retrouvées par leur nom (accents, pluriels et SARL/SA ignorés). Par défaut, seuls les champs vides sont remplis." %}</p>
+      <div class="d-flex gap-3 flex-wrap align-items-center">
+        <input type="file" name="fichier" accept=".csv,.xlsx" class="form-control" style="max-width:360px" required>
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="ecraser" value="1"> <span class="form-check-label">{% trans "Écraser les valeurs déjà saisies" %}</span></label>
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="creer" value="1"> <span class="form-check-label">{% trans "Créer les agences absentes de l'annuaire" %}</span></label>
+        <button class="tr-btn" type="submit">{% trans "Importer" %}</button>
+      </div>
+    </form>
+  </details>
+
+  {# Filtres #}
+  <form method="get" class="tr-panel"><div class="tr-body tr-grid">
+    <div><label class="tr-lbl">{% trans "Recherche (nom ou NIU)" %}</label><input type="text" name="q" value="{{ q }}" class="form-control"></div>
+    <div><label class="tr-lbl">{% trans "Filtre" %}</label>
+      <select name="filtre" class="form-select">
+        <option value="">{% trans "Toutes les agences" %}</option>
+        <option value="non_renseignees" {% if filtre == 'non_renseignees' %}selected{% endif %}>{% trans "Non renseignées" %}</option>
+        <option value="a_verifier" {% if filtre == 'a_verifier' %}selected{% endif %}>{% trans "À vérifier" %}</option>
+        <option value="sans_niu" {% if filtre == 'sans_niu' %}selected{% endif %}>{% trans "Sans NIU" %}</option>
+        {% for code, lib in categories %}<option value="{{ code }}" {% if filtre == code %}selected{% endif %}>{{ code }}</option>{% endfor %}
+      </select></div>
+    <div><button class="tr-btn" type="submit">{% trans "Filtrer" %}</button></div>
+  </div></form>
+
+  {# Tableau de saisie : une ligne = un formulaire (attribut form="..." sur chaque champ) #}
+  <div class="tr-panel"><div class="tr-head">{% trans "Agences" %} ({{ page.paginator.count }})</div><div class="tr-scroll">
+    <table class="tr-table">
+      <thead><tr><th>{% trans "Agence" %}</th><th>{% trans "NIU" %}</th><th>{% trans "Catégorie" %}</th><th>{% trans "Centre actuel" %}</th>
+        <th>{% trans "Régime" %}</th><th>{% trans "Sans NIU" %}</th><th>{% trans "À vérifier" %}</th><th>{% trans "Remarque" %}</th><th></th></tr></thead>
+      <tbody>
+      {% for a in page %}
+      <tr class="{% if a.a_verifier %}fi-verif{% endif %}">
+        <td><b>{{ a.nom }}</b><div class="fi-meta">{{ a.n_vehicules }} {% trans "véhicule(s)" %}{% if a.fiscal_modifie_le %} · {% trans "modifié le" %} {{ a.fiscal_modifie_le|date:"d/m/Y" }}{% endif %}</div></td>
+        <td><input form="f{{ a.pk }}" class="form-control form-control-sm fi-niu" name="niu" value="{{ a.niu }}" maxlength="30" placeholder="M012345678901A"></td>
+        <td><select form="f{{ a.pk }}" class="form-select form-select-sm" name="categorie_actuelle">
+            <option value="">—</option>
+            {% for code, lib in categories %}<option value="{{ code }}" {% if a.categorie_actuelle == code %}selected{% endif %}>{{ code }}</option>{% endfor %}</select></td>
+        <td><input form="f{{ a.pk }}" class="form-control form-control-sm fi-in" name="centre_actuel" value="{{ a.centre_actuel }}" maxlength="150" placeholder="CIME Bamenda"></td>
+        <td><input form="f{{ a.pk }}" class="form-control form-control-sm" style="min-width:90px" name="regime" value="{{ a.regime }}" maxlength="60" placeholder="Réel / IGS"></td>
+        <td class="text-center"><input form="f{{ a.pk }}" type="checkbox" name="sans_niu" value="1" {% if a.sans_niu %}checked{% endif %}></td>
+        <td class="text-center"><input form="f{{ a.pk }}" type="checkbox" name="a_verifier" value="1" {% if a.a_verifier %}checked{% endif %}></td>
+        <td><input form="f{{ a.pk }}" class="form-control form-control-sm fi-note" name="remarque_fiscale" value="{{ a.remarque_fiscale }}" maxlength="300"></td>
+        <td>
+          <form id="f{{ a.pk }}" method="post" action="{% url 'inventaire:transporteurs_fiscal_modifier' a.pk %}">{% csrf_token %}
+            <input type="hidden" name="retour" value="{{ retour }}"><button class="tr-btn" style="padding:.3rem .8rem" type="submit">{% trans "Enregistrer" %}</button></form></td>
+      </tr>
+      {% empty %}<tr><td colspan="9" class="text-center text-muted py-3">{% trans "Aucune agence." %}</td></tr>{% endfor %}
+      </tbody></table></div>
+    {% if page.paginator.num_pages > 1 %}
+    <div class="tr-body d-flex justify-content-between">
+      <span>{% if page.has_previous %}<a href="?{{ qs }}&page={{ page.previous_page_number }}">← {% trans "Précédent" %}</a>{% endif %}</span>
+      <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+      <span>{% if page.has_next %}<a href="?{{ qs }}&page={{ page.next_page_number }}">{% trans "Suivant" %} →</a>{% endif %}</span></div>
+    {% endif %}
+  </div>
+  <p class="tr-sub">{% trans "Le NIU a la forme M ou P, 12 chiffres, une lettre (ex. M042416711933W). Un NIU de forme inhabituelle ou déjà utilisé par une autre agence est enregistré mais signalé." %}</p>
+</div>
+{% endblock %}

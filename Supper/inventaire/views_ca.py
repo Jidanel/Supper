@@ -32,12 +32,13 @@ from django.views.decorators.http import require_POST        # impose POST
 from accounts.models import Poste                            # postes SUPPER
 from common.utils import log_user_action                     # journalisation existante
 from inventaire.models_transporteurs import (                # modèles de la fiche transporteurs
-    AgenceTransport, DetailVehiculeTransporteur, TypeVehicule,
+    AgenceTransport, DetailVehiculeTransporteur, TypeVehicule, TYPES_COLISAGE,
 )
 from inventaire.models_ca import (                           # nouveaux modèles du CA
     PosteMaillage, LiaisonMaillage, ParametresCA,
 )
 from inventaire import services_ca                           # moteur de calcul
+from inventaire import services_fiscal                      # situation fiscale réelle (NIU, catégorie, centre)
 from inventaire.views_transporteurs import (                 # outils de droits du module existant
     _est_admin, _refuser,
 )
@@ -63,20 +64,26 @@ def _entier(texte, defaut, mini, maxi):
     return valeur if mini <= valeur <= maxi else defaut
 
 
-def _bornes_periode(periode, annee, mois, semestre):
-    """Dates de début et de fin de la période choisie (mois, semestre ou année)."""
+def _bornes_periode(periode, annee, mois, semestre, trimestre=1):
+    """Dates de début et de fin de la période choisie (mois, trimestre, semestre ou année)."""
     if periode == 'annee':
         return date(annee, 1, 1), date(annee, 12, 31)
     if periode == 'semestre':
         return (date(annee, 1, 1), date(annee, 6, 30)) if semestre == 1 else (date(annee, 7, 1), date(annee, 12, 31))
+    if periode == 'trimestre':                                   # T1 jan-mars, T2 avr-juin, T3 juil-sept, T4 oct-déc
+        premier = 3 * (trimestre - 1) + 1                        # 1, 4, 7 ou 10
+        dernier_mois = premier + 2
+        return date(annee, premier, 1), date(annee, dernier_mois, calendar.monthrange(annee, dernier_mois)[1])
     dernier = calendar.monthrange(annee, mois)[1]                # nombre de jours du mois
     return date(annee, mois, 1), date(annee, mois, dernier)
 
 
-def _libelle_periode(periode, annee, mois, semestre):
+def _libelle_periode(periode, annee, mois, semestre, trimestre=1):
     """Texte lisible de la période (titres, impression, export)."""
     if periode == 'annee':
         return _("Année %(a)s") % {'a': annee}
+    if periode == 'trimestre':
+        return _("Trimestre %(t)s %(a)s") % {'t': trimestre, 'a': annee}
     if periode == 'semestre':
         return _("Semestre %(s)s %(a)s") % {'s': semestre, 'a': annee}
     return f"{mois:02d}/{annee}"
@@ -97,23 +104,24 @@ def _construire_ca(request):
     user = request.user
     aujourdhui = timezone.localdate()
     periode = request.GET.get('periode', 'mois')
-    if periode not in ('mois', 'semestre', 'annee'):
+    if periode not in ('mois', 'trimestre', 'semestre', 'annee'):
         periode = 'mois'
     annee = _entier(request.GET.get('annee'), aujourdhui.year, 2020, 2100)
     mois = _entier(request.GET.get('mois'), aujourdhui.month, 1, 12)
     semestre = _entier(request.GET.get('semestre'), 1 if aujourdhui.month <= 6 else 2, 1, 2)
+    trimestre = _entier(request.GET.get('trimestre'), (aujourdhui.month - 1) // 3 + 1, 1, 4)
     agence_id = request.GET.get('agence', '')
-    debut, fin = _bornes_periode(periode, annee, mois, semestre)
+    debut, fin = _bornes_periode(periode, annee, mois, semestre, trimestre)
 
     # Paramètres de l'adresse à réutiliser pour l'impression (sans l'export)
     params_url = request.GET.copy()
     params_url.pop('export', None)
     ctx = {
-        'periode': periode, 'annee': annee, 'mois': mois, 'semestre': semestre,
+        'periode': periode, 'annee': annee, 'mois': mois, 'semestre': semestre, 'trimestre': trimestre,
         'agence_id': agence_id, 'agences': AgenceTransport.objects.order_by('nom'),
         'mois_liste': [(i, MONTHS[i]) for i in range(1, 13)],                   # (numéro, nom traduit)
         'annees': range(aujourdhui.year - 3, aujourdhui.year + 1),            # 4 dernières années
-        'debut': debut, 'fin': fin, 'libelle_periode': _libelle_periode(periode, annee, mois, semestre),
+        'debut': debut, 'fin': fin, 'libelle_periode': _libelle_periode(periode, annee, mois, semestre, trimestre),
         'calcule': 'go' in request.GET, 'est_admin': _est_admin(user),
         'querystring': params_url.urlencode(), 'pret': False,
     }
@@ -124,7 +132,9 @@ def _construire_ca(request):
 
     # --- Données : passages de la période, avec le poste converti en poste du maillage ---
     lien = dict(PosteMaillage.objects.exclude(poste=None).values_list('poste_id', 'id'))   # poste SUPPER -> maillage
-    qs = DetailVehiculeTransporteur.objects.filter(inventaire__date__range=(debut, fin))
+    # Les véhicules de colisage (fourgon, camions) sont exclus : le CA se calcule sur les passagers
+    qs = (DetailVehiculeTransporteur.objects.filter(inventaire__date__range=(debut, fin))
+          .exclude(type_vehicule__in=TYPES_COLISAGE))
     if agence_id.isdigit():                                      # filtre facultatif sur une agence
         agence = AgenceTransport.objects.filter(id=int(agence_id)).first()
         if agence:
@@ -164,11 +174,25 @@ def _construire_ca(request):
         postes_par_agence.setdefault(r['agence_nom'], []).append(
             {'poste': r['inventaire__poste__nom'], 'vehicules': r['vehicules'],
              'passages': r['passages'], 'jours': r['jours']})
+    # Véhicules de COLISAGE vus sur la période, par agence (même filtre d'agence que les passagers)
+    qs_colis = DetailVehiculeTransporteur.objects.filter(
+        inventaire__date__range=(debut, fin), type_vehicule__in=TYPES_COLISAGE)
+    if ctx.get('agence'):
+        qs_colis = qs_colis.filter(agence_nom=ctx['agence'].nom)
+    colis_par_agence = {}
+    for r in qs_colis.values('agence_nom', 'type_vehicule').annotate(
+            vehicules=Count('plaque_normalisee', distinct=True), passages=Count('id')):
+        c = colis_par_agence.setdefault(r['agence_nom'], {'vehicules': 0, 'passages': 0, 'par_type': {}})
+        c['vehicules'] += r['vehicules']                         # un véhicule = un seul type : pas de double compte
+        c['passages'] += r['passages']
+        c['par_type'][r['type_vehicule']] = r['vehicules']
     # Agences vues sur la route mais sans trajet calculable (postes hors maillage) : présentes avec un CA nul
     deja = {a['agence'] for a in agences}
-    for nom, r in vus.items():
+    for nom in list(vus) + [n for n in colis_par_agence if n not in vus]:   # + agences vues seulement en colisage
         if nom not in deja:
-            agences.append({'agence': nom, 'vehicules': 0, 'ca_semaine': 0, 'ca_periode': 0, 'passages': r['passages']})
+            agences.append({'agence': nom, 'vehicules': 0, 'ca_semaine': 0, 'ca_periode': 0,
+                            'passages': vus.get(nom, {}).get('passages', 0)})
+            deja.add(nom)
     agences.sort(key=lambda a: (-a['ca_periode'], a['agence']))
 
     vehicules_par_agence = {}                                    # détail regroupé par agence
@@ -179,9 +203,25 @@ def _construire_ca(request):
         a['vus'] = vus.get(a['agence'], {}).get('vehicules', 0)  # véhicules distincts vus sur la route
         a['n_postes'] = vus.get(a['agence'], {}).get('postes', 0)
         a['postes'] = postes_par_agence.get(a['agence'], [])     # postes de péage traversés
+    # CA annuel estimé et classe de chaque agence (rythme de la période prolongé sur une année entière)
+    jours_annee = 366 if calendar.isleap(debut.year) else 365
+    services_ca.ajouter_classement(agences, jours_annee, params)
+    services_ca.ajouter_colisage(agences, jours_annee, params, colis_par_agence)   # CA du colisage selon la structure
+    agences.sort(key=lambda a: (-a['ca_total_periode'], a['agence']))             # classement par CA total
+    recap_fiscal = services_fiscal.ajouter_situation_fiscale(agences)             # NIU, catégorie actuelle, centre + écart avec la structure estimée
     ctx.update({
+        'jours_annee': jours_annee, 'bareme': services_ca.bareme(),
+        'recap_classes': services_ca.recapitulatif_classes(agences),
+        'recap_fiscal': recap_fiscal,                                            # nb d'agences conformes / sous-classées / ...
+        'total_ca_annuel': sum(a['ca_annuel'] for a in agences),
+        'total_ca_annuel_ht': sum(a['ca_annuel_total_ht'] for a in agences),         # colisage compris
+        'total_ca_annuel_ht_passagers': sum(a['ca_annuel_ht'] for a in agences),
+        'diviseur_ht': services_ca.diviseur_ht(params),
         'pret': True, 'agences_ca': agences, 'infos': infos, 'params': params,
         'total_ca': sum(a['ca_periode'] for a in agences),
+        'total_ca_colisage': sum(a['ca_colisage_periode'] for a in agences),
+        'total_ca_global': sum(a['ca_total_periode'] for a in agences),
+        'total_vehicules_colisage': sum(a['colisage']['vehicules'] for a in agences),
         'total_semaine': sum(a['ca_semaine'] for a in agences),
         'total_vehicules': len(vehicules),
         'total_vus': sum(a['vus'] for a in agences),
@@ -212,11 +252,24 @@ def transporteurs_ca(request):
         w.writerow([_("Agence"), _("Plaque"), _("Type"), _("Places retenues"), _("Passages"),
                     _("Semaines vues"), _("Trajet de référence"), _("Régions"), _("Tarif sens simple"),
                     _("Aller-retour / semaine"), _("CA semaine (FCFA)"), _("CA période (FCFA)"),
-                    _("Postes voisins possibles (vu à un seul poste)")])
+                    _("Postes voisins possibles (vu à un seul poste)"),
+                    _("CA annuel estimé HT de l'agence, colisage compris (FCFA)"), _("Classe de l'agence"),
+                    _("Structure fiscale estimée"), _("Taux colisage (%)"), _("CA colisage de l'agence, période (FCFA)"),
+                    _("NIU"), _("Catégorie actuelle"), _("Centre actuel"), _("Régime"), _("Écart avec la structure estimée"),
+                    _("Situation fiscale à vérifier")])
+        par_agence = {a['agence']: a for a in ctx['agences_ca']}   # classe et CA annuel de chaque agence
         for v in vehicules:
             w.writerow([v['agence'], v['plaque'], v['type_libelle'], v['places'], v['passages'],
                         v['semaines_vues'], v['trajet'], v['regions_txt'], v['tarif'],
-                        v['tours'], v['ca_semaine'], v['ca_periode'], v['voisins_txt']])
+                        v['tours'], v['ca_semaine'], v['ca_periode'], v['voisins_txt'],
+                        par_agence[v['agence']]['ca_annuel_total_ht'], par_agence[v['agence']]['classe']['libelle'],
+                        par_agence[v['agence']]['structure'], par_agence[v['agence']]['taux_colisage'],
+                        par_agence[v['agence']]['ca_colisage_periode'],
+                        par_agence[v['agence']]['fiscal']['niu'] or (_("Sans NIU") if par_agence[v['agence']]['fiscal']['sans_niu'] else ''),
+                        par_agence[v['agence']]['fiscal']['categorie'], par_agence[v['agence']]['fiscal']['centre'],
+                        par_agence[v['agence']]['fiscal']['regime'],
+                        par_agence[v['agence']]['fiscal']['comparaison']['libelle'],
+                        _("Oui") if par_agence[v['agence']]['fiscal']['a_verifier'] else ''])
         return rep
     return render(request, 'inventaire/transporteurs/ca.html', ctx)
 
@@ -306,16 +359,26 @@ def transporteurs_ca_parametres_enregistrer(request):
         p.places_bus_ordinaire = _entier(request.POST.get('places_bus_ordinaire'), p.places_bus_ordinaire, 1, 200)
         p.places_bus_clim = _entier(request.POST.get('places_bus_clim'), p.places_bus_clim, 1, 200)
         p.places_hiace = _entier(request.POST.get('places_hiace'), p.places_hiace, 1, 200)
+        p.tarifs_ttc = request.POST.get('tarifs_ttc') == 'on'          # case à cocher : tarifs TTC
+        for champ in ('taux_tva', 'autres_taxes', 'taux_colisage_dge', 'taux_colisage_cime', 'taux_colisage_cflp'):                   # taux en % : 0 à 100
+            if champ not in request.POST:                            # champ absent : valeur inchangée
+                continue
+            taux = Decimal(request.POST.get(champ, '').replace(',', '.'))
+            if not Decimal('0') <= taux <= Decimal('100'):
+                raise InvalidOperation
+            setattr(p, champ, taux.quantize(Decimal('0.01')))
         majoration = Decimal(request.POST.get('majoration_clim', '').replace(',', '.'))
         if not Decimal('0') <= majoration <= Decimal('5'):
             raise InvalidOperation
         p.majoration_clim = majoration.quantize(Decimal('0.0001'))
     except InvalidOperation:
-        messages.error(request, _("Majoration invalide : saisissez un nombre entre 0 et 5 (ex. 0,6667)."))
+        messages.error(request, _("Valeur invalide : majoration entre 0 et 5 (ex. 0,6667), taux de taxes entre 0 et 100."))
         return redirect('inventaire:transporteurs_ca_parametres')
     p.save()
     log_user_action(user, "Paramètres CA transporteurs modifiés", f"tours {p.tours_longs}/{p.tours_courts}, "
-                    f"seuil {p.seuil_regions}, clim +{p.majoration_clim}", request)
+                    f"seuil {p.seuil_regions}, clim +{p.majoration_clim}, "
+                    f"TTC {p.tarifs_ttc}, TVA {p.taux_tva}, autres {p.autres_taxes}, "
+                    f"colisage DGE/CIME/CFLP {p.taux_colisage_dge}/{p.taux_colisage_cime}/{p.taux_colisage_cflp}", request)
     messages.success(request, _("Paramètres enregistrés."))
     return redirect('inventaire:transporteurs_ca_parametres')
 

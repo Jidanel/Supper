@@ -47,9 +47,30 @@
 
     <h3>4. {% trans "Extrapolation à la période" %}</h3>
     <div class="formule">{% trans "CA période" %} = {% trans "CA semaine" %} × ({% trans "nombre de jours de la période" %} ÷ 7)</div>
-    <p>{% trans "Mensuel : jours du mois ÷ 7 (ex. 31 jours = 4,43 semaines). Semestriel : 181 ou 184 jours. Annuel : 365 ou 366 jours. Le véhicule est supposé tenir le même rythme pendant toute la période." %}</p>
+    <p>{% trans "Mensuel : jours du mois ÷ 7 (ex. 31 jours = 4,43 semaines). Trimestriel : 90 à 92 jours. Semestriel : 181 ou 184 jours. Annuel : 365 ou 366 jours. Le véhicule est supposé tenir le même rythme pendant toute la période." %}</p>
 
-    <h3>5. {% trans "Limites à connaître" %}</h3>
+    <h3>5. {% trans "CA annuel estimé et classe de l'agence" %}</h3>
+    <div class="formule">{% trans "CA annuel estimé" %} = {% trans "CA semaine" %} × ({% trans "jours de l'année" %} ÷ 7)</div>
+    <div class="formule">{% trans "CA annuel HT" %} = {% trans "CA annuel estimé" %} ÷ (1 + ({% trans "TVA" %} + {% trans "autres taxes" %}) ÷ 100)</div>
+    <p>{% trans "Quelle que soit la période choisie (mois, trimestre, semestre, année), le rythme hebdomadaire observé est prolongé sur 365 ou 366 jours. Les tarifs du maillage étant TTC, le montant est ramené au HT avant le classement" %} ({% trans "TVA" %} {{ p.taux_tva }} % + {% trans "autres taxes" %} {{ p.autres_taxes }} %, {% trans "modifiables dans les paramètres" %}). {% trans "L'agence est ensuite classée selon le barème ci-dessous (le montant annuel forfaitaire n'est pas utilisé). Une valeur exactement égale à une borne entre dans la classe supérieure." %}</p>
+    <ul>
+      <li>{% trans "Classe 1 : moins de 500 000 · Classe 2 : 500 000 à moins de 1 000 000 · Classe 3 : 1 000 000 à moins de 1 500 000 · Classe 4 : 1 500 000 à moins de 2 000 000 · Classe 5 : 2 000 000 à moins de 2 500 000" %}</li>
+      <li>{% trans "Classe 6 : 2 500 000 à moins de 5 000 000 · Classe 7 : 5 000 000 à moins de 10 000 000 · Classe 8 : 10 000 000 à moins de 20 000 000 · Classe 9 : 20 000 000 à moins de 30 000 000 · Classe 10 : 30 000 000 à moins de 50 000 000" %}</li>
+      <li>{% trans "À partir de 50 000 000 par an : CIME. À partir de 3 000 000 000 par an : DGE." %}</li>
+    </ul>
+
+    <h3>6. {% trans "Chiffre d'affaires du colisage" %}</h3>
+    <p>{% trans "Les véhicules de colisage (fourgon, camion léger, camion lourd) ne transportent aucun passager : ils n'entrent pas dans le calcul par place et par tarif. Leur chiffre d'affaires est un pourcentage du CA TTC des passagers de l'agence, selon sa structure fiscale." %}</p>
+    <div class="formule">{% trans "CA colisage" %} = {% trans "taux de la structure" %} × {% trans "CA TTC des passagers" %}</div>
+    <ul>
+      <li>DGE : {{ p.taux_colisage_dge }} % · CIME : {{ p.taux_colisage_cime }} % · CFLP ({% trans "centre de fiscalité locale, classes 1 à 10" %}) : {{ p.taux_colisage_cflp }} %.</li>
+      <li>{% trans "On part de la structure déterminée par le CA annuel HT des passagers seuls (section 5) et on calcule le colisage à son taux." %}</li>
+      <li>{% trans "On ajoute ce colisage au CA annuel HT : la classe finale de l'agence se calcule sur ce total. Si le colisage lui fait franchir une borne (ex. 48 millions HT de passagers + 10 % de colisage dépassent 50 millions : CIME), l'agence change de structure et le colisage est recalculé au taux de la nouvelle structure (20 % pour le CIME), puis la classe est revérifiée jusqu'à stabilité." %}</li>
+      <li>{% trans "Le colisage est chiffré pour toute agence dont au moins un véhicule (de personnes ou de colisage) a été vu sur la période." %}</li>
+      <li>{% trans "Le CA total d'une agence = CA des passagers + CA du colisage, sur la période comme sur l'année. Le colisage, calculé sur du TTC, est ramené au HT pour entrer dans le CA annuel HT total." %}</li>
+    </ul>
+
+    <h3>7. {% trans "Limites à connaître" %}</h3>
     <ul>
       <li>{% trans "C'est une estimation à pleine capacité, pas un encaissement réel." %}</li>
       <li>{% trans "Un véhicule vu une seule fois dans la période est quand même extrapolé à toute la période." %}</li>

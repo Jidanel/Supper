@@ -539,6 +539,64 @@
     }
     
     /* ============================================
+       TABLEAU - AJUSTEMENT DESKTOP (≥ 768px)
+       Évite que Date / Actions sortent de la carte
+       ============================================ */
+    @media (min-width: 768px) {
+        .table {
+            min-width: 0;
+        }
+        
+        .table thead th,
+        .table tbody td {
+            padding: 0.75rem 0.6rem;
+        }
+        
+        .incident-sujet {
+            max-width: 220px;
+        }
+        
+        .user-name {
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* Colonne Actions toujours visible */
+        .table thead th:last-child,
+        .table tbody td:last-child {
+            position: sticky;
+            right: 0;
+            background: #fff;
+            box-shadow: -4px 0 6px -4px rgba(0, 0, 0, 0.12);
+        }
+        
+        .table thead th:last-child {
+            background: #F8FAFC;
+        }
+        
+        .table tbody tr:hover td:last-child {
+            background: #F8FAFC;
+        }
+    }
+    
+    /* PC à écran moyen : on resserre davantage */
+    @media (min-width: 768px) and (max-width: 1400px) {
+        .incident-sujet {
+            max-width: 170px;
+        }
+        
+        .user-name {
+            max-width: 110px;
+        }
+        
+        .badge-statut {
+            padding: 0.35rem 0.55rem;
+        }
+    }
+    
+    /* ============================================
        MEDIA QUERIES - MOBILE (≤ 767px)
        ============================================ */
     @media (max-width: 767px) {
@@ -748,6 +806,11 @@
         .incident-sujet {
             max-width: 120px !important;
             font-size: 0.8rem !important;
+        }
+        
+        /* Nom créateur - réduit sur mobile */
+        .user-name {
+            max-width: 100px !important;
         }
         
         /* Avatar plus petit */
@@ -1182,8 +1245,8 @@
                         <td>
                             <div class="d-flex align-items-center">
                                 <div class="user-avatar me-2">{{ incident.cree_par.nom_complet|slice:":2"|upper }}</div>
-                                <div class="small">
-                                    <div class="fw-medium">{{ incident.cree_par.nom_complet|truncatewords:3 }}</div>
+                                <div class="user-name fw-medium" title="{{ incident.cree_par.nom_complet }}">
+                                    {{ incident.cree_par.nom_complet }}
                                 </div>
                             </div>
                         </td>
@@ -1235,12 +1298,12 @@
                     <ul class="pagination mb-0">
                         {% if page_obj.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?page=1&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}">
+                            <a class="page-link" href="?page=1&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}&date_debut={{ date_debut_actuelle }}&date_fin={{ date_fin_actuelle }}">
                                 <i class="fas fa-angle-double-left"></i>
                             </a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}&date_debut={{ date_debut_actuelle }}&date_fin={{ date_fin_actuelle }}">
                                 <i class="fas fa-angle-left"></i>
                             </a>
                         </li>
@@ -1251,19 +1314,19 @@
                                 <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                             {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ num }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}">{{ num }}</a>
+                                    <a class="page-link" href="?page={{ num }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}&date_debut={{ date_debut_actuelle }}&date_fin={{ date_fin_actuelle }}">{{ num }}</a>
                                 </li>
                             {% endif %}
                         {% endfor %}
                         
                         {% if page_obj.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}&date_debut={{ date_debut_actuelle }}&date_fin={{ date_fin_actuelle }}">
                                 <i class="fas fa-angle-right"></i>
                             </a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&statut={{ statut_actuel }}&categorie={{ categorie_actuelle }}&priorite={{ priorite_actuelle }}&recherche={{ recherche_actuelle }}&utilisateur={{ utilisateur_actuel }}&date_debut={{ date_debut_actuelle }}&date_fin={{ date_fin_actuelle }}">
                                 <i class="fas fa-angle-double-right"></i>
                             </a>
                         </li>

@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}{# Gabarit de base du site #}
+{% load i18n %}{# Traductions FR/EN #}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">{# En-tête + boutons #}
+  <h3><i class="fas fa-file-export me-2"></i>{% trans "Séries livrées par commande" %}</h3>
+  <div>
+    <a class="btn btn-success" href="?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}export=csv">CSV</a>{# Export CSV #}
+    <button class="btn btn-secondary" onclick="window.print()">{% trans "Imprimer" %}</button>{# Impression #}
+  </div>
+</div>
+<form method="get" class="row g-2 mb-3 no-print">{# Filtres #}
+  <div class="col-md-4"><select name="commande" class="form-select">
+    <option value="">{% trans "Toutes les commandes" %}</option>
+    {% for c in commandes %}<option value="{{ c.id }}" {% if filtres.commande == c.id|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}
+  </select></div>
+  <div class="col-md-3"><input type="date" name="date_debut" value="{{ filtres.date_debut }}" class="form-control"></div>
+  <div class="col-md-3"><input type="date" name="date_fin" value="{{ filtres.date_fin }}" class="form-control"></div>
+  <div class="col-md-2"><button class="btn btn-primary w-100">{% trans "Filtrer" %}</button></div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-sm table-striped mb-0">{# Tableau des séries #}
+  <thead><tr>
+    <th>{% trans "Commande" %}</th><th>{% trans "Région" %}</th><th>{% trans "Poste" %}</th>
+    <th>{% trans "Couleur" %}</th><th>{% trans "Série" %}</th><th class="text-end">{% trans "Tickets" %}</th>
+    <th class="text-end">{% trans "Montant" %}</th><th>{% trans "Chargement" %}</th><th>{% trans "Livraison" %}</th>
+  </tr></thead>
+  <tbody>
+  {% for l in lignes %}{# Une ligne par série livrée #}
+  <tr><td>{{ l.commande }}</td><td>{{ l.region }}</td><td>{{ l.poste.nom }}</td><td>{{ l.couleur }}</td>
+      <td>{{ l.premier }} – {{ l.dernier }}</td><td class="text-end">{{ l.nombre }}</td>
+      <td class="text-end">{{ l.montant }}</td><td>{{ l.date_chargement|date:"d/m/Y" }}</td><td>{{ l.date_livraison|date:"d/m/Y" }}</td></tr>
+  {% empty %}<tr><td colspan="9" class="text-center text-muted py-4">{% trans "Aucune série livrée." %}</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr class="fw-bold"><td colspan="5">{% trans "Total" %}</td>
+    <td class="text-end">{{ total_tickets }}</td><td class="text-end">{{ total_montant }}</td><td colspan="2"></td></tr></tfoot>
+</table></div></div>
+{% endblock %}

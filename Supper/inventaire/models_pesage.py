@@ -719,6 +719,24 @@ class TypeDeclarationPesage(models.TextChoices):
     DECADE = 'decade', _('Par Décade')
 
 
+# -------------------------------------------------------------------
+# CORRECTION : valeurs par défaut calculées À CHAQUE création.
+# Avant : default=timezone.now().year / timezone.now().date()
+# (valeur figée une seule fois au démarrage du serveur)
+# Maintenant : on passe la FONCTION (sans parenthèses) à Django.
+# Elles doivent rester au niveau du fichier (pas de lambda) pour que
+# les migrations puissent les référencer.
+# -------------------------------------------------------------------
+def annee_courante():
+    """Année en cours, évaluée à chaque création (pas au démarrage du serveur)."""
+    return timezone.now().year
+
+
+def date_du_jour():
+    """Date du jour, évaluée à chaque création (pas au démarrage du serveur)."""
+    return timezone.now().date()
+
+
 class QuittancementPesage(models.Model):
     """
     Modèle pour gérer les quittancements des recettes de pesage (amendes)
@@ -748,7 +766,7 @@ class QuittancementPesage(models.Model):
     exercice = models.IntegerField(
         verbose_name=_("Exercice (Année)"),
         validators=[MinValueValidator(2020), MaxValueValidator(2099)],
-        default=timezone.now().year
+        default=annee_courante
     )
 
     mois = models.CharField(
@@ -769,7 +787,7 @@ class QuittancementPesage(models.Model):
     date_quittancement = models.DateField(
         verbose_name=_("Date de quittancement"),
         help_text=_("Date du jour du quittancement"),
-        default=timezone.now().date()
+        default=date_du_jour
     )
 
     # Pour JOURNALIERE
@@ -1409,6 +1427,3 @@ class ObjectifAnnuelPesage(models.Model):
     def get_reste_a_realiser(self):
         """Calcule le reste à réaliser"""
         return self.montant_objectif - self.get_realisation()
-
-
-
