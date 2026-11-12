@@ -17,34 +17,29 @@
  <div class="cl-card">
   <div class="cl-head">
     <h4 class="mb-0">{{ poste.nom }} — {{ mois }}</h4>
-    <small>Éléments pré-remplis : vérifiez et corrigez si nécessaire avant de générer le document.</small>
+    <small>Le stock est calculé par SUPPER. Vérifiez les éléments pré-remplis puis générez le document.</small>
   </div>
   <form method="post" class="p-3">
     {% csrf_token %}
     <div class="row g-3">
     {% if type_doc == 'compte_emploi' %}
-      <div class="col-12 col-lg-6"><label class="form-label">Stock d'ouverture : séries (une par ligne : début-fin)</label>
-        <textarea name="series_ouverture" rows="3" class="form-control">{{ textes_series.series_ouverture }}</textarea></div>
-      <div class="col-12 col-lg-6"><label class="form-label">Approv. Imprimerie Nationale : séries</label>
-        <textarea name="series_approv" rows="3" class="form-control">{{ textes_series.series_approv }}</textarea></div>
-      <div class="col-12 col-lg-6"><label class="form-label">Réapprovisionnement reçu : séries</label>
-        <textarea name="series_recu" rows="2" class="form-control">{{ textes_series.series_recu }}</textarea></div>
-      <div class="col-12 col-lg-6"><label class="form-label">Réapprovisionnement cédé : séries</label>
-        <textarea name="series_cede" rows="2" class="form-control">{{ textes_series.series_cede }}</textarea></div>
+      <div class="col-12">
+        <div class="alert alert-info mb-0">
+          <strong>Stock calculé automatiquement par SUPPER</strong> (plus aucune déclaration de stock à faire) :
+          <ul class="mb-0 mt-2 small">
+            <li><strong>Stock d'ouverture :</strong> {{ textes_series.series_ouverture }}</li>
+            <li><strong>Approv. Imprimerie Nationale :</strong> {{ textes_series.series_approv }}</li>
+            <li><strong>Réapprovisionnement reçu (transferts) :</strong> {{ textes_series.series_recu }}</li>
+            <li><strong>Réapprovisionnement cédé (transferts) :</strong> {{ textes_series.series_cede }}</li>
+            <li><strong>Stock de fin :</strong> {{ textes_series.series_fin }}</li>
+          </ul>
+          <div class="mt-2 small">Le stock vendu est calculé : (ouverture + approv. + reçu) − cédé − stock de fin.</div>
+        </div>
+      </div>
       <div class="col-12 col-md-6"><label class="form-label">Abonnements du mois (FCFA)</label>
         <input name="abonnements" class="form-control" value="{{ valeurs.abonnements }}"></div>
       <div class="col-12 col-md-6"><label class="form-label">Rendement N-1 (FCFA)</label>
         <input name="rendement_n1" class="form-control" value="{{ valeurs.rendement_n1 }}"></div>
-      <div class="col-12">
-        <label class="form-label">Stock de fin : cochez les séries en votre possession</label><br>
-        {% for s in series_disponibles %}
-          <label class="serie-item">
-            <input type="checkbox" name="series" value="{{ s.0 }}-{{ s.1 }}"
-              {% if s in series_cochees %}checked{% endif %}> de N°{{ s.0 }} à N°{{ s.1 }}
-          </label>
-        {% empty %}<span class="text-muted">Aucune série en stock dans SUPPER.</span>{% endfor %}
-        <div class="form-text">Le stock vendu est calculé automatiquement : (ouverture + approv. + reçu) − cédé − stock de fin.</div>
-      </div>
     {% else %}
       <div class="col-12 col-md-4"><label class="form-label">Nombre de pesées</label>
         <input name="nombre_pesees" class="form-control" value="{{ valeurs.nombre_pesees }}"></div>

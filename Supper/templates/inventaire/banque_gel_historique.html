@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Historique de la banque de gel - SUPPER{% endblock %}
+{% block content %}
+<div class="container-fluid">
+ <div class="card border-0 shadow-sm">
+  <div class="card-header bg-primary text-white d-flex justify-content-between flex-wrap gap-2">
+    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Historique de la banque de gel</h5>
+    <a href="{% url 'inventaire:banque_gel' %}" class="btn btn-light btn-sm">Retour à la banque</a>
+  </div>
+  <form method="get" class="p-3 border-bottom"><div class="row g-2">
+    <div class="col-12 col-md-4"><select name="statut" class="form-select">
+      <option value="">Tous les statuts</option>
+      <option value="gele" {% if statut == 'gele' %}selected{% endif %}>Gelées</option>
+      <option value="degele" {% if statut == 'degele' %}selected{% endif %}>Dégelées</option>
+      <option value="annule" {% if statut == 'annule' %}selected{% endif %}>Gels annulés</option></select></div>
+    <div class="col-12 col-md-5"><select name="poste" class="form-select"><option value="">Tous les postes (origine ou destinataire)</option>
+      {% for p in postes %}<option value="{{ p.id }}" {% if poste_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}</select></div>
+    <div class="col-12 col-md-3 d-grid"><button class="btn btn-primary">Filtrer</button></div>
+  </div></form>
+  <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+    <thead><tr><th>Statut</th><th>Couleur</th><th>Série</th><th>Tickets</th><th>Valeur</th><th>Gel</th><th>Dégel</th></tr></thead>
+    <tbody>
+    {% for b in lignes %}
+      <tr><td><span class="badge {% if b.statut == 'gele' %}bg-info{% elif b.statut == 'degele' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ b.get_statut_display }}</span></td>
+        <td>{{ b.couleur.libelle_affichage }}</td><td><strong>{{ b.numero_premier }}-{{ b.numero_dernier }}</strong></td>
+        <td>{{ b.nombre_tickets }}</td><td>{{ b.montant }} F</td>
+        <td>{{ b.poste_origine.nom }}<div class="small text-muted">effet {{ b.date_effet_gel|date:"d/m/Y" }} · {{ b.gele_par.nom_complet|default:"—" }}<br>{{ b.motif_gel }}</div></td>
+        <td>{% if b.statut == 'degele' %}{{ b.poste_destination.nom }}<div class="small text-muted">effet {{ b.date_effet_degel|date:"d/m/Y" }} · {{ b.degele_par.nom_complet|default:"—" }}<br>{{ b.motif_degel }}</div>{% elif b.statut == 'annule' %}<div class="small text-muted">{{ b.motif_degel }}</div>{% else %}—{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="7" class="text-muted p-3">Aucune ligne.</td></tr>{% endfor %}
+    </tbody></table></div>
+ </div>
+</div>
+{% endblock %}

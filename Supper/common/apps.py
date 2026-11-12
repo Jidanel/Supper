@@ -43,3 +43,10 @@ class CommonConfig(AppConfig):
             import common.utils
         except ImportError:
             pass
+
+        # Compression automatique des images téléversées (quittances, historiques ACCT...)
+        try:
+            from common.signals_images import connecter_signaux_images
+            connecter_signaux_images()
+        except Exception:
+            logger.exception("Branchement de la compression d'images impossible")

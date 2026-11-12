@@ -1218,19 +1218,6 @@
                         </option>
                     </select>
                 </div>
-                
-                <!-- Boutons -->
-                <div class="col-md-2 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn btn-primary flex-fill">
-                        <i class="fas fa-search"></i>
-                        {% trans "Filtrer" %}
-                    </button>
-                    <a href="{% url 'inventaire:liste_quittancements' %}" 
-                       class="btn btn-outline-secondary" 
-                       title="{% trans 'Réinitialiser' %}">
-                        <i class="fas fa-redo"></i>
-                    </a>
-                </div>
             </div>
             
             <!-- Ligne supplémentaire pour filtres avancés -->
@@ -1267,6 +1254,19 @@
                            class="form-control"
                            placeholder="0"
                            value="{{ request.GET.montant_min }}">
+                </div>
+
+                <!-- Boutons -->
+                <div class="col-md-12 d-flex justify-content-end align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                        {% trans "Filtrer" %}
+                    </button>
+                    <a href="{% url 'inventaire:liste_quittancements' %}" 
+                       class="btn btn-outline-secondary" 
+                       title="{% trans 'Réinitialiser' %}">
+                        <i class="fas fa-redo"></i>
+                    </a>
                 </div>
             </div>
         </form>

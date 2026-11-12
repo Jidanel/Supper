@@ -75,33 +75,65 @@
       </div>
     </div>
 
-    {# Étape 2 : plages et motif #}
-    <form method="post" class="mt-3">
+    {# Étape 2 : plages (plusieurs lignes possibles de chaque côté) et motif #}
+    <form method="post" class="mt-3" id="form-permutation">
       {% csrf_token %}
       <input type="hidden" name="poste" value="{{ poste.id }}">
       <div class="row g-3">
         <div class="col-12 col-md-6"><div class="bloc-a p-2">
           <label class="form-label"><strong>À réveiller</strong> (vendu → en stock) : couleur et plage</label>
-          <div class="d-flex gap-2">
-            <select id="reveil_couleur" name="reveil_couleur" class="form-select" required>
-              <option value="">Couleur</option>
-              {% for c in couleurs %}<option value="{{ c.id }}" {% if reveil_couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}
-            </select>
-            <input id="reveil_plage" name="reveil_plage" class="form-control" value="{{ reveil_plage }}" placeholder="10-20" required>
-          </div></div></div>
+          <div id="lignes-reveil">
+            {% for l in lignes_reveil %}
+            <div class="ligne-plage d-flex gap-2 align-items-center mb-2">
+              <select name="reveil_couleur" class="form-select" style="max-width:150px" required>
+                <option value="">Couleur</option>
+                {% for c in couleurs %}<option value="{{ c.id }}" {% if l.couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}
+              </select>
+              <input name="reveil_plage" class="form-control" value="{{ l.plage }}" placeholder="10-20" required>
+              <span class="info-ligne small text-nowrap" style="min-width:130px"></span>
+              <button type="button" class="btn btn-sm btn-outline-danger" title="Retirer cette ligne" onclick="retirerLigne(this)">✕</button>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="ajouterLigne('reveil')">+ Ajouter une série à réveiller</button>
+          <div class="mt-2 fw-bold" id="total-reveil">Total : 0 ticket — 0 FCFA</div>
+        </div></div>
         <div class="col-12 col-md-6"><div class="bloc-b p-2">
           <label class="form-label"><strong>À tuer</strong> (en stock → vendu) : couleur et plage</label>
-          <div class="d-flex gap-2">
-            <select id="tue_couleur" name="tue_couleur" class="form-select" required>
-              <option value="">Couleur</option>
-              {% for c in couleurs %}<option value="{{ c.id }}" {% if tue_couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}
-            </select>
-            <input id="tue_plage" name="tue_plage" class="form-control" value="{{ tue_plage }}" placeholder="30-40" required>
-          </div></div></div>
-        <div class="col-12 form-text">Les deux plages doivent avoir la <strong>même valeur monétaire</strong> (500 FCFA par ticket), même si les couleurs sont différentes.</div>
+          <div id="lignes-tue">
+            {% for l in lignes_tue %}
+            <div class="ligne-plage d-flex gap-2 align-items-center mb-2">
+              <select name="tue_couleur" class="form-select" style="max-width:150px" required>
+                <option value="">Couleur</option>
+                {% for c in couleurs %}<option value="{{ c.id }}" {% if l.couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}
+              </select>
+              <input name="tue_plage" class="form-control" value="{{ l.plage }}" placeholder="30-40" required>
+              <span class="info-ligne small text-nowrap" style="min-width:130px"></span>
+              <button type="button" class="btn btn-sm btn-outline-danger" title="Retirer cette ligne" onclick="retirerLigne(this)">✕</button>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="ajouterLigne('tue')">+ Ajouter une série à tuer</button>
+          <div class="mt-2 fw-bold" id="total-tue">Total : 0 ticket — 0 FCFA</div>
+        </div></div>
+        <div class="col-12"><div id="equilibre" class="p-2 rounded small"></div>
+          <div class="form-text">Le total des séries à réveiller et le total des séries à tuer doivent avoir la <strong>même valeur monétaire</strong> (500 FCFA par ticket, bornes comprises : 10-12 = 3 tickets = 1 500 FCFA), même si les couleurs sont différentes.</div></div>
         <div class="col-12"><label class="form-label">Motif (obligatoire, conservé dans l'historique)</label>
           <textarea name="motif" rows="2" class="form-control" required>{{ motif }}</textarea></div>
       </div>
+
+      {# Modèle d'une ligne (copié par le script pour « Ajouter ») #}
+      <template id="modele-ligne">
+        <div class="ligne-plage d-flex gap-2 align-items-center mb-2">
+          <select name="__P___couleur" class="form-select" style="max-width:150px" required>
+            <option value="">Couleur</option>
+            {% for c in couleurs %}<option value="{{ c.id }}">{{ c.libelle_affichage }}</option>{% endfor %}
+          </select>
+          <input name="__P___plage" class="form-control" placeholder="10-20" required>
+          <span class="info-ligne small text-nowrap" style="min-width:130px"></span>
+          <button type="button" class="btn btn-sm btn-outline-danger" title="Retirer cette ligne" onclick="retirerLigne(this)">✕</button>
+        </div>
+      </template>
 
       {% if apercu %}
       <div class="mt-3 p-3" style="background:#f5f3ff;border-radius:10px">
@@ -133,10 +165,72 @@
  </div>
 </div>
 <script>
-  // Remplit un champ de plage depuis une ligne du tableau (aide à la saisie)
-  function remplir(prefixe, couleur, plage) {
-    document.getElementById(prefixe + '_couleur').value = couleur;  // Couleur de la ligne choisie
-    document.getElementById(prefixe + '_plage').value = plage;  // Plage de la ligne choisie
+  // ---- Saisie de plusieurs séries de chaque côté, avec nombre de tickets et montant en direct ----
+  var PRIX = 500;  // Valeur d'un ticket en FCFA
+
+  // Met un nombre en forme avec espace comme séparateur de milliers
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+
+  // Lit "10-12", "10 à 12" ou "10" et retourne le nombre de tickets (bornes comprises), ou null si illisible
+  function compter(texte) {
+    var m = /^\s*(\d+)\s*(?:[-–—]|à|a|au)?\s*(\d+)?\s*$/.exec(texte || '');
+    if (!m) return null;
+    var a = parseInt(m[1], 10), b = m[2] ? parseInt(m[2], 10) : a;
+    return (a >= 1 && b >= a) ? (b - a + 1) : null;
   }
+
+  // Recalcule l'info de chaque ligne, les totaux de chaque côté et l'équilibre des valeurs
+  function recalculer() {
+    var totaux = {};
+    ['reveil', 'tue'].forEach(function (p) {
+      var total = 0;
+      document.querySelectorAll('#lignes-' + p + ' .ligne-plage').forEach(function (ligne) {
+        var n = compter(ligne.querySelector('input').value), info = ligne.querySelector('.info-ligne');
+        if (n === null) { info.textContent = ligne.querySelector('input').value.trim() ? 'plage invalide' : ''; info.className = 'info-ligne small text-nowrap text-danger'; }
+        else { total += n; info.textContent = fmt(n) + (n > 1 ? ' tickets' : ' ticket') + ' · ' + fmt(n * PRIX) + ' F'; info.className = 'info-ligne small text-nowrap text-success'; }
+      });
+      totaux[p] = total;
+      document.getElementById('total-' + p).textContent = 'Total : ' + fmt(total) + (total > 1 ? ' tickets' : ' ticket') + ' — ' + fmt(total * PRIX) + ' FCFA';
+    });
+    var eq = document.getElementById('equilibre');
+    if (totaux.reveil === 0 && totaux.tue === 0) { eq.textContent = ''; eq.className = 'p-2 rounded small'; }
+    else if (totaux.reveil === totaux.tue) { eq.textContent = '✓ Les deux côtés ont la même valeur : ' + fmt(totaux.reveil * PRIX) + ' FCFA.'; eq.className = 'p-2 rounded small bg-success-subtle text-success fw-bold'; }
+    else { eq.textContent = '✗ Écart de ' + fmt(Math.abs(totaux.reveil - totaux.tue)) + ' tickets (' + fmt(Math.abs(totaux.reveil - totaux.tue) * PRIX) + ' FCFA) entre les deux côtés.'; eq.className = 'p-2 rounded small bg-danger-subtle text-danger fw-bold'; }
+  }
+
+  // Ajoute une ligne vide du côté 'reveil' ou 'tue' et la retourne
+  function ajouterLigne(prefixe) {
+    var html = document.getElementById('modele-ligne').innerHTML.replace(/__P__/g, prefixe);
+    var conteneur = document.getElementById('lignes-' + prefixe);
+    conteneur.insertAdjacentHTML('beforeend', html);
+    var ligne = conteneur.lastElementChild;
+    ligne.querySelector('input').addEventListener('input', recalculer);  // Mise à jour en direct
+    return ligne;
+  }
+
+  // Retire une ligne (on en garde toujours au moins une par côté)
+  function retirerLigne(bouton) {
+    var ligne = bouton.closest('.ligne-plage'), conteneur = ligne.parentElement;
+    if (conteneur.querySelectorAll('.ligne-plage').length > 1) { ligne.remove(); }
+    else { ligne.querySelector('input').value = ''; ligne.querySelector('select').value = ''; }
+    recalculer();
+  }
+
+  // Bouton « À réveiller » / « À tuer » d'un tableau : remplit la première ligne vide, sinon en ajoute une
+  function remplir(prefixe, couleur, plage) {
+    var vide = null;
+    document.querySelectorAll('#lignes-' + prefixe + ' .ligne-plage').forEach(function (l) {
+      if (!vide && !l.querySelector('input').value.trim()) { vide = l; }
+    });
+    var ligne = vide || ajouterLigne(prefixe);
+    ligne.querySelector('select').value = couleur;
+    ligne.querySelector('input').value = plage;
+    recalculer();
+    ligne.querySelector('input').focus();
+  }
+
+  // Au chargement : branche le calcul en direct sur les lignes déjà affichées
+  document.querySelectorAll('.ligne-plage input').forEach(function (i) { i.addEventListener('input', recalculer); });
+  recalculer();
 </script>
 {% endblock %}

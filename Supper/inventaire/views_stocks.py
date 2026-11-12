@@ -1427,10 +1427,29 @@ def modifier_series_stock(request, poste_id):
         suppressions = []
         erreurs = []
 
-        for serie in series_modifiables:
+        partielles = []  # Suppressions partielles : (série, premier, dernier)
+
+        # Séries modifiables ET séries reçues par transfert : l'administrateur peut tout modifier ou supprimer
+        for serie in list(series_modifiables) + list(series_transferees):
             prefix = f"serie_{serie.id}"
 
             supprimer = request.POST.get(f"{prefix}_supprimer") == 'on'
+
+            # Suppression PARTIELLE : seulement la plage indiquée (ex. 10-15 dans une série 10-20)
+            plage_txt = (request.POST.get(f"{prefix}_suppr_plage") or '').strip()
+            if plage_txt and not supprimer:
+                from inventaire.services.permutation_service import lire_plage
+                plage = lire_plage(plage_txt)
+                if not plage or plage[0] > plage[1]:
+                    erreurs.append(f"Série #{serie.id}: plage à supprimer invalide (« {plage_txt} »)")
+                elif plage[0] < serie.numero_premier or plage[1] > serie.numero_dernier:
+                    erreurs.append(f"Série #{serie.id}: la plage {plage[0]}-{plage[1]} doit être comprise dans "
+                                   f"{serie.numero_premier}-{serie.numero_dernier}")
+                elif plage == (serie.numero_premier, serie.numero_dernier):
+                    suppressions.append(serie)  # La plage couvre toute la série
+                else:
+                    partielles.append((serie, plage[0], plage[1]))
+                continue
 
             if supprimer:
                 suppressions.append(serie)
@@ -1479,6 +1498,10 @@ def modifier_series_stock(request, poste_id):
         else:
             try:
                 with transaction.atomic():
+                    if partielles:  # Isole la plage à supprimer ; le reste demeure en stock
+                        from inventaire.services.permutation_service import _isoler
+                        for serie, x, y in partielles:
+                            suppressions.append(_isoler(serie, x, y))
                     for serie in suppressions:
                         stock_obj, _ = GestionStock.objects.get_or_create(
                             poste=poste,

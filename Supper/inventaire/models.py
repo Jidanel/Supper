@@ -30,6 +30,7 @@ from inventaire.models_transporteurs import *
 from inventaire.models_ca import *
 from inventaire.models_cloture import *  # Clôture mensuelle (compte d'emploi / PV)
 from inventaire.models_permutation import *  # Permutations de séries de tickets
+from inventaire.models_banque_gel import *  # Banque de gel / dégel de séries de tickets
 logger = logging.getLogger('supper')
 
 class MoisChoices(models.TextChoices):
@@ -4083,6 +4084,22 @@ class SerieTicket(models.Model):
 
             historique[annee_serie].append(info)
 
+        # Permutations de séries : opérations qui ont échangé le statut de ce ticket
+        from inventaire.services.permutation_service import historique_ticket
+        for perm in historique_ticket(couleur, numero_ticket):
+            annee_perm = perm.date_operation.year
+            historique.setdefault(annee_perm, []).append({
+                'poste': perm.poste.nom,
+                'date_reception': perm.date_operation,
+                'statut': 'permutation',
+                'type_entree': 'Permutation',
+                'serie_complete': (
+                    "réveil " + ", ".join(f"{c} #{p}-{d}" for c, p, d in perm.plages_reveil) + " ⇄ tue "
+                    + ", ".join(f"{c} #{p}-{d}" for c, p, d in perm.plages_tue)),
+                'nombre_tickets': perm.nombre_tickets,
+                'message': f"🔄 Permutation{' (annulée)' if perm.statut == 'annulee' else ''} : {perm.motif}",
+            })
+
         return historique
 
 
@@ -4197,6 +4214,9 @@ class StockEvent(models.Model):
         ('TRANSFERT_OUT', 'Transfert Sortant'),
         ('AJUSTEMENT', 'Ajustement Manuel'),
         ('REGULARISATION', 'Régularisation'),
+        ('PERMUTATION', 'Permutation de séries'),
+        ('GEL', 'Gel de séries (banque de gel)'),
+        ('DEGEL', 'Dégel de séries (banque de gel)'),
     ]
 
     # Identifiants

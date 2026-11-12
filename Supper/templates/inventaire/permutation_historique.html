@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% comment %} Historique des permutations de séries de tickets (avec annulation). {% endcomment %}
+
+{% block title %}Historique des permutations - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pm-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); background: #fff; }
+    .pm-head { background: linear-gradient(135deg, #5b21b6, #8b5cf6); color: #fff; padding: 1.2rem; border-radius: 12px 12px 0 0; }
+    .pm-table { width: 100%; font-size: .85rem; border-collapse: collapse; }
+    .pm-table th { background: #1f2937; color: #fff; padding: .4rem .5rem; text-align: left; }
+    .pm-table td { padding: .35rem .5rem; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    .annulee td { color: #9ca3af; text-decoration: line-through; }
+    .annulee td.sans-barre { text-decoration: none; }
+    @media print { .no-print { display: none !important; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+ <div class="pm-card">
+  <div class="pm-head d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div><h4 class="mb-0"><i class="fas fa-history me-2"></i>Historique des permutations de séries</h4>
+      <small>Chaque permutation échange le statut de deux plages de tickets d'un même poste.</small></div>
+    <a href="{% url 'inventaire:permutation_nouvelle' %}" class="btn btn-light no-print">Nouvelle permutation</a>
+  </div>
+  <form method="get" class="p-3 row g-2 align-items-end no-print">
+    <div class="col-12 col-md-4"><label class="form-label">Poste</label>
+      <select name="poste" class="form-select"><option value="">Tous</option>
+        {% for p in postes %}<option value="{{ p.id }}" {% if poste_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-3"><label class="form-label">Statut</label>
+      <select name="statut" class="form-select"><option value="">Tous</option>
+        <option value="effectuee" {% if statut == 'effectuee' %}selected{% endif %}>Effectuées</option>
+        <option value="annulee" {% if statut == 'annulee' %}selected{% endif %}>Annulées</option></select></div>
+    <div class="col-6 col-md-3"><label class="form-label">N° de ticket concerné</label>
+      <input name="ticket" class="form-control" value="{{ ticket }}" inputmode="numeric"></div>
+    <div class="col-12 col-md-2 d-grid"><button class="btn btn-primary">Filtrer</button></div>
+  </form>
+  <div class="table-responsive px-3 pb-3">
+    <table class="pm-table">
+      <thead><tr><th>Date</th><th>Poste</th><th>Réveillé (vendu → stock)</th><th>Tué (stock → vendu)</th>
+        <th>Tickets</th><th>Recette</th><th>Motif</th><th>Par</th><th class="no-print"></th></tr></thead>
+      <tbody>
+      {% for p in permutations %}
+        <tr class="{% if p.statut == 'annulee' %}annulee{% endif %}">
+          <td>{{ p.date_operation|date:"d/m/Y H:i" }}</td>
+          <td>{{ p.poste.nom }}</td>
+          <td>{% for c, x, y in p.plages_reveil %}<div>{{ c.libelle_affichage }} <strong>{{ x }}-{{ y }}</strong></div>{% endfor %}</td>
+          <td>{% for c, x, y in p.plages_tue %}<div>{{ c.libelle_affichage }} <strong>{{ x }}-{{ y }}</strong></div>{% endfor %}</td>
+          <td>{{ p.nombre_tickets }}<div class="small text-muted">{{ p.montant }} F</div></td>
+          <td>{% if p.recette %}{{ p.date_vente|date:"d/m/Y" }} — {{ p.recette.montant_declare|floatformat:0 }}{% else %}{{ p.date_vente|date:"d/m/Y" }}{% endif %}</td>
+          <td>{{ p.motif }}</td>
+          <td>{{ p.effectue_par.nom_complet|default:"—" }}</td>
+          <td class="sans-barre no-print">
+            {% if p.statut == 'effectuee' %}
+              <form method="post" action="{% url 'inventaire:permutation_annuler' p.pk %}" class="d-flex gap-1"
+                    onsubmit="return confirm('Annuler cette permutation ?');">
+                {% csrf_token %}
+                <input name="motif_annulation" class="form-control form-control-sm" placeholder="Motif d'annulation" required>
+                <button class="btn btn-sm btn-outline-danger">Annuler</button>
+              </form>
+            {% else %}
+              <span class="small">Annulée le {{ p.date_annulation|date:"d/m/Y H:i" }} par {{ p.annulee_par.nom_complet|default:"—" }}<br>« {{ p.motif_annulation }} »</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9" class="text-muted py-3">Aucune permutation.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+ </div>
+</div>
+{% endblock %}

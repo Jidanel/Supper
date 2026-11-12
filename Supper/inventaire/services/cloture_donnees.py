@@ -283,7 +283,9 @@ def rendement_n1_pesage(station, mois):
 # ----------------------------------------------------------------------
 def series_au(poste, jour):
     """Séries détenues par le poste à la fin du jour donné, reconstituées depuis SerieTicket
-    (reçues au plus tard ce jour, et encore en stock ou vendues après ce jour)."""
+    (reçues au plus tard ce jour, et encore en stock ou vendues après ce jour).
+    La banque de gel ne laisse AUCUNE trace dans le compte d'emploi : une série gelée n'est plus au poste
+    (comme si elle n'y avait jamais été) et une série dégelée y entre au plus tard au début du mois d'effet."""
     from inventaire.models import SerieTicket
     qs = SerieTicket.objects.filter(poste=poste, date_reception__date__lte=jour).filter(
         Q(statut='stock') | Q(statut='vendu', date_utilisation__gt=jour))
@@ -300,18 +302,13 @@ def _series_details(details):
 
 
 def series_ouverture(poste, mois):
-    """Ouverture = séries de fin VALIDÉES du mois précédent, sinon reconstitution SUPPER."""
-    from inventaire.models_cloture import ClotureMensuelle
-    prec = ClotureMensuelle.objects.filter(
-        poste=poste, type_document='compte_emploi', mois=mois_precedent(mois)
-    ).exclude(statut='remplace').order_by('-version').first()
-    if prec:
-        return [tuple(s) for s in prec.donnees['stock_fin']['series']]
+    """Ouverture = stock SUPPER détenu par le poste la veille du 1er jour du mois (plus aucune déclaration du chef)."""
     return series_au(poste, bornes_mois(mois)[0] - timedelta(days=1))
 
 
 def preremplir_compte_emploi(poste, mois):
-    """Valeurs proposées (toutes modifiables), sous forme d'intervalles de tickets."""
+    """Éléments du compte d'emploi calculés par SUPPER (stock début, approv., réappro, stock fin), en intervalles de tickets.
+    Le chef de poste ne déclare plus que les abonnements et le rendement N-1."""
     from inventaire.views_rapports import calculer_donnees_compte_emploi_v2
     debut, fin = bornes_mois(mois)
     d = calculer_donnees_compte_emploi_v2(poste, debut, fin)  # Calcul SUPPER existant
@@ -320,7 +317,7 @@ def preremplir_compte_emploi(poste, mois):
         'series_approv': _series_details(d['approv_imprimerie']['details']),
         'series_recu': _series_details(d['reapprov_recu']['details']),
         'series_cede': _series_details(d['reapprov_cede']['details']),
-        'series_fin': series_au(poste, fin),  # Cases cochées par défaut (série disponibles dans SUPPER)
+        'series_fin': series_au(poste, fin),  # Stock de fin = stock SUPPER à la fin du mois
         'abonnements': 0,
         'rendement_n1': rendement_n1_peage(poste, mois),
     }

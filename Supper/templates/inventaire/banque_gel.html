@@ -1,0 +1,182 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Banque de gel - SUPPER{% endblock %}
+
+{% block extra_css %}
+<style>
+  .bg-card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); background: #fff; margin-bottom: 1.2rem; }
+  .bg-head { color: #fff; padding: 1rem 1.2rem; border-radius: 12px 12px 0 0; }
+  .bg-gel { background: linear-gradient(135deg, #0e7490, #06b6d4); }
+  .bg-degel { background: linear-gradient(135deg, #c2410c, #f97316); }
+  .bg-banque { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }
+  .bg-table { width: 100%; font-size: .9rem; border-collapse: collapse; }
+  .bg-table th { background: #f1f5f9; padding: .45rem .6rem; text-align: left; }
+  .bg-table td { padding: .4rem .6rem; border-top: 1px solid #e2e8f0; }
+  .bg-scroll { max-height: 320px; overflow-y: auto; }
+  @media (max-width: 767px) { .bg-table { font-size: .8rem; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+ <div class="bg-card">
+  <div class="bg-head bg-banque d-flex justify-content-between flex-wrap gap-2">
+    <div><h4 class="mb-0"><i class="fas fa-snowflake me-2"></i>Banque de gel</h4>
+      <small>Les séries gelées sortent du stock d'un poste ; elles peuvent être dégelées vers un autre poste dont le stock est insuffisant.</small></div>
+    <a href="{% url 'inventaire:banque_gel_historique' %}" class="btn btn-light btn-sm align-self-center">Historique</a>
+  </div>
+  <div class="p-3">
+    <h6>Séries disponibles dans la banque : <span class="badge bg-primary">{{ banque_total_tickets }} tickets</span></h6>
+    {% if banque_totaux %}<p class="small text-muted">
+      {% for t in banque_totaux %}{{ t.couleur__libelle_affichage }} : {{ t.t }} tickets{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    <div class="bg-scroll"><table class="bg-table">
+      <thead><tr><th>Couleur</th><th>Série</th><th>Tickets</th><th>Valeur</th><th>Poste d'origine</th><th>Effet du gel</th><th></th></tr></thead>
+      <tbody>
+      {% for b in banque %}
+        <tr><td>{{ b.couleur.libelle_affichage }}</td><td><strong>{{ b.numero_premier }}-{{ b.numero_dernier }}</strong></td>
+          <td>{{ b.nombre_tickets }}</td><td>{{ b.montant }} F</td><td>{{ b.poste_origine.nom }}</td><td>{{ b.date_effet_gel|date:"d/m/Y" }}</td>
+          <td class="text-nowrap">
+            <button type="button" class="btn btn-sm btn-outline-warning" onclick="remplir('degel','{{ b.couleur_id }}','{{ b.numero_premier }}-{{ b.numero_dernier }}')">Dégeler</button>
+            <form method="post" action="{% url 'inventaire:banque_gel_annuler' b.pk %}" class="d-inline" onsubmit="var m=prompt('Motif de l\'annulation du gel :'); if(!m){return false;} this.motif_annulation.value=m; return true;">
+              {% csrf_token %}<input type="hidden" name="motif_annulation"><button class="btn btn-sm btn-outline-secondary" title="Remettre dans le poste d'origine">Annuler le gel</button></form>
+          </td></tr>
+      {% empty %}<tr><td colspan="7" class="text-muted">La banque de gel est vide.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </div>
+ </div>
+
+ <div class="row g-3">
+  {# ---------- GEL ---------- #}
+  <div class="col-12 col-xl-6"><div class="bg-card">
+    <div class="bg-head bg-gel"><h5 class="mb-0"><i class="fas fa-snowflake me-2"></i>Geler des séries d'un poste</h5></div>
+    <div class="p-3">
+      <form method="get" class="mb-3"><label class="form-label">Poste (stock SUPPER à geler)</label>
+        <select name="poste" class="form-select" onchange="this.form.submit()">
+          <option value="">— Choisir —</option>
+          {% for p in postes %}<option value="{{ p.id }}" {% if source and source.id == p.id %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+        </select></form>
+      {% if source %}
+      <div class="bg-scroll mb-3"><table class="bg-table">
+        <thead><tr><th>Couleur</th><th>Série en stock</th><th>Tickets</th><th></th></tr></thead>
+        <tbody>
+        {% for s in series_stock %}
+          <tr><td>{{ s.couleur.libelle_affichage }}</td><td><strong>{{ s.numero_premier }}-{{ s.numero_dernier }}</strong></td><td>{{ s.nombre_tickets }}</td>
+            <td><button type="button" class="btn btn-sm btn-outline-info" onclick="remplir('gel','{{ s.couleur_id }}','{{ s.numero_premier }}-{{ s.numero_dernier }}')">Geler</button></td></tr>
+        {% empty %}<tr><td colspan="4" class="text-muted">Aucune série en stock.</td></tr>{% endfor %}
+        </tbody></table></div>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="geler"><input type="hidden" name="poste" value="{{ source.id }}">
+        <div id="lignes-gel">
+          {% for l in lignes_gel %}
+          <div class="ligne-plage d-flex gap-2 align-items-center mb-2">
+            <select name="gel_couleur" class="form-select" style="max-width:150px" required><option value="">Couleur</option>
+              {% for c in couleurs %}<option value="{{ c.id }}" {% if l.couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}</select>
+            <input name="gel_plage" class="form-control" value="{{ l.plage }}" placeholder="10-20" required>
+            <span class="info-ligne small text-nowrap" style="min-width:130px"></span>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="retirerLigne(this)">✕</button>
+          </div>{% endfor %}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="ajouterLigne('gel')">+ Ajouter une série</button>
+        <div class="mt-2 fw-bold" id="total-gel">Total : 0 ticket — 0 FCFA</div>
+        <div class="row g-2 mt-2">
+          <div class="col-12 col-md-5"><label class="form-label">Date d'effet</label><input type="date" name="date_effet" class="form-control" value="{{ date_effet }}"></div>
+          <div class="col-12 col-md-7"><label class="form-label">Motif (obligatoire)</label><input name="motif" class="form-control" value="{{ motif }}" required></div>
+        </div>
+        <div class="form-text">Date d'effet : en général le dernier jour du mois harmonisé ; elle sert à reconstituer les comptes d'emploi passés.</div>
+        <button class="btn btn-info mt-3 text-white"><i class="fas fa-snowflake me-1"></i>Geler</button>
+      </form>
+      {% else %}<p class="text-muted mb-0">Choisissez un poste pour voir ses séries en stock.</p>{% endif %}
+    </div>
+  </div></div>
+
+  {# ---------- DÉGEL ---------- #}
+  <div class="col-12 col-xl-6"><div class="bg-card">
+    <div class="bg-head bg-degel"><h5 class="mb-0"><i class="fas fa-fire me-2"></i>Dégeler vers un poste</h5></div>
+    <div class="p-3">
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="degeler">
+        <label class="form-label">Poste qui reçoit les séries dégelées</label>
+        <select name="destination" class="form-select mb-3" required>
+          <option value="">— Choisir —</option>
+          {% for p in postes %}<option value="{{ p.id }}" {% if destination_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+        </select>
+        <div id="lignes-degel">
+          {% for l in lignes_degel %}
+          <div class="ligne-plage d-flex gap-2 align-items-center mb-2">
+            <select name="degel_couleur" class="form-select" style="max-width:150px" required><option value="">Couleur</option>
+              {% for c in couleurs %}<option value="{{ c.id }}" {% if l.couleur == c.id|stringformat:"s" %}selected{% endif %}>{{ c.libelle_affichage }}</option>{% endfor %}</select>
+            <input name="degel_plage" class="form-control" value="{{ l.plage }}" placeholder="10-20" required>
+            <span class="info-ligne small text-nowrap" style="min-width:130px"></span>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="retirerLigne(this)">✕</button>
+          </div>{% endfor %}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="ajouterLigne('degel')">+ Ajouter une série</button>
+        <div class="mt-2 fw-bold" id="total-degel">Total : 0 ticket — 0 FCFA</div>
+        <div class="form-text">Utilisez les boutons « Dégeler » de la banque pour remplir les lignes ; vous pouvez réduire la plage (dégel partiel : le reste demeure gelé).</div>
+        <div class="row g-2 mt-2">
+          <div class="col-12 col-md-5"><label class="form-label">Date d'effet</label><input type="date" name="date_effet" class="form-control" value="{{ date_effet }}"></div>
+          <div class="col-12 col-md-7"><label class="form-label">Motif (obligatoire)</label><input name="motif" class="form-control" required></div>
+        </div>
+        <button class="btn btn-warning mt-3"><i class="fas fa-fire me-1"></i>Dégeler</button>
+      </form>
+    </div>
+  </div></div>
+ </div>
+</div>
+
+<template id="modele-ligne">
+  <div class="ligne-plage d-flex gap-2 align-items-center mb-2">
+    <select name="__P___couleur" class="form-select" style="max-width:150px" required><option value="">Couleur</option>
+      {% for c in couleurs %}<option value="{{ c.id }}">{{ c.libelle_affichage }}</option>{% endfor %}</select>
+    <input name="__P___plage" class="form-control" placeholder="10-20" required>
+    <span class="info-ligne small text-nowrap" style="min-width:130px"></span>
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="retirerLigne(this)">✕</button>
+  </div>
+</template>
+
+<script>
+  var PRIX = 500;  // Valeur d'un ticket en FCFA
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }  // Séparateur de milliers
+  // Lit "10-12", "10 à 12" ou "10" : nombre de tickets (bornes comprises) ou null
+  function compter(t) {
+    var m = /^\s*(\d+)\s*(?:[-–—]|à|a|au)?\s*(\d+)?\s*$/.exec(t || '');
+    if (!m) return null;
+    var a = parseInt(m[1], 10), b = m[2] ? parseInt(m[2], 10) : a;
+    return (a >= 1 && b >= a) ? (b - a + 1) : null;
+  }
+  // Recalcule l'info de chaque ligne et le total de chaque formulaire
+  function recalculer() {
+    ['gel', 'degel'].forEach(function (p) {
+      var cont = document.getElementById('lignes-' + p); if (!cont) return;
+      var total = 0;
+      cont.querySelectorAll('.ligne-plage').forEach(function (l) {
+        var n = compter(l.querySelector('input').value), info = l.querySelector('.info-ligne');
+        if (n === null) { info.textContent = l.querySelector('input').value.trim() ? 'plage invalide' : ''; info.className = 'info-ligne small text-nowrap text-danger'; }
+        else { total += n; info.textContent = fmt(n) + (n > 1 ? ' tickets' : ' ticket') + ' · ' + fmt(n * PRIX) + ' F'; info.className = 'info-ligne small text-nowrap text-success'; }
+      });
+      document.getElementById('total-' + p).textContent = 'Total : ' + fmt(total) + (total > 1 ? ' tickets' : ' ticket') + ' — ' + fmt(total * PRIX) + ' FCFA';
+    });
+  }
+  function ajouterLigne(p) {
+    var cont = document.getElementById('lignes-' + p); if (!cont) return null;
+    cont.insertAdjacentHTML('beforeend', document.getElementById('modele-ligne').innerHTML.replace(/__P__/g, p));
+    var l = cont.lastElementChild; l.querySelector('input').addEventListener('input', recalculer); return l;
+  }
+  function retirerLigne(b) {
+    var l = b.closest('.ligne-plage'), c = l.parentElement;
+    if (c.querySelectorAll('.ligne-plage').length > 1) { l.remove(); } else { l.querySelector('input').value = ''; l.querySelector('select').value = ''; }
+    recalculer();
+  }
+  // Boutons des tableaux : remplit la première ligne vide, sinon en ajoute une
+  function remplir(p, couleur, plage) {
+    var cont = document.getElementById('lignes-' + p); if (!cont) { return; }
+    var vide = null;
+    cont.querySelectorAll('.ligne-plage').forEach(function (l) { if (!vide && !l.querySelector('input').value.trim()) vide = l; });
+    var l = vide || ajouterLigne(p);
+    l.querySelector('select').value = couleur; l.querySelector('input').value = plage; recalculer(); l.querySelector('input').focus();
+  }
+  document.querySelectorAll('.ligne-plage input').forEach(function (i) { i.addEventListener('input', recalculer); });
+  recalculer();
+</script>
+{% endblock %}

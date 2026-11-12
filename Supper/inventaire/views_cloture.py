@@ -83,21 +83,27 @@ def cloture_saisie(request, type_doc, poste_id, mois):
         messages.error(request, "Ce document est signé et verrouillé.")
         return redirect(f"{reverse('inventaire:cloture_selection')}?type={type_doc}&mois={mois}")
 
-    # Valeurs proposées : dernière version saisie, sinon calcul SUPPER
+    # Les séries (stock début, approvisionnements, réappro, stock fin) sont TOUJOURS calculées par SUPPER.
+    # Le chef de poste ne saisit plus que les abonnements et le rendement N-1 (pré-remplis).
     if type_doc == 'compte_emploi':
         calcule = cd.preremplir_compte_emploi(poste, mois)
     else:
         calcule = cd.preremplir_pv(poste, mois)
-    if existante:
-        valeurs = dict(existante.donnees['manuel'])
-        if not valeurs.get('rendement_n1'):  # 0 enregistré auparavant : on reprend la valeur calculée
-            valeurs['rendement_n1'] = calcule.get('rendement_n1', 0)
-    else:
-        valeurs = calcule
+    valeurs = dict(calcule)
+    if existante:  # On reprend les valeurs saisies à la version précédente
+        deja = existante.donnees.get('manuel', {})
+        for cle in ('abonnements', 'nombre_pesees', 'nombre_infractions', 'emissions', 'rar_precedent'):
+            if cle in deja:
+                valeurs[cle] = deja[cle]
+        if deja.get('rendement_n1'):  # 0 enregistré auparavant : on garde la valeur calculée
+            valeurs['rendement_n1'] = deja['rendement_n1']
 
     if request.method == 'POST':
         try:
             manuel = _lire_formulaire(request.POST, type_doc)
+            if type_doc == 'compte_emploi':  # Séries recalculées par SUPPER au moment de la génération
+                manuel = {**{k: [list(i) for i in calcule[k]] for k in (
+                    'series_ouverture', 'series_approv', 'series_recu', 'series_cede', 'series_fin')}, **manuel}
         except ValueError as e:
             messages.error(request, str(e))
         else:
@@ -123,10 +129,8 @@ def cloture_saisie(request, type_doc, poste_id, mois):
 
     return render(request, 'inventaire/cloture_saisie.html', {
         'type_doc': type_doc, 'poste': poste, 'mois': mois, 'valeurs': valeurs,
-        'series_disponibles': cd.series_fin_disponibles(poste, mois) if type_doc == 'compte_emploi' else [],
-        'series_cochees': [tuple(s) for s in valeurs.get('series_fin', [])],
-        'textes_series': {k: _texte_series(valeurs.get(k, [])) for k in
-                          ('series_ouverture', 'series_approv', 'series_recu', 'series_cede')},
+        'textes_series': {k: _texte_series(valeurs.get(k, [])).replace("\n", " ; ") or "—" for k in (  # Lecture seule
+            'series_ouverture', 'series_approv', 'series_recu', 'series_cede', 'series_fin')},
         'title': 'Clôture mensuelle'})
 
 
@@ -142,17 +146,8 @@ def _lire_formulaire(post, type_doc):
         if not brut.isdigit():
             raise ValueError(f"Valeur invalide pour « {nom} ».")
         return int(brut)
-    if type_doc == 'compte_emploi':
-        manuel = {k: [list(i) for i in analyser_intervalles(post.get(k, ''))]  # Zones de texte de séries
-                  for k in ('series_ouverture', 'series_approv', 'series_recu', 'series_cede')}
-        cochees = []
-        for v in post.getlist('series'):  # Cases cochées : « debut-fin »
-            debut, fin = (int(x) for x in v.split('-'))
-            cochees.append((debut, fin))
-        manuel['series_fin'] = [list(i) for i in fusionner_intervalles(cochees)]
-        manuel['abonnements'] = entier('abonnements')
-        manuel['rendement_n1'] = entier('rendement_n1')
-        return manuel
+    if type_doc == 'compte_emploi':  # Seuls éléments déclarés : abonnements et rendement N-1
+        return {'abonnements': entier('abonnements'), 'rendement_n1': entier('rendement_n1')}
     return {k: entier(k) for k in ('nombre_pesees', 'nombre_infractions', 'emissions',
                                    'rar_precedent', 'rendement_n1')}
 

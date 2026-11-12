@@ -1097,6 +1097,13 @@
                                     </label>
                                 </div>
                             </div>
+
+                            <!-- Suppression partielle -->
+                            <div class="form-group">
+                                <label class="form-label">Supprimer seulement la plage</label>
+                                <input type="text" name="serie_{{ serie.id }}_suppr_plage" class="form-control"
+                                       placeholder="ex. {{ serie.numero_premier }}-{{ serie.numero_premier }}" autocomplete="off">
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -1127,23 +1134,9 @@
             </div>
         </div>
         
-        {% if series_modifiables %}
-        <div class="buttons-container">
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Enregistrer les modifications
-            </button>
-            <button type="reset" class="btn btn-outline">
-                <i class="fas fa-undo"></i> Réinitialiser
-            </button>
-            <a href="{% url 'inventaire:liste_postes_stocks' %}" class="btn btn-secondary">
-                <i class="fas fa-times"></i> Annuler
-            </a>
-        </div>
-        {% endif %}
-    </form>
     
     <!-- ============================================================ -->
-    <!-- SÉRIES TRANSFÉRÉES (LECTURE SEULE) -->
+    <!-- SÉRIES TRANSFÉRÉES (modifiables et supprimables par l'administrateur) -->
     <!-- ============================================================ -->
     {% if series_transferees %}
     <div class="card">
@@ -1158,15 +1151,14 @@
             <div class="alert-info-transfert">
                 <i class="fas fa-info-circle"></i>
                 <p>
-                    Ces séries ont été reçues par transfert d'un autre poste et 
-                    <strong>ne peuvent pas être modifiées directement</strong>.
-                    Pour les corriger, vous devez annuler le transfert original, 
-                    modifier au poste d'origine, puis re-transférer.
+                    Ces séries ont été reçues par transfert d'un autre poste. L'administrateur peut les <strong>modifier</strong>
+                    (couleur, numéros) ou les <strong>supprimer</strong>, en entier (case « Supprimer ») ou en partie
+                    (champ « Supprimer seulement la plage », ex. 10-15 pour une série 10-20), sans retourner le stock au poste d'origine.
                 </p>
             </div>
             
             {% for serie in series_transferees %}
-            <div class="serie-row readonly">
+                    <div class="serie-row" data-serie-id="{{ serie.id }}" id="serie-row-{{ serie.id }}">
                 <div class="serie-header">
                     <h6>
                         <i class="fas fa-ticket-alt"></i>
@@ -1174,35 +1166,75 @@
                         <span class="badge badge-transfert">Transfert reçu</span>
                     </h6>
                     <span class="serie-original">
-                        {{ serie.couleur.libelle_affichage }} 
+                        Original: {{ serie.couleur.libelle_affichage }} 
                         #{{ serie.numero_premier }}-{{ serie.numero_dernier }}
                     </span>
                 </div>
                 
-                <div class="serie-readonly-info">
-                    <div class="info-item">
-                        <div class="label">Couleur</div>
-                        <div class="value">{{ serie.couleur.libelle_affichage }}</div>
+                <div class="form-row">
+                    <!-- Couleur -->
+                    <div class="form-group">
+                        <label class="form-label">Couleur</label>
+                        <input type="text" 
+                               name="serie_{{ serie.id }}_couleur"
+                               class="form-control couleur-input"
+                               value="{{ serie.couleur.libelle_affichage }}"
+                               data-original="{{ serie.couleur.libelle_affichage }}"
+                               list="couleurs-existantes">
                     </div>
-                    <div class="info-item">
-                        <div class="label">Premier n°</div>
-                        <div class="value">{{ serie.numero_premier }}</div>
+                    
+                    <!-- Premier numéro -->
+                    <div class="form-group">
+                        <label class="form-label">Premier n°</label>
+                        <input type="number" 
+                               name="serie_{{ serie.id }}_premier"
+                               class="form-control numero-input"
+                               value="{{ serie.numero_premier }}"
+                               data-original="{{ serie.numero_premier }}"
+                               min="1">
                     </div>
-                    <div class="info-item">
-                        <div class="label">Dernier n°</div>
-                        <div class="value">{{ serie.numero_dernier }}</div>
+                    
+                    <!-- Dernier numéro -->
+                    <div class="form-group">
+                        <label class="form-label">Dernier n°</label>
+                        <input type="number" 
+                               name="serie_{{ serie.id }}_dernier"
+                               class="form-control numero-input"
+                               value="{{ serie.numero_dernier }}"
+                               data-original="{{ serie.numero_dernier }}"
+                               min="1">
                     </div>
-                    <div class="info-item">
-                        <div class="label">Tickets</div>
-                        <div class="value">{{ serie.nombre_tickets }}</div>
+                    
+                    <!-- Calcul -->
+                    <div class="form-group">
+                        <label class="form-label">Calcul</label>
+                        <div class="calc-display">
+                            <span class="value calc-value" id="calc-{{ serie.id }}">
+                                {{ serie.nombre_tickets }} = {{ serie.valeur_monetaire|floatformat:0|format_milliers }} F
+                            </span>
+                        </div>
                     </div>
-                    <div class="info-item">
-                        <div class="label">Valeur</div>
-                        <div class="value">{{ serie.valeur_monetaire|floatformat:0|format_milliers }} F</div>
+                    
+                    <!-- Supprimer -->
+                    <div class="form-group">
+                        <label class="form-label">Action</label>
+                        <div class="delete-wrapper">
+                            <input type="checkbox" 
+                                   name="serie_{{ serie.id }}_supprimer"
+                                   id="delete-{{ serie.id }}"
+                                   class="delete-checkbox"
+                                   data-serie-id="{{ serie.id }}">
+                            <label for="delete-{{ serie.id }}">
+                                <i class="fas fa-trash-alt"></i> Supprimer
+                            </label>
+                        </div>
                     </div>
-                    <div class="info-item">
-                        <div class="label">Reçu le</div>
-                        <div class="value">{{ serie.date_reception|date:"d/m/Y" }}</div>
+
+                    <!-- Suppression partielle -->
+                    <div class="form-group">
+                        <label class="form-label">Supprimer seulement la plage</label>
+                        <input type="text" name="serie_{{ serie.id }}_suppr_plage" class="form-control"
+                               placeholder="ex. {{ serie.numero_premier }}-{{ serie.numero_premier }}" autocomplete="off">
                     </div>
                 </div>
             </div>
@@ -1228,6 +1260,21 @@
         </div>
     </div>
     {% endif %}
+
+        {% if series_modifiables or series_transferees %}
+        <div class="buttons-container">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Enregistrer les modifications
+            </button>
+            <button type="reset" class="btn btn-outline">
+                <i class="fas fa-undo"></i> Réinitialiser
+            </button>
+            <a href="{% url 'inventaire:liste_postes_stocks' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Annuler
+            </a>
+        </div>
+        {% endif %}
+    </form>
     
 </div>
 

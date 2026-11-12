@@ -1201,6 +1201,17 @@
                                         <i class="fas fa-truck-moving me-2 text-success"></i>{% trans "Transférer Stock" %}
                                     </a>
                                     {% endif %}
+                                    {% if user.is_superuser or user.habilitation == 'admin_principal' or user.habilitation == 'serv_info' or user.habilitation == 'serv_emission' %}
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:permutation_nouvelle' %}">
+                                        <i class="fas fa-exchange-alt me-2 text-warning"></i>{% trans "Permutation de séries" %}
+                                    </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:permutation_historique' %}">
+                                        <i class="fas fa-history me-2 text-secondary"></i>{% trans "Historique des permutations" %}
+                                    </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:banque_gel' %}">
+                                        <i class="fas fa-snowflake me-2 text-info"></i>{% trans "Banque de gel / dégel" %}
+                                    </a>
+                                    {% endif %}
                                     <hr class="my-2">
                                     {% endif %}
 
@@ -1899,6 +1910,17 @@
                 {% if user.peut_transferer_stock_peage %}
                 <a class="dropdown-item" href="{% url 'inventaire:selection_postes_transfert_tickets' %}">
                     <i class="fas fa-truck-moving me-2 text-success"></i>{% trans "Transférer Stock" %}
+                </a>
+                {% endif %}
+                {% if user.is_superuser or user.habilitation == 'admin_principal' or user.habilitation == 'serv_info' or user.habilitation == 'serv_emission' %}
+                <a class="dropdown-item" href="{% url 'inventaire:permutation_nouvelle' %}">
+                    <i class="fas fa-exchange-alt me-2 text-warning"></i>{% trans "Permutation de séries" %}
+                </a>
+                <a class="dropdown-item" href="{% url 'inventaire:permutation_historique' %}">
+                    <i class="fas fa-history me-2 text-secondary"></i>{% trans "Historique des permutations" %}
+                </a>
+                <a class="dropdown-item" href="{% url 'inventaire:banque_gel' %}">
+                    <i class="fas fa-snowflake me-2 text-info"></i>{% trans "Banque de gel / dégel" %}
                 </a>
                 {% endif %}
                 {% endif %}

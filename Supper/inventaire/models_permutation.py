@@ -70,7 +70,33 @@ class PermutationSeries(models.Model):
     def __str__(self):
         """Libellé lisible : poste, plages réveillée et tuée."""
         return (f"Permutation {self.poste} : réveil {self.couleur_reveil} {self.reveil_premier}-{self.reveil_dernier}"
-                f" / tue {self.couleur_tue} {self.tue_premier}-{self.tue_dernier}")
+                f" / tue {self.couleur_tue} {self.tue_premier}-{self.tue_dernier} ({self.nombre_tickets} tickets)")
+
+    def _plages(self, cle_couleur, cle_plage):
+        """Reconstitue les plages saisies à partir des paires enregistrées (fusion des morceaux contigus)."""
+        from inventaire.models import CouleurTicket  # Import local (évite les imports circulaires)
+        couleurs = {c.pk: c for c in CouleurTicket.objects.all()}  # Couleurs par identifiant
+        plages = []  # Liste de [couleur, premier, dernier]
+        for d in self.details or []:
+            couleur, (p, f) = couleurs.get(d[cle_couleur]), d[cle_plage]
+            if plages and plages[-1][0] == couleur and plages[-1][2] + 1 == p:
+                plages[-1][2] = f  # Morceau contigu : on prolonge la plage précédente
+            else:
+                plages.append([couleur, p, f])
+        if not plages:  # Anciennes lignes sans détail : on retombe sur les champs de synthèse
+            return [(self.couleur_reveil, self.reveil_premier, self.reveil_dernier)] if cle_plage == 'a' else \
+                   [(self.couleur_tue, self.tue_premier, self.tue_dernier)]
+        return [tuple(x) for x in plages]
+
+    @property
+    def plages_reveil(self):
+        """Plages réveillées (vendu -> stock) : liste de (couleur, premier, dernier)."""
+        return self._plages('couleur_reveil', 'a')
+
+    @property
+    def plages_tue(self):
+        """Plages tuées (stock -> vendu) : liste de (couleur, premier, dernier)."""
+        return self._plages('couleur_tue', 'b')
 
     @property
     def montant(self):

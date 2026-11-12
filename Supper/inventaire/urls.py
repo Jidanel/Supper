@@ -804,3 +804,29 @@ pesage_patterns = [
 
 ]
 urlpatterns += pesage_patterns
+
+
+# ==============================================================================
+# PERMUTATION DE SÉRIES DE TICKETS (admin, Service Informatique, Émissions et Recouvrement)
+# ==============================================================================
+from inventaire import views_permutation  # Vues de permutation
+
+permutation_patterns = [
+    path('stocks/permutation/', views_permutation.permutation_nouvelle, name='permutation_nouvelle'),  # Formulaire + simulation
+    path('stocks/permutation/historique/', views_permutation.permutation_historique, name='permutation_historique'),  # Liste
+    path('stocks/permutation/<int:pk>/annuler/', views_permutation.permutation_annuler, name='permutation_annuler'),  # Annulation
+]
+urlpatterns += permutation_patterns
+
+
+# ==============================================================================
+# BANQUE DE GEL : gel / dégel de séries de tickets (admin, Service Informatique, Émissions et Recouvrement)
+# ==============================================================================
+from inventaire import views_gel  # Vues de la banque de gel
+
+gel_patterns = [
+    path('stocks/banque-gel/', views_gel.banque_gel, name='banque_gel'),  # Page de gel / dégel
+    path('stocks/banque-gel/historique/', views_gel.banque_gel_historique, name='banque_gel_historique'),  # Historique
+    path('stocks/banque-gel/<int:pk>/annuler/', views_gel.banque_gel_annuler, name='banque_gel_annuler'),  # Annuler un gel
+]
+urlpatterns += gel_patterns

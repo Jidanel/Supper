@@ -122,6 +122,13 @@ def _maj_details_vente(recette, couleur_a, a, couleur_b, b):
             nouvelles.append((l.couleur_id, a[1] + 1, l.numero_dernier))  # Partie après la plage retirée
     if not modifie:
         return False  # Aucune ligne ne contenait la plage : détail laissé tel quel
+    fusion = []  # Fusionne les lignes contiguës de même couleur (évite 10-13 + 14-14)
+    for c, p, d in nouvelles:
+        if fusion and fusion[-1][0] == c and fusion[-1][2] + 1 == p:
+            fusion[-1][2] = d
+        else:
+            fusion.append([c, p, d])
+    nouvelles = [tuple(x) for x in fusion]
     recette.details_ventes_tickets.all().delete()  # On recrée le détail complet de la recette
     for ordre, (c, p, d) in enumerate(nouvelles, start=1):
         DetailVenteTicket.objects.create(recette=recette, couleur_id=c, numero_premier=p,
@@ -138,7 +145,7 @@ def _segments(poste, couleur, statut, premier, dernier, verrou=False):
     qs = SerieTicket.objects.filter(poste=poste, couleur=couleur, statut=statut,
                                     numero_premier__lte=dernier, numero_dernier__gte=premier)
     if verrou:
-        qs = qs.select_for_update()  # Verrou de ligne pendant l'exécution
+        qs = qs.select_for_update(of=('self',))  # Verrou sur les séries seulement (PostgreSQL refuse FOR UPDATE sur une jointure externe)
     courant, segments = premier, []  # `courant` = prochain ticket à couvrir
     for ligne in qs.select_related('reference_recette').order_by('numero_premier'):
         if ligne.numero_premier > courant:
@@ -152,36 +159,65 @@ def _segments(poste, couleur, statut, premier, dernier, verrou=False):
     return segments if courant > dernier else None
 
 
+def _liste_plages(plages):
+    """Accepte une plage (couleur, premier, dernier) ou une liste de plages ; retourne toujours une liste."""
+    if not plages:
+        return []
+    if isinstance(plages, tuple) and len(plages) == 3 and isinstance(plages[1], int):
+        return [plages]  # Une seule plage
+    return list(plages)
+
+
+def _formater(n):
+    """Nombre avec espace comme séparateur de milliers (ex. 12 500)."""
+    return f"{n:,}".replace(',', ' ')
+
+
 def previsualiser(poste, reveil, tue, verrou=False):
     """Vérifie une permutation sans rien modifier.
-    reveil = (couleur, premier, dernier) : tickets vendus dans SUPPER à REMETTRE EN STOCK ;
-    tue    = (couleur, premier, dernier) : tickets en stock à PASSER EN VENDU.
+    reveil = liste de plages (couleur, premier, dernier) : tickets vendus dans SUPPER à REMETTRE EN STOCK ;
+    tue    = liste de plages (couleur, premier, dernier) : tickets en stock à PASSER EN VENDU.
+    (une plage seule est aussi acceptée). Les totaux des deux côtés doivent avoir la même valeur.
     Retourne {'erreurs': [...]} ou {'erreurs': [], 'paires': [...], 'nombre', 'montant'}."""
+    reveil, tue = _liste_plages(reveil), _liste_plages(tue)
     if not reveil or not tue:
-        return {'erreurs': ["Indiquez les deux plages (ex. 10-20 et 30-40)."]}
-    (ca, a1, a2), (cb, b1, b2) = reveil, tue  # Dépaquetage des plages
-    if a1 > a2 or b1 > b2 or min(a1, b1) < 1:
-        return {'erreurs': ["Chaque plage doit aller d'un numéro à un numéro supérieur ou égal (≥ 1)."]}
-    na, nb = a2 - a1 + 1, b2 - b1 + 1  # Nombre de tickets de chaque plage
+        return {'erreurs': ["Indiquez au moins une plage à réveiller et une plage à tuer (ex. 10-20)."]}
     erreurs = []
-    if na != nb:  # Même valeur monétaire exigée (500 FCFA par ticket)
-        erreurs.append(f"Les deux plages doivent avoir la même valeur : {na * 500:,} FCFA ({na} tickets) à réveiller "
-                       f"contre {nb * 500:,} FCFA ({nb} tickets) à tuer.".replace(',', ' '))
-    if ca.pk == cb.pk and not (a2 < b1 or b2 < a1):
-        erreurs.append("Les deux plages se chevauchent.")
-    seg_a = _segments(poste, ca, 'vendu', a1, a2, verrou)  # Segments vendus à réveiller
-    seg_b = _segments(poste, cb, 'stock', b1, b2, verrou)  # Segments en stock à tuer
-    if seg_a is None:
-        erreurs.append(f"Les tickets {ca} {a1} à {a2} ne sont pas tous « vendus » dans SUPPER pour ce poste.")
-    if seg_b is None:
-        erreurs.append(f"Les tickets {cb} {b1} à {b2} ne sont pas tous « en stock » dans ce poste.")
+    for libelle, plages in (("à réveiller", reveil), ("à tuer", tue)):
+        for c, p1, p2 in plages:
+            if p1 > p2 or p1 < 1:
+                erreurs.append(f"Plage {libelle} invalide ({c} {p1}-{p2}) : le premier numéro doit être ≥ 1 et ≤ au dernier.")
     if erreurs:
         return {'erreurs': erreurs}
-    paires, i, j = [], 0, 0  # Appariement séquentiel des segments de même longueur
-    a_list, b_list = [list(x) for x in seg_a], [list(x) for x in seg_b]  # Copies modifiables [ligne, p, d]
-    while i < len(a_list) and j < len(b_list):
-        la, pa, da = a_list[i]
-        lb, pb, db = b_list[j]
+    na = sum(p2 - p1 + 1 for _c, p1, p2 in reveil)  # Tickets à réveiller (total)
+    nb = sum(p2 - p1 + 1 for _c, p1, p2 in tue)  # Tickets à tuer (total)
+    if na != nb:  # Même valeur monétaire exigée (500 FCFA par ticket)
+        erreurs.append(f"Les deux côtés doivent avoir la même valeur : {_formater(na * 500)} FCFA ({_formater(na)} tickets) "
+                       f"à réveiller contre {_formater(nb * 500)} FCFA ({_formater(nb)} tickets) à tuer.")
+    toutes = [(c, p1, p2, 'r') for c, p1, p2 in reveil] + [(c, p1, p2, 't') for c, p1, p2 in tue]
+    for i, (c1, a1, a2, _x) in enumerate(toutes):  # Aucune plage ne doit en chevaucher une autre (même couleur)
+        for c2, b1, b2, _y in toutes[i + 1:]:
+            if c1.pk == c2.pk and not (a2 < b1 or b2 < a1):
+                erreurs.append(f"Les plages {c1} {a1}-{a2} et {c2} {b1}-{b2} se chevauchent.")
+    seg_a, seg_b = [], []  # Segments (couleur, ligne, premier, dernier) de chaque côté
+    for c, p1, p2 in reveil:
+        segs = _segments(poste, c, 'vendu', p1, p2, verrou)
+        if segs is None:
+            erreurs.append(f"Les tickets {c} {p1} à {p2} ne sont pas tous « vendus » dans SUPPER pour ce poste.")
+        else:
+            seg_a += [[c, l, x, y] for l, x, y in segs]
+    for c, p1, p2 in tue:
+        segs = _segments(poste, c, 'stock', p1, p2, verrou)
+        if segs is None:
+            erreurs.append(f"Les tickets {c} {p1} à {p2} ne sont pas tous « en stock » dans ce poste.")
+        else:
+            seg_b += [[c, l, x, y] for l, x, y in segs]
+    if erreurs:
+        return {'erreurs': erreurs}
+    paires, i, j = [], 0, 0  # Appariement séquentiel des segments, dans l'ordre saisi
+    while i < len(seg_a) and j < len(seg_b):
+        ca, la, pa, da = seg_a[i]
+        cb, lb, pb, db = seg_b[j]
         n = min(da - pa + 1, db - pb + 1)  # Taille du morceau commun
         recette = la.reference_recette  # Recette de la vente déclarée
         date_vente = recette.date if recette else la.date_utilisation
@@ -190,11 +226,11 @@ def previsualiser(poste, reveil, tue, verrou=False):
                                 f"permutation impossible."]}
         paires.append({'couleur_reveil': ca, 'a': (pa, pa + n - 1), 'couleur_tue': cb, 'b': (pb, pb + n - 1),
                        'recette': recette, 'date': date_vente, 'n': n})
-        a_list[i][1] += n  # Avance dans le segment vendu
-        b_list[j][1] += n  # Avance dans le segment en stock
-        if a_list[i][1] > da:
+        seg_a[i][2] += n  # Avance dans le segment vendu
+        seg_b[j][2] += n  # Avance dans le segment en stock
+        if seg_a[i][2] > da:
             i += 1  # Segment vendu épuisé
-        if b_list[j][1] > db:
+        if seg_b[j][2] > db:
             j += 1  # Segment en stock épuisé
     return {'erreurs': [], 'paires': paires, 'nombre': na, 'montant': na * 500}
 
@@ -238,8 +274,8 @@ def _evenement_stock(poste, user, perm, libelle):
         nombre_tickets_variation=0, stock_resultant=0, tickets_resultants=0,  # Recalculés par StockEvent.save()
         effectue_par=user, reference_id=str(perm.pk), reference_type='PermutationSeries',
         metadata={'permutation_id': perm.pk, 'nombre_tickets': perm.nombre_tickets, 'valeur': perm.montant,
-                  'reveil': {'couleur': str(perm.couleur_reveil), 'plage': [perm.reveil_premier, perm.reveil_dernier]},
-                  'tue': {'couleur': str(perm.couleur_tue), 'plage': [perm.tue_premier, perm.tue_dernier]}},
+                  'reveil': [[str(c), p, d] for c, p, d in perm.plages_reveil],
+                  'tue': [[str(c), p, d] for c, p, d in perm.plages_tue]},
         commentaire=libelle)
 
 
@@ -260,14 +296,15 @@ def executer(poste, reveil, tue, motif, user):
         raise PermutationError(' '.join(prev['erreurs']))
     details_maj = _appliquer_paires(poste, prev['paires'])  # Échange des statuts
     premiere = prev['paires'][0]  # Recette et date de référence de l'historique
+    r, t = _liste_plages(reveil), _liste_plages(tue)  # Plages saisies (la 1re sert de résumé dans les champs du modèle)
     perm = PermutationSeries.objects.create(
-        poste=poste, couleur_reveil=reveil[0], reveil_premier=reveil[1], reveil_dernier=reveil[2],
-        couleur_tue=tue[0], tue_premier=tue[1], tue_dernier=tue[2], nombre_tickets=prev['nombre'],
+        poste=poste, couleur_reveil=r[0][0], reveil_premier=r[0][1], reveil_dernier=r[0][2],
+        couleur_tue=t[0][0], tue_premier=t[0][1], tue_dernier=t[0][2], nombre_tickets=prev['nombre'],
         recette=premiere['recette'], date_vente=premiere['date'], details=_paires_json(prev['paires']),
         motif=motif.strip(), effectue_par=user)  # Historique de la permutation
-    _evenement_stock(poste, user, perm,
-                     f"Permutation : réveil {reveil[0]} {reveil[1]}-{reveil[2]} / tue {tue[0]} {tue[1]}-{tue[2]}"
-                     f" : {motif.strip()}")
+    resume = (f"Permutation : réveil {', '.join(f'{c} {p}-{d}' for c, p, d in perm.plages_reveil)} / "
+              f"tue {', '.join(f'{c} {p}-{d}' for c, p, d in perm.plages_tue)} : {motif.strip()}")
+    _evenement_stock(poste, user, perm, resume[:500])
     perm.details_maj = details_maj  # Information pour le message à l'écran (non stockée)
     return perm
 
@@ -301,9 +338,12 @@ def annuler(perm, user, motif):
     return perm
 
 
+def concerne_ticket(perm, couleur, numero):
+    """True si la permutation a touché ce numéro de ticket (côté réveillé ou côté tué)."""
+    return any((c.pk == couleur.pk and p <= numero <= d) for c, p, d in perm.plages_reveil + perm.plages_tue)
+
+
 def historique_ticket(couleur, numero):
     """Permutations qui concernent un numéro de ticket donné (pour l'historique d'un ticket)."""
-    from django.db.models import Q  # Filtre OU
-    return PermutationSeries.objects.filter(
-        Q(couleur_reveil=couleur, reveil_premier__lte=numero, reveil_dernier__gte=numero) |
-        Q(couleur_tue=couleur, tue_premier__lte=numero, tue_dernier__gte=numero)).select_related('poste', 'effectue_par')
+    candidates = PermutationSeries.objects.select_related('poste', 'effectue_par', 'couleur_reveil', 'couleur_tue')
+    return [p for p in candidates if concerne_ticket(p, couleur, numero)]
