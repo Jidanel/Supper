@@ -1,0 +1,133 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Simulation de l'import - SUPPER{% endblock %}
+{% block content %}
+<div class="container-fluid">
+ <div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-primary text-white d-flex justify-content-between flex-wrap gap-2">
+    <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>Simulation — {{ lot.fichier_nom }} ({{ lot.date_debut|date:"d/m/Y" }} → {{ lot.date_fin|date:"d/m/Y" }})</h5>
+    <a href="{% url 'inventaire:import_stock_historique' %}" class="btn btn-light btn-sm">Historique</a>
+  </div>
+  {% if lot.postes_non_trouves %}<div class="alert alert-warning m-3 mb-0 small"><strong>Postes du fichier non reconnus :</strong> {{ lot.postes_non_trouves|join:", " }}</div>{% endif %}
+  <div class="card-body small text-muted">Pour chaque poste : cochez les séries à utiliser (de la plus récente recharge à la plus ancienne), ajustez les dates si besoin, puis
+    <strong>Recalculer</strong>. Si le stock choisi ne couvre pas les recettes, changez les jours ou cliquez sur « Puiser dans les séries suivantes ».
+    Les tickets sont vendus jour après jour, en puisant dans les séries choisies de la plus ancienne à la plus récente.</div>
+ </div>
+
+ <form method="post" id="form-sim">{% csrf_token %}
+ <div class="card border-0 shadow-sm mb-3"><div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+   <span class="small fw-bold me-2">Tout cocher / décocher :</span>
+   <button type="button" class="btn btn-sm btn-outline-primary" data-tout="inclus" data-etat="1">Tous les postes</button>
+   <button type="button" class="btn btn-sm btn-outline-secondary" data-tout="inclus" data-etat="0">Aucun poste</button>
+   <button type="button" class="btn btn-sm btn-outline-primary" data-tout="series" data-etat="1">Toutes les séries</button>
+   <button type="button" class="btn btn-sm btn-outline-secondary" data-tout="series" data-etat="0">Aucune série</button>
+   <button type="button" class="btn btn-sm btn-outline-success" data-tout="choisis" data-etat="1">Tous les postes prêts à valider</button>
+   <button type="button" class="btn btn-sm btn-outline-secondary" data-tout="choisis" data-etat="0">Aucun à valider</button>
+ </div></div>
+ {% for l in lignes %}
+ <div class="card border-0 shadow-sm mb-3 poste-card" data-pid="{{ l.poste.pk }}">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 {% if l.valide %}bg-success text-white{% elif l.sim and l.sim.ok %}bg-light{% elif l.sim %}bg-warning-subtle{% else %}bg-light text-muted{% endif %}">
+    <div class="d-flex align-items-center gap-2">
+      {% if not l.valide %}<input type="checkbox" class="form-check-input" name="inclus" value="{{ l.poste.pk }}" {% if l.inclus %}checked{% endif %} title="Poste concerné par cet import">{% endif %}
+      <strong>{{ l.poste.nom }}</strong>
+      <span class="small">{{ l.nb_jours_fichier }} jour(s) dans le fichier</span>
+    </div>
+    <div>
+      {% if l.valide %}<span class="badge bg-light text-success">Importé : {{ l.resultat.nb_recettes }} recette(s) — {{ l.resultat.montant }} F</span>
+      {% elif l.sim %}
+        {% if l.sim.ok %}<span class="badge bg-success">Prêt à valider</span>
+        {% elif l.sim.nb_a_importer == 0 and not l.sim.nb_non_multiple and not l.sim.insuffisant %}<span class="badge bg-secondary">Rien à importer</span>
+        {% else %}<span class="badge bg-danger">À corriger</span>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% if l.inclus and not l.valide %}
+  <div class="card-body">
+    {% if l.erreur %}<div class="alert alert-danger py-2">{{ l.erreur }}</div>{% endif %}
+    <div class="row g-2 mb-2">
+      <div class="col-6 col-md-3"><label class="form-label small mb-0">Date début</label><input type="date" class="form-control form-control-sm" name="debut_{{ l.poste.pk }}" value="{{ l.debut|date:'Y-m-d' }}"></div>
+      <div class="col-6 col-md-3"><label class="form-label small mb-0">Date fin</label><input type="date" class="form-control form-control-sm" name="fin_{{ l.poste.pk }}" value="{{ l.fin|date:'Y-m-d' }}"></div>
+    </div>
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div class="fw-bold small mb-1 d-flex justify-content-between align-items-center flex-wrap gap-1">Séries en stock (de la plus récente à la plus ancienne)
+          <span><button type="button" class="btn btn-sm btn-link p-0 me-2 btn-cocher-series" data-etat="1">Tout cocher</button><button type="button" class="btn btn-sm btn-link p-0 btn-cocher-series" data-etat="0">Tout décocher</button></span></div>
+        <div class="table-responsive" style="max-height:260px;overflow:auto"><table class="table table-sm mb-0">
+          <thead><tr><th></th><th>Couleur</th><th>Série</th><th>Tickets</th><th>Valeur</th><th>Reçue le</th></tr></thead><tbody>
+          {% for x in l.series %}<tr>
+            <td><input type="checkbox" class="chk-serie" name="series_{{ l.poste.pk }}" value="{{ x.s.pk }}" data-val="{{ x.s.valeur_monetaire|stringformat:'d' }}" {% if x.choisie %}checked{% endif %}></td>
+            <td>{{ x.s.couleur.libelle_affichage }}</td><td><strong>{{ x.s.numero_premier }}-{{ x.s.numero_dernier }}</strong></td>
+            <td>{{ x.s.nombre_tickets }}</td><td>{{ x.s.valeur_monetaire|stringformat:"d" }} F</td><td>{{ x.s.date_reception|date:"d/m/Y" }}</td></tr>
+          {% empty %}<tr><td colspan="6" class="text-muted">Aucune série en stock pour ce poste.</td></tr>{% endfor %}
+        </tbody></table></div>
+        <div class="mt-2 small">Stock choisi : <strong class="v-choisi" data-besoin="{{ l.sim.besoin|stringformat:'d' }}">{{ l.sim.stock_choisi|stringformat:"d" }}</strong> F
+          — Besoin des recettes : <strong>{{ l.sim.besoin|stringformat:"d" }}</strong> F</div>
+        {% if l.sim.manque > 0 %}
+        <div class="alert alert-warning py-2 mt-2 small">Le stock choisi est inférieur aux recettes de <strong>{{ l.sim.manque|stringformat:"d" }} F</strong>.
+          Choisissez : <strong>changer les jours</strong> (dates ci-dessus) ou <strong>puiser dans les séries suivantes</strong>.
+          <div class="mt-2"><button name="action" value="suivante_{{ l.poste.pk }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Puiser dans les séries suivantes</button></div></div>
+        {% endif %}
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="fw-bold small mb-1">Simulation des ventes</div>
+        <div class="table-responsive" style="max-height:260px;overflow:auto"><table class="table table-sm mb-0">
+          <thead><tr><th>Jour</th><th>Montant</th><th>Séries vendues</th></tr></thead><tbody>
+          {% for j in l.sim.jours %}<tr class="{% if j.statut == 'existante' %}text-muted{% elif j.statut != 'ok' %}table-danger{% endif %}">
+            <td>{{ j.date|date:"d/m/Y" }}</td><td>{{ j.montant|stringformat:"d" }} F</td>
+            <td>{% if j.statut == 'existante' %}Recette déjà saisie : ignorée
+              {% elif j.statut == 'non_multiple' %}Montant non multiple de 500 F : corrigez le fichier
+              {% elif j.statut == 'insuffisant' %}Stock choisi insuffisant (manque {{ j.manque }} ticket(s))
+              {% else %}{% for c, p, d in j.segments %}{{ c.libelle_affichage }} {{ p }}-{{ d }}{% if not forloop.last %} ; {% endif %}{% endfor %}{% endif %}</td></tr>
+          {% empty %}<tr><td colspan="3" class="text-muted">Aucun jour dans cette période.</td></tr>{% endfor %}
+        </tbody></table></div>
+        <div class="mt-2 small">À importer : <strong>{{ l.sim.nb_a_importer }}</strong> jour(s), <strong>{{ l.sim.montant_a_importer|stringformat:"d" }}</strong> F
+          · déjà saisis : {{ l.sim.nb_existantes }}</div>
+      </div>
+    </div>
+    <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
+      {% if l.sim.ok %}<label class="small"><input type="checkbox" class="form-check-input" name="choisis" value="{{ l.poste.pk }}"> Valider avec les postes cochés</label>
+      <button name="action" value="valider_{{ l.poste.pk }}" class="btn btn-sm btn-success" onclick="return confirm('Valider l\'import de {{ l.poste.nom|escapejs }} ?')"><i class="fas fa-check me-1"></i>Valider ce poste</button>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+ </div>
+ {% endfor %}
+ <div class="position-sticky bottom-0 bg-white border-top p-2 d-flex gap-2 flex-wrap justify-content-end shadow">
+   <button name="action" value="recalculer" class="btn btn-primary"><i class="fas fa-sync me-1"></i>Recalculer</button>
+   <button name="action" value="valider_coches" class="btn btn-success" onclick="return confirm('Valider l\'import des postes cochés ?')"><i class="fas fa-check-double me-1"></i>Valider les postes cochés</button>
+ </div>
+ </form>
+</div>
+<script>
+// Met à jour en direct le « stock choisi » quand on coche / décoche une série (sans rien enregistrer)
+document.querySelectorAll('.poste-card').forEach(function (carte) {
+  var sortie = carte.querySelector('.v-choisi');  // Zone d'affichage du stock choisi
+  if (!sortie) return;  // Poste exclu ou déjà importé
+  function maj() {
+    var total = 0;  // Somme des séries cochées
+    carte.querySelectorAll('.chk-serie:checked').forEach(function (c) { total += parseInt(c.dataset.val || '0', 10); });
+    sortie.textContent = total;  // Affiche le total
+    sortie.className = 'v-choisi ' + (total >= parseInt(sortie.dataset.besoin || '0', 10) ? 'text-success' : 'text-danger');  // Couleur
+  }
+  carte.querySelectorAll('.chk-serie').forEach(function (c) { c.addEventListener('change', maj); });
+  maj();
+});
+// Boutons « tout cocher / décocher »
+function cocher(selecteur, etat) {  // Coche ou décoche toutes les cases correspondantes
+  document.querySelectorAll(selecteur).forEach(function (c) {
+    if (c.checked !== !!etat) { c.checked = !!etat; c.dispatchEvent(new Event('change')); }  // Déclenche le recalcul du total
+  });
+}
+document.querySelectorAll('[data-tout]').forEach(function (b) {  // Barre d'outils globale
+  b.addEventListener('click', function () {
+    var cible = {inclus: 'input[name="inclus"]', series: '.chk-serie', choisis: 'input[name="choisis"]'}[b.dataset.tout];  // Cases visées
+    cocher(cible, b.dataset.etat === '1');
+  });
+});
+document.querySelectorAll('.btn-cocher-series').forEach(function (b) {  // Boutons propres à un poste
+  b.addEventListener('click', function () {
+    var carte = b.closest('.poste-card');  // Carte du poste
+    carte.querySelectorAll('.chk-serie').forEach(function (c) { c.checked = b.dataset.etat === '1'; c.dispatchEvent(new Event('change')); });
+  });
+});
+</script>
+{% endblock %}

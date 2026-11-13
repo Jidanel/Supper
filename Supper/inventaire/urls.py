@@ -830,3 +830,17 @@ gel_patterns = [
     path('stocks/banque-gel/<int:pk>/annuler/', views_gel.banque_gel_annuler, name='banque_gel_annuler'),  # Annuler un gel
 ]
 urlpatterns += gel_patterns
+
+
+# ==============================================================================
+# IMPORT DE RECETTES AVEC STOCKS (simulation par poste avant validation)
+# ==============================================================================
+from inventaire import views_import_stock  # Vues de l'import avec stocks
+
+import_stock_patterns = [
+    path('recettes/import-stock/', views_import_stock.import_stock_nouveau, name='import_stock_nouveau'),  # Fichier + période
+    path('recettes/import-stock/<int:pk>/', views_import_stock.import_stock_simulation, name='import_stock_simulation'),  # Simulation
+    path('recettes/import-stock/historique/', views_import_stock.import_stock_historique, name='import_stock_historique'),  # Historique
+    path('recettes/import-stock/<int:pk>/annuler/<int:poste_id>/', views_import_stock.import_stock_annuler, name='import_stock_annuler'),  # Annulation
+]
+urlpatterns += import_stock_patterns

@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Import des recettes avec stocks - SUPPER{% endblock %}
+{% block content %}
+<div class="container-fluid">
+ <div class="card border-0 shadow-sm">
+  <div class="card-header bg-primary text-white d-flex justify-content-between flex-wrap gap-2">
+    <h5 class="mb-0"><i class="fas fa-file-import me-2"></i>Import des recettes avec stocks</h5>
+    <a href="{% url 'inventaire:import_stock_historique' %}" class="btn btn-light btn-sm">Historique des imports</a>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Les recettes du fichier sont créées <strong>en consommant les séries de tickets</strong> que vous choisirez poste par poste.
+      Rien n'est enregistré avant la validation : une simulation s'affiche d'abord pour chaque poste.</p>
+    <form method="post" enctype="multipart/form-data">{% csrf_token %}
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">Fichier Excel (postes en lignes, dates en colonnes)</label>
+          <input type="file" name="fichier_excel" class="form-control" accept=".xlsx,.xls" required>
+          <div class="form-text"><a href="{% url 'inventaire:telecharger_modele_excel' %}">Télécharger le modèle</a></div>
+        </div>
+        <div class="col-6 col-md-3"><label class="form-label">Date de début des recettes</label>
+          <input type="date" name="date_debut" class="form-control" required></div>
+        <div class="col-6 col-md-3"><label class="form-label">Date de fin des recettes</label>
+          <input type="date" name="date_fin" class="form-control" required></div>
+      </div>
+      <p class="small text-muted mt-3 mb-0">Exemple : du 01/02 au 30/04 n'importe que les colonnes comprises dans cette période.
+        Les jours qui ont déjà une recette dans SUPPER ne sont jamais écrasés.</p>
+      <button class="btn btn-primary mt-3"><i class="fas fa-calculator me-1"></i>Lire le fichier et simuler</button>
+    </form>
+  </div>
+ </div>
+</div>
+{% endblock %}

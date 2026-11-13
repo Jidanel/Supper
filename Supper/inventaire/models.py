@@ -31,6 +31,7 @@ from inventaire.models_ca import *
 from inventaire.models_cloture import *  # Clôture mensuelle (compte d'emploi / PV)
 from inventaire.models_permutation import *  # Permutations de séries de tickets
 from inventaire.models_banque_gel import *  # Banque de gel / dégel de séries de tickets
+from inventaire.models_import_stock import *  # Import de recettes avec stocks (lots)
 logger = logging.getLogger('supper')
 
 class MoisChoices(models.TextChoices):
