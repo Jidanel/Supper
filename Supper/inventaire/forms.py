@@ -2306,24 +2306,8 @@ class HistoriqueQuittanceForm(forms.Form):
         help_text=_("Sélectionnez le mois concerné par l'historique")
     )
 
-    montant_global = forms.DecimalField(
-        label=_("Montant global (FCFA)"),
-        required=True,
-        min_value=Decimal('0'),
-        max_digits=15,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'placeholder': '0',
-            'min': '0',
-            'step': '1',
-            'id': 'id_montant_global'
-        }),
-        help_text=_("Montant total inscrit sur le document historique")
-    )
-
     montant_reel = forms.DecimalField(
-        label=_("Montant réel (FCFA)"),
+        label=_("Montant de l'extrait de compte (FCFA)"),
         required=True,
         min_value=Decimal('0'),
         max_digits=15,
@@ -2335,7 +2319,7 @@ class HistoriqueQuittanceForm(forms.Form):
             'step': '1',
             'id': 'id_montant_reel'
         }),
-        help_text=_("Montant réel appartenant au poste (utilisé dans le CSP)")
+        help_text=_("Montant figurant sur l'extrait de compte (utilisé dans le CSP)")
     )
 
     image_historique = forms.ImageField(
@@ -2346,7 +2330,7 @@ class HistoriqueQuittanceForm(forms.Form):
             'accept': 'image/*',
             'id': 'id_image_historique'
         }),
-        help_text=_("Scan ou photo du document historique ACCT Obligatoire")
+        help_text=_("Scan ou photo du document historique ou extrait de compte. Obligatoire")
     )
 
     observations = forms.CharField(
@@ -2427,21 +2411,6 @@ class HistoriqueQuittanceForm(forms.Form):
 
         return mois
 
-    def clean_montant_reel(self):
-        """
-        Valide que le montant réel ne dépasse pas le montant global.
-        """
-        montant_reel = self.cleaned_data.get('montant_reel')
-        montant_global = self.cleaned_data.get('montant_global')
-
-        if montant_reel and montant_global:
-            if montant_reel > montant_global:
-                raise ValidationError(
-                    _("Le montant réel ne peut pas dépasser le montant global.")
-                )
-
-        return montant_reel
-
     def clean(self):
         """
         Validation globale du formulaire.
@@ -2451,6 +2420,8 @@ class HistoriqueQuittanceForm(forms.Form):
         from accounts.models import Poste
 
         cleaned_data = super().clean()
+        # Le montant global n'est plus saisi : la colonne est conservée en base et reçoit le montant de l'extrait de compte
+        cleaned_data['montant_global'] = cleaned_data.get('montant_reel')
         poste_id = cleaned_data.get('poste')
         mois = cleaned_data.get('mois')
 

@@ -750,7 +750,7 @@ class QuittancementPesage(models.Model):
     numero_quittance = models.CharField(
         max_length=50,
         unique=True,
-        verbose_name=_("Numéro de quittance"),
+        verbose_name=_("Numéro de quittance / Numéro de reçu de versement"),
         help_text=_("Numéro unique de la quittance")
     )
 
@@ -785,7 +785,7 @@ class QuittancementPesage(models.Model):
 
     # Dates
     date_quittancement = models.DateField(
-        verbose_name=_("Date de quittancement"),
+        verbose_name=_("Date de quittancement ou Date de reversement"),
         help_text=_("Date du jour du quittancement"),
         default=date_du_jour
     )
@@ -845,7 +845,7 @@ class QuittancementPesage(models.Model):
         upload_to='quittances_pesage/%Y/%m/',
         blank=True,
         null=True,
-        verbose_name=_("Image de la quittance"),
+        verbose_name=_("Image de la quittance ou du reçu de versement"),
         help_text=_("Scan ou photo de la quittance")
     )
 

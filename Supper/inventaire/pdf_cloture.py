@@ -36,8 +36,8 @@ L = {
         'recu': 'Reapprov Reçu', 'cede': 'Reapprov Cédé', 'vendu': 'Stock vendu',
         'abo': 'Abonnements du mois', 'fin': 'Stock de fin',
         'date': 'Date', 'collecte': '*Montant collecté (5+6)', 'collecte_pv': 'Montant collecté',
-        'reverse': 'Montant reversé', 'quittance': 'N° Quittance', 'total': 'Total',
-        'date_quitt': 'Date de quittancement', 'acct': 'Historique ACCT', 'ecart_acct': 'Écart (ACCT - Quittances)',
+        'reverse': 'Montant reversé', 'quittance': 'N° Quittance / N° Reçu de versement', 'total': 'Total',
+        'date_quitt': 'Date de quittancement ou Date de reversement', 'acct': 'Historique ou Extrait de compte', 'ecart_acct': 'Écart (Extrait - Quittances/Reçus)',
         'pied': "Document édité depuis l'application SUPPER le {date} à {heure}", 'page': 'Page {n}',
         'rend_mois': 'Rendement du Mois de {mois}', 'rend_n1': 'Rendement du Mois {mois}',
         'ecart': 'Ecart', 'indice': "Indice d’Evolution", 'fait': 'Fait à {poste}, le {date}',
@@ -58,8 +58,8 @@ L = {
         'recu': 'Restocking received', 'cede': 'Restocking transferred', 'vendu': 'Stock sold',
         'abo': 'Monthly subscriptions', 'fin': 'Closing stock',
         'date': 'Date', 'collecte': '*Amount collected (5+6)', 'collecte_pv': 'Amount collected',
-        'reverse': 'Amount paid in', 'quittance': 'Receipt No.', 'total': 'Total',
-        'date_quitt': 'Receipt date', 'acct': 'ACCT history', 'ecart_acct': 'Gap (ACCT - Receipts)',
+        'reverse': 'Amount paid in', 'quittance': 'Receipt No. / Deposit slip No.', 'total': 'Total',
+        'date_quitt': 'Receipt date or Deposit date', 'acct': 'History or Bank statement', 'ecart_acct': 'Gap (Statement - Receipts/Slips)',
         'pied': 'Document issued from the SUPPER application on {date} at {heure}', 'page': 'Page {n}',
         'rend_mois': 'Yield of {mois}', 'rend_n1': 'Yield of {mois}',
         'ecart': 'Gap', 'indice': 'Evolution index', 'fait': 'Done at {poste}, on {date}',
@@ -185,9 +185,9 @@ def _date_fr(iso):
 
 def _tableau_b(lb, lignes, cle_collecte, st, colonnes=1, compact=False, avec_total=True, lignes_total=None,
                acct=None, ecart=None, largeur_b=16.2 * cm):
-    """Tableau B : Montant collecté | Montant reversé | Date de quittancement | N° Quittance (par bloc),
-    puis, une seule fois à droite : Historique ACCT | Écart (ACCT - Quittances).
-    L'historique ACCT étant mensuel, il n'apparaît que sur la ligne Total (dernière page).
+    """Tableau B : Montant collecté | Montant reversé | Date de quittancement ou de reversement | N° Quittance / N° Reçu de versement (par bloc),
+    puis, une seule fois à droite : Historique ou Extrait de compte | Écart (Extrait - Quittances/Reçus).
+    L'historique ou extrait de compte étant mensuel, il n'apparaît que sur la ligne Total (dernière page).
     Au-delà de quelques quittances, les lignes sont réparties en 2 blocs côte à côte (un seul tableau,
     donc divisible entre pages) pour qu'un poste à 30 quittances reste sur 1-2 pages."""
     n = len(lignes)

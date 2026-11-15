@@ -863,24 +863,8 @@
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="id_montant_global" class="form-label">
-                                        {% trans "Montant global" %} <span class="required">*</span>
-                                    </label>
-                                    <div class="input-group">
-                                        {{ form.montant_global }}
-                                        <span class="input-group-text">FCFA</span>
-                                    </div>
-                                    <span class="help-text">{{ form.montant_global.help_text }}</span>
-                                    {% if form.montant_global.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.montant_global.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="form-group">
                                     <label for="id_montant_reel" class="form-label">
-                                        {% trans "Montant réel" %} <span class="required">*</span>
+                                        {% trans "Montant de l'extrait de compte" %} <span class="required">*</span>
                                     </label>
                                     <div class="input-group">
                                         {{ form.montant_reel }}
@@ -970,7 +954,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    const montantInputs = document.querySelectorAll('#id_montant_global, #id_montant_reel');
+    const montantInputs = document.querySelectorAll('#id_montant_reel');
     montantInputs.forEach(function(input) {
         input.addEventListener('blur', function() {
             const value = parseFloat(this.value);
@@ -978,18 +962,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.value = Math.round(value);
             }
         });
-    });
-    
-    const form = document.getElementById('historique-form');
-    form.addEventListener('submit', function(e) {
-        const montantGlobal = parseFloat(document.getElementById('id_montant_global').value) || 0;
-        const montantReel = parseFloat(document.getElementById('id_montant_reel').value) || 0;
-        
-        if (montantReel > montantGlobal) {
-            e.preventDefault();
-            alert("Le montant réel ne peut pas dépasser le montant global.");
-            return false;
-        }
     });
     
     function fixMobileScrolling() {

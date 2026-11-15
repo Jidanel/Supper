@@ -6571,7 +6571,7 @@ def saisie_quittancement(request):
 
             # --- Validation numéro de quittance ---
             if not form_data['numero_quittance']:
-                errors.append("Le numéro de quittance est obligatoire")
+                errors.append("Le numéro de quittance / reçu de versement est obligatoire")
             else:
                 numero = form_data['numero_quittance'].strip().upper()
 
@@ -6589,7 +6589,7 @@ def saisie_quittancement(request):
 
             # --- Validation autres champs ---
             if not form_data['date_quittancement']:
-                errors.append("La date de quittancement est obligatoire")
+                errors.append("La date de quittancement ou de reversement est obligatoire")
             if not form_data['montant']:
                 errors.append("Le montant est obligatoire")
             if not form_data['poste_id']:
@@ -6597,7 +6597,7 @@ def saisie_quittancement(request):
 
             # --- Image obligatoire ---
             if not has_image:
-                errors.append("L'image de la quittance est obligatoire")
+                errors.append("L'image de la quittance ou du reçu de versement est obligatoire")
 
             # --- Validation dates selon type ---
             if type_declaration == 'journaliere':
@@ -7833,23 +7833,21 @@ def supprimer_quittancement(request, pk):
 @login_required
 def authentifier_document(request):
     """
-    Vue pour authentifier un document (quittance péage, quittance pesage ou bordereau).
+    Authentification d'un document SUPPER à partir de son numéro.
 
-    MISE À JOUR IMPORTANTE:
-    - Permission peut_authentifier_document requise
-    - Recherche dans les quittancements PÉAGE et PESAGE
-    - Ordre de recherche: Péage → Pesage → Bordereaux
+    Le résultat affiche TOUS les éléments du document selon son type
+    (numéro, poste, dates, montants, auteur, image...). La recherche
+    est faite par le service inventaire.services.authentification.
 
-    Types de documents recherchés:
-    1. Quittancement (péage) - modèle Quittancement
-    2. QuittancementPesage (pesage) - modèle QuittancementPesage
-    3. Bordereau (historique stock) - modèle HistoriqueStock
+    Types : quittance/reçu de versement (péage, pesage), historique ou
+    extrait de compte, bordereau, ticket de commande, compte d'emploi / PV.
+    Permission requise : peut_authentifier_document.
     """
-    user = request.user
+    from inventaire.services import authentification  # Service de recherche (import local)
 
-    # =========================================
-    # VÉRIFICATION PERMISSION
-    # =========================================
+    user = request.user  # Utilisateur connecté
+
+    # ---------- Couche permission ----------
     if not has_permission(user, 'peut_authentifier_document'):
         log_user_action(
             user,
@@ -7862,189 +7860,44 @@ def authentifier_document(request):
         messages.error(request, "Vous n'avez pas la permission d'authentifier des documents.")
         return redirect('common:dashboard')
 
-    resultat = None
-    type_document = None
+    resultat = None  # Résultat de la recherche (None avant toute demande)
+    numero = ''  # Numéro saisi (conservé pour réafficher le formulaire)
+    type_recherche = 'auto'  # Type demandé dans la liste déroulante
 
     if request.method == 'POST':
-        numero = request.POST.get('numero', '').strip()
-        type_recherche = request.POST.get('type_recherche', 'auto')
+        numero = request.POST.get('numero', '').strip()  # Numéro saisi
+        type_recherche = request.POST.get('type_recherche', 'auto')  # Type choisi
 
         if not numero:
             messages.error(request, "Veuillez saisir un numéro de document.")
         else:
-            # Normaliser le numéro (majuscules, sans espaces)
-            numero_normalise = numero.upper().strip()
-
-            # =========================================
-            # RECHERCHE 1: QUITTANCEMENTS PÉAGE
-            # =========================================
-            try:
-                quittancement_peage = Quittancement.objects.select_related(
-                    'poste', 'saisi_par'
-                ).get(numero_quittance__iexact=numero_normalise)
-
-                resultat = {
-                    'trouve': True,
-                    'type': 'quittance_peage',
-                    'document': quittancement_peage,
-                    'details': {
-                        'numero': quittancement_peage.numero_quittance,
-                        'type_module': 'PÉAGE',
-                        'poste': quittancement_peage.poste.nom,
-                        'montant': quittancement_peage.montant,
-                        'date_quittancement': quittancement_peage.date_quittancement,
-                        'periode': quittancement_peage.get_periode_display(),
-                        'type_declaration': quittancement_peage.get_type_declaration_display() if hasattr(quittancement_peage, 'get_type_declaration_display') else quittancement_peage.type_declaration,
-                        'exercice': quittancement_peage.exercice,
-                        'mois': quittancement_peage.mois,
-                        'saisi_par': quittancement_peage.saisi_par.nom_complet if quittancement_peage.saisi_par else 'Non défini',
-                        'date_saisie': quittancement_peage.date_saisie,
-                        'has_image': bool(quittancement_peage.image_quittance),
-                    }
-                }
-                type_document = 'quittance_peage'
-
+            resultat = authentification.rechercher_document(numero, type_recherche)  # Recherche détaillée
+            if resultat['trouve']:
                 log_user_action(
                     user,
-                    "Authentification document - TROUVÉ (Péage)",
-                    f"Numéro recherché: {numero} | "
-                    f"Type: Quittance Péage | "
-                    f"Poste: {quittancement_peage.poste.nom} | "
-                    f"Montant: {quittancement_peage.montant} FCFA | "
+                    "Authentification document - TROUVÉ",
+                    f"Numéro recherché: {numero} | Type: {resultat['type']} | {resultat['journal']} | "
+                    f"IP: {request.META.get('REMOTE_ADDR', 'N/A')}",
+                    request
+                )
+            else:
+                messages.warning(request, resultat['message'])
+                log_user_action(
+                    user,
+                    "Authentification document - NON TROUVÉ",
+                    f"Numéro recherché: {numero} | Type demandé: {type_recherche} | "
                     f"IP: {request.META.get('REMOTE_ADDR', 'N/A')}",
                     request
                 )
 
-            except Quittancement.DoesNotExist:
-                # =========================================
-                # RECHERCHE 2: QUITTANCEMENTS PESAGE
-                # =========================================
-                try:
-                    # Import du modèle QuittancementPesage
-                    from inventaire.models_pesage import QuittancementPesage
-
-                    quittancement_pesage = QuittancementPesage.objects.select_related(
-                        'station', 'saisi_par'
-                    ).get(numero_quittance__iexact=numero_normalise)
-
-                    resultat = {
-                        'trouve': True,
-                        'type': 'quittance_pesage',
-                        'document': quittancement_pesage,
-                        'details': {
-                            'numero': quittancement_pesage.numero_quittance,
-                            'type_module': 'PESAGE',
-                            'poste': quittancement_pesage.station.nom,  # station au lieu de poste
-                            'montant': quittancement_pesage.montant_quittance,  # montant_quittance au lieu de montant
-                            'montant_attendu': quittancement_pesage.montant_attendu,
-                            'ecart': quittancement_pesage.ecart,
-                            'date_quittancement': quittancement_pesage.date_quittancement,
-                            'periode': quittancement_pesage.get_periode_display() if hasattr(quittancement_pesage, 'get_periode_display') else 'N/A',
-                            'type_declaration': quittancement_pesage.get_type_declaration_display() if hasattr(quittancement_pesage, 'get_type_declaration_display') else quittancement_pesage.type_declaration,
-                            'exercice': quittancement_pesage.exercice,
-                            'mois': quittancement_pesage.mois,
-                            'saisi_par': quittancement_pesage.saisi_par.nom_complet if quittancement_pesage.saisi_par else 'Non défini',
-                            'date_saisie': quittancement_pesage.date_saisie,
-                            'has_image': bool(quittancement_pesage.image_quittance),
-                        }
-                    }
-                    type_document = 'quittance_pesage'
-
-                    log_user_action(
-                        user,
-                        "Authentification document - TROUVÉ (Pesage)",
-                        f"Numéro recherché: {numero} | "
-                        f"Type: Quittance Pesage | "
-                        f"Station: {quittancement_pesage.station.nom} | "
-                        f"Montant: {quittancement_pesage.montant_quittance} FCFA | "
-                        f"IP: {request.META.get('REMOTE_ADDR', 'N/A')}",
-                        request
-                    )
-
-                except QuittancementPesage.DoesNotExist:
-                    # =========================================
-                    # RECHERCHE 3: BORDEREAUX (HISTORIQUE STOCK)
-                    # =========================================
-                    bordereaux = HistoriqueStock.objects.filter(
-                        numero_bordereau__iexact=numero_normalise
-                    ).select_related('poste', 'effectue_par')
-
-                    if bordereaux.exists():
-                        resultat = {
-                            'trouve': True,
-                            'type': 'bordereau',
-                            'documents': bordereaux,
-                            'details': {
-                                'numero': numero_normalise,
-                                'type_module': 'STOCK/TRANSFERT',
-                                'nombre_operations': bordereaux.count(),
-                            }
-                        }
-                        type_document = 'bordereau'
-
-                        log_user_action(
-                            user,
-                            "Authentification document - TROUVÉ (Bordereau)",
-                            f"Numéro recherché: {numero} | "
-                            f"Type: Bordereau | "
-                            f"Nombre opérations: {bordereaux.count()} | "
-                            f"IP: {request.META.get('REMOTE_ADDR', 'N/A')}",
-                            request
-                        )
-                    else:
-                        # =========================================
-                        # AUCUN DOCUMENT TROUVÉ
-                        # =========================================
-                        resultat = {
-                            'trouve': False,
-                            'message': f"Aucun document trouvé avec le numéro : {numero}"
-                        }
-                        messages.warning(request, f"Aucun document trouvé avec le numéro : {numero}")
-
-                        log_user_action(
-                            user,
-                            "Authentification document - NON TROUVÉ",
-                            f"Numéro recherché: {numero} | "
-                            f"Bases recherchées: Quittancements Péage, Quittancements Pesage, Bordereaux | "
-                            f"Résultat: Aucun document trouvé | "
-                            f"IP: {request.META.get('REMOTE_ADDR', 'N/A')}",
-                            request
-                        )
-
-                except ImportError as e:
-                    # En cas de problème d'import du modèle pesage
-                    logger.warning(f"Impossible d'importer QuittancementPesage: {e}")
-
-                    # Continuer avec la recherche dans les bordereaux
-                    bordereaux = HistoriqueStock.objects.filter(
-                        numero_bordereau__iexact=numero_normalise
-                    ).select_related('poste', 'effectue_par')
-
-                    if bordereaux.exists():
-                        resultat = {
-                            'trouve': True,
-                            'type': 'bordereau',
-                            'documents': bordereaux,
-                        }
-                        type_document = 'bordereau'
-                    else:
-                        resultat = {
-                            'trouve': False,
-                            'message': f"Aucun document trouvé avec le numéro : {numero}"
-                        }
-                        messages.warning(request, f"Aucun document trouvé avec le numéro : {numero}")
-
-    # =========================================
-    # CONTEXTE POUR LE TEMPLATE
-    # =========================================
     context = {
-        'resultat': resultat,
-        'type_document': type_document,
+        'resultat': resultat,  # Résultat détaillé
+        'type_document': resultat.get('type') if resultat and resultat.get('trouve') else None,
         'title': 'Authentification de Documents',
-        # Indicateur des types de documents recherchés
-        'types_recherches': ['Quittances Péage', 'Quittances Pesage', 'Bordereaux'],
+        'types_recherche': authentification.TYPES_RECHERCHE,  # Options de la liste déroulante
+        'numero_saisi': numero,  # Pour pré-remplir le champ
+        'type_recherche': type_recherche,  # Pour garder le choix
     }
-
     return render(request, 'inventaire/authentifier_document.html', context)
 
 

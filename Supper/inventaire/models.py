@@ -2503,7 +2503,7 @@ class Quittancement(models.Model):
     numero_quittance = models.CharField(
         max_length=50,
         unique=True,
-        verbose_name=_("Numéro de quittance"),
+        verbose_name=_("Numéro de quittance / Numéro de reçu de versement"),
         help_text=_("Numéro unique de la quittance")
     )
 
@@ -2537,7 +2537,7 @@ class Quittancement(models.Model):
 
     # Dates selon le type
     date_quittancement = models.DateField(
-        verbose_name=_("Date de quittancement"),
+        verbose_name=_("Date de quittancement ou Date de reversement"),
         help_text=_("Date du jour du quittancement")
     )
 
@@ -2577,7 +2577,7 @@ class Quittancement(models.Model):
         upload_to='quittances/%Y/%m/',
         blank=True,
         null=True,
-        verbose_name=_("Image de la quittance"),
+        verbose_name=_("Image de la quittance ou du reçu de versement"),
         help_text=_("Scan ou photo de la quittance")
     )
 
@@ -5127,8 +5127,8 @@ class HistoriqueQuittance(models.Model):
         max_digits=15,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0'))],
-        verbose_name=_("Montant global (FCFA)"),
-        help_text=_("Montant total inscrit sur l'historique ACCT")
+        verbose_name=_("Montant global (FCFA) - conservé, égal au montant de l'extrait"),
+        help_text=_("Montant figurant sur l'historique ou l'extrait de compte")
     )
 
     # Montant réel (celui qui appartient au poste, utilisé dans le CSP)
@@ -5136,8 +5136,8 @@ class HistoriqueQuittance(models.Model):
         max_digits=15,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0'))],
-        verbose_name=_("Montant réel (FCFA)"),
-        help_text=_("Montant réel appartenant au poste (utilisé dans le CSP)")
+        verbose_name=_("Montant de l'extrait de compte (FCFA)"),
+        help_text=_("Montant figurant sur l'extrait de compte (utilisé dans le CSP)")
     )
 
     # Image du document historique
@@ -5146,7 +5146,7 @@ class HistoriqueQuittance(models.Model):
         blank=True,
         null=True,
         verbose_name=_("Image de l'historique"),
-        help_text=_("Scan ou photo du document historique ACCT")
+        help_text=_("Scan ou photo du document historique ou extrait de compte")
     )
 
     # Métadonnées
@@ -5175,8 +5175,8 @@ class HistoriqueQuittance(models.Model):
     )
 
     class Meta:
-        verbose_name = _("Historique Quittance")
-        verbose_name_plural = _("Historiques Quittances")
+        verbose_name = _("Historique ou Extrait de compte")
+        verbose_name_plural = _("Historiques ou Extraits de compte")
         ordering = ['-annee', '-mois', 'poste__nom']
         # Contrainte unique: un seul historique par poste par mois
         unique_together = [['poste', 'mois']]

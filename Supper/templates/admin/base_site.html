@@ -976,16 +976,16 @@
                                 <div class="col-6 ps-3">
                                     {% if user.peut_saisir_quittance_peage or user.peut_voir_liste_quittances_peage or user.peut_comptabiliser_quittances_peage %}
                                     <h6 class="dropdown-header px-0 text-primary">
-                                        <i class="fas fa-file-invoice-dollar me-1"></i>{% trans "Quittances" %}
+                                        <i class="fas fa-file-invoice-dollar me-1"></i>{% trans "Quittances ou Reçus de versement" %}
                                     </h6>
                                     {% if user.peut_saisir_quittance_peage %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:saisie_quittancement' %}">
-                                        <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>{% trans "Saisir Quittance" %}
+                                        <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>{% trans "Saisir Quittance ou Reçu de versement" %}
                                     </a>
                                     {% endif %}
                                     {% if user.peut_voir_liste_quittances_peage %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:liste_quittancements' %}">
-                                        <i class="fas fa-file-lines me-2 text-info"></i>{% trans "Liste Quittances" %}
+                                        <i class="fas fa-file-lines me-2 text-info"></i>{% trans "Liste Quittances ou Reçus de versement" %}
                                     </a>
                                     {% endif %}
                                     {% if user.peut_comptabiliser_quittances_peage %}
@@ -999,10 +999,13 @@
                                     <!-- Historiques ACCT Péage -->
                                     {% if user.peut_saisir_quittance_peage or is_admin %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:liste_historiques' %}">
-                                        <i class="fas fa-history me-2"></i>{% trans "Historiques ACCT" %}
+                                        <i class="fas fa-history me-2"></i>{% trans "Historiques ou Extraits de compte" %}
                                     </a>
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_historique' %}">
                                         <i class="fas fa-plus me-2"></i>{% trans "Nouvel historique" %}
+                                    </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:declaration_historiques' %}">
+                                        <i class="fas fa-file-circle-check me-2"></i>{% trans "Déclaration des historiques" %}
                                     </a>
                                     {% endif %}
                                     <hr class="my-2">
@@ -1091,11 +1094,11 @@
                                 <div class="col-6 ps-3">
                                     {% if user.peut_saisir_quittance_pesage or user.peut_comptabiliser_quittances_pesage or user.peut_voir_liste_quittancements_pesage or user.peut_valider_paiement_amende %}
                                     <h6 class="dropdown-header px-0 text-success">
-                                        <i class="fas fa-receipt me-1"></i>{% trans "Quittancements" %}
+                                        <i class="fas fa-receipt me-1"></i>{% trans "Quittances ou Reçus de versement" %}
                                     </h6>
                                     {% if user.peut_saisir_quittance_pesage %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:saisie_quittancement_pesage' %}">
-                                        <i class="fas fa-plus-circle me-2 text-success"></i>{% trans "Saisir Quittancement" %}
+                                        <i class="fas fa-plus-circle me-2 text-success"></i>{% trans "Saisir Quittance ou Reçu de versement" %}
                                     </a>
                                     {% endif %}
                                     {% if user.peut_comptabiliser_quittances_pesage or user.peut_valider_paiement_amende %}
@@ -1110,13 +1113,13 @@
                                     {% endif %}
                                     {% if user.peut_voir_liste_quittancements_pesage or user.peut_valider_paiement_amende %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:liste_quittancements_pesage' %}">
-                                        <i class="fas fa-file-invoice-dollar me-2 text-info"></i>{% trans "Liste Quittancements" %}
+                                        <i class="fas fa-file-invoice-dollar me-2 text-info"></i>{% trans "Liste Quittances ou Reçus de versement" %}
                                     </a>
                                     {% endif %}
                                     <!-- Historiques ACCT Pesage -->
                                     {% if user.peut_saisir_quittance_pesage or is_admin %}
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:liste_historiques_pesage' %}">
-                                        <i class="fas fa-history me-2"></i>{% trans "Historiques ACCT" %}
+                                        <i class="fas fa-history me-2"></i>{% trans "Historiques ou Extraits de compte" %}
                                     </a>
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:saisir_historique_pesage' %}">
                                         <i class="fas fa-plus me-2"></i>{% trans "Nouvel historique" %}
@@ -1141,7 +1144,7 @@
                                     {% endif %}
                                     {% if user.peut_voir_liste_quittancements_pesage and not user.peut_saisir_quittance_pesage %}
                                     <a class="dropdown-item rounded d-flex align-items-center" href="{% url 'inventaire:liste_quittancements_pesage' %}">
-                                        <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Quittancements" %}
+                                        <i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Quittances ou Reçus de versement" %}
                                         <span class="badge bg-secondary ms-auto rounded-pill" title="{% trans 'Consultation uniquement' %}">
                                             <i class="fas fa-eye"></i>
                                         </span>
@@ -1735,15 +1738,15 @@
                     {% endif %}
                     <!-- Quittances -->
                     {% if user.peut_saisir_quittance_peage or user.peut_voir_liste_quittances_peage or user.peut_comptabiliser_quittances_peage %}
-                    <h6 class="dropdown-header">{% trans "Quittances" %}</h6>
+                    <h6 class="dropdown-header">{% trans "Quittances ou Reçus de versement" %}</h6>
                     {% if user.peut_saisir_quittance_peage %}
                     <a class="dropdown-item" href="{% url 'inventaire:saisie_quittancement' %}">
-                        <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>{% trans "Saisir Quittance" %}
+                        <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>{% trans "Saisir Quittance ou Reçu de versement" %}
                     </a>
                     {% endif %}
                     {% if user.peut_voir_liste_quittances_peage %}
                     <a class="dropdown-item" href="{% url 'inventaire:liste_quittancements' %}">
-                        <i class="fas fa-file-lines me-2 text-info"></i>{% trans "Liste Quittances" %}
+                        <i class="fas fa-file-lines me-2 text-info"></i>{% trans "Liste Quittances ou Reçus de versement" %}
                     </a>
                     {% endif %}
                     {% if user.peut_comptabiliser_quittances_peage %}
@@ -1759,10 +1762,13 @@
                     {% if user.peut_saisir_quittance_peage or is_admin %}
                     <h6 class="dropdown-header">{% trans "Historiques" %}</h6>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_historiques' %}">
-                        <i class="fas fa-history me-2"></i>{% trans "Historiques ACCT" %}
+                        <i class="fas fa-history me-2"></i>{% trans "Historiques ou Extraits de compte" %}
                     </a>
                     <a class="dropdown-item" href="{% url 'inventaire:saisir_historique' %}">
                         <i class="fas fa-plus me-2"></i>{% trans "Nouvel historique" %}
+                    </a>
+                    <a class="dropdown-item" href="{% url 'inventaire:declaration_historiques' %}">
+                        <i class="fas fa-file-circle-check me-2"></i>{% trans "Déclaration des historiques" %}
                     </a>
                     {% endif %}
                 </div>
@@ -1823,10 +1829,10 @@
                     {% endif %}
                     <!-- Quittancements -->
                     {% if user.peut_saisir_quittance_pesage or user.peut_comptabiliser_quittances_pesage or user.peut_voir_liste_quittancements_pesage or user.peut_valider_paiement_amende %}
-                    <h6 class="dropdown-header">{% trans "Quittancements" %}</h6>
+                    <h6 class="dropdown-header">{% trans "Quittances ou Reçus de versement" %}</h6>
                     {% if user.peut_saisir_quittance_pesage %}
                     <a class="dropdown-item" href="{% url 'inventaire:saisie_quittancement_pesage' %}">
-                        <i class="fas fa-plus-circle me-2 text-success"></i>{% trans "Saisir Quittancement" %}
+                        <i class="fas fa-plus-circle me-2 text-success"></i>{% trans "Saisir Quittance ou Reçu de versement" %}
                     </a>
                     {% endif %}
                     {% if user.peut_comptabiliser_quittances_pesage or user.peut_valider_paiement_amende %}
@@ -1841,7 +1847,7 @@
                     {% endif %}
                     {% if user.peut_voir_liste_quittancements_pesage or user.peut_valider_paiement_amende %}
                     <a class="dropdown-item" href="{% url 'inventaire:liste_quittancements_pesage' %}">
-                        <i class="fas fa-file-invoice-dollar me-2 text-info"></i>{% trans "Liste Quittancements" %}
+                        <i class="fas fa-file-invoice-dollar me-2 text-info"></i>{% trans "Liste Quittances ou Reçus de versement" %}
                     </a>
                     {% endif %}
                     {% endif %}
@@ -1849,7 +1855,7 @@
                     {% if user.peut_saisir_quittance_pesage or is_admin %}
                     <h6 class="dropdown-header">{% trans "Historiques" %}</h6>
                     <a class="dropdown-item" href="{% url 'inventaire:liste_historiques_pesage' %}">
-                        <i class="fas fa-history me-2"></i>{% trans "Historiques ACCT" %}
+                        <i class="fas fa-history me-2"></i>{% trans "Historiques ou Extraits de compte" %}
                     </a>
                     <a class="dropdown-item" href="{% url 'inventaire:saisir_historique_pesage' %}">
                         <i class="fas fa-plus me-2"></i>{% trans "Nouvel historique" %}

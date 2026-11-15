@@ -56,7 +56,7 @@
   <div class="cl-head">
     <h4 class="mb-0"><i class="fas fa-triangle-exclamation me-2"></i>
       {% if type_doc == 'compte_emploi' %}Postes de péage{% else %}Stations de pesage{% endif %} non à jour</h4>
-    <small>{% if type_doc == 'compte_emploi' %}Jours sans recette, jours sans quittance (journalière ou décade) et mois sans historique ACCT{% else %}Jours non couverts par une quittance (journalière ou décade) et mois sans historique ACCT{% endif %} entre la date de départ et la date d'arrivée choisies (jusqu'à aujourd'hui au plus).</small>
+    <small>{% if type_doc == 'compte_emploi' %}Jours sans recette, jours sans quittance (journalière ou décade) et mois sans historique ou extrait de compte{% else %}Jours non couverts par une quittance (journalière ou décade) et mois sans historique ou extrait de compte{% endif %} entre la date de départ et la date d'arrivée choisies (jusqu'à aujourd'hui au plus).</small>
   </div>
   <div class="p-3">
     <form method="get" class="row g-2 mb-3 no-print">
@@ -70,7 +70,7 @@
         <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="critere" value="recettes" id="crR" {% if 'recettes' in criteres %}checked{% endif %}><label class="form-check-label" for="crR">Sans recettes</label></div>
         {% endif %}
         <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="critere" value="quittances" id="crQ" {% if 'quittances' in criteres %}checked{% endif %}><label class="form-check-label" for="crQ">Sans quittances</label></div>
-        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="critere" value="acct" id="crA" {% if 'acct' in criteres %}checked{% endif %}><label class="form-check-label" for="crA">Sans historique ACCT</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="critere" value="acct" id="crA" {% if 'acct' in criteres %}checked{% endif %}><label class="form-check-label" for="crA">Sans historique ou extrait de compte</label></div>
       </div>
       <div class="col-12 col-md-2 d-flex align-items-end"><div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" name="detail" value="1" id="chkDetail" {% if avec_detail %}checked{% endif %}>
@@ -83,7 +83,7 @@
       <div class="titre-impr">
         <h2>{% if type_doc == 'compte_emploi' %}Postes de péage{% else %}Stations de pesage{% endif %} non à jour</h2>
         <p>Période du {{ date_debut|date:'d/m/Y' }} au {{ date_fin|date:'d/m/Y' }} —
-          critères : {% if 'recettes' in criteres %}sans recettes · {% endif %}{% if 'quittances' in criteres %}sans quittances · {% endif %}{% if 'acct' in criteres %}sans historique ACCT{% endif %}
+          critères : {% if 'recettes' in criteres %}sans recettes · {% endif %}{% if 'quittances' in criteres %}sans quittances · {% endif %}{% if 'acct' in criteres %}sans historique ou extrait de compte{% endif %}
           — édité le {{ maintenant|date:'d/m/Y H:i' }}</p>
       </div>
       <div class="row g-2 mb-2 kpi-ligne">
@@ -97,7 +97,7 @@
         <span class="c1" style="background:#fef3c7">&lt; 25 % du mois</span>
         <span style="background:#fdba74">25 à 75 %</span>
         <span style="background:#ef4444;color:#fff">≥ 75 %</span>
-        <span style="background:#ede9fe;color:#5b21b6"><b class="acct">ACCT</b> historique ACCT manquant (mois terminé)</span>
+        <span style="background:#ede9fe;color:#5b21b6"><b class="acct">EXT</b> historique ou extrait de compte manquant (mois terminé)</span>
         <small class="text-muted">Chaque case = nombre de jours en défaut dans le mois.</small>
       </div>
       <div class="table-responsive">
@@ -116,7 +116,7 @@
               <td class="l"><strong>{{ r.poste.nom }}</strong></td>
               {% for x in r.cellules %}
                 {% if x %}
-                  <td class="c{{ x.niveau }}">{% if x.nb_jours %}{{ x.nb_jours }}{% endif %}{% if x.sans_acct %}<span class="acct">ACCT</span>{% endif %}
+                  <td class="c{{ x.niveau }}">{% if x.nb_jours %}{{ x.nb_jours }}{% endif %}{% if x.sans_acct %}<span class="acct">EXT</span>{% endif %}
                     {% if avec_detail %}
                       {% if x.recettes_txt %}<small class="d">R : {{ x.recettes_txt }}</small>{% endif %}
                       {% if x.quittances_txt %}<small class="d">Q : {{ x.quittances_txt }}</small>{% endif %}
@@ -124,7 +124,7 @@
                   </td>
                 {% else %}<td class="ok">·</td>{% endif %}
               {% endfor %}
-              <td class="t">{{ r.total_jours }}{% if r.total_sans_acct %}<span class="acct">+{{ r.total_sans_acct }} ACCT</span>{% endif %}</td>
+              <td class="t">{{ r.total_jours }}{% if r.total_sans_acct %}<span class="acct">+{{ r.total_sans_acct }} EXT</span>{% endif %}</td>
             </tr>
           {% empty %}
             <tr><td colspan="{{ mois_cols|length|add:2 }}" class="text-success py-3">Tous les postes sont à jour sur cette période.</td></tr>

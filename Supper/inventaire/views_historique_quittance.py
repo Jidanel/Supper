@@ -345,8 +345,7 @@ def confirmer_historique(request):
                     f"Numéro: {historique.numero_historique} | "
                     f"Poste: {poste.nom} ({poste.code}) | "
                     f"Mois: {historique.get_mois_display()} | "
-                    f"Montant global: {historique.montant_global:,.0f} FCFA | "
-                    f"Montant réel: {historique.montant_reel:,.0f} FCFA | "
+                    f"Montant extrait de compte: {historique.montant_reel:,.0f} FCFA | "
                     f"IP: {request.META.get('REMOTE_ADDR', 'N/A')}",
                     request
                 )
@@ -699,7 +698,7 @@ def supprimer_historique(request, pk):
                 f"Numéro: {numero} | "
                 f"Poste: {poste_nom} ({poste_code}) | "
                 f"Mois: {mois_display} | "
-                f"Montant réel supprimé: {montant_reel:,.0f} FCFA | "
+                f"Montant extrait de compte supprimé: {montant_reel:,.0f} FCFA | "
                 f"IP: {request.META.get('REMOTE_ADDR', 'N/A')}",
                 request
             )

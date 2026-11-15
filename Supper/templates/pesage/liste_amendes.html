@@ -1281,6 +1281,11 @@
                                 title="{% trans 'Modifier (Admin)' %}">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                <a href="{% url 'inventaire:supprimer_amende' amende.pk %}"
+                                class="btn btn-sm btn-outline-danger"
+                                title="{% trans 'Supprimer (Admin)' %}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
                                 {% endif %}
                             </td>
                         </tr>

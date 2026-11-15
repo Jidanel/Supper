@@ -26,6 +26,7 @@ from . import views_transfert_multiple
 from . import views_rapports_defaillants_pesage
 from . import views_incident
 from . import views_historique_quittance
+from . import views_declaration_historiques  # Nouveau module : Déclaration des historiques
 from . import views_commandes
 from . import views_export_series  # Export des séries livrées par commande/poste
 from . import views_stats_prolifiques
@@ -483,6 +484,13 @@ event_sourcing_patterns = [
     # SECTION: HISTORIQUES DE QUITTANCES (ACCT)
     # ===================================================================
 
+    # Déclaration des historiques (écran unique péage + pesage)
+    path(
+        'declaration-historiques/',  # URL de l'écran unique
+        views_declaration_historiques.declaration_historiques,  # Vue du module
+        name='declaration_historiques'  # Nom pour {% url %}
+    ),
+
     # Liste des historiques
     path(
         'historiques/',
@@ -673,6 +681,7 @@ pesage_patterns = [
       views_pesage.api_amendes_vehicule_autres_stations,
       name='api_amendes_vehicule_autres_stations'),
     path('pesage/amende/<int:pk>/modifier/', views_pesage.modifier_amende, name='modifier_amende'),
+    path('pesage/amende/<int:pk>/supprimer/', views_pesage.supprimer_amende, name='supprimer_amende'),
     path('pesage/pesees/<int:pk>/modifier/', views_pesage.modifier_pesees, name='modifier_pesees'),
     # Confirmation de suppression (GET - affiche le template)
     path('pesage/pesees/<int:pk>/supprimer/', views_pesage.confirmer_suppression_pesees, name='confirmer_suppression_pesees'),

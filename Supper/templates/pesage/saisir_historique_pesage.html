@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
 
-{% block title %}Saisir Historique ACCT Pesage{% endblock %}
+{% block title %}Saisir Historique ou Extrait de compte Pesage{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -788,7 +788,7 @@
         <div>
             <h2 class="mb-1">
                 <i class="fas fa-plus-circle text-success me-2"></i>
-                Saisir Historique ACCT Pesage
+                Saisir Historique ou Extrait de compte Pesage
             </h2>
             <p class="text-muted mb-0">Enregistrer un historique mensuel pour une station de pesage</p>
         </div>
@@ -799,12 +799,9 @@
     
     <!-- Encadré explicatif -->
     <div class="info-box">
-        <h6><i class="fas fa-info-circle me-2"></i>Comprendre les montants</h6>
+        <h6><i class="fas fa-info-circle me-2"></i>Montant de l'extrait de compte</h6>
         <p>
-            <strong>Montant global</strong> : C'est le montant TOTAL versé à la perception. 
-            Si plusieurs stations versent dans la même perception, c'est la somme de toutes les stations.<br>
-            <strong>Montant réel</strong> : C'est la part de CETTE station dans le montant global. 
-            Ce montant est toujours inférieur ou égal au montant global.
+            Saisissez le montant figurant sur l'extrait de compte bancaire (ou sur l'historique) du mois concerné.
         </p>
     </div>
     
@@ -861,21 +858,8 @@
                 <!-- Montants -->
                 <div class="row g-4">
                     <div class="col-md-6">
-                        <label for="id_montant_global" class="form-label">
-                            <i class="fas fa-coins me-1"></i> Montant global versé à la perception (FCFA) *
-                        </label>
-                        {{ form.montant_global }}
-                        <div class="form-text">
-                            {{ form.montant_global.help_text }}
-                        </div>
-                        {% if form.montant_global.errors %}
-                        <div class="text-danger small mt-1">{{ form.montant_global.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="col-md-6">
                         <label for="id_montant_reel" class="form-label">
-                            <i class="fas fa-money-bill-wave me-1"></i> Montant réel de cette station (FCFA) *
+                            <i class="fas fa-money-bill-wave me-1"></i> Montant de l'extrait de compte (FCFA) *
                         </label>
                         {{ form.montant_reel }}
                         <div class="form-text">
@@ -887,40 +871,16 @@
                     </div>
                 </div>
                 
-                <!-- Aperçu des montants -->
-                <div class="montant-preview" id="montantPreview" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-4 text-center">
-                            <div class="label">Montant global</div>
-                            <div class="value" id="previewGlobal">0 FCFA</div>
-                        </div>
-                        <div class="col-md-4 text-center">
-                            <div class="label">Montant réel station</div>
-                            <div class="value text-success" id="previewReel">0 FCFA</div>
-                        </div>
-                        <div class="col-md-4 text-center">
-                            <div class="label">Part autres stations</div>
-                            <div class="value text-secondary" id="previewAutres">0 FCFA</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Alerte validation montants -->
-                <div class="warning-box mt-3" id="alerteValidation" style="display: none;">
-                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Attention</h6>
-                    <p id="messageValidation"></p>
-                </div>
-                
                 <!-- ============================================== -->
                 <!-- SECTION IMAGES DU DOCUMENT ACCT -->
                 <!-- ============================================== -->
                 <div class="images-section">
                     <h5>
                         <i class="fas fa-images me-2"></i>
-                        Images du document ACCT
+                        Images de l'historique ou de l'extrait de compte
                     </h5>
                     <p class="text-muted small mb-3">
-                        Joignez les photos/scans du document ACCT. <strong>La page 1 est obligatoire.</strong> 
+                        Joignez les photos/scans de l'historique ou de l'extrait de compte. <strong>La page 1 est obligatoire.</strong> 
                         Vous pouvez ajouter jusqu'à 3 pages si le document en contient plusieurs.
                         <br><small>Formats acceptés: JPG, PNG, PDF, WEBP - Taille max: 5 Mo par fichier</small>
                     </p>
@@ -1015,14 +975,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // ===== PREVIEW DES MONTANTS =====
-    const montantGlobal = document.getElementById('id_montant_global');
     const montantReel = document.getElementById('id_montant_reel');
-    const preview = document.getElementById('montantPreview');
-    const previewGlobal = document.getElementById('previewGlobal');
-    const previewReel = document.getElementById('previewReel');
-    const previewAutres = document.getElementById('previewAutres');
-    const alerteValidation = document.getElementById('alerteValidation');
-    const messageValidation = document.getElementById('messageValidation');
     
     function formatMontant(value) {
         return new Intl.NumberFormat('fr-FR').format(value) + ' FCFA';
@@ -1032,41 +985,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (bytes < 1024) return bytes + ' octets';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' Ko';
         return (bytes / (1024 * 1024)).toFixed(2) + ' Mo';
-    }
-    
-    function updateMontantPreview() {
-        const global = parseInt(montantGlobal.value) || 0;
-        const reel = parseInt(montantReel.value) || 0;
-        const autres = global - reel;
-        
-        if (global > 0 || reel > 0) {
-            preview.style.display = 'block';
-            previewGlobal.textContent = formatMontant(global);
-            previewReel.textContent = formatMontant(reel);
-            previewAutres.textContent = formatMontant(autres);
-            
-            // Validation visuelle: montant_reel <= montant_global
-            if (reel > global && global > 0) {
-                alerteValidation.style.display = 'block';
-                messageValidation.textContent = 
-                    `Le montant réel (${formatMontant(reel)}) ne peut pas être supérieur ` +
-                    `au montant global (${formatMontant(global)}). ` +
-                    `Le montant réel représente uniquement la part de cette station.`;
-                montantReel.classList.add('is-invalid');
-            } else {
-                alerteValidation.style.display = 'none';
-                montantReel.classList.remove('is-invalid');
-            }
-        } else {
-            preview.style.display = 'none';
-            alerteValidation.style.display = 'none';
-        }
-    }
-    
-    if (montantGlobal && montantReel) {
-        montantGlobal.addEventListener('input', updateMontantPreview);
-        montantReel.addEventListener('input', updateMontantPreview);
-        updateMontantPreview();
     }
     
     // ===== PREVIEW DES IMAGES =====

@@ -1698,11 +1698,10 @@ def confirmer_historique_pesage(request):
                 log_user_action(
                     user=user,
                     action="CREATION_HISTORIQUE_PESAGE",
-                    description=f"Création historique ACCT pesage: {station.nom}",
+                    description=f"Création historique ou extrait de compte pesage: {station.nom}",
                     details=(
                         f"Mois: {historique.get_mois_display()} | "
-                        f"Montant global: {historique.montant_global:,.0f} FCFA | "
-                        f"Montant réel: {historique.montant_reel:,.0f} FCFA | "
+                        f"Montant extrait de compte: {historique.montant_reel:,.0f} FCFA | "
                         f"Pages: {historique.nombre_pages}"
                     ),
                     niveau="info"
@@ -1713,7 +1712,7 @@ def confirmer_historique_pesage(request):
                 messages.success(
                     request,
                     _("Historique créé avec succès pour %(station)s - %(mois)s. "
-                      "Montant réel: %(montant)s FCFA") % {
+                      "Montant de l'extrait de compte: %(montant)s FCFA") % {
                         'station': station.nom,
                         'mois': historique.get_mois_display(),
                         'montant': f"{historique.montant_reel:,.0f}".replace(',', ' ')
@@ -1954,8 +1953,8 @@ def supprimer_historique_pesage(request, pk):
             log_user_action(
                 user=user,
                 action="SUPPRESSION_HISTORIQUE_PESAGE",
-                description=f"Suppression historique ACCT pesage: {station_nom}",
-                details=f"Mois: {mois_display} | Montant réel: {montant_reel:,.0f} FCFA",
+                description=f"Suppression historique ou extrait de compte pesage: {station_nom}",
+                details=f"Mois: {mois_display} | Montant extrait de compte: {montant_reel:,.0f} FCFA",
                 niveau="warning"
             )
 

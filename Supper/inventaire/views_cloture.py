@@ -178,7 +178,7 @@ def _pdf(cloture, request, langue='fr'):
 
 def verifier_cloture(request, jeton):
     """Page PUBLIQUE (sans connexion) : atteste l'authenticité d'un document via son QR code."""
-    cloture = ClotureMensuelle.objects.filter(jeton=jeton).select_related('poste').first()
+    cloture = ClotureMensuelle.objects.filter(jeton=jeton).select_related('poste', 'poste__region').first()
     return render(request, 'inventaire/verifier_cloture.html', {'cloture': cloture})
 
 
@@ -291,7 +291,7 @@ def cloture_defaillants(request):
         if date_debut > date_fin:
             erreur = "La date de départ doit être antérieure ou égale à la date d'arrivée."
         elif not criteres:
-            erreur = "Cochez au moins un critère (recettes, quittances, historique ACCT)."
+            erreur = "Cochez au moins un critère (recettes, quittances, historique ou extrait de compte)."
         else:
             postes = get_postes_accessibles(user, type_poste=TYPES[type_doc]).select_related('region').order_by('region__nom', 'nom')
             resultat = cd.liste_defaillants(TYPES[type_doc], postes, date_debut, date_fin, criteres)
@@ -339,7 +339,7 @@ def _export_defaillants_xlsx(resultat, type_doc, debut_txt, fin_txt):
     ws = wb.active
     ws.title = 'Défaillants'
     ws.append(['Région', 'Poste', 'Mois', 'Jours en défaut', 'Jours sans quittance', 'Jours sans recette',
-               'Historique ACCT manquant', 'Premier jour', 'Dernier jour'])
+               'Historique ou extrait de compte manquant', 'Premier jour', 'Dernier jour'])
     for c in ws[1]:
         c.font = Font(bold=True)
     for r in resultat:

@@ -58,40 +58,37 @@ logger = logging.getLogger('supper')
 
 def calculer_stock_debut_periode(poste, date_debut):
     """
-    Calcule le stock de tickets au début d'une période via Event Sourcing.
-    Retourne le stock à la veille de la date de début.
+    Stock au début d'une période, lu dans HistoriqueStock (source de vérité).
 
-    Args:
-        poste: Instance de Poste
-        date_debut: Date de début de la période
+    Règle : une vente appartient à la DATE DE LA RECETTE vendue, et non à la
+    date à laquelle le chef de poste l'a déclarée. Ainsi la recette du 31/10
+    déclarée le 01/11 est déjà déduite du stock de début du 01/11.
 
     Returns:
-        Decimal: Valeur monétaire du stock
+        (Decimal, int): valeur monétaire et nombre de tickets du stock
     """
-    veille_debut = date_debut - timedelta(days=1)
+    veille = date_debut - timedelta(days=1)                              # Veille du début de période
+    limite = timezone.make_aware(                                        # Fin de journée de la veille
+        datetime.combine(veille, datetime.max.time().replace(microsecond=999999)))
 
-    # Convertir la date en datetime avec fin de journée
-    if isinstance(veille_debut, date) and not isinstance(veille_debut, datetime):
-        date_reference_dt = timezone.make_aware(
-            datetime.combine(veille_debut, datetime.max.time().replace(microsecond=999999))
-        )
-    else:
-        date_reference_dt = veille_debut
+    mouvements = HistoriqueStock.objects.filter(poste=poste)             # Tous les mouvements du poste
 
-    # Via StockEvent
-    events = StockEvent.objects.filter(
-        poste=poste,
-        event_datetime__lte=date_reference_dt,
-        is_cancelled=False
-    ).aggregate(
-        total_valeur=Sum('montant_variation'),
-        total_tickets=Sum('nombre_tickets_variation')
-    )
+    # Crédits (chargements, réapprovisionnements) : datés à leur enregistrement
+    credits = mouvements.filter(
+        type_mouvement='CREDIT', date_mouvement__lte=limite
+    ).aggregate(t=Sum('montant'), n=Sum('nombre_tickets'))
 
-    valeur = events['total_valeur'] or Decimal('0')
-    tickets = events['total_tickets'] or 0
+    # Débits : une vente liée à une recette compte à la date de la recette ;
+    # les autres débits (transferts sortants...) comptent à leur date d'enregistrement
+    debits = mouvements.filter(type_mouvement='DEBIT').filter(
+        Q(reference_recette__isnull=False, reference_recette__date__lte=veille) |
+        Q(reference_recette__isnull=True, date_mouvement__lte=limite)
+    ).aggregate(t=Sum('montant'), n=Sum('nombre_tickets'))
 
-    return max(Decimal('0'), valeur), max(0, tickets)
+    valeur = (credits['t'] or Decimal('0')) - (debits['t'] or Decimal('0'))
+    tickets = (credits['n'] or 0) - (debits['n'] or 0)
+    return max(Decimal('0'), valeur), max(0, tickets)                    # Même format de retour qu'avant
+
 
 def get_date_derniere_quittance_mois(poste, date_debut, date_fin):
         """
@@ -981,7 +978,7 @@ def generer_csp_pesage(request):
     STRUCTURE DU TABLEAU (12 colonnes):
     | Régions | Stations | Nbre Pesées | Nbre Infractions | Amendes émises (A) |
     | Amendes recouvrées (B) | RAR (A-B) | Montant quittancé | ECART1 |
-    | Historique ACCT | ECART2 | Date dern. quittance |
+    | Historique ou Extrait de compte | ECART2 | Date dern. quittance |
     """
     user = request.user
 
@@ -1117,4 +1114,3 @@ def generer_csp_pesage(request):
     }
 
     return render(request, 'pesage/csp_pesage.html', context)
-

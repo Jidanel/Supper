@@ -975,7 +975,7 @@ def generer_pv_confrontation_pdf(request, station_id, date_debut, date_fin):
     Reconnaissons avoir confronté les Ordres de Paiement émis de la période allant du 
     <b>{date_debut_obj.strftime('%d/%m/%Y')}</b> au <b>{date_fin_obj.strftime('%d/%m/%Y')}</b>, 
     avec les Déclarations des Recettes d'une part, et les Déclarations des Recettes 
-    avec les Quittances de Reversement d'autre part.<br/><br/>
+    avec les Quittances ou Reçus de versement d'autre part.<br/><br/>
     Il se dégage la situation détaillée dans le tableau ci-après :
     """
     

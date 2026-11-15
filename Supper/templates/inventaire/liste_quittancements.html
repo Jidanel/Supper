@@ -3,7 +3,7 @@
 {% load i18n %}
 {% load inventaire_extras %}
 
-{% block title %}{% trans "Liste des Quittancements" %}{% endblock %}
+{% block title %}{% trans "Liste des Quittances ou Reçus de versement" %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -1113,7 +1113,7 @@
             <div>
                 <h2 class="mb-2">
                     <i class="fas fa-file-invoice-dollar me-2"></i>
-                    {% trans "Liste des Quittancements" %}
+                    {% trans "Liste des Quittances ou Reçus de versement" %}
                 </h2>
                 <p class="mb-0">
                     {% trans "Gestion et consultation des quittancements de recettes péage" %}
@@ -1297,9 +1297,9 @@
         <table class="table table-hover table-quittances">
             <thead>
                 <tr>
-                    <th>{% trans "N° Quittance" %}</th>
+                    <th>{% trans "N° Quittance / N° Reçu de versement" %}</th>
                     <th>{% trans "Poste" %}</th>
-                    <th>{% trans "Date Quittancement" %}</th>
+                    <th>{% trans "Date de quittancement ou Date de reversement" %}</th>
                     <th>{% trans "Mois" %}</th>
                     <th>{% trans "Type" %}</th>
                     <th>{% trans "Période" %}</th>

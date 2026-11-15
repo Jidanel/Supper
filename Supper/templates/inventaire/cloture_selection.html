@@ -41,7 +41,7 @@
             <i class="fas fa-download me-1"></i>Téléchargement en masse</a>
         </div>
       </form>
-      <p class="small text-muted mb-2"><span class="badge badge-ok">Complet</span> = tous les jours renseignés (recettes, quittances) et historique ACCT enregistré ;
+      <p class="small text-muted mb-2"><span class="badge badge-ok">Complet</span> = tous les jours renseignés (recettes, quittances) et historique ou extrait de compte enregistré ;
         <span class="badge badge-ko">En cours</span> sinon. Le document peut être tiré à tout moment.</p>
       <div class="table-responsive">
         <table class="table table-sm table-hover cl-table">
@@ -55,7 +55,7 @@
               <td>{% if not l.statut.complet %}
                     {% if l.statut.recettes_manquantes %}<div><strong>Recettes manquantes ({{ l.statut.recettes_manquantes|length }} j) :</strong> {{ l.statut.recettes_txt }}</div>{% endif %}
                     {% if l.statut.quittances_manquantes %}<div><strong>Jours sans quittance ({{ l.statut.quittances_manquantes|length }} j) :</strong> {{ l.statut.quittances_txt }}</div>{% endif %}
-                    {% if l.statut.acct_manquant %}<div><strong>Historique ACCT :</strong> non enregistré pour ce mois</div>{% endif %}
+                    {% if l.statut.acct_manquant %}<div><strong>Historique ou extrait de compte :</strong> non enregistré pour ce mois</div>{% endif %}
                   {% endif %}</td>
               <td>
                 <a class="btn btn-sm btn-primary" href="{% url 'inventaire:cloture_saisie' type_doc l.poste.id mois %}">

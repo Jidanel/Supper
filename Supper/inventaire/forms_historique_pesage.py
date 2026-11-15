@@ -21,8 +21,7 @@ class HistoriquePesageForm(forms.Form):
     Champs:
     - station: Station de pesage
     - mois/annee: Période (mois passés et mois actuel uniquement)
-    - montant_global: Montant total versé à la perception
-    - montant_reel: Part de cette station
+    - montant_reel: Montant de l'extrait de compte (le montant global n'est plus saisi)
     - image_page1: Image obligatoire (page 1)
     - image_page2: Image optionnelle (page 2)
     - image_page3: Image optionnelle (page 3)
@@ -77,31 +76,14 @@ class HistoriquePesageForm(forms.Form):
         })
     )
 
-    # Montant global
-    montant_global = forms.DecimalField(
-        label=_("Montant global versé à la perception (FCFA)"),
-        min_value=Decimal('0'),
-        max_digits=15,
-        decimal_places=0,
-        required=True,
-        help_text=_("Montant TOTAL versé à la perception (peut inclure plusieurs stations)"),
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Ex: 5 000 000',
-            'id': 'id_montant_global',
-            'min': '0',
-            'step': '1'
-        })
-    )
-
     # Montant réel
     montant_reel = forms.DecimalField(
-        label=_("Montant réel de cette station (FCFA)"),
+        label=_("Montant de l'extrait de compte (FCFA)"),
         min_value=Decimal('0'),
         max_digits=15,
         decimal_places=0,
         required=True,
-        help_text=_("Part de CETTE station dans le montant global (toujours ≤ montant global)"),
+        help_text=_("Montant figurant sur l'extrait de compte bancaire"),
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'placeholder': 'Ex: 3 500 000',
@@ -118,7 +100,7 @@ class HistoriquePesageForm(forms.Form):
     image_page1 = forms.ImageField(
         label=_("Image Page 1 (obligatoire)"),
         required=True,
-        help_text=_("Première page du document ACCT - Formats acceptés: JPG, JPEG, PNG, PDF (max 5 Mo)"),
+        help_text=_("Première page de l'historique ou de l'extrait de compte - Formats acceptés: JPG, JPEG, PNG, PDF (max 5 Mo)"),
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'pdf', 'webp'])
         ],
@@ -201,18 +183,11 @@ class HistoriquePesageForm(forms.Form):
         """Validation globale du formulaire."""
         cleaned_data = super().clean()
 
-        montant_global = cleaned_data.get('montant_global')
         montant_reel = cleaned_data.get('montant_reel')
+        # Le montant global n'est plus saisi : la colonne est conservée en base et reçoit le montant de l'extrait de compte
+        cleaned_data['montant_global'] = montant_reel
         mois = cleaned_data.get('mois')
         annee = cleaned_data.get('annee')
-
-        # Validation: montant_reel <= montant_global
-        if montant_global and montant_reel:
-            if montant_reel > montant_global:
-                self.add_error('montant_reel', _(
-                    "Le montant réel ne peut pas être supérieur au montant global. "
-                    "Le montant réel représente la part de cette station dans le versement total."
-                ))
 
         # Validation: pas de mois futur
         if mois and annee:

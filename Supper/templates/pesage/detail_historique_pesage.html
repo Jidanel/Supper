@@ -758,28 +758,9 @@
                         <i class="fas fa-coins me-1"></i> {% trans "Montants" %}
                     </div>
                     <div class="info-row">
-                        <span class="label">{% trans "Montant global (déclaré/attendu)" %}</span>
-                        <span class="value large">{{ historique.montant_global|floatformat:0 }} FCFA</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">{% trans "Montant réel (perçu)" %}</span>
+                        <span class="label">{% trans "Montant de l'extrait de compte" %}</span>
                         <span class="value large">{{ historique.montant_reel|floatformat:0 }} FCFA</span>
                     </div>
-                </div>
-
-                <!-- Écart -->
-                <div class="ecart-box {% if ecart_positif %}positive{% else %}negative{% endif %}">
-                    <div class="ecart-label">{% trans "Écart (Réel - Global)" %}</div>
-                    <div class="ecart-value">
-                        {% if ecart_positif %}+{% endif %}{{ ecart|floatformat:0 }} FCFA
-                    </div>
-                    <small>
-                        {% if ecart_positif %}
-                        {% trans "Excédent de recettes" %}
-                        {% else %}
-                        {% trans "Déficit de recettes" %}
-                        {% endif %}
-                    </small>
                 </div>
 
                 <!-- Image -->

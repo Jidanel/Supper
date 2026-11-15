@@ -560,7 +560,7 @@
         </div>
         <div class="stat-card purple">
             <div class="stat-value">{{ totaux.total_historique|format_milliers }}</div>
-            <div class="stat-label">{% trans "Historique ACCT" %}</div>
+            <div class="stat-label">{% trans "Historique ou Extrait de compte" %}</div>
         </div>
     </div>
 
@@ -570,7 +570,7 @@
         <div>
             <span class="legend-item">
                 <span class="legend-color purple"></span>
-                {% trans "Historique ACCT = montant réel versé" %}
+                {% trans "Historique ou Extrait de compte = montant de l'extrait" %}
             </span>
             <span class="legend-item">
                 <span class="legend-color success"></span>
@@ -598,7 +598,7 @@
                         <th>{% trans "RAR (A-B)" %}</th>
                         <th>{% trans "Quittancé" %}</th>
                         <th>{% trans "ECART1" %}</th>
-                        <th>{% trans "Hist. ACCT" %}</th>
+                        <th>{% trans "Hist. / Extrait" %}</th>
                         <th>{% trans "ECART2" %}</th>
                         <th>{% trans "Dern. Quitt." %}</th>
                     </tr>
@@ -724,7 +724,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td>{% trans "ECART2 (ACCT - Quittancé)" %}</td>
+                            <td>{% trans "ECART2 (Extrait de compte - Quittancé)" %}</td>
                             <td class="text-end {% if totaux.total_ecart2 >= 0 %}text-success{% else %}text-danger{% endif %}">
                                 <strong>{{ totaux.total_ecart2|format_milliers }} FCFA</strong>
                             </td>
@@ -752,8 +752,8 @@
                         <li><strong>A</strong> = Amendes émises | <strong>B</strong> = Amendes recouvrées</li>
                         <li><strong>RAR</strong> = Reste À Recouvrer (A - B)</li>
                         <li><strong>ECART1</strong> = Quittancé - Recouvré</li>
-                        <li><strong>Hist. ACCT</strong> = Montant réel versé à la perception</li>
-                        <li><strong>ECART2</strong> = Historique ACCT - Quittancé</li>
+                        <li><strong>Hist. / Extrait</strong> = Montant de l'extrait de compte</li>
+                        <li><strong>ECART2</strong> = Historique ou Extrait de compte - Quittancé</li>
                     </ul>
                 </div>
             </div>

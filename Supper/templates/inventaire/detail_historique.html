@@ -420,24 +420,9 @@
                             </div>
                             
                             <div class="info-item">
-                                <div class="info-label"><i class="fas fa-coins"></i>{% trans "Montant global" %}</div>
-                                <div class="info-value amount large">{{ historique.montant_global|floatformat:0|format_milliers }} FCFA</div>
-                            </div>
-                            
-                            <div class="info-item">
-                                <div class="info-label"><i class="fas fa-check-circle"></i>{% trans "Montant réel (CSP)" %}</div>
+                                <div class="info-label"><i class="fas fa-check-circle"></i>{% trans "Montant de l'extrait de compte" %}</div>
                                 <div class="info-value amount large">{{ historique.montant_reel|floatformat:0|format_milliers }} FCFA</div>
                             </div>
-                        </div>
-                        
-                        <!-- Écart -->
-                        <div class="ecart-card">
-                            <div class="ecart-label"><i class="fas fa-balance-scale me-1"></i>{% trans "Écart (Global - Réel)" %}</div>
-                            {% with ecart=historique.montant_global|subtract:historique.montant_reel %}
-                            <div class="ecart-value {% if ecart >= 0 %}positive{% else %}negative{% endif %}">
-                                {% if ecart >= 0 %}+{% endif %}{{ ecart|floatformat:0|format_milliers }} FCFA
-                            </div>
-                            {% endwith %}
                         </div>
                         
                         <!-- Image -->

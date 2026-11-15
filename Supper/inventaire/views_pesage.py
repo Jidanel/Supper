@@ -1792,7 +1792,7 @@ def saisie_quittancement_pesage(request):
 
             # Validation numéro de quittance
             if not form_data['numero_quittance']:
-                errors.append("Le numéro de quittance est obligatoire")
+                errors.append("Le numéro de quittance / reçu de versement est obligatoire")
             else:
                 numero = form_data['numero_quittance'].strip().upper()
 
@@ -1807,11 +1807,11 @@ def saisie_quittancement_pesage(request):
                     pass
 
             if not form_data['date_quittancement']:
-                errors.append("La date de quittancement est obligatoire")
+                errors.append("La date de quittancement ou de reversement est obligatoire")
             if not form_data['montant']:
                 errors.append("Le montant est obligatoire")
             if not has_image:
-                errors.append("L'image de la quittance est obligatoire")
+                errors.append("L'image de la quittance ou du reçu de versement est obligatoire")
 
             if type_declaration == 'journaliere':
                 if not form_data.get('date_recette'):
@@ -2878,7 +2878,7 @@ def export_quittancements_pesage(request):
     )
 
     # En-têtes
-    headers = ['N° Quittance', 'Station', 'Exercice', 'Mois', 'Type', 'Date Quittancement',
+    headers = ['N° Quittance / N° Reçu de versement', 'Station', 'Exercice', 'Mois', 'Type', 'Date Quittancement ou Date Reversement',
                'Période', 'Montant Quittancé', 'Saisi par']
 
     for col, header in enumerate(headers, 1):
@@ -4543,3 +4543,120 @@ def importer_amendes(request):
         'peut_saisir_amende': has_permission(user, 'peut_saisir_amende'),
     }
     return render(request, 'pesage/importer_amendes.html', context)
+
+
+# ===================================================================
+# SUPPRESSION D'UNE AMENDE PAR UN ADMINISTRATEUR (avec toute sa suite)
+# ===================================================================
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def supprimer_amende(request, pk):
+    """
+    Suppression définitive d'une amende par un administrateur, avec toute sa suite :
+    - la recette recouvrée (si l'amende était payée) disparaît des statistiques ;
+    - le décompte surcharge / hors gabarit / délit de fuite est retiré ;
+    - les événements de l'amende (émission, paiement) sont supprimés ;
+    - les demandes de confirmation liées à cette amende sont supprimées.
+
+    Garde-fous : administrateur uniquement, motif obligatoire, confirmation explicite,
+    avertissement renforcé si un PV de confrontation signé existe pour le mois concerné.
+    Journalisation complète (instantané de l'amende supprimée).
+    """
+    user = request.user  # Utilisateur connecté
+
+    # --- Vérification stricte : administrateurs uniquement ---
+    if not is_admin_user(user):
+        log_user_action(
+            user, "SUPPRESSION AMENDE - ACCÈS REFUSÉ",
+            f"Tentative de suppression amende ID {pk} sans droits administrateur", request
+        )
+        messages.error(request, _("❌ Accès réservé aux administrateurs."))
+        return redirect('inventaire:liste_amendes')
+
+    amende = get_object_or_404(AmendeEmise.objects.select_related('station'), pk=pk)  # Amende ciblée
+
+    # --- Mois concernés (émission et, si payée, paiement) pour contrôler les PV signés ---
+    mois_concernes = {timezone.localtime(amende.date_heure_emission).strftime('%Y-%m')}
+    if amende.date_paiement:
+        mois_concernes.add(timezone.localtime(amende.date_paiement).strftime('%Y-%m'))
+
+    from inventaire.models_cloture import ClotureMensuelle  # Import local (évite les cycles)
+    pv_signes = ClotureMensuelle.objects.filter(          # PV de confrontation signés à ces mois
+        poste=amende.station, type_document='pv_confrontation',
+        statut='signe', mois__in=mois_concernes
+    )
+
+    # --- Récapitulatif de ce qui va disparaître ---
+    est_payee = (amende.statut == 'paye')                 # La recette est-elle comptabilisée ?
+    impact = {
+        'recette': amende.montant_amende if est_payee else Decimal('0'),  # Recette retirée
+        'montant_emis': amende.montant_amende,                              # Montant émis retiré
+        'nb_decompte': amende.nombre_amendes_comptabilisees,                # Compte pour 1 ou 2 amendes
+        'nb_events': amende.events.count(),                                 # Événements supprimés
+        'nb_demandes': (amende.demandes_confirmation_pour_validation.count()
+                        + amende.demandes_confirmation_bloquantes.count()), # Demandes liées
+    }
+
+    if request.method == 'POST':
+        motif = (request.POST.get('motif') or '').strip()  # Motif obligatoire
+        erreurs = []
+        if len(motif) < 5:
+            erreurs.append(_("Le motif de suppression est obligatoire (5 caractères minimum)."))
+        if request.POST.get('confirmer') != 'oui':
+            erreurs.append(_("Vous devez cocher la case de confirmation."))
+        if pv_signes.exists() and request.POST.get('confirmer_pv') != 'oui':
+            erreurs.append(_("Un PV de confrontation signé existe pour ce mois : confirmez explicitement."))
+
+        if not erreurs:
+            # Instantané conservé dans le journal (l'amende n'existera plus après)
+            instantane = (
+                f"N°{amende.numero_ticket} | Station: {amende.station.nom} | "
+                f"Immat: {amende.immatriculation} | Transporteur: {amende.transporteur} | "
+                f"Montant: {amende.montant_amende} FCFA | Statut: {amende.statut} | "
+                f"Surcharge: {amende.est_surcharge} | Hors gabarit: {amende.est_hors_gabarit} | "
+                f"Délit de fuite: {amende.est_delit_fuite} | "
+                f"Émise le: {amende.date_heure_emission:%d/%m/%Y %H:%M}"
+            )
+            if amende.date_paiement:                                   # Ajout de la date de paiement si payée
+                instantane += f" | Payée le: {amende.date_paiement:%d/%m/%Y %H:%M}"
+            station = amende.station                                   # Conservée pour le recalcul
+            dates_a_recalculer = {timezone.localtime(amende.date_heure_emission).date()}
+            if amende.date_paiement:
+                dates_a_recalculer.add(timezone.localtime(amende.date_paiement).date())
+            numero = amende.numero_ticket
+
+            with transaction.atomic():                                 # Tout ou rien
+                amende.delete()                                        # Cascade : événements, demandes
+
+            # Mise à jour des statistiques périodiques déjà enregistrées (hors transaction)
+            try:
+                from inventaire.models_pesage import StatistiquesPesagePeriodique
+                for jour in dates_a_recalculer:
+                    for stat in StatistiquesPesagePeriodique.objects.filter(
+                            station=station, date_debut__lte=jour, date_fin__gte=jour):
+                        StatistiquesPesagePeriodique.calculer_et_sauvegarder(
+                            station, stat.type_periode, stat.date_debut, stat.date_fin)
+            except Exception as exc:                                   # Ne jamais bloquer la suppression
+                logger.warning(f"Recalcul statistiques après suppression amende {numero}: {exc}")
+
+            try:
+                log_user_action(
+                    user, "SUPPRESSION AMENDE",
+                    f"{instantane} | Motif: {motif} | PV signé concerné: {'OUI' if pv_signes.exists() else 'NON'}",
+                    request
+                )
+            except Exception as exc:
+                logger.warning(f"Journalisation suppression amende {numero}: {exc}")
+
+            messages.success(request, _("✅ Amende %(num)s supprimée avec sa suite (recette et décomptes).") % {'num': numero})
+            return redirect('inventaire:liste_amendes')
+
+        for e in erreurs:
+            messages.error(request, e)
+
+    return render(request, 'pesage/supprimer_amende.html', {
+        'amende': amende, 'impact': impact, 'pv_signes': pv_signes,
+        'est_payee': est_payee, 'title': _("Supprimer l'amende %(num)s") % {'num': amende.numero_ticket},
+        'motif_saisi': request.POST.get('motif', ''),
+    })

@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n inventaire_extras %}
 
-{% block title %}Historiques ACCT Pesage{% endblock %}
+{% block title %}Historiques ou Extraits de compte Pesage{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -822,7 +822,7 @@
         <div>
             <h2>
                 <i class="fas fa-history text-primary me-2"></i>
-                {% trans "Historiques ACCT Pesage" %}
+                {% trans "Historiques ou Extraits de compte Pesage" %}
             </h2>
             <p>{% trans "Liste des historiques mensuels des stations de pesage" %}</p>
         </div>
@@ -915,7 +915,7 @@
         </div>
         <div class="stat-card success">
             <div class="stat-value">{{ stats.total_montant_reel|format_milliers }}</div>
-            <div class="stat-label">{% trans "Total montants réels (FCFA)" %}</div>
+            <div class="stat-label">{% trans "Total des montants d'extraits de compte (FCFA)" %}</div>
         </div>
         <div class="stat-card info">
             <div class="stat-value">{{ stats.stations_couvertes }}</div>
@@ -934,8 +934,7 @@
                         <th>{% trans "Station" %}</th>
                         <th class="hide-mobile">{% trans "Région" %}</th>
                         <th class="text-center">{% trans "Période" %}</th>
-                        <th class="text-end hide-mobile">{% trans "Montant global" %}</th>
-                        <th class="text-end">{% trans "Montant réel" %}</th>
+                        <th class="text-end">{% trans "Montant de l'extrait de compte" %}</th>
                         <th class="text-center no-print">{% trans "Actions" %}</th>
                     </tr>
                 </thead>
@@ -952,9 +951,6 @@
                             <span class="badge-periode">
                                 {{ h.get_mois_display }}
                             </span>
-                        </td>
-                        <td class="text-end montant-global hide-mobile">
-                            {{ h.montant_global|format_milliers }} FCFA
                         </td>
                         <td class="text-end montant-reel">
                             {{ h.montant_reel|format_milliers }} FCFA
@@ -1031,7 +1027,7 @@
                 {% if query or current_filters.station or current_filters.annee or current_filters.mois %}
                 {% trans "Aucun historique ne correspond aux critères de recherche." %}
                 {% else %}
-                {% trans "Aucun historique ACCT n'a encore été enregistré." %}
+                {% trans "Aucun historique ou extrait de compte n'a encore été enregistré." %}
                 {% endif %}
             </p>
             {% if peut_saisir %}
@@ -1051,8 +1047,7 @@
                 <div class="col-md-8">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        <strong>{% trans "Montant global" %}</strong> : {% trans "Total versé à la perception (peut inclure plusieurs stations)" %} |
-                        <strong>{% trans "Montant réel" %}</strong> : {% trans "Part de cette station dans le versement" %}
+                        <strong>{% trans "Montant de l'extrait de compte" %}</strong> : {% trans "Montant figurant sur l'extrait de compte bancaire" %}
                     </small>
                 </div>
                 <div class="col-md-4 text-end">

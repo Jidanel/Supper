@@ -1440,6 +1440,13 @@
                 </div>
             </div>
 
+            {% if is_admin %}
+            <div class="mb-3 text-end">
+                <a href="{% url 'inventaire:modifier_amende' amende.pk %}" class="btn btn-sm btn-outline-warning"><i class="fas fa-edit"></i> {% trans 'Modifier (Admin)' %}</a>
+                <a href="{% url 'inventaire:supprimer_amende' amende.pk %}" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash-alt"></i> {% trans 'Supprimer (Admin)' %}</a>
+            </div>
+            {% endif %}
+
             <!-- Actions -->
             <div class="card border-0 shadow-sm {% if amende.statut == 'non_paye' %}bg-success bg-opacity-10{% else %}bg-secondary bg-opacity-10{% endif %}">
                 <div class="card-body text-center">

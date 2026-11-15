@@ -77,15 +77,15 @@ class HistoriquesPesage(models.Model):
     montant_global = models.DecimalField(
         max_digits=15,
         decimal_places=0,
-        verbose_name="Montant global (FCFA)",
-        help_text="Montant TOTAL versé à la perception (peut inclure plusieurs stations)"
+        verbose_name="Montant global (FCFA) - conservé, égal au montant de l'extrait",
+        help_text="Plus saisi : reçoit le montant de l'extrait de compte"
     )
     
     montant_reel = models.DecimalField(
         max_digits=15,
         decimal_places=0,
-        verbose_name="Montant réel station (FCFA)",
-        help_text="Part de CETTE station dans le montant global"
+        verbose_name="Montant de l'extrait de compte (FCFA)",
+        help_text="Montant figurant sur l'extrait de compte (utilisé dans le CSP)"
     )
     
     # =========================================================================
@@ -97,7 +97,7 @@ class HistoriquesPesage(models.Model):
     image_page1 = models.ImageField(
         upload_to=historique_pesage_upload_path,
         verbose_name="Image Page 1",
-        help_text="Première page du document ACCT - Format: JPG, PNG, PDF (max 5 Mo)",
+        help_text="Première page de l'historique ou de l'extrait de compte - Format: JPG, PNG, PDF (max 5 Mo)",
         blank=True,
         null=True
     )
@@ -105,7 +105,7 @@ class HistoriquesPesage(models.Model):
     image_page2 = models.ImageField(
         upload_to=historique_pesage_page2_upload_path,
         verbose_name="Image Page 2 (optionnelle)",
-        help_text="Deuxième page du document ACCT si nécessaire",
+        help_text="Deuxième page de l'historique ou de l'extrait de compte si nécessaire",
         blank=True,
         null=True
     )
@@ -113,7 +113,7 @@ class HistoriquesPesage(models.Model):
     image_page3 = models.ImageField(
         upload_to=historique_pesage_page3_upload_path,
         verbose_name="Image Page 3 (optionnelle)",
-        help_text="Troisième page du document ACCT si nécessaire",
+        help_text="Troisième page de l'historique ou de l'extrait de compte si nécessaire",
         blank=True,
         null=True
     )
@@ -143,8 +143,8 @@ class HistoriquesPesage(models.Model):
     )
     
     class Meta:
-        verbose_name = "Historique Pesage ACCT"
-        verbose_name_plural = "Historiques Pesage ACCT"
+        verbose_name = "Historique ou Extrait de compte Pesage"
+        verbose_name_plural = "Historiques ou Extraits de compte Pesage"
         ordering = ['-annee', '-mois', 'station__nom']
         unique_together = ['station', 'mois', 'annee']
         indexes = [

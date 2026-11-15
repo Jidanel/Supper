@@ -786,17 +786,17 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Numéro du Document *</label>
-                        <input type="text" name="numero" class="form-control form-control-lg" 
-                               placeholder="Ex: HXXXXXXX ou TR-XXXXXXXXX" required autofocus>
-                        <small class="text-muted">Saisissez le numéro exact de la quittance ou du bordereau</small>
+                        <input type="text" name="numero" class="form-control form-control-lg" value="{{ numero_saisi }}"
+                               placeholder="N° de quittance / reçu, historique, bordereau, code QR..." required autofocus>
+                        <small class="text-muted">Saisissez le numéro exact du document (ou le code lu dans son QR code)</small>
                     </div>
                     
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Type de Document</label>
                         <select name="type_recherche" class="form-select form-select-lg">
-                            <option value="auto">Automatique (Rechercher dans tous)</option>
-                            <option value="quittance">Quittance uniquement</option>
-                            <option value="bordereau">Bordereau uniquement</option>
+                            {% for valeur, libelle in types_recherche %}
+                            <option value="{{ valeur }}" {% if valeur == type_recherche %}selected{% endif %}>{{ libelle }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>
@@ -819,158 +819,61 @@
             </h5>
         </div>
         <div class="card-body">
-            {% if type_document == 'quittance' %}
-            <!-- Affichage Quittance -->
+            <!-- Type de document trouvé -->
             <div class="alert alert-success mb-4">
-                <h6><i class="fas fa-receipt me-2"></i>Type : QUITTANCE</h6>
+                <h6 class="mb-0"><i class="fas {{ resultat.icone }} me-2"></i>Type : {{ resultat.titre }}</h6>
             </div>
 
             <div class="row">
-                <div class="col-md-6 mb-3">
-                    <div class="table-container">
+                <div class="col-lg-8 mb-3">
+                    {% for bloc in resultat.blocs %}
+                    <h6 class="mt-2 mb-2 text-muted text-uppercase small">{{ bloc.titre }}</h6>
+                    <div class="table-container mb-3">
                         <table class="table table-bordered">
+                            {% for libelle, valeur, style in bloc.lignes %}
                             <tr>
-                                <th class="bg-light" style="width: 40%;">Numéro Quittance</th>
-                                <td><strong>{{ resultat.details.numero }}</strong></td>
+                                <th class="bg-light" style="width: 40%;">{{ libelle }}</th>
+                                <td>
+                                    {% if style == 'fort' %}<strong>{{ valeur }}</strong>
+                                    {% elif style == 'montant' %}<strong class="text-success">{{ valeur }}</strong>
+                                    {% else %}{{ valeur }}{% endif %}
+                                </td>
                             </tr>
-                            <tr>
-                                <th class="bg-light">Poste</th>
-                                <td>{{ resultat.details.poste }}</td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light">Montant</th>
-                                <td><strong class="text-success">{{ resultat.details.montant|floatformat:0 }} FCFA</strong></td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light">Date Quittancement</th>
-                                <td>{{ resultat.details.date_quittancement|date:"d/m/Y" }}</td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light">Période</th>
-                                <td>{{ resultat.details.periode }}</td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light">Poste Comptable</th>
-                                <td>{{ resultat.details.poste_comptable }}</td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light">Saisi par</th>
-                                <td>{{ resultat.details.saisi_par }}</td>
-                            </tr>
-                            <tr>
-                                <th class="bg-light">Date de Saisie</th>
-                                <td>{{ resultat.details.date_saisie|date:"d/m/Y H:i" }}</td>
-                            </tr>
+                            {% endfor %}
                         </table>
                     </div>
+                    {% endfor %}
                 </div>
 
-                <div class="col-md-6 mb-3">
-                    {% if resultat.details.image_url %}
+                <div class="col-lg-4 mb-3">
+                    {% if resultat.image_url %}
                     <div class="image-container">
-                        <p class="mb-2"><strong>Image de la Quittance :</strong></p>
-                        <a href="{{ resultat.details.image_url }}" target="_blank">
-                            <img src="{{ resultat.details.image_url }}" 
-                                 class="img-fluid border rounded shadow-sm" 
-                                 alt="Quittance">
+                        <p class="mb-2"><strong>Document joint :</strong></p>
+                        <a href="{{ resultat.image_url }}" target="_blank">
+                            <img src="{{ resultat.image_url }}" class="img-fluid border rounded shadow-sm" alt="Document">
                         </a>
                         <p class="mt-2">
-                            <a href="{{ resultat.details.image_url }}" target="_blank" class="btn btn-sm btn-primary">
+                            <a href="{{ resultat.image_url }}" target="_blank" class="btn btn-sm btn-primary">
                                 <i class="fas fa-download me-1"></i>Télécharger
                             </a>
                         </p>
                     </div>
+                    {% elif resultat.lien_pdf %}
+                    <a href="{{ resultat.lien_pdf }}" target="_blank" class="btn btn-primary">
+                        <i class="fas fa-file-pdf me-1"></i>Ouvrir le PDF
+                    </a>
                     {% else %}
-                    <div class="alert alert-warning text-center">
-                        <i class="fas fa-image me-2"></i>
-                        Aucune image disponible
+                    <div class="alert alert-secondary text-center">
+                        <i class="fas fa-image me-2"></i>Aucune image jointe
                     </div>
                     {% endif %}
                 </div>
             </div>
 
-            <div class="alert alert-info mt-3">
+            <div class="alert alert-{{ resultat.statut.niveau }} mt-3">
                 <i class="fas fa-info-circle me-2"></i>
-                <strong>Statut :</strong> Document authentique et enregistré dans le système SUPPER
+                <strong>Statut :</strong> {{ resultat.statut.texte }}
             </div>
-
-            {% elif type_document == 'bordereau' %}
-                <!-- Affichage Bordereaux -->
-                <div class="alert alert-info mb-4">
-                    <h6><i class="fas fa-file-invoice me-2"></i>Type : BORDEREAUX DE TRANSFERT</h6>
-                </div>
-
-                {% for bordereau in resultat.documents %}
-                <div class="table-container mb-4">
-                    <table class="table table-bordered">
-                        <tr>
-                            <th class="bg-light" style="width: 30%;">Numéro Bordereau</th>
-                            <td><strong>{{ bordereau.numero_bordereau }}</strong></td>
-                        </tr>
-                        <tr>
-                            <th class="bg-light">Poste</th>
-                            <td>{{ bordereau.poste.nom }}</td>
-                        </tr>
-                        <tr>
-                            <th class="bg-light">Type de Mouvement</th>
-                            <td>
-                                <span class="badge {% if bordereau.get_type_mouvement_display == 'CREDIT' %}bg-success{% else %}bg-danger{% endif %}">
-                                    {{ bordereau.get_type_mouvement_display }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th class="bg-light">Montant</th>
-                            <td><strong class="text-primary">{{ bordereau.montant|floatformat:0 }} FCFA</strong></td>
-                        </tr>
-                        <tr>
-                            <th class="bg-light">Nombre de Tickets</th>
-                            <td>{{ bordereau.nombre_tickets }}</td>
-                        </tr>
-                        <tr>
-                            <th class="bg-light">Date du Mouvement</th>
-                            <td>{{ bordereau.date_mouvement|date:"d/m/Y H:i" }}</td>
-                        </tr>
-                        {% if bordereau.poste_origine %}
-                        <tr>
-                            <th class="bg-light">Poste Origine</th>
-                            <td>{{ bordereau.poste_origine.nom }}</td>
-                        </tr>
-                        {% endif %}
-                        {% if bordereau.poste_destination %}
-                        <tr>
-                            <th class="bg-light">Poste Destination</th>
-                            <td>{{ bordereau.poste_destination.nom }}</td>
-                        </tr>
-                        {% endif %}
-                        <tr>
-                            <th class="bg-light">Stock Avant</th>
-                            <td>{{ bordereau.stock_avant|floatformat:0 }} FCFA</td>
-                        </tr>
-                        <tr>
-                            <th class="bg-light">Stock Après</th>
-                            <td><strong>{{ bordereau.stock_apres|floatformat:0 }} FCFA</strong></td>
-                        </tr>
-                        <tr>
-                            <th class="bg-light">Effectué par</th>
-                            <td>{{ bordereau.effectue_par.nom_complet }}</td>
-                        </tr>
-                        {% if bordereau.commentaire %}
-                        <tr>
-                            <th class="bg-light">Commentaire</th>
-                            <td>{{ bordereau.commentaire }}</td>
-                        </tr>
-                        {% endif %}
-                    </table>
-                </div>
-                {% endfor %}
-
-                <div class="alert alert-info mt-3">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Statut :</strong> Bordereaux authentiques et enregistrés dans le système SUPPER
-                </div>
-            {% endif %}
-
 
             <!-- Badge de vérification -->
             <div class="text-center mt-4">

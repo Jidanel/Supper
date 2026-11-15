@@ -1,0 +1,81 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="card border-danger shadow-sm" style="max-width: 760px; margin: 0 auto;">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-trash-alt me-2"></i>{% trans "Supprimer l'amende" %} {{ amende.numero_ticket }}</h5>
+        </div>
+        <div class="card-body">
+
+            <!-- Rappel de l'amende -->
+            <table class="table table-sm">
+                <tr><th>{% trans "Station" %}</th><td>{{ amende.station.nom }}</td></tr>
+                <tr><th>{% trans "Immatriculation" %}</th><td>{{ amende.immatriculation }}</td></tr>
+                <tr><th>{% trans "Transporteur" %}</th><td>{{ amende.transporteur }}</td></tr>
+                <tr><th>{% trans "Infraction(s)" %}</th><td>
+                    {% if amende.est_surcharge %}<span class="badge bg-warning text-dark">{% trans "Surcharge" %}</span>{% endif %}
+                    {% if amende.est_hors_gabarit %}<span class="badge bg-info text-dark">{% trans "Hors gabarit" %}</span>{% endif %}
+                    {% if amende.est_delit_fuite %}<span class="badge bg-dark">{% trans "Délit de fuite" %}</span>{% endif %}
+                </td></tr>
+                <tr><th>{% trans "Montant de l'amende" %}</th><td>{{ amende.montant_amende|floatformat:0 }} FCFA</td></tr>
+                <tr><th>{% trans "Statut" %}</th><td>{{ amende.get_statut_display }}</td></tr>
+                <tr><th>{% trans "Date d'émission" %}</th><td>{{ amende.date_heure_emission|date:"d/m/Y H:i" }}</td></tr>
+                {% if amende.date_paiement %}<tr><th>{% trans "Date de paiement" %}</th><td>{{ amende.date_paiement|date:"d/m/Y H:i" }}</td></tr>{% endif %}
+            </table>
+
+            <!-- Ce qui sera supprimé -->
+            <div class="alert alert-danger">
+                <strong>{% trans "Cette action est définitive. Seront supprimés :" %}</strong>
+                <ul class="mb-0 mt-2">
+                    <li>{% trans "L'amende" %} {{ amende.numero_ticket }}</li>
+                    {% if est_payee %}
+                    <li>{% trans "La recette recouvrée de" %} <strong>{{ impact.recette|floatformat:0 }} FCFA</strong> ({% trans "retirée des statistiques et des rapprochements" %})</li>
+                    {% endif %}
+                    <li>{% trans "Le montant émis de" %} {{ impact.montant_emis|floatformat:0 }} FCFA</li>
+                    <li>{% trans "Le décompte :" %}
+                        {% if amende.est_surcharge %}{% trans "surcharge" %}{% endif %}
+                        {% if amende.est_surcharge and amende.est_hors_gabarit %} + {% endif %}
+                        {% if amende.est_hors_gabarit %}{% trans "hors gabarit" %}{% endif %}
+                        {% if amende.est_delit_fuite %} {% trans "délit de fuite" %}{% endif %}
+                        ({{ impact.nb_decompte }} {% trans "amende(s) comptabilisée(s)" %})</li>
+                    <li>{{ impact.nb_events }} {% trans "événement(s) d'historique" %}</li>
+                    {% if impact.nb_demandes %}<li>{{ impact.nb_demandes }} {% trans "demande(s) de confirmation liée(s)" %}</li>{% endif %}
+                </ul>
+            </div>
+
+            {% if pv_signes %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                {% trans "Un PV de confrontation signé existe pour ce mois :" %}
+                {% for pv in pv_signes %}<strong>{{ pv.mois }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
+                {% trans "Il faudra le régénérer après la suppression, sinon il ne correspondra plus aux données." %}
+            </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{% trans "Motif de la suppression (obligatoire)" %}</label>
+                    <textarea name="motif" class="form-control" rows="3" required minlength="5">{{ motif_saisi }}</textarea>
+                </div>
+                {% if pv_signes %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="confirmer_pv" value="oui" id="confirmer_pv">
+                    <label class="form-check-label" for="confirmer_pv">{% trans "Je sais qu'un PV signé existe et je veux continuer" %}</label>
+                </div>
+                {% endif %}
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="confirmer" value="oui" id="confirmer" required>
+                    <label class="form-check-label" for="confirmer">{% trans "Je confirme la suppression définitive de cette amende et de sa suite" %}</label>
+                </div>
+                <a href="{% url 'inventaire:detail_amende' amende.pk %}" class="btn btn-secondary">{% trans "Annuler" %}</a>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-trash-alt me-1"></i>{% trans "Supprimer définitivement" %}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

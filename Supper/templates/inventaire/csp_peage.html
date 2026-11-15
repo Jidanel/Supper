@@ -595,13 +595,13 @@
         </div>
         <div class="stat-card acct">
             <div class="stat-value">{{ totaux.montant_historique|floatformat:0|default:"0"|format_milliers }} FCFA</div>
-            <div class="stat-label">Montant ACCT</div>
+            <div class="stat-label">Montant de l'extrait de compte</div>
         </div>
         <div class="stat-card {% if totaux.ecart_historique >= 0 %}success{% else %}danger{% endif %}">
             <div class="stat-value">
                 {% if totaux.ecart_historique >= 0 %}+{% endif %}{{ totaux.ecart_historique|floatformat:0|default:"0"|format_milliers }} FCFA
             </div>
-            <div class="stat-label">Écart 2 (ACCT - Quittancé)</div>
+            <div class="stat-label">Écart 2 (Extrait de compte - Quittancé)</div>
         </div>
     </div>
 
@@ -620,7 +620,7 @@
                         <th class="text-center">Nbre jours</th>
                         <th class="text-right">Montant quittancé</th>
                         <th class="text-right">Écart 1</th>
-                        <th class="text-right col-acct">Mnt ACCT</th>
+                        <th class="text-right col-acct">Mnt extrait de compte</th>
                         <th class="text-right col-acct">Écart 2</th>
                         <th class="text-center col-acct">Dern. quitt.</th>
                     </tr>
@@ -766,10 +766,10 @@
                 <strong>Écart 1 :</strong> Montant quittancé - Ventes déclarées
             </div>
             <div style="background: var(--acct-light); padding: 10px; border-radius: 6px;">
-                <strong style="color: var(--acct-color);">Mnt ACCT :</strong> Montant réel des historiques de quittances (ACCT)
+                <strong style="color: var(--acct-color);">Mnt extrait :</strong> Montant des historiques ou extraits de compte
             </div>
             <div style="background: var(--acct-light); padding: 10px; border-radius: 6px;">
-                <strong style="color: var(--acct-color);">Écart 2 :</strong> Montant ACCT - Montant quittancé
+                <strong style="color: var(--acct-color);">Écart 2 :</strong> Montant de l'extrait de compte - Montant quittancé
             </div>
             <div style="background: var(--acct-light); padding: 10px; border-radius: 6px;">
                 <strong style="color: var(--acct-color);">Dern. quitt. :</strong> Date de la dernière quittance du dernier mois de la période

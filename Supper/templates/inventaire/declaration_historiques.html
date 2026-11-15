@@ -1,0 +1,63 @@
+{# inventaire/templates/inventaire/declaration_historiques.html #}
+{# Écran unique : Déclaration des historiques (péage + pesage) #}
+{% extends "admin/base_site.html" %}{# Gabarit de base du projet #}
+{% load i18n %}{# Traductions FR/EN #}
+
+{% block content %}{# Zone de contenu (adapter le nom du bloc si besoin) #}
+<div class="container-fluid">
+  <h2>{% trans "Déclaration des historiques" %}</h2>{# Titre de l'écran #}
+
+  {# ---- Sélection poste + mois ---- #}
+  <form method="get" class="row g-2 mb-4">{# GET : le choix reste dans l'URL #}
+    <div class="col-md-5">{{ selection_form.poste }}</div>{# Choix du poste #}
+    <div class="col-md-3">{{ selection_form.mois }}</div>{# Choix du mois #}
+    <div class="col-md-2"><button class="btn btn-primary">{% trans "Afficher" %}</button></div>
+  </form>
+
+  {% if poste %}{# Affiché seulement après sélection valide #}
+  <h5>{{ poste }} — {{ mois }}</h5>{# Rappel poste et mois #}
+
+  {# ---- Bloc 1 : Quittance ou Reçu de versement ---- #}
+  <div class="card mb-4"><div class="card-header">{{ label_quittance }}</div>
+    <div class="card-body">
+      <table class="table table-sm">{# Liste des quittances/reçus existants #}
+        <thead><tr>
+          <th>{% trans "Numéro de quittance / Numéro de reçu de versement" %}</th>
+          <th>{% trans "Date de quittancement ou Date de reversement" %}</th>
+          <th>{% trans "Montant (FCFA)" %}</th>
+        </tr></thead>
+        <tbody>
+        {% for q in quittances %}{# Une ligne par quittance #}
+          <tr><td>{{ q.numero_quittance }}</td><td>{{ q.date_quittancement|date:"d/m/Y" }}</td>
+              <td>{% if est_peage %}{{ q.montant }}{% else %}{{ q.montant_quittance }}{% endif %}</td></tr>
+        {% empty %}
+          <tr><td colspan="3">{% trans "Aucune déclaration pour ce mois." %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <form method="post" enctype="multipart/form-data">{# Ajout d'une quittance/reçu #}
+        {% csrf_token %}{# Protection CSRF #}
+        <input type="hidden" name="action" value="quittance">{# Identifie le bloc soumis #}
+        {{ form_q.as_p }}{# Champs du formulaire #}
+        <button class="btn btn-success">{% trans "Enregistrer" %}</button>
+      </form>
+    </div>
+  </div>
+
+  {# ---- Bloc 2 : Historique ou Extrait de compte ---- #}
+  <div class="card mb-4"><div class="card-header">{{ label_historique }}</div>
+    <div class="card-body">
+      {% if historique %}{# Valeurs déjà déclarées #}
+        <p>{% trans "Montant de l'extrait de compte" %} : <strong>{{ historique.montant_reel }}</strong></p>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data">{# Création / mise à jour #}
+        {% csrf_token %}
+        <input type="hidden" name="action" value="historique">
+        {{ form_h.as_p }}
+        <button class="btn btn-success">{% trans "Enregistrer" %}</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

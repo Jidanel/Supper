@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
 
-{% block title %}Confirmer Historique ACCT Pesage{% endblock %}
+{% block title %}Confirmer Historique ou Extrait de compte Pesage{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -764,7 +764,7 @@
         <div>
             <h2>
                 <i class="fas fa-check-circle text-warning me-2"></i>
-                Confirmer l'historique ACCT
+                Confirmer l'historique ou extrait de compte
             </h2>
             <p>Vérifiez les informations avant de valider</p>
         </div>
@@ -810,20 +810,9 @@
             
             <!-- Montants -->
             <div class="montants-grid">
-                <div class="montant-box primary">
-                    <div class="label">Montant global versé</div>
-                    <div class="value">{{ montant_global_display }} FCFA</div>
-                    <div class="percent">Total perception</div>
-                </div>
                 <div class="montant-box success">
-                    <div class="label">Montant réel station</div>
+                    <div class="label">Montant de l'extrait de compte</div>
                     <div class="value">{{ montant_reel_display }} FCFA</div>
-                    <div class="percent">{{ pourcentage_station|floatformat:1 }}% du global</div>
-                </div>
-                <div class="montant-box">
-                    <div class="label">Part autres stations</div>
-                    <div class="value">{{ ecart_display }} FCFA</div>
-                    <div class="percent">Écart</div>
                 </div>
             </div>
             

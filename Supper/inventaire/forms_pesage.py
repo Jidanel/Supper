@@ -354,7 +354,7 @@ class QuittancementPesageForm(forms.Form):
             'class': 'form-control',
             'placeholder': _('Ex: H631XXXXX'),
         }),
-        label=_("N° quittance")
+        label=_("N° quittance / N° reçu de versement")
     )
 
     piece_jointe = forms.FileField(
