@@ -333,3 +333,38 @@ a:hover { color: var(--sp-blue-800); }
     .table-quittances td:first-child { white-space: nowrap; }     /* Le numéro de quittance reste sur une ligne */
     .table .badge { white-space: nowrap; }
 }
+
+/* ---------- 19. FORMULAIRES DE SAISIE (lot 2B) ---------- */
+/* En-têtes de cartes à fond coloré défini dans la page : on les garde bleus, texte blanc */
+.regles-card .card-header, .selection-poste-card .card-header, .stats-sidebar .card-header,
+.card-header.stock-card {
+    background: linear-gradient(135deg, var(--sp-blue-900) 0%, var(--sp-blue-700) 100%) !important;
+    color: #fff !important;
+}
+.regles-card .card-header *, .selection-poste-card .card-header *, .stats-sidebar .card-header *,
+.card-header.stock-card * { color: #fff !important; }
+/* Pastille d'étape : fond blanc, chiffre bleu (reste lisible sur l'en-tête bleu) */
+.etape-badge { background: #fff !important; color: var(--sp-blue-800) !important; font-weight: 700; }
+.etape-badge.etape-active { background: #fff !important; color: var(--sp-blue-800) !important; box-shadow: 0 0 0 3px rgba(255,255,255,.35); }
+/* Cartes d'aide : bordure bleue discrète */
+.regles-card { border: 1px solid var(--sp-blue-100) !important; }
+/* Bouton « Suivant » : bleu plein, grisé quand désactivé */
+.btn-suivant { background: var(--sp-blue-700); color: #fff; border: 0; border-radius: var(--sp-radius-sm); font-weight: 600; }
+.btn-suivant:hover:not(:disabled) { background: var(--sp-blue-800); color: #fff; }
+.btn-suivant:disabled { background: #cbd5e1; color: #64748b; }
+/* Champs de saisie : hauteur confortable au doigt sur mobile */
+@media (max-width: 768px) {
+    .form-control-lg, .form-select-lg { font-size: 1rem; min-height: 48px; }
+    .alert { overflow-wrap: anywhere; }
+}
+/* Pastille d'étape : spécificité renforcée pour battre « .card-header.bg-primary * » (texte blanc) */
+.card-header .etape-badge, .card-header.bg-primary .etape-badge, .card-header.bg-success .etape-badge {
+    background: #fff !important; color: var(--sp-blue-800) !important;
+}
+/* Pages de saisie : on annule les « .row » trop larges définies localement (débordement du bouton Suivant) */
+.recette-page .row, .recette-page > .container-fluid > .row {
+    width: auto !important;
+    margin-left: calc(var(--bs-gutter-x, 1.5rem) * -.5) !important;
+    margin-right: calc(var(--bs-gutter-x, 1.5rem) * -.5) !important;
+}
+.recette-page .container-fluid { overflow-x: visible; }

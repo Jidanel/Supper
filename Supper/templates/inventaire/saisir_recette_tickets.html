@@ -11,8 +11,6 @@
        ============================================ */
     * {
         box-sizing: border-box;
-        margin: 0;
-        padding: 0;
     }
 
     html, body {
@@ -559,9 +557,7 @@
         border-radius: 8px;
         padding: 1rem;
         border: none;
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
+        display: block;   /* texte et <strong> restent sur la même ligne */
     }
 
     .alert-danger {
@@ -1191,7 +1187,7 @@
 <div class="recette-page">
     <div class="container-fluid mt-3 mt-md-4">
         <div class="row">
-            <div class="col-12 {% if afficher_formulaire_complet %}col-md-9{% else %}col-md-12{% endif %}">
+            <div class="col-12 col-md-12">  {# colonne latérale masquée : pleine largeur #}
 
                 <!-- ================================================================= -->
                 <!-- ÉTAPE 1 : Sélection Poste/Date avec BOUTON SUIVANT -->
