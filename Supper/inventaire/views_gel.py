@@ -47,12 +47,12 @@ def banque_gel(request):
     source = postes.filter(pk=donnees.get('poste') or 0).first()  # Poste dont on veut geler le stock
     contexte = {'postes': postes, 'source': source, 'couleurs': CouleurTicket.objects.all().order_by('libelle_affichage'),
                 'lignes_gel': [], 'lignes_degel': [], 'motif': donnees.get('motif', ''),
-                'date_effet': donnees.get('date_effet') or timezone.localdate().isoformat(),
+                'date_effet': gs.date_effet_imposee(),  # Imposée : 1er du mois en cours
                 'destination_id': donnees.get('destination', ''), 'title': 'Banque de gel'}
 
     if request.method == 'POST':
         action = donnees.get('action')  # 'geler' ou 'degeler'
-        date_effet = _date_effet(donnees.get('date_effet'))
+        date_effet = gs.date_effet_imposee()  # La date d'effet n'est plus choisie : 1er du mois en cours
         try:
             if action == 'geler':
                 contexte['lignes_gel'], plages = _lignes(donnees, 'gel')

@@ -14,7 +14,7 @@ from django.utils import timezone  # Horodatage
 
 from inventaire.models import SerieTicket, GestionStock, HistoriqueStock, StockEvent  # Modèles de stock
 from inventaire.models_banque_gel import BanqueGel, StatutGel  # Banque de gel
-from inventaire.services.date_effet import datetime_effet, verifier_date_effet, DateEffetError  # Date d'effet
+from inventaire.services.date_effet import datetime_effet, verifier_date_effet, debut_du_mois, DateEffetError  # Date d'effet
 from inventaire.services.permutation_service import (  # Outils partagés avec la permutation
     _segments, _isoler, _fusionner_voisins, lire_plage, MOTIF_MIN)
 
@@ -31,6 +31,13 @@ def _verifier_date(poste, date_effet):
         verifier_date_effet(poste, date_effet)
     except DateEffetError as exc:
         raise GelError(str(exc))
+
+
+def date_effet_imposee():
+    """RÈGLE : toute correction (gel, dégel, suppression...) prend effet le 1er jour du mois en cours (00:00).
+    Seuls les chargements de l'Imprimerie Nationale et les transferts directs entre postes sont des mouvements réels
+    datés du jour. L'utilisateur ne choisit donc plus la date d'effet."""
+    return debut_du_mois(timezone.localdate())
 
 
 def peut_gerer_gel(user):
@@ -86,6 +93,7 @@ def geler(poste, plages, date_effet, motif, user):
     motif = _motif(motif)
     if not plages:
         raise GelError("Indiquez au moins une série à geler.")
+    date_effet = date_effet_imposee()  # Toujours le 1er du mois en cours
     _verifier_date(poste, date_effet)  # Pas de futur ni de mois signé
     creees = []
     for couleur, p, d in plages:
@@ -96,8 +104,10 @@ def geler(poste, plages, date_effet, motif, user):
             raise GelError(f"Les tickets {couleur} {p} à {d} ne sont pas tous en stock dans {poste.nom}.")
         for ligne, _x, _y in segments:
             if ligne.date_reception > datetime_effet(date_effet) + datetime.timedelta(days=1):
-                raise GelError(f"Les tickets {couleur} {p} à {d} ont été reçus après la date d'effet "
-                               f"({date_effet:%d/%m/%Y}) : choisissez une date d'effet plus récente.")
+                raise GelError(f"❌ Les tickets {couleur} {p} à {d} ont été reçus le {ligne.date_reception:%d/%m/%Y} "
+                               f"(chargement ou transfert du mois en cours), après le début du mois. Ils ne faisaient pas partie du "
+                               f"stock d'ouverture : une correction (effet au {date_effet:%d/%m/%Y}) ne peut pas les geler. "
+                               f"Corrigez plutôt le chargement ou le transfert d'origine.")
         for ligne, x, y in segments:
             ligne = _isoler(ligne, x, y)  # Isole exactement la plage à geler
             bg = BanqueGel.objects.create(
@@ -124,6 +134,7 @@ def degeler(destination, selections, date_effet, motif, user):
     motif = _motif(motif)
     if not selections:
         raise GelError("Indiquez au moins une série à dégeler.")
+    date_effet = date_effet_imposee()  # Toujours le 1er du mois en cours
     _verifier_date(destination, date_effet)  # Pas de futur ni de mois signé
     degeles = []
     for couleur, p, d in selections:
