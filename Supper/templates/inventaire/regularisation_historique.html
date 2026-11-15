@@ -1,0 +1,50 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Régularisation de l'historique - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3" style="max-width:820px">
+  <div class="card">
+    <div class="card-header"><strong><i class="fas fa-pen-to-square me-2"></i>Régularisation de l'historique de stock</strong></div>
+    <div class="card-body">
+      <div class="alert alert-info small">
+        Cette correction écrit une ligne dans l'<b>historique</b> (source du CSP) avec une <b>date d'effet</b> de votre choix.
+        Elle ne modifie <b>jamais</b> les séries de tickets. À utiliser quand le CSP et le compte d'emploi diffèrent et que les <b>séries sont justes</b>.
+        <ul class="mb-0 mt-1">
+          <li><b>Débit</b> : l'historique contient trop de tickets (crédit en trop).</li>
+          <li><b>Crédit</b> : l'historique en contient trop peu (chargement manquant).</li>
+          <li>Date d'effet = <b>le 1er du mois</b> pour une erreur de stock de départ ; un autre jour pour un mouvement réel. Impossible dans le futur ou dans un mois déjà signé.</li>
+        </ul>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="mois" value="{{ mois }}">
+        <div class="mb-3"><label class="form-label">Poste</label>
+          <select name="poste" class="form-select" required>
+            <option value="">— choisir —</option>
+            {% for p in postes %}<option value="{{ p.pk }}" {% if poste_sel and p.pk == poste_sel.pk %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+          </select></div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4"><label class="form-label">Sens</label>
+            <select name="sens" class="form-select">
+              <option value="DEBIT" {% if sens == 'DEBIT' %}selected{% endif %}>Débit (retirer de l'historique)</option>
+              <option value="CREDIT" {% if sens == 'CREDIT' %}selected{% endif %}>Crédit (ajouter à l'historique)</option>
+            </select></div>
+          <div class="col-md-4"><label class="form-label">Nombre de tickets</label>
+            <input type="number" name="tickets" min="1" class="form-control" value="{{ tickets }}" required>
+            <div class="form-text">Valeur = tickets × 500 FCFA.</div></div>
+          <div class="col-md-4"><label class="form-label">Date d'effet</label>
+            <input type="date" name="date_effet" class="form-control" value="{{ date_effet }}" required></div>
+        </div>
+        <div class="mb-3"><label class="form-label">Motif (obligatoire, conservé dans l'historique)</label>
+          <textarea name="motif" rows="3" class="form-control" minlength="10" required>{{ motif }}</textarea></div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-danger" type="submit" onclick="return confirm('Confirmer cette régularisation de l\'historique ?')"><i class="fas fa-check me-1"></i>Enregistrer la régularisation</button>
+          <a class="btn btn-outline-secondary" href="{% url 'inventaire:coherence_stock' %}?mois={{ mois }}">Retour à la cohérence</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -837,6 +837,7 @@ from inventaire import views_gel  # Vues de la banque de gel
 gel_patterns = [
     path('stocks/banque-gel/', views_gel.banque_gel, name='banque_gel'),  # Page de gel / dégel
     path('stocks/coherence/', views_coherence.coherence_stock, name='coherence_stock'),  # Contrôle CSP vs séries
+    path('stocks/coherence/regulariser/', views_coherence.regularisation_historique, name='regularisation_historique'),  # Régularisation datée
     path('stocks/banque-gel/historique/', views_gel.banque_gel_historique, name='banque_gel_historique'),  # Historique
     path('stocks/banque-gel/<int:pk>/annuler/', views_gel.banque_gel_annuler, name='banque_gel_annuler'),  # Annuler un gel
 ]

@@ -41,7 +41,8 @@
             <td class="text-end" data-label="Séries">{{ l.series|floatformat:0 }}</td>
             <td class="text-end {% if l.ecart %}text-danger fw-bold{% endif %}" data-label="Écart">{{ l.ecart|floatformat:0 }}</td>
             <td data-label="État">{% if l.coherent %}<span class="badge bg-success">Cohérent</span>{% else %}<span class="badge bg-danger">Écart</span>{% endif %}</td>
-            <td><a class="btn btn-outline-primary btn-sm" href="?mois={{ mois }}&poste={{ l.poste.pk }}#detail"><i class="fas fa-search me-1"></i>Diagnostiquer</a></td>
+            <td><a class="btn btn-outline-primary btn-sm" href="?mois={{ mois }}&poste={{ l.poste.pk }}#detail"><i class="fas fa-search me-1"></i>Diagnostiquer</a>
+              {% if not l.coherent %}<a class="btn btn-outline-danger btn-sm" href="{% url 'inventaire:regularisation_historique' %}?mois={{ mois }}&poste={{ l.poste.pk }}&sens={% if l.ecart < 0 %}DEBIT{% else %}CREDIT{% endif %}&tickets={{ l.tickets_ecart }}&date_effet={{ debut|date:'Y-m-d' }}"><i class="fas fa-pen-to-square me-1"></i>Régulariser</a>{% endif %}</td>
           </tr>
         {% endfor %}
         </tbody>

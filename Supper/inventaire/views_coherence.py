@@ -35,3 +35,42 @@ def coherence_stock(request):
         'total_ecart': sum(l['ecart'] for l in lignes),
     }
     return render(request, 'inventaire/coherence_stock.html', contexte)
+
+
+@login_required
+def regularisation_historique(request):
+    """Formulaire de régularisation de l'historique avec date d'effet libre (admin). Préremplissable depuis la page
+    de cohérence : ?poste=ID&sens=CREDIT|DEBIT&tickets=N&mois=AAAA-MM."""
+    from datetime import date as _date  # Dates
+    from common.utils import log_user_action  # Journalisation
+    from inventaire.services.regularisation_service import regulariser, RegularisationError  # Logique métier
+    from inventaire.services.coherence_stock import ecart_poste  # Écart avant/après
+    if not is_admin_user(request.user):
+        log_acces_refuse(request.user, "regularisation_historique", "Administrateur requis")
+        messages.error(request, "Accès réservé aux administrateurs.")
+        return redirect('/')
+    postes = Poste.objects.filter(type='peage', is_active=True).order_by('nom')
+    source = request.POST if request.method == 'POST' else request.GET  # Valeurs du formulaire ou du prérempli
+    mois = source.get('mois') or _date.today().strftime('%Y-%m')
+    poste_sel = postes.filter(pk=source.get('poste')).first() if source.get('poste') else None
+    if request.method == 'POST' and poste_sel:
+        try:
+            jour = _date.fromisoformat(source.get('date_effet') or '')
+            hist = regulariser(poste_sel, source.get('sens'), int(source.get('tickets') or 0), jour,
+                               source.get('motif'), request.user)
+            debut = jour.replace(day=1)  # Début du mois de la correction
+            csp, series, ecart = ecart_poste(poste_sel, debut)
+            log_user_action(request.user, "RÉGULARISATION HISTORIQUE",
+                            f"{poste_sel.nom} | {hist.type_mouvement} {hist.nombre_tickets} tickets | effet {jour:%d/%m/%Y} | {source.get('motif')}", request)
+            messages.success(request, f"✅ Régularisation enregistrée pour {poste_sel.nom} ({hist.type_mouvement} de {hist.nombre_tickets} tickets, "
+                                      f"effet {jour:%d/%m/%Y}). Écart restant au {debut:%d/%m/%Y} : {ecart:+,.0f} FCFA.")
+            return redirect(f"/inventaire/stocks/coherence/?mois={mois}&poste={poste_sel.pk}#detail")
+        except RegularisationError as exc:
+            messages.error(request, f"❌ {exc}")
+        except ValueError:
+            messages.error(request, "❌ Date d'effet ou nombre de tickets invalide.")
+    return render(request, 'inventaire/regularisation_historique.html', {
+        'postes': postes, 'poste_sel': poste_sel, 'mois': mois, 'sens': source.get('sens') or 'DEBIT',
+        'tickets': source.get('tickets') or '', 'motif': source.get('motif') or '',
+        'date_effet': source.get('date_effet') or f"{mois}-01",
+    })

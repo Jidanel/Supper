@@ -27,7 +27,8 @@ def ecarts_mois(mois):
     lignes = []
     for poste in Poste.objects.filter(type='peage', is_active=True).order_by('nom'):
         csp, series, ecart = ecart_poste(poste, debut)
-        lignes.append({'poste': poste, 'csp': csp, 'series': series, 'ecart': ecart, 'coherent': ecart == 0})
+        lignes.append({'poste': poste, 'csp': csp, 'series': series, 'ecart': ecart, 'coherent': ecart == 0,
+                       'tickets_ecart': int(abs(ecart) // PRIX_TICKET)})  # Tickets d'écart (pour préremplir la régularisation)
     lignes.sort(key=lambda l: (l['coherent'], -abs(l['ecart'])))  # Incohérents d'abord, plus gros écart en tête
     return debut, lignes
 
