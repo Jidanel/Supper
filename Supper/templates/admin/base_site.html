@@ -1218,6 +1218,9 @@
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:banque_gel' %}">
                                         <i class="fas fa-snowflake me-2 text-info"></i>{% trans "Banque de gel / dégel" %}
                                     </a>
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:coherence_stock' %}">
+                                        <i class="fas fa-balance-scale me-2 text-danger"></i>{% trans "Cohérence des stocks" %}
+                                    </a>
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:import_stock_nouveau' %}">
                                         <i class="fas fa-file-import me-2 text-primary"></i>{% trans "Import recettes avec stocks" %}
                                     </a>
@@ -1934,6 +1937,9 @@
                 </a>
                 <a class="dropdown-item" href="{% url 'inventaire:banque_gel' %}">
                     <i class="fas fa-snowflake me-2 text-info"></i>{% trans "Banque de gel / dégel" %}
+                </a>
+                <a class="dropdown-item" href="{% url 'inventaire:coherence_stock' %}">
+                    <i class="fas fa-balance-scale me-2 text-danger"></i>{% trans "Cohérence des stocks" %}
                 </a>
                 <a class="dropdown-item" href="{% url 'inventaire:import_stock_nouveau' %}">
                     <i class="fas fa-file-import me-2 text-primary"></i>{% trans "Import recettes avec stocks" %}

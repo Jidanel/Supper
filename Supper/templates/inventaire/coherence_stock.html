@@ -1,0 +1,93 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Cohérence des stocks - SUPPER{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  {# En-tête + sélecteur de mois #}
+  <div class="card mb-3">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <h4 class="mb-1"><i class="fas fa-balance-scale me-2"></i>Cohérence des stocks</h4>
+        <div class="text-muted small">Stock de début de mois : <strong>CSP</strong> (historique) comparé au <strong>compte d'emploi</strong> (séries de tickets). Écart = séries − CSP.</div>
+      </div>
+      <form method="get" class="d-flex gap-2 align-items-center">
+        <label class="mb-0 small" for="mois">Mois (AAAA-MM)</label>
+        <input type="month" id="mois" name="mois" value="{{ mois }}" class="form-control form-control-sm" style="width:auto">
+        <button class="btn btn-primary btn-sm" type="submit"><i class="fas fa-sync me-1"></i>Contrôler</button>
+      </form>
+    </div>
+  </div>
+
+  {# Synthèse #}
+  <div class="row g-3 mb-3">
+    <div class="col-4"><div class="card text-center"><div class="card-body"><div class="h3 mb-0">{{ nb_postes }}</div><div class="small text-muted">Postes contrôlés</div></div></div></div>
+    <div class="col-4"><div class="card text-center"><div class="card-body"><div class="h3 mb-0 {% if nb_incoherents %}text-danger{% else %}text-success{% endif %}">{{ nb_incoherents }}</div><div class="small text-muted">Postes incohérents</div></div></div></div>
+    <div class="col-4"><div class="card text-center"><div class="card-body"><div class="h3 mb-0">{{ total_ecart|floatformat:0 }}</div><div class="small text-muted">Écart total net (FCFA)</div></div></div></div>
+  </div>
+
+  {# Tableau de tous les postes #}
+  <div class="card mb-3">
+    <div class="card-header"><strong>Tous les postes péage</strong> — incohérents en premier</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 table-stack">
+        <thead><tr><th>Poste</th><th class="text-end">CSP (FCFA)</th><th class="text-end">Séries (FCFA)</th><th class="text-end">Écart</th><th>État</th><th></th></tr></thead>
+        <tbody>
+        {% for l in lignes %}
+          <tr {% if l.poste.pk == poste_sel.pk %}class="table-warning"{% endif %}>
+            <td data-label="Poste">{{ l.poste.nom }}</td>
+            <td class="text-end" data-label="CSP">{{ l.csp|floatformat:0 }}</td>
+            <td class="text-end" data-label="Séries">{{ l.series|floatformat:0 }}</td>
+            <td class="text-end {% if l.ecart %}text-danger fw-bold{% endif %}" data-label="Écart">{{ l.ecart|floatformat:0 }}</td>
+            <td data-label="État">{% if l.coherent %}<span class="badge bg-success">Cohérent</span>{% else %}<span class="badge bg-danger">Écart</span>{% endif %}</td>
+            <td><a class="btn btn-outline-primary btn-sm" href="?mois={{ mois }}&poste={{ l.poste.pk }}#detail"><i class="fas fa-search me-1"></i>Diagnostiquer</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Diagnostic détaillé d'un poste #}
+  {% if detail %}
+  <div id="detail" class="card mb-3">
+    <div class="card-header bg-warning"><strong>Diagnostic : {{ poste_sel.nom }}</strong> — début du {{ debut|date:"d/m/Y" }}</div>
+    <div class="card-body">
+
+      <h6>1. Évolution de l'écart (12 derniers mois) — le premier mois en écart indique quand le problème est apparu</h6>
+      <div class="table-responsive mb-4"><table class="table table-sm">
+        <thead><tr><th>Début du mois</th><th class="text-end">CSP</th><th class="text-end">Séries</th><th class="text-end">Écart</th></tr></thead>
+        <tbody>{% for e in detail.evolution %}<tr><td>{{ e.mois|date:"d/m/Y" }}</td><td class="text-end">{{ e.csp|floatformat:0 }}</td><td class="text-end">{{ e.series|floatformat:0 }}</td><td class="text-end {% if e.ecart %}text-danger fw-bold{% endif %}">{{ e.ecart|floatformat:0 }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+
+      <h6>2. Historique de stock (CSP) regroupé</h6>
+      <div class="table-responsive mb-4"><table class="table table-sm">
+        <thead><tr><th>Mouvement</th><th>Type de stock</th><th>Correction</th><th class="text-end">Lignes</th><th class="text-end">Tickets</th><th class="text-end">Montant</th></tr></thead>
+        <tbody>{% for g in detail.groupes %}<tr><td>{{ g.type_mouvement }}</td><td>{{ g.type_stock|default:"-" }}</td><td>{{ g.est_correction|yesno:"Oui,Non" }}</td><td class="text-end">{{ g.n }}</td><td class="text-end">{{ g.tickets|default:0 }}</td><td class="text-end">{{ g.montant|floatformat:0 }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+
+      <h6>3. Plus gros mouvements hors ventes</h6>
+      <div class="table-responsive mb-4"><table class="table table-sm">
+        <thead><tr><th>#</th><th>Date</th><th>Mouvement</th><th class="text-end">Tickets</th><th class="text-end">Montant</th><th>Type</th><th>Bordereau</th><th>Par</th><th>Commentaire</th></tr></thead>
+        <tbody>{% for h in detail.gros %}<tr><td>{{ h.pk }}</td><td>{{ h.date_mouvement|date:"d/m/Y H:i" }}</td><td>{{ h.type_mouvement }}</td><td class="text-end">{{ h.nombre_tickets }}</td><td class="text-end">{{ h.montant|floatformat:0 }}</td><td>{{ h.type_stock|default:"-" }}</td><td>{{ h.numero_bordereau|default:"-" }}</td><td>{{ h.effectue_par.nom_complet|default:"-" }}</td><td>{{ h.commentaire|default:""|truncatechars:80 }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+
+      <h6>4. Séries réellement détenues (compte d'emploi), par couleur</h6>
+      <div class="table-responsive mb-4"><table class="table table-sm">
+        <thead><tr><th>Couleur</th><th class="text-end">Séries</th><th class="text-end">Tickets</th><th class="text-end">Valeur</th></tr></thead>
+        <tbody>{% for c in detail.couleurs %}<tr><td>{{ c.couleur }}</td><td class="text-end">{{ c.series }}</td><td class="text-end">{{ c.tickets }}</td><td class="text-end">{{ c.valeur|floatformat:0 }}</td></tr>{% empty %}<tr><td colspan="4" class="text-muted">Aucune série détenue.</td></tr>{% endfor %}</tbody>
+      </table></div>
+
+      <h6>5. Pistes d'origine de l'écart</h6>
+      <ul>
+        <li><strong>{{ detail.nb_sans_credit }}</strong> série(s) en stock sans ligne CREDIT de même taille dans l'historique (chargement non historisé) {% if detail.nb_sans_credit %}:{% endif %}
+          {% if detail.sans_credit %}<ul>{% for sr in detail.sans_credit %}<li>{{ sr.couleur }} {{ sr.numero_premier }}-{{ sr.numero_dernier }} ({{ sr.nombre_tickets }} tickets), chargée le {{ sr.date_reception|date:"d/m/Y H:i" }}</li>{% endfor %}</ul>{% endif %}
+        </li>
+        <li><strong>{{ detail.credits_sans_serie }}</strong> crédit(s) de l'historique ({{ detail.tickets_credits_sans_serie }} tickets) sans série de même taille : série supprimée, transférée ou jamais créée.</li>
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
