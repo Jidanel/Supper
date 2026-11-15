@@ -368,3 +368,14 @@ a:hover { color: var(--sp-blue-800); }
     margin-right: calc(var(--bs-gutter-x, 1.5rem) * -.5) !important;
 }
 .recette-page .container-fluid { overflow-x: visible; }
+
+/* ---------- 20. LOT 2C : stocks, CSP, rapports, clôtures ---------- */
+/* Bandeaux d'en-tête de pages (« header-section ») : fond bleu, titre et icônes blancs */
+.header-section { background: linear-gradient(135deg, var(--sp-blue-900) 0%, var(--sp-blue-700) 100%) !important; }
+.header-section h1, .header-section h2, .header-section h3, .header-section p,
+.header-section i, .header-section .subtitle, .header-section span { color: #fff !important; }
+.header-section h1 { font-size: clamp(1.25rem, 4.5vw, 1.8rem); }
+/* Encadrés d'information : fond bleu très clair, texte foncé lisible */
+.info-box { background: var(--sp-blue-50) !important; border-left: 4px solid var(--sp-blue-600) !important; }
+.info-box h4, .info-box strong { color: var(--sp-blue-900) !important; }
+.info-box p, .info-box li { color: var(--sp-ink, #1e293b) !important; }

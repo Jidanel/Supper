@@ -2157,7 +2157,7 @@ CHEMIN: Supper/templates/admin/index.html
                 <span class="supper-section-meta">
                     {{ stats_pesage.label_scope }}
                     {% if stats_pesage.jour_travail %}
-                    <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #ede9fe; border-radius: 4px; font-size: 0.7rem;">
+                    <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #e3edfd; border-radius: 4px; font-size: 0.7rem;">
                         {% trans "Jour:" %} {{ stats_pesage.jour_travail|date:"d/m/Y" }} (9h-9h)
                     </span>
                     {% endif %}
@@ -2248,7 +2248,7 @@ CHEMIN: Supper/templates/admin/index.html
 
             <!-- Rang station pesage -->
             {% if rang_station_pesage and rang_station_pesage.rang %}
-            <div class="supper-rank" style="margin-top: 1.25rem; background: linear-gradient(135deg, #ede9fe, #ddd6fe);">
+            <div class="supper-rank" style="margin-top: 1.25rem; background: linear-gradient(135deg, #e3edfd, #c7d9f8);">
                 <div class="supper-rank-badge {% if rang_station_pesage.rang == 1 %}gold{% elif rang_station_pesage.rang == 2 %}silver{% elif rang_station_pesage.rang == 3 %}bronze{% else %}purple{% endif %}">
                     {{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}<sup style="font-size: 0.5em;">er</sup>{% elif rang_station_pesage.rang <= 3 %}<sup style="font-size: 0.5em;">e</sup>{% endif %}
                 </div>

@@ -6,7 +6,7 @@
 
 {% block extra_css %}
 <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; }
     html, body { overflow-x: hidden !important; max-width: 100vw !important; width: 100% !important; position: relative !important; }
 
     .historiques-page { width: 100%; max-width: 100%; overflow-x: hidden; position: relative; }
@@ -198,7 +198,7 @@
 
         {% if historiques %}
         <div class="table-container">
-            <table class="historique-table table mb-0">
+            <table class="historique-table table mb-0 table-stack">
                 <thead>
                     <tr>
                         <th>{% trans "N° Historique" %}</th>
