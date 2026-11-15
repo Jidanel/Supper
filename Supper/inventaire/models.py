@@ -2652,6 +2652,14 @@ class Quittancement(models.Model):
         today = timezone.now().date()
         errors = {}
 
+        # 0. Le montant doit être un multiple de 500 (prix d'un ticket) — sauf ancienne ligne dont le montant n'a pas changé
+        if self.montant is not None:
+            from inventaire.services.messages_detail import montant_non_multiple_500
+            message_montant = montant_non_multiple_500(self.montant)
+            inchange = bool(self.pk) and Quittancement.objects.filter(pk=self.pk, montant=self.montant).exists()
+            if message_montant and not inchange:
+                errors['montant'] = message_montant
+
         # 1. Vérifier la date de quittancement
         if self.date_quittancement and self.date_quittancement > today:
             errors['date_quittancement'] = "La date de quittancement ne peut pas être dans le futur."

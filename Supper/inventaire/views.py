@@ -6572,6 +6572,11 @@ def saisie_quittancement(request):
                 errors.append("La date de quittancement ou de reversement est obligatoire")
             if not form_data['montant']:
                 errors.append("Le montant est obligatoire")
+            else:
+                from inventaire.services.messages_detail import montant_non_multiple_500
+                message_montant = montant_non_multiple_500(str(form_data['montant']).replace(' ', '').replace(',', '.'))
+                if message_montant:
+                    errors.append(message_montant)  # Barrière : multiple de 500 obligatoire
             if not form_data['poste_id']:
                 errors.append("Le poste est obligatoire")
 

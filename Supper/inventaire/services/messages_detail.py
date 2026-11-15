@@ -325,3 +325,22 @@ def poste_existant(code, exclude_pk=None):
     return (f"❌ Le code « {code} » est DÉJÀ UTILISÉ par le poste « {p.nom} » "
             f"(type : {p.get_type_display()}, région : {getattr(p.region, 'nom', 'non définie')}, "
             f"{'actif' if getattr(p, 'is_active', True) else 'DÉSACTIVÉ'}).")
+
+
+# ----------------------------------------------------------------------------------------------
+# Montant d'une quittance de péage : multiple de 500 (prix d'un ticket)
+# ----------------------------------------------------------------------------------------------
+def montant_non_multiple_500(montant):
+    """Message explicatif si `montant` n'est pas un multiple de 500 FCFA, sinon None."""
+    try:
+        valeur = int(round(float(montant)))  # Montant entier en FCFA
+    except (TypeError, ValueError):
+        return None  # Les autres contrôles gèrent les montants invalides
+    if valeur % 500 == 0:
+        return None
+    bas = (valeur // 500) * 500  # Multiple de 500 inférieur
+    haut = bas + 500  # Multiple de 500 supérieur
+    return (f"❌ Montant refusé : {fmt_montant(valeur)} n'est pas un multiple de 500. "
+            f"Un ticket de péage coûte 500 FCFA : le montant d'une quittance doit donc être un multiple de 500 "
+            f"(500, 1 000, 1 500, 2 000…). Montants les plus proches : {fmt_montant(bas)} ou {fmt_montant(haut)}. "
+            f"Vérifiez le montant écrit sur la quittance.")

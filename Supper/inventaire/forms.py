@@ -1083,6 +1083,15 @@ class QuittancementForm(forms.ModelForm):
         # L'image est optionnelle
         self.fields['image_quittance'].required = False
 
+    def clean_montant(self):
+        """Barrière : le montant d'une quittance péage doit être un multiple de 500 (prix d'un ticket)."""
+        montant = self.cleaned_data.get('montant')
+        from inventaire.services.messages_detail import montant_non_multiple_500
+        message = montant_non_multiple_500(montant)
+        if message:
+            raise forms.ValidationError(message)
+        return montant
+
     def clean_numero_quittance(self):
         """Numéro de quittance : refusé s'il existe déjà (péage OU pesage), avec tous les détails de l'existant."""
         numero = (self.cleaned_data.get('numero_quittance') or '').strip().upper()
