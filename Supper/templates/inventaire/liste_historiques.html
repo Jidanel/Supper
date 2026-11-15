@@ -22,8 +22,8 @@
     .header-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; flex-shrink: 0; }
 
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; width: 100%; }
-    .stat-card { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 1.25rem; border-radius: 12px; text-align: center; width: 100%; }
-    .stat-card.purple { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
+    .stat-card { background: linear-gradient(135deg, #1d4ed8, #123c7c); color: white; padding: 1.25rem; border-radius: 12px; text-align: center; width: 100%; }
+    .stat-card.purple { background: linear-gradient(135deg, #3b82f6, #a855f7); }
     .stat-card.green { background: linear-gradient(135deg, #10b981, #059669); }
     .stat-card.orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
     .stat-value { font-size: 1.75rem; font-weight: bold; margin-bottom: 0.5rem; line-height: 1.2; }
@@ -35,7 +35,7 @@
     .filter-group { flex: 1; min-width: 150px; max-width: 100%; }
     .filter-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; color: #374151; }
     .filter-group .form-select, .filter-group .form-control { width: 100%; padding: 0.625rem 0.875rem; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem; }
-    .filter-group .form-select:focus, .filter-group .form-control:focus { outline: 2px solid #667eea; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    .filter-group .form-select:focus, .filter-group .form-control:focus { outline: 2px solid #1d4ed8; border-color: #1d4ed8; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
     .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
     .table-container { width: 100%; overflow-x: auto; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); background: white; -webkit-overflow-scrolling: touch; }
@@ -44,7 +44,7 @@
     .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
     .historique-table { background: white; border-radius: 12px; width: 100%; min-width: 900px; border-collapse: collapse; }
-    .historique-table thead { background: linear-gradient(135deg, #8b5cf6, #a855f7); color: white; }
+    .historique-table thead { background: linear-gradient(135deg, #3b82f6, #a855f7); color: white; }
     .historique-table th { padding: 1rem; font-weight: 600; border: none; white-space: nowrap; font-size: 0.9rem; text-align: left; }
     .historique-table td { padding: 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; font-size: 0.9rem; }
     .historique-table tbody tr:hover { background: #f9fafb; }
@@ -54,7 +54,7 @@
     .badge-poste { background: #f3f4f6; color: #374151; }
 
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: all 0.3s; text-decoration: none; cursor: pointer; border: none; min-height: 44px; }
-    .btn-primary { background: linear-gradient(135deg, #8b5cf6, #a855f7); color: white; }
+    .btn-primary { background: linear-gradient(135deg, #3b82f6, #a855f7); color: white; }
     .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); color: white; }
     .btn-outline-secondary { background: transparent; border: 1px solid #6b7280; color: #6b7280; }
     .btn-outline-secondary:hover { background: #6b7280; color: white; }
@@ -67,7 +67,7 @@
 
     .pagination { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.25rem; list-style: none; padding: 0; margin: 1.5rem 0 0; }
     .page-link { display: flex; align-items: center; justify-content: center; padding: 0.5rem 0.875rem; border: 1px solid #e5e7eb; border-radius: 6px; color: #374151; text-decoration: none; font-size: 0.875rem; background: white; min-height: 40px; }
-    .page-item.active .page-link { background: #8b5cf6; color: white; border-color: #8b5cf6; }
+    .page-item.active .page-link { background: #3b82f6; color: white; border-color: #3b82f6; }
     .page-link:hover { background: #f3f4f6; }
 
     .empty-state { text-align: center; padding: 3rem 1.5rem; color: #6b7280; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); width: 100%; }
@@ -132,7 +132,7 @@
     @media (max-width: 375px) { .stats-grid { grid-template-columns: 1fr; } .historique-table { min-width: 550px; } .page-header h2 { font-size: 1.1rem; } }
     @media (max-width: 896px) and (orientation: landscape) { .stats-grid { grid-template-columns: repeat(4, 1fr); } .filter-row { flex-direction: row; } .filter-group { flex: 1; } }
     @media (max-width: 768px) { input[type="text"], input[type="number"], input[type="date"], select, textarea { font-size: 16px !important; } ::-webkit-scrollbar { width: 4px; height: 4px; } }
-    .form-select:focus, .form-control:focus, .btn:focus, .page-link:focus { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+    .form-select:focus, .form-control:focus, .btn:focus, .page-link:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
     @media print { .btn, .filter-section, .header-buttons, .pagination { display: none !important; } .table-container { overflow: visible !important; box-shadow: none !important; } .historique-table { min-width: 100% !important; } .historique-table thead { background: #f3f4f6 !important; color: #1f2937 !important; } }
 </style>
 {% endblock %}
@@ -142,7 +142,7 @@
     <div class="container-fluid py-4">
         <div class="page-header mb-4">
             <div class="page-header-content">
-                <h2 class="mb-0"><i class="fas fa-history me-2" style="color: #8b5cf6;"></i>{% trans "Historiques ou Extraits de compte" %}</h2>
+                <h2 class="mb-0"><i class="fas fa-history me-2" style="color: #3b82f6;"></i>{% trans "Historiques ou Extraits de compte" %}</h2>
                 <p class="text-muted mt-2">{% trans "Gestion des historiques ou extraits de compte par poste et par mois" %}</p>
             </div>
             <div class="header-buttons">

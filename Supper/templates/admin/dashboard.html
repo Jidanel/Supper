@@ -8,9 +8,9 @@
 <style>
 /* Variables CSS pour cohérence avec le design existant */
 :root {
-    --violet-principal: #6B46C1;
-    --violet-fonce: #553C9A;
-    --violet-clair: #8B5CF6;
+    --violet-principal: #1d4ed8;
+    --violet-fonce: #123c7c;
+    --violet-clair: #3b82f6;
     --blanc-pur: #FFFFFF;
     --gris-clair: #F8FAFC;
     --gris-moyen: #64748B;
@@ -175,7 +175,7 @@
 .stat-card-icon.users { background: linear-gradient(135deg, #3B82F6, #1D4ED8); }
 .stat-card-icon.posts { background: linear-gradient(135deg, #10B981, #047857); }
 .stat-card-icon.inventory { background: linear-gradient(135deg, var(--accent-orange), #D97706); }
-.stat-card-icon.revenue { background: linear-gradient(135deg, #8B5CF6, var(--violet-principal)); }
+.stat-card-icon.revenue { background: linear-gradient(135deg, #3b82f6, var(--violet-principal)); }
 
 .stat-card-value {
     font-size: 2.8rem;
@@ -768,7 +768,7 @@ function chargerGraphiques() {
                     datasets: [{
                         label: 'Taux Déperdition',
                         data: data.taux_deperdition,
-                        borderColor: '#6B46C1',
+                        borderColor: '#1d4ed8',
                         backgroundColor: 'rgba(107, 70, 193, 0.1)',
                         tension: 0.4
                     }, {
@@ -805,7 +805,7 @@ function chargerGraphiques() {
                     datasets: [{
                         data: Object.values(regions),
                         backgroundColor: [
-                            '#6B46C1', '#8B5CF6', '#A78BFA',
+                            '#1d4ed8', '#3b82f6', '#A78BFA',
                             '#C4B5FD', '#DDD6FE', '#F59E0B',
                             '#FBBF24', '#FCD34D', '#FDE68A', '#FEF3C7'
                         ]

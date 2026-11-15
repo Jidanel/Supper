@@ -23,7 +23,7 @@
        PAGE PRINCIPALE - RESPONSIVE
        ============================================ */
     .stats-page {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1d4ed8 0%, #123c7c 100%);
         min-height: calc(100vh - 80px);
         padding: 2rem;
         margin: 0;
@@ -48,7 +48,7 @@
         padding: 1.5rem;
         margin-bottom: 2rem;
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
-        border-top: 5px solid #8B5CF6;
+        border-top: 5px solid #3b82f6;
         width: 100%;
         overflow: hidden;
     }
@@ -82,7 +82,7 @@
     }
 
     .stats-header-text h1 i {
-        color: #8B5CF6;
+        color: #3b82f6;
         flex-shrink: 0;
     }
 
@@ -100,8 +100,8 @@
         gap: 0.5rem;
         padding: 0.75rem 1.25rem;
         background: white;
-        color: #7C3AED;
-        border: 2px solid #7C3AED;
+        color: #1d4ed8;
+        border: 2px solid #1d4ed8;
         border-radius: 10px;
         text-decoration: none;
         font-weight: 600;
@@ -112,7 +112,7 @@
     }
 
     .btn-back:hover {
-        background: #7C3AED;
+        background: #1d4ed8;
         color: white;
     }
 
@@ -166,13 +166,13 @@
 
     .form-select:focus {
         outline: none;
-        border-color: #8B5CF6;
+        border-color: #3b82f6;
         box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
     }
 
     .btn-filter {
         padding: 0.625rem 1.5rem;
-        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
         color: white;
         border: none;
         border-radius: 8px;
@@ -225,7 +225,7 @@
     .stat-card.blue::before { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
     .stat-card.green::before { background: linear-gradient(90deg, #10B981, #6EE7B7); }
     .stat-card.red::before { background: linear-gradient(90deg, #EF4444, #FCA5A5); }
-    .stat-card.purple::before { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+    .stat-card.purple::before { background: linear-gradient(90deg, #3b82f6, #A78BFA); }
 
     .stat-card-header {
         display: flex;
@@ -262,7 +262,7 @@
     .stat-card-icon.blue { background: linear-gradient(135deg, #3B82F6, #60A5FA); }
     .stat-card-icon.green { background: linear-gradient(135deg, #10B981, #6EE7B7); }
     .stat-card-icon.red { background: linear-gradient(135deg, #EF4444, #FCA5A5); }
-    .stat-card-icon.purple { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
+    .stat-card-icon.purple { background: linear-gradient(135deg, #3b82f6, #A78BFA); }
 
     .stat-card-value {
         font-size: 2rem;
@@ -278,7 +278,7 @@
     .stat-card-value.red { color: #EF4444; }
     .stat-card-value.amber { color: #F59E0B; }
     .stat-card-value.blue { color: #3B82F6; }
-    .stat-card-value.purple { color: #8B5CF6; }
+    .stat-card-value.purple { color: #3b82f6; }
 
     .stat-card-detail {
         font-size: 0.875rem;
@@ -318,7 +318,7 @@
     }
 
     .progress-title i {
-        color: #8B5CF6;
+        color: #3b82f6;
         flex-shrink: 0;
     }
 
@@ -422,7 +422,7 @@
     }
 
     .indicator-title i.amber { color: #F59E0B; }
-    .indicator-title i.purple { color: #8B5CF6; }
+    .indicator-title i.purple { color: #3b82f6; }
 
     .indicator-item {
         display: flex;
@@ -542,7 +542,7 @@
 
     .action-btn.blue { background: linear-gradient(135deg, #3B82F6, #60A5FA); }
     .action-btn.green { background: linear-gradient(135deg, #10B981, #6EE7B7); }
-    .action-btn.purple { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
+    .action-btn.purple { background: linear-gradient(135deg, #3b82f6, #A78BFA); }
     .action-btn.amber { background: linear-gradient(135deg, #F59E0B, #FCD34D); }
     .action-btn.outline {
         background: white;
@@ -924,7 +924,7 @@
     .btn-filter:focus,
     .action-btn:focus,
     .form-select:focus {
-        outline: 2px solid #8B5CF6;
+        outline: 2px solid #3b82f6;
         outline-offset: 2px;
     }
 
@@ -992,9 +992,9 @@
                     </h1>
                     <p>
                         {% if station %}
-                            Station: <strong style="color: #7C3AED;">{{ station.nom }}</strong>
+                            Station: <strong style="color: #1d4ed8;">{{ station.nom }}</strong>
                         {% else %}
-                            <strong style="color: #7C3AED;">Toutes les stations</strong>
+                            <strong style="color: #1d4ed8;">Toutes les stations</strong>
                         {% endif %}
                         &nbsp;•&nbsp; Période: {{ date_debut|date:"d/m/Y" }} - {{ date_fin|date:"d/m/Y" }}
                     </p>

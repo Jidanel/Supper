@@ -65,6 +65,7 @@ urlpatterns = [
     # ADMINISTRATION
     # ================================================================
        # URLs des applications avec vues vérifiées
+    path('i18n/', include('django.conf.urls.i18n')),  # Changement de langue FR/EN
     path('accounts/', include('accounts.urls')),
     path('inventaire/', include('inventaire.urls')),
     path('common/', include('common.urls')),

@@ -1,0 +1,242 @@
+/* =====================================================================
+   SUPPER - THÈME UNIFIÉ BLEU & BLANC
+   Fichier chargé APRÈS les styles de chaque page : il uniformise l'allure
+   de toute l'application (PC et mobile). Pour changer la teinte générale,
+   modifier uniquement les variables de la section « 1. VARIABLES ».
+   Les couleurs vert / orange / rouge sont conservées UNIQUEMENT pour le
+   sens métier (payé, alerte, erreur, taux de déperdition).
+   ===================================================================== */
+
+/* ---------- 1. VARIABLES ---------- */
+:root {
+    --sp-blue-900: #0b2a5b;      /* Bleu très foncé : textes forts, en-têtes */
+    --sp-blue-800: #123c7c;      /* Bleu foncé */
+    --sp-blue-700: #1d4ed8;      /* Bleu principal (actions) */
+    --sp-blue-600: #2563eb;      /* Bleu vif (survol) */
+    --sp-blue-500: #3b82f6;      /* Bleu clair */
+    --sp-blue-100: #dbeafe;      /* Bleu très clair (fonds actifs) */
+    --sp-blue-50:  #eff6ff;      /* Bleu pâle (fonds de section) */
+    --sp-bg:       #f4f7fc;      /* Fond général des pages */
+    --sp-white:    #ffffff;      /* Blanc des cartes */
+    --sp-text:     #1e293b;      /* Texte courant */
+    --sp-muted:    #64748b;      /* Texte secondaire */
+    --sp-border:   #e2e8f0;      /* Bordures fines */
+    --sp-radius:   14px;         /* Arrondi des cartes */
+    --sp-radius-sm: 10px;        /* Arrondi des champs et boutons */
+    --sp-shadow:   0 2px 12px rgba(15, 40, 90, 0.07);   /* Ombre douce */
+    --sp-shadow-lg: 0 10px 30px rgba(15, 40, 90, 0.12); /* Ombre marquée */
+
+    /* Réaffectation des variables historiques vers le bleu */
+    --primary-color: var(--sp-blue-700);
+    --primary-dark:  var(--sp-blue-800);
+    --primary-light: var(--sp-blue-500);
+    --info-color:    var(--sp-blue-600);
+    --purple-color:  var(--sp-blue-600);
+    --violet-principal: var(--sp-blue-700);
+    --supper-primary: var(--sp-blue-700);
+    --bs-primary: #1d4ed8;
+    --bs-primary-rgb: 29, 78, 216;
+    --bs-link-color: #1d4ed8;
+    --bs-link-hover-color: #123c7c;
+}
+
+/* ---------- 2. BASE ---------- */
+html { -webkit-text-size-adjust: 100%; }
+body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif !important;
+    background: var(--sp-bg) !important;
+    color: var(--sp-text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+h1, h2, h3, h4, h5, h6 { color: var(--sp-blue-900); font-weight: 650; letter-spacing: -0.01em; }
+a { color: var(--sp-blue-700); }
+a:hover { color: var(--sp-blue-800); }
+.main-content { padding: 1.25rem 1rem 2rem; max-width: 1500px; margin: 0 auto; }
+
+/* ---------- 3. EN-TÊTE (barre du haut) ---------- */
+.header-main {
+    background: var(--sp-blue-900) !important;
+    box-shadow: 0 2px 14px rgba(11, 42, 91, 0.25) !important;
+}
+.header-main .logo-section h1 { text-shadow: none !important; font-size: 1.45rem; letter-spacing: 0.02em; }
+.header-main .subtitle { color: #bcd2f5 !important; font-weight: 400; }
+.header-main .nav-links > li > .nav-link,
+.header-main .nav-links > li > a {
+    border-radius: 10px;
+    color: #e6efff !important;
+    font-weight: 500;
+}
+.header-main .nav-links > li > .nav-link:hover,
+.header-main .nav-links > li > a:hover,
+.header-main .nav-links > li > .nav-link.active {
+    background: rgba(255, 255, 255, 0.14) !important;
+    color: #fff !important;
+}
+.header-main .dropdown-menu, .dropdown-menu {
+    border: 1px solid var(--sp-border) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--sp-shadow-lg) !important;
+    padding: 0.4rem !important;
+}
+.dropdown-item { border-radius: 8px; color: var(--sp-text); }
+.dropdown-item:hover, .dropdown-item:focus { background: var(--sp-blue-50) !important; color: var(--sp-blue-800) !important; }
+.dropdown-header { color: var(--sp-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* ---------- 4. MENU MOBILE (tiroir latéral) ---------- */
+.mobile-sidebar { width: min(320px, 86vw) !important; left: calc(-1 * min(320px, 86vw)) !important; border-radius: 0 18px 18px 0; box-shadow: var(--sp-shadow-lg) !important; }
+.mobile-sidebar.active { left: 0 !important; }
+.sidebar-header { background: var(--sp-blue-900) !important; border-bottom: 0 !important; }
+.sidebar-header h3 { letter-spacing: 0.03em; }
+.sidebar-nav .nav-links > li { border-bottom: 0 !important; padding: 0 0.6rem; }
+.sidebar-nav .nav-link { border-radius: 12px; padding: 0.85rem 1rem !important; margin: 0.15rem 0; color: var(--sp-text) !important; }
+.sidebar-nav .nav-link:hover { background: var(--sp-blue-50) !important; color: var(--sp-blue-800) !important; }
+.sidebar-nav .nav-link.active { background: var(--sp-blue-100) !important; color: var(--sp-blue-800) !important; font-weight: 650; box-shadow: inset 4px 0 0 var(--sp-blue-700); }
+.sidebar-nav .collapse { background: transparent !important; }
+.sidebar-nav .collapse .dropdown-item { border-radius: 10px; margin: 0.1rem 0.4rem; color: var(--sp-muted); }
+.sidebar-nav .collapse .dropdown-item:hover { background: var(--sp-blue-50) !important; border-left-color: transparent; color: var(--sp-blue-800); }
+.sidebar-user { background: var(--sp-blue-900) !important; border-top: 0 !important; }
+.sidebar-user .user-info, .sidebar-user .user-name { color: #fff !important; }
+.sidebar-user .user-role { color: #bcd2f5 !important; }
+.sidebar-user .btn-outline-light { border-color: rgba(255,255,255,.45) !important; color: #fff !important; background: transparent !important; }
+.sidebar-user .btn-outline-light:hover { background: rgba(255,255,255,.15) !important; }
+
+/* ---------- 5. CARTES ---------- */
+.card, .supper-card, .info-card, .form-card, .stats-card, .detail-card {
+    background: var(--sp-white);
+    border: 1px solid var(--sp-border) !important;
+    border-radius: var(--sp-radius) !important;
+    box-shadow: var(--sp-shadow) !important;
+}
+.card-header {
+    background: var(--sp-white) !important;
+    color: var(--sp-blue-900) !important;
+    border-bottom: 1px solid var(--sp-border) !important;
+    border-radius: var(--sp-radius) var(--sp-radius) 0 0 !important;
+    font-weight: 650;
+}
+/* En-têtes de cartes colorées (violet, vert, cyan...) -> bleu foncé uniforme */
+.card-header.bg-primary, .card-header.bg-info, .card-header.bg-success,
+.card-header.bg-secondary, .card-header.bg-dark {
+    background: var(--sp-blue-800) !important; color: #fff !important;
+}
+.card-header.bg-danger { background: #b91c1c !important; color: #fff !important; }   /* Danger : conservé */
+.card-header.bg-warning { background: #fff7e6 !important; color: #92400e !important; } /* Avertissement : sobre */
+.bg-primary, .bg-info { background-color: var(--sp-blue-700) !important; }
+.bg-success.bg-opacity-10, .bg-info.bg-opacity-10, .bg-primary.bg-opacity-10 { background-color: var(--sp-blue-50) !important; }
+.text-primary, .text-info { color: var(--sp-blue-700) !important; }
+
+/* ---------- 6. CARTES DE STATISTIQUES (KPI) : tout en bleu ---------- */
+.stat-card, .stat-card.primary, .stat-card.info, .stat-card.success, .stat-card.secondary,
+.stat-box, .stats-card, .kpi-card, .summary-card, .stat-card-header {
+    background: linear-gradient(135deg, var(--sp-blue-700) 0%, var(--sp-blue-800) 100%) !important;
+    color: #fff !important;
+    border: 0 !important;
+    border-radius: var(--sp-radius) !important;
+    box-shadow: var(--sp-shadow) !important;
+}
+.stat-card:nth-child(even), .stat-card.info { background: linear-gradient(135deg, var(--sp-blue-500) 0%, var(--sp-blue-700) 100%) !important; }
+.stat-card.warning { background: #fff7e6 !important; color: #92400e !important; }   /* Avertissement sobre */
+.stat-card.danger  { background: #fef2f2 !important; color: #991b1b !important; }   /* Danger sobre */
+.stat-card .stat-label, .stat-box .stat-label, .stats-card .stat-label { color: rgba(255,255,255,0.85) !important; font-size: 0.82rem; }
+.stat-card .stat-value, .stat-box .stat-value, .stats-card .stat-value { color: #fff !important; font-weight: 700; }
+.stat-card.warning .stat-label, .stat-card.warning .stat-value { color: #92400e !important; }
+.stat-card.danger .stat-label, .stat-card.danger .stat-value { color: #991b1b !important; }
+
+/* ---------- 7. BOUTONS ---------- */
+.btn { border-radius: var(--sp-radius-sm); font-weight: 550; padding: 0.5rem 1rem; transition: all .18s ease; }
+.btn-primary, .btn-info, .btn-success.btn-lg-primary {
+    background: var(--sp-blue-700) !important; border-color: var(--sp-blue-700) !important; color: #fff !important;
+}
+.btn-primary:hover, .btn-info:hover { background: var(--sp-blue-600) !important; border-color: var(--sp-blue-600) !important; transform: translateY(-1px); box-shadow: 0 6px 14px rgba(29,78,216,.25); }
+.btn-outline-primary, .btn-outline-info, .btn-outline-secondary { color: var(--sp-blue-700) !important; border-color: #b9cdf3 !important; background: #fff; }
+.btn-outline-primary:hover, .btn-outline-info:hover, .btn-outline-secondary:hover { background: var(--sp-blue-50) !important; color: var(--sp-blue-800) !important; border-color: var(--sp-blue-500) !important; }
+.btn-secondary { background: #e9eef8 !important; border-color: #e9eef8 !important; color: var(--sp-blue-900) !important; }
+.btn-secondary:hover { background: #dbe5f6 !important; }
+.btn-sm { padding: 0.3rem 0.65rem; border-radius: 8px; }
+/* success / warning / danger : conservés (sens métier) mais adoucis */
+.btn-success { background: #15803d !important; border-color: #15803d !important; }
+.btn-danger  { background: #b91c1c !important; border-color: #b91c1c !important; }
+
+/* ---------- 8. FORMULAIRES ---------- */
+.form-label { font-weight: 600; color: var(--sp-blue-900); font-size: 0.88rem; }
+.form-control, .form-select {
+    border: 1.5px solid var(--sp-border); border-radius: var(--sp-radius-sm); padding: 0.6rem 0.85rem; background: #fff; color: var(--sp-text);
+}
+.form-control:focus, .form-select:focus { border-color: var(--sp-blue-500); box-shadow: 0 0 0 4px rgba(59,130,246,.15); }
+.form-check-input:checked { background-color: var(--sp-blue-700); border-color: var(--sp-blue-700); }
+.input-group-text { background: var(--sp-blue-50); border-color: var(--sp-border); color: var(--sp-blue-800); }
+
+/* ---------- 9. TABLEAUX ---------- */
+.table { --bs-table-bg: transparent; color: var(--sp-text); }
+.table thead th, .table > thead > tr > th {
+    background: var(--sp-blue-50) !important; color: var(--sp-blue-900) !important;
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--sp-blue-100) !important; white-space: nowrap;
+}
+.table thead.table-dark th, .table-dark > thead > tr > th, thead.bg-primary th, thead.bg-dark th {
+    background: var(--sp-blue-800) !important; color: #fff !important; border-bottom: 0 !important;
+}
+.table-hover > tbody > tr:hover > * { background: var(--sp-blue-50) !important; }
+.table-striped > tbody > tr:nth-of-type(odd) > * { background: #f8fafd; }
+.table td, .table th { vertical-align: middle; }
+.table-responsive { border-radius: var(--sp-radius); -webkit-overflow-scrolling: touch; }
+
+/* ---------- 10. BADGES, ALERTES, PAGINATION ---------- */
+.badge { border-radius: 999px; font-weight: 600; padding: 0.38em 0.75em; }
+.badge.bg-primary, .badge.bg-info, .badge.bg-secondary { background: var(--sp-blue-100) !important; color: var(--sp-blue-800) !important; }
+.alert { border-radius: var(--sp-radius-sm); border-width: 1px; }
+.alert-info, .alert-primary { background: var(--sp-blue-50); border-color: var(--sp-blue-100); color: var(--sp-blue-900); }
+.page-link { color: var(--sp-blue-700); border-radius: 8px; margin: 0 2px; border-color: var(--sp-border); }
+.page-item.active .page-link { background: var(--sp-blue-700); border-color: var(--sp-blue-700); }
+.nav-tabs .nav-link.active, .nav-pills .nav-link.active { background: var(--sp-blue-700); color: #fff; border-color: var(--sp-blue-700); }
+.nav-tabs .nav-link { color: var(--sp-blue-800); }
+.progress-bar { background-color: var(--sp-blue-700); }
+.modal-content { border: 0; border-radius: var(--sp-radius); box-shadow: var(--sp-shadow-lg); }
+.modal-header { background: var(--sp-blue-50); border-bottom: 1px solid var(--sp-blue-100); }
+
+/* ---------- 11. TITRES DE PAGE colorés en violet/vert -> bleu foncé ---------- */
+.page-header, .page-title-bar, .header-violet, .supper-page-header {
+    background: linear-gradient(135deg, var(--sp-blue-800) 0%, var(--sp-blue-700) 100%) !important;
+    color: #fff !important; border-radius: var(--sp-radius) !important; box-shadow: var(--sp-shadow) !important;
+}
+
+/* ---------- 12. MOBILE ---------- */
+@media (max-width: 768px) {
+    body { font-size: 0.93rem; }
+    .main-content { padding: 0.75rem 0.6rem 1.5rem; }
+    .card { border-radius: 12px !important; }
+    .btn { padding: 0.6rem 0.9rem; min-height: 42px; }
+    .form-control, .form-select { font-size: 16px; min-height: 44px; }   /* évite le zoom automatique sur téléphone */
+    .stats-grid { grid-template-columns: 1fr !important; }
+    .table-responsive { border: 1px solid var(--sp-border); }
+}
+@media (min-width: 992px) { .main-content { padding: 1.5rem 1.5rem 2.5rem; } }
+
+/* Impression : on retire les ombres */
+@media print { .card { box-shadow: none !important; } }
+
+/* ---------- 13. MOBILE : bouton menu à GAUCHE, tiroir qui se détache du bord gauche ---------- */
+@media (max-width: 1200px) {
+    .header-container { flex-wrap: nowrap !important; align-items: center; gap: 0.6rem !important; }
+    .mobile-menu-toggle {
+        order: -1 !important;            /* Bouton menu tout à gauche */
+        margin-left: 0 !important;
+        background: rgba(255,255,255,0.12); color: #fff; border: 0; border-radius: 10px;
+        width: 42px; height: 42px; display: flex !important; align-items: center; justify-content: center; font-size: 1.15rem;
+    }
+    .logo-section { order: 0 !important; min-width: 0 !important; flex: 0 1 auto; }
+    .user-section { order: 2 !important; margin-left: auto !important; display: flex; align-items: center; gap: .25rem; }
+}
+/* Tiroir : large de 84 % de l'écran (max 320px), la page reste visible et assombrie à droite */
+.mobile-sidebar { width: min(320px, 84vw) !important; left: calc(-1 * min(320px, 84vw) - 20px) !important; right: auto !important; border-radius: 0 20px 20px 0 !important; transition: left .28s ease !important; }
+.mobile-sidebar.active { left: 0 !important; }
+.mobile-overlay { background: rgba(11, 42, 91, 0.45) !important; backdrop-filter: blur(1px); }
+
+/* Menu mobile : titre lisible, icônes et textes alignés à gauche, chevron à droite */
+.sidebar-header h3 { color: #fff !important; }
+.sidebar-nav .nav-link { justify-content: flex-start !important; gap: .75rem; text-align: left; }
+.sidebar-nav .nav-link i.fa-chevron-down { margin-left: auto; }
+.sidebar-nav .nav-link i.me-2 { margin-right: 0 !important; width: 1.25rem; text-align: center; color: var(--sp-blue-700); }
+.sidebar-nav .nav-link.active i.me-2 { color: var(--sp-blue-800); }
+.sidebar-nav .nav-link { font-size: 1rem !important; }

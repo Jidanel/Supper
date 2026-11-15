@@ -218,7 +218,7 @@ CHEMIN: Supper/templates/admin/index.html
     .supper-stat-card.green::before { background: linear-gradient(90deg, #059669, #10b981); }
     .supper-stat-card.amber::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
     .supper-stat-card.red::before { background: linear-gradient(90deg, #dc2626, #ef4444); }
-    .supper-stat-card.purple::before { background: linear-gradient(90deg, #7c3aed, #8b5cf6); }
+    .supper-stat-card.purple::before { background: linear-gradient(90deg, #1d4ed8, #3b82f6); }
 
     .supper-stat-header {
         display: flex;
@@ -258,7 +258,7 @@ CHEMIN: Supper/templates/admin/index.html
     .supper-stat-icon.green { background: linear-gradient(135deg, #059669, #10b981); }
     .supper-stat-icon.amber { background: linear-gradient(135deg, #d97706, #f59e0b); }
     .supper-stat-icon.red { background: linear-gradient(135deg, #dc2626, #ef4444); }
-    .supper-stat-icon.purple { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+    .supper-stat-icon.purple { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
 
     .supper-stat-value {
         font-size: 1.75rem;
@@ -460,7 +460,7 @@ CHEMIN: Supper/templates/admin/index.html
     .supper-rank-badge.silver { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #374151; }
     .supper-rank-badge.bronze { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
     .supper-rank-badge.default { background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; }
-    .supper-rank-badge.purple { background: linear-gradient(135deg, #7c3aed, #8b5cf6); color: #fff; }
+    .supper-rank-badge.purple { background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: #fff; }
 
     .supper-rank-info {
         flex: 1;
@@ -514,7 +514,7 @@ CHEMIN: Supper/templates/admin/index.html
         overflow: hidden;
     }
 
-    .supper-pesage-stat.purple { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+    .supper-pesage-stat.purple { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
     .supper-pesage-stat.amber { background: linear-gradient(135deg, #d97706, #f59e0b); }
     .supper-pesage-stat.blue { background: linear-gradient(135deg, #1e40af, #3b82f6); }
     .supper-pesage-stat.green { background: linear-gradient(135deg, #059669, #10b981); }
@@ -612,7 +612,7 @@ CHEMIN: Supper/templates/admin/index.html
     .supper-month-item span.amber { color: #d97706; }
     .supper-month-item span.green { color: #059669; }
     .supper-month-item span.red { color: #dc2626; }
-    .supper-month-item span.purple { color: #7c3aed; }
+    .supper-month-item span.purple { color: #1d4ed8; }
 
     /* ============================================
        ALERTES - RESPONSIVE
@@ -717,8 +717,8 @@ CHEMIN: Supper/templates/admin/index.html
         overflow: hidden;
     }
 
-    .supper-btn.purple { background: #7c3aed; color: #fff; }
-    .supper-btn.indigo { background: #6366f1; color: #fff; }
+    .supper-btn.purple { background: #1d4ed8; color: #fff; }
+    .supper-btn.indigo { background: #3b82f6; color: #fff; }
     .supper-btn.green { background: #059669; color: #fff; }
     .supper-btn.pink { background: #ec4899; color: #fff; }
     .supper-btn.blue { background: #1e40af; color: #fff; }
@@ -1950,7 +1950,7 @@ CHEMIN: Supper/templates/admin/index.html
 
                 <!-- Cohérence 3/3 critères -->
                 {% if rang_agent_inventaire.jours_3_criteres is not None %}
-                <div class="supper-pesage-stat" style="background: linear-gradient(135deg, #7c3aed, #8b5cf6);">
+                <div class="supper-pesage-stat" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">
                     <div class="supper-pesage-stat-label">
                         <i class="fas fa-check-double"></i> {% trans "Cohérence 3/3" %}
                     </div>
@@ -2152,7 +2152,7 @@ CHEMIN: Supper/templates/admin/index.html
         {% if has_pesage_access and stats_pesage %}
         <div class="supper-section">
             <h2 class="supper-section-title">
-                <i class="fas fa-weight-scale" style="color: #7c3aed;"></i>
+                <i class="fas fa-weight-scale" style="color: #1d4ed8;"></i>
                 {% trans "Module Pesage" %}
                 <span class="supper-section-meta">
                     {{ stats_pesage.label_scope }}
@@ -2253,7 +2253,7 @@ CHEMIN: Supper/templates/admin/index.html
                     {{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}<sup style="font-size: 0.5em;">er</sup>{% elif rang_station_pesage.rang <= 3 %}<sup style="font-size: 0.5em;">e</sup>{% endif %}
                 </div>
                 <div class="supper-rank-info">
-                    <h4 style="color: #5b21b6;">
+                    <h4 style="color: #123c7c;">
                         {% if rang_station_pesage.rang == 1 %}
                         {% trans "Champion des stations !" %}
                         {% elif rang_station_pesage.rang <= 3 %}
@@ -2264,7 +2264,7 @@ CHEMIN: Supper/templates/admin/index.html
                         {% trans "Classement actuel" %}
                         {% endif %}
                     </h4>
-                    <p style="color: #7c3aed;">{{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}re{% else %}ème{% endif %} {% trans "position sur" %} {{ rang_station_pesage.total_stations }} {% trans "stations" %}</p>
+                    <p style="color: #1d4ed8;">{{ rang_station_pesage.rang }}{% if rang_station_pesage.rang == 1 %}re{% else %}ème{% endif %} {% trans "position sur" %} {{ rang_station_pesage.total_stations }} {% trans "stations" %}</p>
                     <small style="color: #6d28d9;">
                         {% trans "Total recouvré:" %} {{ rang_station_pesage.total_recouvre|floatformat:0|intcomma }} FCFA
                         {% if rang_station_pesage.taux_recouvrement %}
