@@ -1083,6 +1083,15 @@ class QuittancementForm(forms.ModelForm):
         # L'image est optionnelle
         self.fields['image_quittance'].required = False
 
+    def clean_numero_quittance(self):
+        """Numéro de quittance : refusé s'il existe déjà (péage OU pesage), avec tous les détails de l'existant."""
+        numero = (self.cleaned_data.get('numero_quittance') or '').strip().upper()
+        from inventaire.services.messages_detail import quittance_existante
+        message = quittance_existante(numero, exclude_peage_pk=self.instance.pk if self.instance and self.instance.pk else None)
+        if message:
+            raise forms.ValidationError(message)
+        return numero
+
     def clean(self):
         cleaned_data = super().clean()
         from django.utils import timezone
@@ -1112,8 +1121,10 @@ class QuittancementForm(forms.ModelForm):
                 ).exclude(pk=self.instance.pk if self.instance.pk else None)
 
                 if existing.exists():
+                    from inventaire.services.messages_detail import detail_quittance_peage
                     self.add_error('date_recette',
-                        f"Un quittancement existe déjà pour le {date_recette.strftime('%d/%m/%Y')} sur ce poste.")
+                        f"❌ Un quittancement existe DÉJÀ pour la recette du {date_recette.strftime('%d/%m/%Y')} sur ce poste. "
+                        f"Déjà enregistré : {detail_quittance_peage(existing.select_related('poste', 'saisi_par').first())}.")
 
             # Nettoyer les champs décade
             cleaned_data['date_debut_decade'] = None
@@ -1146,10 +1157,9 @@ class QuittancementForm(forms.ModelForm):
 
                 for q in chevauchements:
                     if (date_debut <= q.date_fin_decade and date_fin >= q.date_debut_decade):
+                        from inventaire.services.messages_detail import detail_quittance_peage
                         self.add_error('date_debut_decade',
-                            f"Cette période chevauche avec le quittancement {q.numero_quittance} "
-                            f"({q.date_debut_decade.strftime('%d/%m/%Y')} au "
-                            f"{q.date_fin_decade.strftime('%d/%m/%Y')})")
+                            f"❌ Cette période chevauche une décade déjà enregistrée : {detail_quittance_peage(q)}")
                         break
 
             # Nettoyer le champ date_recette

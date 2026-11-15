@@ -75,6 +75,7 @@ MIDDLEWARE = [
     'common.middleware.AdminAccessMiddleware',       # Contrôle admin
     'common.middleware.SecurityMiddleware',          # Sécurité
     'common.middleware.PerformanceMiddleware',       # Performance
+    'common.middleware_integrite.ErreurIntegriteMiddleware',  # Doublons : messages détaillés
 ]
 
 # ===================================================================

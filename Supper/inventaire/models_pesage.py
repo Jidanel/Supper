@@ -924,9 +924,11 @@ class QuittancementPesage(models.Model):
                 ).exclude(pk=self.pk if self.pk else None)
 
                 if existing.exists():
+                    from inventaire.services.messages_detail import detail_quittance_pesage
                     errors['date_recette'] = (
-                        f"Un quittancement existe déjà pour le {self.date_recette.strftime('%d/%m/%Y')} "
-                        f"sur cette station (N°{existing.first().numero_quittance})."
+                        f"❌ Un quittancement existe DÉJÀ pour les amendes du {self.date_recette.strftime('%d/%m/%Y')} "
+                        f"sur cette station. Déjà enregistré : "
+                        f"{detail_quittance_pesage(existing.select_related('station', 'saisi_par').first())}."
                     )
 
                 # Vérifier si ce jour est inclus dans une décade existante
@@ -939,9 +941,9 @@ class QuittancementPesage(models.Model):
 
                 if decades_existantes.exists():
                     q = decades_existantes.first()
+                    from inventaire.services.messages_detail import detail_quittance_pesage
                     errors['date_recette'] = (
-                        f"Ce jour est déjà couvert par la décade N°{q.numero_quittance} "
-                        f"({q.date_debut_decade.strftime('%d/%m/%Y')} au {q.date_fin_decade.strftime('%d/%m/%Y')})."
+                        f"❌ Ce jour est déjà couvert par une décade enregistrée : {detail_quittance_pesage(q)}."
                     )
 
             # Nettoyer les champs de décade
@@ -989,8 +991,10 @@ class QuittancementPesage(models.Model):
                             fin_conflit = min(self.date_fin_decade, q.date_fin_decade)
                             jours_conflit = (fin_conflit - debut_conflit).days + 1
 
+                            from inventaire.services.messages_detail import detail_quittance_pesage
                             errors['date_debut_decade'] = (
-                                f"Cette période chevauche avec le quittancement N°{q.numero_quittance} "
+                                f"❌ Cette période chevauche une décade déjà enregistrée : {detail_quittance_pesage(q)}. "
+                                f"Détail du conflit : "
                                 f"({q.date_debut_decade.strftime('%d/%m/%Y')} au "
                                 f"{q.date_fin_decade.strftime('%d/%m/%Y')}). "
                                 f"{jours_conflit} jour(s) en conflit."

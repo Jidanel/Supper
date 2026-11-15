@@ -1796,15 +1796,10 @@ def saisie_quittancement_pesage(request):
             else:
                 numero = form_data['numero_quittance'].strip().upper()
 
-                if QuittancementPesage.objects.filter(numero_quittance__iexact=numero).exists():
-                    errors.append(f"Le numéro de quittance '{numero}' existe déjà dans les quittancements pesage")
-
-                try:
-                    from inventaire.models import Quittancement
-                    if Quittancement.objects.filter(numero_quittance__iexact=numero).exists():
-                        errors.append(f"Le numéro de quittance '{numero}' existe déjà dans les quittancements péage")
-                except ImportError:
-                    pass
+                from inventaire.services.messages_detail import quittance_existante
+                message_doublon = quittance_existante(numero)  # Péage ET pesage, avec tous les détails
+                if message_doublon:
+                    errors.append(message_doublon)
 
             if not form_data['date_quittancement']:
                 errors.append("La date de quittancement ou de reversement est obligatoire")
@@ -4453,9 +4448,11 @@ def importer_amendes(request):
 
                     # Vérifier unicité du numéro de ticket
                     numero_ticket_upper = numero_ticket.upper().strip()
-                    if AmendeEmise.objects.filter(numero_ticket=numero_ticket_upper).exists():
+                    from inventaire.services.messages_detail import amende_existante
+                    message_doublon = amende_existante(numero_ticket_upper)
+                    if message_doublon:
                         ligne_info['statut'] = 'erreur'
-                        ligne_info['erreur'] = f"Numéro de ticket '{numero_ticket_upper}' déjà existant"
+                        ligne_info['erreur'] = message_doublon
                         erreurs_import.append(ligne_info)
                         resultats.append(ligne_info)
                         continue

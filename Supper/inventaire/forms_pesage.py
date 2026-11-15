@@ -107,7 +107,14 @@ class AmendeEmiseForm(forms.ModelForm):
     def clean_numero_ticket(self):
         """Convertit le numéro de ticket en majuscules."""
         value = self.cleaned_data.get('numero_ticket', '')
-        return value.upper().strip() if value else value
+        value = value.upper().strip() if value else value
+        if value:
+            # Doublon : message détaillé (station, date/heure d'émission, montant, auteur de la saisie)
+            from inventaire.services.messages_detail import amende_existante
+            message = amende_existante(value, exclude_pk=self.instance.pk if self.instance and self.instance.pk else None)
+            if message:
+                raise ValidationError(message)
+        return value
 
     def clean(self):
         """Validation globale du formulaire."""

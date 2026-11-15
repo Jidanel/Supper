@@ -2307,9 +2307,26 @@ class HistoriqueStock(models.Model):
         verbose_name=_("Effectué par")
     )
 
+    # DATE D'EFFET COMPTABLE du mouvement : c'est elle que lisent le CSP, le compte d'emploi et l'historique.
+    # Pour une opération normale elle vaut l'instant de la saisie ; pour une correction (gel, dégel...)
+    # elle vaut la date d'effet choisie par l'utilisateur (ex. le 1er du mois pour une erreur de départ).
     date_mouvement = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Date du mouvement")
+        default=timezone.now,
+        verbose_name=_("Date du mouvement (date d'effet)")
+    )
+
+    # DATE RÉELLE de saisie : conservée pour l'audit (qui a fait quoi, quand), jamais modifiée.
+    date_saisie = models.DateTimeField(
+        auto_now_add=True, null=True, blank=True,
+        verbose_name=_("Date réelle de saisie")
+    )
+
+    # Vrai pour une CORRECTION de stock (gel, dégel, suppression/modification administrative) :
+    # elle corrige le stock de départ de la période et n'apparaît PAS comme approvisionnement
+    # ni comme transfert dans le compte d'emploi.
+    est_correction = models.BooleanField(
+        default=False,
+        verbose_name=_("Correction de stock")
     )
 
     reference_recette = models.ForeignKey(
@@ -2657,9 +2674,10 @@ class Quittancement(models.Model):
                 ).exclude(pk=self.pk if self.pk else None)
 
                 if existing.exists():
+                    from inventaire.services.messages_detail import detail_quittance_peage
                     errors['date_recette'] = (
-                        f"Un quittancement existe déjà pour le {self.date_recette.strftime('%d/%m/%Y')} "
-                        f"sur ce poste (N°{existing.first().numero_quittance})."
+                        f"❌ Un quittancement existe DÉJÀ pour la recette du {self.date_recette.strftime('%d/%m/%Y')} "
+                        f"sur ce poste. Déjà enregistré : {detail_quittance_peage(existing.select_related('poste', 'saisi_par').first())}."
                     )
 
             # Nettoyer les champs de décade
@@ -2709,11 +2727,11 @@ class Quittancement(models.Model):
                             fin_conflit = min(self.date_fin_decade, q.date_fin_decade)
                             jours_conflit = (fin_conflit - debut_conflit).days + 1
 
+                            from inventaire.services.messages_detail import detail_quittance_peage
                             errors['date_debut_decade'] = (
-                                f"Cette période chevauche avec le quittancement N°{q.numero_quittance} "
-                                f"({q.date_debut_decade.strftime('%d/%m/%Y')} au "
-                                f"{q.date_fin_decade.strftime('%d/%m/%Y')}). "
-                                f"{jours_conflit} jour(s) en conflit."
+                                f"❌ Cette période chevauche une décade déjà enregistrée "
+                                f"({jours_conflit} jour(s) en conflit, du {debut_conflit.strftime('%d/%m/%Y')} "
+                                f"au {fin_conflit.strftime('%d/%m/%Y')}) : {detail_quittance_peage(q)}."
                             )
                             break
 
@@ -3282,7 +3300,7 @@ class SerieTicket(models.Model):
                 'serie_complete': f"#{serie.numero_premier}-{serie.numero_dernier}",
                 'plage_conflit': f"#{debut_conflit}-{fin_conflit}",
                 'nombre_tickets_conflit': fin_conflit - debut_conflit + 1,
-                'date_chargement': serie.date_reception.strftime('%d/%m/%Y'),
+                'date_chargement': serie.date_reception.strftime('%d/%m/%Y à %H:%M'),
                 'type_entree': serie.get_type_entree_display() if serie.type_entree else 'Non défini'
             })
 
@@ -3339,29 +3357,14 @@ class SerieTicket(models.Model):
         ).first()
 
         if not serie_source:
-            # Aider l'utilisateur en listant ce qui est disponible
-            series_dispo = cls.objects.filter(
-                poste=poste,
-                couleur=couleur,
-                statut='stock'
-            ).order_by('numero_premier')
-
-            if series_dispo.exists():
-                series_str = ', '.join([
-                    f"#{s.numero_premier}-{s.numero_dernier}"
-                    for s in series_dispo
-                ])
-                msg = (
-                    f"❌ La série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
-                    f"n'est pas disponible au poste {poste.nom}. "
-                    f"Séries disponibles: {series_str}"
-                )
-            else:
-                msg = (
-                    f"❌ Aucun stock de tickets {couleur.libelle_affichage} "
-                    f"au poste {poste.nom}"
-                )
-
+            # Message détaillé : POURQUOI les tickets ne sont pas disponibles (vendus, gelés, supprimés,
+            # en stock dans un autre poste, jamais chargés...) avec dates, heures, postes et auteurs.
+            from inventaire.services.messages_detail import expliquer_indisponibilite
+            try:
+                msg = expliquer_indisponibilite(poste, couleur, numero_premier, numero_dernier)
+            except Exception:
+                msg = (f"❌ La série {couleur.libelle_affichage} #{numero_premier}-{numero_dernier} "
+                       f"n'est pas disponible au poste {poste.nom}.")
             return False, msg, []
 
         # === ÉTAPE 2: Vérifier qu'aucun ticket de cette plage n'a été vendu ===
@@ -3395,14 +3398,11 @@ class SerieTicket(models.Model):
                     'poste': ticket.poste.nom
                 })
 
-            msg = (
-                f"❌ IMPOSSIBLE : Des tickets ont déjà été vendus ! "
-            )
-            for t in tickets_problematiques[:2]:
-                date_str = t['date_vente'].strftime('%d/%m/%Y') if t['date_vente'] else 'date inconnue'
-                msg += f"#{t['premier']}-{t['dernier']} (vendu le {date_str} au poste {t['poste']}), "
-
-            return False, msg.rstrip(', '), tickets_problematiques
+            from inventaire.services.messages_detail import expliquer_ticket
+            msg = "❌ IMPOSSIBLE : des tickets de cette plage ont DÉJÀ ÉTÉ VENDUS ! "
+            for t in tickets_vendus[:2]:
+                msg += "\n• " + expliquer_ticket(poste, couleur, max(numero_premier, t.numero_premier))
+            return False, msg, tickets_problematiques
 
         # === TOUT EST OK ===
         return True, f"✅ Série disponible pour transfert/vente", []

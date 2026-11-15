@@ -83,6 +83,11 @@ def _enregistrer_quittance(user, poste, mois, est_peage, d, fichier):
         obj = QuittancementPesage(station=poste, montant_quittance=d['montant'], **commun)
     if fichier:  # Image facultative
         obj.image_quittance = fichier
+    from django.core.exceptions import ValidationError
+    from inventaire.services.messages_detail import quittance_existante
+    message = quittance_existante(d['numero_quittance'])  # Doublon : détail complet (poste, date, heure, auteur)
+    if message:
+        raise ValidationError(message)
     obj.save()  # save() appelle full_clean() côté péage
     return obj
 

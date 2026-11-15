@@ -1867,8 +1867,10 @@ def bulk_create_step1_upload(request):
                     continue
                 
                 # Vérifier si le matricule existe déjà en base
-                if UtilisateurSUPPER.objects.filter(username=matricule).exists():
-                    erreurs.append(f"Ligne {ligne_num}: Matricule '{matricule}' existe déjà dans le système")
+                from inventaire.services.messages_detail import utilisateur_existant
+                message_doublon = utilisateur_existant(matricule)  # Détail : nom, rôle, poste, état du compte
+                if message_doublon:
+                    erreurs.append(f"Ligne {ligne_num}: {message_doublon}")
                     continue
                 
                 # Valider le téléphone (format camerounais)
@@ -2197,7 +2199,8 @@ def creer_poste(request):
         if not code:
             errors.append(_("Le code du poste est obligatoire."))
         elif Poste.objects.filter(code=code).exists():
-            errors.append(_(f"Le code '{code}' existe déjà."))
+            from inventaire.services.messages_detail import poste_existant
+            errors.append(poste_existant(code))  # Détail : nom, type, région du poste existant
             
         if not nom:
             errors.append(_("Le nom du poste est obligatoire."))
@@ -2299,7 +2302,8 @@ def modifier_poste(request, poste_id):
         if not code:
             errors.append(_("Le code du poste est obligatoire."))
         elif Poste.objects.filter(code=code).exclude(id=poste.id).exists():
-            errors.append(_(f"Le code '{code}' existe déjà pour un autre poste."))
+            from inventaire.services.messages_detail import poste_existant
+            errors.append(poste_existant(code, exclude_pk=poste.id))  # Détail du poste qui utilise déjà ce code
             
         if not nom:
             errors.append(_("Le nom du poste est obligatoire."))
@@ -3550,8 +3554,10 @@ def bulk_create_step1_upload(request):
                     continue
                 
                 # Vérifier si le matricule existe déjà en base
-                if UtilisateurSUPPER.objects.filter(username=matricule).exists():
-                    erreurs.append(f"Ligne {ligne_num}: Matricule '{matricule}' existe déjà dans le système")
+                from inventaire.services.messages_detail import utilisateur_existant
+                message_doublon = utilisateur_existant(matricule)  # Détail : nom, rôle, poste, état du compte
+                if message_doublon:
+                    erreurs.append(f"Ligne {ligne_num}: {message_doublon}")
                     continue
                 
                 # Valider le téléphone (format camerounais)
@@ -3880,7 +3886,8 @@ def creer_poste(request):
         if not code:
             errors.append(_("Le code du poste est obligatoire."))
         elif Poste.objects.filter(code=code).exists():
-            errors.append(_(f"Le code '{code}' existe déjà."))
+            from inventaire.services.messages_detail import poste_existant
+            errors.append(poste_existant(code))  # Détail : nom, type, région du poste existant
             
         if not nom:
             errors.append(_("Le nom du poste est obligatoire."))
@@ -3982,7 +3989,8 @@ def modifier_poste(request, poste_id):
         if not code:
             errors.append(_("Le code du poste est obligatoire."))
         elif Poste.objects.filter(code=code).exclude(id=poste.id).exists():
-            errors.append(_(f"Le code '{code}' existe déjà pour un autre poste."))
+            from inventaire.services.messages_detail import poste_existant
+            errors.append(poste_existant(code, exclude_pk=poste.id))  # Détail du poste qui utilise déjà ce code
             
         if not nom:
             errors.append(_("Le nom du poste est obligatoire."))

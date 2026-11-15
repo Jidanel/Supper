@@ -222,6 +222,13 @@ def verifier_acces_poste_stock(user, poste):
 # VUE: LISTE DES POSTES ET LEURS STOCKS
 # ===================================================================
 
+
+def _effet_debut_mois():
+    """Date d'effet des corrections administratives de séries : début (00:00:00) du mois en cours."""
+    from inventaire.services.date_effet import datetime_effet, debut_du_mois
+    return datetime_effet(debut_du_mois(timezone.localdate()))
+
+
 @login_required
 def liste_postes_stocks(request):
     """
@@ -1521,14 +1528,16 @@ def modifier_series_stock(request, poste_id):
                             stock_apres=stock_obj.valeur_monetaire,
                             effectue_par=user,
                             commentaire=f"Suppression administrative: {serie.couleur.libelle_affichage} "
-                                       f"#{serie.numero_premier}-{serie.numero_dernier}"
+                                       f"#{serie.numero_premier}-{serie.numero_dernier}",
+                            date_mouvement=_effet_debut_mois(),  # Correction : effective au début du mois en cours
+                            est_correction=True                  # N'apparaît pas comme mouvement dans le compte d'emploi
                         )
 
                         # CORRECTION: Créer aussi un StockEvent
                         StockEvent.objects.create(
                             poste=poste,
                             event_type='AJUSTEMENT',
-                            event_datetime=timezone.now(),
+                            event_datetime=_effet_debut_mois(),
                             montant_variation=-serie.valeur_monetaire,
                             nombre_tickets_variation=-serie.nombre_tickets,
                             stock_resultant=stock_obj.valeur_monetaire,
@@ -1567,11 +1576,26 @@ def modifier_series_stock(request, poste_id):
                             stock_obj.valeur_monetaire += difference
                             stock_obj.save()
 
+                            # Trace dans HistoriqueStock (source du CSP) : correction effective au début du mois
+                            HistoriqueStock.objects.create(
+                                poste=poste,
+                                type_mouvement='CREDIT' if difference > 0 else 'DEBIT',
+                                type_stock='regularisation',
+                                montant=abs(difference),
+                                nombre_tickets=abs(int(difference / 500)),
+                                stock_avant=stock_obj.valeur_monetaire - difference,
+                                stock_apres=stock_obj.valeur_monetaire,
+                                effectue_par=user,
+                                commentaire=f"Modification série {mod['ancienne_couleur']} -> {mod['nouvelle_couleur'].libelle_affichage}",
+                                date_mouvement=_effet_debut_mois(),
+                                est_correction=True
+                            )
+
                             # CORRECTION: Créer aussi un StockEvent pour la modification
                             StockEvent.objects.create(
                                 poste=poste,
                                 event_type='AJUSTEMENT',
-                                event_datetime=timezone.now(),
+                                event_datetime=_effet_debut_mois(),
                                 montant_variation=difference,
                                 nombre_tickets_variation=int(difference / 500),
                                 stock_resultant=stock_obj.valeur_monetaire,

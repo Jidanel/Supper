@@ -334,7 +334,8 @@ class PosteForm(forms.ModelForm):
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                raise ValidationError(_("Ce code de poste existe déjà."))
+                from inventaire.services.messages_detail import poste_existant
+                raise ValidationError(poste_existant(code, exclude_pk=self.instance.pk) or _("Ce code de poste existe déjà."))
         
         return code
 
@@ -480,7 +481,8 @@ class UtilisateurCreationForm(UserCreationForm):
         if username:
             username = username.upper().strip()
             if UtilisateurSUPPER.objects.filter(username=username).exists():
-                raise ValidationError(_('Ce matricule existe déjà.'))
+                from inventaire.services.messages_detail import utilisateur_existant
+                raise ValidationError(utilisateur_existant(username) or _('Ce matricule existe déjà.'))
         return username
     
     def clean(self):
@@ -576,7 +578,8 @@ class UserCreateForm(forms.ModelForm):
         if username:
             username = username.upper().strip()
             if UtilisateurSUPPER.objects.filter(username=username).exists():
-                raise ValidationError(_("Ce matricule est déjà utilisé."))
+                from inventaire.services.messages_detail import utilisateur_existant
+                raise ValidationError(utilisateur_existant(username) or _("Ce matricule est déjà utilisé."))
         return username
     
     def clean_telephone(self):
@@ -985,8 +988,10 @@ class UserUpdateForm(forms.ModelForm):
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
+                from inventaire.services.messages_detail import utilisateur_existant
                 raise ValidationError(
-                    _("Ce matricule est déjà utilisé par un autre utilisateur.")
+                    utilisateur_existant(username, exclude_pk=self.instance.pk)
+                    or _("Ce matricule est déjà utilisé par un autre utilisateur.")
                 )
         return username
     

@@ -2020,12 +2020,15 @@ def modifier_commande_etape1(request, commande_id):
                     autre_commande = CommandeTickets.objects.filter(
                         numero_commande=numero_commande,
                         exercice=exercice
-                    ).exclude(id=commande.id).exists()
+                    ).exclude(id=commande.id).first()
 
                     if autre_commande:
                         messages.error(
                             request,
-                            f"Une commande n°{numero_commande} existe déjà pour l'exercice {exercice}."
+                            f"❌ Une commande n°{numero_commande} existe DÉJÀ pour l'exercice {exercice} : "
+                            f"{autre_commande.__class__._meta.verbose_name} #{autre_commande.pk}, "
+                            f"créée le {autre_commande.date_creation.strftime('%d/%m/%Y à %H:%M') if getattr(autre_commande, 'date_creation', None) else 'date inconnue'}, "
+                            f"statut : {autre_commande.get_statut_display() if hasattr(autre_commande, 'get_statut_display') else 'N/A'}."
                         )
                         # Continuer l'affichage du formulaire avec l'erreur
                     else:

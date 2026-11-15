@@ -543,6 +543,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
         poste=poste,
         type_mouvement='CREDIT',
         type_stock__in=['imprimerie_nationale', 'imprimerie', 'regularisation'],
+        est_correction=False,  # Les corrections (gel, dégel...) ne figurent pas ici
         date_mouvement__date__gte=date_debut,
         date_mouvement__date__lte=date_fin
     ).select_related(
@@ -584,6 +585,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
         poste=poste,
         type_mouvement='CREDIT',
         poste_origine__isnull=False,
+        est_correction=False,  # Les corrections (gel, dégel...) ne figurent pas ici
         date_mouvement__date__gte=date_debut,
         date_mouvement__date__lte=date_fin
     ).select_related(
@@ -626,6 +628,7 @@ def calculer_donnees_compte_emploi_v2(poste, date_debut, date_fin):
         poste=poste,
         type_mouvement='DEBIT',
         poste_destination__isnull=False,
+        est_correction=False,  # Les corrections (gel, dégel...) ne figurent pas ici
         date_mouvement__date__gte=date_debut,
         date_mouvement__date__lte=date_fin
     ).select_related(

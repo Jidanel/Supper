@@ -5,7 +5,7 @@
 # FINAL figé (JSON) qui alimente le PDF.
 
 import calendar  # Nombre de jours d'un mois
-from datetime import date, timedelta  # Dates
+from datetime import date, timedelta, datetime  # Dates et heures
 from django.db.models import Q, Sum  # Filtres et agrégations SQL
 from django.utils import timezone  # Date du jour
 
@@ -281,15 +281,38 @@ def rendement_n1_pesage(station, mois):
 # ----------------------------------------------------------------------
 # COMPTE D'EMPLOI (péage)
 # ----------------------------------------------------------------------
+def _series_gelees_presentes(poste, instant, jour_limite):
+    """Séries que `poste` a gelées avec une date d'effet POSTÉRIEURE : à `instant` elles étaient encore au poste.
+    jour_limite : une série gelée avec date_effet_gel > jour_limite est encore présente."""
+    from inventaire.models_banque_gel import BanqueGel, StatutGel
+    qs = BanqueGel.objects.filter(poste_origine=poste, date_effet_gel__gt=jour_limite,
+                                  statut__in=[StatutGel.GELE, StatutGel.DEGELE]).filter(
+        Q(date_reception_origine__isnull=True) | Q(date_reception_origine__lte=instant))
+    return [(b.numero_premier, b.numero_dernier) for b in qs]
+
+
 def series_au(poste, jour):
-    """Séries détenues par le poste à la fin du jour donné, reconstituées depuis SerieTicket
+    """Séries détenues par le poste à la FIN du jour donné (23:59:59), reconstituées depuis SerieTicket
     (reçues au plus tard ce jour, et encore en stock ou vendues après ce jour).
-    La banque de gel ne laisse AUCUNE trace dans le compte d'emploi : une série gelée n'est plus au poste
-    (comme si elle n'y avait jamais été) et une série dégelée y entre au plus tard au début du mois d'effet."""
+    La banque de gel ne laisse AUCUNE trace dans le compte d'emploi : une série gelée n'est plus au poste à partir de
+    sa DATE D'EFFET (elle y est encore avant) et une série dégelée y entre à sa date d'effet (00:00:00)."""
     from inventaire.models import SerieTicket
     qs = SerieTicket.objects.filter(poste=poste, date_reception__date__lte=jour).filter(
         Q(statut='stock') | Q(statut='vendu', date_utilisation__gt=jour))
-    return fusionner_intervalles([(s.numero_premier, s.numero_dernier) for s in qs])
+    fin = timezone.make_aware(datetime.combine(jour, datetime.max.time()))  # Fin du jour
+    gelees = _series_gelees_presentes(poste, fin, jour)  # Gel effectif après ce jour : série encore présente
+    return fusionner_intervalles([(s.numero_premier, s.numero_dernier) for s in qs] + gelees)
+
+
+def series_debut_jour(poste, jour):
+    """Séries détenues par le poste au DÉBUT du jour donné (00:00:00) : inclut les corrections (gel/dégel) dont la date
+    d'effet est ce jour-là. C'est le stock de début d'un mois quand `jour` est le 1er du mois."""
+    from inventaire.models import SerieTicket
+    debut = timezone.make_aware(datetime.combine(jour, datetime.min.time()))  # 00:00:00 du jour
+    qs = SerieTicket.objects.filter(poste=poste, date_reception__lte=debut).filter(
+        Q(statut='stock') | Q(statut='vendu', date_utilisation__gte=jour))  # Vendues ce jour ou après : encore là au début
+    gelees = _series_gelees_presentes(poste, debut, jour)  # Gel effectif strictement après le début du jour
+    return fusionner_intervalles([(s.numero_premier, s.numero_dernier) for s in qs] + gelees)
 
 
 def _series_details(details):
@@ -302,8 +325,8 @@ def _series_details(details):
 
 
 def series_ouverture(poste, mois):
-    """Ouverture = stock SUPPER détenu par le poste la veille du 1er jour du mois (plus aucune déclaration du chef)."""
-    return series_au(poste, bornes_mois(mois)[0] - timedelta(days=1))
+    """Ouverture = stock SUPPER détenu par le poste au DÉBUT du 1er jour du mois (corrections « début du mois » incluses)."""
+    return series_debut_jour(poste, bornes_mois(mois)[0])
 
 
 def preremplir_compte_emploi(poste, mois):

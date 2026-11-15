@@ -14,6 +14,7 @@ from django.utils import timezone  # Horodatage
 
 from inventaire.models import SerieTicket, GestionStock, HistoriqueStock, StockEvent  # Modèles de stock
 from inventaire.models_banque_gel import BanqueGel, StatutGel  # Banque de gel
+from inventaire.services.date_effet import datetime_effet, verifier_date_effet, DateEffetError  # Date d'effet
 from inventaire.services.permutation_service import (  # Outils partagés avec la permutation
     _segments, _isoler, _fusionner_voisins, lire_plage, MOTIF_MIN)
 
@@ -22,6 +23,14 @@ PRIX = Decimal('500')  # Valeur d'un ticket en FCFA
 
 class GelError(Exception):
     """Erreur métier : l'opération est impossible (message lisible par l'utilisateur)."""
+
+
+def _verifier_date(poste, date_effet):
+    """Date d'effet valide (pas dans le futur, mois non signé) ; convertit l'erreur en GelError."""
+    try:
+        verifier_date_effet(poste, date_effet)
+    except DateEffetError as exc:
+        raise GelError(str(exc))
 
 
 def peut_gerer_gel(user):
@@ -42,17 +51,16 @@ def _motif(motif):
 
 
 def _date_reception_degel(bg, date_effet):
-    """Date de réception donnée aux séries dégelées : la plus ancienne entre leur réception d'origine et le 1er jour
-    du mois d'effet. Ainsi elles font partie du stock du poste dès le début du mois (aucune ligne « gel/dégel »
-    n'apparaît dans le compte d'emploi : tout se passe comme si le poste les avait toujours détenues)."""
-    debut_mois = timezone.make_aware(datetime.datetime(date_effet.year, date_effet.month, 1, 0, 0, 0))
-    origine = bg.date_reception_origine
-    return min(origine, debut_mois) if origine else debut_mois
+    """Date de réception donnée aux séries dégelées : la DATE D'EFFET (00:00:00).
+    Le poste ne détient la série qu'à partir de ce jour ; si la date d'effet est le 1er du mois, la série fait partie
+    de son stock de début. Aucune ligne « gel/dégel » n'apparaît dans le compte d'emploi."""
+    return datetime_effet(date_effet)
 
 
-def _mouvement(poste, user, sens, valeur, nombre, commentaire, type_evenement, reference_id, metadata):
+def _mouvement(poste, user, sens, valeur, nombre, commentaire, type_evenement, reference_id, metadata, date_effet=None):
     """Met à jour le stock du poste et écrit l'historique + l'événement de stock. Retourne l'HistoriqueStock créé.
-    sens = 'DEBIT' (gel) ou 'CREDIT' (dégel)."""
+    sens = 'DEBIT' (gel) ou 'CREDIT' (dégel). date_effet = jour où la correction prend effet (défaut : aujourd'hui)."""
+    effet = datetime_effet(date_effet) if date_effet else timezone.now()  # Instant comptable du mouvement
     stock, _cree = GestionStock.objects.select_for_update().get_or_create(
         poste=poste, defaults={'valeur_monetaire': Decimal('0')})  # Stock du poste (verrouillé)
     avant = stock.valeur_monetaire
@@ -61,9 +69,10 @@ def _mouvement(poste, user, sens, valeur, nombre, commentaire, type_evenement, r
     stock.save()
     hist = HistoriqueStock.objects.create(
         poste=poste, type_mouvement=sens, type_stock='regularisation', montant=valeur, nombre_tickets=nombre,
-        stock_avant=avant, stock_apres=stock.valeur_monetaire, effectue_par=user, commentaire=commentaire[:500])
+        stock_avant=avant, stock_apres=stock.valeur_monetaire, effectue_par=user, commentaire=commentaire[:500],
+        date_mouvement=effet, est_correction=True)  # Date d'effet ; date_saisie (réelle) se remplit seule
     StockEvent.objects.create(
-        poste=poste, event_type=type_evenement, event_datetime=timezone.now(),
+        poste=poste, event_type=type_evenement, event_datetime=effet,
         montant_variation=signe * valeur, nombre_tickets_variation=signe * nombre,
         stock_resultant=stock.valeur_monetaire, tickets_resultants=int(stock.valeur_monetaire / 500),  # Recalculés par save()
         effectue_par=user, reference_id=str(reference_id), reference_type='BanqueGel',
@@ -77,8 +86,7 @@ def geler(poste, plages, date_effet, motif, user):
     motif = _motif(motif)
     if not plages:
         raise GelError("Indiquez au moins une série à geler.")
-    if date_effet > timezone.localdate():
-        raise GelError("La date d'effet ne peut pas être dans le futur.")
+    _verifier_date(poste, date_effet)  # Pas de futur ni de mois signé
     creees = []
     for couleur, p, d in plages:
         if p > d or p < 1:
@@ -86,6 +94,10 @@ def geler(poste, plages, date_effet, motif, user):
         segments = _segments(poste, couleur, 'stock', p, d, verrou=True)  # Doit être entièrement en stock
         if segments is None:
             raise GelError(f"Les tickets {couleur} {p} à {d} ne sont pas tous en stock dans {poste.nom}.")
+        for ligne, _x, _y in segments:
+            if ligne.date_reception > datetime_effet(date_effet) + datetime.timedelta(days=1):
+                raise GelError(f"Les tickets {couleur} {p} à {d} ont été reçus après la date d'effet "
+                               f"({date_effet:%d/%m/%Y}) : choisissez une date d'effet plus récente.")
         for ligne, x, y in segments:
             ligne = _isoler(ligne, x, y)  # Isole exactement la plage à geler
             bg = BanqueGel.objects.create(
@@ -100,7 +112,7 @@ def geler(poste, plages, date_effet, motif, user):
     _mouvement(poste, user, 'DEBIT', valeur, nombre,
                f"Gel (banque de gel) : {', '.join(f'{b.couleur} {b.numero_premier}-{b.numero_dernier}' for b in creees)}"
                f" — {motif}", 'GEL', creees[0].pk,
-               {'gel_ids': [b.pk for b in creees], 'date_effet': date_effet.isoformat()})
+               {'gel_ids': [b.pk for b in creees], 'date_effet': date_effet.isoformat()}, date_effet=date_effet)
     return creees
 
 
@@ -112,8 +124,7 @@ def degeler(destination, selections, date_effet, motif, user):
     motif = _motif(motif)
     if not selections:
         raise GelError("Indiquez au moins une série à dégeler.")
-    if date_effet > timezone.localdate():
-        raise GelError("La date d'effet ne peut pas être dans le futur.")
+    _verifier_date(destination, date_effet)  # Pas de futur ni de mois signé
     degeles = []
     for couleur, p, d in selections:
         courant = p  # Prochain ticket à couvrir
@@ -143,7 +154,7 @@ def degeler(destination, selections, date_effet, motif, user):
     hist = _mouvement(destination, user, 'CREDIT', valeur, nombre,
                       f"Dégel (banque de gel) : {', '.join(f'{b.couleur} {b.numero_premier}-{b.numero_dernier}' for b in degeles)}"
                       f" — {motif}", 'DEGEL', degeles[0].pk,
-                      {'gel_ids': [b.pk for b in degeles], 'date_effet': date_effet.isoformat()})
+                      {'gel_ids': [b.pk for b in degeles], 'date_effet': date_effet.isoformat()}, date_effet=date_effet)
     for bg in degeles:  # Les séries entrent dans le stock du poste destinataire
         s = SerieTicket.objects.create(
             poste=destination, couleur=bg.couleur, numero_premier=bg.numero_premier, numero_dernier=bg.numero_dernier,
@@ -175,7 +186,8 @@ def annuler_gel(bg, motif, user):
         raise GelError("Annulation impossible : ces numéros existent déjà dans le poste d'origine.")
     hist = _mouvement(bg.poste_origine, user, 'CREDIT', Decimal(bg.nombre_tickets) * PRIX, bg.nombre_tickets,
                       f"Annulation du gel #{bg.pk} ({bg.couleur} {bg.numero_premier}-{bg.numero_dernier}) — {motif}",
-                      'DEGEL', bg.pk, {'annulation_gel': bg.pk})
+                      'DEGEL', bg.pk, {'annulation_gel': bg.pk, 'date_effet': bg.date_effet_gel.isoformat()},
+                      date_effet=bg.date_effet_gel)  # Même date d'effet que le gel : les deux se neutralisent
     s = SerieTicket.objects.create(
         poste=bg.poste_origine, couleur=bg.couleur, numero_premier=bg.numero_premier, numero_dernier=bg.numero_dernier,
         nombre_tickets=bg.nombre_tickets, valeur_monetaire=Decimal(bg.nombre_tickets) * PRIX, statut='stock',

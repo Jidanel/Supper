@@ -1511,6 +1511,7 @@ def saisir_recette_avec_tickets(request):
                     f"🏢 Poste : {poste_selectionne.nom}\n"
                     f"💰 Montant enregistré : {montant_formate} FCFA\n"
                     f"👤 Saisie par : {recette_existante.chef_poste.nom_complet if recette_existante.chef_poste else 'N/A'}\n"
+                    f"📆 Date et heure de saisie : {timezone.localtime(recette_existante.date_saisie).strftime('%d/%m/%Y à %H:%M') if recette_existante.date_saisie else 'N/A'}\n"
                     f"Veuillez sélectionner une autre date ou consulter la liste des recettes."
                 )
 
@@ -6560,17 +6561,11 @@ def saisie_quittancement(request):
             else:
                 numero = form_data['numero_quittance'].strip().upper()
 
-                # Vérifier dans la table Quittancement (péage)
-                if Quittancement.objects.filter(numero_quittance__iexact=numero).exists():
-                    errors.append(f"Le numéro de quittance '{numero}' existe déjà dans les quittancements péage")
-
-                # Vérifier dans la table QuittancementPesage (pesage)
-                try:
-                    from inventaire.models_pesage import QuittancementPesage
-                    if QuittancementPesage.objects.filter(numero_quittance__iexact=numero).exists():
-                        errors.append(f"Le numéro de quittance '{numero}' existe déjà dans les quittancements pesage")
-                except ImportError:
-                    pass
+                # Doublon : message détaillé (numéro, poste, date, montant, date/heure de saisie et auteur)
+                from inventaire.services.messages_detail import quittance_existante
+                message_doublon = quittance_existante(numero)
+                if message_doublon:
+                    errors.append(message_doublon)
 
             # --- Validation autres champs ---
             if not form_data['date_quittancement']:

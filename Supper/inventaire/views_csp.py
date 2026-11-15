@@ -68,8 +68,9 @@ def calculer_stock_debut_periode(poste, date_debut):
         (Decimal, int): valeur monétaire et nombre de tickets du stock
     """
     veille = date_debut - timedelta(days=1)                              # Veille du début de période
-    limite = timezone.make_aware(                                        # Fin de journée de la veille
-        datetime.combine(veille, datetime.max.time().replace(microsecond=999999)))
+    # Début du premier jour (00:00:00) : une correction « effective le 1er du mois » fait partie du stock de début ;
+    # une opération normale de la veille (jusqu'à 23:59:59) aussi.
+    limite = timezone.make_aware(datetime.combine(date_debut, datetime.min.time()))
 
     mouvements = HistoriqueStock.objects.filter(poste=poste)             # Tous les mouvements du poste
 
