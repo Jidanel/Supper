@@ -2733,23 +2733,11 @@ class RecetteListView(LoginRequiredMixin, ListView):
             Sum('montant_declare')
         )['montant_declare__sum']
 
-        # Calcul de la moyenne des taux sécurisé
-        moyenne_taux = None
-        taux_queryset = all_recettes.filter(
-            taux_deperdition__isnull=False
-        ).values_list('taux_deperdition', flat=True)
-
-        if taux_queryset:
-            taux_values = []
-            for taux in taux_queryset:
-                if taux is not None:
-                    try:
-                        taux_values.append(float(taux))
-                    except (TypeError, ValueError, decimal.InvalidOperation):
-                        continue
-
-            if taux_values:
-                moyenne_taux = sum(taux_values) / len(taux_values)
+        # Calcul de la moyenne des taux : directement en SQL (au lieu d'une boucle Python sur toutes les lignes)
+        moyenne_taux = all_recettes.filter(taux_deperdition__isnull=False).aggregate(
+            m=Avg('taux_deperdition')
+        )['m']
+        moyenne_taux = float(moyenne_taux) if moyenne_taux is not None else None
 
         # Recettes du jour dans la période filtrée
         recettes_jour_count = all_recettes.filter(date=timezone.now().date()).count()
@@ -3016,21 +3004,40 @@ class RecetteListView(LoginRequiredMixin, ListView):
         resultats = []
         total_estimation_manquante = Decimal('0')
 
-        for poste in postes_query:
-            # Jours avec recettes déclarées
-            jours_declares = set(
-                RecetteJournaliere.objects.filter(
-                    poste=poste,
-                    date__range=[date_debut, date_fin]
-                ).values_list('date', flat=True)
-            )
+        # PERFORMANCE : le calcul « précis » (prévision statistique par poste) est lent.
+        # Par défaut on utilise la moyenne des 30 jours précédents (rapide, 2 requêtes au total).
+        # La prévision détaillée n'est lancée que si l'utilisateur ajoute ?precis=1.
+        mode_precis = filters.get('precis') == '1'
 
-            # Tous les jours de la période
-            jours_periode = set()
-            current_date = date_debut
-            while current_date <= date_fin:
-                jours_periode.add(current_date)
-                current_date += timedelta(days=1)
+        postes_liste = list(postes_query)
+        ids_postes = [p.id for p in postes_liste]
+
+        # Une seule requête : tous les jours déclarés de tous les postes sur la période
+        declares_par_poste = {}
+        for pid, d in RecetteJournaliere.objects.filter(
+            poste_id__in=ids_postes, date__range=[date_debut, date_fin]
+        ).values_list('poste_id', 'date'):
+            declares_par_poste.setdefault(pid, set()).add(d)
+
+        # Une seule requête : moyenne des 30 jours précédant la période, par poste
+        fin_moyenne_g = date_debut - timedelta(days=1)
+        debut_moyenne_g = fin_moyenne_g - timedelta(days=30)
+        moyennes_par_poste = {
+            row['poste_id']: row['moy']
+            for row in RecetteJournaliere.objects.filter(
+                poste_id__in=ids_postes, date__range=[debut_moyenne_g, fin_moyenne_g]
+            ).values('poste_id').annotate(moy=Avg('montant_declare'))
+        }
+
+        # Tous les jours de la période (identiques pour chaque poste)
+        jours_periode = set()
+        current_date = date_debut
+        while current_date <= date_fin:
+            jours_periode.add(current_date)
+            current_date += timedelta(days=1)
+
+        for poste in postes_liste:
+            jours_declares = declares_par_poste.get(poste.id, set())
 
             # Jours manquants
             jours_manquants = sorted(jours_periode - jours_declares)
@@ -3038,69 +3045,46 @@ class RecetteListView(LoginRequiredMixin, ListView):
             if jours_manquants:
                 estimation_manquante = Decimal('0')
                 details_estimations = []
-                methode_utilisee = 'moyenne'
+                methode_utilisee = 'moyenne_historique'
 
-                try:
-                    date_reference = min(jours_manquants) - timedelta(days=1)
-                    nb_jours = (max(jours_manquants) - min(jours_manquants)).days + 1
+                if mode_precis:
+                    try:
+                        date_reference = min(jours_manquants) - timedelta(days=1)
+                        nb_jours = (max(jours_manquants) - min(jours_manquants)).days + 1
 
-                    resultats_forecast = ForecastingService.prevoir_recettes(
-                        poste,
-                        nb_jours_future=nb_jours,
-                        date_reference=date_reference
-                    )
+                        resultats_forecast = ForecastingService.prevoir_recettes(
+                            poste,
+                            nb_jours_future=nb_jours,
+                            date_reference=date_reference
+                        )
 
-                    if resultats_forecast['success']:
-                        df_prev = resultats_forecast['predictions']
-                        methode_utilisee = 'forecasting'
+                        if resultats_forecast['success']:
+                            df_prev = resultats_forecast['predictions']
+                            methode_utilisee = 'forecasting'
 
-                        for jour_manquant in jours_manquants:
-                            prev_jour = df_prev[df_prev['date'].dt.date == jour_manquant]
+                            for jour_manquant in jours_manquants:
+                                prev_jour = df_prev[df_prev['date'].dt.date == jour_manquant]
 
-                            if not prev_jour.empty:
-                                montant_estime = Decimal(str(prev_jour['montant_prevu'].values[0]))
+                                if not prev_jour.empty:
+                                    montant_estime = Decimal(str(prev_jour['montant_prevu'].values[0]))
+                                else:
+                                    montant_estime = Decimal(str(df_prev['montant_prevu'].mean()))
                                 estimation_manquante += montant_estime
                                 details_estimations.append({
                                     'date': jour_manquant,
                                     'montant_estime': float(montant_estime)
                                 })
-                            else:
-                                moyenne_prev = Decimal(str(df_prev['montant_prevu'].mean()))
-                                estimation_manquante += moyenne_prev
-                                details_estimations.append({
-                                    'date': jour_manquant,
-                                    'montant_estime': float(moyenne_prev)
-                                })
+                    except Exception as e:
+                        logger.error(f"Erreur estimation recettes manquantes {poste.nom}: {str(e)}")
+                        estimation_manquante = Decimal('0')
+                        details_estimations = []
 
-                    if estimation_manquante == 0:
-                        methode_utilisee = 'moyenne_historique'
-                        fin_moyenne = date_debut - timedelta(days=1)
-                        debut_moyenne = fin_moyenne - timedelta(days=30)
-
-                        moyenne = RecetteJournaliere.objects.filter(
-                            poste=poste,
-                            date__range=[debut_moyenne, fin_moyenne]
-                        ).aggregate(moy=Avg('montant_declare'))['moy'] or Decimal('0')
-
-                        estimation_manquante = moyenne * len(jours_manquants)
-
-                        for jour_manquant in jours_manquants:
-                            details_estimations.append({
-                                'date': jour_manquant,
-                                'montant_estime': float(moyenne)
-                            })
-
-                except Exception as e:
-                    logger.error(f"Erreur estimation recettes manquantes {poste.nom}: {str(e)}")
-                    methode_utilisee = 'moyenne_fallback'
-
-                    moyenne = RecetteJournaliere.objects.filter(
-                        poste=poste,
-                        date__lt=date_debut
-                    ).order_by('-date')[:30].aggregate(moy=Avg('montant_declare'))['moy'] or Decimal('0')
-
-                    estimation_manquante = moyenne * len(jours_manquants)
-
+                if estimation_manquante == 0:
+                    # Méthode rapide (ou repli) : moyenne des 30 jours précédents
+                    methode_utilisee = 'moyenne_historique'
+                    details_estimations = []
+                    moyenne = moyennes_par_poste.get(poste.id) or Decimal('0')
+                    estimation_manquante = Decimal(str(moyenne)) * len(jours_manquants)
                     for jour_manquant in jours_manquants:
                         details_estimations.append({
                             'date': jour_manquant,
@@ -3128,6 +3112,7 @@ class RecetteListView(LoginRequiredMixin, ListView):
             'periode_debut': date_debut,
             'periode_fin': date_fin,
             'date_limite': date_limite_declaration,
+            'mode_precis': mode_precis,
             'explication_date_limite': "La recette du jour J est déclarée le jour J+1"
         }
 

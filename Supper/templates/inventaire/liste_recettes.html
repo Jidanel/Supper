@@ -1207,6 +1207,12 @@
             </h5>
             <p>
                 {% trans "Période" %}: {{ jours_non_declares.periode_debut|date:"d/m/Y" }} - {{ jours_non_declares.periode_fin|date:"d/m/Y" }}
+                {# Estimation rapide par défaut (moyenne 30 jours) ; la prévision statistique n'est lancée qu'à la demande #}
+                {% if jours_non_declares.mode_precis %}
+                <span class="badge bg-primary ms-2">{% trans "Estimation précise (prévision)" %}</span>
+                {% else %}
+                <a class="btn btn-sm btn-outline-primary ms-2" href="?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}precis=1">{% trans "Estimation précise (plus lente)" %}</a>
+                {% endif %}
             </p>
 
             <div class="jours-stats-cards row mb-3">
