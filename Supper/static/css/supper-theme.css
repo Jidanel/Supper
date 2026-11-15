@@ -314,3 +314,22 @@ a:hover { color: var(--sp-blue-800); }
     box-shadow: var(--sp-shadow) !important;
 }
 .agent-card *, .advanced-panel-btn * { color: #fff !important; }
+
+/* ---------- 18. TABLEAUX LARGES SUR PC : titres de colonnes à la ligne, tableau plus compact ---------- */
+@media (min-width: 769px) {
+    .table thead th, .table-quittances thead th, .recette-table thead th {
+        white-space: normal !important;        /* Les titres passent à la ligne au lieu de s'étirer */
+        overflow-wrap: anywhere;
+        line-height: 1.25;
+        vertical-align: middle;
+        font-size: .72rem !important;
+        padding: .6rem .55rem !important;
+        max-width: 150px;                      /* Un titre long ne dépasse jamais cette largeur */
+    }
+    .table tbody td { padding: .6rem .55rem; font-size: .88rem; vertical-align: middle; }
+    .table-quittances, .table-quittances td, .table-quittances th { min-width: 0 !important; }
+    .table-quittances { width: 100% !important; table-layout: auto; }
+    .table-quittances td { white-space: normal; }
+    .table-quittances td:first-child { white-space: nowrap; }     /* Le numéro de quittance reste sur une ligne */
+    .table .badge { white-space: nowrap; }
+}
