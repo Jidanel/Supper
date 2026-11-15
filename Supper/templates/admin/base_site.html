@@ -771,7 +771,7 @@
     <!-- Thème unifié bleu & blanc (chargé après les styles de page) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <meta name="theme-color" content="#0b2a5b">
-    <link rel="stylesheet" href="{% static 'css/supper-theme.css' %}?v=4">
+    <link rel="stylesheet" href="{% static 'css/supper-theme.css' %}?v=5">
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
@@ -2323,6 +2323,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<script src="{% static 'js/supper-theme.js' %}?v=2"></script>
 {% block extra_js %}{% endblock %}
 
 </body>

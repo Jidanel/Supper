@@ -264,3 +264,53 @@ a:hover { color: var(--sp-blue-800); }
 /* Les boutons clairs posés sur un fond bleu gardent un texte lisible */
 .stat-card .btn-light, .page-header .btn-light, .supper-header .btn-light, .dashboard-header .btn-light,
 .stat-card .btn-light *, .page-header .btn-light *, .supper-header .btn-light *, .dashboard-header .btn-light * { color: var(--sp-blue-800) !important; }
+
+/* =====================================================================
+   LOT 2A - COMPOSANTS COMMUNS
+   ===================================================================== */
+
+/* ---------- 15. TABLEAUX EN CARTES SUR MOBILE (classe "table-stack") ---------- */
+@media (max-width: 768px) {
+    .table-stack, .table-stack tbody, .table-stack tr, .table-stack td { display: block !important; width: 100% !important; min-width: 0 !important; }
+    .table-stack thead { display: none !important; }                      /* Les titres passent dans chaque cellule */
+    .table-stack tr {
+        background: #fff; border: 1px solid var(--sp-border); border-radius: var(--sp-radius);
+        margin-bottom: .8rem; padding: .35rem .95rem; box-shadow: var(--sp-shadow);
+    }
+    .table-stack td {
+        display: flex !important; justify-content: space-between; align-items: center; gap: .75rem;
+        padding: .55rem 0 !important; border: 0 !important; border-bottom: 1px dashed #e3ebf8 !important;
+        text-align: right !important; background: transparent !important;
+    }
+    .table-stack td:last-child { border-bottom: 0 !important; }
+    .table-stack td .td-val { flex: 1 1 auto; min-width: 0; text-align: right; word-break: break-word; }
+    .table-stack td::before {
+        content: attr(data-label); flex: 0 0 42%; max-width: 42%; text-align: left; line-height: 1.25;
+        font-size: .72rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--sp-muted);
+    }
+    .table-stack td[data-label=""]::before, .table-stack td.td-full::before { display: none; }
+    .table-stack td.td-full { display: block !important; text-align: center !important; }
+    .table-stack .btn-group, .table-stack td .d-flex { justify-content: flex-end; flex-wrap: wrap; }
+    .table-responsive:has(.table-stack) { border: 0; overflow: visible; }
+}
+
+/* ---------- 16. TABLEAUX DE LISTE : en-tête bleu foncé, y compris les anciens en-têtes rouges (pesage) ---------- */
+.table-quittances thead, .table-quittances thead th, .recette-table thead, .recette-table thead th {
+    background: var(--sp-blue-800) !important; color: #fff !important; border-bottom: 0 !important;
+}
+
+/* ---------- 17. DASHBOARDS : pastilles et accents décoratifs verts / orange -> bleu ---------- */
+.supper-action-icon.success, .supper-action-icon.warning,
+.supper-stat-icon.green, .supper-stat-icon.amber,
+.supper-pesage-stat.green, .supper-pesage-stat.amber,
+.stat-card-icon.posts, .stat-card-icon.inventory, .stat-card-icon.revenue, .stat-card-icon.users {
+    background: linear-gradient(135deg, var(--sp-blue-500) 0%, var(--sp-blue-700) 100%) !important; color: #fff !important;
+}
+.supper-stat-card.green::before, .supper-stat-card.amber::before {
+    background: linear-gradient(90deg, var(--sp-blue-500), var(--sp-blue-700)) !important;
+}
+.advanced-panel-btn, .btn-saisir, .agent-card {
+    background: linear-gradient(135deg, var(--sp-blue-700) 0%, var(--sp-blue-800) 100%) !important; color: #fff !important;
+    box-shadow: var(--sp-shadow) !important;
+}
+.agent-card *, .advanced-panel-btn * { color: #fff !important; }
