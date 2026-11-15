@@ -128,7 +128,8 @@ a:hover { color: var(--sp-blue-800); }
 
 /* ---------- 6. CARTES DE STATISTIQUES (KPI) : tout en bleu ---------- */
 .stat-card, .stat-card.primary, .stat-card.info, .stat-card.success, .stat-card.secondary,
-.stat-box, .stats-card, .kpi-card, .summary-card, .stat-card-header {
+.stats-card:not(:has(table, input, select, textarea, form)), .stat-box:not(:has(table, input, select, textarea, form)),
+.kpi-card:not(:has(table, input, select, textarea, form)), .summary-card:not(:has(table, input, select, textarea, form)) {
     background: linear-gradient(135deg, var(--sp-blue-700) 0%, var(--sp-blue-800) 100%) !important;
     color: #fff !important;
     border: 0 !important;
@@ -240,3 +241,26 @@ a:hover { color: var(--sp-blue-800); }
 .sidebar-nav .nav-link i.me-2 { margin-right: 0 !important; width: 1.25rem; text-align: center; color: var(--sp-blue-700); }
 .sidebar-nav .nav-link.active i.me-2 { color: var(--sp-blue-800); }
 .sidebar-nav .nav-link { font-size: 1rem !important; }
+
+/* ---------- 14. TEXTE BLANC sur tous les fonds bleus (cartes de chiffres, en-têtes, totaux) ---------- */
+/* Les conteneurs qui renferment un tableau ou un champ de saisie ne sont JAMAIS touchés (ils restent blancs) */
+.stat-card:not(.warning):not(.danger), .stat-card:not(.warning):not(.danger) *,
+.stats-card:not(:has(table, input, select, textarea, form)), .stats-card:not(:has(table, input, select, textarea, form)) *,
+.stat-box:not(:has(table, input, select, textarea, form)), .stat-box:not(:has(table, input, select, textarea, form)) *,
+.kpi-card:not(:has(table, input, select, textarea, form)), .kpi-card:not(:has(table, input, select, textarea, form)) *,
+.summary-card:not(:has(table, input, select, textarea, form)), .summary-card:not(:has(table, input, select, textarea, form)) *,
+.page-header, .page-header *, .supper-header, .supper-header *,
+.dashboard-header, .dashboard-header *, .stats-header, .stats-header *,
+.inventaire-header, .inventaire-header *,
+.cl-head, .cl-head *, .pm-head, .pm-head *, .month-badge, .month-badge *,
+.card-header.bg-primary, .card-header.bg-primary *, .card-header.bg-info, .card-header.bg-info *,
+.card-header.bg-success, .card-header.bg-success *, .card-header.bg-secondary, .card-header.bg-secondary *,
+.table thead.table-dark th, .table-dark > thead > tr > th {
+    color: #fff !important;
+}
+/* Les libellés (petits titres des cartes) restent un peu plus discrets que les chiffres */
+.stat-card:not(.warning):not(.danger) .stat-label, .stat-box .stat-label, .stats-card .stat-label,
+.kpi-card .label, .metric-card .label, .summary-card .summary-label { opacity: .9; }
+/* Les boutons clairs posés sur un fond bleu gardent un texte lisible */
+.stat-card .btn-light, .page-header .btn-light, .supper-header .btn-light, .dashboard-header .btn-light,
+.stat-card .btn-light *, .page-header .btn-light *, .supper-header .btn-light *, .dashboard-header .btn-light * { color: var(--sp-blue-800) !important; }
