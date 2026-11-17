@@ -138,7 +138,7 @@ def import_stock_simulation(request, pk):
         series = iss.series_disponibles(poste) if (inclus and not valide) else []  # Séries proposées
         lignes.append({
             'poste': poste, 'inclus': inclus, 'debut': debut, 'fin': fin, 'sim': sim, 'valide': valide,
-            'resultat': deja, 'series': [{'s': s, 'choisie': s.pk in ids} for s in series],
+            'resultat': deja, 'series': [{'s': s, 'choisie': s.pk in ids, 'libres': iss.nb_tickets_libres(s), 'deja_vendus': s.nombre_tickets - iss.nb_tickets_libres(s)} for s in series],  # libres = hors déjà vendus
             'nb_jours_fichier': len(montants), 'erreur': erreur})
     return render(request, 'inventaire/import_stock_simulation.html', {
         'title': "Simulation de l'import", 'lot': lot, 'lignes': lignes})

@@ -5,7 +5,7 @@
  <div class="card border-0 shadow-sm mb-3">
   <div class="card-header bg-primary text-white d-flex justify-content-between flex-wrap gap-2">
     <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>Simulation — {{ lot.fichier_nom }} ({{ lot.date_debut|date:"d/m/Y" }} → {{ lot.date_fin|date:"d/m/Y" }})</h5>
-    <a href="{% url 'inventaire:import_stock_historique' %}" class="btn btn-light btn-sm">Historique</a>
+    <a href="{% url 'inventaire:import_stock_historique' %}" class="btn btn-light btn-sm fw-semibold" style="background:#fff;color:#1e3a8a !important;border:1px solid #fff"><i class="fas fa-history me-1" style="color:#1e3a8a !important"></i><span style="color:#1e3a8a !important">Historique</span></a>
   </div>
   {% if lot.postes_non_trouves %}<div class="alert alert-warning m-3 mb-0 small"><strong>Postes du fichier non reconnus :</strong> {{ lot.postes_non_trouves|join:", " }}</div>{% endif %}
   <div class="card-body small text-muted">Pour chaque poste : cochez les séries à utiliser (de la plus récente recharge à la plus ancienne), ajustez les dates si besoin, puis
@@ -52,11 +52,11 @@
         <div class="fw-bold small mb-1 d-flex justify-content-between align-items-center flex-wrap gap-1">Séries en stock (de la plus récente à la plus ancienne)
           <span><button type="button" class="btn btn-sm btn-link p-0 me-2 btn-cocher-series" data-etat="1">Tout cocher</button><button type="button" class="btn btn-sm btn-link p-0 btn-cocher-series" data-etat="0">Tout décocher</button></span></div>
         <div class="table-responsive" style="max-height:260px;overflow:auto"><table class="table table-sm mb-0">
-          <thead><tr><th></th><th>Couleur</th><th>Série</th><th>Tickets</th><th>Valeur</th><th>Reçue le</th></tr></thead><tbody>
+          <thead><tr><th></th><th>Couleur</th><th>Série</th><th>Tickets réellement en stock</th><th>Valeur</th><th>Reçue le</th></tr></thead><tbody>
           {% for x in l.series %}<tr>
-            <td><input type="checkbox" class="chk-serie" name="series_{{ l.poste.pk }}" value="{{ x.s.pk }}" data-val="{{ x.s.valeur_monetaire|stringformat:'d' }}" {% if x.choisie %}checked{% endif %}></td>
+            <td><input type="checkbox" class="chk-serie" name="series_{{ l.poste.pk }}" value="{{ x.s.pk }}" data-val="{% widthratio x.libres 1 500 %}" {% if x.choisie %}checked{% endif %} {% if not x.libres %}disabled{% endif %}></td>
             <td>{{ x.s.couleur.libelle_affichage }}</td><td><strong>{{ x.s.numero_premier }}-{{ x.s.numero_dernier }}</strong></td>
-            <td>{{ x.s.nombre_tickets }}</td><td>{{ x.s.valeur_monetaire|stringformat:"d" }} F</td><td>{{ x.s.date_reception|date:"d/m/Y" }}</td></tr>
+            <td>{{ x.libres }}{% if x.deja_vendus %} <span class="badge bg-warning text-dark" title="Cette série recouvre des numéros déjà vendus : ils sont exclus de l'import">{{ x.deja_vendus }} déjà vendus (exclus) sur {{ x.s.nombre_tickets }}</span>{% endif %}</td><td>{% widthratio x.libres 1 500 %} F</td><td>{{ x.s.date_reception|date:"d/m/Y" }}</td></tr>
           {% empty %}<tr><td colspan="6" class="text-muted">Aucune série en stock pour ce poste.</td></tr>{% endfor %}
         </tbody></table></div>
         <div class="mt-2 small">Stock choisi : <strong class="v-choisi" data-besoin="{{ l.sim.besoin|stringformat:'d' }}">{{ l.sim.stock_choisi|stringformat:"d" }}</strong> F

@@ -128,6 +128,30 @@ def series_disponibles(poste):
                 .order_by('-date_reception', '-numero_premier'))
 
 
+def plages_libres(serie):
+    """Plages RÉELLEMENT disponibles d'une série en stock : ses numéros moins ceux déjà vendus (même couleur et même
+    mode d'approvisionnement que la série, c'est la règle de SerieTicket.verifier_disponibilite_serie_complete).
+    Une série « en stock » peut recouvrir des numéros déjà vendus (anciens imports, rechargements) :
+    ces numéros ne doivent JAMAIS être proposés à la vente. Retourne [(premier, dernier), ...] triées."""
+    vendus = SerieTicket.objects.filter(
+        couleur=serie.couleur, statut='vendu', type_entree=serie.type_entree,
+        numero_premier__lte=serie.numero_dernier, numero_dernier__gte=serie.numero_premier,
+    ).order_by('numero_premier').values_list('numero_premier', 'numero_dernier')
+    libres, curseur = [], serie.numero_premier  # curseur = premier numéro pas encore examiné
+    for p, d in vendus:
+        if p > curseur:
+            libres.append((curseur, p - 1))  # Trou libre avant la plage vendue
+        curseur = max(curseur, d + 1)  # On saute la plage vendue
+    if curseur <= serie.numero_dernier:
+        libres.append((curseur, serie.numero_dernier))  # Reste libre après la dernière plage vendue
+    return libres
+
+
+def nb_tickets_libres(serie):
+    """Nombre de tickets réellement disponibles dans la série (hors numéros déjà vendus)."""
+    return sum(d - p + 1 for p, d in plages_libres(serie))
+
+
 def _fusionner_segments(segments):
     """Fusionne dans un même jour les plages contiguës d'une même couleur : [(couleur, p, d), ...]."""
     fusion = []  # Résultat
@@ -152,8 +176,13 @@ def simuler(poste, montants, debut, fin, serie_ids, verrou=False):
     qs = SerieTicket.objects.filter(poste=poste, statut='stock', pk__in=list(serie_ids)).select_related('couleur')
     if verrou:
         qs = qs.select_for_update(of=('self',))  # Verrouille les séries pendant l'exécution
-    pool = sorted(qs, key=lambda s: (s.date_reception, s.couleur_id, s.numero_premier))  # Plus ancien d'abord
-    stock_choisi = Decimal(sum(s.nombre_tickets for s in pool)) * PRIX  # Valeur des séries choisies
+    series_pool = sorted(qs, key=lambda s: (s.date_reception, s.couleur_id, s.numero_premier))  # Plus ancien d'abord
+    pool, exclus = [], {}  # pool = plages libres (série, premier, dernier) ; exclus = tickets déjà vendus par série
+    for s in series_pool:
+        libres = plages_libres(s)
+        exclus[s.pk] = s.nombre_tickets - sum(d - p + 1 for p, d in libres)  # Numéros déjà vendus recouverts par la série
+        pool.extend((s, p, d) for p, d in libres)  # Seuls les numéros réellement en stock sont vendables
+    stock_choisi = Decimal(sum(d - p + 1 for _s, p, d in pool)) * PRIX  # Valeur RÉELLEMENT disponible
     jours, besoin, erreurs = [], Decimal('0'), 0  # Résultats
     idx, courant, epuise = 0, None, False  # Curseur dans les séries / prochain numéro / stock épuisé
     for date in sorted(d for d in montants if debut <= d <= fin):  # Jours de la période, dans l'ordre
@@ -170,15 +199,15 @@ def simuler(poste, montants, debut, fin, serie_ids, verrou=False):
             ligne['tickets'] = int(montant / PRIX)  # Nombre de tickets à vendre
             restant, segments = ligne['tickets'], []  # À couvrir / plages prises
             while restant > 0 and idx < len(pool):
-                serie = pool[idx]  # Série en cours de consommation
+                serie, p_libre, d_libre = pool[idx]  # Plage libre en cours de consommation
                 if courant is None:
-                    courant = serie.numero_premier  # Début de la série
-                prend = min(restant, serie.numero_dernier - courant + 1)  # Tickets pris dans cette série
+                    courant = p_libre  # Début de la plage libre
+                prend = min(restant, d_libre - courant + 1)  # Tickets pris dans cette plage
                 segments.append((serie.couleur, courant, courant + prend - 1))
                 courant += prend
                 restant -= prend
-                if courant > serie.numero_dernier:
-                    idx, courant = idx + 1, None  # Série épuisée : on passe à la suivante
+                if courant > d_libre:
+                    idx, courant = idx + 1, None  # Plage épuisée : on passe à la suivante
             if restant > 0:
                 ligne['statut'] = 'insuffisant'  # Pas assez de tickets dans les séries choisies
                 ligne['manque'] = restant
@@ -190,7 +219,7 @@ def simuler(poste, montants, debut, fin, serie_ids, verrou=False):
     return {
         'jours': jours, 'besoin': besoin, 'stock_choisi': stock_choisi, 'manque': manque,
         'nb_a_importer': len(a_importer), 'nb_existantes': sum(1 for j in jours if j['statut'] == 'existante'),
-        'nb_non_multiple': erreurs, 'insuffisant': epuise,
+        'nb_non_multiple': erreurs, 'insuffisant': epuise, 'exclus': exclus,
         'montant_a_importer': sum((j['montant'] for j in a_importer), Decimal('0')),
         'ok': bool(a_importer) and not epuise and erreurs == 0,  # Validation possible
     }
@@ -201,13 +230,13 @@ def completer_selection(poste, montants, debut, fin, serie_ids):
     le stock choisi couvre le besoin. Retourne la nouvelle liste d'identifiants."""
     ids = [int(i) for i in serie_ids]  # Sélection actuelle
     besoin = simuler(poste, montants, debut, fin, ids)['besoin']  # Besoin de la période
-    total = Decimal(sum(s.nombre_tickets for s in SerieTicket.objects.filter(pk__in=ids))) * PRIX  # Stock choisi
+    total = Decimal(sum(nb_tickets_libres(s) for s in SerieTicket.objects.filter(pk__in=ids))) * PRIX  # Stock réel choisi
     for serie in series_disponibles(poste):
         if total >= besoin:
             break  # Le besoin est couvert
         if serie.pk not in ids:
             ids.append(serie.pk)  # On puise dans la série suivante
-            total += Decimal(serie.nombre_tickets) * PRIX
+            total += Decimal(nb_tickets_libres(serie)) * PRIX
     return ids
 
 
