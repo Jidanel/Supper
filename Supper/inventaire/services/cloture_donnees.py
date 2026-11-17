@@ -64,8 +64,13 @@ def titulaire_fin_mois(poste, fonction, mois):
     habilitation = {FonctionTitulaire.CHEF_POSTE_PEAGE: 'chef_peage',
                     FonctionTitulaire.REGISSEUR_PESAGE: 'regisseur_pesage',
                     FonctionTitulaire.CHEF_STATION_PESAGE: 'chef_station_pesage'}[fonction]
-    user = UtilisateurSUPPER.objects.filter(  # 3) compte actif actuellement affecté
-        poste_affectation=poste, habilitation=habilitation, is_active=True).first()
+    candidats = UtilisateurSUPPER.objects.filter(  # 3) compte actif actuellement affecté
+        poste_affectation=poste, habilitation=habilitation, is_active=True).order_by('id')
+    user = None
+    if fonction == FonctionTitulaire.REGISSEUR_PESAGE:
+        # Le régisseur imprimé sur le PV est celui qui a l'habilitation « voir PV de confrontation »
+        user = candidats.filter(peut_voir_pv_confrontation=True).first()
+    user = user or candidats.first()  # À défaut : premier compte actif de la fonction (ancien comportement)
     return (user.nom_complet if user else ''), libelle
 
 

@@ -181,11 +181,14 @@ def get_regisseur_station(station):
     Returns:
         UtilisateurSUPPER ou None
     """
-    regisseur = UtilisateurSUPPER.objects.filter(
+    candidats = UtilisateurSUPPER.objects.filter(
         poste_affectation=station,
         habilitation='regisseur_pesage',
         is_active=True
-    ).first()
+    ).order_by('-peut_voir_pv_confrontation', 'id')  # Celui qui a l'habilitation « voir PV de confrontation » passe en premier
+    # Règle : le nom imprimé sur le PV est celui du régisseur habilité à voir les PV de confrontation ;
+    # à défaut (aucun n'a l'habilitation), on garde l'ancien comportement (premier régisseur actif de la station).
+    regisseur = candidats.filter(peut_voir_pv_confrontation=True).first() or candidats.first()
     
     if regisseur:
         logger.debug(f"[PV_CONFRONTATION] Régisseur station {station.nom}: {regisseur.nom_complet}")
