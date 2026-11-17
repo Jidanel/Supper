@@ -240,6 +240,23 @@ def completer_selection(poste, montants, debut, fin, serie_ids):
     return ids
 
 
+def _morceaux_par_serie(poste, couleur, premier, dernier):
+    """Découpe une plage « collée » (qui peut couvrir plusieurs séries contiguës en stock, ex. 13376924-13377800 puis
+    13377801-13430000) en morceaux, chacun contenu dans UNE seule série. consommer_serie exige une série unique :
+    sans ce découpage, une vente à cheval sur deux séries était refusée alors que les tickets sont bien en stock."""
+    morceaux, curseur = [], premier
+    while curseur <= dernier:
+        serie = SerieTicket.objects.filter(poste=poste, couleur=couleur, statut='stock', numero_premier__lte=curseur,
+                                           numero_dernier__gte=curseur).order_by('numero_premier').first()
+        if serie is None:
+            morceaux.append((curseur, dernier))  # Introuvable : consommer_serie produira le message détaillé
+            break
+        fin = min(dernier, serie.numero_dernier)  # Fin du morceau dans cette série
+        morceaux.append((curseur, fin))
+        curseur = fin + 1
+    return morceaux
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 # EXÉCUTION
 # ----------------------------------------------------------------------------------------------------------------------
@@ -266,10 +283,11 @@ def executer_poste(lot, poste, montants, debut, fin, serie_ids, user):
         for ordre, (couleur, p, d) in enumerate(j['segments'], 1):
             DetailVenteTicket.objects.create(recette=recette, couleur=couleur, numero_premier=p,
                                              numero_dernier=d, ordre=ordre)  # Détail de vente
-            ok, msg, series = SerieTicket.consommer_serie(poste, couleur, p, d, recette)  # Séries -> vendues
-            if not ok:
-                raise ImportStockError(f"{poste.nom} {j['date']:%d/%m/%Y} : {msg}")
-            vendues.extend(series)
+            for sp, sd in _morceaux_par_serie(poste, couleur, p, d):  # Un morceau par série réellement détenue
+                ok, msg, series = SerieTicket.consommer_serie(poste, couleur, sp, sd, recette)  # Séries -> vendues
+                if not ok:
+                    raise ImportStockError(f"{poste.nom} {j['date']:%d/%m/%Y} : {msg}")
+                vendues.extend(series)
             plages.append(f"{couleur.libelle_affichage} {p}-{d}")
         avant = stock.valeur_monetaire  # Stock avant la vente
         stock.valeur_monetaire = avant - j['montant']  # Stock après la vente

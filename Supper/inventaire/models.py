@@ -3286,7 +3286,9 @@ class SerieTicket(models.Model):
             couleur=couleur,
             type_entree__in=['imprimerie_nationale', 'regularisation'],  # Seulement les chargements initiaux
             date_reception__range=[debut_annee, fin_annee],
-            statut='stock',
+            # TOUS les statuts (stock, vendu, transféré) : des tickets déjà vendus ou transférés ont bien été chargés.
+            # Avant, seul 'stock' était vérifié -> une plage partiellement vendue pouvait être rechargée (doublon).
+            statut__in=['stock', 'vendu', 'transfere'],
             # Chevauchement: (debut1 <= fin2) AND (fin1 >= debut2)
             numero_premier__lte=numero_dernier,
             numero_dernier__gte=numero_premier
@@ -3309,7 +3311,8 @@ class SerieTicket(models.Model):
                 'plage_conflit': f"#{debut_conflit}-{fin_conflit}",
                 'nombre_tickets_conflit': fin_conflit - debut_conflit + 1,
                 'date_chargement': serie.date_reception.strftime('%d/%m/%Y à %H:%M'),
-                'type_entree': serie.get_type_entree_display() if serie.type_entree else 'Non défini'
+                'type_entree': serie.get_type_entree_display() if serie.type_entree else 'Non défini',
+                'statut': serie.get_statut_display()  # En stock / Vendu / Transféré
             })
 
         # Message d'erreur détaillé
@@ -3318,7 +3321,7 @@ class SerieTicket(models.Model):
             f"❌ UNICITÉ ANNUELLE VIOLÉE en {annee} !\n"
             f"Les tickets {couleur.libelle_affichage} {premier_conflit['plage_conflit']} "
             f"ont déjà été chargés au poste {premier_conflit['poste_nom']} "
-            f"le {premier_conflit['date_chargement']} ({premier_conflit['type_entree']}).\n"
+            f"le {premier_conflit['date_chargement']} ({premier_conflit['type_entree']}, statut : {premier_conflit['statut']}).\n"
             f"Un même ticket ne peut pas être chargé dans deux postes différents la même année."
         )
 
