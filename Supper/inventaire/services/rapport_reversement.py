@@ -104,8 +104,8 @@ def _cellules(blocs, jours, declare, avec_declare):
 def _trou(p, d, declare, avec_declare):
     """Cellule(s) de jours SANS quittance. Un jour déclaré mais non quittancé est « manquant »."""
     jours_trou = liste_jours(p, d)
-    # Péage : manquant = jour DÉCLARÉ sans quittance. Pesage (aucune déclaration) : tout jour sans quittance est manquant.
-    manquants = [j for j in jours_trou if (declare.get(j, ZERO) > 0 if avec_declare else True)]
+    # Péage comme pesage : tout jour sans quittance est « manquant » (croix rouge), qu'une recette ait été déclarée ou non.
+    manquants = list(jours_trou)
     # Une case PAR JOUR : croix rouge sur les jours manquants, case vide sinon (jour sans recette déclarée en péage)
     cases = [{'jour': j, 'manquant': j in set(manquants)} for j in jours_trou]
     return {'type': 'trou', 'colspan': len(jours_trou), 'jours': jours_trou, 'manquants': manquants, 'cases': cases}
@@ -140,13 +140,11 @@ def rapport_peage(debut, fin, poste_id=None, region_id=None, seulement_ecarts=Fa
         declare = declarations.get(poste.pk, {})
         blocs = _quittances_poste(quittances.get(poste.pk, []), debut, fin, pesage=False)
         _appliquer_prorata(blocs, declarations_completes.get(poste.pk, {}))  # Décades à cheval : part dans la période
-        if not declare and not blocs:
-            continue  # Poste sans activité sur la période
         cellules, chevauchements = _cellules(blocs, jours, declare, True)
         total_declare = sum(declare.values(), ZERO)
         total_quittance = sum((b['montant'] for b in blocs), ZERO)
         manquants = [j for c in cellules if c['type'] == 'trou' for j in c['manquants']]  # Déclarés non quittancés
-        montant_manquant = sum((declare[j] for j in manquants), ZERO)
+        montant_manquant = sum((declare.get(j, ZERO) for j in manquants), ZERO)
         ecart = total_quittance - total_declare  # Négatif = quittancé de moins que déclaré
         manquants_set = set(manquants)  # Pour marquer les jours déclarés non quittancés
         ligne = {
@@ -232,3 +230,92 @@ def _quittances_touchant(modele, ids, debut, fin, champ_poste):
         Q(type_declaration=TypeDeclaration.JOURNALIERE, date_recette__range=(debut, fin)) |
         Q(type_declaration=TypeDeclaration.DECADE, date_debut_decade__lte=fin, date_fin_decade__gte=debut))
     return qs.order_by('date_quittancement', 'pk')
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# MODE « DATES DE REVERSEMENT » : la période choisie porte sur la date de quittancement (comme la liste des quittances).
+# Les montants « reversés » sont donc identiques à ceux de la liste. Le tableau jour par jour montre les JOURS DE RECETTE
+# couverts par ces quittances : journalière = une colonne ; décade = un seul montant fusionné ; croix rouge = jour sans
+# aucune quittance (déclaré en péage ; en pesage, tout jour sans quittance).
+# ----------------------------------------------------------------------------------------------------------------------
+MAX_COLONNES = 100  # Nombre maximal de jours affichés (lisibilité)
+
+
+def rapport_par_reversement(type_poste, debut, fin, poste_id=None, region_id=None, seulement_ecarts=False):
+    """Retourne (jours, lignes, totaux, avertissement). `debut`/`fin` = dates de REVERSEMENT."""
+    pesage = type_poste == 'pesage'
+    modele = QuittancementPesage if pesage else Quittancement
+    champ_poste, champ_montant = ('station_id__in', 'montant_quittance') if pesage else ('poste_id__in', 'montant')
+    postes = Poste.objects.filter(type=type_poste, is_active=True).select_related('region').order_by('nom')
+    if poste_id:
+        postes = postes.filter(pk=poste_id)
+    if region_id:
+        postes = postes.filter(region_id=region_id)
+    ids = list(postes.values_list('pk', flat=True))
+    cle_poste = (lambda q: q.station_id) if pesage else (lambda q: q.poste_id)
+    # 1) Quittances REVERSÉES dans la période (identiques à la liste des quittances)
+    reversees = list(modele.objects.filter(**{champ_poste: ids}, date_quittancement__range=(debut, fin)).order_by('date_quittancement', 'pk'))
+    # 2) Plage de jours de recette à afficher : de la 1re à la dernière date de recette couverte par ces quittances
+    span_debut = span_fin = None  # Jours de recette couverts par les quittances reversées dans la période
+    for q in reversees:
+        cov = _couverture(q, pesage)
+        if cov:
+            span_debut = cov[0] if span_debut is None else min(span_debut, cov[0])
+            span_fin = cov[1] if span_fin is None else max(span_fin, cov[1])
+    if span_debut is None:  # Aucune quittance reversée : on affiche les jours de la période elle-même
+        span_debut, span_fin = debut, fin
+    avertissement = None
+    if (span_fin - span_debut).days + 1 > MAX_COLONNES:
+        span_debut = span_fin - datetime.timedelta(days=MAX_COLONNES - 1)
+        avertissement = f"Affichage limité aux {MAX_COLONNES} derniers jours de recette ({span_debut:%d/%m/%Y} → {span_fin:%d/%m/%Y})."
+    jours = liste_jours(span_debut, span_fin)
+    ids_reversees = {q.pk for q in reversees}
+    # 3) Toutes les quittances qui touchent ces jours (même reversées hors période) : pour ne pas déclarer « manquant » un jour déjà quittancé
+    par_poste = {}
+    for q in _quittances_touchant(modele, ids, span_debut, span_fin, champ_poste):
+        par_poste.setdefault(cle_poste(q), []).append(q)
+    declarations = {}
+    if not pesage:
+        for pid, jour, montant in RecetteJournaliere.objects.filter(poste_id__in=ids, date__range=(span_debut, span_fin)).values_list(
+                'poste_id', 'date', 'montant_declare'):
+            declarations.setdefault(pid, {})[jour] = declarations.get(pid, {}).get(jour, ZERO) + (montant or ZERO)
+    lignes = []
+    for poste in postes:
+        declare = declarations.get(poste.pk, {})
+        blocs = _quittances_poste(par_poste.get(poste.pk, []), span_debut, span_fin, pesage)
+        for b in blocs:
+            b['montant_total'], b['proratise'] = b['montant'], False  # Pas de prorata dans ce mode
+            b['dans_periode'] = b['quittance'].pk in ids_reversees  # Reversée dans la période choisie ?
+        blocs_periode = [b for b in blocs if b['dans_periode']]
+        reverse_total = sum((b['montant'] for b in blocs_periode), ZERO)  # Identique à la liste des quittances
+        cellules, chevauchements = _cellules(blocs, jours, declare, not pesage)
+        manquants = [j for c in cellules if c['type'] == 'trou' for j in c['manquants']]
+        jours_couverts = set()  # Jours de recette couverts par les quittances REVERSÉES dans la période
+        for b in blocs_periode:
+            jours_couverts.update(liste_jours(b['p'], b['d']))
+        declare_couvert = sum((declare.get(j, ZERO) for j in jours_couverts), ZERO)
+        ligne = {
+            'poste': poste, 'declare': declare, 'blocs': blocs, 'blocs_periode': blocs_periode, 'cellules': cellules,
+            'cellules_declare': [{'jour': j, 'montant': declare.get(j), 'manquant': j in set(manquants)} for j in jours],
+            'chevauchements': chevauchements, 'total_declare': declare_couvert, 'total_quittance': reverse_total,
+            'ecart': reverse_total - declare_couvert, 'jours_manquants': manquants, 'a_cheval': False,
+            'montant_manquant': sum((declare.get(j, ZERO) for j in manquants), ZERO),
+            'nb_jours_couverts': len(jours) - len(manquants), 'nb_quittances': len(blocs_periode),
+        }
+        if pesage:
+            ligne['statut'] = 'ok' if not manquants else 'ecart'
+        else:
+            ligne['statut'] = 'ok' if ligne['ecart'] == 0 and not manquants else 'ecart'
+        if seulement_ecarts and ligne['statut'] == 'ok':
+            continue
+        lignes.append(ligne)
+    totaux = {
+        'quittance': sum((l['total_quittance'] for l in lignes), ZERO), 'declare': sum((l['total_declare'] for l in lignes), ZERO),
+        'nb_postes': len(lignes), 'nb_ecarts': sum(1 for l in lignes if l['statut'] == 'ecart'),
+        'nb_quittances': sum(l['nb_quittances'] for l in lignes), 'nb_jours_manquants': sum(len(l['jours_manquants']) for l in lignes),
+        'montant_manquant': sum((l['montant_manquant'] for l in lignes), ZERO),
+        'nb_sans_quittance': sum(1 for l in lignes if not l['blocs_periode']),
+        'par_jour': [sum((l['declare'].get(j, ZERO) for l in lignes), ZERO) for j in jours],
+    }
+    totaux['ecart'] = totaux['quittance'] - totaux['declare']
+    return jours, lignes, totaux, avertissement

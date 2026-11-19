@@ -13,7 +13,7 @@ from django.utils import timezone  # Date du jour
 
 from accounts.models import Poste, Region  # Postes et régions
 from common.permissions import is_admin_user, log_acces_refuse  # Droits
-from inventaire.services.rapport_reversement import rapport_peage, rapport_pesage  # Calculs
+from inventaire.services.rapport_reversement import rapport_par_reversement, rapport_peage, rapport_pesage  # Calculs
 
 
 def peut_voir_rapport_reversement(user):
@@ -53,13 +53,19 @@ def rapport_reversement(request):
     poste_id = request.GET.get('poste') or None
     region_id = request.GET.get('region') or None
     seulement_ecarts = request.GET.get('ecarts') == '1'
-    calcul = (lambda d, f: rapport_peage(d, f, poste_id, region_id, seulement_ecarts)) if type_poste == 'peage' \
-        else (lambda d, f: rapport_pesage(d, f, poste_id, region_id, seulement_ecarts))
-    jours, lignes, totaux = calcul(debut, fin)
+    base = request.GET.get('base') if request.GET.get('base') in ('reversement', 'recette') else 'reversement'  # Par défaut : dates de reversement
+    if base == 'reversement':  # La période porte sur la date de quittancement (comme la liste des quittances)
+        jours, lignes, totaux, avertissement = rapport_par_reversement(type_poste, debut, fin, poste_id, region_id, seulement_ecarts)
+        if avertissement:
+            messages.warning(request, avertissement)
+    elif type_poste == 'peage':  # La période porte sur les jours de recette
+        jours, lignes, totaux = rapport_peage(debut, fin, poste_id, region_id, seulement_ecarts)
+    else:
+        jours, lignes, totaux = rapport_pesage(debut, fin, poste_id, region_id, seulement_ecarts)
     if request.GET.get('export') == 'csv':  # Export du tableau de synthèse
         return _export_csv(type_poste, debut, fin, lignes)
     contexte = {
-        'debut': debut, 'fin': fin, 'jours': jours, 'lignes': lignes, 'totaux': totaux, 'type_poste': type_poste,
+        'base': base, 'debut': debut, 'fin': fin, 'jours': jours, 'lignes': lignes, 'totaux': totaux, 'type_poste': type_poste,
         'poste_id': poste_id, 'region_id': region_id, 'seulement_ecarts': seulement_ecarts,
         'postes': Poste.objects.filter(type=type_poste, is_active=True).order_by('nom'),
         'regions': Region.objects.order_by('nom'),
@@ -78,10 +84,10 @@ def _export_csv(type_poste, debut, fin, lignes):
         for l in lignes:
             w.writerow([l['poste'].nom, l['total_declare'], l['total_quittance'], l['ecart'],
                         ' '.join(j.strftime('%d/%m') for j in l['jours_manquants']), l['montant_manquant'],
-                        ' | '.join(f"{b['numero']} ({b['p']:%d/%m}→{b['d']:%d/%m}) {b['montant']}" for b in l['blocs'])])
+                        ' | '.join(f"{b['numero']} (reversée le {b['reversement']:%d/%m}, recette {b['p']:%d/%m}→{b['d']:%d/%m}) {b['montant']}" for b in l['blocs'])])
     else:
         w.writerow(['Station', 'Quittancé', 'Jours sans quittance', 'Quittances'])
         for l in lignes:
             w.writerow([l['poste'].nom, l['total_quittance'], ' '.join(j.strftime('%d/%m') for j in l['jours_manquants']),
-                        ' | '.join(f"{b['numero']} ({b['p']:%d/%m}→{b['d']:%d/%m}) {b['montant']}" for b in l['blocs'])])
+                        ' | '.join(f"{b['numero']} (reversée le {b['reversement']:%d/%m}, recette {b['p']:%d/%m}→{b['d']:%d/%m}) {b['montant']}" for b in l['blocs'])])
     return reponse
