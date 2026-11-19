@@ -13,7 +13,7 @@ from django.utils import timezone  # Date du jour
 
 from accounts.models import Poste, Region  # Postes et régions
 from common.permissions import is_admin_user, log_acces_refuse  # Droits
-from inventaire.services.rapport_reversement import periode_alignee, rapport_peage, rapport_pesage  # Calculs
+from inventaire.services.rapport_reversement import rapport_peage, rapport_pesage  # Calculs
 
 
 def peut_voir_rapport_reversement(user):
@@ -56,14 +56,6 @@ def rapport_reversement(request):
     calcul = (lambda d, f: rapport_peage(d, f, poste_id, region_id, seulement_ecarts)) if type_poste == 'peage' \
         else (lambda d, f: rapport_pesage(d, f, poste_id, region_id, seulement_ecarts))
     jours, lignes, totaux = calcul(debut, fin)
-    periode_choisie = None  # Renseignée seulement si la période a été élargie
-    nouveau_debut, nouvelle_fin = periode_alignee(lignes, debut, fin)  # Décades qui dépassent la période choisie ?
-    if (nouveau_debut, nouvelle_fin) != (debut, fin):
-        periode_choisie = (debut, fin)
-        debut, fin = nouveau_debut, nouvelle_fin
-        jours, lignes, totaux = calcul(debut, fin)  # Recalcul sur la période alignée (une seule passe)
-        messages.info(request, f"Période élargie du {debut:%d/%m/%Y} au {fin:%d/%m/%Y} pour inclure en entier les quittances de "
-                               f"décade qui dépassaient la période choisie ({periode_choisie[0]:%d/%m/%Y} → {periode_choisie[1]:%d/%m/%Y}).")
     if request.GET.get('export') == 'csv':  # Export du tableau de synthèse
         return _export_csv(type_poste, debut, fin, lignes)
     contexte = {

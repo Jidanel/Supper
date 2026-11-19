@@ -56,6 +56,27 @@ def _quittances_poste(qs_poste, debut, fin, pesage):
     return blocs
 
 
+def _appliquer_prorata(blocs, declare_complet):
+    """Quittance de décade qui DÉPASSE la période choisie : seule sa part dans la période est comptée (au prorata).
+    Part = recettes déclarées dans la période / recettes déclarées sur toute la décade (péage) ; à défaut de déclarations
+    (pesage, ou décade sans recette déclarée) : nombre de jours dans la période / nombre de jours de la décade.
+    Le montant entier reste visible (`montant_total`). Les quittances entièrement dans la période ne sont pas touchées."""
+    for b in blocs:
+        b['montant_total'] = b['montant']  # Montant entier de la quittance
+        b['proratise'] = False
+        if not b['a_cheval']:
+            continue
+        jours_dans, jours_tous = liste_jours(b['p'], b['d']), liste_jours(b['complet_p'], b['complet_d'])
+        ratio = Decimal(len(jours_dans)) / Decimal(len(jours_tous))  # Par défaut : au prorata des jours
+        if declare_complet is not None:
+            total = sum((declare_complet.get(j, ZERO) for j in jours_tous), ZERO)
+            if total > 0:
+                ratio = sum((declare_complet.get(j, ZERO) for j in jours_dans), ZERO) / total  # Au prorata des recettes
+        b['montant'] = (b['montant_total'] * ratio).quantize(Decimal('1'))  # Part dans la période
+        b['ratio'] = ratio
+        b['proratise'] = True
+
+
 def _cellules(blocs, jours, declare, avec_declare):
     """Construit la ligne « quittancé » : une cellule par quittance (colspan = nombre de jours couverts) et des cellules
     vides pour les jours sans quittance. Les quittances qui se chevauchent sont renvoyées à part (anomalie)."""
@@ -97,17 +118,26 @@ def rapport_peage(debut, fin, poste_id=None, region_id=None, seulement_ecarts=Fa
     if region_id:
         postes = postes.filter(region_id=region_id)
     ids = list(postes.values_list('pk', flat=True))
-    declarations = {}  # poste_id -> {jour: montant}
-    for pid, jour, montant in RecetteJournaliere.objects.filter(poste_id__in=ids, date__range=(debut, fin)).values_list(
-            'poste_id', 'date', 'montant_declare'):
-        declarations.setdefault(pid, {})[jour] = declarations.get(pid, {}).get(jour, ZERO) + (montant or ZERO)
     quittances = {}  # poste_id -> [Quittancement]
     for q in _quittances_touchant(Quittancement, ids, debut, fin, 'poste_id__in'):  # Journalières + décades de la période
         quittances.setdefault(q.poste_id, []).append(q)
+    # Déclarations lues sur la plage qui contient aussi les décades entières (nécessaire au prorata), puis limitées à la période
+    plage_debut, plage_fin = debut, fin
+    for lq in quittances.values():
+        for q in lq:
+            cov = _couverture(q, False)
+            if cov:
+                plage_debut, plage_fin = min(plage_debut, cov[0]), max(plage_fin, cov[1])
+    declarations_completes = {}  # poste_id -> {jour: montant} sur la plage élargie
+    for pid, jour, montant in RecetteJournaliere.objects.filter(poste_id__in=ids, date__range=(plage_debut, plage_fin)).values_list(
+            'poste_id', 'date', 'montant_declare'):
+        declarations_completes.setdefault(pid, {})[jour] = declarations_completes.get(pid, {}).get(jour, ZERO) + (montant or ZERO)
+    declarations = {pid: {j: m for j, m in d.items() if debut <= j <= fin} for pid, d in declarations_completes.items()}
     lignes = []
     for poste in postes:
         declare = declarations.get(poste.pk, {})
         blocs = _quittances_poste(quittances.get(poste.pk, []), debut, fin, pesage=False)
+        _appliquer_prorata(blocs, declarations_completes.get(poste.pk, {}))  # Décades à cheval : part dans la période
         if not declare and not blocs:
             continue  # Poste sans activité sur la période
         cellules, chevauchements = _cellules(blocs, jours, declare, True)
@@ -155,6 +185,7 @@ def rapport_pesage(debut, fin, poste_id=None, region_id=None, seulement_ecarts=F
     lignes = []
     for poste in postes:
         blocs = _quittances_poste(quittances.get(poste.pk, []), debut, fin, pesage=True)
+        _appliquer_prorata(blocs, None)  # Décades à cheval : au prorata des jours
         cellules, chevauchements = _cellules(blocs, jours, {}, False)
         manquants = [j for c in cellules if c['type'] == 'trou' for j in c['manquants']]  # Jours sans quittance
         ligne = {'poste': poste, 'blocs': blocs, 'cellules': cellules, 'chevauchements': chevauchements,
@@ -170,17 +201,6 @@ def rapport_pesage(debut, fin, poste_id=None, region_id=None, seulement_ecarts=F
               'nb_ecarts': sum(1 for l in lignes if l['statut'] == 'ecart'),
               'nb_sans_quittance': sum(1 for l in lignes if not l['blocs'])}
     return jours, lignes, totaux
-
-
-def periode_alignee(lignes, debut, fin):
-    """Si des quittances de décade dépassent la période choisie, retourne la période ÉLARGIE qui les contient en entier
-    (sinon la même période). Évite de comparer une quittance entière à une partie seulement des recettes."""
-    nouveau_debut, nouvelle_fin = debut, fin
-    for l in lignes:
-        for b in l['blocs']:
-            nouveau_debut = min(nouveau_debut, b['complet_p'])
-            nouvelle_fin = max(nouvelle_fin, b['complet_d'])
-    return nouveau_debut, nouvelle_fin
 
 
 def _quittances_touchant(modele, ids, debut, fin, champ_poste):

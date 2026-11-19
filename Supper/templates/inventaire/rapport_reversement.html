@@ -108,7 +108,7 @@
             <td class="text-end" data-label="{% trans 'Non quittancé' %}">{{ l.montant_manquant|floatformat:0 }}</td>
             <td data-label="{% trans 'État' %}">
               {% if l.statut == 'ok' %}<span class="badge bg-success">{% trans "Conforme" %}</span>{% else %}<span class="badge bg-danger">{% trans "Écart" %}</span>{% endif %}
-              {% if l.a_cheval %}<span class="badge bg-warning text-dark" title="{% trans 'Une quittance de décade dépasse la période choisie : élargissez la période pour une comparaison exacte.' %}">{% trans "Décade à cheval" %}</span>{% endif %}
+              {% if l.a_cheval %}<span class="badge bg-warning text-dark" title="{% trans 'Une quittance de décade dépasse la période choisie : seule sa part dans la période est comptée (au prorata des recettes déclarées).' %}">{% trans "Décade à cheval (prorata)" %}</span>{% endif %}
               {% if l.chevauchements %}<span class="badge bg-warning text-dark" title="{% trans 'Plusieurs quittances couvrent le même JOUR DE RECETTE (une même date de reversement est autorisée).' %}">{% trans "Quittances qui se chevauchent" %}</span>{% endif %}
             </td>
           </tr>
@@ -153,8 +153,9 @@
               {% if c.type == 'quittance' %}
                 <td colspan="{{ c.colspan }}" class="rv-quittance {% if c.bloc.ecart_bloc %}rv-ecart{% endif %}"
                     title="{{ c.bloc.type }} — {% trans 'recettes du' %} {{ c.bloc.complet_p|date:'d/m/Y' }} {% trans 'au' %} {{ c.bloc.complet_d|date:'d/m/Y' }}">
-                  <strong>{{ c.bloc.montant|floatformat:0 }}</strong>
+                  <strong>{{ c.bloc.montant|floatformat:0 }}</strong>{% if c.bloc.proratise %} <span class="badge bg-warning text-dark" title="{% trans 'Part de la quittance dans la période (au prorata)' %}">{% trans "prorata" %}</span>{% endif %}
                   <div class="small">N° {{ c.bloc.numero }} · {% trans "reversé le" %} {{ c.bloc.reversement|date:"d/m" }}</div>
+                  {% if c.bloc.proratise %}<div class="small text-muted">{% trans "quittance entière" %} {{ c.bloc.montant_total|floatformat:0 }} ({{ c.bloc.complet_p|date:"d/m" }}→{{ c.bloc.complet_d|date:"d/m" }})</div>{% endif %}
                   {% if c.bloc.ecart_bloc %}<div class="small text-danger">{% trans "écart" %} {{ c.bloc.ecart_bloc|floatformat:0 }}</div>{% endif %}
                 </td>
               {% elif c.manquants %}
@@ -222,8 +223,9 @@
             {% for c in l.cellules %}
               {% if c.type == 'quittance' %}
                 <td colspan="{{ c.colspan }}" class="rv-quittance" title="{{ c.bloc.type }} — {% trans 'recettes du' %} {{ c.bloc.complet_p|date:'d/m/Y' }} {% trans 'au' %} {{ c.bloc.complet_d|date:'d/m/Y' }}">
-                  <strong>{{ c.bloc.montant|floatformat:0 }}</strong>
+                  <strong>{{ c.bloc.montant|floatformat:0 }}</strong>{% if c.bloc.proratise %} <span class="badge bg-warning text-dark" title="{% trans 'Part de la quittance dans la période (au prorata)' %}">{% trans "prorata" %}</span>{% endif %}
                   <div class="small">N° {{ c.bloc.numero }} · {% trans "reversé le" %} {{ c.bloc.reversement|date:"d/m" }}</div>
+                  {% if c.bloc.proratise %}<div class="small text-muted">{% trans "quittance entière" %} {{ c.bloc.montant_total|floatformat:0 }} ({{ c.bloc.complet_p|date:"d/m" }}→{{ c.bloc.complet_d|date:"d/m" }})</div>{% endif %}
                 </td>
               {% else %}
                 <td colspan="{{ c.colspan }}" class="rv-trou-manquant">{% trans "Non quittancé" %}</td>
