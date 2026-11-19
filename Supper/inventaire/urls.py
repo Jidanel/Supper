@@ -10,6 +10,7 @@ from . import views_stocks
 from . import views_rapports
 from . import views_csp
 from . import views_coherence
+from . import views_rapport_reversement
 from . import views_import
 from . import views_classement
 from . import views_transferts
@@ -836,6 +837,7 @@ from inventaire import views_gel  # Vues de la banque de gel
 
 gel_patterns = [
     path('stocks/banque-gel/', views_gel.banque_gel, name='banque_gel'),  # Page de gel / dégel
+    path('rapports/reversement/', views_rapport_reversement.rapport_reversement, name='rapport_reversement'),  # Déclarations vs quittances
     path('stocks/coherence/', views_coherence.coherence_stock, name='coherence_stock'),  # Contrôle CSP vs séries
     path('stocks/coherence/regulariser/', views_coherence.regularisation_historique, name='regularisation_historique'),  # Régularisation datée
     path('stocks/banque-gel/historique/', views_gel.banque_gel_historique, name='banque_gel_historique'),  # Historique

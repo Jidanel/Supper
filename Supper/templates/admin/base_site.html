@@ -1456,7 +1456,7 @@
                     <!-- ============================================
                          MENU ADMINISTRATION
                          ============================================ -->
-                    {% if user.peut_parametrage_global or user.peut_voir_compte_emploi or user.peut_voir_pv_confrontation or user.peut_authentifier_document or user.is_superuser %}
+                    {% if user.is_superuser or user.habilitation == 'serv_emission' or user.peut_voir_liste_quittances_peage or user.peut_voir_liste_quittancements_pesage or user.peut_parametrage_global or user.peut_voir_compte_emploi or user.peut_voir_pv_confrontation or user.peut_authentifier_document or user.is_superuser %}
                     <li class="dropdown">
                         <a href="javascript:void(0);" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-screwdriver-wrench me-1"></i>
@@ -1483,6 +1483,11 @@
                                     </a>
                                     <a class="dropdown-item rounded" href="{% url 'inventaire:cloture_defaillants' %}?type=compte_emploi">
                                         <i class="fas fa-triangle-exclamation me-2 text-danger"></i>{% trans "Postes péage défaillants" %}
+                                    </a>
+                                    {% endif %}
+                                    {% if user.is_superuser or user.habilitation == 'admin_principal' or user.habilitation == 'coord_psrr' or user.habilitation == 'serv_info' or user.habilitation == 'serv_emission' or user.peut_voir_liste_quittances_peage or user.peut_voir_liste_quittancements_pesage %}
+                                    <a class="dropdown-item rounded" href="{% url 'inventaire:rapport_reversement' %}">
+                                        <i class="fas fa-file-invoice-dollar me-2 text-success"></i>{% trans "Rapport de reversement" %}
                                     </a>
                                     {% endif %}
                                 </div>
@@ -2133,7 +2138,7 @@
             <!-- ============================================
                  9. MENU ADMINISTRATION MOBILE - COMPLET
                  ============================================ -->
-            {% if user.peut_parametrage_global or user.peut_voir_compte_emploi or user.peut_voir_pv_confrontation or user.peut_authentifier_document or user.is_superuser %}
+            {% if user.is_superuser or user.habilitation == 'serv_emission' or user.peut_voir_liste_quittances_peage or user.peut_voir_liste_quittancements_pesage or user.peut_parametrage_global or user.peut_voir_compte_emploi or user.peut_voir_pv_confrontation or user.peut_authentifier_document or user.is_superuser %}
             <li>
                 <button class="nav-link dropdown-toggle" data-bs-toggle="collapse" data-bs-target="#mobileAdministration" aria-expanded="false">
                     <i class="fas fa-screwdriver-wrench me-2"></i>
@@ -2157,6 +2162,11 @@
                     </a>
                     <a class="dropdown-item" href="{% url 'inventaire:cloture_defaillants' %}?type=compte_emploi">
                         <i class="fas fa-triangle-exclamation me-2 text-danger"></i>{% trans "Postes péage défaillants" %}
+                    </a>
+                    {% endif %}
+                    {% if user.is_superuser or user.habilitation == 'admin_principal' or user.habilitation == 'coord_psrr' or user.habilitation == 'serv_info' or user.habilitation == 'serv_emission' or user.peut_voir_liste_quittances_peage or user.peut_voir_liste_quittancements_pesage %}
+                    <a class="dropdown-item" href="{% url 'inventaire:rapport_reversement' %}">
+                        <i class="fas fa-file-invoice-dollar me-2 text-success"></i>{% trans "Rapport de reversement" %}
                     </a>
                     {% endif %}
                     <!-- Documents -->

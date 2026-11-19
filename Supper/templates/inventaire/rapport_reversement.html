@@ -1,0 +1,246 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Rapport de reversement" %} - SUPPER{% endblock %}
+
+{% block content %}
+<style>
+  /* Tableau matriciel : défilement horizontal, colonnes « Poste » figées */
+  .rv-matrice { font-size: .78rem; }
+  .rv-matrice th, .rv-matrice td { white-space: nowrap; vertical-align: middle; }
+  .rv-matrice .rv-sticky { position: sticky; left: 0; background: #fff; z-index: 2; min-width: 150px; }
+  .rv-matrice thead th { background: #f8f9fa; }
+  .rv-jour-manquant { background: #f8d7da !important; color: #842029; font-weight: 600; }
+  .rv-quittance { background: #d1e7dd; text-align: center; }
+  .rv-quittance.rv-ecart { background: #fff3cd; }
+  .rv-trou-manquant { background: #f8d7da; text-align: center; color: #842029; font-weight: 600; }
+  .rv-trou { background: #f1f3f5; }
+</style>
+<div class="container-fluid py-3">
+
+  {# En-tête + filtres #}
+  <div class="card mb-3">
+    <div class="card-body">
+      <h4 class="mb-1"><i class="fas fa-file-invoice-dollar me-2"></i>{% trans "Rapport de reversement" %}</h4>
+      <div class="text-muted small mb-3">
+        {% trans "Les jours utilisés sont les jours de RECETTE. La date de reversement (date de quittancement) est seulement affichée dans chaque quittance." %}
+        {% if type_poste == 'peage' %}{% trans "Chaque poste de péage : recettes déclarées comparées aux quittances ; les jours déclarés mais non quittancés sont signalés." %}
+        {% else %}{% trans "Stations de pesage : seules les quittances sont consolidées (aucune recette n'est déclarée)." %}{% endif %}
+      </div>
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-6 col-md-2">
+          <label class="form-label small mb-0" for="type">{% trans "Type" %}</label>
+          <select id="type" name="type" class="form-select form-select-sm">
+            <option value="peage" {% if type_poste == 'peage' %}selected{% endif %}>{% trans "Péage" %}</option>
+            <option value="pesage" {% if type_poste == 'pesage' %}selected{% endif %}>{% trans "Pesage" %}</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small mb-0" for="debut">{% trans "Recettes du" %}</label>
+          <input type="date" id="debut" name="debut" value="{{ debut|date:'Y-m-d' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small mb-0" for="fin">{% trans "au" %}</label>
+          <input type="date" id="fin" name="fin" value="{{ fin|date:'Y-m-d' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small mb-0" for="region">{% trans "Région" %}</label>
+          <select id="region" name="region" class="form-select form-select-sm">
+            <option value="">{% trans "Toutes" %}</option>
+            {% for r in regions %}<option value="{{ r.pk }}" {% if region_id == r.pk|stringformat:"s" %}selected{% endif %}>{{ r.nom }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small mb-0" for="poste">{% if type_poste == 'peage' %}{% trans "Poste" %}{% else %}{% trans "Station" %}{% endif %}</label>
+          <select id="poste" name="poste" class="form-select form-select-sm">
+            <option value="">{% trans "Tous" %}</option>
+            {% for p in postes %}<option value="{{ p.pk }}" {% if poste_id == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-2 align-items-center">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="ecarts" name="ecarts" value="1" {% if seulement_ecarts %}checked{% endif %}>
+            <label class="form-check-label small" for="ecarts">{% if type_poste == 'peage' %}{% trans "Écarts seulement" %}{% else %}{% trans "Jours manquants seulement" %}{% endif %}</label>
+          </div>
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <button class="btn btn-primary btn-sm" type="submit"><i class="fas fa-sync me-1"></i>{% trans "Afficher" %}</button>
+          <button class="btn btn-outline-success btn-sm" type="submit" name="export" value="csv"><i class="fas fa-file-csv me-1"></i>{% trans "Exporter CSV" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# Cartes statistiques : varient avec les filtres #}
+  <div class="row g-3 mb-3">
+    {% if type_poste == 'peage' %}
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0">{{ totaux.nb_postes }}</div><div class="small text-muted">{% trans "Postes avec activité" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0">{{ totaux.declare|floatformat:0 }}</div><div class="small text-muted">{% trans "Déclaré (FCFA)" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0">{{ totaux.quittance|floatformat:0 }}</div><div class="small text-muted">{% trans "Quittancé (FCFA)" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0 {% if totaux.ecart %}text-danger{% else %}text-success{% endif %}">{{ totaux.ecart|floatformat:0 }}</div><div class="small text-muted">{% trans "Écart (quittancé − déclaré)" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0 {% if totaux.nb_ecarts %}text-danger{% else %}text-success{% endif %}">{{ totaux.nb_ecarts }}</div><div class="small text-muted">{% trans "Postes en écart" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0 {% if totaux.nb_jours_manquants %}text-danger{% else %}text-success{% endif %}">{{ totaux.nb_jours_manquants }}</div><div class="small text-muted">{% trans "Jours non quittancés" %} ({{ totaux.montant_manquant|floatformat:0 }})</div></div></div></div>
+    {% else %}
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0">{{ totaux.nb_postes }}</div><div class="small text-muted">{% trans "Stations" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0">{{ totaux.nb_quittances }}</div><div class="small text-muted">{% trans "Quittances" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0">{{ totaux.quittance|floatformat:0 }}</div><div class="small text-muted">{% trans "Total quittancé (FCFA)" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0 {% if totaux.nb_jours_manquants %}text-danger{% else %}text-success{% endif %}">{{ totaux.nb_jours_manquants }}</div><div class="small text-muted">{% trans "Jours sans quittance" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0 {% if totaux.nb_ecarts %}text-danger{% else %}text-success{% endif %}">{{ totaux.nb_ecarts }}</div><div class="small text-muted">{% trans "Stations incomplètes" %}</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="card text-center h-100"><div class="card-body"><div class="h4 mb-0 {% if totaux.nb_sans_quittance %}text-danger{% else %}text-success{% endif %}">{{ totaux.nb_sans_quittance }}</div><div class="small text-muted">{% trans "Stations sans aucune quittance" %}</div></div></div></div>
+    {% endif %}
+  </div>
+
+  {% if type_poste == 'peage' %}
+  {# Synthèse : postes en écart avec leurs jours manquants #}
+  <div class="card mb-3">
+    <div class="card-header"><strong>{% trans "Synthèse par poste" %}</strong> — {{ debut|date:"d/m/Y" }} → {{ fin|date:"d/m/Y" }} ({% trans "jours de recette" %})</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 table-stack">
+        <thead><tr><th>{% trans "Poste" %}</th><th class="text-end">{% trans "Déclaré" %}</th><th class="text-end">{% trans "Quittancé" %}</th><th class="text-end">{% trans "Écart" %}</th><th>{% trans "Jours déclarés non quittancés" %}</th><th class="text-end">{% trans "Montant non quittancé" %}</th><th>{% trans "État" %}</th></tr></thead>
+        <tbody>
+        {% for l in lignes %}
+          <tr>
+            <td data-label="{% trans 'Poste' %}">{{ l.poste.nom }}</td>
+            <td class="text-end" data-label="{% trans 'Déclaré' %}">{{ l.total_declare|floatformat:0 }}</td>
+            <td class="text-end" data-label="{% trans 'Quittancé' %}">{{ l.total_quittance|floatformat:0 }}</td>
+            <td class="text-end {% if l.ecart %}text-danger fw-bold{% endif %}" data-label="{% trans 'Écart' %}">{{ l.ecart|floatformat:0 }}</td>
+            <td data-label="{% trans 'Jours manquants' %}">{% for j in l.jours_manquants %}<span class="badge bg-danger me-1">{{ j|date:"d/m" }}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</td>
+            <td class="text-end" data-label="{% trans 'Non quittancé' %}">{{ l.montant_manquant|floatformat:0 }}</td>
+            <td data-label="{% trans 'État' %}">
+              {% if l.statut == 'ok' %}<span class="badge bg-success">{% trans "Conforme" %}</span>{% else %}<span class="badge bg-danger">{% trans "Écart" %}</span>{% endif %}
+              {% if l.a_cheval %}<span class="badge bg-warning text-dark" title="{% trans 'Une quittance de décade dépasse la période choisie : élargissez la période pour une comparaison exacte.' %}">{% trans "Décade à cheval" %}</span>{% endif %}
+              {% if l.chevauchements %}<span class="badge bg-warning text-dark" title="{% trans 'Plusieurs quittances couvrent le même JOUR DE RECETTE (une même date de reversement est autorisée).' %}">{% trans "Quittances qui se chevauchent" %}</span>{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">{% trans "Aucune déclaration ni quittance sur cette période." %}</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if lignes %}
+        <tfoot><tr class="table-light fw-bold"><td>{% trans "TOTAL" %}</td><td class="text-end">{{ totaux.declare|floatformat:0 }}</td><td class="text-end">{{ totaux.quittance|floatformat:0 }}</td><td class="text-end {% if totaux.ecart %}text-danger{% endif %}">{{ totaux.ecart|floatformat:0 }}</td><td>{{ totaux.nb_jours_manquants }} {% trans "jour(s)" %}</td><td class="text-end">{{ totaux.montant_manquant|floatformat:0 }}</td><td></td></tr></tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  {# Matrice jour par jour : déclaré / quittancé (jours fusionnés quand une quittance couvre plusieurs jours) #}
+  <div class="card mb-3">
+    <div class="card-header"><strong>{% trans "Détail jour par jour" %}</strong>
+      <span class="small text-muted ms-2">{% trans "Une quittance couvrant plusieurs jours est affichée en une seule cellule ; chaque quittance d'un jour a sa propre colonne. Rouge = déclaré mais non quittancé." %}</span></div>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered mb-0 rv-matrice">
+        <thead>
+          <tr>
+            <th class="rv-sticky">{% trans "Poste" %}</th><th></th>
+            {% for j in jours %}<th class="text-center">{{ j|date:"d/m" }}</th>{% endfor %}
+            <th class="text-end">{% trans "Total" %}</th><th class="text-end">{% trans "Écart" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for l in lignes %}
+          <tr>
+            <td class="rv-sticky" rowspan="2"><strong>{{ l.poste.nom }}</strong>{% if l.statut == 'ecart' %}<br><span class="badge bg-danger">{% trans "Écart" %}</span>{% endif %}</td>
+            <td class="text-muted">{% trans "Déclaré" %}</td>
+            {% for c in l.cellules_declare %}
+              <td class="text-end {% if c.manquant %}rv-jour-manquant{% endif %}">{% if c.montant %}{{ c.montant|floatformat:0 }}{% else %}<span class="text-muted">·</span>{% endif %}</td>
+            {% endfor %}
+            <td class="text-end fw-bold">{{ l.total_declare|floatformat:0 }}</td>
+            <td class="text-end fw-bold {% if l.ecart %}text-danger{% endif %}" rowspan="2">{{ l.ecart|floatformat:0 }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">{% trans "Quittancé" %}</td>
+            {% for c in l.cellules %}
+              {% if c.type == 'quittance' %}
+                <td colspan="{{ c.colspan }}" class="rv-quittance {% if c.bloc.ecart_bloc %}rv-ecart{% endif %}"
+                    title="{{ c.bloc.type }} — {% trans 'recettes du' %} {{ c.bloc.complet_p|date:'d/m/Y' }} {% trans 'au' %} {{ c.bloc.complet_d|date:'d/m/Y' }}">
+                  <strong>{{ c.bloc.montant|floatformat:0 }}</strong>
+                  <div class="small">N° {{ c.bloc.numero }} · {% trans "reversé le" %} {{ c.bloc.reversement|date:"d/m" }}</div>
+                  {% if c.bloc.ecart_bloc %}<div class="small text-danger">{% trans "écart" %} {{ c.bloc.ecart_bloc|floatformat:0 }}</div>{% endif %}
+                </td>
+              {% elif c.manquants %}
+                <td colspan="{{ c.colspan }}" class="rv-trou-manquant">{% trans "Non quittancé" %}</td>
+              {% else %}
+                <td colspan="{{ c.colspan }}" class="rv-trou"></td>
+              {% endif %}
+            {% endfor %}
+            <td class="text-end fw-bold">{{ l.total_quittance|floatformat:0 }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="{{ jours|length|add:4 }}" class="text-center text-muted py-3">{% trans "Aucune donnée." %}</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if lignes %}
+        <tfoot><tr class="table-light fw-bold"><td class="rv-sticky">{% trans "TOTAL déclaré / jour" %}</td><td></td>
+          {% for t in totaux.par_jour %}<td class="text-end">{{ t|floatformat:0 }}</td>{% endfor %}
+          <td class="text-end">{{ totaux.declare|floatformat:0 }}</td><td class="text-end">{{ totaux.ecart|floatformat:0 }}</td></tr></tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+  {# Pesage : quittances uniquement, avec les jours sans quittance #}
+  <div class="card mb-3">
+    <div class="card-header"><strong>{% trans "Synthèse par station de pesage" %}</strong> — {{ debut|date:"d/m/Y" }} → {{ fin|date:"d/m/Y" }} ({% trans "jours de recette" %})</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 table-stack">
+        <thead><tr><th>{% trans "Station" %}</th><th class="text-end">{% trans "Quittancé" %}</th><th class="text-end">{% trans "Jours couverts" %}</th><th>{% trans "Jours sans quittance" %}</th><th>{% trans "État" %}</th></tr></thead>
+        <tbody>
+        {% for l in lignes %}
+          <tr>
+            <td data-label="{% trans 'Station' %}">{{ l.poste.nom }}</td>
+            <td class="text-end" data-label="{% trans 'Quittancé' %}">{{ l.total_quittance|floatformat:0 }}</td>
+            <td class="text-end" data-label="{% trans 'Jours couverts' %}">{{ l.nb_jours_couverts }} / {{ jours|length }}</td>
+            <td data-label="{% trans 'Jours manquants' %}">{% for j in l.jours_manquants %}<span class="badge bg-danger me-1">{{ j|date:"d/m" }}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</td>
+            <td data-label="{% trans 'État' %}">
+              {% if l.statut == 'ok' %}<span class="badge bg-success">{% trans "Complet" %}</span>{% else %}<span class="badge bg-danger">{% trans "Jours manquants" %}</span>{% endif %}
+              {% if not l.blocs %}<span class="badge bg-dark">{% trans "Aucune quittance" %}</span>{% endif %}
+              {% if l.chevauchements %}<span class="badge bg-warning text-dark" title="{% trans 'Plusieurs quittances couvrent le même JOUR DE RECETTE (une même date de reversement est autorisée).' %}">{% trans "Quittances qui se chevauchent" %}</span>{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-3">{% trans "Aucune station." %}</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if lignes %}
+        <tfoot><tr class="table-light fw-bold"><td>{% trans "TOTAL" %}</td><td class="text-end">{{ totaux.quittance|floatformat:0 }}</td><td></td><td>{{ totaux.nb_jours_manquants }} {% trans "jour(s)" %}</td><td></td></tr></tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header"><strong>{% trans "Détail jour par jour" %}</strong>
+      <span class="small text-muted ms-2">{% trans "Une quittance couvrant plusieurs jours est affichée en une seule cellule. Rouge = jour de recette sans quittance." %}</span></div>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered mb-0 rv-matrice">
+        <thead><tr><th class="rv-sticky">{% trans "Station" %}</th>{% for j in jours %}<th class="text-center">{{ j|date:"d/m" }}</th>{% endfor %}<th class="text-end">{% trans "Total quittancé" %}</th></tr></thead>
+        <tbody>
+        {% for l in lignes %}
+          <tr>
+            <td class="rv-sticky"><strong>{{ l.poste.nom }}</strong>{% if l.statut == 'ecart' %}<br><span class="badge bg-danger">{{ l.jours_manquants|length }} {% trans "jour(s) manquant(s)" %}</span>{% endif %}</td>
+            {% for c in l.cellules %}
+              {% if c.type == 'quittance' %}
+                <td colspan="{{ c.colspan }}" class="rv-quittance" title="{{ c.bloc.type }} — {% trans 'recettes du' %} {{ c.bloc.complet_p|date:'d/m/Y' }} {% trans 'au' %} {{ c.bloc.complet_d|date:'d/m/Y' }}">
+                  <strong>{{ c.bloc.montant|floatformat:0 }}</strong>
+                  <div class="small">N° {{ c.bloc.numero }} · {% trans "reversé le" %} {{ c.bloc.reversement|date:"d/m" }}</div>
+                </td>
+              {% else %}
+                <td colspan="{{ c.colspan }}" class="rv-trou-manquant">{% trans "Non quittancé" %}</td>
+              {% endif %}
+            {% endfor %}
+            <td class="text-end fw-bold">{{ l.total_quittance|floatformat:0 }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="{{ jours|length|add:2 }}" class="text-center text-muted py-3">{% trans "Aucune station." %}</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if lignes %}
+        <tfoot><tr class="table-light fw-bold"><td class="rv-sticky">{% trans "TOTAL" %}</td><td colspan="{{ jours|length }}"></td><td class="text-end">{{ totaux.quittance|floatformat:0 }}</td></tr></tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
