@@ -106,7 +106,9 @@ def _trou(p, d, declare, avec_declare):
     jours_trou = liste_jours(p, d)
     # Péage : manquant = jour DÉCLARÉ sans quittance. Pesage (aucune déclaration) : tout jour sans quittance est manquant.
     manquants = [j for j in jours_trou if (declare.get(j, ZERO) > 0 if avec_declare else True)]
-    return {'type': 'trou', 'colspan': len(jours_trou), 'jours': jours_trou, 'manquants': manquants}
+    # Une case PAR JOUR : croix rouge sur les jours manquants, case vide sinon (jour sans recette déclarée en péage)
+    cases = [{'jour': j, 'manquant': j in set(manquants)} for j in jours_trou]
+    return {'type': 'trou', 'colspan': len(jours_trou), 'jours': jours_trou, 'manquants': manquants, 'cases': cases}
 
 
 def rapport_peage(debut, fin, poste_id=None, region_id=None, seulement_ecarts=False):
@@ -166,6 +168,7 @@ def rapport_peage(debut, fin, poste_id=None, region_id=None, seulement_ecarts=Fa
         'par_jour': [sum((l['declare'].get(j, ZERO) for l in lignes), ZERO) for j in jours],  # Déclaré total par jour
     }
     totaux['ecart'] = totaux['quittance'] - totaux['declare']
+    totaux['rapprochement'] = _rapprochement(lignes, Quittancement, ids, debut, fin, 'poste_id__in', 'montant')
     return jours, lignes, totaux
 
 
@@ -200,7 +203,26 @@ def rapport_pesage(debut, fin, poste_id=None, region_id=None, seulement_ecarts=F
               'nb_jours_manquants': sum(len(l['jours_manquants']) for l in lignes),
               'nb_ecarts': sum(1 for l in lignes if l['statut'] == 'ecart'),
               'nb_sans_quittance': sum(1 for l in lignes if not l['blocs'])}
+    totaux['rapprochement'] = _rapprochement(lignes, QuittancementPesage, ids, debut, fin, 'station_id__in', 'montant_quittance')
     return jours, lignes, totaux
+
+
+def _rapprochement(lignes, modele, ids, debut, fin, champ_poste, champ_montant):
+    """Chiffres pour RAPPROCHER ce rapport (filtré par jours de RECETTE) de la liste des quittances (filtrée par date de
+    REVERSEMENT) : montant entier des quittances concernées, part des décades hors période, montant reversé dans la période
+    et, dans ce reversé, ce qui concerne des recettes situées hors de la période."""
+    from django.db.models import Q  # Filtres combinés
+    entier = sum((b['montant_total'] for l in lignes for b in l['blocs']), ZERO)  # Quittances touchant la période (montant entier)
+    compte = sum((b['montant'] for l in lignes for b in l['blocs']), ZERO)  # Part comptée dans la période
+    reverse = ZERO  # Reversé (date de quittancement) dans la période, tous jours de recette confondus
+    reverse_hors = ZERO  # Dont : quittances dont AUCUN jour de recette n'est dans la période
+    for q in modele.objects.filter(**{champ_poste: ids}, date_quittancement__range=(debut, fin)):
+        montant = getattr(q, champ_montant) or ZERO
+        reverse += montant
+        cov = _couverture(q, False)
+        if not cov or cov[1] < debut or cov[0] > fin:
+            reverse_hors += montant
+    return {'entier': entier, 'hors_periode_prorata': entier - compte, 'reverse': reverse, 'reverse_hors_recettes': reverse_hors}
 
 
 def _quittances_touchant(modele, ids, debut, fin, champ_poste):
